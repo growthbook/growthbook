@@ -9,29 +9,35 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 2
+
       - name: Use Node.js 12.x
         uses: actions/setup-node@v1
         with:
           node-version: 12.x
+
       - name: Get yarn cache directory
         id: yarn-cache
         run: |
           echo "::set-output name=dir::$(yarn cache dir)"
+
       - uses: actions/cache@v1
         with:
           path: ${{ steps.yarn-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-node-
+
       - name: install dependencies
         run: |
           yarn
         env:
           CI: true
+
       - name: lint, typecheck
         run: |
           yarn lint
           yarn type-check
+
       - name: test
         run: |
           # Create .env.local for each package
@@ -52,11 +58,8 @@ jobs:
           rm .env.local
           rm -rf coverage
 
-  changes:
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - name: has back-end changes
+      - name: check for file changes
+        id: changes
         run: |
           # See if any relevant back-end changes were made
           FILE_CHANGES=$(git diff --name-only HEAD^ HEAD)
@@ -64,13 +67,9 @@ jobs:
           BACK_END_CHANGES=$(echo "$FILE_CHANGES" | grep packages/back-end)
           HAS_BACKEND_CHANGES=$(if [ -z "${BACK_END_CHANGES}${YARN_LOCK_CHANGES}" ]; then echo "false"; else echo "true"; fi)
           echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
-
-  back-end:
-    runs-on: ubuntu-latest
-    needs: [ci, changes]
-    if: github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true'
-    steps:
+          
       - name: Configure AWS credentials
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -79,9 +78,11 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build, tag, and push image to Amazon ECR
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: api
@@ -99,5 +100,6 @@ jobs:
           rm yarn.lock
 
       - name: Deploy to ECS
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         run:
           aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
