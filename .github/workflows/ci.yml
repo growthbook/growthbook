@@ -33,10 +33,10 @@ jobs:
         env:
           CI: true
 
-      - name: lint, typecheck
+      - name: lint, build
         run: |
           yarn lint
-          yarn type-check
+          yarn build
 
       - name: test
         run: |
@@ -67,7 +67,7 @@ jobs:
           BACK_END_CHANGES=$(echo "$FILE_CHANGES" | grep packages/back-end)
           HAS_BACKEND_CHANGES=$(if [ -z "${BACK_END_CHANGES}${YARN_LOCK_CHANGES}" ]; then echo "false"; else echo "true"; fi)
           echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
-          
+
       - name: Configure AWS credentials
         if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         uses: aws-actions/configure-aws-credentials@v1
