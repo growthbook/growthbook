@@ -1,0 +1,85 @@
+@import "../../styles/colors.scss";
+$sidebarwidth: 240px;
+$expandedwidth: 280px;
+$collapsedSidebarwidth: 70px;
+$topbarheight: 60px;
+
+.link {
+  width: $sidebarwidth;
+  display: block;
+  transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
+
+  a {
+    display: block;
+    padding: 8px 15px 8px;
+    min-height: 60px;
+    transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
+
+    .icon {
+      font-size: 1.5em;
+      width: 40px;
+      margin-right: 16px;
+    }
+
+    span {
+      text-align: center;
+      vertical-align: middle;
+      width: 40px;
+      line-height: 20px;
+      display: inline-block;
+      margin-right: 16px;
+    }
+
+    img {
+      max-width: 35px;
+      max-height: 30px;
+      color: #fff;
+    }
+  }
+
+  &:hover {
+    background-color: scale-color($dark-purple, $lightness: +12%);
+
+    a {
+      margin-left: 2px;
+      text-decoration: none !important;
+    }
+    /*border-left: 2px solid #fff;*/
+  }
+  &.selected {
+    background: scale-color($dark-purple, $lightness: +20%);
+    a {
+      margin-left: 2px;
+    }
+  }
+  &.sublink {
+    border-left: 2px solid scale-color($dark-purple, $lightness: +25%);
+    background: scale-color($dark-purple, $lightness: +12%);
+    &.selected {
+      background: scale-color($dark-purple, $lightness: +25%);
+      a {
+        margin-left: 2px;
+      }
+    }
+    &:hover {
+      background-color: scale-color($dark-purple, $lightness: +20%);
+    }
+    .icon {
+      font-size: 1.3em;
+      width: 40px;
+      margin-right: 11px;
+      margin-left: 0px;
+    }
+    a {
+      padding: 2px 15px 2px 30px;
+      min-height: 40px;
+    }
+  }
+}
+.divider {
+  margin-top: 0px;
+  border-top: 1px solid rgba(0, 0, 0, 0.5);
+  a {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}

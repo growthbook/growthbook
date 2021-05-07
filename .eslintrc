@@ -1,0 +1,53 @@
+{
+  "env": {
+    "node": true,
+    "browser": true,
+    "es6": true
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "parser": "@typescript-eslint/parser",
+  "plugins": [
+    "react",
+    "@typescript-eslint",
+    "prettier",
+    "@next/eslint-plugin-next",
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended",
+    "plugin:@next/eslint-plugin-next/recommended"
+  ],
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "ecmaVersion": 2018,
+    "sourceType": "module"
+  },
+  "globals": {
+    "Atomics": "readonly",
+    "SharedArrayBuffer": "readonly"
+  },
+  "rules": {
+    "@next/next/no-html-link-for-pages": ["warn", "./packages/front-end/pages"],
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/no-explicit-any": 1,
+    "@typescript-eslint/no-inferrable-types": [
+      "warn",
+      {
+        "ignoreParameters": true
+      }
+    ],
+    "@typescript-eslint/no-unused-vars": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off"
+  }
+}

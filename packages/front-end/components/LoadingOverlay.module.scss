@@ -1,0 +1,23 @@
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  opacity: 0.7;
+  z-index: 995;
+}
+
+.text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 250px;
+  line-height: 50px;
+  height: 50px;
+  margin-top: -25px;
+  margin-left: -125px;
+  font-size: 1.3em;
+  text-align: center;
+}

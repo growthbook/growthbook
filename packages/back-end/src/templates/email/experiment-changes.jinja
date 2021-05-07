@@ -1,0 +1,24 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Experiment {{ experimentName }} has a significant metric
+{% endblock %}
+
+{% block title %}
+  The experiment '{{ experimentName }}' has a significant metric
+{% endblock %}
+
+{% block top %}
+  <p>The following metrics for this experiment have changed:</p>
+  <ul style='padding: 0; margin: 0 0 10px 0; list-style-type: disc;'>
+    {% for change in experimentChanges %}
+      <li style='margin:0 0 10px 30px;'>{{ change }}</li>
+    {% endfor %}
+  </ul>
+  {{ utils.button("See full results", experimentUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>You are receiving this email because you are watching this experiment.</p>
+{% endblock %}

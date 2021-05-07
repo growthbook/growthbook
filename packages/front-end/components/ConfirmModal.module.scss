@@ -1,0 +1,24 @@
+.modalform {
+  width: 100%;
+}
+.modalopen {
+  display: block !important;
+}
+.modalhide {
+  display: none;
+}
+.modaltitle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1rem 1rem;
+  border-bottom: 0px;
+  border-top-left-radius: calc(0.3rem - 1px);
+  border-top-right-radius: calc(0.3rem - 1px);
+}
+.confirmbody {
+  text-align: center;
+  button {
+    margin: 10px;
+  }
+}

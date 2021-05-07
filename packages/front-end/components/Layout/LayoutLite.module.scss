@@ -1,0 +1,37 @@
+@import "../../styles/colors.scss";
+$sidebarwidth: 240px;
+$expandedwidth: 280px;
+
+.sidebar {
+  background-color: $dark-purple;
+  width: $sidebarwidth;
+  flex-direction: column;
+  display: flex;
+  height: 100%;
+  transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  position: fixed;
+  color: #fff;
+  z-index: 900;
+  overflow: auto;
+}
+.sidebarlogo {
+  padding: 8px 20px 8px;
+  width: $sidebarwidth;
+  height: 60px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+}
+.logo {
+  width: 36px;
+}
+.logotext {
+  width: 145px;
+  margin-left: 8px;
+  transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
+}
+
+@media (max-width: 1180px) {
+  .sidebar {
+    width: $expandedwidth;
+    left: -$expandedwidth;
+  }
+}

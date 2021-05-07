@@ -1,0 +1,1771 @@
+import { Response } from "express";
+import { AuthRequest } from "../types/AuthRequest";
+import {
+  getExperimentsByOrganization,
+  getExperimentById,
+  getLatestSnapshot,
+  getMetricsByOrganization,
+  createMetric,
+  getMetricById,
+  createExperiment,
+  createSnapshot,
+  deleteExperimentById,
+  deleteMetricById,
+  createManualSnapshot,
+  getManualSnapshotData,
+  ensureWatching,
+  processPastExperiments,
+} from "../services/experiments";
+import uniqid from "uniqid";
+import { MetricAnalysis, MetricInterface } from "../../types/metric";
+import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getDataSourceById,
+  getSourceIntegrationObject,
+} from "../services/datasource";
+import { binomialABTest, srm } from "../services/stats";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { addTagsDiff } from "../services/tag";
+import { userHasAccess } from "../services/organizations";
+import { removeExperimentFromPresentations } from "../services/presentations";
+import { WatchModel } from "../models/WatchModel";
+import {
+  getUsers,
+  QueryMap,
+  getMetricValue,
+  getStatusEndpoint,
+  startRun,
+  cancelRun,
+  getPastExperiments,
+} from "../services/queries";
+import {
+  MetricValueResult,
+  UsersResult,
+  UsersQueryParams,
+  MetricValueParams,
+} from "../types/Integration";
+import { DimensionModel } from "../models/DimensionModel";
+import format from "date-fns/format";
+import { PastExperimentsModel } from "../models/PastExperimentsModel";
+import { getFileUploadURL } from "../services/files";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { MetricModel } from "../models/MetricModel";
+import { DimensionInterface } from "../../types/dimension";
+
+export async function getExperiments(req: AuthRequest, res: Response) {
+  const experiments = await getExperimentsByOrganization(req.organization.id);
+
+  res.status(200).json({
+    status: 200,
+    experiments,
+  });
+}
+
+export async function getExperimentsFrequencyMonth(
+  req: AuthRequest,
+  res: Response
+) {
+  const { num }: { num: string } = req.params;
+  const experiments = await getExperimentsByOrganization(req.organization.id);
+
+  const allData: { name: string; numExp: number }[] = [];
+
+  // make the data array with all the months needed and 0 experiments.
+  for (let i = parseInt(num) - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const ob = {
+      name: format(d, "MMM yyy"),
+      numExp: 0,
+    };
+    allData.push(ob);
+  }
+
+  // create stubs for each month by all the statuses:
+  const dataByStatus = {
+    draft: JSON.parse(JSON.stringify(allData)),
+    running: JSON.parse(JSON.stringify(allData)),
+    stopped: JSON.parse(JSON.stringify(allData)),
+  };
+
+  // now get the right number of experiments:
+  experiments.forEach((e) => {
+    let dateStarted: Date;
+    if (e.status === "draft") {
+      dateStarted = e.dateCreated;
+    } else {
+      e.phases.forEach((p) => {
+        // get the earliest time it was main or ramp:
+        if (p.phase === "main" || p.phase === "ramp") {
+          if (!dateStarted || p.dateStarted < dateStarted)
+            dateStarted = p.dateStarted;
+        }
+      });
+    }
+    const monthYear = format(new Date(dateStarted), "MMM yyy");
+
+    allData.forEach((md, i) => {
+      if (md.name === monthYear) {
+        md.numExp++;
+        // I can do this because the indexes will represent the same month
+        dataByStatus[e.status][i].numExp++;
+      }
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: { all: allData, ...dataByStatus },
+  });
+}
+
+// eslint-disable-next-line
+function getMockSnapshot(phase: number = 0): ExperimentSnapshotInterface {
+  const USERS_A = Math.floor(Math.random() * 300 + 4850);
+  const USERS_B = Math.floor(Math.random() * 300 + 4850);
+  const CONV_A: number[] = [];
+  const CONV_B: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    CONV_A.push(
+      Math.floor(((0.25 * Math.random()) / (Math.pow(i, 2) + 1)) * USERS_A)
+    );
+  }
+  for (let i = 0; i < 4; i++) {
+    CONV_B.push(
+      Math.floor(((0.33 * Math.random()) / (Math.pow(i, 2) + 1)) * USERS_B)
+    );
+  }
+
+  return {
+    id: "something",
+    experiment: "Growth Book",
+    dateCreated: new Date(),
+    phase,
+    manual: false,
+    results: [
+      {
+        name: "All",
+        srm: srm([USERS_A, USERS_B], [0.5, 0.5]),
+        variations: [
+          {
+            users: USERS_A,
+            metrics: {
+              "modal opens": {
+                value: CONV_A[0],
+                cr: CONV_A[0] / USERS_A,
+                users: USERS_A,
+              },
+              "member registrations": {
+                value: CONV_A[1],
+                cr: CONV_A[1] / USERS_A,
+                users: USERS_A,
+              },
+              purchases: {
+                value: CONV_A[2],
+                cr: CONV_A[2] / USERS_A,
+                users: USERS_A,
+              },
+              refunds: {
+                value: CONV_A[3],
+                cr: CONV_A[3] / USERS_A,
+                users: USERS_A,
+              },
+            },
+          },
+          {
+            users: USERS_B,
+            metrics: {
+              "modal opens": {
+                value: CONV_B[0],
+                cr: CONV_B[0] / USERS_B,
+                users: USERS_B,
+                ...binomialABTest(
+                  CONV_A[0],
+                  USERS_A - CONV_A[0],
+                  CONV_B[0],
+                  USERS_B - CONV_B[0]
+                ),
+              },
+              "member registrations": {
+                value: CONV_B[1],
+                cr: CONV_B[1] / USERS_B,
+                users: USERS_B,
+                ...binomialABTest(
+                  CONV_A[1],
+                  USERS_A - CONV_A[1],
+                  CONV_B[1],
+                  USERS_B - CONV_B[1]
+                ),
+              },
+              purchases: {
+                value: CONV_B[2],
+                cr: CONV_B[2] / USERS_B,
+                users: USERS_B,
+                ...binomialABTest(
+                  CONV_A[2],
+                  USERS_A - CONV_A[2],
+                  CONV_B[2],
+                  USERS_B - CONV_B[2]
+                ),
+              },
+              refunds: {
+                value: CONV_B[3],
+                cr: CONV_B[3] / USERS_B,
+                users: USERS_B,
+                ...binomialABTest(
+                  CONV_A[3],
+                  USERS_A - CONV_A[3],
+                  CONV_B[3],
+                  USERS_B - CONV_B[3]
+                ),
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export async function getExperiment(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const experiment = await getExperimentById(id);
+
+  if (!experiment) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!(await userHasAccess(req, experiment.organization))) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to view this experiment",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+    experiment,
+  });
+}
+
+async function _getSnapshot(
+  organization: string,
+  id: string,
+  phase: string,
+  dimension?: string
+) {
+  // Change this to use mock data
+  const USE_MOCK_DATA = false;
+
+  const experiment = await getExperimentById(id);
+
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (experiment.organization !== organization) {
+    throw new Error("You do not have access to view this experiment");
+  }
+
+  return USE_MOCK_DATA
+    ? getMockSnapshot()
+    : await getLatestSnapshot(experiment.id, parseInt(phase), dimension);
+}
+
+export async function getSnapshotWithDimension(
+  req: AuthRequest,
+  res: Response
+) {
+  const {
+    id,
+    phase,
+    dimension,
+  }: { id: string; phase: string; dimension: string } = req.params;
+  const snapshot = await _getSnapshot(
+    req.organization.id,
+    id,
+    phase,
+    dimension
+  );
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
+  });
+}
+export async function getSnapshot(req: AuthRequest, res: Response) {
+  const { id, phase }: { id: string; phase: string } = req.params;
+  const snapshot = await _getSnapshot(req.organization.id, id, phase);
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
+  });
+}
+
+/**
+ * Creates a new experiment
+ * @param req
+ * @param res
+ */
+export async function postExperiments(
+  req: AuthRequest<Partial<ExperimentInterface>>,
+  res: Response
+) {
+  if (!req.permissions.draftExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const data = req.body;
+  data.organization = req.organization.id;
+
+  if (data.datasource) {
+    const datasource = await getDataSourceById(data.datasource);
+    if (!datasource) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid datasource: " + data.datasource,
+      });
+      return;
+    }
+
+    // Make sure the datasource belongs to you
+    if (datasource.organization !== data.organization) {
+      res.status(403).json({
+        status: 403,
+        message:
+          "You do not have permission to access datasource " + datasource.id,
+      });
+      return;
+    }
+  }
+
+  // Validate that specified metrics exist and belong to the organization
+  if (data.metrics && data.metrics.length) {
+    for (let i = 0; i < data.metrics.length; i++) {
+      const metric = await getMetricById(data.metrics[i]);
+
+      if (metric) {
+        // make sure it belongs to you:
+        if (metric.organization !== data.organization) {
+          res.status(403).json({
+            status: 403,
+            message:
+              "You do not have permission to access metric " + data.metrics[i],
+          });
+          return;
+        }
+        // Make sure it is tied to the same datasource as the experiment
+        if (data.datasource && metric.datasource !== data.datasource) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Metrics must be tied to the same datasource as the experiment: " +
+              data.metrics[i],
+          });
+          return;
+        }
+      } else {
+        // new metric that's not recognized...
+        res.status(403).json({
+          status: 403,
+          message: "Unknown metric: " + data.metrics[i],
+        });
+        return;
+      }
+    }
+  }
+
+  const obj: Partial<ExperimentInterface> = {
+    organization: data.organization,
+    owner: data.owner || req.userId,
+    trackingKey: data.trackingKey || null,
+    datasource: data.datasource || "",
+    userIdType: data.userIdType || "anonymous",
+    name: data.name || "",
+    phases: data.phases || [],
+    tags: data.tags || [],
+    description: data.description || "",
+    hypothesis: data.hypothesis || "",
+    conversionWindowDays: data.conversionWindowDays || 3,
+    metrics: data.metrics || [],
+    activationMetric: data.activationMetric || "",
+    variations: data.variations || [],
+    implementation: data.implementation || "code",
+    status: data.status || "draft",
+    results: data.results || null,
+    analysis: data.analysis || "",
+    autoAssign: data.autoAssign || false,
+    previewURL: data.previewURL || "",
+    targetURLRegex: data.targetURLRegex || "",
+    targeting: data.targeting || "",
+    segment: data.segment || "",
+    data: data.data || "",
+  };
+  try {
+    const experiment = await createExperiment(obj);
+
+    await req.audit({
+      event: "experiment.create",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: JSON.stringify(experiment.toJSON()),
+    });
+
+    await ensureWatching(req.userId, req.organization.id, experiment.id);
+
+    res.status(200).json({
+      status: 200,
+      experiment,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+/**
+ * Update an experiment
+ * @param req
+ * @param res
+ */
+export async function postExperiment(
+  req: AuthRequest<ExperimentInterface>,
+  res: Response
+) {
+  const { id }: { id: string } = req.params;
+  const data = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  const canEdit =
+    exp.status === "draft"
+      ? req.permissions.draftExperiments
+      : req.permissions.runExperiments;
+  if (!canEdit) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  if (data.datasource) {
+    const datasource = await getDataSourceById(data.datasource);
+    if (!datasource) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid datasource: " + data.datasource,
+      });
+      return;
+    }
+
+    // Make sure the datasource belongs to you
+    if (datasource.organization !== exp.organization) {
+      res.status(403).json({
+        status: 403,
+        message:
+          "You do not have permission to access datasource " + datasource.id,
+      });
+      return;
+    }
+  }
+
+  if (data.metrics && data.metrics.length) {
+    for (let i = 0; i < data.metrics.length; i++) {
+      const metric = await getMetricById(data.metrics[i]);
+
+      if (metric) {
+        // make sure it belongs to you:
+        if (metric.organization !== req.organization.id) {
+          res.status(403).json({
+            status: 403,
+            message:
+              "You do not have permission to access metric " + data.metrics[i],
+          });
+          return;
+        }
+        // Make sure it is tied to the same datasource as the experiment
+        if (exp.datasource && metric.datasource !== exp.datasource) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Metrics must be tied to the same datasource as the experiment: " +
+              data.metrics[i],
+          });
+          return;
+        }
+      } else {
+        // new metric that's not recognized...
+        res.status(403).json({
+          status: 403,
+          message: "Unknown metric: " + data.metrics[i],
+        });
+        return;
+      }
+    }
+  }
+
+  const keys: (keyof ExperimentInterface)[] = [
+    "trackingKey",
+    "owner",
+    "datasource",
+    "userIdType",
+    "name",
+    "tags",
+    "description",
+    "hypothesis",
+    "conversionWindowDays",
+    "activationMetric",
+    "metrics",
+    "variations",
+    "status",
+    "results",
+    "analysis",
+    "winner",
+    "targeting",
+    "implementation",
+    "autoAssign",
+    "previewURL",
+    "targetURLRegex",
+    "segment",
+    "data",
+  ];
+  const existing: ExperimentInterface = exp.toJSON();
+  keys.forEach((key) => {
+    if (key in data && data[key] !== existing[key]) {
+      exp.set(key, data[key]);
+    }
+  });
+
+  // the comp above doesn't work for arrays:
+  // not sure here of the best way to check
+  // for changes in the arrays, so just going to save it
+  if (data["metrics"]) exp.set("metrics", data.metrics);
+  if (data["variations"]) exp.set("variations", data.variations);
+
+  //exp.markModified(`variations[${variation}]`);
+  await exp.save();
+
+  await req.audit({
+    event: "experiment.update",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: JSON.stringify(data),
+  });
+
+  // If there are new tags to add
+  await addTagsDiff(req.organization.id, existing.tags || [], data.tags || []);
+
+  await ensureWatching(req.userId, req.organization.id, exp.id);
+
+  res.status(200).json({
+    status: 200,
+    experiment: exp,
+  });
+}
+
+export async function postExperimentArchive(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  exp.set("archived", true);
+
+  try {
+    await exp.save();
+    // TODO: audit
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to archive experiment",
+    });
+  }
+}
+
+export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  exp.set("archived", false);
+
+  try {
+    await exp.save();
+    // TODO: audit
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to unarchive experiment",
+    });
+  }
+}
+
+export async function postExperimentStop(
+  req: AuthRequest<
+    { reason: string; dateEnded: string } & Partial<ExperimentInterface>
+  >,
+  res: Response
+) {
+  if (!req.permissions.runExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id }: { id: string } = req.params;
+  const { reason, results, analysis, winner, dateEnded } = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  const phases = [...exp.toJSON().phases];
+  // Already has phases
+  if (phases.length) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      dateEnded: new Date(dateEnded ? dateEnded + ":00Z" : undefined),
+      reason,
+    };
+    exp.set("phases", phases);
+  }
+
+  // Make sure experiment is stopped
+  let isEnding = false;
+  if (exp.status === "running") {
+    exp.set("status", "stopped");
+    isEnding = true;
+  }
+
+  // TODO: validation
+  exp.set("winner", winner);
+  exp.set("results", results);
+  exp.set("analysis", analysis);
+
+  try {
+    await exp.save();
+
+    await req.audit({
+      event: isEnding ? "experiment.stop" : "experiment.results",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
+      details: JSON.stringify({
+        winner,
+        results,
+        analysis,
+        reason,
+      }),
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to stop experiment",
+    });
+  }
+}
+
+export async function postExperimentPhase(
+  req: AuthRequest<ExperimentPhase>,
+  res: Response
+) {
+  if (!req.permissions.runExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id }: { id: string } = req.params;
+  const { reason, dateStarted, ...data } = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  const date = new Date(dateStarted ? dateStarted + ":00Z" : undefined);
+
+  const phases = [...exp.toJSON().phases];
+  // Already has phases
+  if (phases.length) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      dateEnded: date,
+      reason,
+    };
+  }
+
+  // Make sure experiment is running
+  let isStarting = false;
+  if (exp.status === "draft") {
+    exp.set("status", "running");
+    isStarting = true;
+  }
+
+  phases.push({
+    ...data,
+    dateStarted: date,
+    dateEnded: null,
+    reason: "",
+  });
+
+  // TODO: validation
+  try {
+    exp.set("phases", phases);
+    await exp.save();
+
+    await req.audit({
+      event: isStarting ? "experiment.start" : "experiment.phase",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
+      details: JSON.stringify(data),
+    });
+
+    await ensureWatching(req.userId, req.organization.id, exp.id);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to start new experiment phase",
+    });
+  }
+}
+
+export async function watchExperiment(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  try {
+    const exp = await getExperimentById(id);
+    if (exp.organization !== req.organization.id) {
+      res.status(403).json({
+        status: 403,
+        message: "You do not have access to this experiment",
+      });
+      return;
+    }
+
+    await ensureWatching(req.userId, req.organization.id, id);
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function unwatchExperiment(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  try {
+    await WatchModel.updateOne(
+      {
+        userId: req.userId,
+        organization: req.organization.id,
+      },
+      {
+        $pull: {
+          experiments: id,
+        },
+      }
+    );
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function deleteMetric(req: AuthRequest, res: Response) {
+  if (!req.permissions.createMetrics) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id }: { id: string } = req.params;
+
+  const metric = await getMetricById(id);
+
+  if (!metric) {
+    res.status(403).json({
+      status: 404,
+      message: "Metric not found",
+    });
+    return;
+  }
+
+  if (metric.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this metric",
+    });
+    return;
+  }
+
+  // note: we might want to change this to change the status to
+  // 'deleted' instead of actually deleting the document.
+  const del = await deleteMetricById(metric.id);
+
+  res.status(200).json({
+    status: 200,
+    result: del,
+  });
+}
+
+export async function deleteExperiment(
+  req: AuthRequest<ExperimentInterface>,
+  res: Response
+) {
+  const { id }: { id: string } = req.params;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  const canEdit =
+    exp.status === "draft"
+      ? req.permissions.draftExperiments
+      : req.permissions.runExperiments;
+  if (!canEdit) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  await Promise.all([
+    // note: we might want to change this to change the status to
+    // 'deleted' instead of actually deleting the document.
+    deleteExperimentById(exp.id),
+    removeExperimentFromPresentations(exp.id),
+  ]);
+
+  await req.audit({
+    event: "experiment.delete",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function getMetrics(req: AuthRequest, res: Response) {
+  const metrics = await getMetricsByOrganization(req.organization.id);
+  res.status(200).json({
+    status: 200,
+    metrics,
+  });
+}
+
+async function getMetricAnalysis(
+  metric: MetricInterface,
+  queryData: QueryMap
+): Promise<MetricAnalysis> {
+  const metricData: MetricValueResult = queryData.get("metric")?.result || {};
+  const usersData: UsersResult = (queryData.get("users")
+    ?.result as UsersResult) || { users: 0 };
+
+  let total = (metricData.count || 0) * (metricData.mean || 0);
+  let count = metricData.count || 0;
+  const dates: { d: Date; v: number }[] = [];
+
+  // Calculate total from dates
+  if (metricData.dates && usersData.dates) {
+    total = 0;
+    count = 0;
+
+    // Map of date to user count
+    const userDateMap: Map<string, number> = new Map();
+    usersData.dates.forEach((u) => {
+      userDateMap.set(u.date + "", u.users);
+    });
+
+    metricData.dates.forEach((d) => {
+      const averageBase =
+        (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
+      const dateTotal = (d.count || 0) * (d.mean || 0);
+      total += dateTotal;
+      count += d.count || 0;
+      dates.push({
+        d: new Date(d.date),
+        v: averageBase > 0 ? dateTotal / averageBase : 0,
+      });
+    });
+  }
+
+  const users = usersData.users || 0;
+  const averageBase = metric.ignoreNulls ? count : users;
+  const average = averageBase > 0 ? total / averageBase : 0;
+
+  return {
+    createdAt: new Date(),
+    average,
+    users,
+    dates,
+    percentiles: metricData.percentiles
+      ? Object.keys(metricData.percentiles).map((k) => {
+          return {
+            p: parseInt(k) / 100,
+            v: metricData.percentiles[k],
+          };
+        })
+      : [],
+  };
+}
+
+export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const metric = await MetricModel.findOne({ id });
+  const result = await getStatusEndpoint(
+    metric,
+    req.organization.id,
+    "analysis",
+    (queryData) => getMetricAnalysis(metric, queryData)
+  );
+  return res.status(200).json(result);
+}
+export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const metric = await MetricModel.findOne({ id });
+  res.status(200).json(await cancelRun(metric, req.organization.id));
+}
+
+export async function postMetricAnalysis(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const metric = await getMetricById(id);
+
+  if (!metric) {
+    return res.status(404).json({
+      status: 404,
+      message: "Metric not found",
+    });
+  }
+
+  if (metric.organization !== req.organization.id) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to update this metric",
+    });
+  }
+
+  try {
+    if (metric.datasource) {
+      const datasource = await getDataSourceById(metric.datasource);
+      const integration = getSourceIntegrationObject(datasource);
+
+      const from = new Date();
+      from.setDate(from.getDate() - 90);
+      const to = new Date();
+
+      const baseParams: UsersQueryParams | MetricValueParams = {
+        from,
+        to,
+        name: "Site-Wide",
+        conversionWindow: 3,
+        includeByDate: true,
+        userIdType: metric.userIdType,
+      };
+
+      metric.set("runStarted", new Date());
+
+      const { queries, result } = await startRun(
+        {
+          users: getUsers(integration, baseParams),
+          metric: getMetricValue(integration, {
+            ...baseParams,
+            metric,
+            includePercentiles: true,
+          }),
+        },
+        (queryData) => getMetricAnalysis(metric, queryData)
+      );
+
+      metric.set("queries", queries);
+      if (result) {
+        metric.set("analysis", result);
+      }
+
+      await metric.save();
+    } else {
+      throw new Error("Cannot analyze manual metrics");
+    }
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+export async function getMetric(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const metric = await getMetricById(id);
+
+  if (!metric) {
+    return res.status(404).json({
+      status: 404,
+      message: "Metric not found",
+    });
+  }
+
+  if (!(await userHasAccess(req, metric.organization))) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view this metric",
+    });
+  }
+
+  const experiments = await ExperimentModel.find(
+    {
+      organization: req.organization.id,
+      metrics: metric.id,
+      archived: {
+        $ne: true,
+      },
+    },
+    {
+      _id: false,
+      id: true,
+      name: true,
+      status: true,
+    }
+  )
+    .sort({
+      _id: -1,
+    })
+    .limit(10);
+
+  res.status(200).json({
+    status: 200,
+    metric,
+    experiments,
+  });
+}
+export async function postMetrics(
+  req: AuthRequest<Partial<MetricInterface>>,
+  res: Response
+) {
+  if (!req.permissions.createMetrics) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const {
+    name,
+    description,
+    type,
+    table,
+    column,
+    inverse,
+    ignoreNulls,
+    earlyStart,
+    cap,
+    conditions,
+    datasource,
+    timestampColumn,
+    userIdType,
+    userIdColumn,
+    anonymousIdColumn,
+  } = req.body;
+
+  if (datasource) {
+    const datasourceObj = await getDataSourceById(datasource);
+    if (!datasourceObj) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid data source: " + datasource,
+      });
+      return;
+    }
+
+    if (datasourceObj.organization !== req.organization.id) {
+      res.status(403).json({
+        status: 403,
+        message: "You do not have access to this datasource",
+      });
+      return;
+    }
+  }
+
+  const metric = await createMetric({
+    organization: req.organization.id,
+    datasource,
+    name,
+    description,
+    type,
+    table,
+    column,
+    inverse,
+    earlyStart,
+    ignoreNulls,
+    cap,
+    userIdType,
+    userIdColumn,
+    anonymousIdColumn,
+    timestampColumn,
+    conditions,
+  });
+
+  res.status(200).json({
+    status: 200,
+    metric,
+  });
+}
+
+export async function putMetric(
+  req: AuthRequest<Partial<MetricInterface>>,
+  res: Response
+) {
+  if (!req.permissions.createMetrics) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id }: { id: string } = req.params;
+  const metric = await getMetricById(id);
+
+  if (metric.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this metric",
+    });
+    return;
+  }
+
+  const fields: (keyof MetricInterface)[] = [
+    "name",
+    "description",
+    "type",
+    "earlyStart",
+    "inverse",
+    "ignoreNulls",
+    "cap",
+    "conditions",
+    "dateUpdated",
+    "table",
+    "column",
+    "userIdType",
+    "userIdColumn",
+    "anonymousIdColumn",
+    "timestampColumn",
+  ];
+  fields.forEach((k) => {
+    if (k in req.body) {
+      metric.set(k, req.body[k]);
+    }
+  });
+
+  await metric.save();
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function previewManualSnapshot(
+  req: AuthRequest<{ [key: string]: number[] }>,
+  res: Response
+) {
+  const { id, phase }: { id: string; phase: string } = req.params;
+
+  const { users, ...metrics } = req.body;
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const phaseIndex = parseInt(phase);
+  if (!exp.phases[phaseIndex]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  try {
+    const data = await getManualSnapshotData(exp, phaseIndex, users, metrics);
+    res.status(200).json({
+      status: 200,
+      snapshot: data,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function postSnapshot(
+  req: AuthRequest<{
+    phase: number;
+    dimension?: string;
+    data?: { [key: string]: number[] };
+  }>,
+  res: Response
+) {
+  if (!req.permissions.runExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
+  const { id }: { id: string } = req.params;
+  const { phase, dimension } = req.body;
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!exp.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  // Manual snapshot
+  if (!exp.datasource) {
+    const {
+      data: { users, ...metrics },
+    } = req.body;
+
+    try {
+      const snapshot = await createManualSnapshot(exp, phase, users, metrics);
+      res.status(200).json({
+        status: 200,
+        snapshot,
+      });
+
+      await req.audit({
+        event: "snapshot.create.manual",
+        entity: {
+          object: "snapshot",
+          id: snapshot.id,
+        },
+        parent: {
+          object: "experiment",
+          id: exp.id,
+        },
+        details: JSON.stringify(req.body),
+      });
+      return;
+    } catch (e) {
+      res.status(400).json({
+        status: 400,
+        message: e.message,
+      });
+      console.error(e);
+      return;
+    }
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  const datasource = await getDataSourceById(exp.datasource);
+  if (!datasource) {
+    res.status(400).json({
+      status: 404,
+      message: "Data source not found",
+    });
+    return;
+  }
+  if (datasource.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this data source",
+    });
+    return;
+  }
+
+  let dimensionObj: DimensionInterface;
+  if (dimension) {
+    dimensionObj = await DimensionModel.findOne({
+      id: dimension,
+    });
+    if (dimensionObj && dimensionObj.organization !== req.organization.id) {
+      res.status(403).json({
+        status: 403,
+        message: "You do not have access to this dimension",
+      });
+      return;
+    }
+  }
+
+  try {
+    const snapshot = await createSnapshot(exp, phase, datasource, dimensionObj);
+    await req.audit({
+      event: "snapshot.create.auto",
+      entity: {
+        object: "snapshot",
+        id: snapshot.id,
+      },
+      parent: {
+        object: "experiment",
+        id: exp.id,
+      },
+    });
+    res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+    console.error(e);
+  }
+}
+export async function postScreenshotUploadUrl(req: AuthRequest, res: Response) {
+  if (!req.permissions.draftExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { filetype, id }: { filetype: string; id: string } = req.params;
+
+  const { uploadURL, fileURL } = await getFileUploadURL(
+    filetype,
+    `${req.organization.id}/${id}/`
+  );
+
+  res.status(200).json({
+    status: 200,
+    uploadURL,
+    fileURL,
+  });
+}
+
+export async function deleteScreenshot(
+  req: AuthRequest<{ url: string }>,
+  res: Response
+) {
+  if (!req.permissions.draftExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id, variation }: { id: string; variation: number } = req.params;
+
+  const { url } = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  if (!exp.variations[variation]) {
+    res.status(404).json({
+      status: 404,
+      message: "Unknown variation " + variation,
+    });
+    return;
+  }
+
+  // TODO: delete from s3 as well?
+  exp.variations[variation].screenshots = exp.variations[
+    variation
+  ].screenshots.filter((s) => s.path !== url);
+  exp.markModified(`variations[${variation}]`);
+  await exp.save();
+
+  await req.audit({
+    event: "experiment.screenshot.delete",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: JSON.stringify({
+      variation,
+      url,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+type AddScreenshotRequestBody = {
+  url: string;
+  description?: string;
+};
+export async function addScreenshot(
+  req: AuthRequest<AddScreenshotRequestBody>,
+  res: Response
+) {
+  if (!req.permissions.draftExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id, variation }: { id: string; variation: number } = req.params;
+
+  const { url, description } = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(403).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  if (!exp.variations[variation]) {
+    res.status(404).json({
+      status: 404,
+      message: "Unknown variation " + variation,
+    });
+    return;
+  }
+
+  exp.variations[variation].screenshots =
+    exp.variations[variation].screenshots || [];
+  exp.variations[variation].screenshots.push({
+    path: url,
+    description: description,
+  });
+  exp.markModified(`variations[${variation}]`);
+  await exp.save();
+
+  await req.audit({
+    event: "experiment.screenshot.create",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: JSON.stringify({
+      variation,
+      url,
+      description,
+    }),
+  });
+
+  await ensureWatching(req.userId, req.organization.id, exp.id);
+
+  res.status(200).json({
+    status: 200,
+    screenshot: {
+      path: url,
+      description: description,
+    },
+  });
+}
+
+export async function getPastExperimentStatus(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const model = await PastExperimentsModel.findOne({ id });
+  const result = await getStatusEndpoint(
+    model,
+    req.organization.id,
+    "experiments",
+    processPastExperiments
+  );
+  return res.status(200).json(result);
+}
+export async function cancelPastExperiments(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const model = await PastExperimentsModel.findOne({
+    id,
+    organization: req.organization.id,
+  });
+  res.status(200).json(await cancelRun(model, req.organization.id));
+}
+
+export async function getPastExperimentsList(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const model = await PastExperimentsModel.findOne({
+    id,
+    organization: req.organization.id,
+  });
+
+  if (!model) {
+    throw new Error("Invalid import id");
+  }
+
+  const experiments = await ExperimentModel.find(
+    {
+      organization: req.organization.id,
+      datasource: model.datasource,
+    },
+    {
+      _id: false,
+      id: true,
+      trackingKey: true,
+    }
+  );
+
+  const experimentMap = new Map<string, string>();
+  experiments.forEach((e) => {
+    experimentMap.set(e.trackingKey, e.id);
+  });
+
+  const trackingKeyMap: Record<string, string> = {};
+  model.experiments.forEach((e) => {
+    const id = experimentMap.get(e.trackingKey);
+    if (id) {
+      trackingKeyMap[e.trackingKey] = id;
+    }
+  });
+
+  res.status(200).json({
+    status: 200,
+    experiments: model,
+    existing: trackingKeyMap,
+  });
+}
+
+export async function postPastExperiments(
+  req: AuthRequest<{ datasource: string; force: boolean }>,
+  res: Response
+) {
+  const { datasource, force } = req.body;
+
+  const datasourceObj = await getDataSourceById(datasource);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+  if (datasourceObj.organization !== req.organization.id) {
+    throw new Error("You do not have access to that datasource");
+  }
+
+  const integration = getSourceIntegrationObject(datasourceObj);
+  const start = new Date();
+  start.setDate(start.getDate() - 365);
+  const now = new Date();
+
+  let model = await PastExperimentsModel.findOne({
+    datasource,
+    organization: req.organization.id,
+  });
+  if (!model) {
+    const { queries, result } = await startRun(
+      { experiments: getPastExperiments(integration, start) },
+      processPastExperiments
+    );
+    model = await PastExperimentsModel.create({
+      id: uniqid("imp_"),
+      organization: req.organization.id,
+      datasource: datasource,
+      experiments: result || [],
+      runStarted: now,
+      queries,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+  } else if (force) {
+    const { queries, result } = await startRun(
+      { experiments: getPastExperiments(integration, start) },
+      processPastExperiments
+    );
+    model.set("runStarted", now);
+    model.set("queries", queries);
+    if (result) {
+      model.set("experiments", result);
+    }
+    await model.save();
+  }
+
+  res.status(200).json({
+    status: 200,
+    id: model.id,
+  });
+}

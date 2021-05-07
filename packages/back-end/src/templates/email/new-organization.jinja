@@ -1,0 +1,20 @@
+{% extends "base.jinja" %}
+
+{% block preview %}
+  {{ email }} at {{ company }}
+{% endblock %}
+
+{% block title %}
+  New Organization Joined Growth Book
+{% endblock %}
+
+{% block top %}
+  <p>
+    Company: {{ company }}<br/>
+    Email: {{ email }}
+  </p>
+{% endblock %}
+
+{% block lower %}
+  <p>You are receiving this email because you are an admin.</p>
+{% endblock %}

@@ -1,0 +1,11 @@
+.container {
+  display: flex;
+  align-items: center;
+}
+.bubble {
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 20px;
+  background: #ddd;
+}

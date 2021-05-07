@@ -1,0 +1,5 @@
+# build artifacts
+dist
+coverage
+# data definition files
+**/*.d.ts

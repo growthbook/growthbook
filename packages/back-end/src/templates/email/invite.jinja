@@ -1,0 +1,19 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Click here to accept the invitation
+{% endblock %}
+
+{% block title %}
+  <p style='text-align:center; margin: 0 0 30px;'>Join {{organizationName}} on Growthbook</p>
+{% endblock %}
+
+{% block top %}
+  <p style='text-align:center; margin: 0 0 30px;'>Click below to accept the invitation:</p>
+  {{ utils.button("Join", inviteUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>If the above button does not work, go to the url: {{inviteUrl}}</p>
+{% endblock %}

@@ -1,0 +1,25 @@
+.editor {
+  ul,
+  ol {
+    margin-bottom: 1em !important;
+
+    &:last-child {
+      margin-bottom: 0 !important;
+    }
+  }
+  p {
+    margin-bottom: 1em !important;
+  }
+  p:last-child {
+    margin-bottom: 0 !important;
+  }
+  blockquote {
+    margin-bottom: 1em !important;
+  }
+  :global(.scrollable-wrapper) {
+    margin: 0 0 1em !important;
+  }
+  :global(.image) img {
+    border: 1px solid #ddd;
+  }
+}

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132.225" height="24.075" viewBox="0 0 1763 321">
+  <defs>
+    <style>
+      .cls-1, .cls-4 {
+        fill: #029dd1;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill-rule: evenodd;
+      }
+
+      .cls-2 {
+        fill: #0047bd;
+      }
+
+      .cls-3 {
+        fill: #4817a1;
+      }
+
+      .cls-4 {
+        font-size: 39.728px;
+        font-family: "Proxima Nova";
+        font-weight: 600;
+      }
+    </style>
+  </defs>
+  <g id="logo_mark" data-name="logo mark">
+    <path id="Rectangle_12_copy" data-name="Rectangle 12 copy" class="cls-1" d="M102.259,122.286l167.413-94.2s-15.783,13.884-15.089,43.938c0.74,32.029,15.089,43.939,15.089,43.939L103.7,177.542s-11.328-7.885-11.5-28.627C92.041,129.435,102.259,122.286,102.259,122.286Z"/>
+    <path id="Rectangle_12_copy_2" data-name="Rectangle 12 copy 2" class="cls-2" d="M66.644,183.868l182.91-66.908s-15.783,13.884-15.089,43.939c0.74,32.029,15.089,43.938,15.089,43.938L68.081,238.124s-11.328-6.885-11.5-27.627C56.427,191.016,66.644,183.868,66.644,183.868Z"/>
+    <path class="cls-3" d="M31.059,238.127l192.988-34.621s-15.783,13.884-15.089,43.938c0.74,32.029,15.089,43.939,15.089,43.939H32.5S21.168,284.5,21,263.756C20.842,244.275,31.059,238.127,31.059,238.127Z"/>
+  </g>
+  <text id="GrowthBook" class="cls-4" transform="translate(307.458 280.541) scale(6.711 6.712)">GrowthBook</text>
+</svg>

@@ -1,0 +1,56 @@
+.modalform {
+  width: 100%;
+}
+.modalopen {
+  display: block !important;
+}
+.modalhide {
+  display: none;
+}
+.multistep {
+  text-align: center;
+  margin-bottom: 30px;
+  overflow: hidden;
+  color: lightgrey;
+
+  .active {
+    color: #000000;
+  }
+
+  li {
+    list-style-type: none;
+    font-size: 12px;
+    width: 25%;
+    float: left;
+    position: relative;
+  }
+
+  li:before {
+    width: 30px;
+    height: 30px;
+    line-height: 45px;
+    display: block;
+    font-size: 18px;
+    color: #ffffff;
+    background: lightgray;
+    border-radius: 50%;
+    margin: 0 auto 10px auto;
+    padding: 2px;
+    content: "";
+  }
+
+  li:after {
+    content: "";
+    width: 100%;
+    height: 2px;
+    background: lightgray;
+    position: absolute;
+    left: 0;
+    top: 15px;
+  }
+
+  li.active:before,
+  li.active:after {
+    background: skyblue;
+  }
+}
