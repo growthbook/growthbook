@@ -36,7 +36,10 @@ jobs:
       - name: lint, build
         run: |
           yarn lint
-          yarn build
+          # Do a full build of the back-end since it's used later to build the Docker container
+          yarn workspace back-end build
+          # Just do a type-check for the front-end. The build for prod is done in another job.
+          yarn workspace front-end type-check
 
       - name: test
         run: |
@@ -89,7 +92,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Move into the back-end package and add the root yarn.lock
-          cp yarn.lock packges/back-end/yarn.lock
+          cp yarn.lock packages/back-end/yarn.lock
           cd packages/back-end
 
           # Build and push the docker image

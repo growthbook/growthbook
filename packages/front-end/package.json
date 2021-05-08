@@ -11,10 +11,10 @@
     "init:dev": "cp -n .env.example .env.local"
   },
   "dependencies": {
-    "back-end": "0.0.1",
     "@auth0/auth0-spa-js": "^1.9.0",
     "@jukben/emoji-search": "^2.0.1",
-    "@webscopeio/react-textarea-autocomplete": "^4.7.2",
+    "@webscopeio/react-textarea-autocomplete": "^4.7.3",
+    "back-end": "0.0.1",
     "bootstrap": "^4.5.0",
     "clsx": "^1.1.1",
     "date-fns": "^2.15.0",
@@ -31,11 +31,11 @@
     "react-icons": "^4.2.0",
     "react-rangeslider": "^2.2.0",
     "react-simple-code-editor": "^0.11.0",
-    "react-syntax-highlighter": "^12.2.1",
-    "react-textarea-autosize": "^8.2.0",
+    "react-syntax-highlighter": "^15.4.3",
+    "react-textarea-autosize": "^8.3.2",
     "recharts": "^1.8.5",
     "rich-markdown-editor": "^11.4.0-0",
-    "spectacle": "^6.2.0",
+    "spectacle": "^8.2.0",
     "swr": "^0.5.4"
   },
   "devDependencies": {
