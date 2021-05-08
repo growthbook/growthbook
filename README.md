@@ -1,6 +1,6 @@
 <p align="center"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" /></p>
 
-# Growth Book - The Open Source A/B Testing Platform
+# Open Source A/B Testing Platform
 
 This repo is the actual Growth Book application where you connect to your data sources, define metrics, and analyze experiment results.
 
@@ -8,7 +8,7 @@ In addition, there are **client libraries** to help you implement A/B tests in [
 
 ## Major Features
 
--  Queries multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
+-  Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
 -  Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 -  Drill down into A/B test results (e.g. by browser, country, etc.)
 -  Lightweight idea board and prioritization framework
@@ -26,7 +26,7 @@ Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbook
 - MongoDB 3.2 or higher
 - A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
 - AWS S3 bucket and access keys that allow writing (for image/file uploads)
-- An email provider (Sendgrid, Mailgun, etc.) for sending invites, forgot password emails, etc.
+- An email provider for sending invites, forgot password emails, etc.
 - Google OAuth keys (only if using Google Analytics as a data source)
 
 Don't want to install, deploy, and maintain Growth Book on your own? Let us do it for you at https://www.growthbook.io
@@ -78,7 +78,9 @@ SITE_MANAGER_EMAIL=admin@example.com
 
 This is a monorepo with 2 packages - `back-end` and `front-end`.  For simplicity, we've added helper scripts at the top level:
 
-- `yarn dev` - Start dev servers with hot reloading.  Back-End is at http://localhost:3100 and the Front-End is at http://localhost:3000.
+- `yarn dev` - Start dev servers with hot reloading
+  -  Front-end: http://localhost:3000
+  -  Back-end: http://localhost:3100
 - `yarn lint` - Run eslint and auto-fix errors when possible
 - `yarn pretty` - Run prettier across the entire codebase
 - `yarn type-check` - Check for typescript compile errors
@@ -87,7 +89,9 @@ This is a monorepo with 2 packages - `back-end` and `front-end`.  For simplicity
 ### Production
 
 - `yarn build` - Build the production bundles (outputs to `dist/` in each package directory)
-- `yarn start` - Serve the production bundles (same ports as `yarn dev`)
+- `yarn start` - Serve the production bundles
+  -  Front-end: http://localhost:3000
+  -  Back-end: http://localhost:3100
 
 ## License
 
