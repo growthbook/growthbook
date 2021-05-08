@@ -64,11 +64,11 @@ jobs:
       - name: check for file changes
         id: changes
         run: |
-          # See if any relevant back-end changes were made
+          # All changes in this push
           FILE_CHANGES=$(git diff --name-only HEAD^ HEAD)
-          YARN_LOCK_CHANGES=$(echo "$FILE_CHANGES" | grep yarn.lock)
-          BACK_END_CHANGES=$(echo "$FILE_CHANGES" | grep packages/back-end)
-          HAS_BACKEND_CHANGES=$(if [ -z "${BACK_END_CHANGES}${YARN_LOCK_CHANGES}" ]; then echo "false"; else echo "true"; fi)
+
+          # See if any relevant back-end changes were made
+          HAS_BACKEND_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'yarn.lock|packages/back-end' && echo "true" || echo "false")
           echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
 
       - name: Configure AWS credentials
