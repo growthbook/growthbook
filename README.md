@@ -8,12 +8,12 @@ In addition, there are **client libraries** to help you implement A/B tests in [
 
 ## Major Features
 
--  Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
--  Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
--  Drill down into A/B test results (e.g. by browser, country, etc.)
--  Lightweight idea board and prioritization framework
--  Document everything! (upload screenshots, add markdown comments, and more)
--  Automated email alerts when tests become significant
+- Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
+- Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
+- Drill down into A/B test results (e.g. by browser, country, etc.)
+- Lightweight idea board and prioritization framework
+- Document everything! (upload screenshots, add markdown comments, and more)
+- Automated email alerts when tests become significant
 
 ## Community
 
@@ -37,7 +37,7 @@ Don't want to install, deploy, and maintain Growth Book on your own? Let us do i
 # Install dependencies
 yarn
 
-# Create .env.local files for the front-end and back-end 
+# Create .env.local files for the front-end and back-end
 yarn init:dev
 ```
 
@@ -46,6 +46,7 @@ Edit the default values in `packages/back-end/.env.local` and `packages/front-en
 ### MongoDB
 
 To quickly get a local MongoDB instance running for development, you can use docker:
+
 ```sh
 docker run -d --name mongo \
     -e MONGO_INITDB_ROOT_USERNAME=root \
@@ -60,7 +61,7 @@ The Growth Book app only stores meta info and aggregate stats, so the size of Mo
 
 Growth Book sends a few transactional emails (team member invites, forgot password, etc.).
 
-You can configure the email server using environment variables.  Here's an example for Sendgrid:
+You can configure the email server using environment variables. Here's an example for Sendgrid:
 
 ```
 EMAIL_ENABLED=true
@@ -74,13 +75,15 @@ EMAIL_FROM=noreply@example.com
 SITE_MANAGER_EMAIL=admin@example.com
 ```
 
-## Usage
+## Running Growth Book
 
-This is a monorepo with 2 packages - `back-end` and `front-end`.  For simplicity, we've added helper scripts at the top level:
+This is a monorepo with 2 packages - `back-end` and `front-end`. For ease-of-use, we've added helper scripts at the top level that operate on both simultaneously.
+
+### Development
 
 - `yarn dev` - Start dev servers with hot reloading
-  -  Front-end: http://localhost:3000
-  -  Back-end: http://localhost:3100
+  - Front-end: http://localhost:3000
+  - Back-end: http://localhost:3100
 - `yarn lint` - Run eslint and auto-fix errors when possible
 - `yarn pretty` - Run prettier across the entire codebase
 - `yarn type-check` - Check for typescript compile errors
@@ -88,10 +91,14 @@ This is a monorepo with 2 packages - `back-end` and `front-end`.  For simplicity
 
 ### Production
 
-- `yarn build` - Build the production bundles (outputs to `dist/` in each package directory)
-- `yarn start` - Serve the production bundles
-  -  Front-end: http://localhost:3000
-  -  Back-end: http://localhost:3100
+For production, you must first build with Typescript/Webpack and then serve it with NodeJS.
+
+- `yarn build:front` - Build the front-end and output to `packages/front-end/dist/`
+- `yarn build:back` - Build the back-end and output to `packages/back-end/dist/`
+- `yarn build` - Build both production bundles in parallel
+- `yarn start:front` - Serve the front-end at http://localhost:3000
+- `yarn start:back` - Serve the back-end at http://localhost:3100
+- `yarn start` - Serve both production bundles in parallel
 
 ## License
 

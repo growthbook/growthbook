@@ -6,6 +6,8 @@ import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
+import dJSON from "dirty-json";
+import TextareaAutosize from "react-textarea-autosize";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -25,6 +27,7 @@ const EditInfoForm: FC<{
             return {
               name: "",
               description: "",
+              value: "",
               key: "",
               ...v,
             };
@@ -32,6 +35,7 @@ const EditInfoForm: FC<{
         : [
             {
               name: "Control",
+              value: "",
               description: "",
               key: "",
               screenshots: [],
@@ -39,6 +43,7 @@ const EditInfoForm: FC<{
             {
               name: "Variation",
               description: "",
+              value: "",
               key: "",
               screenshots: [],
             },
@@ -60,16 +65,6 @@ const EditInfoForm: FC<{
 
     const updates: Partial<ExperimentInterfaceStringDates> = { variations };
 
-    if (value.data.length > 2) {
-      const parsed = JSON.parse(value.data);
-      if (parsed) {
-        Object.keys(parsed).forEach((key) => {
-          parsed[key].splice(i, 1);
-        });
-        updates.data = JSON.stringify(parsed);
-      }
-    }
-
     manualUpdate(updates);
   };
   const addVariation = () => {
@@ -79,21 +74,12 @@ const EditInfoForm: FC<{
         name: `Variation ${value.variations.length}`,
         description: "",
         key: "",
+        value: "",
         screenshots: [],
       },
     ];
 
     const updates: Partial<ExperimentInterfaceStringDates> = { variations };
-
-    if (value.data.length > 2) {
-      const parsed = JSON.parse(value.data);
-      if (parsed) {
-        Object.keys(parsed).forEach((key) => {
-          parsed[key].push("");
-        });
-        updates.data = JSON.stringify(parsed);
-      }
-    }
 
     manualUpdate(updates);
   };
@@ -105,34 +91,27 @@ const EditInfoForm: FC<{
       close={cancel}
       size="lg"
       submit={async () => {
-        // Validate config data format
-        if (value.data) {
-          let parsed;
-          try {
-            parsed = JSON.parse(value.data);
-          } catch (e) {
-            throw new Error(
-              "Config data must be a valid JSON object: " + e.message
-            );
-          }
-          if (!parsed || typeof parsed !== "object") {
-            throw new Error("Config data must be a valid JSON object");
-          }
-          Object.keys(parsed).forEach((k) => {
-            if (!Array.isArray(parsed[k])) {
-              throw new Error("Config data values must be an array");
-            }
-            if (parsed[k].length !== value.variations.length) {
+        const data = { ...value };
+        data.variations = [...data.variations];
+
+        value.variations.forEach((v, i) => {
+          if (v.value) {
+            try {
+              data.variations[i] = {
+                ...data.variations[i],
+                value: JSON.stringify(dJSON.parse(v.value), null, 2),
+              };
+            } catch (e) {
               throw new Error(
-                "Config data must define values for every variation"
+                `JSON parse error for variation "${v.name}": ${e.message}`
               );
             }
-          });
-        }
+          }
+        });
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify(data),
         });
         mutate();
       }}
@@ -160,7 +139,7 @@ const EditInfoForm: FC<{
       </div>
       <div className="mb-3">
         <label>Variations</label>
-        <div className="row align-items-center">
+        <div className="row align-items-top">
           {value.variations.map((v, i) => (
             <div
               className="col-lg-4 col-md-6 mb-2"
@@ -197,6 +176,18 @@ const EditInfoForm: FC<{
                 <div className="form-group">
                   <label>Description</label>
                   <textarea {...inputProps.variations[i].description} />
+                </div>
+                <div className="form-group">
+                  <label>JSON Value</label>
+                  <TextareaAutosize
+                    {...inputProps.variations[i].value}
+                    minRows={1}
+                    maxRows={10}
+                    placeholder='e.g. {"color": "red"}'
+                  />
+                  <small className="form-text text-muted">
+                    Optional, use to parameterize experiment data.
+                  </small>
                 </div>
               </div>
             </div>

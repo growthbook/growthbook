@@ -53,6 +53,8 @@ import ConfirmButton from "../../components/Modal/ConfirmButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import InstructionsModal from "../../components/Experiment/InstructionsModal";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { okaidia } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -474,6 +476,11 @@ const ExperimentPage = (): ReactElement => {
                         <strong>{v.name}</strong>
                       </div>
                       {v.description && <p>{v.description}</p>}
+                      {v.value && (
+                        <SyntaxHighlighter language="json" style={okaidia}>
+                          {v.value}
+                        </SyntaxHighlighter>
+                      )}
                       {v.screenshots.length > 0 ? (
                         <Carousel
                           deleteImage={

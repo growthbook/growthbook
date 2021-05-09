@@ -9,7 +9,11 @@
     "test": "wsrun test",
     "dev": "wsrun dev",
     "build": "wsrun build",
+    "build:back": "yarn workspace back-end build",
+    "build:front": "yarn workspace front-end build",
     "start": "wsrun start",
+    "start:back": "yarn workspace back-end start",
+    "start:front": "yarn workspace front-end start",
     "init:dev": "wsrun init:dev"
   },
   "workspaces": [

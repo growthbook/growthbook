@@ -43,8 +43,23 @@ const InstructionsModal: FC<{
 
   const expDef: Experiment = {
     key: trackingKey,
-    variations: variations.map((v) => v.key || v.name),
+    variations: variations.map((v) =>
+      v.value ? JSON.parse(v.value) : v.key || v.name
+    ),
   };
+
+  let variationParam = "";
+  let variationParamValues: string[];
+  if (typeof expDef.variations[0] === "object") {
+    variationParam = Object.keys(expDef.variations[0])[0];
+    variationParamValues = expDef.variations.map((v) => v[variationParam]);
+  } else {
+    variationParamValues = expDef.variations;
+  }
+  const variationParamList = variationParamValues
+    .map((v) => `"${v}"`)
+    .join(" or ");
+
   if (status !== "running") {
     expDef.status = status;
   }
@@ -122,18 +137,13 @@ const InstructionsModal: FC<{
               expDef,
               null,
               2
-            )})
-if (variation === "${expDef.variations[0]}") {
-  // TODO
-} ${expDef.variations
-              .slice(1)
-              .map(
-                (name) => `else if (variation === "${name}") {
-  // TODO
-} `
-              )
-              .join("")}
-            `}
+            )})\n\nconsole.log(variation${
+              !variationParam
+                ? ""
+                : variationParam.match(/^[a-zA-Z0-9_]*$/)
+                ? "." + variationParam
+                : '["' + variationParam + '"]'
+            }); // ${variationParamList}`}
           </SyntaxHighlighter>
         </Tab>
         <Tab display="React">
@@ -149,22 +159,19 @@ if (variation === "${expDef.variations[0]}") {
             and then...
           </p>
           <SyntaxHighlighter language="javascript" style={okaidia}>
-            {`function MyComponent() {
-  const {variation} = useExperiment(${JSON.stringify(expDef, null, 2)
-    .split("\n")
-    .join("\n  ")});
-
-  if (variation === "${expDef.variations[0]}") {
-    return <div>...</div>
-  } ${expDef.variations
-    .slice(1)
-    .map(
-      (name) => `else if (variation === "${name}") {
-    return <div>...</div>
-  } `
-    )
-    .join("")}
-}`}
+            {`function MyComponent() {\n  const {variation} = user.experiment(${JSON.stringify(
+              expDef,
+              null,
+              2
+            )
+              .split("\n")
+              .join("\n  ")})\n\n  return <div>{variation${
+              !variationParam
+                ? ""
+                : variationParam.match(/^[a-zA-Z0-9_]*$/)
+                ? "." + variationParam
+                : '["' + variationParam + '"]'
+            }}</div>; // ${variationParamList}\n}`}
           </SyntaxHighlighter>
         </Tab>
       </Tabs>

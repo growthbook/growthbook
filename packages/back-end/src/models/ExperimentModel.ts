@@ -41,6 +41,7 @@ const experimentSchema = new mongoose.Schema({
       name: String,
       description: String,
       key: String,
+      value: String,
       screenshots: [
         {
           _id: false,

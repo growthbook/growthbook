@@ -17,7 +17,7 @@ export interface Screenshot {
 export interface Variation {
   name: string;
   description?: string;
-
+  value?: string;
   key?: string;
   screenshots: Screenshot[];
   css?: string;
