@@ -22,6 +22,7 @@ import {
   FaTrash,
   FaCopy,
   FaUndo,
+  FaCode,
 } from "react-icons/fa";
 import Link from "next/link";
 import { useMetrics } from "../../services/MetricsContext";
@@ -51,6 +52,7 @@ import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup
 import ConfirmButton from "../../components/Modal/ConfirmButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
+import InstructionsModal from "../../components/Experiment/InstructionsModal";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -67,6 +69,7 @@ const ExperimentPage = (): ReactElement => {
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -184,6 +187,12 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setTargetingModalOpen(false)}
           mutate={mutate}
+        />
+      )}
+      {instructionsModalOpen && (
+        <InstructionsModal
+          close={() => setInstructionsModalOpen(false)}
+          experiment={experiment}
         />
       )}
       {deleteOpen && (
@@ -526,6 +535,24 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
+              {!experiment.archived && experiment.status !== "stopped" && (
+                <>
+                  <RightRailSection title="Implementation">
+                    <div className="my-1">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setInstructionsModalOpen(true);
+                        }}
+                      >
+                        <FaCode /> Get Code
+                      </a>
+                    </div>
+                  </RightRailSection>
+                  <hr />
+                </>
+              )}
               <RightRailSection
                 title="Tags"
                 open={() => setTagsModalOpen(true)}

@@ -8,17 +8,7 @@ import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import TextareaAutosize from "react-textarea-autosize";
 import { useWatching } from "../../services/WatchProvider";
-
-function getEvenSplit(n: number) {
-  const weights = [];
-  const equal = 100 / n;
-
-  for (let i = 0; i < n; i++) {
-    weights.push((i > 0 ? Math.floor(equal) : Math.ceil(equal)) / 100);
-  }
-
-  return weights;
-}
+import { getEvenSplit } from "../../services/utils";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
