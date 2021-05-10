@@ -186,8 +186,9 @@ const CompactResults: FC<{
                   const expected = stats.expected;
 
                   if (
-                    stats.value < 150 ||
-                    variations[0].metrics[m]?.value < 150
+                    Math.max(stats.value, variations[0].metrics[m]?.value) <
+                      150 ||
+                    Math.min(stats.value, variations[0].metrics[m]?.value) < 25
                   ) {
                     return (
                       <>
