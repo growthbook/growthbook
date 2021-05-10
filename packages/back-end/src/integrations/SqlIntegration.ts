@@ -14,7 +14,7 @@ import {
   VariationMetricResult,
   PastExperimentResult,
 } from "../types/Integration";
-import sqlFormatter from "sql-formatter";
+import { format } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -134,7 +134,7 @@ export default abstract class SqlIntegration
   }
 
   getPastExperimentQuery(from: Date) {
-    return sqlFormatter.format(`-- Past Experiments
+    return format(`-- Past Experiments
     WITH
       __experimentDates as (
         SELECT
@@ -228,7 +228,7 @@ export default abstract class SqlIntegration
     const userId = params.userIdType === "user";
 
     // TODO: support by date
-    return sqlFormatter.format(`-- ${params.name} - ${params.metric.name} Metric
+    return format(`-- ${params.name} - ${params.metric.name} Metric
       WITH
         __users as (${this.getPageUsersCTE(params, userId)})
         ${
@@ -347,7 +347,7 @@ export default abstract class SqlIntegration
   getUsersQuery(params: UsersQueryParams): string {
     const userId = params.userIdType === "user";
 
-    return sqlFormatter.format(`-- ${params.name} - Number of Users
+    return format(`-- ${params.name} - Number of Users
       WITH
         __users as (${this.getPageUsersCTE(params, userId)})
         ${
@@ -504,9 +504,8 @@ export default abstract class SqlIntegration
     ]);
 
     const formatted =
-      [usersSql, metricSql, valueSql]
-        .map((sql) => sqlFormatter.format(sql))
-        .join(";\n\n") + ";";
+      [usersSql, metricSql, valueSql].map((sql) => format(sql)).join(";\n\n") +
+      ";";
 
     if (
       users &&
@@ -826,7 +825,7 @@ export default abstract class SqlIntegration
 
     const results: ExperimentResults = {
       results: [],
-      query: query.map((q) => sqlFormatter.format(q)).join(";\n\n") + ";",
+      query: query.map((q) => format(q)).join(";\n\n") + ";",
     };
 
     dimensionMap.forEach((variations, k) => {

@@ -44,7 +44,7 @@
     "./**/*.{json,css,scss,md}": [
       "prettier --write"
     ],
-    "./**/*.{js,ts}": [
+    "./**/*.{js,ts,jsx,tsx}": [
       "yarn lint"
     ]
   },
