@@ -1,12 +1,13 @@
 import { FC } from "react";
 import Modal from "../Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { okaidia } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useSegments } from "../../services/SegmentsContext";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import { getEvenSplit } from "../../services/utils";
+import stringify from "json-stringify-pretty-compact";
 
 type Experiment = {
   key: string;
@@ -20,11 +21,23 @@ type Experiment = {
   anon?: boolean;
 };
 
-function phpArrayFormat(json: Record<string, unknown>) {
-  return JSON.stringify(json, null, 2)
+function removeKeyAndVariations(expDef: Experiment) {
+  // eslint-disable-next-line
+  const { key, variations, ...other } = expDef;
+  if (Object.keys(other).length) return other;
+  return null;
+}
+
+function phpArrayFormat(json: unknown) {
+  return stringify(json)
     .replace(/\{/g, "[")
     .replace(/\}/g, "]")
     .replace(/:/g, " =>");
+}
+
+function indentLines(code: string, indent: number = 2) {
+  const spaces = " ".repeat(indent);
+  return code.split("\n").join("\n" + spaces);
 }
 
 const InstructionsModal: FC<{
@@ -139,11 +152,9 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="javascript" style={okaidia}>
-            {`const { value } = user.experiment(${JSON.stringify(
-              expDef,
-              null,
-              2
+          <SyntaxHighlighter language="javascript" style={theme}>
+            {`const { value } = user.experiment(${stringify(
+              expDef
             )})\n\nconsole.log(value${
               !variationParam
                 ? ""
@@ -165,14 +176,10 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="javascript" style={okaidia}>
-            {`function MyComponent() {\n  const { value } = user.experiment(${JSON.stringify(
-              expDef,
-              null,
-              2
-            )
-              .split("\n")
-              .join("\n  ")})\n\n  return <div>{value${
+          <SyntaxHighlighter language="jsx" style={theme}>
+            {`function MyComponent() {\n  const { value } = user.experiment(${indentLines(
+              stringify(expDef)
+            )})\n\n  return <div>{value${
               !variationParam
                 ? ""
                 : variationParam.match(/^[a-zA-Z0-9_]*$/)
@@ -193,10 +200,15 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="php" style={okaidia}>
-            {`<?php\n$result = $user->experiment(${phpArrayFormat(
-              expDef
-            )})\n\necho $result->value${
+          <SyntaxHighlighter language="php" style={theme}>
+            {`<?php\n$experiment = new Growthbook\\Experiment(\n  "${
+              expDef.key
+            }",\n  ${indentLines(phpArrayFormat(expDef.variations))}${
+              removeKeyAndVariations(expDef)
+                ? ",\n  " +
+                  indentLines(phpArrayFormat(removeKeyAndVariations(expDef)))
+                : ""
+            }\n);\n$result = $user->experiment($experiment);\n\necho $result->value${
               !variationParam ? "" : '["' + variationParam + '"]'
             }; // ${variationParamList}`}
           </SyntaxHighlighter>
