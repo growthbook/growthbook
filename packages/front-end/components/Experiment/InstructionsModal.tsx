@@ -20,6 +20,13 @@ type Experiment = {
   anon?: boolean;
 };
 
+function phpArrayFormat(json: Record<string, unknown>) {
+  return JSON.stringify(json, null, 2)
+    .replace(/\{/g, "[")
+    .replace(/\}/g, "]")
+    .replace(/:/g, " =>");
+}
+
 const InstructionsModal: FC<{
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
@@ -133,11 +140,11 @@ const InstructionsModal: FC<{
             and then...
           </p>
           <SyntaxHighlighter language="javascript" style={okaidia}>
-            {`const {variation} = user.experiment(${JSON.stringify(
+            {`const { value } = user.experiment(${JSON.stringify(
               expDef,
               null,
               2
-            )})\n\nconsole.log(variation${
+            )})\n\nconsole.log(value${
               !variationParam
                 ? ""
                 : variationParam.match(/^[a-zA-Z0-9_]*$/)
@@ -159,19 +166,39 @@ const InstructionsModal: FC<{
             and then...
           </p>
           <SyntaxHighlighter language="javascript" style={okaidia}>
-            {`function MyComponent() {\n  const {variation} = user.experiment(${JSON.stringify(
+            {`function MyComponent() {\n  const { value } = user.experiment(${JSON.stringify(
               expDef,
               null,
               2
             )
               .split("\n")
-              .join("\n  ")})\n\n  return <div>{variation${
+              .join("\n  ")})\n\n  return <div>{value${
               !variationParam
                 ? ""
                 : variationParam.match(/^[a-zA-Z0-9_]*$/)
                 ? "." + variationParam
                 : '["' + variationParam + '"]'
             }}</div>; // ${variationParamList}\n}`}
+          </SyntaxHighlighter>
+        </Tab>
+        <Tab display="PHP">
+          <p>
+            Install our{" "}
+            <a
+              href="https://github.io/growthbook/growthbook-php"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              PHP Client Library
+            </a>{" "}
+            and then...
+          </p>
+          <SyntaxHighlighter language="php" style={okaidia}>
+            {`<?php\n$result = $user->experiment(${phpArrayFormat(
+              expDef
+            )})\n\necho $result->value${
+              !variationParam ? "" : '["' + variationParam + '"]'
+            }; // ${variationParamList}`}
           </SyntaxHighlighter>
         </Tab>
       </Tabs>
