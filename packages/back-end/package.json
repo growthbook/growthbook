@@ -5,7 +5,7 @@
   "scripts": {
     "copy-email-templates": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "dev": "yarn copy-email-templates && ts-node-dev src/server.ts",
-    "build": "tsc && yarn copy-email-templates",
+    "build": "tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-email-templates",
     "start": "node dist/server.js",
     "test": "jest --forceExit --coverage --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
