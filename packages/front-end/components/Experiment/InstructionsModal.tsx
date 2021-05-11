@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import Modal from "../Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
@@ -8,6 +8,14 @@ import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import { getEvenSplit } from "../../services/utils";
 import stringify from "json-stringify-pretty-compact";
+import useForm from "../../hooks/useForm";
+import { useEffect } from "react";
+import {
+  generateJavascriptSnippet,
+  TrackingType,
+} from "../../services/codegen";
+import TextareaAutosize from "react-textarea-autosize";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 type Experiment = {
   key: string;
@@ -60,6 +68,33 @@ const InstructionsModal: FC<{
   const phase = phases?.[0];
 
   const { getSegmentById } = useSegments();
+
+  const [value, inputProps] = useForm<{
+    tracking: TrackingType;
+    funcs: string[];
+    gaDimension: number;
+    mixpanelProjectId: string;
+  }>({
+    tracking: "segment",
+    funcs: variations.slice(1).map((v) => `console.log("${v.name}")`),
+    gaDimension: 1,
+    mixpanelProjectId: "",
+  });
+  const [codegen, setCodegen] = useState("");
+  useEffect(() => {
+    setCodegen(
+      generateJavascriptSnippet(
+        experiment,
+        ["", ...value.funcs],
+        value.tracking,
+        value.tracking === "ga"
+          ? String(value.gaDimension)
+          : value.tracking === "mixpanel"
+          ? value.mixpanelProjectId
+          : ""
+      )
+    );
+  }, [value]);
 
   const expDef: Experiment = {
     key: trackingKey,
@@ -211,6 +246,73 @@ const InstructionsModal: FC<{
             }\n);\n$result = $user->experiment($experiment);\n\necho $result->value${
               !variationParam ? "" : '["' + variationParam + '"]'
             }; // ${variationParamList}`}
+          </SyntaxHighlighter>
+        </Tab>
+        <Tab display="Inline Script">
+          <div className="alert alert-warning">
+            <FaExclamationTriangle /> Inline Scripts are a beta feature. Use at
+            your own risk and make sure to test!
+          </div>
+          <p>
+            Generate a small inline script tag (~500 bytes) for your experiment
+            without any dependencies or network requests.
+          </p>
+          <hr />
+          <form onSubmit={(e) => e.preventDefault()}>
+            <div className="row">
+              <div className="col">
+                <div className="form-group">
+                  Event Tracking System
+                  <select className="form-control" {...inputProps.tracking}>
+                    <option value="segment">Segment</option>
+                    <option value="mixpanel">Mixpanel</option>
+                    <option value="ga">Google Analytics</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+              </div>
+              {value.tracking === "ga" && (
+                <div className="col">
+                  <div className="form-group">
+                    GA Custom Dimension
+                    <input
+                      type="number"
+                      className="form-control"
+                      {...inputProps.gaDimension}
+                      min={1}
+                      max={100}
+                    />
+                  </div>
+                </div>
+              )}
+              {value.tracking === "mixpanel" && (
+                <div className="col">
+                  <div className="form-group">
+                    Mixpanel Project Token
+                    <input
+                      type="text"
+                      className="form-control"
+                      {...inputProps.mixpanelProjectId}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            {variations.slice(1).map((v, i) => (
+              <div className="form-group" key={v.name}>
+                <strong>Javascript:</strong> {v.name}
+                <TextareaAutosize
+                  className="form-control"
+                  placeholder={`console.log("${v.name}")`}
+                  minRows={1}
+                  maxRows={6}
+                  {...inputProps.funcs[i]}
+                />
+              </div>
+            ))}
+          </form>
+          <SyntaxHighlighter language="html" style={theme}>
+            {codegen}
           </SyntaxHighlighter>
         </Tab>
       </Tabs>
