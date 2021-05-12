@@ -33,13 +33,10 @@ jobs:
         env:
           CI: true
 
-      - name: lint, build
+      - name: lint
         run: |
           yarn lint
-          # Do a full build of the back-end since it's used later to build the Docker container
-          yarn workspace back-end build
-          # Just do a type-check for the front-end. The build for prod is done in another job.
-          yarn workspace front-end type-check
+          yarn type-check
 
       - name: test
         run: |
@@ -91,6 +88,9 @@ jobs:
           ECR_REPOSITORY: api
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Build the back-end
+          yarn workspace back-end build
+
           # Move into the back-end package and add the root yarn.lock
           cp yarn.lock packages/back-end/yarn.lock
           cd packages/back-end

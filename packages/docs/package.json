@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "docs",
+  "version": "0.0.1",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev -p 3200",
+    "build": "next build",
+    "start": "next start -p 3200",
+    "test": "echo 'no tests for docs yet'",
+    "type-check": "tsc --pretty --noEmit",
+    "init:dev": "touch next.config.js"
+  },
+  "dependencies": {
+    "@mapbox/rehype-prism": "^0.6.0",
+    "@mdx-js/loader": "^1.6.22",
+    "@mdx-js/react": "^1.6.22",
+    "@next/mdx": "^10.2.0",
+    "next": "^10.2.0",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "rehype-add-classes": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^16.9.55"
+  }
+}

@@ -1,0 +1,27 @@
+# Mixpanel Data Source
+
+Mixpanel is a self-serve analytics tool built around flexible event tracking.
+
+## Connection Info
+
+You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
+
+To add the datasource in Growth Book, you will need:
+1.  The service account username
+2.  The service account secret
+3.  Your project id (found on the Project Settings Overview page)
+
+## Settings
+
+Mixpanel is extremely flexible. To effectively use Growth Book, you'll need to tell us a little bit about how your events are structured.
+
+- Experiments
+  -  **View Experiments Event** - The name of the event you are firing when a user is put into a variation
+  -  **Experiment Id Property** - The property name that stores the experiment tracking key
+  -  **Variation Id Property** - The property name that stores the variation the user was assigned
+  -  **Variation Id Format** - What format the variation id is stored in.
+     1.  Numeric (0 = control, 1 = variation 1, etc.)
+     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+- Page Views
+  -  **Page Views Event** - the name of the event you are firing for every page view on your site
+  -  **URL Path Property** - in the event, the property name that stores the URL path for the pageview 

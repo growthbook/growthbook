@@ -1,0 +1,11 @@
+# Athena Data Source
+
+Athena is a managed data lake provided by AWS.  Data is stored in S3 using files in various formats (CSV, JSON, Avro, Parquet, or ORC).  Athena uses the Presto database engine under the hood.
+
+## Connection Info
+
+Unlike other database engines with their own user management system, Athena uses IAM for authentication.
+
+We recommend creating a new IAM user with readonly permissions for Growth Book.  The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+
+For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`

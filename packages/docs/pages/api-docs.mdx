@@ -1,0 +1,120 @@
+# API
+
+Our API is pretty easy to integrate into any tech stack.
+
+To get started, on the Growth Book settings page, generate an API key.
+
+As of right now, there is only a single API endpoint:  https://cdn.growthbook.io/config/{apiKey} 
+
+This returns configuration info for every experiment. 
+It can be passed directly into our open source client libraries or you can use the info to implement your own variation assignment and targeting.
+
+Here is the Typescript type definition with comments:
+
+```ts
+type DetailedVariationData = {
+  // The tracking key for the variation (defaults to "0" for control, "1" for variation 1, etc.)
+  key?: string;
+  // Determines traffic split. Float from 0 to 1, weights for all variations must sum to 1.
+  weight?: number;
+  // Arbitrary data attached to the variation. Used to parameterize experiments.
+  data?: {
+    [key: string]: any;
+  };
+  // CSS rules that should be injected to the page if this variation is chosen
+  css?: string;
+  // DOM modifications that should be applied if this variation is chosen
+  dom?: {
+    selector: string;
+    action: "append" | "set" | "remove";
+    attribute: string;
+    value: string;
+  }[];
+}
+
+type Response = {
+  status: 200;
+  // Array of experiment objects
+  experiments: {
+    // The globally unique tracking key for the experiment
+    key: string;
+    // "draft" should only be used for QA
+    status: "draft" | "running" | "stopped";
+    // What percent of users should be included in the experiment. Float from 0 to 1.
+    coverage?: number;
+    // Users can only be included in this experiment if the current URL matches this regex
+    url?: string;
+    // Array of strings if the format "{key} {operator} {value}"
+    // Users must pass all of these targeting rules to be included in this experiment
+    targeting?: string[];
+    // If specified, all users included in the experiment should be forced into the 
+    // specified variation (0 is control, 1 is first variation, etc.)
+    force?: number;
+    // If true, use anonymous id for assigning, otherwise use logged-in user id
+    anon: boolean;
+    // If true, users who match all targeting rules should automatically be put into the test
+    auto: boolean;
+    // Number of variations or an array of more detailed info
+    variations: number | DetailedVariationData[];
+  }[];
+}
+```
+
+And here is an example response:
+
+```json
+{
+  "status": 200,
+  "experiments": [
+    {
+      "key": "my-test",
+      "stats": "running",
+      "coverage": 0.6,
+      "url": "^/post/[0-9]+",
+      "targeting": [
+        "source = google"
+      ],
+      "anon": true,
+      "variations": [
+        {
+          "key": "A",
+          "weight": 0.8
+        },
+        {
+          "key": "B",
+          "weight": 0.2,
+          "css": "button.cta { background: green; }",
+          "dom": [
+            {
+              "selector": "h1",
+              "action": "set",
+              "attribute": "html",
+              "value": "Click The Green Button"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "my-stopped-test",
+      "status": "stopped",
+      "variations": 3,
+      "anon": true,
+      "force": 1
+    }
+  ]
+}
+```
+
+The top-level `status` field mirrors the HTTP response code.
+
+## Official Client Libraries
+
+We offer official client libraries that work with these data structures in a few popular languages with more coming soon.
+
+*  Javascript/Typescript - <https://github.com/growthbook/growthbook-js>
+*  ReactJS - <https://github.com/growthbook/growthbook-react>
+*  PHP - <https://github.com/growthbook/growthbook-php>
+*  Ruby - <https://github.com/growthbook/growthbook-ruby>
+*  Go - *coming soon*
+*  Python - *coming soon*

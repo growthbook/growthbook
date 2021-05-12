@@ -14,7 +14,7 @@
     "react",
     "@typescript-eslint",
     "prettier",
-    "@next/eslint-plugin-next",
+    "@next/eslint-plugin-next"
   ],
   "extends": [
     "eslint:recommended",
