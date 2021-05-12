@@ -1,22 +1,25 @@
 import { FC, useState } from "react";
 import { FaPlus, FaPencilAlt } from "react-icons/fa";
-import useDatasources from "../../hooks/useDatasources";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
 import Button from "../../components/Button";
-import { useDimensions } from "../../services/DimensionsContext";
 import { DimensionInterface } from "back-end/types/dimension";
 import DimensionForm from "../../components/Dimensions/DimensionForm";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DimensionsPage: FC = () => {
-  const { dimensions, ready, error } = useDimensions();
+  const {
+    dimensions,
+    datasources,
+    getDatasourceById,
+    ready,
+    error,
+  } = useDefinitions();
 
   const [
     dimensionForm,
     setDimensionForm,
   ] = useState<null | Partial<DimensionInterface>>(null);
-
-  const { getById, datasources } = useDatasources();
 
   if (!error && !ready) {
     return <LoadingOverlay />;
@@ -99,10 +102,10 @@ const DimensionsPage: FC = () => {
                   <tr key={s.id}>
                     <td>{s.name}</td>
                     <td className="d-none d-sm-table-cell">
-                      {getById(s.datasource)?.name}
+                      {getDatasourceById(s.datasource)?.name}
                     </td>
                     <td className="d-none d-lg-table-cell">
-                      {getById(s.datasource)?.type === "mixpanel" ? (
+                      {getDatasourceById(s.datasource)?.type === "mixpanel" ? (
                         <div>
                           Event property: <code>{s.sql}</code>
                         </div>

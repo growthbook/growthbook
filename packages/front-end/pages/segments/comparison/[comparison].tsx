@@ -1,11 +1,7 @@
 import { FC, useState, useEffect } from "react";
 import useForm from "../../../hooks/useForm";
-import useDatasources from "../../../hooks/useDatasources";
 import MetricsSelector from "../../../components/Experiment/MetricsSelector";
-import {
-  useMetrics,
-  formatConversionRate,
-} from "../../../services/MetricsContext";
+import { formatConversionRate } from "../../../services/metrics";
 import PercentImprovementGraph, {
   colorThemes,
 } from "../../../components/Experiment/PercentImprovementGraph";
@@ -19,7 +15,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "../../../components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
-import { useSegments } from "../../../services/SegmentsContext";
+import { useDefinitions } from "../../../services/DefinitionsContext";
 
 const colors = colorThemes.neutral;
 
@@ -36,7 +32,13 @@ const SegmentComparisonPage: FC = () => {
     comparison: SegmentComparisonInterface;
   }>(`/segments/comparison/${comparison}`);
 
-  const { segments, ready, getSegmentById } = useSegments();
+  const {
+    segments,
+    ready,
+    getSegmentById,
+    datasources,
+    getMetricById,
+  } = useDefinitions();
 
   const [dates, setDates] = useState<{
     segment1: { from: Date; to: Date };
@@ -60,10 +62,6 @@ const SegmentComparisonPage: FC = () => {
   const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
   const [saveError, setSaveError] = useState(null);
-
-  const { getDisplayName, getMetricType, isInverse } = useMetrics();
-
-  const { datasources } = useDatasources();
 
   useEffect(() => {
     if (data && !value.segment1) {
@@ -363,7 +361,7 @@ const SegmentComparisonPage: FC = () => {
             const segment1 = results.metrics[m].segment1;
             const segment2 = results.metrics[m].segment2;
 
-            const t = getMetricType(m);
+            const t = getMetricById(m)?.type;
 
             const max = Math.max(
               ...segment2.buckets.map((b) => b.x).map(Math.abs)
@@ -372,7 +370,7 @@ const SegmentComparisonPage: FC = () => {
               <div key={m} className="mb-4">
                 <div className="row bg-white mb-2">
                   <div className="col">
-                    <h4 className="py-2 m-0">{getDisplayName(m)}</h4>
+                    <h4 className="py-2 m-0">{getMetricById(m)?.name}</h4>
                   </div>
                 </div>
                 <div className="row">
@@ -419,7 +417,7 @@ const SegmentComparisonPage: FC = () => {
                         buckets={segment2.buckets}
                         ci={segment2.ci}
                         expected={segment2.expected}
-                        inverse={isInverse(m)}
+                        inverse={getMetricById(m)?.inverse}
                         theme="neutral"
                       />
                     ) : (

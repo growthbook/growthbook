@@ -4,13 +4,8 @@ import "react-rangeslider/lib/index.css";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import Layout from "../components/Layout/Layout";
-import { DataSourceProvider } from "../services/DatasourceContext";
 import Head from "next/head";
-import { MetricsProvider } from "../services/MetricsContext";
-import { TagsProvider } from "../services/TagsContext";
-import { SegmentsProvider } from "../services/SegmentsContext";
-import { DimensionsProvider } from "../services/DimensionsContext";
-
+import { DefinitionsProvider } from "../services/DefinitionsContext";
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
 };
@@ -56,20 +51,12 @@ function App({
           preAuth={preAuth}
         >
           {organizationRequired && !preAuth ? (
-            <DataSourceProvider>
-              <MetricsProvider>
-                <SegmentsProvider>
-                  <DimensionsProvider>
-                    <TagsProvider>
-                      <Layout />
-                      <main className={`main ${parts[0]}`}>
-                        <Component {...pageProps} />
-                      </main>
-                    </TagsProvider>
-                  </DimensionsProvider>
-                </SegmentsProvider>
-              </MetricsProvider>
-            </DataSourceProvider>
+            <DefinitionsProvider>
+              <Layout />
+              <main className={`main ${parts[0]}`}>
+                <Component {...pageProps} />
+              </main>
+            </DefinitionsProvider>
           ) : (
             <Component {...pageProps} />
           )}

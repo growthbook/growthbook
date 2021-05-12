@@ -15,17 +15,15 @@ import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import { BsFilter } from "react-icons/bs";
-import { useMetrics } from "../../services/MetricsContext";
-import { useTags } from "../../services/TagsContext";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
 
-  const { metrics, getDisplayName, ready: metricsReady } = useMetrics();
-  const { tags, tagsReady } = useTags();
+  const { tags, ready, metrics, getMetricById } = useDefinitions();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
   const [filters, setFilters] = useState({
@@ -74,7 +72,7 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !metricsReady || !tagsReady) {
+  if (!data || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -579,7 +577,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             }
                           }}
                         >
-                          {getDisplayName(m)}
+                          {getMetricById(m)?.name}
                         </span>
                       ))}
                       {additionalMetricsText}

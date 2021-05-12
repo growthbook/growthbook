@@ -4,7 +4,7 @@ import useForm from "../../hooks/useForm";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import TagsInput from "../TagsInput";
-import { useTags } from "../../services/TagsContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const IdeaForm: FC<{
   idea: Partial<IdeaInterface>;
@@ -25,7 +25,7 @@ const IdeaForm: FC<{
   const edit = !!idea.id;
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useTags();
+  const { refreshTags } = useDefinitions();
 
   const submit = async () => {
     const body = {
@@ -40,7 +40,7 @@ const IdeaForm: FC<{
       }
     );
     mutate();
-    refreshTags();
+    refreshTags(value.tags);
   };
 
   return (

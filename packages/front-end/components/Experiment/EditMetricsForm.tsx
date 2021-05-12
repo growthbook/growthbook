@@ -1,10 +1,10 @@
 import { FC } from "react";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
-import { useMetrics } from "../../services/MetricsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import MetricsSelector from "./MetricsSelector";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -16,7 +16,7 @@ const EditMetricsForm: FC<{
     activationMetric: experiment.activationMetric || "",
   });
   const { apiCall } = useAuth();
-  const { metrics } = useMetrics();
+  const { metrics } = useDefinitions();
 
   return (
     <Modal

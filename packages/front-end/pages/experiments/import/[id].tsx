@@ -9,11 +9,11 @@ import RunQueriesButton, {
 } from "../../../components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
 import useApi from "../../../hooks/useApi";
-import useDatasources from "../../../hooks/useDatasources";
 import { useAuth } from "../../../services/auth";
 import { date } from "../../../services/dates";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useDefinitions } from "../../../services/DefinitionsContext";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -26,7 +26,7 @@ const ImportPage: FC = () => {
     setCreate,
   ] = useState<null | Partial<ExperimentInterfaceStringDates>>(null);
 
-  const { getById, ready } = useDatasources();
+  const { getDatasourceById, ready } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -67,7 +67,7 @@ const ImportPage: FC = () => {
       <h2>Import Experiments</h2>
       <p>
         From datasource:{" "}
-        <strong>{getById(data.experiments.datasource).name}</strong>
+        <strong>{getDatasourceById(data.experiments.datasource).name}</strong>
       </p>
       <div className="row mb-3">
         <div className="col-auto">

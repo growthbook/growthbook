@@ -1,19 +1,21 @@
 import { FC } from "react";
-import useDatasources from "../../hooks/useDatasources";
 import Modal from "../Modal";
 import useForm from "../../hooks/useForm";
 import TextareaAutosize from "react-textarea-autosize";
 import { useAuth } from "../../services/auth";
-import { useDimensions } from "../../services/DimensionsContext";
 import { DimensionInterface } from "back-end/types/dimension";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { getById, datasources } = useDatasources();
-  const { refresh } = useDimensions();
+  const {
+    getDatasourceById,
+    datasources,
+    mutateDefinitions,
+  } = useDefinitions();
   const [value, inputProps] = useForm(
     {
       name: current.name || "",
@@ -23,7 +25,7 @@ const DimensionForm: FC<{
     current.id
   );
 
-  const dsType = getById(value.datasource)?.type || null;
+  const dsType = getDatasourceById(value.datasource)?.type || null;
 
   return (
     <Modal
@@ -38,7 +40,7 @@ const DimensionForm: FC<{
             body: JSON.stringify(value),
           }
         );
-        refresh();
+        mutateDefinitions();
       }}
     >
       <div className="form-group">

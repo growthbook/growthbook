@@ -3,7 +3,6 @@ import { useAuth } from "../../services/auth";
 import useForm from "../../hooks/useForm";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import useDatasources from "../../hooks/useDatasources";
 import TagsInput from "../TagsInput";
 import {
   ExperimentInterfaceStringDates,
@@ -13,13 +12,11 @@ import {
 import { FaPlus, FaTrash } from "react-icons/fa";
 import MetricsSelector from "./MetricsSelector";
 import TextareaAutosize from "react-textarea-autosize";
-import { useSegments } from "../../services/SegmentsContext";
 import { useWatching } from "../../services/WatchProvider";
-import { useTags } from "../../services/TagsContext";
-import { useMetrics } from "../../services/MetricsContext";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
 import track from "../../services/track";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -75,11 +72,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
 
-  const { datasources, getById } = useDatasources();
-  const { segments } = useSegments();
+  const {
+    segments,
+    metrics,
+    datasources,
+    getDatasourceById,
+    refreshTags,
+  } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const { refreshTags } = useTags();
-  const { metrics } = useMetrics();
 
   const initialPhases: ExperimentPhaseStringDates[] = isImport
     ? [
@@ -131,7 +131,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const variationKeys =
-    getById(value.datasource)?.settings?.experiments?.variationFormat === "key";
+    getDatasourceById(value.datasource)?.settings?.experiments
+      ?.variationFormat === "key";
 
   const deleteVariation = (i: number) => {
     const variations = [...value.variations];
@@ -180,7 +181,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       source,
     });
     refreshWatching();
-    refreshTags();
+
+    refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -430,7 +432,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </small>
             </div>
           )}
-          {getById(value.datasource)?.type !== "mixpanel" && (
+          {getDatasourceById(value.datasource)?.type !== "mixpanel" && (
             <div className="form-group">
               <label>Login State</label>
               <select className="form-control" {...inputProps.userIdType}>

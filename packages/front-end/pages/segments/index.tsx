@@ -1,7 +1,5 @@
 import { FC, useState } from "react";
 import { FaPlus, FaPencilAlt } from "react-icons/fa";
-import useDatasources from "../../hooks/useDatasources";
-import { useMetrics } from "../../services/MetricsContext";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
@@ -10,9 +8,9 @@ import { ago } from "../../services/dates";
 import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
-import { useSegments } from "../../services/SegmentsContext";
 import SegmentForm from "../../components/Segments/SegmentForm";
 import { SegmentComparisonInterface } from "back-end/types/segment-comparison";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const SegmentPage: FC = () => {
   const { data, error } = useApi<{
@@ -23,16 +21,17 @@ const SegmentPage: FC = () => {
     segments,
     getSegmentById,
     ready,
+    getDatasourceById,
+    datasources,
+    getMetricById,
     error: segmentsError,
-  } = useSegments();
+  } = useDefinitions();
 
   const [
     segmentForm,
     setSegmentForm,
   ] = useState<null | Partial<SegmentInterface>>(null);
 
-  const { getById, datasources } = useDatasources();
-  const { getDisplayName } = useMetrics();
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -112,7 +111,7 @@ const SegmentPage: FC = () => {
                   <tr key={s.id}>
                     <td>{s.name}</td>
                     <td className="d-none d-sm-table-cell">
-                      {getById(s.datasource)?.name}
+                      {getDatasourceById(s.datasource)?.name}
                     </td>
                     <td className="d-none d-md-table-cell">
                       {s.targeting && <pre>{s.targeting}</pre>}
@@ -204,7 +203,7 @@ const SegmentPage: FC = () => {
                           </Link>
                         </td>
                         <td className="d-none d-lg-table-cell">
-                          {getById(a.datasource)?.name || ""}
+                          {getDatasourceById(a.datasource)?.name || ""}
                         </td>
                         <td className="d-none d-sm-table-cell">
                           {getSegmentById(a.segment1.segment)?.name}
@@ -215,7 +214,7 @@ const SegmentPage: FC = () => {
                         <td className="d-none d-md-table-cell">
                           {a.metrics.map((m) => (
                             <div className="badge badge-secondary mr-1" key={m}>
-                              {getDisplayName(m) || m}
+                              {getMetricById(m)?.name || m}
                             </div>
                           ))}
                         </td>

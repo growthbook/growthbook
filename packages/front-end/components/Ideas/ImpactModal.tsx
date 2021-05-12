@@ -2,11 +2,10 @@ import Link from "next/link";
 import { FC } from "react";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
-import { useMetrics } from "../../services/MetricsContext";
-import { useSegments } from "../../services/SegmentsContext";
 import { IdeaInterface } from "back-end/types/idea";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import Modal from "../Modal";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const ImpactModal: FC<{
   idea?: IdeaInterface;
@@ -14,8 +13,7 @@ const ImpactModal: FC<{
   close: () => void;
   mutate: () => void;
 }> = ({ idea, estimate, close, mutate }) => {
-  const { metrics, getMetricDatasource } = useMetrics();
-  const { segments } = useSegments();
+  const { metrics, getMetricById, segments } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -33,7 +31,7 @@ const ImpactModal: FC<{
     (m) => m.type === "binomial" && m.datasource
   );
 
-  const datasource = getMetricDatasource(value.metric);
+  const datasource = getMetricById(value.metric)?.datasource;
   const possibleSegments = segments.filter((s) => s.datasource == datasource);
 
   return (

@@ -2,12 +2,12 @@ import { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
 import { FaPlus, FaPencilAlt, FaCloudDownloadAlt } from "react-icons/fa";
 import DataSourceForm from "./DataSourceForm";
-import useDatasources from "../../hooks/useDatasources";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import DeleteButton from "../DeleteButton";
 import Button from "../Button";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -50,10 +50,10 @@ const DataSources: FC = () => {
 
   const { apiCall } = useAuth();
 
-  const { datasources, error, refresh, ready } = useDatasources();
+  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <div className="alert alert-danger">{error}</div>;
   }
   if (!ready) {
     return <LoadingOverlay />;
@@ -92,7 +92,7 @@ const DataSources: FC = () => {
                       await apiCall(`/datasource/${d.id}`, {
                         method: "DELETE",
                       });
-                      refresh();
+                      mutateDefinitions({});
                     }}
                   />{" "}
                   {!["google_analytics", "mixpanel"].includes(d.type) &&
@@ -156,7 +156,7 @@ const DataSources: FC = () => {
           existing={edit !== DEFAULT_DATA_SOURCE}
           data={edit}
           onSuccess={() => {
-            refresh();
+            mutateDefinitions({});
           }}
           onCancel={() => {
             setEdit(null);

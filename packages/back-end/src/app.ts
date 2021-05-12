@@ -201,6 +201,7 @@ app.use(
 // Organization and Settings
 app.put("/user/name", organizationsController.putUserName);
 app.get("/user/watching", organizationsController.getWatchedExperiments);
+app.get("/organization/definitions", organizationsController.getDefinitions);
 app.get("/activity", organizationsController.getActivityFeed);
 app.get("/history/:type/:id", organizationsController.getHistory);
 app.get("/organization", organizationsController.getOrganization);

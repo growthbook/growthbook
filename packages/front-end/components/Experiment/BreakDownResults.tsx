@@ -1,13 +1,10 @@
 import { FC } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { useDimensions } from "../../services/DimensionsContext";
-import {
-  useMetrics,
-  formatConversionRate,
-} from "../../services/MetricsContext";
+import { formatConversionRate } from "../../services/metrics";
 import { FaExclamationTriangle } from "react-icons/fa";
 import ChangeBar from "./ChangeBar";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -15,8 +12,7 @@ const BreakDownResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
 }> = ({ snapshot, experiment }) => {
-  const { getDimensionById } = useDimensions();
-  const { getDisplayName, getMetricType, isInverse } = useMetrics();
+  const { getDimensionById, getMetricById } = useDefinitions();
 
   const srmFailures = snapshot.results.filter((r) => r.srm <= 0.001);
 
@@ -69,8 +65,7 @@ const BreakDownResults: FC<{
         the more likely you are to see a false positive.
       </div>
       {experiment.metrics.map((m) => {
-        const type = getMetricType(m);
-        const inverse = isInverse(m);
+        const metric = getMetricById(m);
 
         // Get overall stats for all dimension values combined
         const totalValue: number[] = [];
@@ -118,7 +113,7 @@ const BreakDownResults: FC<{
 
         return (
           <div className="mb-5" key={m}>
-            <h3>{getDisplayName(m)}</h3>
+            <h3>{metric.name}</h3>
             <div className="experiment-compact-holder">
               <table className="table w-auto experiment-compact">
                 <thead>
@@ -171,7 +166,7 @@ const BreakDownResults: FC<{
                       return (
                         <>
                           <td className="value" key={i + "_val"}>
-                            <div>{formatConversionRate(type, cr)}</div>
+                            <div>{formatConversionRate(metric.type, cr)}</div>
                             <div>
                               <small className="text-muted">
                                 <em>
@@ -186,7 +181,7 @@ const BreakDownResults: FC<{
                               <ChangeBar
                                 minMax={improvementMinMax[i]}
                                 change={improvement}
-                                inverse={inverse}
+                                inverse={metric.inverse}
                               />
                             </td>
                           )}
@@ -202,7 +197,9 @@ const BreakDownResults: FC<{
                         if (i === 0) {
                           return (
                             <td key={i} className="value">
-                              <div>{formatConversionRate(type, stats.cr)}</div>
+                              <div>
+                                {formatConversionRate(metric.type, stats.cr)}
+                              </div>
                               <div>
                                 <small className="text-muted">
                                   <em>
@@ -225,7 +222,7 @@ const BreakDownResults: FC<{
                             <>
                               <td className="value" key={i + "cr"}>
                                 <div>
-                                  {formatConversionRate(type, stats.cr)}
+                                  {formatConversionRate(metric.type, stats.cr)}
                                 </div>
                                 <div>
                                   <small className="text-muted">
@@ -240,7 +237,7 @@ const BreakDownResults: FC<{
                                 <ChangeBar
                                   minMax={improvementMinMax[i]}
                                   change={improvement}
-                                  inverse={inverse}
+                                  inverse={metric.inverse}
                                 />
                               </td>
                             </>

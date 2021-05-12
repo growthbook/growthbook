@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
 import { useRouter } from "next/router";
-import useDatasources from "../../hooks/useDatasources";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const Google: FC = () => {
   const [code, setCode] = useState(null);
@@ -19,7 +19,7 @@ const Google: FC = () => {
   }, []);
 
   const router = useRouter();
-  const { refresh } = useDatasources();
+  const { mutateDefinitions } = useDefinitions();
 
   if (!code) {
     return <LoadingOverlay />;
@@ -29,7 +29,7 @@ const Google: FC = () => {
   }
 
   const redirectToSettings = () => {
-    refresh();
+    mutateDefinitions({});
     router.push("/settings/datasources");
   };
 

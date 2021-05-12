@@ -6,9 +6,9 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface } from "back-end/types/metric";
-import { useMetrics } from "../../services/MetricsContext";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 type SnapshotPreview = {
   srm: number;
@@ -22,7 +22,7 @@ const ManualSnapshotForm: FC<{
   lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
 }> = ({ experiment, close, success, lastSnapshot, phase }) => {
-  const { metrics } = useMetrics();
+  const { metrics } = useDefinitions();
   const { apiCall } = useAuth();
 
   const filteredMetrics: Partial<MetricInterface>[] = [

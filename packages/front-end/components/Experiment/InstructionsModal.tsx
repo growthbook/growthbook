@@ -3,7 +3,6 @@ import Modal from "../Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useSegments } from "../../services/SegmentsContext";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import { getEvenSplit } from "../../services/utils";
@@ -16,6 +15,7 @@ import {
 } from "../../services/codegen";
 import TextareaAutosize from "react-textarea-autosize";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 type Experiment = {
   key: string;
@@ -67,7 +67,7 @@ const InstructionsModal: FC<{
 
   const phase = phases?.[0];
 
-  const { getSegmentById } = useSegments();
+  const { getSegmentById } = useDefinitions();
 
   const [value, inputProps] = useForm<{
     tracking: TrackingType;
