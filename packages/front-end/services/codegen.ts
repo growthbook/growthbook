@@ -74,11 +74,10 @@ export function generateJavascriptSnippet(
   const e=${JSON.stringify(exp.trackingKey)},f=${fnvHash},w=${JSON.stringify(
         cumulativeWeights
       )},n=(f(u+e)%1000)/1000;
-  for(let i=0;i<w.length;i++){if(n<w[i])break}
+  let i=0;for(i=0;i<w.length;i++){if(n<w[i])break}
   ${funcs
     .map((f, i) => {
-      if (!f) return "";
-      return `if(v===${i}){${f};return t(e,i)}`;
+      return `if(i===${i}){${f ? f + ";" : ""}return t(e,i)}`;
     })
     .join("")}
 })(${getUserIdCode(tracking)},(e,v)=>{${getTrackingCallback(
