@@ -44,44 +44,6 @@ const {value} = user.experiment({
 console.log(value); // "A" or "B"
 ```
 
-## Experiments
-
-As shown above, the simplest experiment you can define has 2 fields: `key` and `variations`.
-
-There are a lot more configuration options you can specify.  Here is the full list of options:
-
--  **key** (`string`) - The globally unique tracking key for the experiment
--  **variations** (`any[]`) - The different variations to choose between
--  **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
--  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
--  **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
--  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
--  **targeting** (`string[]`) - Users must pass all of these targeting rules to be included in this experiment (see below for more info)
--  **force** (`number`) - All users included in the experiment will be forced into the specific variation index
--  **anon** (`boolean`) - If true, use anonymous id for assigning, otherwise use logged-in user id.  Defaults to false.
-
-## Running Experiments
-
-Run experiments by calling `user.experiment()` which returns an object with a few useful properties:
-
-```ts
-const {inExperiment, variationId, value} = user.experiment({
-    key: "my-experiment",
-    variations: ["A", "B"]
-});
-
-// If user is part of the experiment
-console.log(inExperiment); // true or false
-
-// The index of the assigned variation
-console.log(variationId); // 0 or 1
-
-// The value of the assigned variation
-console.log(value); // "A" or "B"
-```
-
-The `inExperiment` flag can be false if the experiment defines any sort of targeting rules which the user does not pass.  In this case, the user is always assigned variation index `0`.
-
 ## Client Configuration
 
 The GrowthBookClient constructor takes an optional `options` argument.
@@ -89,7 +51,7 @@ The GrowthBookClient constructor takes an optional `options` argument.
 Below are all of the available options:
 
 -  **enabled** - Default true. Set to false to completely disable all experiments.
--  **debug** - Default false. If set to true, console.log info about why experiments are run and why specific variations are chosen.
+-  **debug** - Default false. If set to true, console.log info about why experiments are run and why specific variations are chosen. Only works when NODE_ENV is not set to production.
 -  **onExperimentViewed** - Callback when the user views an experiment.
 -  **url** - The URL for the current request (defaults to `window.location.href` when in a browser)
 -  **enableQueryStringOverride** - Default true.  If true, enables forcing variations via the URL.  Very useful for QA.  https://example.com/?my-experiment=1
@@ -117,72 +79,116 @@ export default function MyApp({ Component, pageProps }) {
 }
 ```
 
-## User Configuration
+## Experiments
 
-The `client.user` method supports both logged-in and anonymous users. To create an anonymous user, specify `anonId` instead of `id`:
-```js
-const user = client.user({anonId: "abcdef"});
-```
+As shown above, the simplest experiment you can define has 2 fields: `key` and `variations`.
 
-If you have both an anonymous id and a logged-in user id, you can pass both:
-```js
-const user = client.user({
-    anonId: "abcdef",
-    userId: "12345"
-});
-```
+There are a lot more configuration options you can specify.  Here is the full list of options:
 
-You can also include attributes about the user.  These attributes are never sent across the network and are only used to locally evaluate experiment targeting rules:
+-  **key** (`string`) - The globally unique tracking key for the experiment
+-  **variations** (`any[]`) - The different variations to choose between
+-  **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+-  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
+-  **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+-  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
+-  **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
+-  **groups** (`string[]`) - Limits the experiment to specific user groups
+-  **force** (`number`) - All users included in the experiment will be forced into the specific variation index
+-  **randomizationUnit** - What user attribute you want to use to assign variations (defaults to `id`)
 
-```js
-const user = client.user({
-    id: "12345",
-    attributes: {
-        // Any attributes about the user or page that you want to use for experiment targeting
-        premium: true,
-        accountAge: 36,
-        source: "google"
-    }
-});
-```
+### Running Experiments
 
-You can update these at any time by calling `user.setAttributes`. By default, this completely overwrites all previous attributes. To do a 
-shallow merge instead, pass `true` as the 2nd argument.
-
-```js
-user.setAttributes({
-    premium: false
-})
-```
-
-### Targeting
-
-Experiments can target on these user attributes with the `targeting` field.  Here's an example:
+Run experiments by calling `user.experiment()` which returns an object with a few useful properties:
 
 ```ts
-const {inExperiment, value} = user.experiment({
-    key: "my-targeted-experiment",
-    variations: ["A", "B"],
-    targeting: [
-        "premium = true",
-        "accountAge > 30"
-    ]
+const {inExperiment, variationId, value} = user.experiment({
+    key: "my-experiment",
+    variations: ["A", "B"]
+});
+
+// If user is part of the experiment
+console.log(inExperiment); // true or false
+
+// The index of the assigned variation
+console.log(variationId); // 0 or 1
+
+// The value of the assigned variation
+console.log(value); // "A" or "B"
+```
+
+The `inExperiment` flag can be false if the experiment defines any sort of targeting rules which the user does not pass.  In this case, the user is always assigned variation index `0`.
+
+### Example Experiments
+
+3-way experiment with uneven variation weights:
+```ts
+user.experiment({
+  key: "3-way-uneven",
+  variations: ["A","B","C"],
+  weights: [0.5, 0.25, 0.25]
 })
 ```
 
-If the user does not match the targeting rules, `inExperiment` will be false and they will be assigned variation index `0`.
+Slow rollout (10% of users who opted into "beta" features):
+```ts
+// User is in the "qa" and "beta" groups
+const user = client.user({id: "123"}, {
+  qa: isQATester(),
+  beta: betaFeaturesEnabled()
+});
+user.experiment({
+  key: "slow-rollout",
+  variations: ["A", "B"],
+  coverage: 0.1,
+  groups: ["beta"]
+})
+```
 
-## Overriding Weights and Targeting
+Complex variations and custom targeting
+```ts
+const {value} = user.experiment({
+  key: "complex-variations",
+  variations: [
+    {color: "blue", size: "large"},
+    {color: "green", size: "small"}
+  ],
+  include: () => isPremium || creditsRemaining > 50
+});
+console.log(value.color, value.size); // blue,large OR green,small
+```
+
+Assign variations based on something other than user id
+```ts
+const user = client.user({
+  id: "123",
+  companyId: "abc"
+});
+user.experiment({
+  key: "by-company-id",
+  variations: ["A", "B"],
+  randomizationUnit: "companyId"
+})
+// Users in the same company will now always get the same variation
+```
+
+### Overriding Experiment Configuration
 
 It's common practice to adjust experiment settings after a test is live.  For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
 
-Instead of constantly changing your code, you can use client overrides.  For example, to roll out a winning variation to 100% of users:
+For example, to roll out a winning variation to 100% of users:
 ```ts
 client.overrides.set("experiment-key", {
     status: 'stopped',
-    // Force variation index 1
     force: 1
 });
+
+// Later in code
+const {value} = user.experiment({
+  key: "experiment-key",
+  variations: ["A", "B"]
+});
+
+console.log(value); // Always "B"
 ```
 
 The full list of experiment properties you can override is:
@@ -190,18 +196,26 @@ The full list of experiment properties you can override is:
 *  force
 *  weights
 *  coverage
-*  targeting
+*  groups
 *  url
 
 This data structure can be easily seralized and stored in a database or returned from an API.  There is a small helper function if you have all of your overrides in a single JSON object:
 
 ```ts
-client.importOverrides({
-    "key1": {...},
-    "key2": {...},
-    ...
-})
+const JSONFromDatabase = {
+  "experiment-key-1": {
+    "weights": [0.1, 0.9]
+  },
+  "experiment-key-2": {
+    "groups": ["everyone"],
+    "coverage": 1
+  }
+};
+
+client.importOverrides(JSONFromDatabase)
 ```
+
+If you use the Growth Book App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format.  It's a great way to make sure your experiments are always up-to-date.
 
 ## Event Tracking and Analyzing Results
 
@@ -227,9 +241,8 @@ The object passed to your callback has the following properties:
 -  variationId (the array index of the assigned variation)
 -  value (the value of the assigned variation)
 -  experiment (the full experiment object)
--  userId
--  anonId
--  userAttributes
+-  user (the full user object)
+-  randomizationUnit (which user attribute was used to assign a variation)
 
 Below are examples for a few popular event tracking tools:
 
