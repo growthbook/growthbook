@@ -1,0 +1,98 @@
+# Growth Book App
+
+The Growth Book App is a web application to manage your A/B tests and analyze results.
+
+You can host the app yourself with the [Open Source project](https://github.com/growthbook/growthbook).  Or, we can host it for you at https://app.growthbook.io.
+
+## Quick Start
+
+Get started using the Growth Book experimentation platform 
+in just a few minutes.
+
+1.  Connect to your Data Source
+2.  Add a metric
+3.  Create an Experiment
+4.  View Results
+
+### Connect to your Data Source
+
+Unlike other A/B testing platforms like Optimizely or Split.io, you don't send impressions and metrics to Growth Book.
+
+Instead, you write them to your existing analytics tool or data warehouse and Growth Book queries those data sources to pull results. This has a few huge benefits:
+
+*  The Growth Book App is not in the critical rendering path of your application.  
+*  Your data stays with you which simplifies security and data governance issues.  
+*  A/B test results can use the exact same data and metrics as your dashboards and other reports.
+
+For this quick start, we're going to skip this step and just manually enter data instead of querying it.
+
+View the [data source documentation](/app/datasources) to learn more about data sources.
+
+### Add a Metric
+
+Metrics are what you are trying to change with experimentation.
+For example, newsletter signups, revenue, or unsubscribe rate.
+
+For this example, we are going to imagine optimizing a pricing page for 
+a SaaS product.  The metrics we'll use are `Viewed Checkout` and `Subscribed`.
+
+To start, click on Metrics in the site menu.
+
+1.  Click the green "`+ Add Metric`" button
+2.  For metric name, enter "`Viewed Checkout`"
+3.  Set the data source to "`Manual`"
+4.  Keep the conversion type set to "`Binomial`" since this metric only has 2 possible values - yes or no
+5.  Leave everything else as the default and click the Save button
+
+Repeat the above to add a 2nd metric "`Subscribed`", which is also binomial.
+
+View the [metrics documentation](/app/metrics) to learn more about metrics.
+
+
+## Create an Experiment
+
+Experiments are the actual A/B tests you run.  In the site menu, click on Experiments and then the New Experiment button in the top right.
+
+Fill out the following info and click the Create button.
+
+-  **Name**: Pricing Display
+-  **Hypothesis**: Showing the per-month price instead will reduce sticker shock and increase conversions.
+-  **Metrics**: *select both metrics created earlier*
+-  **Control Name**: Annual
+-  **Variation 1 Name**: Monthly
+
+You'll now have an experiment draft.  Click the "Start" button next to the experiment title.
+
+Experiments go through 1 or more *phases*.  For this example, we're just going to have a single *main* phase with 
+100% of traffic split evenly between the variations.
+
+Accept the default values in the form and click "Start".
+
+At this point, you would implement the changes on your site using one of our Client Libraries and collect data for a while.  
+For this quick start, we'll just fast forward and assume we already did that.
+
+View the [experiments documentation](/app/experiments) to learn more about experiments.
+
+## View Results
+
+Start by clicking the new Results tab on the experiment page.
+
+Click the "Update Data" button. Since we haven't set up a data source yet, we'll need to manually enter data:
+
+| Metric           | Annual | Monthly |
+|------------------|--------|---------|
+| Users            | 5024   | 5067    |
+| Viewed Checkout  | 1032   | 1156    |
+| Subscribed       | 356    | 361     |
+
+Click Submit to save the data and you should see the statistical analysis.
+
+Our change got more people to start checking out, but did 
+not result in any increase in subscriptions.  Let's stop the experiment and add our notes:
+
+Click the "Stop Experiment" button and fill in the following info:
+
+-  **Conclusion**: Inconclusive
+-  **Addition Analysis**: Increased checkouts, but not subscriptions. Users may have viewed this as a bait and switch.
+
+Click the "Stop" button to end the experiment and save your comments.
