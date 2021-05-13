@@ -11,7 +11,7 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import { BsFilter } from "react-icons/bs";
@@ -23,6 +23,7 @@ const ExperimentsPage = (): React.ReactElement => {
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
 
+  const [includeArchived, setIncludeArchived] = useState(false);
   const { tags, ready, metrics, getMetricById } = useDefinitions();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -164,10 +165,13 @@ const ExperimentsPage = (): React.ReactElement => {
     "results",
   ];
 
+  const hasArchivedExperiments =
+    data.experiments.filter((exp) => exp.archived).length > 0;
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="filters md-form row mb-3">
+        <div className="filters md-form row mb-3 align-items-center">
           <div className="col-lg-3 col-md-4 col-6">
             <input
               type="search"
@@ -177,6 +181,21 @@ const ExperimentsPage = (): React.ReactElement => {
               {...searchInputProps}
             />
           </div>
+          {hasArchivedExperiments && (
+            <div className="col-auto" style={{ verticalAlign: "middle" }}>
+              <small
+                className="text-muted text-secondary"
+                style={{ cursor: "pointer" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIncludeArchived(!includeArchived);
+                }}
+              >
+                {includeArchived ? <FaRegCheckSquare /> : <FaRegSquare />}{" "}
+                Include Archived
+              </small>
+            </div>
+          )}
           <div style={{ flex: 1 }}></div>
           {permissions.draftExperiments && (
             <div className="col-auto">
@@ -477,6 +496,7 @@ const ExperimentsPage = (): React.ReactElement => {
           <tbody>
             {experiments.map((test) => {
               if (!matchesFilter(test)) return;
+              if (test.archived && !includeArchived) return;
               const currentPhase = test.phases[test.phases.length - 1];
               // get start and end dates by looking for min and max start dates of main and rollup phases
               let startDate, endDate;
@@ -499,7 +519,14 @@ const ExperimentsPage = (): React.ReactElement => {
                   ? ""
                   : datetime(startDate) + " - " + datetime(endDate);
               return (
-                <tr key={test.name} style={{ cursor: "pointer" }}>
+                <tr
+                  key={test.name}
+                  className={test.archived ? "bg-light" : ""}
+                  style={{
+                    cursor: "pointer",
+                    opacity: test.archived ? 0.7 : 1,
+                  }}
+                >
                   {columnsShown.includes("watch") && (
                     <td className="action-column align-middle">
                       <WatchButton experiment={test.id} type="icon" />
