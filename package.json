@@ -4,16 +4,17 @@
   "private": true,
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0",
-    "pretty": "prettier --write ./**/*.{json,css,scss,md}",
+    "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun type-check",
     "test": "wsrun test",
     "dev": "wsrun dev",
     "build": "wsrun build",
     "build:back": "yarn workspace back-end build",
     "build:front": "yarn workspace front-end build",
-    "start": "wsrun start",
+    "build:docs": "yarn workspace docs build",
     "start:back": "yarn workspace back-end start",
     "start:front": "yarn workspace front-end start",
+    "start:docs": "yarn workspace docs start",
     "init:dev": "wsrun init:dev"
   },
   "workspaces": [

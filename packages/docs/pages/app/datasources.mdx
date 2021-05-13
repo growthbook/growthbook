@@ -1,0 +1,98 @@
+# Data Sources
+
+Data Sources are how Growth Book connects to your analytics tool or data warehouse to automatically pull metrics and experiment results.
+
+You can use Growth Book without a Data Source, but the user experience is not as smooth since you must enter all data manually.
+
+Below are the currently supported Data Sources:
+
+-  Redshift
+-  Snowflake
+-  BigQuery
+-  AWS Athena
+-  Postgres
+-  Mixpanel
+-  Google Analytics
+
+## Configuration Settings
+
+To effectively use Growth Book, you'll need to tell us a little about the shape of your data.
+
+### SQL Sources
+
+The default settings assume you are using Segment to populate your database, but everything is customizeable if that's not the case.
+
+- Defaults
+  -  **timestamp column** - The default timestamp column for all tables
+  -  **user id column** - The default column that stores a logged-in user id for all tables
+  -  **anonymous id column** - The default column that stores an anonymous id for logged-out users
+- Users
+  -  **table** - Table that contains all logged-in users. Multiple rows per user id are fine since we unique the values before counting.
+- Anonymous Id Mapping
+  -  **table** - Table that maps logged-out anonymous ids to logged-in user ids
+- Page Views
+  -  **table** - Table that contains one row per page view.
+  -  **url path column** - The column in this table that stores the URL path (e.g. `/about/us`)
+- Experiments
+  -  **table** - Table that maps a user id to an experiment variation. Duplicate rows are fine since we unique values before counting.
+  -  **experiment id column** - The name of the column in this table which stores the experiment id
+  -  **variation id column** - The name of the column in this table which stores the variation id
+  -  **variation id format** - What format the variation id is stored in.
+     1.  Numeric (0 = control, 1 = variation 1, etc.)
+     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+
+### Mixpanel
+
+We query Mixpanel using JQL.  Instead of tables and columns, we need to know about your events and property names.
+
+- Experiments
+  -  **View Experiments Event** - The name of the event you are firing when a user is put into a variation
+  -  **Experiment Id Property** - The property name that stores the experiment tracking key
+  -  **Variation Id Property** - The property name that stores the variation the user was assigned
+  -  **Variation Id Format** - What format the variation id is stored in.
+     1.  Numeric (0 = control, 1 = variation 1, etc.)
+     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+- Page Views
+  -  **Page Views Event** - the name of the event you are firing for every page view on your site
+  -  **URL Path Property** - in the event, the property name that stores the URL path for the pageview 
+
+## Connection Info
+
+Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
+
+Growth Book only runs `SELECT` queries (or the equivalent for non-SQL data sources).  We still always recommend creating read-only users with as few permissions as possible.
+
+If you are using the managed Growth Book App (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+
+### AWS Athena
+
+Unlike other database engines with their own user management system, Athena uses IAM for authentication.
+
+We recommend creating a new IAM user with readonly permissions for Growth Book.  The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+
+For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
+
+### BigQuery
+
+You must first create a Service Account in Google with the proper permissions. To connect Growth Book, we just need the JSON key file for that account.
+It should contain the project_id, client_email, and private_key.
+
+### Mixpanel
+
+You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
+
+To add the datasource in Growth Book, you will need:
+1.  The service account username
+2.  The service account secret
+3.  Your project id (found on the Project Settings Overview page)
+
+### Google Analytics
+
+Because of Google Analytics tracking limitations, a user can only be in a single experiment at a time. We highly recommend using a more full-featured data source for serious A/B testing.
+
+We require 3 things to query the Google Analytics API:
+1.  OAuth Authorization
+2.  View ID (found in Admin -> View Settings)
+3.  Custom Dimension Index
+
+When tracking experiment views, the custom dimension value must be formatted as `experiment-key:variation-index`.  For example: `my-test:0` for the control and `my-test:1` for the 1st variation.

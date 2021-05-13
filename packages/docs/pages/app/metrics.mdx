@@ -1,0 +1,30 @@
+# Metrics
+
+Metrics are what your experiments are trying to optimize.  Growth Book has a very flexible and powerful way to define metrics.
+
+## Conversion Types
+
+Metrics can have different statistical distributions. Below are the ones Growth Book supports or plans to support in the future:
+
+| Conversion Type | Description                               | Example                  |
+|-----------------|-------------------------------------------|--------------------------|
+| binomial        | A simple yes/no conversion                | Created Account          |
+| count           | Counts multiple conversions per user      | Pages per Visit          |
+| duration        | How much time something takes on average  | Time on Site             |
+| revenue         | The revenue gained/lost on average        | Revenue per User         |
+
+Need a metric type we don't support yet?  Let us know!
+
+## User Id and Timestamp Columns
+
+When setting up your data source, you specified the default column names for User Id and Timestamp.
+
+When creating a metric, you have the option to override these if you need to.  Otherwise, just leave the fields blank to use the default.
+
+## Conditions
+
+Conditions are a simple way to filter the underlying data.  For example, if you have a SQL table that records every time a user watches a video, you may want
+to add a metric "Watched Short Comedy Video". You only want to include a subset of the rows in the table, so you would add 2 conditions: `genre = "comedy"` and `length < 60`.
+
+Sometimes, you need to join multiple tables together for a metric.  In the above example, if your data was normalized, the "user watched a video" table probably doesn't have the genre and length directly.
+You would need to join to the video table to get that info.  In these more complex cases, we recommend defining Views directly in your database instead. This makes it easier and more efficient to query, especially if your data source supports Materialized Views.

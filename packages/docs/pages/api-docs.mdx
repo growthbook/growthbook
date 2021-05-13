@@ -1,0 +1,56 @@
+# API
+
+The Growth Book API is pretty easy to integrate into any tech stack.
+
+To get started, on the Growth Book settings page, generate an API key.
+
+As of right now, there is only a single public API endpoint: `/config/{apiKey}`.  If you are using Managed Growth Book (https://app.growthbook.io), the endpoint is accessible from our global CDN: https://cdn.growthbook.io/config/{apiKey}.  
+
+This returns configuration info for every experiment. 
+It can be passed directly into our client libraries or you can use the info to implement your own variation assignment and targeting.
+
+Here is an example API response:
+
+```json
+{
+  "status": 200,
+  "overrides": {
+    "experiment-key": {
+      "status": "running",
+      "weights": [0.5, 0.5],
+      "coverage": 1,
+      "targeting": [
+        "age > 18"
+      ],
+      "url": "^/post/[0-9]+$"
+    },
+    "another-experiment": {
+      "status": "stopped",
+      "force": 2
+    }
+  }
+}
+```
+
+The `status` field just mirrors the HTTP status code.
+
+The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
+
+-  **status** - Either "draft", "running", or "stopped".  Stopped experiments are only included in the response if a non-control variation won.
+-  **weights** - How traffic should be weighted between variations. Will add up to 1.
+-  **coverage** - A float from 0 to 1 (inclusive) which specifies what percent of users to include in the experiment.
+-  **targeting** - An array of targeting rules for who is eligible. There is an implied "AND" between the rules.
+-  **url** - A regex for which URLs the experiment should run on
+-  **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
+
+
+## Official Client Libraries
+
+We offer official client libraries that work with these data structures in a few popular languages with more coming soon.
+
+*  [Javascript/Typescript](/lib/js)
+*  [React](/lib/react)
+*  [PHP](/lib/php)
+*  [Ruby](/lib/ruby)
+*  Go - *coming soon*
+*  Python - *coming soon*
