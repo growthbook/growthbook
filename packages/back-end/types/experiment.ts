@@ -31,18 +31,16 @@ export interface ExperimentPhase {
   reason: string;
   coverage: number;
   variationWeights: number[];
-  targeting?: string;
+  groups?: string[];
 }
 
-export interface ExperimentPhaseStringDates {
+export type ExperimentPhaseStringDates = Omit<
+  ExperimentPhase,
+  "dateStarted" | "dateEnded"
+> & {
   dateStarted?: string;
   dateEnded?: string;
-  phase: "ramp" | "main" | "holdout";
-  reason: string;
-  coverage: number;
-  variationWeights: number[];
-  targeting?: string;
-}
+};
 
 export interface ExperimentInterface {
   id: string;
@@ -77,8 +75,6 @@ export interface ExperimentInterface {
   winner?: number;
   analysis?: string;
   data?: string;
-  targeting?: string;
-  segment?: string;
   lastSnapshotAttempt?: Date;
   autoSnapshots: boolean;
 }

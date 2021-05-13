@@ -12,6 +12,7 @@ type Definitions = {
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
+  groups: string[];
   tags: string[];
 };
 
@@ -39,6 +40,7 @@ const defaultValue: DefinitionContextValue = {
   dimensions: [],
   segments: [],
   tags: [],
+  groups: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -76,6 +78,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       dimensions: data.dimensions,
       segments: data.segments,
       tags: data.tags,
+      groups: data.groups,
       getMetricById: getByIdFunction(data.metrics),
       getDatasourceById: getByIdFunction(data.datasources),
       getDimensionById: getByIdFunction(data.dimensions),

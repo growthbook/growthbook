@@ -53,6 +53,7 @@ import logger from "../util/logger";
 import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { DataSourceModel } from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
+import { getAllGroups } from "../services/group";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -91,7 +92,14 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const [metrics, datasources, dimensions, segments, tags] = await Promise.all([
+  const [
+    metrics,
+    datasources,
+    dimensions,
+    segments,
+    tags,
+    groups,
+  ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
     DimensionModel.find({
@@ -101,6 +109,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       organization: orgId,
     }),
     getAllTags(orgId),
+    getAllGroups(orgId),
   ]);
 
   return res.status(200).json({
@@ -119,6 +128,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
+    groups,
   });
 }
 

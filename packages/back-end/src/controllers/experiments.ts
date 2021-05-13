@@ -407,8 +407,6 @@ export async function postExperiments(
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
-    targeting: data.targeting || "",
-    segment: data.segment || "",
     data: data.data || "",
   };
   try {
@@ -551,12 +549,10 @@ export async function postExperiment(
     "results",
     "analysis",
     "winner",
-    "targeting",
     "implementation",
     "autoAssign",
     "previewURL",
     "targetURLRegex",
-    "segment",
     "data",
   ];
   const existing: ExperimentInterface = exp.toJSON();

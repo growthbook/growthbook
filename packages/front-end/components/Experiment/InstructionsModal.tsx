@@ -15,7 +15,6 @@ import {
 } from "../../services/codegen";
 import TextareaAutosize from "react-textarea-autosize";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
 
 type Experiment = {
   key: string;
@@ -24,7 +23,7 @@ type Experiment = {
   status?: string;
   coverage?: number;
   url?: string;
-  targeting?: string[];
+  groups?: string[];
   force?: number;
   anon?: boolean;
 };
@@ -57,8 +56,6 @@ const InstructionsModal: FC<{
     userIdType,
     variations,
     targetURLRegex,
-    targeting,
-    segment,
     status,
     results,
     winner,
@@ -66,8 +63,6 @@ const InstructionsModal: FC<{
   } = experiment;
 
   const phase = phases?.[0];
-
-  const { getSegmentById } = useDefinitions();
 
   const [value, inputProps] = useForm<{
     tracking: TrackingType;
@@ -125,28 +120,11 @@ const InstructionsModal: FC<{
     expDef.anon = true;
   }
 
-  expDef.targeting = [];
-  targeting &&
-    targeting
-      .split("\n")
-      .filter(Boolean)
-      .forEach((t) => expDef.targeting.push(t));
-  if (segment) {
-    const seg = getSegmentById(segment);
-    if (seg && seg.targeting) {
-      seg.targeting
-        .split("\n")
-        .filter(Boolean)
-        .forEach((t) => expDef.targeting.push(t));
-    }
-  }
+  expDef.groups = [];
 
   if (phase) {
-    if (phase.targeting) {
-      phase.targeting
-        .split("\n")
-        .filter(Boolean)
-        .forEach((t) => expDef.targeting.push(t));
+    if (phase.groups?.length > 0) {
+      expDef.groups.push(...phase.groups);
     }
     // Add coverage or variation weights if different from defaults
     if (phase.coverage < 1) {
@@ -162,8 +140,8 @@ const InstructionsModal: FC<{
     expDef.force = winner;
   }
 
-  if (!expDef.targeting.length) {
-    delete expDef.targeting;
+  if (!expDef.groups.length) {
+    delete expDef.groups;
   }
 
   return (

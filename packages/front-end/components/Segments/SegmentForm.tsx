@@ -21,7 +21,6 @@ const SegmentForm: FC<{
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
-      targeting: current.targeting || "",
     },
     current.id
   );
@@ -89,20 +88,6 @@ const SegmentForm: FC<{
               <code>date</code>
             </>
           )}
-        </small>
-      </div>
-      <div className="form-group">
-        Targeting Rules (optional)
-        <TextareaAutosize
-          className="form-control"
-          {...inputProps.targeting}
-          minRows={2}
-          placeholder="premium = true"
-        />
-        <small className="form-text text-muted">
-          One targeting rule per line. Available operators: <code>=</code>,{" "}
-          <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>~</code>,{" "}
-          <code>!~</code>
         </small>
       </div>
     </Modal>

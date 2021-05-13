@@ -3,7 +3,7 @@ export interface ExperimentOverride {
   status?: "draft" | "running" | "stopped";
   force?: number;
   coverage?: number;
-  targeting?: string[];
+  groups?: string[];
   url?: string;
 }
 

@@ -6,9 +6,9 @@ import {
 import useForm from "../../hooks/useForm";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
-import TextareaAutosize from "react-textarea-autosize";
 import { useWatching } from "../../services/WatchProvider";
 import { getEvenSplit } from "../../services/utils";
+import GroupsInput from "../GroupsInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -31,7 +31,7 @@ const NewPhaseForm: FC<{
         getEvenSplit(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      targeting: prevPhase.targeting || "",
+      groups: prevPhase.groups || [],
     },
     experiment.id,
     {
@@ -160,17 +160,13 @@ const NewPhaseForm: FC<{
       </div>
       <div className="row">
         <div className="col">
-          <label>Additional Targeting Rules (optional)</label>
-          <TextareaAutosize
-            {...inputProps.targeting}
-            placeholder={`e.g. premium = true`}
-            minRows={2}
-            maxRows={5}
+          <label>User Groups</label>
+          <GroupsInput
+            value={value.groups}
+            onChange={(groups) => manualUpdate({ groups })}
           />
-          <small className="form-text text-muted">
-            One targeting rule per line. Available operators: <code>=</code>,{" "}
-            <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>,{" "}
-            <code>~</code>, <code>!~</code>
+          <small className="text-muted form-text">
+            Leave blank to include all users
           </small>
         </div>
       </div>
