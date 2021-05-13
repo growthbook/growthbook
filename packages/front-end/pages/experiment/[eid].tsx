@@ -612,8 +612,8 @@ const ExperimentPage = (): ReactElement => {
                 <RightRailSectionGroup title="URL" type="code" empty="Any">
                   {experiment.targetURLRegex}
                 </RightRailSectionGroup>
-                {currentPhase?.groups && (
-                  <RightRailSectionGroup title="User Groups" type="pre">
+                {currentPhase?.groups?.length > 0 && (
+                  <RightRailSectionGroup title="User Groups" type="badge">
                     {currentPhase?.groups}
                   </RightRailSectionGroup>
                 )}

@@ -33,7 +33,6 @@ export async function addGroupsDiff(
   oldGroups: string[],
   newGroups: string[]
 ) {
-  if (!oldGroups.length) return;
   const diff = newGroups.filter((x) => !oldGroups.includes(x));
   if (diff.length) {
     await addGroups(organization, diff);

@@ -20,6 +20,7 @@ type DefinitionContextValue = Definitions & {
   ready: boolean;
   error?: string;
   refreshTags: (newTags: string[]) => Promise<void>;
+  refreshGroups: (newGroups: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
   getMetricById: (id: string) => null | MetricInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
@@ -33,6 +34,9 @@ const defaultValue: DefinitionContextValue = {
     /* do nothing */
   },
   refreshTags: async () => {
+    /* do nothing */
+  },
+  refreshGroups: async () => {
     /* do nothing */
   },
   metrics: [],
@@ -83,6 +87,18 @@ export const DefinitionsProvider: FC = ({ children }) => {
       getDatasourceById: getByIdFunction(data.datasources),
       getDimensionById: getByIdFunction(data.dimensions),
       getSegmentById: getByIdFunction(data.segments),
+      refreshGroups: async (groups) => {
+        const newGroups = groups.filter((t) => !data.groups.includes(t));
+        if (newGroups.length > 0) {
+          await mutate(
+            {
+              ...data,
+              groups: data.groups.concat(newGroups),
+            },
+            false
+          );
+        }
+      },
       refreshTags: async (tags) => {
         const newTags = tags.filter((t) => !data.tags.includes(t));
         if (newTags.length > 0) {

@@ -51,6 +51,7 @@ import { getFileUploadURL } from "../services/files";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { DimensionInterface } from "../../types/dimension";
+import { addGroupsDiff } from "../services/group";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -812,6 +813,8 @@ export async function postExperimentPhase(
   try {
     exp.set("phases", phases);
     await exp.save();
+
+    await addGroupsDiff(req.organization.id, [], data.groups || []);
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",

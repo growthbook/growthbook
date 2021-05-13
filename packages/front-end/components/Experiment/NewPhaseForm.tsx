@@ -9,6 +9,7 @@ import { useAuth } from "../../services/auth";
 import { useWatching } from "../../services/WatchProvider";
 import { getEvenSplit } from "../../services/utils";
 import GroupsInput from "../GroupsInput";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -39,6 +40,8 @@ const NewPhaseForm: FC<{
     }
   );
 
+  const { refreshGroups } = useDefinitions();
+
   const { apiCall } = useAuth();
 
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
@@ -62,6 +65,7 @@ const NewPhaseForm: FC<{
         body: JSON.stringify(body),
       }
     );
+    await refreshGroups(value.groups);
     mutate();
     refreshWatching();
   };
@@ -170,6 +174,7 @@ const NewPhaseForm: FC<{
           </small>
         </div>
       </div>
+      <div style={{ height: 150 }} />
     </Modal>
   );
 };
