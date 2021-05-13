@@ -42,7 +42,10 @@ import {
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
-import { getMetricsByDatasource } from "../services/experiments";
+import {
+  getMetricsByDatasource,
+  getMetricsByOrganization,
+} from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
 import { DimensionModel } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
@@ -79,6 +82,43 @@ export async function getUser(req: AuthRequest, res: Response) {
       role: getRole(org, req.userId),
       settings: org.settings || {},
     })),
+  });
+}
+
+export async function getDefinitions(req: AuthRequest, res: Response) {
+  const orgId = req.organization?.id;
+  if (!orgId) {
+    throw new Error("Must be part of an organization");
+  }
+
+  const [metrics, datasources, dimensions, segments, tags] = await Promise.all([
+    getMetricsByOrganization(orgId),
+    getDataSourcesByOrganization(orgId),
+    DimensionModel.find({
+      organization: orgId,
+    }),
+    SegmentModel.find({
+      organization: orgId,
+    }),
+    getAllTags(orgId),
+  ]);
+
+  return res.status(200).json({
+    status: 200,
+    metrics,
+    datasources: datasources.map((d) => {
+      const integration = getSourceIntegrationObject(d);
+      return {
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        settings: d.settings,
+        params: integration.getNonSensitiveParams(),
+      };
+    }),
+    dimensions,
+    segments,
+    tags,
   });
 }
 

@@ -1,9 +1,9 @@
 import { FC } from "react";
-import useDatasources from "../../hooks/useDatasources";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -14,7 +14,7 @@ const EditDataSourceForm: FC<{
     datasource: experiment.datasource || "",
     trackingKey: experiment.trackingKey || "",
   });
-  const { datasources } = useDatasources();
+  const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
 
   return (

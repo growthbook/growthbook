@@ -1,14 +1,12 @@
 import { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  useMetrics,
-  formatConversionRate,
-} from "../../services/MetricsContext";
+import { formatConversionRate } from "../../services/metrics";
 import LinearImprovementGraph from "./LinearImprovementGraph";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
 import { CgAlignLeft, CgAlignCenter } from "react-icons/cg";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -20,7 +18,7 @@ const CompactResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
 }> = ({ snapshot, experiment }) => {
-  const { getDisplayName, getMetricType, isInverse } = useMetrics();
+  const { getMetricById } = useDefinitions();
 
   const results = snapshot.results[0];
   const variations = results?.variations || [];
@@ -129,10 +127,11 @@ const CompactResults: FC<{
             ))}
           </tr>
           {experiment.metrics?.map((m) => {
+            const metric = getMetricById(m);
             if (!variations[0]?.metrics?.[m]) {
               return (
                 <tr key={m}>
-                  <th>{getDisplayName(m)}</th>
+                  <th>{metric.name}</th>
                   {experiment.variations.map((v, i) => {
                     const stats = { ...variations[i]?.metrics?.[m] };
                     return (
@@ -141,7 +140,7 @@ const CompactResults: FC<{
                           {stats.value ? (
                             <>
                               <div className="result-number">
-                                {formatConversionRate(type, stats.cr)}
+                                {formatConversionRate(metric.type, stats.cr)}
                               </div>
                               <div>
                                 <small className="text-muted">
@@ -165,13 +164,9 @@ const CompactResults: FC<{
                 </tr>
               );
             }
-
-            const type = getMetricType(m);
-            const inverse = isInverse(m);
-
             return (
               <tr key={m}>
-                <th>{getDisplayName(m)}</th>
+                <th>{metric.name}</th>
                 {experiment.variations.map((v, i) => {
                   const stats = { ...variations[i].metrics[m] };
 
@@ -194,7 +189,7 @@ const CompactResults: FC<{
                       <>
                         <td className="value variation">
                           <div className="result-number">
-                            {formatConversionRate(type, stats.cr)}
+                            {formatConversionRate(metric.type, stats.cr)}
                           </div>
                           <div>
                             <small className="text-muted">
@@ -227,7 +222,7 @@ const CompactResults: FC<{
                         })}
                       >
                         <div className="result-number">
-                          {formatConversionRate(type, stats.cr)}
+                          {formatConversionRate(metric.type, stats.cr)}
                         </div>
                         <div>
                           <small className="text-muted">
@@ -275,11 +270,11 @@ const CompactResults: FC<{
                               </div>
                               <div className="bar-holder">
                                 <div
-                                  className={inverse ? "win" : "lose"}
+                                  className={metric.inverse ? "win" : "lose"}
                                   style={{ width: losePercent }}
                                 ></div>
                                 <div
-                                  className={inverse ? "lose" : "win"}
+                                  className={metric.inverse ? "lose" : "win"}
                                   style={{ width: winPercent }}
                                 ></div>
                                 <div className="expected">

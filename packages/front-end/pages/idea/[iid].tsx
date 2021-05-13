@@ -12,20 +12,18 @@ import { UserContext } from "../../components/ProtectedPage";
 import ImpactModal from "../../components/Ideas/ImpactModal";
 import { date } from "../../services/dates";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
-import { useMetrics } from "../../services/MetricsContext";
 import ViewQueryButton from "../../components/Metrics/ViewQueryButton";
 import ImpactProjections from "../../components/Ideas/ImpactProjections";
 import Link from "next/link";
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
-import { useSegments } from "../../services/SegmentsContext";
 import EditableH1 from "../../components/Forms/EditableH1";
 import InlineForm from "../../components/Forms/InlineForm";
 import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import TagsInput from "../../components/TagsInput";
-import { useTags } from "../../services/TagsContext";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -34,13 +32,16 @@ const IdeaPage = (): ReactElement => {
   const [impactOpen, setImpactOpen] = useState(false);
   const [newExperiment, setNewExperiment] = useState(false);
 
-  const { getMetricDatasource, getDisplayName, metrics } = useMetrics();
-  const { getSegmentById } = useSegments();
+  const {
+    getMetricById,
+    metrics,
+    getSegmentById,
+    refreshTags,
+  } = useDefinitions();
 
   const { permissions, getUserDisplay } = useContext(UserContext);
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useTags();
 
   const { push } = useRouter();
 
@@ -177,7 +178,7 @@ const IdeaPage = (): ReactElement => {
                   ...body,
                 },
               });
-              refreshTags();
+              refreshTags(value.tags);
               setEdit(false);
             }}
             setEdit={setEdit}
@@ -320,7 +321,7 @@ const IdeaPage = (): ReactElement => {
                     canOpen={true}
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
-                      {getDisplayName(estimate?.metric)}
+                      {getMetricById(estimate?.metric)?.name}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup title="URLs" type="code">
                       {estimate?.regex || ".*"}
@@ -386,7 +387,7 @@ const IdeaPage = (): ReactElement => {
             tags: idea.tags,
             targetURLRegex: data?.estimate?.regex || "",
             datasource: data?.estimate?.metric
-              ? getMetricDatasource(data?.estimate?.metric)
+              ? getMetricById(data?.estimate?.metric)?.datasource
               : undefined,
             metrics: data?.estimate?.metric ? [data?.estimate?.metric] : [],
           }}

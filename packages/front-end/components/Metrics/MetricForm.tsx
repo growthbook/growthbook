@@ -1,13 +1,13 @@
 import { FC, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
-import useDatasources from "../../hooks/useDatasources";
 import useForm from "../../hooks/useForm";
 import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -25,7 +25,7 @@ const MetricForm: FC<MetricFormProps> = ({
   onClose,
   initialStep = 0,
 }) => {
-  const { datasources, getById } = useDatasources();
+  const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
 
   const metricTypeOptions = [
@@ -83,7 +83,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const currentDataSource = getById(value.datasource);
+  const currentDataSource = getDatasourceById(value.datasource);
 
   const datasourceType = currentDataSource?.type;
 

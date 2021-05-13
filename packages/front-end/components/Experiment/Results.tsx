@@ -6,12 +6,12 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import { phaseSummary } from "../../services/utils";
 import clsx from "clsx";
 import { UserContext } from "../ProtectedPage";
-import { useDimensions } from "../../services/DimensionsContext";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
 import { FaChartArea, FaPencilAlt, FaTable } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const ExperimentResultsOverview = dynamic(
   () => import("./ExperimentResultsOverview")
@@ -24,7 +24,7 @@ const Results: FC<{
   editMetrics: () => void;
   editResult: () => void;
 }> = ({ experiment, editMetrics, editResult }) => {
-  const { dimensions } = useDimensions();
+  const { dimensions } = useDefinitions();
 
   const [layout, setLayout] = useState<"compact" | "full">("compact");
 

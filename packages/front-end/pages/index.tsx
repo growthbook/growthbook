@@ -2,16 +2,14 @@ import React from "react";
 import Head from "next/head";
 //import FeedbackLoop from "../components/HomePage/FeedbackLoop";
 import Link from "next/link";
-import { useMetrics } from "../services/MetricsContext";
-import useDatasources from "../hooks/useDatasources";
 import { FaCheck } from "react-icons/fa";
 import clsx from "clsx";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 export default function Home(): React.ReactElement {
-  const { metrics, ready } = useMetrics();
-  const { datasources } = useDatasources();
+  const { metrics, ready, datasources } = useDefinitions();
 
   const isNew = metrics.length < 1;
 

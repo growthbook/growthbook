@@ -4,8 +4,8 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaSpinner } from "react-icons/fa";
 import { useAuth } from "../services/auth";
-import useDatasources from "../hooks/useDatasources";
 import Link from "next/link";
+import { useDefinitions } from "../services/DefinitionsContext";
 //import Link from "next/link";
 
 export interface Property {
@@ -42,8 +42,8 @@ const EventsPage = (): React.ReactElement => {
     datasources,
     ready,
     error: datasourceError,
-    getById,
-  } = useDatasources();
+    getDatasourceById,
+  } = useDefinitions();
   const { data, error, mutate } = useApi<EventsApiResponse>("/events");
 
   useEffect(() => {
@@ -72,7 +72,7 @@ const EventsPage = (): React.ReactElement => {
     );
   }
 
-  const datasourceObj = getById(datasource);
+  const datasourceObj = getDatasourceById(datasource);
   // BYO data sources already have tools to view events
   const eventsAllowed = datasourceObj.type === "athena";
 

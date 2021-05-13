@@ -15,8 +15,8 @@ import EditableH1 from "../../components/Forms/EditableH1";
 import InlineForm from "../../components/Forms/InlineForm";
 import TagsInput from "../../components/TagsInput";
 import MarkdownEditor from "../../components/Forms/MarkdownEditor";
-import { useTags } from "../../services/TagsContext";
 import { LearningInterface } from "back-end/types/insight";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const InsightPage = (): ReactElement => {
   const router = useRouter();
@@ -26,7 +26,7 @@ const InsightPage = (): ReactElement => {
   const { push } = useRouter();
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useTags();
+  const { refreshTags } = useDefinitions();
 
   const { data, error: dataError, mutate } = useApi<{
     status: number;
@@ -120,7 +120,7 @@ const InsightPage = (): ReactElement => {
                   details,
                 },
               });
-              refreshTags();
+              refreshTags(value.tags);
               setEdit(false);
             }}
             initialValue={{

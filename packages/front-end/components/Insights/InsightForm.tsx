@@ -4,10 +4,10 @@ import useForm from "../../hooks/useForm";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import TagsInput from "../TagsInput";
-import { useTags } from "../../services/TagsContext";
 import { FaPlus } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const InsightForm: FC<{
   insight: Partial<LearningInterface>;
@@ -34,7 +34,7 @@ const InsightForm: FC<{
   const edit = !!insight.id;
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useTags();
+  const { refreshTags } = useDefinitions();
 
   const submit = async () => {
     const body = {
@@ -49,7 +49,7 @@ const InsightForm: FC<{
       }
     );
     mutate();
-    refreshTags();
+    refreshTags(value.tags);
   };
 
   return (

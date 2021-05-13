@@ -25,7 +25,6 @@ import {
   FaCode,
 } from "react-icons/fa";
 import Link from "next/link";
-import { useMetrics } from "../../services/MetricsContext";
 import { ago, datetime } from "../../services/dates";
 import InsightForm from "../../components/Insights/InsightForm";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
@@ -39,8 +38,6 @@ import ConfirmModal from "../../components/ConfirmModal";
 import WatchButton from "../../components/Experiment/WatchButton";
 import { UserContext } from "../../components/ProtectedPage";
 import HistoryTable from "../../components/HistoryTable";
-import { useSegments } from "../../services/SegmentsContext";
-import useDatasources from "../../hooks/useDatasources";
 import EditTagsForm from "../../components/Experiment/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
 import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
@@ -55,6 +52,7 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import InstructionsModal from "../../components/Experiment/InstructionsModal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { okaidia } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -81,10 +79,8 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization);
 
-  const { getDisplayName } = useMetrics();
+  const { getMetricById, getSegmentById, getDatasourceById } = useDefinitions();
   const { permissions } = useContext(UserContext);
-  const { getSegmentById } = useSegments();
-  const { getById } = useDatasources();
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -148,7 +144,7 @@ const ExperimentPage = (): ReactElement => {
       ? permissions.draftExperiments
       : permissions.runExperiments;
 
-  const datasource = getById(experiment.datasource);
+  const datasource = getDatasourceById(experiment.datasource);
 
   return (
     <div className={wrapClasses}>
@@ -595,11 +591,11 @@ const ExperimentPage = (): ReactElement => {
               >
                 {experiment.activationMetric && (
                   <RightRailSectionGroup title="Activation Metric" type="badge">
-                    {getDisplayName(experiment.activationMetric)}
+                    {getMetricById(experiment.activationMetric)?.name}
                   </RightRailSectionGroup>
                 )}
                 <RightRailSectionGroup title="Goal Metrics" type="badge">
-                  {experiment.metrics.map((m) => getDisplayName(m))}
+                  {experiment.metrics.map((m) => getMetricById(m)?.name)}
                 </RightRailSectionGroup>
               </RightRailSection>
               <hr />

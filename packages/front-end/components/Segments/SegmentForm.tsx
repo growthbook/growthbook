@@ -1,19 +1,21 @@
 import { FC } from "react";
-import useDatasources from "../../hooks/useDatasources";
 import Modal from "../Modal";
 import { SegmentInterface } from "back-end/types/segment";
 import useForm from "../../hooks/useForm";
 import TextareaAutosize from "react-textarea-autosize";
 import { useAuth } from "../../services/auth";
-import { useSegments } from "../../services/SegmentsContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const SegmentForm: FC<{
   close: () => void;
   current: Partial<SegmentInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { datasources, getById } = useDatasources();
-  const { refresh } = useSegments();
+  const {
+    datasources,
+    getDatasourceById,
+    mutateDefinitions,
+  } = useDefinitions();
   const [value, inputProps] = useForm(
     {
       name: current.name || "",
@@ -27,7 +29,7 @@ const SegmentForm: FC<{
     (d) => d.type !== "google_analytics"
   );
 
-  const datasource = getById(value.datasource);
+  const datasource = getDatasourceById(value.datasource);
 
   return (
     <Modal
@@ -39,7 +41,7 @@ const SegmentForm: FC<{
           method: current.id ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
-        refresh();
+        mutateDefinitions({});
       }}
     >
       <div className="form-group">

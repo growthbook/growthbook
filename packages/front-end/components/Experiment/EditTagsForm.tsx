@@ -1,9 +1,9 @@
 import { FC, useState } from "react";
 import { useAuth } from "../../services/auth";
-import { useTags } from "../../services/TagsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import TagsInput from "../TagsInput";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const EditTagsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -12,7 +12,7 @@ const EditTagsForm: FC<{
 }> = ({ experiment, cancel, mutate }) => {
   const [tags, setTags] = useState(experiment.tags || []);
   const { apiCall } = useAuth();
-  const { refreshTags } = useTags();
+  const { refreshTags } = useDefinitions();
 
   return (
     <Modal
@@ -26,7 +26,7 @@ const EditTagsForm: FC<{
             tags,
           }),
         });
-        refreshTags();
+        refreshTags(tags);
         mutate();
       }}
       cta="Save"

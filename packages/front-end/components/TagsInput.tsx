@@ -1,12 +1,12 @@
 import { FC } from "react";
 import { Typeahead } from "react-bootstrap-typeahead";
-import { useTags } from "../services/TagsContext";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
   value: string[];
 }> = ({ onChange, value }) => {
-  const { tags } = useTags();
+  const { tags } = useDefinitions();
 
   return (
     <Typeahead

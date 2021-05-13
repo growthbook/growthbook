@@ -1,11 +1,10 @@
 import { FC } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import useDatasources from "../../hooks/useDatasources";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
-import { useSegments } from "../../services/SegmentsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const EditTargetingForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -19,14 +18,14 @@ const EditTargetingForm: FC<{
     targeting: experiment.targeting || "",
   });
   const { apiCall } = useAuth();
-  const { segments } = useSegments();
-  const { getById } = useDatasources();
+  const { segments, getDatasourceById } = useDefinitions();
 
   const segmentsWithTargeting = segments
     ? segments.filter((s) => s.targeting && s.targeting.length >= 5)
     : [];
 
-  const supportsUserIds = getById(experiment.datasource)?.type !== "mixpanel";
+  const supportsUserIds =
+    getDatasourceById(experiment.datasource)?.type !== "mixpanel";
 
   return (
     <Modal

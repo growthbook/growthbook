@@ -10,12 +10,8 @@ import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
 import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
-import {
-  useMetrics,
-  formatConversionRate,
-} from "../../services/MetricsContext";
+import { formatConversionRate } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
-import useDatasources from "../../hooks/useDatasources";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
@@ -33,14 +29,14 @@ import InlineForm from "../../components/Forms/InlineForm";
 import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const { permissions } = useContext(UserContext);
   const { apiCall } = useAuth();
-  const { refresh } = useMetrics();
-  const { getById } = useDatasources();
+  const { mutateDefinitions, getDatasourceById } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
 
   const [editing, setEditing] = useState(false);
@@ -61,7 +57,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEdit = permissions.createMetrics;
-  const datasource = metric.datasource ? getById(metric.datasource) : null;
+  const datasource = metric.datasource
+    ? getDatasourceById(metric.datasource)
+    : null;
   const experiments = data.experiments;
 
   const datasourceDefaults = datasource?.settings?.default;
@@ -90,7 +88,7 @@ const MetricPage: FC = () => {
           onClose={(success) => {
             setEditModalOpen(false);
             if (success) {
-              refresh();
+              mutateDefinitions({});
               mutate();
             }
           }}
@@ -115,7 +113,7 @@ const MetricPage: FC = () => {
                 await apiCall(`/metric/${metric.id}`, {
                   method: "DELETE",
                 });
-                refresh();
+                mutateDefinitions({});
                 router.push("/metrics");
               }}
               displayName={"Metric '" + metric.name + "'"}

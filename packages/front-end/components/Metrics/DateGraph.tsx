@@ -11,7 +11,7 @@ import {
 import {
   formatConversionRate,
   getMetricConversionTitle,
-} from "../../services/MetricsContext";
+} from "../../services/metrics";
 import { date } from "../../services/dates";
 
 const DateGraph: FC<{

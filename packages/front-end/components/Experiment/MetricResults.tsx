@@ -3,9 +3,9 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import {
   formatConversionRate,
   getMetricConversionTitle,
-  useMetrics,
-} from "../../services/MetricsContext";
+} from "../../services/metrics";
 import PercentImprovementGraph from "./PercentImprovementGraph";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -18,12 +18,13 @@ const MetricResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   variationNames: string[];
 }> = ({ metric, snapshot, variationNames }) => {
-  const { getDisplayName, getMetricType, isInverse } = useMetrics();
+  const { getMetricById } = useDefinitions();
+  const m = getMetricById(metric);
 
   if (!snapshot?.results?.[0]?.variations?.[0]?.metrics?.[metric]) {
     return (
       <div className="my-4 pb-4">
-        <h5 className="metrictitle">{getDisplayName(metric)}</h5>
+        <h5 className="metrictitle">{m.name}</h5>
         <p>
           <em>No data for this metric yet. Try updating results above.</em>
         </p>
@@ -44,19 +45,17 @@ const MetricResults: FC<{
 
   const baselineEnoughData = variations?.[0]?.metrics?.[metric].value > 150;
 
-  const type = getMetricType(metric);
-  const inverse = isInverse(metric);
   return (
     <div className="my-4 pb-4">
-      <h5 className="metrictitle">{getDisplayName(metric)}</h5>
+      <h5 className="metrictitle">{m.name}</h5>
       <table className="table table-bordered results-table">
         <thead>
           <tr>
             <th className="align-middle">Variation</th>
-            <th className="align-middle">{getMetricConversionTitle(type)}</th>
+            <th className="align-middle">{getMetricConversionTitle(m.type)}</th>
             <th className="align-middle">Chance to Beat Control</th>
             <th className="align-middle">
-              Percent {inverse ? "Change" : "Improvement"}
+              Percent {m.inverse ? "Change" : "Improvement"}
               <div
                 className="text-muted"
                 style={{ fontWeight: "normal", fontSize: "0.9em" }}
@@ -85,7 +84,7 @@ const MetricResults: FC<{
                 <td className="varname">{name}</td>
                 <td className="vardata text-center">
                   <strong className="result-number">
-                    {formatConversionRate(type, stats.cr)}
+                    {formatConversionRate(m.type, stats.cr)}
                   </strong>
                   <div>
                     <small>
@@ -122,7 +121,7 @@ const MetricResults: FC<{
                             buckets={stats.buckets}
                             expected={stats.expected}
                             ci={stats.ci}
-                            inverse={inverse}
+                            inverse={m.inverse}
                             domain={domain}
                           />
                           <p className="text-center">

@@ -12,7 +12,7 @@ import {
 import {
   formatConversionRate,
   getMetricConversionTitle,
-} from "../../services/MetricsContext";
+} from "../../services/metrics";
 
 const DistributionGraph: FC<{
   type: MetricType;

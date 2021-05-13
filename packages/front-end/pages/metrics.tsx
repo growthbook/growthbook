@@ -3,12 +3,11 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import { useMetrics } from "../services/MetricsContext";
 import { datetime, ago } from "../services/dates";
 import { UserContext } from "../components/ProtectedPage";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import useDatasources from "../hooks/useDatasources";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -16,12 +15,16 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { ready, metrics, error, refresh: mutate } = useMetrics();
+  const {
+    ready,
+    metrics,
+    error,
+    mutateDefinitions,
+    getDatasourceById,
+  } = useDefinitions();
   const router = useRouter();
 
   const { permissions } = useContext(UserContext);
-
-  const { getById } = useDatasources();
 
   if (error) {
     return <div className="alert alert-danger">An error occurred</div>;
@@ -32,7 +35,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const closeModal = (refresh: boolean) => {
     if (refresh) {
-      mutate();
+      mutateDefinitions({});
     }
     setModalData(null);
   };
@@ -132,7 +135,7 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
-                  ? getById(metric.datasource)?.name || ""
+                  ? getDatasourceById(metric.datasource)?.name || ""
                   : "Manual"}
               </td>
               <td

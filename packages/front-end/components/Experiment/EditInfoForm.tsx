@@ -1,6 +1,5 @@
 import { FC } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
-import useDatasources from "../../hooks/useDatasources";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -8,13 +7,14 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
 import TextareaAutosize from "react-textarea-autosize";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const { getById } = useDatasources();
+  const { getDatasourceById } = useDefinitions();
   const [value, inputProps, manualUpdate] = useForm<
     Partial<ExperimentInterfaceStringDates>
   >(
@@ -57,7 +57,8 @@ const EditInfoForm: FC<{
   const { apiCall } = useAuth();
 
   const variationKeys =
-    getById(value.datasource)?.settings?.experiments?.variationFormat === "key";
+    getDatasourceById(value.datasource)?.settings?.experiments
+      ?.variationFormat === "key";
 
   const deleteVariation = (i: number) => {
     const variations = [...value.variations];

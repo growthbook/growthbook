@@ -1,13 +1,13 @@
 import { FC } from "react";
 import { Typeahead } from "react-bootstrap-typeahead";
-import { useMetrics } from "../../services/MetricsContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const MetricsSelector: FC<{
   datasource?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
 }> = ({ datasource, selected, onChange }) => {
-  const { metrics, getDisplayName } = useMetrics();
+  const { metrics, getMetricById } = useDefinitions();
 
   const validMetrics = metrics.filter(
     (m) => !datasource || m.datasource === datasource
@@ -16,7 +16,7 @@ const MetricsSelector: FC<{
   const toMetricValue = (id: string) => {
     return {
       id,
-      name: getDisplayName(id),
+      name: getMetricById(id)?.name,
     };
   };
 
