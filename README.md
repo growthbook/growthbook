@@ -77,13 +77,14 @@ SITE_MANAGER_EMAIL=admin@example.com
 
 ## Running Growth Book
 
-This is a monorepo with 2 packages - `back-end` and `front-end`. For ease-of-use, we've added helper scripts at the top level that operate on both simultaneously.
+This is a monorepo with 3 packages - `back-end`, `front-end`, and `docs`. For ease-of-use, we've added helper scripts at the top level.
 
 ### Development
 
 - `yarn dev` - Start dev servers with hot reloading
   - Front-end: http://localhost:3000
   - Back-end: http://localhost:3100
+  - Docs: http://localhost:3200
 - `yarn lint` - Run eslint and auto-fix errors when possible
 - `yarn pretty` - Run prettier across the entire codebase
 - `yarn type-check` - Check for typescript compile errors
@@ -95,10 +96,11 @@ For production, you must first build with Typescript/Webpack and then serve it w
 
 - `yarn build:front` - Build the front-end and output to `packages/front-end/dist/`
 - `yarn build:back` - Build the back-end and output to `packages/back-end/dist/`
-- `yarn build` - Build both production bundles in parallel
+- `yarn build:docs` - Build the docs and output to `packages/docs/dist/`
+- `yarn build` - Build everything in parallel
 - `yarn start:front` - Serve the front-end at http://localhost:3000
 - `yarn start:back` - Serve the back-end at http://localhost:3100
-- `yarn start` - Serve both production bundles in parallel
+- `yarn start:docs` - Serve the docs at http://localhost:3200
 
 ## License
 

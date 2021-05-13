@@ -11,9 +11,10 @@
     "build": "wsrun build",
     "build:back": "yarn workspace back-end build",
     "build:front": "yarn workspace front-end build",
-    "start": "wsrun start",
+    "build:docs": "yarn workspace docs build",
     "start:back": "yarn workspace back-end start",
     "start:front": "yarn workspace front-end start",
+    "start:docs": "yarn workspace docs start",
     "init:dev": "wsrun init:dev"
   },
   "workspaces": [
