@@ -85,6 +85,41 @@ pre {
   overflow-x: auto;
 }
 
+.experiment-tooltip {
+  position: absolute;
+  left: 50%;
+  width: 300px;
+  margin-left: -150px;
+  text-align: center;
+  bottom: 0;
+  border-radius: 6px;
+  font-size: 0.8em;
+  background: rgba(255, 255, 255, 0.7);
+  .tooltip-results {
+    .ci-neg {
+      color: $dark-red;
+    }
+    .ci-pos {
+      color: $dark-green;
+    }
+    > div {
+      padding: 0 8px;
+    }
+  }
+  .tooltip-arrow {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    transform: rotate(45deg);
+    right: -8px;
+    top: 70%;
+    background-color: #fff;
+    box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
+    clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
+    border: 1px inset rgba(0, 0, 0, 0.1);
+  }
+}
+
 .experiment-compact {
   border-spacing: 0;
   border: 1px solid #ddd;
@@ -152,6 +187,43 @@ pre {
 
   td.variation:not(.value):not(.won):not(.lost) {
     opacity: 0.6;
+  }
+
+  &.aligned-graph {
+    td.variation:not(.value):not(.won):not(.lost) {
+      opacity: 1;
+      color: #999;
+    }
+  }
+  .aligned-graph-row {
+    .experiment-tooltip {
+      display: none;
+    }
+    &:hover .experiment-tooltip {
+      display: block;
+    }
+  }
+  .compact-graph {
+    padding: 0;
+    position: relative;
+    .expectedwrap {
+      line-height: 20px;
+      padding-right: 10px;
+      min-width: 120px;
+      max-width: 120px;
+      width: 120px;
+      .expectedArrows {
+        font-size: 0.7rem;
+        position: relative;
+        top: -2px;
+      }
+      .errorrange {
+        font-size: 0.9rem;
+      }
+    }
+  }
+  .result-number {
+    line-height: 1rem;
   }
 
   .change-container {

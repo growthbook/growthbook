@@ -7,15 +7,12 @@ import { phaseSummary } from "../../services/utils";
 import clsx from "clsx";
 import { UserContext } from "../ProtectedPage";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
-import { FaChartArea, FaPencilAlt, FaTable } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 
-const ExperimentResultsOverview = dynamic(
-  () => import("./ExperimentResultsOverview")
-);
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
 
@@ -25,8 +22,6 @@ const Results: FC<{
   editResult: () => void;
 }> = ({ experiment, editMetrics, editResult }) => {
   const { dimensions } = useDefinitions();
-
-  const [layout, setLayout] = useState<"compact" | "full">("compact");
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
@@ -150,38 +145,6 @@ const Results: FC<{
             </div>
           </div>
         )}
-        {!dimension && (
-          <div className="col-auto">
-            <div className="btn-group" role="group" style={{ height: 36 }}>
-              <button
-                type="button"
-                title="Compact table view"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setLayout("compact");
-                }}
-                className={clsx("btn btn-sm btn-light", {
-                  active: layout === "compact",
-                })}
-              >
-                <FaTable />
-              </button>
-              <button
-                type="button"
-                title="Expanded graph view"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setLayout("full");
-                }}
-                className={clsx("btn btn-sm btn-light", {
-                  active: layout === "full",
-                })}
-              >
-                <FaChartArea />
-              </button>
-            </div>
-          </div>
-        )}
         <div style={{ flex: 1 }} />
         {permissions.runExperiments && experiment.metrics.length > 0 && (
           <div className="col-auto">
@@ -210,17 +173,7 @@ const Results: FC<{
         <BreakDownResults snapshot={snapshot} experiment={experiment} />
       )}
       {snapshot && !snapshot.dimension && (
-        <>
-          {layout === "compact" && (
-            <CompactResults snapshot={snapshot} experiment={experiment} />
-          )}
-          {layout === "full" && (
-            <ExperimentResultsOverview
-              snapshot={snapshot}
-              experiment={experiment}
-            />
-          )}
-        </>
+        <CompactResults snapshot={snapshot} experiment={experiment} />
       )}
       {snapshot && (
         <div>
