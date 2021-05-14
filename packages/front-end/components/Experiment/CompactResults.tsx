@@ -46,11 +46,7 @@ const CompactResults: FC<{
   domain[0] = lowerBound;
   domain[1] = upperBound;
   // check for outlayers:
-  if (
-    lowerBound < -100 ||
-    upperBound > 100 ||
-    experiment.variations.length > 2
-  ) {
+  if (lowerBound < -100 || upperBound > 100) {
     // these are probably too large to show aligned, as they'll mess up all the other lines
     defaultView = "justify";
   }
@@ -216,7 +212,8 @@ const CompactResults: FC<{
                           <div>
                             <small className="text-muted">
                               <em>
-                                {numberFormatter.format(stats.value)} /{" "}
+                                {numberFormatter.format(stats.value)}
+                                &nbsp;/&nbsp;
                                 {numberFormatter.format(
                                   stats.users || variations[i].users
                                 )}
@@ -249,7 +246,7 @@ const CompactResults: FC<{
                         <div>
                           <small className="text-muted">
                             <em>
-                              {numberFormatter.format(stats.value)} /{" "}
+                              {numberFormatter.format(stats.value)}&nbsp;/&nbsp;
                               {numberFormatter.format(
                                 stats.users || variations[i].users
                               )}

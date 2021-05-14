@@ -85,6 +85,42 @@ pre {
   overflow-x: auto;
 }
 
+.experiment-tooltip {
+  .tooltip-results {
+    padding: 0 10px;
+
+    text-align: center;
+    p {
+      margin: 0 0 0.4em;
+    }
+    .ci-neg {
+      color: $dark-red;
+    }
+    .ci-pos {
+      color: $dark-green;
+    }
+    .result-text {
+      min-width: 100px;
+    }
+    .tooltip-ci {
+      min-width: 80px;
+      text-align: left;
+    }
+  }
+  .tooltip-arrow {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    transform: rotate(45deg);
+    right: -8px;
+    top: 40%;
+    background-color: #fff;
+    box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
+    clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
+    border: 1px inset rgba(0, 0, 0, 0.1);
+  }
+}
+
 .experiment-compact {
   border-spacing: 0;
   border: 1px solid #ddd;
@@ -164,9 +200,11 @@ pre {
     padding: 0;
     position: relative;
     .expectedwrap {
-      line-height: 68px;
+      line-height: 20px;
       padding-right: 10px;
       min-width: 120px;
+      max-width: 120px;
+      width: 120px;
       .expectedArrows {
         font-size: 0.7rem;
         position: relative;
@@ -175,39 +213,6 @@ pre {
       .errorrange {
         font-size: 0.9rem;
       }
-    }
-    .tooltip-results {
-      padding: 0 10px;
-
-      text-align: center;
-      p {
-        margin: 0 0 0.4em;
-      }
-      .ci-neg {
-        color: $dark-red;
-      }
-      .ci-pos {
-        color: $dark-green;
-      }
-      .result-text {
-        min-width: 100px;
-      }
-      .tooltip-ci {
-        min-width: 80px;
-        text-align: left;
-      }
-    }
-    .tooltip-arrow {
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      transform: rotate(45deg);
-      right: -8px;
-      top: 40%;
-      background-color: #fff;
-      box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
-      clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
-      border: 1px inset rgba(0, 0, 0, 0.1);
     }
   }
   .result-number {

@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";
@@ -8,6 +8,7 @@ import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import PercentImprovementGraph from "./PercentImprovementGraph";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import Portal from "./Portal";
 
 export interface Props {
   ci?: [number, number] | [];
@@ -51,6 +52,7 @@ const AlignedGraph: FC<Props> = ({
   expectedColor = "#fb8500",
 }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipOffset, setTooltipOffset] = useState<[number, number]>([0, 0]);
 
   const barThickness = 16;
   const tooltipWidth = 250;
@@ -68,8 +70,6 @@ const AlignedGraph: FC<Props> = ({
   // add some spacing around the graph
   domain = [domain[0] * 1.2, domain[1] * 1.2];
 
-  let tooltipTimeout: number;
-
   const tickFormat = (v: number) => {
     return " " + Math.round(v * 100) + "%";
   };
@@ -83,7 +83,7 @@ const AlignedGraph: FC<Props> = ({
 
   return (
     <>
-      <div className="d-flex aligned-graph">
+      <div className="d-flex aligned-graph align-items-center text-right">
         <div className="flex-grow-1">
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
@@ -103,12 +103,13 @@ const AlignedGraph: FC<Props> = ({
                       width={graphWidth}
                       height={height}
                       onMouseLeave={() => {
-                        tooltipTimeout = window.setTimeout(() => {
-                          setTooltipOpen(false);
-                        }, 200);
+                        setTooltipOpen(false);
+                      }}
+                      onMouseEnter={(e) => {
+                        const boundingBox = (e.target as HTMLElement).getBoundingClientRect();
+                        setTooltipOffset([boundingBox.x, boundingBox.y]);
                       }}
                       onMouseMove={() => {
-                        if (tooltipTimeout) clearTimeout(tooltipTimeout);
                         setTooltipOpen(true);
                       }}
                     >
@@ -191,81 +192,84 @@ const AlignedGraph: FC<Props> = ({
               </span>
             </div>
             {tooltipOpen && (
-              <Tooltip
-                top={-1 * height}
-                left={-1 * tooltipWidth - 10}
-                style={{
-                  position: "absolute",
-                  backgroundColor: "white",
-                  color: "rgb(102, 102, 102)",
-                  padding: "0.5rem 0.5rem",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  boxShadow: "rgb(33 33 33 / 45%) 0px 1px 2px",
-                  lineHeight: "1em",
-                  pointerEvents: "none",
-                  opacity: 1,
-                  zIndex: 1000,
-                }}
-              >
-                <div className="tooltip-arrow"></div>
-                <div style={{ width: tooltipWidth }}>
-                  <p className="text-center">{metricName} change</p>
-                  <PercentImprovementGraph
-                    uid={"" + Math.floor(Math.random() * 10000)}
-                    buckets={stats.buckets}
-                    expected={stats.expected}
-                    ci={stats.ci}
-                    height={100}
-                    inverse={inverse}
-                    domain={[ci[0], ci[1]]}
-                  />
-                  <div className="tooltip-results">
-                    {!significant && (
-                      <p className="text-muted">(not significant)</p>
-                    )}
-                    <div className="d-flex justify-content-center mb-1">
-                      <div className="px-1 result-text text-right">
-                        Worst case:
+              <Portal>
+                <Tooltip
+                  top={-1 * height + tooltipOffset[1]}
+                  left={-1 * tooltipWidth - 10 + tooltipOffset[0]}
+                  style={{
+                    position: "absolute",
+                    backgroundColor: "white",
+                    color: "rgb(102, 102, 102)",
+                    padding: "0.5rem 0.5rem",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    boxShadow: "rgb(33 33 33 / 45%) 0px 1px 2px",
+                    lineHeight: "1em",
+                    pointerEvents: "none",
+                    opacity: 1,
+                    zIndex: 1000,
+                  }}
+                  className="experiment-tooltip"
+                >
+                  <div className="tooltip-arrow"></div>
+                  <div style={{ width: tooltipWidth }}>
+                    <p className="text-center">{metricName} change</p>
+                    <PercentImprovementGraph
+                      uid={"" + Math.floor(Math.random() * 10000)}
+                      buckets={stats.buckets}
+                      expected={stats.expected}
+                      ci={stats.ci}
+                      height={100}
+                      inverse={inverse}
+                      domain={[ci[0], ci[1]]}
+                    />
+                    <div className="tooltip-results">
+                      {!significant && (
+                        <p className="text-muted">(not significant)</p>
+                      )}
+                      <div className="d-flex justify-content-center mb-1">
+                        <div className="px-1 result-text text-right">
+                          Worst case:
+                        </div>
+                        <div
+                          className={`px-1 tooltip-ci ci-worst ${
+                            ci[0] < 0 ? "ci-neg" : "ci-pos"
+                          }`}
+                        >
+                          {ci[0] > 0 && "+"}
+                          {parseFloat((ci[0] * 100).toFixed(2))}%
+                        </div>
                       </div>
-                      <div
-                        className={`px-1 tooltip-ci ci-worst ${
-                          ci[0] < 0 ? "ci-neg" : "ci-pos"
-                        }`}
-                      >
-                        {ci[0] > 0 && "+"}
-                        {parseFloat((ci[0] * 100).toFixed(2))}%
+                      <div className="d-flex justify-content-center mb-1">
+                        <div className="px-1 result-text text-right">
+                          Most likely:
+                        </div>
+                        <div
+                          className={`px-1 tooltip-ci ci-likely ${
+                            expected < 0 ? "ci-neg" : "ci-pos"
+                          }`}
+                        >
+                          {expected > 0 && "+"}
+                          {parseFloat((expected * 100).toFixed(2))}%
+                        </div>
                       </div>
-                    </div>
-                    <div className="d-flex justify-content-center mb-1">
-                      <div className="px-1 result-text text-right">
-                        Most likely:
-                      </div>
-                      <div
-                        className={`px-1 tooltip-ci ci-likely ${
-                          expected < 0 ? "ci-neg" : "ci-pos"
-                        }`}
-                      >
-                        {expected > 0 && "+"}
-                        {parseFloat((expected * 100).toFixed(2))}%
-                      </div>
-                    </div>
-                    <div className="d-flex justify-content-center mb-1">
-                      <div className="px-1 result-text text-right">
-                        Best case:
-                      </div>
-                      <div
-                        className={`px-1 tooltip-ci ci-best ${
-                          ci[1] < 0 ? "ci-neg" : "ci-pos"
-                        }`}
-                      >
-                        {ci[1] > 0 && "+"}
-                        {parseFloat((ci[1] * 100).toFixed(2))}%
+                      <div className="d-flex justify-content-center mb-1">
+                        <div className="px-1 result-text text-right">
+                          Best case:
+                        </div>
+                        <div
+                          className={`px-1 tooltip-ci ci-best ${
+                            ci[1] < 0 ? "ci-neg" : "ci-pos"
+                          }`}
+                        >
+                          {ci[1] > 0 && "+"}
+                          {parseFloat((ci[1] * 100).toFixed(2))}%
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Tooltip>
+                </Tooltip>
+              </Portal>
             )}
           </>
         )}
