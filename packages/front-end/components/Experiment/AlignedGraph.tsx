@@ -83,104 +83,109 @@ const AlignedGraph: FC<Props> = ({
 
   return (
     <>
-      <div className="d-flex aligned-graph align-items-center text-right">
+      <div className="d-flex aligned-graph align-items-center">
         <div className="flex-grow-1">
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
-              {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                ({ width: visWidth, height: visHeight }) => {
-                  const yScale = scaleLinear({
-                    domain: [0, 100],
-                    range: [0, visHeight],
-                  });
-                  const xScale = scaleLinear({
-                    domain: domain,
-                    range: [0, graphWidth],
-                  });
-                  return (
-                    <svg
-                      width={graphWidth}
-                      height={height}
-                      onMouseLeave={() => {
-                        setTooltipOpen(false);
-                      }}
-                      onMouseEnter={(e) => {
-                        const boundingBox = (e.target as HTMLElement).getBoundingClientRect();
-                        setTooltipOffset([boundingBox.x, boundingBox.y]);
-                      }}
-                      onMouseMove={() => {
-                        setTooltipOpen(true);
-                      }}
-                    >
-                      {!showAxis && (
-                        <>
-                          <GridColumns
-                            scale={xScale}
-                            width={graphWidth}
-                            height={visHeight}
-                            stroke={gridColor}
-                            numTicks={numTicks}
-                          />
-                        </>
-                      )}
-                      {showAxis && (
-                        <Axis
-                          key={`test`}
-                          orientation={Orientation.top}
-                          top={visHeight}
+              {({ height: visHeight }) => {
+                const yScale = scaleLinear({
+                  domain: [0, 100],
+                  range: [0, visHeight],
+                });
+                const xScale = scaleLinear({
+                  domain: domain,
+                  range: [0, graphWidth],
+                });
+                return (
+                  <svg
+                    width={graphWidth}
+                    height={height}
+                    onMouseLeave={() => {
+                      setTooltipOpen(false);
+                    }}
+                    onMouseEnter={(e) => {
+                      const boundingBox = (e.target as HTMLElement).getBoundingClientRect();
+                      const scrollOffsetParent = (e.target as HTMLElement).closest(
+                        ".experiment-compact-holder"
+                      ) as HTMLElement;
+                      const minX =
+                        scrollOffsetParent?.getBoundingClientRect()?.x || 0;
+                      setTooltipOffset([
+                        Math.max(boundingBox.x, minX + 80),
+                        boundingBox.y,
+                      ]);
+                    }}
+                    onMouseMove={() => {
+                      setTooltipOpen(true);
+                    }}
+                  >
+                    {!showAxis && (
+                      <>
+                        <GridColumns
                           scale={xScale}
-                          tickLength={5}
-                          tickFormat={tickFormat}
-                          stroke={axisColor}
-                          tickStroke={axisColor}
-                          tickLabelProps={tickLabelProps}
-                          tickClassName="ticktext"
+                          width={graphWidth}
+                          height={visHeight}
+                          stroke={gridColor}
                           numTicks={numTicks}
                         />
-                      )}
-                      {!axisOnly && (
-                        <>
-                          <AxisLeft
-                            key={`test`}
-                            orientation={Orientation.left}
-                            left={xScale(0)}
-                            scale={yScale}
-                            tickFormat={tickFormat}
-                            stroke={zeroLineColor}
-                            /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
-                            numTicks={0}
-                          />
-                          <rect
-                            x={xScale(ci[0])}
-                            y={barHeight}
-                            width={xScale(ci[1]) - xScale(ci[0])}
-                            height={barThickness}
-                            fill={significant ? sigBarColor : barColor}
-                            rx={8}
-                          />
-                          <Line
-                            fill="#000000"
-                            strokeWidth={3}
-                            stroke={expectedColor}
-                            from={{ x: xScale(expected), y: barHeight }}
-                            to={{
-                              x: xScale(expected),
-                              y: barHeight + barThickness,
-                            }}
-                          />
-                        </>
-                      )}
-                    </svg>
-                  );
-                }
-              }
+                      </>
+                    )}
+                    {showAxis && (
+                      <Axis
+                        key={`test`}
+                        orientation={Orientation.top}
+                        top={visHeight}
+                        scale={xScale}
+                        tickLength={5}
+                        tickFormat={tickFormat}
+                        stroke={axisColor}
+                        tickStroke={axisColor}
+                        tickLabelProps={tickLabelProps}
+                        tickClassName="ticktext"
+                        numTicks={numTicks}
+                      />
+                    )}
+                    {!axisOnly && (
+                      <>
+                        <AxisLeft
+                          key={`test`}
+                          orientation={Orientation.left}
+                          left={xScale(0)}
+                          scale={yScale}
+                          tickFormat={tickFormat}
+                          stroke={zeroLineColor}
+                          /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
+                          numTicks={0}
+                        />
+                        <rect
+                          x={xScale(ci[0])}
+                          y={barHeight}
+                          width={xScale(ci[1]) - xScale(ci[0])}
+                          height={barThickness}
+                          fill={significant ? sigBarColor : barColor}
+                          rx={8}
+                        />
+                        <Line
+                          fill="#000000"
+                          strokeWidth={3}
+                          stroke={expectedColor}
+                          from={{ x: xScale(expected), y: barHeight }}
+                          to={{
+                            x: xScale(expected),
+                            y: barHeight + barThickness,
+                          }}
+                        />
+                      </>
+                    )}
+                  </svg>
+                );
+              }}
             </ParentSize>
           </div>
         </div>
         {!axisOnly && (
           <>
-            <div className="expectedwrap">
+            <div className="expectedwrap text-right">
               <span className="expectedArrows">
                 {expected > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}

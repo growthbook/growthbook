@@ -1,9 +1,8 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { formatConversionRate } from "../../services/metrics";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
-import { CgAlignLeft, CgAlignCenter } from "react-icons/cg";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
@@ -23,7 +22,6 @@ const CompactResults: FC<{
   const results = snapshot.results[0];
   const variations = results?.variations || [];
 
-  let defaultView = "zero";
   let lowerBound: number, upperBound: number;
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
@@ -45,27 +43,12 @@ const CompactResults: FC<{
   // store domaine for rechart
   domain[0] = lowerBound;
   domain[1] = upperBound;
-  // check for outlayers:
-  if (lowerBound < -100 || upperBound > 100) {
-    // these are probably too large to show aligned, as they'll mess up all the other lines
-    defaultView = "justify";
-  }
-
-  const [alignGraphs, setAlignGraphs] = useState(defaultView);
-
-  // change the icons depending on the alignment of the graphs:
-  const alignLink =
-    alignGraphs === "zero" ? <CgAlignLeft /> : <CgAlignCenter />;
 
   return (
     <div className="mb-4 pb-4 experiment-compact-holder">
       <SRMWarning srm={results.srm} />
 
-      <table
-        className={`table experiment-compact ${
-          alignGraphs === "zero" ? "aligned-graph" : ""
-        }`}
-      >
+      <table className={`table experiment-compact aligned-graph`}>
         <thead>
           <tr>
             <th rowSpan={2} className="metric">
@@ -92,22 +75,7 @@ const CompactResults: FC<{
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Percent Change (95% CI){" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (alignGraphs === "zero") {
-                          setAlignGraphs("justify");
-                        } else {
-                          setAlignGraphs("zero");
-                        }
-                      }}
-                      title="Change graph view"
-                      style={{ fontSize: "1.2em" }}
-                    >
-                      {alignLink}
-                    </a>
+                    Percent Change (95% CI)
                   </th>
                 )}
               </>
@@ -126,18 +94,16 @@ const CompactResults: FC<{
                   <>
                     <td className="empty-td"></td>
                     <td className="p-0">
-                      {alignGraphs === "zero" && (
-                        <div>
-                          <AlignedGraph
-                            domain={domain}
-                            significant={true}
-                            showAxis={true}
-                            axisOnly={true}
-                            //width="100%"
-                            height={50}
-                          />
-                        </div>
-                      )}
+                      <div>
+                        <AlignedGraph
+                          domain={domain}
+                          significant={true}
+                          showAxis={true}
+                          axisOnly={true}
+                          //width="100%"
+                          height={50}
+                        />
+                      </div>
                     </td>
                   </>
                 )}
@@ -189,13 +155,6 @@ const CompactResults: FC<{
                   const stats = { ...variations[i].metrics[m] };
 
                   const ci = stats.ci || [];
-                  const range = ci[1] - ci[0];
-                  const losePercent =
-                    ((ci[0] < 0 ? Math.abs(ci[0]) / range : 0) * 100).toFixed(
-                      2
-                    ) + "%";
-                  const winPercent =
-                    ((ci[1] > 0 ? ci[1] / range : 0) * 100).toFixed(2) + "%";
                   const expected = stats.expected;
 
                   if (
@@ -277,48 +236,22 @@ const CompactResults: FC<{
                             }
                           )}
                         >
-                          {alignGraphs === "zero" && (
-                            <div>
-                              <AlignedGraph
-                                ci={ci}
-                                domain={domain}
-                                expected={expected}
-                                significant={
-                                  stats.chanceToWin > 0.95 ||
-                                  stats.chanceToWin < 0.05
-                                }
-                                stats={stats}
-                                metricName={metric.name}
-                                inverse={metric.inverse}
-                                showAxis={false}
-                                height={70}
-                              />
-                            </div>
-                          )}
-                          {alignGraphs !== "zero" && (
-                            <div className="change-container">
-                              <div className="left-label">
-                                {percentFormatter.format(ci[0])}
-                              </div>
-                              <div className="bar-holder">
-                                <div
-                                  className={metric.inverse ? "win" : "lose"}
-                                  style={{ width: losePercent }}
-                                ></div>
-                                <div
-                                  className={metric.inverse ? "lose" : "win"}
-                                  style={{ width: winPercent }}
-                                ></div>
-                                <div className="expected">
-                                  {percentFormatter.format(expected)}
-                                </div>
-                                <div className="midline" />
-                              </div>
-                              <div className="right-label">
-                                {percentFormatter.format(ci[1])}
-                              </div>
-                            </div>
-                          )}
+                          <div>
+                            <AlignedGraph
+                              ci={ci}
+                              domain={domain}
+                              expected={expected}
+                              significant={
+                                stats.chanceToWin > 0.95 ||
+                                stats.chanceToWin < 0.05
+                              }
+                              stats={stats}
+                              metricName={metric.name}
+                              inverse={metric.inverse}
+                              showAxis={false}
+                              height={70}
+                            />
+                          </div>
                         </td>
                       )}
                     </>
