@@ -9,7 +9,6 @@ const segmentSchema = new mongoose.Schema({
   sql: String,
   dateCreated: Date,
   dateUpdated: Date,
-  targeting: String,
 });
 export type SegmentDocument = mongoose.Document & SegmentInterface;
 

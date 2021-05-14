@@ -6,5 +6,4 @@ export interface SegmentInterface {
   sql: string;
   dateCreated: Date;
   dateUpdated: Date;
-  targeting?: string;
 }

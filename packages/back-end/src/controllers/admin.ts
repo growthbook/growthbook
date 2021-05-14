@@ -181,7 +181,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Male",
     sql:
       "SELECT user_id, '2020-01-01 00:00:00'::timestamp as date from users where gender='male'",
-    targeting: "gender=male",
     id: uniqid("seg_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),

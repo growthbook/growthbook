@@ -72,12 +72,10 @@ const experimentSchema = new mongoose.Schema({
       reason: String,
       coverage: Number,
       variationWeights: [Number],
-      targeting: String,
+      groups: [String],
     },
   ],
   data: String,
-  targeting: String,
-  segment: String,
   lastSnapshotAttempt: Date,
   autoSnapshots: Boolean,
 });

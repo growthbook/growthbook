@@ -6,9 +6,10 @@ import {
 import useForm from "../../hooks/useForm";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
-import TextareaAutosize from "react-textarea-autosize";
 import { useWatching } from "../../services/WatchProvider";
 import { getEvenSplit } from "../../services/utils";
+import GroupsInput from "../GroupsInput";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -31,13 +32,15 @@ const NewPhaseForm: FC<{
         getEvenSplit(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      targeting: prevPhase.targeting || "",
+      groups: prevPhase.groups || [],
     },
     experiment.id,
     {
       className: "form-control",
     }
   );
+
+  const { refreshGroups } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -62,6 +65,7 @@ const NewPhaseForm: FC<{
         body: JSON.stringify(body),
       }
     );
+    await refreshGroups(value.groups);
     mutate();
     refreshWatching();
   };
@@ -160,20 +164,18 @@ const NewPhaseForm: FC<{
       </div>
       <div className="row">
         <div className="col">
-          <label>Additional Targeting Rules (optional)</label>
-          <TextareaAutosize
-            {...inputProps.targeting}
-            placeholder={`e.g. premium = true`}
-            minRows={2}
-            maxRows={5}
+          <label>User Groups (optional)</label>
+          <GroupsInput
+            value={value.groups}
+            onChange={(groups) => manualUpdate({ groups })}
           />
           <small className="form-text text-muted">
-            One targeting rule per line. Available operators: <code>=</code>,{" "}
-            <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>,{" "}
-            <code>~</code>, <code>!~</code>
+            Use this to limit your experiment to specific groups of users (e.g.
+            &quot;internal&quot;, &quot;beta-testers&quot;, &quot;qa&quot;).
           </small>
         </div>
       </div>
+      <div style={{ height: 150 }} />
     </Modal>
   );
 };

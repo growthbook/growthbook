@@ -79,7 +79,7 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization);
 
-  const { getMetricById, getSegmentById, getDatasourceById } = useDefinitions();
+  const { getMetricById, getDatasourceById } = useDefinitions();
   const { permissions } = useContext(UserContext);
 
   if (error) {
@@ -612,19 +612,9 @@ const ExperimentPage = (): ReactElement => {
                 <RightRailSectionGroup title="URL" type="code" empty="Any">
                   {experiment.targetURLRegex}
                 </RightRailSectionGroup>
-                {experiment.segment && (
-                  <RightRailSectionGroup title="Segment" type="badge">
-                    {getSegmentById(experiment.segment)?.name}
-                  </RightRailSectionGroup>
-                )}
-                {experiment.targeting && (
-                  <RightRailSectionGroup title="Experiment" type="pre">
-                    {experiment.targeting}
-                  </RightRailSectionGroup>
-                )}
-                {currentPhase?.targeting && (
-                  <RightRailSectionGroup title="Current Phase" type="pre">
-                    {currentPhase?.targeting}
+                {currentPhase?.groups?.length > 0 && (
+                  <RightRailSectionGroup title="User Groups" type="badge">
+                    {currentPhase?.groups}
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>

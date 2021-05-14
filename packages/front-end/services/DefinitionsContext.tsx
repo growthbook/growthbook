@@ -12,6 +12,7 @@ type Definitions = {
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
+  groups: string[];
   tags: string[];
 };
 
@@ -19,6 +20,7 @@ type DefinitionContextValue = Definitions & {
   ready: boolean;
   error?: string;
   refreshTags: (newTags: string[]) => Promise<void>;
+  refreshGroups: (newGroups: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
   getMetricById: (id: string) => null | MetricInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
@@ -34,11 +36,15 @@ const defaultValue: DefinitionContextValue = {
   refreshTags: async () => {
     /* do nothing */
   },
+  refreshGroups: async () => {
+    /* do nothing */
+  },
   metrics: [],
   datasources: [],
   dimensions: [],
   segments: [],
   tags: [],
+  groups: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -76,10 +82,23 @@ export const DefinitionsProvider: FC = ({ children }) => {
       dimensions: data.dimensions,
       segments: data.segments,
       tags: data.tags,
+      groups: data.groups,
       getMetricById: getByIdFunction(data.metrics),
       getDatasourceById: getByIdFunction(data.datasources),
       getDimensionById: getByIdFunction(data.dimensions),
       getSegmentById: getByIdFunction(data.segments),
+      refreshGroups: async (groups) => {
+        const newGroups = groups.filter((t) => !data.groups.includes(t));
+        if (newGroups.length > 0) {
+          await mutate(
+            {
+              ...data,
+              groups: data.groups.concat(newGroups),
+            },
+            false
+          );
+        }
+      },
       refreshTags: async (tags) => {
         const newTags = tags.filter((t) => !data.tags.includes(t));
         if (newTags.length > 0) {

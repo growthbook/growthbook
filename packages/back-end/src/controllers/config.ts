@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { getExperimentsByOrganization } from "../services/experiments";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
-import { SegmentModel } from "../models/SegmentModel";
 import fs from "fs";
 import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
@@ -38,30 +37,6 @@ export async function getExperimentConfig(
       });
     }
     const experiments = await getExperimentsByOrganization(organization);
-
-    // If experiments are targeted to specific segments
-    const segmentIds = new Set<string>();
-    experiments.forEach((e) => {
-      if (e.segment) {
-        segmentIds.add(e.segment);
-      }
-    });
-    const segmentMap = new Map<string, string[]>();
-    if (segmentIds.size > 0) {
-      const segments = await SegmentModel.find({
-        id: { $in: Array.from(segmentIds.values()) },
-        organization,
-      });
-      segments.forEach((s) => {
-        if (s.targeting) {
-          segmentMap.set(
-            s.id,
-            s.targeting.split("\n").map((s) => s.trim())
-          );
-        }
-      });
-    }
-
     const overrides: Record<string, ExperimentOverride> = {};
 
     experiments.forEach((exp) => {
@@ -70,20 +45,12 @@ export async function getExperimentConfig(
       }
 
       const key = exp.trackingKey || exp.id;
-      let targeting = exp.targeting
-        ? exp.targeting.split("\n").map((s) => s.trim())
-        : [];
+      const groups: string[] = [];
 
-      if (exp.segment) {
-        targeting = targeting.concat(segmentMap.get(exp.segment) || []);
-      }
       const phase = exp.phases[exp.phases.length - 1];
-      if (phase && phase.targeting && exp.status === "running") {
-        targeting = targeting.concat(
-          phase.targeting.split("\n").map((s) => s.trim())
-        );
+      if (phase && exp.status === "running" && phase.groups?.length > 0) {
+        groups.push(...phase.groups);
       }
-      targeting = targeting.filter((t) => t.length > 0);
 
       const override: ExperimentOverride = {
         status: exp.status,
@@ -93,8 +60,8 @@ export async function getExperimentConfig(
         override.url = exp.targetURLRegex;
       }
 
-      if (targeting.length) {
-        override.targeting = targeting;
+      if (groups.length) {
+        override.groups = groups;
       }
 
       if (phase) {

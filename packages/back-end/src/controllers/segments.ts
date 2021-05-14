@@ -53,7 +53,7 @@ export async function postSegments(
   req: AuthRequest<Partial<SegmentInterface>>,
   res: Response
 ) {
-  const { datasource, name, sql, targeting } = req.body;
+  const { datasource, name, sql } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource);
   if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
@@ -64,7 +64,6 @@ export async function postSegments(
     datasource,
     name,
     sql,
-    targeting,
     id: uniqid("seg_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -92,7 +91,7 @@ export async function putSegment(
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, targeting } = req.body;
+  const { datasource, name, sql } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource);
   if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
@@ -102,7 +101,6 @@ export async function putSegment(
   segment.set("datasource", datasource);
   segment.set("name", name);
   segment.set("sql", sql);
-  segment.set("targeting", targeting);
   segment.set("dateUpdated", new Date());
 
   await segment.save();

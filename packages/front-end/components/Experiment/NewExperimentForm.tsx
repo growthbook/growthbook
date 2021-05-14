@@ -73,7 +73,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [step, setStep] = useState(initialStep || 0);
 
   const {
-    segments,
     metrics,
     datasources,
     getDatasourceById,
@@ -95,6 +94,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             .substr(0, 16),
           phase: "main",
           reason: "",
+          groups: [],
           variationWeights:
             initialValue.phases?.[0].variationWeights ||
             getEvenSplit(
@@ -121,8 +121,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     activationMetric: initialValue?.activationMetric || "",
     metrics: initialValue?.metrics || [],
     tags: initialValue?.tags || [],
-    targeting: initialValue?.targeting || "",
-    segment: initialValue?.segment || "",
     targetURLRegex: initialValue?.targetURLRegex || "",
     description: initialValue?.description || "",
     variations:
@@ -193,10 +191,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       );
     }
   };
-
-  const segmentsWithTargeting = segments
-    ? segments.filter((s) => s.targeting && s.targeting.length >= 5)
-    : [];
 
   return (
     <PagedModal
@@ -453,19 +447,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <code>^/post/[0-9]+</code>
             </small>
           </div>
-          {!isImport && segmentsWithTargeting.length > 0 && (
-            <div className="form-group">
-              <label>Segment</label>
-              <select className="form-control" {...inputProps.segment}>
-                <option value="">Everyone</option>
-                {segmentsWithTargeting.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </Page>
     </PagedModal>

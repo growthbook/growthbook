@@ -25,7 +25,7 @@ $result = $user->experiment($experiment);
 echo $result->value; // "A" or "B"
 ```
 
-At the end of the request, you would track all of the viewed experiments in your analytics tool or database (Segment, GA, Mixpanel, etc.).
+At the end of the request, you would track all of the viewed experiments in your analytics tool or database (Segment, GA, Mixpanel, etc.):
 
 ```php
 $impressions = $client->getViewedExperiments();
@@ -35,8 +35,8 @@ foreach($impressions as $impression) {
     "userId" => $impression->userId,
     "event" => "Experiment Viewed",
     "properties" => [
-      "experimentId" => $impression->experimentId,
-      "variationId" => $impression->variationId
+      "experimentId" => $impression->experiment->key,
+      "variationId" => $impression->result->variationId
     ]
   ])
 }
@@ -52,9 +52,9 @@ There is an optional 3rd argument, which is an associative array of additional o
 -  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
 -  **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 -  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
--  **targeting** (`string[]`) - Users must pass all of these targeting rules to be included in this experiment (see below for more info)
+-  **groups** (`string[]`) - User groups that should be included in the experiment (e.g. internal employees, qa testers)
 -  **force** (`int`) - All users included in the experiment will be forced into the specific variation index
--  **anon** (`bool`) - If true, use anonymous id for assigning, otherwise use logged-in user id.  Defaults to false.
+-  **randomizationUnit** (`string`) - The type of user id to use for variation assignment. Defaults to `id`.
 
 ## Running Experiments
 
@@ -103,62 +103,52 @@ $client->config->enabled = false;
 
 ## User Configuration
 
-The `$client->user` method takes a single associative array argument.  There are 3 possible keys you can use:
-
--  `id` - The logged-in user id
--  `anonId` - An anonymous identifier for the user (session id, cookie, ip, etc.)
--  `attributes` - An associative array with user attributes. These are never sent across the network and are only used to locally evaluate experiment targeting rules.
-
-Although all of these are technically optional, at least 1 type of id must be set or the user will be excluded from all experiments.
-
-Here is an example that uses all 3 properties:
+The `$client->user` method takes two arguments: `$ids` and `$groups` (optional).
 
 ```php
 $user = $client->user([
-  // Logged-in user id
-  "id"=>"12345",
-
-  // Anonymous id
-  "anonId"=>"abcdef",
-
-  // Targeting attributes
-  "attributes"=> [
-    "premium" => true,
-    "accountAge" => 36,
-    "geo" => [
-      "region" => "NY"
-    ]
-  ]
+  // Any user id you want to randomize an experiment by
+  "id" => "123",
+  "anonId" => "abc",
+  "companyId" => "456",
+], [
+  // Any groups the user is a part of
+  "internal" => true,
+  "beta" => true,
+  "qa" => false
 ]);
 ```
 
-You can update attributes at any time by calling `$user->setAttributes`. By default, this completely overwrites all previous attributes. To do a shallow merge instead, pass `true` as the 2nd argument.
+### Randomization Units
+
+On an experiment-by-experiment basis, you can choose which user id you want to use for randomization.
+
+Most of the time, you'll want to use `id` if your experiment is for logged-in users only or `anonId` if your experiment includes any logged out users.
+
+For some experiments, you may need other units like `companyId`, `childId`, `geoRegion`, etc.
 
 ```php
-// Only overwrite the "premium" key and keep all the others
-$user->setAttributes([
-    "premium" => false
-], true);
+new Experiment("company-test", ["A", "B"], [
+  "randomizationUnit" => "companyId"
+]);
+// Now all users in the same company will see the same variation
 ```
 
-### Targeting
+### Groups
 
-Experiments can target on these user attributes with the `targeting` field.  Here's an example:
+Experiments can specify a list of user groups which are allowed in the experiment. If a user is not a member of one of the groups listed, they will be excluded.
 
 ```php
 $result = $user->experiment(
     "my-targeted-experiment",
     ["A", "B"],
     [
-      "targeting" => [
-          "premium = true",
-          "accountAge > 30"
-      ]
+      "groups" => ["beta", "qa"]
     ]
-])
+]);
 ```
 
-If the user does not match the targeting rules, `$result->inExperiment` will be false and they will be assigned variation index `0`.
+In the above example, if the user is not in either `beta` or `qa`, then `$result->inExperiment` will be false and they will be assigned variation index `0`.
 
 ## Overriding Weights and Targeting
 
@@ -179,7 +169,7 @@ The full list of experiment properties you can override is:
 *  force
 *  weights
 *  coverage
-*  targeting
+*  groups
 *  url
 
 This data structure can be easily seralized and stored in a database or returned from an API.  There is a small helper function if you have all of your overrides in a single JSON object:
@@ -217,21 +207,17 @@ foreach($impressions as $impression) {
     "userId" => $impression->userId,
     "event" => "Experiment Viewed",
     "properties" => [
-      "experimentId" => $impression->experimentId,
-      "variationId" => $impression->variationId
+      "experimentId" => $impression->experiment->key,
+      "variationId" => $impression->result->variationId
     ]
   ])
 }
 ```
 
 Each impression object has the following properties:
--  experimentId (the key of the experiment)
--  variationId (the array index of the assigned variation)
--  value (the value of the assigned variation)
 -  experiment (the full experiment object)
--  userId
--  anonId
--  userAttributes
+-  result (the result of the $user->experiment call)
+-  userId (the id used to randomize the experiment result)
 
 Often times you'll want to do the event tracking from the front-end with javascript.  To do this, simply add a block to your template (shown here in plain PHP, but similar idea for Twig, Blade, etc.).
 
@@ -249,12 +235,12 @@ Below are examples for a few popular front-end tracking libraries:
 #### Google Analytics
 ```php
 ga('send', 'event', 'experiment', 
-  "<?= $impression->experimentId ?>", 
-  "<?= $impression->variationId ?>", 
+  "<?= $impression->experiment->key ?>", 
+  "<?= $impression->result->variationId ?>", 
   {
     // Custom dimension for easier analysis
     'dimension1': "<?= 
-      $impression->experimentId.':'.$impression->variationId 
+      $impression->experiment->key.':'.$impression->result->variationId 
     ?>"
   }
 );
@@ -263,15 +249,15 @@ ga('send', 'event', 'experiment',
 #### Segment
 ```php
 analytics.track("Experiment Viewed", <?=json_encode([
-  "experimentId" => $impression->experimentId,
-  "variationId" => $impression->variationId 
+  "experimentId" => $impression->experiment->key,
+  "variationId" => $impression->result->variationId 
 ])?>);
 ```
 
 #### Mixpanel
 ```php
 mixpanel.track("Experiment Viewed", <?=json_encode([
-  'Experiment name' => $impression->experimentId,
-  'Variant name' => $impression->variationId 
+  'Experiment name' => $impression->experiment->key,
+  'Variant name' => $impression->result->variationId 
 ])?>);
 ```
