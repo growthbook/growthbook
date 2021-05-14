@@ -27,7 +27,8 @@ export interface Props {
   axisColor?: string;
   zeroLineColor?: string;
   barColor?: string;
-  sigBarColor?: string;
+  sigBarColorPos?: string;
+  sigBarColorNeg?: string;
   expectedColor?: string;
 }
 
@@ -48,7 +49,8 @@ const AlignedGraph: FC<Props> = ({
   axisColor = "#023e8a",
   zeroLineColor = "#0077b6",
   barColor = "#aaaaaaaa",
-  sigBarColor = "#471BA6cc",
+  sigBarColorPos = "#0D8C8Ccc",
+  sigBarColorNeg = "#D94032cc",
   expectedColor = "#fb8500",
 }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
@@ -68,8 +70,11 @@ const AlignedGraph: FC<Props> = ({
     } as const);
 
   // add some spacing around the graph
-  domain = [domain[0] * 1.2, domain[1] * 1.2];
-
+  const leftDomain =
+    Math.abs(domain[0]) > 0.02 ? domain[0] * 1.2 : domain[0] - 0.02;
+  const rightDomain =
+    Math.abs(domain[1]) > 0.02 ? domain[1] * 1.2 : domain[1] + 0.02;
+  domain = [leftDomain, rightDomain];
   const tickFormat = (v: number) => {
     return " " + Math.round(v * 100) + "%";
   };
@@ -162,7 +167,13 @@ const AlignedGraph: FC<Props> = ({
                           y={barHeight}
                           width={xScale(ci[1]) - xScale(ci[0])}
                           height={barThickness}
-                          fill={significant ? sigBarColor : barColor}
+                          fill={
+                            significant
+                              ? expected > 0
+                                ? sigBarColorPos
+                                : sigBarColorNeg
+                              : barColor
+                          }
                           rx={8}
                         />
                         <Line
