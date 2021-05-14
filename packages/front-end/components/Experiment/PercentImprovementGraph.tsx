@@ -48,6 +48,8 @@ export interface Props {
   domain: [number, number];
   buckets: { x: number; y: number }[];
   expected: number;
+  width?: string | number;
+  height?: string | number;
   inverse?: boolean;
   theme?: "plusminus" | "neutral";
 }
@@ -59,6 +61,8 @@ const PercentImprovementGraph: FC<Props> = ({
   expected,
   uid,
   inverse,
+  width = "100%",
+  height = 250,
   theme = "plusminus",
 }) => {
   const ticks = [];
@@ -145,7 +149,7 @@ const PercentImprovementGraph: FC<Props> = ({
   }
 
   return (
-    <ResponsiveContainer height={250} width="100%">
+    <ResponsiveContainer height={height} width={width}>
       <AreaChart
         data={smoothedData}
         margin={{

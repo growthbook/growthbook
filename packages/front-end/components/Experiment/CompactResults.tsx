@@ -1,12 +1,12 @@
 import { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { formatConversionRate } from "../../services/metrics";
-import LinearImprovementGraph from "./LinearImprovementGraph";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
 import { CgAlignLeft, CgAlignCenter } from "react-icons/cg";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import AlignedGraph from "./AlignedGraph";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -65,7 +65,11 @@ const CompactResults: FC<{
     <div className="mb-4 pb-4 experiment-compact-holder">
       <SRMWarning srm={results.srm} />
 
-      <table className="table experiment-compact">
+      <table
+        className={`table experiment-compact ${
+          alignGraphs === "zero" ? "aligned-graph" : ""
+        }`}
+      >
         <thead>
           <tr>
             <th rowSpan={2} className="metric">
@@ -122,7 +126,25 @@ const CompactResults: FC<{
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>
-                {i > 0 && <td colSpan={2}></td>}
+                {i > 0 && (
+                  <>
+                    <td className="empty-td"></td>
+                    <td className="p-0">
+                      {alignGraphs === "zero" && (
+                        <div>
+                          <AlignedGraph
+                            domain={domain}
+                            significant={true}
+                            showAxis={true}
+                            axisOnly={true}
+                            //width="100%"
+                            height={50}
+                          />
+                        </div>
+                      )}
+                    </td>
+                  </>
+                )}
               </>
             ))}
           </tr>
@@ -237,29 +259,42 @@ const CompactResults: FC<{
                       </td>
                       {i > 0 && (
                         <td
-                          className={clsx("chance variation result-number", {
-                            won: stats.chanceToWin > 0.95,
-                            lost: stats.chanceToWin < 0.05,
-                          })}
+                          className={clsx(
+                            "chance variation result-number align-middle",
+                            {
+                              won: stats.chanceToWin > 0.95,
+                              lost: stats.chanceToWin < 0.05,
+                            }
+                          )}
                         >
                           {percentFormatter.format(stats.chanceToWin)}
                         </td>
                       )}
                       {i > 0 && (
                         <td
-                          className={clsx("variation", {
-                            won: stats.chanceToWin > 0.95,
-                            lost: stats.chanceToWin < 0.05,
-                          })}
+                          className={clsx(
+                            "variation compact-graph pb-0 align-middle",
+                            {
+                              won: stats.chanceToWin > 0.95,
+                              lost: stats.chanceToWin < 0.05,
+                            }
+                          )}
                         >
                           {alignGraphs === "zero" && (
                             <div>
-                              <LinearImprovementGraph
+                              <AlignedGraph
                                 ci={ci}
                                 domain={domain}
                                 expected={expected}
-                                width="100%"
-                                height={60}
+                                significant={
+                                  stats.chanceToWin > 0.95 ||
+                                  stats.chanceToWin < 0.05
+                                }
+                                stats={stats}
+                                metricName={metric.name}
+                                inverse={metric.inverse}
+                                showAxis={false}
+                                height={70}
                               />
                             </div>
                           )}
