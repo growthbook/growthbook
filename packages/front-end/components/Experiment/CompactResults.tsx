@@ -245,9 +245,6 @@ const CompactResults: FC<{
                                 stats.chanceToWin > 0.95 ||
                                 stats.chanceToWin < 0.05
                               }
-                              stats={stats}
-                              metricName={metric.name}
-                              inverse={metric.inverse}
                               showAxis={false}
                               height={70}
                             />

@@ -86,25 +86,24 @@ pre {
 }
 
 .experiment-tooltip {
+  position: absolute;
+  left: 50%;
+  width: 300px;
+  margin-left: -150px;
+  text-align: center;
+  bottom: 0;
+  border-radius: 6px;
+  font-size: 0.8em;
+  background: rgba(255, 255, 255, 0.7);
   .tooltip-results {
-    padding: 0 10px;
-
-    text-align: center;
-    p {
-      margin: 0 0 0.4em;
-    }
     .ci-neg {
       color: $dark-red;
     }
     .ci-pos {
       color: $dark-green;
     }
-    .result-text {
-      min-width: 100px;
-    }
-    .tooltip-ci {
-      min-width: 80px;
-      text-align: left;
+    > div {
+      padding: 0 8px;
     }
   }
   .tooltip-arrow {
@@ -194,6 +193,14 @@ pre {
     td.variation:not(.value):not(.won):not(.lost) {
       opacity: 1;
       color: #999;
+    }
+  }
+  .aligned-graph-row {
+    .experiment-tooltip {
+      display: none;
+    }
+    &:hover .experiment-tooltip {
+      display: block;
     }
   }
   .compact-graph {
