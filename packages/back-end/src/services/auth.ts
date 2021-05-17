@@ -53,6 +53,15 @@ async function getUserFromAuth0JWT(user: {
   return getUserByEmail(user["https://growthbook.io/email"]);
 }
 
+function getInitialEmailFromJWT(user: {
+  ["https://growthbook.io/email"]?: string;
+}) {
+  if (IS_CLOUD) {
+    return user["https://growthbook.io/email"] || "";
+  }
+  return "";
+}
+
 export function getJWTCheck() {
   return IS_CLOUD ? getAuth0JWTCheck() : getLocalJWTCheck();
 }
@@ -63,7 +72,7 @@ export async function processJWT(
   res: Response,
   next: NextFunction
 ) {
-  req.email = "";
+  req.email = getInitialEmailFromJWT(req.user);
   req.permissions = {};
 
   const user = await (IS_CLOUD
