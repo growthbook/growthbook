@@ -20,6 +20,7 @@ const EditInfoForm: FC<{
   >(
     {
       name: experiment.name || "",
+      implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || experiment.observations || "",
       variations: experiment.variations
@@ -123,6 +124,15 @@ const EditInfoForm: FC<{
         <input type="text" {...inputProps.name} />
       </div>
       <div className="form-group">
+        <label>Type</label>
+        <select {...inputProps.implementation}>
+          <option value="code">Code (using an SDK)</option>
+          <option value="visual">
+            Visual (using our point &amp; click editor)
+          </option>
+        </select>
+      </div>
+      <div className="form-group">
         <label>Description</label>
         <MarkdownInput
           value={value.description}
@@ -178,18 +188,20 @@ const EditInfoForm: FC<{
                   <label>Description</label>
                   <textarea {...inputProps.variations[i].description} />
                 </div>
-                <div className="form-group">
-                  <label>JSON Value</label>
-                  <TextareaAutosize
-                    {...inputProps.variations[i].value}
-                    minRows={1}
-                    maxRows={10}
-                    placeholder='e.g. {"color": "red"}'
-                  />
-                  <small className="form-text text-muted">
-                    Optional, use to parameterize experiment data.
-                  </small>
-                </div>
+                {value.implementation !== "visual" && (
+                  <div className="form-group">
+                    <label>JSON Value</label>
+                    <TextareaAutosize
+                      {...inputProps.variations[i].value}
+                      minRows={1}
+                      maxRows={10}
+                      placeholder='e.g. {"color": "red"}'
+                    />
+                    <small className="form-text text-muted">
+                      Optional, use to parameterize experiment data.
+                    </small>
+                  </div>
+                )}
               </div>
             </div>
           ))}

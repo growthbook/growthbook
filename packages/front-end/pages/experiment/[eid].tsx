@@ -23,6 +23,7 @@ import {
   FaCopy,
   FaUndo,
   FaCode,
+  FaPalette,
 } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "../../services/dates";
@@ -53,6 +54,7 @@ import InstructionsModal from "../../components/Experiment/InstructionsModal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { okaidia } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import VisualCode from "../../components/Experiment/VisualCode";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -461,6 +463,14 @@ const ExperimentPage = (): ReactElement => {
               </div>
               <div className="mb-4">
                 <h5>Variations</h5>
+                {experiment.implementation === "visual" && (
+                  <div className="alert alert-info">
+                    <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
+                    <Link href={`/experiments/designer/${experiment.id}`}>
+                      <a>Open the Editor</a>
+                    </Link>
+                  </div>
+                )}
                 <div className="row mb-3">
                   {experiment.variations.map((v, i) => (
                     <div
@@ -472,10 +482,13 @@ const ExperimentPage = (): ReactElement => {
                         <strong>{v.name}</strong>
                       </div>
                       {v.description && <p>{v.description}</p>}
-                      {v.value && (
+                      {v.value && experiment.implementation !== "visual" && (
                         <SyntaxHighlighter language="json" style={okaidia}>
                           {v.value}
                         </SyntaxHighlighter>
+                      )}
+                      {experiment.implementation === "visual" && (
+                        <VisualCode dom={v.dom || []} css={v.css || ""} />
                       )}
                       {v.screenshots.length > 0 ? (
                         <Carousel
@@ -538,24 +551,26 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
-              {!experiment.archived && experiment.status !== "stopped" && (
-                <>
-                  <RightRailSection title="Implementation">
-                    <div className="my-1">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setInstructionsModalOpen(true);
-                        }}
-                      >
-                        <FaCode /> Get Code
-                      </a>
-                    </div>
-                  </RightRailSection>
-                  <hr />
-                </>
-              )}
+              {!experiment.archived &&
+                experiment.status !== "stopped" &&
+                experiment.implementation !== "visual" && (
+                  <>
+                    <RightRailSection title="Implementation">
+                      <div className="my-1">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setInstructionsModalOpen(true);
+                          }}
+                        >
+                          <FaCode /> Get Code
+                        </a>
+                      </div>
+                    </RightRailSection>
+                    <hr />
+                  </>
+                )}
               <RightRailSection
                 title="Tags"
                 open={() => setTagsModalOpen(true)}
