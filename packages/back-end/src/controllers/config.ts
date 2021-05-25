@@ -94,32 +94,127 @@ export async function getExperimentConfig(
   }
 }
 
-let visualDesignerContents: string;
-export async function getVisualDesignerScript(req: Request, res: Response) {
-  if (!visualDesignerContents) {
-    const visualDesignerPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "node_modules",
-      "ab-designer",
-      "dist",
-      "ab-designer.cjs.production.min.js"
-    );
-    visualDesignerContents = fs.existsSync(visualDesignerPath)
-      ? fs.readFileSync(visualDesignerPath).toString()
-      : "";
-    visualDesignerContents = visualDesignerContents
-      .replace(/\/\/# sourceMappingURL.*/, "")
-      .replace(/"use strict";/, "");
-    visualDesignerContents = `function startVisualDesigner(){${visualDesignerContents}}
-if(window.location.search.match(/\\bgrowthbookVisualDesigner\\b/)) {
-  window.growthbook=window.growthbook||[];window.growthbook.push("disable");
-  window.EXP_PLATFORM_ORIGIN="${APP_ORIGIN}";
-  startVisualDesigner();
-}`;
-  }
+type ExperimentData = {
+  key: string;
+  variationCode: string[];
+  weights?: number[];
+  coverage?: number;
+  groups?: string[];
+  url?: string;
+  force?: number;
+};
 
+// TODO: run through terser?
+const baseScript = fs
+  .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
+  .toString("utf-8")
+  .replace(/.*eslint-.*\n/g, "");
+
+export async function getExperimentsScript(
+  req: Request<{ key: string }>,
+  res: Response
+) {
   res.setHeader("Content-Type", "text/javascript");
-  res.send(visualDesignerContents);
+  const { key } = req.params;
+
+  try {
+    const organization = await lookupOrganizationByApiKey(key);
+    if (!organization) {
+      return res
+        .status(400)
+        .send(`console.error("Invalid Growth Book API key");`);
+    }
+    const experiments = await getExperimentsByOrganization(organization);
+
+    const experimentData: ExperimentData[] = [];
+
+    experiments.forEach((exp) => {
+      if (exp.archived) {
+        return;
+      }
+      if (exp.implementation !== "visual") {
+        return;
+      }
+      if (exp.status === "draft") {
+        return;
+      }
+
+      const key = exp.trackingKey || exp.id;
+      const groups: string[] = [];
+
+      const phase = exp.phases[exp.phases.length - 1];
+      if (phase && exp.status === "running" && phase.groups?.length > 0) {
+        groups.push(...phase.groups);
+      }
+
+      const data: ExperimentData = {
+        key,
+        variationCode: exp.variations.map((v) => {
+          const lines: string[] = [];
+          if (v.css) {
+            lines.push("injectStyles(`" + v.css + "`);");
+          }
+          v.dom.forEach((dom) => {
+            lines.push("mutate.declarative(" + JSON.stringify(dom) + ");");
+          });
+          return lines.join("");
+        }),
+      };
+
+      if (exp.targetURLRegex) {
+        data.url = exp.targetURLRegex;
+      }
+
+      if (groups.length) {
+        data.groups = groups;
+      }
+
+      if (phase) {
+        data.coverage = phase.coverage;
+        data.weights = phase.variationWeights;
+      }
+
+      if (!data.weights) {
+        data.weights = Array(exp.variations.length).fill(
+          1 / exp.variations.length
+        );
+      }
+
+      if (exp.status === "stopped" && exp.results === "won") {
+        data.force = exp.winner;
+      }
+
+      if (exp.status === "running") {
+        if (!phase) return;
+      }
+
+      experimentData.push(data);
+    });
+
+    // TODO: add cache headers?
+    res.status(200).send(
+      baseScript.replace(/\{\{APP_ORIGIN\}\}/, APP_ORIGIN).replace(
+        /[ ]*\/\*\s*BEGIN_EXPERIMENTS[\s\S]*END_EXPERIMENTS\*\//,
+        experimentData
+          .map((exp) => {
+            const options = {
+              w: exp.weights,
+              u: exp.url,
+              g: exp.groups,
+              f: exp.force ?? -1,
+            };
+            if (exp.coverage) {
+              options.w = options.w.map((n) => n * exp.coverage);
+            }
+            return `  run(${JSON.stringify(exp.key)},[${exp.variationCode
+              .map((v) => `function(){${v}}`)
+              .join(",")}],${JSON.stringify(options)})`;
+          })
+          .join("\n")
+      )
+    );
+  } catch (e) {
+    console.error(e);
+    return res.status(400).send(`console.error(${JSON.stringify(e.message)});`);
+  }
 }

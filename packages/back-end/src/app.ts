@@ -8,7 +8,7 @@ import { AuthRequest } from "./types/AuthRequest";
 import { APP_ORIGIN, CORS_ORIGIN_REGEX, IS_CLOUD } from "./util/secrets";
 import {
   getExperimentConfig,
-  getVisualDesignerScript,
+  getExperimentsScript,
 } from "./controllers/config";
 import asyncHandler from "express-async-handler";
 import pino from "pino-http";
@@ -64,9 +64,6 @@ app.get("/healthcheck", (req, res) => {
   });
 });
 
-// Visual Designer js file (does not require JWT or cors)
-app.get("/visual-designer.js", getVisualDesignerScript);
-
 const loggerRedact = {
   paths: [
     "req.headers.authorization",
@@ -91,6 +88,9 @@ const loggerRedact = {
 const preAuthLogger = pino({
   redact: loggerRedact,
 });
+
+// Visual Designer js file (does not require JWT or cors)
+app.get("/js/:key.js", preAuthLogger, getExperimentsScript);
 
 // Stripe webhook (needs raw body)
 app.post(

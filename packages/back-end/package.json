@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "copy-email-templates": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "dev": "yarn copy-email-templates && ts-node-dev src/server.ts",
-    "build": "tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-email-templates",
+    "copy-templates": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
+    "dev": "yarn copy-templates && ts-node-dev src/server.ts",
+    "build": "tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-templates",
     "start": "node dist/server.js",
     "test": "jest --forceExit --coverage --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",

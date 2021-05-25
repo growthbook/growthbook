@@ -5,6 +5,7 @@ import clsx from "clsx";
 import {
   FaArrowsAltH,
   FaCamera,
+  FaChevronLeft,
   FaCode,
   FaDesktop,
   FaImage,
@@ -41,6 +42,7 @@ import {
   addQueryStringToURL,
   dataURItoBlob,
 } from "../../../services/visualDesigner";
+import Link from "next/link";
 
 const EditorPage: FC = () => {
   const router = useRouter();
@@ -61,6 +63,7 @@ const EditorPage: FC = () => {
       screenshot?: string;
     }[];
   }>({ url: "", variations: [] });
+  const [dirty, setDirty] = useState(false);
   const [zoom, setZoom] = useState(1);
   const iframe = useRef<HTMLIFrameElement>(null);
   const [device, setDevice] = useState("desktop");
@@ -247,6 +250,7 @@ const EditorPage: FC = () => {
       ...variationData,
       variations: clone,
     });
+    setDirty(true);
   }
 
   const addDomMod = (mutation: DomMutation) => {
@@ -530,6 +534,7 @@ const EditorPage: FC = () => {
           close={() => setUrlModalOpen(false)}
           submit={async () => {
             setUrl(variationData.url);
+            setDirty(true);
           }}
         >
           <div className="form-group">
@@ -635,7 +640,14 @@ const EditorPage: FC = () => {
       </div>
       <div className={clsx(styles.topBar, "px-2 bg-dark text-light")}>
         <div className="row align-items-center h-100">
-          <div className="col-auto text-left">
+          <div className="col-auto">
+            <Link href={`/experiment/${data.experiment.id}`}>
+              <a className="text-light">
+                <FaChevronLeft />
+              </a>
+            </Link>
+          </div>
+          <div className="col-auto text-left pl-0">
             <img alt="Growth Book" src="/logo/growth-book-name-white.svg" />
             <div className="pl-1">
               <small>Visual Designer</small>
@@ -742,8 +754,13 @@ const EditorPage: FC = () => {
           </div>
           <div className="col-auto">
             <Button
-              color="primary"
+              color={dirty ? "primary" : "success"}
               onClick={async () => {
+                if (!dirty) {
+                  await router.push(`/experiment/${data.experiment.id}`);
+                  return;
+                }
+
                 const variationsClone = [...variations];
                 variationData.variations.forEach((val, i) => {
                   variationsClone[i] = {
@@ -797,10 +814,10 @@ const EditorPage: FC = () => {
                   }),
                 });
 
-                router.push(`/experiment/${data.experiment.id}`);
+                setDirty(false);
               }}
             >
-              Save
+              {dirty ? "Save" : "Finish"}
             </Button>
           </div>
         </div>
