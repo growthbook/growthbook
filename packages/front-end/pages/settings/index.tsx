@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { MemberRole, OrganizationSettings, useAuth } from "../../services/auth";
-import { FaCheck, FaCheckSquare, FaPencilAlt, FaSquare } from "react-icons/fa";
+import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import useForm from "../../hooks/useForm";
 import { ImplementationType } from "back-end/types/experiment";
@@ -225,32 +225,40 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </div>
           <div className="divider border-bottom mb-3 mt-2"></div>
           <div className="row">
-            <div className="col-sm-3">Visual Editor</div>
+            <div className="col-sm-3">
+              <h4>
+                Visual Editor <span className="badge badge-warning">beta</span>
+              </h4>
+            </div>
             <div className="col-sm-9 pb-3">
               <p>
                 The Visual Editor allows non-technical users to create and start
                 experiments in production without writing any code.
               </p>
               <div>
-                <button
-                  className={
-                    value.types.visual
-                      ? "btn btn-sm btn-primary active"
-                      : "btn btn-sm btn-secondary"
-                  }
-                  onClick={(e) => {
-                    e.preventDefault();
-                    manualUpdate({
-                      types: {
-                        code: true,
-                        visual: !value.types.visual,
-                      },
-                    });
-                  }}
-                >
-                  {value.types.visual ? <FaCheckSquare /> : <FaSquare />}{" "}
-                  {value.types.visual ? "Enabled" : "Disabled"}
-                </button>
+                <div className="form-check">
+                  <input
+                    type="checkbox"
+                    className="form-check-input "
+                    checked={value.types.visual}
+                    onChange={(e) => {
+                      manualUpdate({
+                        types: {
+                          code: true,
+                          visual: e.target.checked,
+                        },
+                      });
+                    }}
+                    id="checkbox-visualeditor"
+                  />
+
+                  <label
+                    htmlFor="checkbox-visualeditor"
+                    className="form-check-label"
+                  >
+                    Enable Visual Editor
+                  </label>
+                </div>
               </div>
               {value.types.visual &&
                 data.organization.settings?.implementationTypes?.includes(
@@ -269,7 +277,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <div className="divider border-bottom mb-3 mt-2"></div>
           <div className="row">
             <div className="col-sm-3">
-              <h4>Customization</h4>
+              <h4>
+                Customization <span className="badge badge-warning">beta</span>
+              </h4>
             </div>
             <div className="col-sm-9">
               <div className="form-group row">

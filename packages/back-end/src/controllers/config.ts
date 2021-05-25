@@ -150,14 +150,16 @@ export async function getExperimentsScript(
       const data: ExperimentData = {
         key,
         variationCode: exp.variations.map((v) => {
-          const lines: string[] = [];
+          const commands: string[] = [];
           if (v.css) {
-            lines.push("injectStyles(`" + v.css + "`);");
+            commands.push("injectStyles(" + JSON.stringify(v.css) + ")");
           }
           v.dom.forEach((dom) => {
-            lines.push("mutate.declarative(" + JSON.stringify(dom) + ");");
+            commands.push(
+              "mutate.declarative(" + JSON.stringify(dom) + ").revert"
+            );
           });
-          return lines.join("");
+          return "[" + commands.join(",") + "]";
         }),
       };
 
@@ -191,7 +193,7 @@ export async function getExperimentsScript(
       experimentData.push(data);
     });
 
-    // TODO: add cache headers?
+    res.setHeader("Cache-Control", "max-age=600");
     res.status(200).send(
       baseScript.replace(/\{\{APP_ORIGIN\}\}/, APP_ORIGIN).replace(
         /[ ]*\/\*\s*BEGIN_EXPERIMENTS[\s\S]*END_EXPERIMENTS\*\//,
@@ -206,8 +208,8 @@ export async function getExperimentsScript(
             if (exp.coverage) {
               options.w = options.w.map((n) => n * exp.coverage);
             }
-            return `  run(${JSON.stringify(exp.key)},[${exp.variationCode
-              .map((v) => `function(){${v}}`)
+            return `run(${JSON.stringify(exp.key)},[${exp.variationCode
+              .map((v) => `()=>${v}`)
               .join(",")}],${JSON.stringify(options)})`;
           })
           .join("\n")
