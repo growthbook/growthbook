@@ -1,6 +1,6 @@
 import { DomChange } from "back-end/types/experiment";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { okaidia } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import stringify from "json-stringify-pretty-compact";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
@@ -28,7 +28,7 @@ export default function VisualCode({
       </a>
       {open && (
         <div style={{ marginTop: -8 }}>
-          <SyntaxHighlighter language="json" style={okaidia}>
+          <SyntaxHighlighter language="json" style={theme}>
             {stringify(
               {
                 mutations: dom.map((d) => [

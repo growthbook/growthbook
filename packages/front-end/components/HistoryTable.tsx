@@ -4,7 +4,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Modal from "./Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { okaidia as style } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { ago, datetime } from "../services/dates";
 
 const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
@@ -30,7 +30,7 @@ const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
     <>
       {modal && (
         <Modal close={() => setModal(null)} open={true} header="Event Details">
-          <SyntaxHighlighter language="json" style={style}>
+          <SyntaxHighlighter language="json" style={theme}>
             {JSON.stringify(JSON.parse(modal), null, 2)}
           </SyntaxHighlighter>
         </Modal>

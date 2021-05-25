@@ -351,8 +351,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const users = await getUsersByIds(members.map((m) => m.id));
 
+  const apiKeys = await getAllApiKeysByOrganization(req.organization.id);
+
   return res.status(200).json({
     status: 200,
+    apiKeys,
     organization: {
       invites,
       ownerEmail,

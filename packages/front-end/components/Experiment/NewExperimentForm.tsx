@@ -7,6 +7,7 @@ import TagsInput from "../TagsInput";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { FaPlus, FaTrash } from "react-icons/fa";
@@ -17,6 +18,9 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useContext } from "react";
+import { UserContext } from "../ProtectedPage";
+import RadioSelector from "../Forms/RadioSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -113,6 +117,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [value, inputProps, manualUpdate] = useForm<
     Partial<ExperimentInterfaceStringDates>
   >({
+    implementation: initialValue?.implementation || "code",
     trackingKey: initialValue?.trackingKey || "",
     datasource: initialValue?.datasource || datasources?.[0]?.id || "",
     userIdType: initialValue?.userIdType || "anonymous",
@@ -151,6 +156,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   };
 
   const { apiCall } = useAuth();
+
+  const {
+    settings: { implementationTypes },
+  } = useContext(UserContext);
+  const visualAllowed = implementationTypes.includes("visual");
 
   const onSubmit = async () => {
     // Make sure there's an experiment name
@@ -214,6 +224,31 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {...inputProps.name}
           />
         </div>
+        {visualAllowed && (
+          <div className="form-group">
+            <label>Type</label>
+            <RadioSelector
+              name="implementationType"
+              value={value.implementation}
+              setValue={(implementation: ImplementationType) =>
+                manualUpdate({ implementation })
+              }
+              options={[
+                {
+                  key: "code",
+                  display: "Code",
+                  description:
+                    "Using one of our SDKs (Javascript, React, PHP, or Ruby)",
+                },
+                {
+                  key: "visual",
+                  display: "Visual",
+                  description: "Using our point & click Visual Editor",
+                },
+              ]}
+            />
+          </div>
+        )}
         <div className="form-group">
           <label>Tags</label>
           <TagsInput

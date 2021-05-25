@@ -11,7 +11,12 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
+import {
+  FaPalette,
+  FaPlus,
+  FaRegCheckSquare,
+  FaRegSquare,
+} from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import { BsFilter } from "react-icons/bs";
@@ -41,6 +46,7 @@ const ExperimentsPage = (): React.ReactElement => {
     data?.experiments || [],
     [
       "name",
+      "implementation",
       "hypothesis",
       "description",
       "tags",
@@ -143,7 +149,9 @@ const ExperimentsPage = (): React.ReactElement => {
       !filters.tags.selected.includes("all")
     ) {
       // we have a many to many - and we want to logical OR them.
-      let match = false;
+      let match =
+        filters.tags.selected.includes("visual") &&
+        exp.implementation === "visual";
       exp.tags.forEach((t) => {
         if (filters.tags.selected.includes(t)) match = true;
       });
@@ -229,7 +237,11 @@ const ExperimentsPage = (): React.ReactElement => {
                       tmp.tags.open = !tmp.tags.open;
                       setFilters(tmp);
                     }}
-                    className="filtericon filter-status"
+                    className={clsx("filtericon filter-status", {
+                      "text-primary":
+                        filters.tags.selected.length > 0 &&
+                        !filters.tags.selected.includes("all"),
+                    })}
                   >
                     <BsFilter />
                   </a>
@@ -258,7 +270,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         all
                       </label>
                     </div>
-                    {tags.map((t) => {
+                    {tags.concat(["visual"]).map((t) => {
                       return (
                         <div className={`form-check`} key={t}>
                           <input
@@ -547,17 +559,15 @@ const ExperimentsPage = (): React.ReactElement => {
                   </td>
                   {columnsShown.includes("tags") && (
                     <td className="align-middle">
+                      {test.implementation === "visual" && (
+                        <span className="badge badge-dark badge-pill mr-2">
+                          <FaPalette /> Visual
+                        </span>
+                      )}
                       {Object.values(test.tags).map((col) => (
                         <span
                           className="tag badge badge-secondary mr-2"
                           key={col}
-                          onClick={() => {
-                            const tmp = { ...filters };
-                            if (!filters.tags.selected.includes(col)) {
-                              tmp.tags.selected = [col];
-                              setFilters(tmp);
-                            }
-                          }}
                         >
                           {col}
                         </span>
