@@ -468,7 +468,7 @@ const ExperimentPage = (): ReactElement => {
                     <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
                     {experiment.status === "draft" && canEdit && (
                       <Link href={`/experiments/designer/${experiment.id}`}>
-                        <a>Open the Editor</a>
+                        <a className="d-none d-md-inline">Open the Editor</a>
                       </Link>
                     )}
                   </div>

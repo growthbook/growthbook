@@ -49,11 +49,15 @@ This login state also determines which id will be used for assinging users to va
 
 If you have a Single Page Application (SPA) that does client-side routing, you'll need to refresh experiments on a route change.
 
+For example, with Next.js you can add the following to your `pages/_app.js` component:
 ```ts
-function onRouteChange() {
-  window.growthbook = window.growthbook || [];
-  window.growthbook.push("refresh");
-}
+const router = useRouter();
+
+useEffect(() => {
+  const onChange = () => window.growthbook?.refresh();
+  router.events.on("routeChangeComplete", onChange);
+  return () => router.events.off("routeChangeComplete", onChange);
+}, []);
 ```
 
 This will revert all previously running experiments and start new ones based on the latest value of `window.location.href`.
