@@ -269,7 +269,7 @@ const GetStarted = (): React.ReactElement => {
                   </div>
                 </div>
               </div>
-              <div className="card gsbox mb-3">
+              {/* <div className="card gsbox mb-3">
                 <div className="card-body">
                   <h3>Sample data</h3>
                   <p>
@@ -279,7 +279,7 @@ const GetStarted = (): React.ReactElement => {
                   </p>
                   <a className="btn btn-primary">Load sample data</a>
                 </div>
-              </div>
+              </div> */}
 
               <Link href="/settings/team">
                 <a className="boxlink">
