@@ -466,9 +466,11 @@ const ExperimentPage = (): ReactElement => {
                 {experiment.implementation === "visual" && (
                   <div className="alert alert-info">
                     <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
-                    <Link href={`/experiments/designer/${experiment.id}`}>
-                      <a>Open the Editor</a>
-                    </Link>
+                    {experiment.status === "draft" && canEdit && (
+                      <Link href={`/experiments/designer/${experiment.id}`}>
+                        <a>Open the Editor</a>
+                      </Link>
+                    )}
                   </div>
                 )}
                 <div className="row mb-3">

@@ -14,6 +14,7 @@ import asyncHandler from "express-async-handler";
 import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getJWTCheck, processJWT } from "./services/auth";
+import compression from "compression";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -63,6 +64,8 @@ app.get("/healthcheck", (req, res) => {
     healthy: true,
   });
 });
+
+app.use(compression());
 
 const loggerRedact = {
   paths: [

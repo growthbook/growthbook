@@ -92,6 +92,16 @@ window.GROWTHBOOK_CONFIG = {
 </script>
 <script async src="${visualScriptHost}/js/${key}.js"></script>`}
       </SyntaxHighlighter>
+      <div>
+        Check out the full docs at{" "}
+        <a
+          href="https://docs.growthbook.io/app/visual"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          https://docs.growthbook.io/app/visual
+        </a>
+      </div>
     </div>
   );
 }

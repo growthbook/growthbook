@@ -102,9 +102,19 @@ type ExperimentData = {
   groups?: string[];
   url?: string;
   force?: number;
+  draft: boolean;
+  anon: boolean;
 };
 
-// TODO: run through terser?
+type CompressedExperimentOptions = {
+  w?: number[];
+  u: string;
+  g?: string[];
+  f?: number;
+  d?: number;
+  a?: number;
+};
+
 const baseScript = fs
   .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
   .toString("utf-8")
@@ -135,9 +145,6 @@ export async function getExperimentsScript(
       if (exp.implementation !== "visual") {
         return;
       }
-      if (exp.status === "draft") {
-        return;
-      }
 
       const key = exp.trackingKey || exp.id;
       const groups: string[] = [];
@@ -149,6 +156,8 @@ export async function getExperimentsScript(
 
       const data: ExperimentData = {
         key,
+        draft: exp.status === "draft",
+        anon: exp.userIdType === "anonymous",
         variationCode: exp.variations.map((v) => {
           const commands: string[] = [];
           if (v.css) {
@@ -182,8 +191,12 @@ export async function getExperimentsScript(
         );
       }
 
-      if (exp.status === "stopped" && exp.results === "won") {
-        data.force = exp.winner;
+      if (exp.status === "stopped") {
+        if (exp.results === "won") {
+          data.force = exp.winner;
+        } else {
+          return;
+        }
       }
 
       if (exp.status === "running") {
@@ -196,15 +209,21 @@ export async function getExperimentsScript(
     res.setHeader("Cache-Control", "max-age=600");
     res.status(200).send(
       baseScript.replace(/\{\{APP_ORIGIN\}\}/, APP_ORIGIN).replace(
-        /[ ]*\/\*\s*BEGIN_EXPERIMENTS[\s\S]*END_EXPERIMENTS\*\//,
+        /[ ]*\/\*\s*EXPERIMENTS\s*\*\//,
         experimentData
           .map((exp) => {
-            const options = {
+            const options: CompressedExperimentOptions = {
               w: exp.weights,
               u: exp.url,
               g: exp.groups,
               f: exp.force ?? -1,
             };
+            if (exp.draft) {
+              options.d = 1;
+            }
+            if (exp.anon) {
+              options.a = 1;
+            }
             if (exp.coverage) {
               options.w = options.w.map((n) => n * exp.coverage);
             }
