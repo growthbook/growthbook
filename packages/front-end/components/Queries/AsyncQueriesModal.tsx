@@ -1,7 +1,7 @@
 import { FC } from "react";
 import Modal from "../Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { okaidia as style } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import useApi from "../../hooks/useApi";
 import { QueryInterface } from "back-end/types/query";
 import LoadingOverlay from "../LoadingOverlay";
@@ -49,7 +49,7 @@ const AsyncQueriesModal: FC<{
                 )}
                 Query {i + 1} of {data.queries.length}
               </h4>
-              <SyntaxHighlighter language={query.language} style={style}>
+              <SyntaxHighlighter language={query.language} style={theme}>
                 {query.query}
               </SyntaxHighlighter>
               {query.status === "failed" && (

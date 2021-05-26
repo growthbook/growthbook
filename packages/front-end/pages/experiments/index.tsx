@@ -11,7 +11,12 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
+import {
+  FaPalette,
+  FaPlus,
+  FaRegCheckSquare,
+  FaRegSquare,
+} from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import { BsFilter } from "react-icons/bs";
@@ -41,6 +46,7 @@ const ExperimentsPage = (): React.ReactElement => {
     data?.experiments || [],
     [
       "name",
+      "implementation",
       "hypothesis",
       "description",
       "tags",
@@ -229,7 +235,11 @@ const ExperimentsPage = (): React.ReactElement => {
                       tmp.tags.open = !tmp.tags.open;
                       setFilters(tmp);
                     }}
-                    className="filtericon filter-status"
+                    className={clsx("filtericon filter-status", {
+                      "text-primary":
+                        filters.tags.selected.length > 0 &&
+                        !filters.tags.selected.includes("all"),
+                    })}
                   >
                     <BsFilter />
                   </a>
@@ -542,7 +552,15 @@ const ExperimentsPage = (): React.ReactElement => {
                       );
                     }}
                   >
-                    <h4 className="testname">{test.name}</h4>
+                    <div className="d-flex">
+                      <h4 className="testname">{test.name}</h4>
+                      {test.implementation === "visual" && (
+                        <small className="text-muted ml-2">
+                          <FaPalette />
+                          Visual
+                        </small>
+                      )}
+                    </div>
                     {/* <p className="hypothesis">{test.hypothesis}</p> */}
                   </td>
                   {columnsShown.includes("tags") && (
@@ -551,13 +569,6 @@ const ExperimentsPage = (): React.ReactElement => {
                         <span
                           className="tag badge badge-secondary mr-2"
                           key={col}
-                          onClick={() => {
-                            const tmp = { ...filters };
-                            if (!filters.tags.selected.includes(col)) {
-                              tmp.tags.selected = [col];
-                              setFilters(tmp);
-                            }
-                          }}
                         >
                           {col}
                         </span>

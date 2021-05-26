@@ -84,7 +84,9 @@ const ScreenshotUpload = ({
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <button className="btn btn-outline-primary">Upload Screenshot</button>
+        <button className="btn btn-outline-primary btn-sm">
+          Upload Screenshot
+        </button>
       </div>
     </>
   );

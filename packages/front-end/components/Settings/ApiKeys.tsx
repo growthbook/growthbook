@@ -5,16 +5,12 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
-import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
+import ApiKeysModal from "./ApiKeysModal";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [value, inputProps] = useForm({
-    description: "",
-  });
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -23,34 +19,12 @@ const ApiKeys: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const onSubmit = async () => {
-    await apiCall("/keys", {
-      method: "POST",
-      body: JSON.stringify(value),
-    });
-    mutate();
-  };
-
   return (
     <div>
-      {open && (
-        <Modal
-          close={() => setOpen(false)}
-          header="Create New Key"
-          open={true}
-          submit={onSubmit}
-          cta="Create"
-        >
-          <div className="form-group">
-            <label>Description (optional)</label>
-            <textarea {...inputProps.description} className="form-control" />
-          </div>
-        </Modal>
-      )}
-
+      {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
       <p>
-        API keys can be used with our SDKs (Javascript, PHP, Ruby) or a custom
-        implementation.{" "}
+        API keys can be used with our SDKs (Javascript, React, PHP, Ruby) or the
+        Visual Editor.{" "}
         <a
           href="https://docs.growthbook.io/api"
           target="_blank"

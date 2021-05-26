@@ -76,7 +76,7 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Settings",
-    href: "/settings/general",
+    href: "/settings",
     Icon: BsGear,
     divider: true,
     path: /^(settings|admin)/,
@@ -85,9 +85,9 @@ const navlinks: SidebarLinkProps[] = [
     subLinks: [
       {
         name: "General",
-        href: "/settings/general",
+        href: "/settings",
         Icon: GoSettings,
-        path: /^settings\/general/,
+        path: /^settings$/,
       },
       {
         name: "Team",

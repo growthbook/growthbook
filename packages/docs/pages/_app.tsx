@@ -29,6 +29,10 @@ const navLinks = [
         href: "/app/experiments",
         name: "Experiments",
       },
+      {
+        href: "/app/visual",
+        name: "Visual Editor (beta)",
+      },
     ],
   },
   {
