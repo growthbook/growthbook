@@ -194,11 +194,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
-      router.push(
-        res.experiment.implementation === "visual"
-          ? `/experiments/designer/${res.experiment.id}`
-          : `/experiment/${res.experiment.id}`
-      );
+      router.push(`/experiment/${res.experiment.id}`);
     }
   };
 

@@ -476,7 +476,7 @@ const ExperimentPage = (): ReactElement => {
                 <div className="row mb-3">
                   {experiment.variations.map((v, i) => (
                     <div
-                      className="col-md border mx-3 p-3 text-center position-relative"
+                      className="col-md border mx-3 p-3 text-center position-relative d-flex flex-column"
                       key={i}
                       style={{ maxWidth: 600 }}
                     >
@@ -490,7 +490,12 @@ const ExperimentPage = (): ReactElement => {
                         </SyntaxHighlighter>
                       )}
                       {experiment.implementation === "visual" && (
-                        <VisualCode dom={v.dom || []} css={v.css || ""} />
+                        <VisualCode
+                          dom={v.dom || []}
+                          css={v.css || ""}
+                          experimentId={experiment.id}
+                          control={i === 0}
+                        />
                       )}
                       {v.screenshots.length > 0 ? (
                         <Carousel
@@ -540,6 +545,7 @@ const ExperimentPage = (): ReactElement => {
                       ) : (
                         ""
                       )}
+                      <div style={{ flex: 1 }} />
                       {permissions.draftExperiments && !experiment.archived && (
                         <ScreenshotUpload
                           experiment={experiment.id}

@@ -149,9 +149,7 @@ const ExperimentsPage = (): React.ReactElement => {
       !filters.tags.selected.includes("all")
     ) {
       // we have a many to many - and we want to logical OR them.
-      let match =
-        filters.tags.selected.includes("visual") &&
-        exp.implementation === "visual";
+      let match = false;
       exp.tags.forEach((t) => {
         if (filters.tags.selected.includes(t)) match = true;
       });
@@ -270,7 +268,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         all
                       </label>
                     </div>
-                    {tags.concat(["visual"]).map((t) => {
+                    {tags.map((t) => {
                       return (
                         <div className={`form-check`} key={t}>
                           <input
@@ -554,16 +552,19 @@ const ExperimentsPage = (): React.ReactElement => {
                       );
                     }}
                   >
-                    <h4 className="testname">{test.name}</h4>
+                    <div className="d-flex">
+                      <h4 className="testname">{test.name}</h4>
+                      {test.implementation === "visual" && (
+                        <small className="text-muted ml-2">
+                          <FaPalette />
+                          Visual
+                        </small>
+                      )}
+                    </div>
                     {/* <p className="hypothesis">{test.hypothesis}</p> */}
                   </td>
                   {columnsShown.includes("tags") && (
                     <td className="align-middle">
-                      {test.implementation === "visual" && (
-                        <span className="badge badge-dark badge-pill mr-2">
-                          <FaPalette /> Visual
-                        </span>
-                      )}
                       {Object.values(test.tags).map((col) => (
                         <span
                           className="tag badge badge-secondary mr-2"
