@@ -77,6 +77,8 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
+  data.experiments = [];
+  console.log("hello");
   if (!data.experiments.length) {
     return (
       <div className="container p-4">

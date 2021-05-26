@@ -1,9 +1,9 @@
 @import "colors.scss";
 
-$font-size-base: 1rem !default;
+$font-size-base: 0.9rem !default;
 $h1-font-size: $font-size-base * 2 !default;
-$h2-font-size: $font-size-base * 1.75 !default;
-$h3-font-size: $font-size-base * 1.5 !default;
+$h2-font-size: $font-size-base * 1.7 !default;
+$h3-font-size: $font-size-base * 1.45 !default;
 $h4-font-size: $font-size-base * 1.2 !default;
 $h5-font-size: $font-size-base * 1.1 !default;
 $h6-font-size: $font-size-base !default;
@@ -48,6 +48,15 @@ body {
 }
 pre {
   font-size: 100%;
+}
+.text-blue {
+  color: $second-blue;
+}
+.text-purple {
+  color: $purple;
+}
+.text-indigo {
+  color: $indigo;
 }
 .app-sidebar-header {
   .selected {
@@ -831,6 +840,30 @@ li.reports a span img {
 .flex-break {
   flex-basis: 100%;
   height: 0;
+}
+
+.getstarted {
+  .boxlink {
+    &:hover {
+      text-decoration: none;
+    }
+    p {
+      color: $gray-900;
+    }
+  }
+  .gsbox {
+    img {
+      width: 55px;
+    }
+  }
+  .step-done {
+    h3 {
+      text-decoration: line-through;
+    }
+  }
+  .action-link {
+    font-weight: 700;
+  }
 }
 
 .new-presentations {
