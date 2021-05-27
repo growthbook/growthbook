@@ -1,12 +1,11 @@
 import { FC } from "react";
 import Modal from "../Modal";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import useApi from "../../hooks/useApi";
 import { QueryInterface } from "back-end/types/query";
 import LoadingOverlay from "../LoadingOverlay";
 import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
+import Code from "../Code";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
@@ -49,9 +48,7 @@ const AsyncQueriesModal: FC<{
                 )}
                 Query {i + 1} of {data.queries.length}
               </h4>
-              <SyntaxHighlighter language={query.language} style={theme}>
-                {query.query}
-              </SyntaxHighlighter>
+              <Code language={query.language} code={query.query} />
               {query.status === "failed" && (
                 <div className="alert alert-danger">
                   <pre>{query.error}</pre>
@@ -59,7 +56,9 @@ const AsyncQueriesModal: FC<{
               )}
               {query.status === "succeeded" && (
                 <div className="alert alert-success">
-                  <pre>{JSON.stringify(query.result, null, 2)}</pre>
+                  <pre style={{ maxHeight: 300, overflowY: "auto" }}>
+                    {JSON.stringify(query.result, null, 2)}
+                  </pre>
                   {query.status === "succeeded" && (
                     <small>
                       <em>

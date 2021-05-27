@@ -9,6 +9,7 @@ import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEffect } from "react";
+import Code from "../Code";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -30,6 +31,9 @@ const MetricForm: FC<MetricFormProps> = ({
 }) => {
   const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
+  const [sqlInput, setSqlInput] = useState(
+    current?.sql || !current?.table ? true : false
+  );
 
   useEffect(() => {
     track("View Metric Form", {
@@ -81,6 +85,7 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
+      sql: current.sql || "",
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
       anonymousIdColumn: current.anonymousIdColumn || "",
@@ -147,6 +152,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
     const body = JSON.stringify({
       ...value,
+      sql: sqlInput ? value.sql : "",
     });
 
     if (edit) {
@@ -282,162 +288,300 @@ const MetricForm: FC<MetricFormProps> = ({
         )}
       </Page>
       <Page display="Query Settings" enabled={datasourceSettingsSupport}>
+        {supportsSQL && (
+          <div className="form-group bg-light border px-3 py-2">
+            <div className="form-check form-check-inline">
+              <input
+                className="form-check-input"
+                type="radio"
+                name="input-mode"
+                value="sql"
+                id="sql-input-mode"
+                checked={sqlInput}
+                onChange={(e) => setSqlInput(e.target.checked)}
+              />
+              <label className="form-check-label" htmlFor="sql-input-mode">
+                SQL
+              </label>
+            </div>
+            <div className="form-check form-check-inline">
+              <input
+                className="form-check-input"
+                type="radio"
+                name="input-mode"
+                value="builder"
+                id="query-builder-input-mode"
+                checked={!sqlInput}
+                onChange={(e) => setSqlInput(!e.target.checked)}
+              />
+              <label
+                className="form-check-label"
+                htmlFor="query-builder-input-mode"
+              >
+                Query Builder
+              </label>
+            </div>
+          </div>
+        )}
         <div className="row">
           <div className="col-lg">
-            {["count", "duration", "revenue"].includes(value.type) && (
-              <div className="form-group ">
-                {value.type === "count"
-                  ? `Distinct ${column} for Counting`
-                  : column}
-                <input
-                  type="text"
-                  required={value.type !== "count"}
-                  className="form-control"
-                  {...inputs.column}
-                />
-              </div>
-            )}
-            <div className="form-group">
-              {table} Name
-              <input
-                type="text"
-                required
-                className="form-control"
-                {...inputs.table}
-              />
-            </div>
-            {conditionsSupported && (
-              <div className="mb-3">
-                {value.conditions.length > 0 && <h6>Conditions</h6>}
-                {value.conditions.map((cond: Condition, i) => (
-                  <div
-                    className="form-row border py-2 mb-2 align-items-center"
-                    key={i}
-                  >
-                    {i > 0 && <div className="col-auto">AND</div>}
-                    <div className="col-auto">
-                      <input
-                        required
-                        className="form-control mb-1"
-                        placeholder={column}
-                        {...inputs.conditions[i].column}
-                      />
-                    </div>
-                    <div className="col-auto">
-                      <select
-                        className="form-control"
-                        {...inputs.conditions[i].operator}
-                      >
-                        <option value="=">=</option>
-                        <option value="!=">!=</option>
-                        <option value="~">~</option>
-                        <option value="!~">!~</option>
-                        <option value="<">&lt;</option>
-                        <option value=">">&gt;</option>
-                        <option value="<=">&lt;=</option>
-                        <option value=">=">&gt;=</option>
-                      </select>
-                    </div>
-                    <div className="col-auto">
-                      <input
-                        required
-                        className="form-control"
-                        placeholder="Value"
-                        {...inputs.conditions[i].value}
-                      />
-                    </div>
-                    <div className="col-auto">
-                      <button
-                        className="btn btn-danger"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          deleteCondition(i);
-                        }}
-                      >
-                        &times;
-                      </button>
-                    </div>
+            {supportsSQL && sqlInput ? (
+              <div>
+                <div className="form-group">
+                  <div className="form-group">
+                    <label>User Types Supported</label>
+                    <select className="form-control" {...inputs.userIdType}>
+                      <option value="anonymous">Anonymous Only</option>
+                      <option value="user">Users Only</option>
+                      <option value="either">Both Anonymous and Users</option>
+                    </select>
                   </div>
-                ))}
-                <button
-                  className="btn btn-outline-success"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    addCondition();
-                  }}
-                >
-                  Add Condition
-                </button>
+                </div>
+                <div className="form-group">
+                  <label>SQL</label>
+                  <textarea
+                    {...inputs.sql}
+                    className="form-control"
+                    rows={15}
+                    placeholder="SELECT ..."
+                    autoFocus
+                  />
+                </div>
               </div>
-            )}
-            {customzeTimestamp && (
-              <div className="form-group ">
-                Timestamp Column
-                <input
-                  type="text"
-                  placeholder={
-                    currentDataSource?.settings?.default?.timestampColumn ||
-                    "received_at"
-                  }
-                  className="form-control"
-                  {...inputs.timestampColumn}
-                />
-              </div>
-            )}
-            {customizeUserIds && (
-              <div className="form-group">
-                User Types Supported
-                <select className="form-control" {...inputs.userIdType}>
-                  <option value="anonymous">Anonymous Only</option>
-                  <option value="user">Users Only</option>
-                  <option value="either">Both Anonymous and Users</option>
-                </select>
-              </div>
-            )}
-            {value.userIdType !== "anonymous" && customizeUserIds && (
-              <div className="form-group ">
-                User Id Column
-                <input
-                  type="text"
-                  placeholder={
-                    currentDataSource?.settings?.default?.userIdColumn ||
-                    "user_id"
-                  }
-                  className="form-control"
-                  {...inputs.userIdColumn}
-                />
-              </div>
-            )}
-            {value.userIdType !== "user" && customizeUserIds && (
-              <div className="form-group ">
-                Anonymous Id Column
-                <input
-                  type="text"
-                  placeholder={
-                    currentDataSource?.settings?.default?.anonymousIdColumn ||
-                    "anonymous_id"
-                  }
-                  className="form-control"
-                  {...inputs.anonymousIdColumn}
-                />
-              </div>
+            ) : (
+              <>
+                {["count", "duration", "revenue"].includes(value.type) && (
+                  <div className="form-group ">
+                    {value.type === "count"
+                      ? `Distinct ${column} for Counting`
+                      : column}
+                    <input
+                      type="text"
+                      required={value.type !== "count"}
+                      className="form-control"
+                      {...inputs.column}
+                    />
+                  </div>
+                )}
+                <div className="form-group">
+                  {table} Name
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    {...inputs.table}
+                  />
+                </div>
+                {conditionsSupported && (
+                  <div className="mb-3">
+                    {value.conditions.length > 0 && <h6>Conditions</h6>}
+                    {value.conditions.map((cond: Condition, i) => (
+                      <div
+                        className="form-row border py-2 mb-2 align-items-center"
+                        key={i}
+                      >
+                        {i > 0 && <div className="col-auto">AND</div>}
+                        <div className="col-auto">
+                          <input
+                            required
+                            className="form-control mb-1"
+                            placeholder={column}
+                            {...inputs.conditions[i].column}
+                          />
+                        </div>
+                        <div className="col-auto">
+                          <select
+                            className="form-control"
+                            {...inputs.conditions[i].operator}
+                          >
+                            <option value="=">=</option>
+                            <option value="!=">!=</option>
+                            <option value="~">~</option>
+                            <option value="!~">!~</option>
+                            <option value="<">&lt;</option>
+                            <option value=">">&gt;</option>
+                            <option value="<=">&lt;=</option>
+                            <option value=">=">&gt;=</option>
+                          </select>
+                        </div>
+                        <div className="col-auto">
+                          <input
+                            required
+                            className="form-control"
+                            placeholder="Value"
+                            {...inputs.conditions[i].value}
+                          />
+                        </div>
+                        <div className="col-auto">
+                          <button
+                            className="btn btn-danger"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              deleteCondition(i);
+                            }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      className="btn btn-outline-success"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        addCondition();
+                      }}
+                    >
+                      Add Condition
+                    </button>
+                  </div>
+                )}
+                {customzeTimestamp && (
+                  <div className="form-group ">
+                    Timestamp Column
+                    <input
+                      type="text"
+                      placeholder={
+                        currentDataSource?.settings?.default?.timestampColumn ||
+                        "received_at"
+                      }
+                      className="form-control"
+                      {...inputs.timestampColumn}
+                    />
+                  </div>
+                )}
+                {customizeUserIds && (
+                  <div className="form-group">
+                    User Types Supported
+                    <select className="form-control" {...inputs.userIdType}>
+                      <option value="anonymous">Anonymous Only</option>
+                      <option value="user">Users Only</option>
+                      <option value="either">Both Anonymous and Users</option>
+                    </select>
+                  </div>
+                )}
+                {value.userIdType !== "anonymous" && customizeUserIds && (
+                  <div className="form-group ">
+                    User Id Column
+                    <input
+                      type="text"
+                      placeholder={
+                        currentDataSource?.settings?.default?.userIdColumn ||
+                        "user_id"
+                      }
+                      className="form-control"
+                      {...inputs.userIdColumn}
+                    />
+                  </div>
+                )}
+                {value.userIdType !== "user" && customizeUserIds && (
+                  <div className="form-group ">
+                    Anonymous Id Column
+                    <input
+                      type="text"
+                      placeholder={
+                        currentDataSource?.settings?.default
+                          ?.anonymousIdColumn || "anonymous_id"
+                      }
+                      className="form-control"
+                      {...inputs.anonymousIdColumn}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
           {supportsSQL && (
-            <div className="col-lg">
-              Query Preview:
-              <pre className="bg-dark text-light p-2">
-                {`SELECT
+            <div className="col-lg bg-light border-left pt-2">
+              {sqlInput ? (
+                <div>
+                  Example SQL
+                  <Code
+                    language="sql"
+                    code={`SELECT
+${
+  value.userIdType !== "anonymous"
+    ? `  ${
+        currentDataSource?.settings?.default?.userIdColumn || "user_id"
+      } as user_id,\n`
+    : ""
+}${
+                      value.userIdType !== "user"
+                        ? `  ${
+                            currentDataSource?.settings?.default
+                              ?.anonymousIdColumn || "anonymous_id"
+                          } as anonymous_id,\n`
+                        : ""
+                    }${
+                      value.type === "binomial"
+                        ? ""
+                        : value.type === "count"
+                        ? "  1 as value,\n"
+                        : value.type === "revenue"
+                        ? "  amount as value,\n"
+                        : "  duration as value,\n"
+                    }  ${
+                      currentDataSource?.settings?.default?.timestampColumn ||
+                      "received_at"
+                    } as timestamp
+FROM
+  ${
+    value.type === "binomial" || value.type === "count"
+      ? "downloads"
+      : value.type === "revenue"
+      ? "purchases"
+      : "sessions"
+  }`}
+                  />
+                  <p className="mt-3">
+                    Your SELECT statement must return the following columns:
+                  </p>
+                  <ol>
+                    {value.userIdType !== "anonymous" && (
+                      <li>
+                        <strong>user_id</strong> - The logged-in user id of the
+                        person converting
+                      </li>
+                    )}
+                    {value.userIdType !== "user" && (
+                      <li>
+                        <strong>anonymous_id</strong> - The anonymous id of the
+                        person converting
+                      </li>
+                    )}
+                    {value.type !== "binomial" && (
+                      <li>
+                        <strong>value</strong> -{" "}
+                        {value.type === "count"
+                          ? "The number of conversions (multiple rows for a user will be summed)"
+                          : "The " +
+                            value.type +
+                            " amount (multiple rows for a user will be summed)"}
+                      </li>
+                    )}
+                    <li>
+                      <strong>timestamp</strong> - When the action was performed
+                    </li>
+                  </ol>
+                </div>
+              ) : (
+                <>
+                  Query Preview:
+                  <Code
+                    language="sql"
+                    code={`SELECT
   ${sqlPreviewData.userIdCol}${sqlPreviewData.column}
 FROM
   ${value.table || "?"}
 WHERE
   ${sqlPreviewData.timestampCol} > '${sqlPreviewData.weekAgo}'${
-                  sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
-                }
+                      sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
+                    }
 GROUP BY
   ${sqlPreviewData.userIdCol}`}
-              </pre>
+                  />
+                </>
+              )}
             </div>
           )}
         </div>

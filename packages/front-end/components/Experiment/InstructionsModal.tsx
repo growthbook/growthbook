@@ -1,7 +1,5 @@
 import { FC, useState } from "react";
 import Modal from "../Modal";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
@@ -15,6 +13,7 @@ import {
 } from "../../services/codegen";
 import TextareaAutosize from "react-textarea-autosize";
 import { FaExclamationTriangle } from "react-icons/fa";
+import Code from "../Code";
 
 type Experiment = {
   key: string;
@@ -165,8 +164,9 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="javascript" style={theme}>
-            {`const { value } = user.experiment(${stringify(
+          <Code
+            language="javascript"
+            code={`const { value } = user.experiment(${stringify(
               expDef
             )})\n\nconsole.log(value${
               !variationParam
@@ -175,7 +175,7 @@ const InstructionsModal: FC<{
                 ? "." + variationParam
                 : '["' + variationParam + '"]'
             }); // ${variationParamList}`}
-          </SyntaxHighlighter>
+          />
         </Tab>
         <Tab display="React">
           <p>
@@ -189,8 +189,9 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="jsx" style={theme}>
-            {`function MyComponent() {\n  const { value } = user.experiment(${indentLines(
+          <Code
+            language="tsx"
+            code={`function MyComponent() {\n  const { value } = user.experiment(${indentLines(
               stringify(expDef)
             )})\n\n  return <div>{value${
               !variationParam
@@ -199,7 +200,7 @@ const InstructionsModal: FC<{
                 ? "." + variationParam
                 : '["' + variationParam + '"]'
             }}</div>; // ${variationParamList}\n}`}
-          </SyntaxHighlighter>
+          />
         </Tab>
         <Tab display="PHP">
           <p>
@@ -213,8 +214,9 @@ const InstructionsModal: FC<{
             </a>{" "}
             and then...
           </p>
-          <SyntaxHighlighter language="php" style={theme}>
-            {`<?php\n$experiment = new Growthbook\\Experiment(\n  "${
+          <Code
+            language="php"
+            code={`<?php\n$experiment = new Growthbook\\Experiment(\n  "${
               expDef.key
             }",\n  ${indentLines(phpArrayFormat(expDef.variations))}${
               removeKeyAndVariations(expDef)
@@ -224,7 +226,7 @@ const InstructionsModal: FC<{
             }\n);\n$result = $user->experiment($experiment);\n\necho $result->value${
               !variationParam ? "" : '["' + variationParam + '"]'
             }; // ${variationParamList}`}
-          </SyntaxHighlighter>
+          />
         </Tab>
         <Tab display="Inline Script">
           <div className="alert alert-warning">
@@ -289,9 +291,7 @@ const InstructionsModal: FC<{
               </div>
             ))}
           </form>
-          <SyntaxHighlighter language="html" style={theme}>
-            {codegen}
-          </SyntaxHighlighter>
+          <Code language="html" code={codegen} />
         </Tab>
       </Tabs>
       Full documentation and other languages are at{" "}

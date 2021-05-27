@@ -3,9 +3,8 @@ import useApi from "../hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Modal from "./Modal";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { ago, datetime } from "../services/dates";
+import Code from "./Code";
 
 const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
   id,
@@ -30,9 +29,10 @@ const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
     <>
       {modal && (
         <Modal close={() => setModal(null)} open={true} header="Event Details">
-          <SyntaxHighlighter language="json" style={theme}>
-            {JSON.stringify(JSON.parse(modal), null, 2)}
-          </SyntaxHighlighter>
+          <Code
+            language="json"
+            code={JSON.stringify(JSON.parse(modal), null, 2)}
+          />
         </Modal>
       )}
       <h4>Audit Log</h4>

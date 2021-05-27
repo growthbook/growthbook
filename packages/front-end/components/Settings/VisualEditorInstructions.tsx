@@ -2,8 +2,7 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
 import { useState } from "react";
 import { FaKey } from "react-icons/fa";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import Code from "../Code";
 import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({
@@ -76,8 +75,9 @@ export default function VisualEditorInstructions({
         </div>
       )}
       <p>Add the below code to the HEAD of the website you want to test.</p>
-      <SyntaxHighlighter language="html" style={theme}>
-        {`<script>
+      <Code
+        language="html"
+        code={`<script>
 window.GROWTHBOOK_CONFIG = {
   // Optional logged-in user id
   userId: "123",
@@ -91,7 +91,7 @@ window.GROWTHBOOK_CONFIG = {
 }
 </script>
 <script async src="${visualScriptHost}/js/${key}.js"></script>`}
-      </SyntaxHighlighter>
+      />
       <div>
         Check out the full docs at{" "}
         <a

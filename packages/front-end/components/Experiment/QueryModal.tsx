@@ -1,8 +1,7 @@
 import { FC } from "react";
 import { QueryLanguage } from "back-end/types/datasource";
 import Modal from "../Modal";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import Code from "../Code";
 
 const QueryModal: FC<{
   queries: string[];
@@ -18,9 +17,7 @@ const QueryModal: FC<{
       closeCta="Close"
     >
       {queries.map((query, i) => (
-        <SyntaxHighlighter language={language} style={theme} key={i}>
-          {query}
-        </SyntaxHighlighter>
+        <Code language={language} key={i} code={query} />
       ))}
     </Modal>
   );

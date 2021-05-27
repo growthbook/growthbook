@@ -20,6 +20,7 @@ const metricSchema = new mongoose.Schema({
   userIdColumn: String,
   anonymousIdColumn: String,
   userIdType: String,
+  sql: String,
   timestampColumn: String,
   conditions: [
     {

@@ -30,6 +30,7 @@ import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Code from "../../components/Code";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -321,43 +322,59 @@ const MetricPage: FC = () => {
                     open={() => setEditModalOpen(1)}
                     canOpen={canEdit}
                   >
-                    <RightRailSectionGroup
-                      title={supportsSQL ? "Table" : "Event"}
-                      type="code"
-                    >
-                      {metric.table}
-                    </RightRailSectionGroup>
-                    {metric.type !== "binomial" && metric.column && (
-                      <RightRailSectionGroup
-                        title={supportsSQL ? "Column" : "Property"}
-                        type="code"
-                      >
-                        {metric.column}
-                      </RightRailSectionGroup>
-                    )}
-                    {metric.userIdType !== "anonymous" && customizeUserIds && (
-                      <RightRailSectionGroup title="User Id Col" type="code">
-                        {metric.userIdColumn || datasourceDefaults.userIdColumn}
-                      </RightRailSectionGroup>
-                    )}
-                    {metric.userIdType !== "user" && customizeUserIds && (
-                      <RightRailSectionGroup title="Anon Id Col" type="code">
-                        {metric.anonymousIdColumn ||
-                          datasourceDefaults.anonymousIdColumn}
-                      </RightRailSectionGroup>
-                    )}
-                    {customzeTimestamp && (
-                      <RightRailSectionGroup title="Timestamp Col" type="code">
-                        {metric.timestampColumn ||
-                          datasourceDefaults.timestampColumn}
-                      </RightRailSectionGroup>
-                    )}
-                    {metric.conditions?.length > 0 && (
-                      <RightRailSectionGroup title="Conditions" type="list">
-                        {metric.conditions.map(
-                          (c) => `${c.column} ${c.operator} "${c.value}"`
+                    {supportsSQL && metric.sql ? (
+                      <Code language="sql" code={metric.sql} />
+                    ) : (
+                      <>
+                        <RightRailSectionGroup
+                          title={supportsSQL ? "Table" : "Event"}
+                          type="code"
+                        >
+                          {metric.table}
+                        </RightRailSectionGroup>
+                        {metric.type !== "binomial" && metric.column && (
+                          <RightRailSectionGroup
+                            title={supportsSQL ? "Column" : "Property"}
+                            type="code"
+                          >
+                            {metric.column}
+                          </RightRailSectionGroup>
                         )}
-                      </RightRailSectionGroup>
+                        {metric.userIdType !== "anonymous" && customizeUserIds && (
+                          <RightRailSectionGroup
+                            title="User Id Col"
+                            type="code"
+                          >
+                            {metric.userIdColumn ||
+                              datasourceDefaults.userIdColumn}
+                          </RightRailSectionGroup>
+                        )}
+                        {metric.userIdType !== "user" && customizeUserIds && (
+                          <RightRailSectionGroup
+                            title="Anon Id Col"
+                            type="code"
+                          >
+                            {metric.anonymousIdColumn ||
+                              datasourceDefaults.anonymousIdColumn}
+                          </RightRailSectionGroup>
+                        )}
+                        {customzeTimestamp && (
+                          <RightRailSectionGroup
+                            title="Timestamp Col"
+                            type="code"
+                          >
+                            {metric.timestampColumn ||
+                              datasourceDefaults.timestampColumn}
+                          </RightRailSectionGroup>
+                        )}
+                        {metric.conditions?.length > 0 && (
+                          <RightRailSectionGroup title="Conditions" type="list">
+                            {metric.conditions.map(
+                              (c) => `${c.column} ${c.operator} "${c.value}"`
+                            )}
+                          </RightRailSectionGroup>
+                        )}
+                      </>
                     )}
                   </RightRailSection>
                 </>

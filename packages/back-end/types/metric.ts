@@ -25,20 +25,22 @@ export interface MetricInterface {
   name: string;
   description: string;
   type: MetricType;
-  table: string;
-  column: string;
   earlyStart: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
   dateCreated: Date;
   dateUpdated: Date;
-  userIdColumn?: string;
-  anonymousIdColumn?: string;
   userIdType?: "anonymous" | "user" | "either";
-  timestampColumn?: string;
-  conditions: Condition[];
   queries: Queries;
   runStarted: Date;
   analysis?: MetricAnalysis;
+  sql?: string;
+  // Query Builder Props (alternative to sql)
+  table?: string;
+  column?: string;
+  userIdColumn?: string;
+  anonymousIdColumn?: string;
+  timestampColumn?: string;
+  conditions?: Condition[];
 }

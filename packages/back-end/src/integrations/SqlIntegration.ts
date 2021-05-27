@@ -882,7 +882,9 @@ export default abstract class SqlIntegration
         )} as conversion_end,
         ${this.subtractHalfHour(timestampCol)} as session_start
       FROM
-        ${this.getFullTableName(metric.table)} m
+        ${
+          metric.sql ? `(${metric.sql})` : this.getFullTableName(metric.table)
+        } m
         ${join}
       ${
         metric.conditions.length
@@ -1045,6 +1047,8 @@ export default abstract class SqlIntegration
   }
 
   getMetricColumn(metric: MetricInterface, alias = "m") {
+    if (metric.sql) return alias + ".value";
+
     if (metric.type === "duration") {
       // Custom SQL column expression
       if (metric.column.match(/\{alias\}/)) {
@@ -1055,7 +1059,11 @@ export default abstract class SqlIntegration
   }
 
   getRawMetricSqlValue(metric: MetricInterface, alias: string = "m") {
-    if (metric.type === "count") {
+    if (metric.type === "binomial") {
+      return "1";
+    } else if (metric.sql) {
+      return alias + ".value";
+    } else if (metric.type === "count") {
       return metric.column ? this.getMetricColumn(metric, alias) : "1";
     } else if (metric.type === "duration") {
       return this.getMetricColumn(metric, alias);
@@ -1068,12 +1076,20 @@ export default abstract class SqlIntegration
     if (metric.type === "count") {
       return this.capValue(
         metric.cap,
-        `COUNT(${metric.column ? `DISTINCT ${col}` : "*"})`
+        metric.sql
+          ? `SUM(${col})`
+          : `COUNT(${metric.column ? `DISTINCT ${col}` : "*"})`
       );
     } else if (metric.type === "duration") {
-      return this.capValue(metric.cap, `MAX(${col})`);
+      return this.capValue(
+        metric.cap,
+        metric.sql ? `SUM(${col})` : `MAX(${col})`
+      );
     } else if (metric.type === "revenue") {
-      return this.capValue(metric.cap, `MAX(${col})`);
+      return this.capValue(
+        metric.cap,
+        metric.sql ? `SUM(${col})` : `MAX(${col})`
+      );
     }
     return "1";
   }
@@ -1086,6 +1102,8 @@ export default abstract class SqlIntegration
       | "identifies"
       | "default" = "default"
   ): string {
+    if (metric && metric.sql) return "user_id";
+
     return (
       (metric && metric.userIdColumn) ||
       this.settings[section]?.userIdColumn ||
@@ -1097,6 +1115,8 @@ export default abstract class SqlIntegration
     metric: null | MetricInterface,
     section: "experiments" | "pageviews" | "identifies" | "default" = "default"
   ): string {
+    if (metric && metric.sql) return "anonymous_id";
+
     return (
       (metric && metric.anonymousIdColumn) ||
       this.settings[section]?.anonymousIdColumn ||
@@ -1108,6 +1128,8 @@ export default abstract class SqlIntegration
     metric: null | MetricInterface,
     section: "experiments" | "pageviews" | "default" = "default"
   ): string {
+    if (metric && metric.sql) return "timestamp";
+
     return (
       (metric && metric.timestampColumn) ||
       this.settings[section]?.timestampColumn ||

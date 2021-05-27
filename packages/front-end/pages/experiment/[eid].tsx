@@ -51,10 +51,9 @@ import ConfirmButton from "../../components/Modal/ConfirmButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import InstructionsModal from "../../components/Experiment/InstructionsModal";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
+import Code from "../../components/Code";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -485,9 +484,7 @@ const ExperimentPage = (): ReactElement => {
                       </div>
                       {v.description && <p>{v.description}</p>}
                       {v.value && experiment.implementation !== "visual" && (
-                        <SyntaxHighlighter language="json" style={theme}>
-                          {v.value}
-                        </SyntaxHighlighter>
+                        <Code language="json" code={v.value} />
                       )}
                       {experiment.implementation === "visual" && (
                         <VisualCode
