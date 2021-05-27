@@ -54,7 +54,7 @@ export type UserContextValue = {
   admin?: boolean;
   role?: string;
   users?: Map<string, User>;
-  getUserDisplay?: (id: string) => string;
+  getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
   permissions: Permissions;
@@ -164,9 +164,10 @@ const ProtectedPage: React.FC<{
     admin: data?.admin,
     update,
     users,
-    getUserDisplay: (id: string) => {
+    getUserDisplay: (id, fallback = true) => {
       const u = users.get(id);
-      return u?.name || u?.email || id;
+      if (!u && fallback) return id;
+      return u?.name || u?.email;
     },
     refreshUsers,
     role,

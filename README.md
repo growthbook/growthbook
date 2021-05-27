@@ -14,10 +14,13 @@ In addition, there are **client libraries** to help you implement A/B tests in [
 - Lightweight idea board and prioritization framework
 - Document everything! (upload screenshots, add markdown comments, and more)
 - Automated email alerts when tests become significant
+- Visual Editor for non-technical users to create experiments _(beta)_
 
 ## Community
 
 Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
+
+View the developer docs at https://docs.growthbook.io
 
 ## Requirements
 
@@ -42,6 +45,14 @@ yarn init:dev
 ```
 
 Edit the default values in `packages/back-end/.env.local` and `packages/front-end/.env.local` as needed.
+
+### S3
+
+S3 is used to store uploaded experiment screenshots. We support multiple ways of providing credentials with the following order of precedence:
+
+1.  Environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (on dev, add to `packages/back-end/.env.local`)
+2.  Shared credentials file `~/.aws/credentials`
+3.  ECS credentials provider or EC2 instance IAM role (when deployed to AWS)
 
 ### MongoDB
 

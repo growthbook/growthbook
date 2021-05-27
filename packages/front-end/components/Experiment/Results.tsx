@@ -55,12 +55,12 @@ const Results: FC<{
 
   return (
     <>
-      {experiment.status === "stopped" && result && (
+      {experiment.status === "stopped" && (
         <div
           className={clsx("alert", {
             "alert-success": result === "won",
             "alert-danger": result === "lost",
-            "alert-info": result === "inconclusive",
+            "alert-info": !result || result === "inconclusive",
             "alert-warning": result === "dnf",
           })}
         >
@@ -88,6 +88,8 @@ const Results: FC<{
             {result === "dnf" &&
               `The experiment was stopped early and did not finish.`}
             {result === "inconclusive" && `The results were inconclusive.`}
+            {!result &&
+              `The experiment was stopped, but a winner has not been selected yet.`}
           </strong>
           {experiment.analysis && (
             <div className="card text-dark mt-2">

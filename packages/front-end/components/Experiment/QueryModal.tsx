@@ -2,7 +2,7 @@ import { FC } from "react";
 import { QueryLanguage } from "back-end/types/datasource";
 import Modal from "../Modal";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { okaidia as style } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow as theme } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 const QueryModal: FC<{
   queries: string[];
@@ -18,7 +18,7 @@ const QueryModal: FC<{
       closeCta="Close"
     >
       {queries.map((query, i) => (
-        <SyntaxHighlighter language={language} style={style} key={i}>
+        <SyntaxHighlighter language={language} style={theme} key={i}>
           {query}
         </SyntaxHighlighter>
       ))}

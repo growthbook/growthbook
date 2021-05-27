@@ -1,25 +1,37 @@
-import { FC } from "react";
+import { FC, useContext } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ImplementationType,
+} from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
 import TextareaAutosize from "react-textarea-autosize";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { UserContext } from "../ProtectedPage";
+import RadioSelector from "../Forms/RadioSelector";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
+  const {
+    settings: { implementationTypes },
+  } = useContext(UserContext);
+
+  const visualAllowed = implementationTypes.includes("visual");
+
   const { getDatasourceById } = useDefinitions();
   const [value, inputProps, manualUpdate] = useForm<
     Partial<ExperimentInterfaceStringDates>
   >(
     {
       name: experiment.name || "",
+      implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || experiment.observations || "",
       variations: experiment.variations
@@ -122,6 +134,31 @@ const EditInfoForm: FC<{
         <label>Name</label>
         <input type="text" {...inputProps.name} />
       </div>
+      {visualAllowed && (
+        <div className="form-group">
+          <label>Type</label>
+          <RadioSelector
+            name="implementationType"
+            value={value.implementation}
+            setValue={(implementation: ImplementationType) =>
+              manualUpdate({ implementation })
+            }
+            options={[
+              {
+                key: "code",
+                display: "Code",
+                description:
+                  "Using one of our SDKs (Javascript, React, PHP, or Ruby)",
+              },
+              {
+                key: "visual",
+                display: "Visual",
+                description: "Using our point & click Visual Editor",
+              },
+            ]}
+          />
+        </div>
+      )}
       <div className="form-group">
         <label>Description</label>
         <MarkdownInput
@@ -178,18 +215,20 @@ const EditInfoForm: FC<{
                   <label>Description</label>
                   <textarea {...inputProps.variations[i].description} />
                 </div>
-                <div className="form-group">
-                  <label>JSON Value</label>
-                  <TextareaAutosize
-                    {...inputProps.variations[i].value}
-                    minRows={1}
-                    maxRows={10}
-                    placeholder='e.g. {"color": "red"}'
-                  />
-                  <small className="form-text text-muted">
-                    Optional, use to parameterize experiment data.
-                  </small>
-                </div>
+                {value.implementation !== "visual" && (
+                  <div className="form-group">
+                    <label>JSON Value</label>
+                    <TextareaAutosize
+                      {...inputProps.variations[i].value}
+                      minRows={1}
+                      maxRows={10}
+                      placeholder='e.g. {"color": "red"}'
+                    />
+                    <small className="form-text text-muted">
+                      Optional, use to parameterize experiment data.
+                    </small>
+                  </div>
+                )}
               </div>
             </div>
           ))}

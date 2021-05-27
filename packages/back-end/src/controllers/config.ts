@@ -94,32 +94,149 @@ export async function getExperimentConfig(
   }
 }
 
-let visualDesignerContents: string;
-export async function getVisualDesignerScript(req: Request, res: Response) {
-  if (!visualDesignerContents) {
-    const visualDesignerPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "node_modules",
-      "ab-designer",
-      "dist",
-      "ab-designer.cjs.production.min.js"
-    );
-    visualDesignerContents = fs.existsSync(visualDesignerPath)
-      ? fs.readFileSync(visualDesignerPath).toString()
-      : "";
-    visualDesignerContents = visualDesignerContents
-      .replace(/\/\/# sourceMappingURL.*/, "")
-      .replace(/"use strict";/, "");
-    visualDesignerContents = `function startVisualDesigner(){${visualDesignerContents}}
-if(window.location.search.match(/\\bgrowthbookVisualDesigner\\b/)) {
-  window.growthbook=window.growthbook||[];window.growthbook.push("disable");
-  window.EXP_PLATFORM_ORIGIN="${APP_ORIGIN}";
-  startVisualDesigner();
-}`;
-  }
+type ExperimentData = {
+  key: string;
+  variationCode: string[];
+  weights?: number[];
+  coverage?: number;
+  groups?: string[];
+  url?: string;
+  force?: number;
+  draft: boolean;
+  anon: boolean;
+};
 
+type CompressedExperimentOptions = {
+  w?: number[];
+  u: string;
+  g?: string[];
+  f?: number;
+  d?: number;
+  a?: number;
+};
+
+const baseScript = fs
+  .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
+  .toString("utf-8")
+  .replace(/.*eslint-.*\n/g, "")
+  .replace(/\n\/\/.*/g, "");
+
+export async function getExperimentsScript(
+  req: Request<{ key: string }>,
+  res: Response
+) {
   res.setHeader("Content-Type", "text/javascript");
-  res.send(visualDesignerContents);
+  const { key } = req.params;
+
+  try {
+    const organization = await lookupOrganizationByApiKey(key);
+    if (!organization) {
+      return res
+        .status(400)
+        .send(`console.error("Invalid Growth Book API key");`);
+    }
+    const experiments = await getExperimentsByOrganization(organization);
+
+    const experimentData: ExperimentData[] = [];
+
+    experiments.forEach((exp) => {
+      if (exp.archived) {
+        return;
+      }
+      if (exp.implementation !== "visual") {
+        return;
+      }
+
+      const key = exp.trackingKey || exp.id;
+      const groups: string[] = [];
+
+      const phase = exp.phases[exp.phases.length - 1];
+      if (phase && exp.status === "running" && phase.groups?.length > 0) {
+        groups.push(...phase.groups);
+      }
+
+      const data: ExperimentData = {
+        key,
+        draft: exp.status === "draft",
+        anon: exp.userIdType === "anonymous",
+        variationCode: exp.variations.map((v) => {
+          const commands: string[] = [];
+          if (v.css) {
+            commands.push("injectStyles(" + JSON.stringify(v.css) + ")");
+          }
+          v.dom.forEach((dom) => {
+            commands.push(
+              "mutate.declarative(" + JSON.stringify(dom) + ").revert"
+            );
+          });
+          return "[" + commands.join(",") + "]";
+        }),
+      };
+
+      if (exp.targetURLRegex) {
+        data.url = exp.targetURLRegex;
+      }
+
+      if (groups.length) {
+        data.groups = groups;
+      }
+
+      if (phase) {
+        data.coverage = phase.coverage;
+        data.weights = phase.variationWeights;
+      }
+
+      if (!data.weights) {
+        data.weights = Array(exp.variations.length).fill(
+          1 / exp.variations.length
+        );
+      }
+
+      if (exp.status === "stopped") {
+        if (exp.results === "won") {
+          data.force = exp.winner;
+        } else {
+          return;
+        }
+      }
+
+      if (exp.status === "running") {
+        if (!phase) return;
+      }
+
+      experimentData.push(data);
+    });
+
+    res.setHeader("Cache-Control", "max-age=600");
+    res.status(200).send(
+      baseScript.replace(/\{\{APP_ORIGIN\}\}/, APP_ORIGIN).replace(
+        /[ ]*\/\*\s*EXPERIMENTS\s*\*\//,
+        experimentData
+          .map((exp) => {
+            const options: CompressedExperimentOptions = {
+              w: exp.weights,
+              u: exp.url,
+              g: exp.groups,
+              f: exp.force ?? -1,
+            };
+            if (exp.draft) {
+              options.d = 1;
+            }
+            if (exp.anon) {
+              options.a = 1;
+            }
+            if (exp.coverage) {
+              options.w = options.w.map((n) => n * exp.coverage);
+            }
+            return `run(${JSON.stringify(exp.key)},[${exp.variationCode
+              .map((v) => `()=>${v}`)
+              .join(",")}],${JSON.stringify(options)})`;
+          })
+          .join("\n")
+      )
+    );
+  } catch (e) {
+    console.error(e);
+    return res.status(400).send(`console.error(${JSON.stringify(e.message)});`);
+  }
 }
