@@ -98,6 +98,17 @@ const AlignedGraph: FC<Props> = ({
                           stroke={gridColor}
                           numTicks={numTicks}
                         />
+
+                        <AxisLeft
+                          key={`test`}
+                          orientation={Orientation.left}
+                          left={xScale(0)}
+                          scale={yScale}
+                          tickFormat={tickFormat}
+                          stroke={zeroLineColor}
+                          /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
+                          numTicks={0}
+                        />
                       </>
                     )}
                     {showAxis && (
@@ -117,16 +128,6 @@ const AlignedGraph: FC<Props> = ({
                     )}
                     {!axisOnly && (
                       <>
-                        <AxisLeft
-                          key={`test`}
-                          orientation={Orientation.left}
-                          left={xScale(0)}
-                          scale={yScale}
-                          tickFormat={tickFormat}
-                          stroke={zeroLineColor}
-                          /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
-                          numTicks={0}
-                        />
                         <rect
                           x={xScale(ci[0])}
                           y={barHeight}

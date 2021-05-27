@@ -6,6 +6,7 @@ import SRMWarning from "./SRMWarning";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
+import { formatDistance } from "date-fns";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -162,6 +163,32 @@ const CompactResults: FC<{
                       150 ||
                     Math.min(stats.value, variations[0].metrics[m]?.value) < 25
                   ) {
+                    const percentComplete = Math.min(
+                      Math.max(stats.value, variations[0].metrics[m]?.value) /
+                        150,
+                      Math.min(stats.value, variations[0].metrics[m]?.value) /
+                        25
+                    );
+                    const phaseStart = new Date(
+                      experiment.phases[snapshot.phase]?.dateStarted
+                    ).getTime();
+                    const snapshotCreated = new Date(
+                      snapshot.dateCreated
+                    ).getTime();
+
+                    const msRemaining =
+                      percentComplete > 0.1
+                        ? ((snapshotCreated - phaseStart) *
+                            (1 - percentComplete)) /
+                            percentComplete -
+                          (Date.now() - snapshotCreated)
+                        : null;
+
+                    const showTimeRemaining =
+                      msRemaining !== null &&
+                      snapshot.phase === experiment.phases.length - 1 &&
+                      experiment.status === "running";
+
                     return (
                       <>
                         <td className="value variation">
@@ -181,11 +208,39 @@ const CompactResults: FC<{
                           </div>
                         </td>
                         {i > 0 && (
-                          <td colSpan={2} className="variation">
-                            <small>
-                              <em>not enough data</em>
-                            </small>
-                          </td>
+                          <>
+                            <td className="variation text-center text-muted">
+                              <div>
+                                <div className="badge badge-pill badge-warning">
+                                  not enough data
+                                </div>
+                                {showTimeRemaining && (
+                                  <div className="font-italic mt-1">
+                                    {msRemaining > 0 ? (
+                                      <>
+                                        <span className="nowrap">
+                                          {formatDistance(0, msRemaining)}
+                                        </span>{" "}
+                                        left
+                                      </>
+                                    ) : (
+                                      "try updating now"
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="variation compact-graph pb-0 align-middle">
+                              <AlignedGraph
+                                domain={domain}
+                                axisOnly={true}
+                                ci={[0, 0]}
+                                significant={false}
+                                showAxis={false}
+                                height={70}
+                              />
+                            </td>
+                          </>
                         )}
                       </>
                     );
