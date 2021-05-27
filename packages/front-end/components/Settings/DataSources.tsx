@@ -155,6 +155,11 @@ const DataSources: FC = () => {
         <DataSourceForm
           existing={edit !== DEFAULT_DATA_SOURCE}
           data={edit}
+          source={
+            edit === DEFAULT_DATA_SOURCE
+              ? "datasource-list"
+              : "datasource-detail"
+          }
           onSuccess={() => {
             mutateDefinitions({});
           }}

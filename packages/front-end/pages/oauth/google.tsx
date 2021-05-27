@@ -38,6 +38,7 @@ const Google: FC = () => {
       <h3>Add Data Source</h3>
       <DataSourceForm
         existing={false}
+        source="google-oauth"
         data={{
           type: "google_analytics",
           name: "",

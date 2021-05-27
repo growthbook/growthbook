@@ -102,15 +102,22 @@ const typeOptions: {
 const DataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
+  source: string;
   onCancel: () => void;
   onSuccess: () => void;
-}> = ({ data, onSuccess, onCancel, existing }) => {
+}> = ({ data, onSuccess, onCancel, source, existing }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
   >(null);
   const [hasError, setHasError] = useState(false);
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    track("View Datasource Form", {
+      source,
+    });
+  }, [source]);
 
   const { apiCall } = useAuth();
   useEffect(() => {
@@ -193,7 +200,8 @@ const DataSourceForm: FC<{
         if (res.status > 200) {
           throw new Error(res.message);
         }
-        track("Add Datasource", {
+        track("Submit Datasource Form", {
+          source,
           type: datasource.type,
         });
       }

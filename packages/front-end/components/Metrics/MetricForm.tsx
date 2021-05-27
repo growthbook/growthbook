@@ -8,6 +8,7 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useEffect } from "react";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -16,6 +17,7 @@ export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
   edit: boolean;
+  source: string;
   onClose: (refresh?: boolean) => void;
 };
 
@@ -23,10 +25,17 @@ const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
   onClose,
+  source,
   initialStep = 0,
 }) => {
   const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
+
+  useEffect(() => {
+    track("View Metric Form", {
+      source,
+    });
+  }, [source]);
 
   const metricTypeOptions = [
     {
@@ -150,12 +159,14 @@ const MetricForm: FC<MetricFormProps> = ({
         method: "POST",
         body,
       });
-
-      track("Create Metric", {
-        type: value.type,
-        userIdType: value.userIdType,
-      });
     }
+
+    track("Submit Metric Form", {
+      type: value.type,
+      source,
+      userIdType: value.userIdType,
+    });
+
     onClose(true);
   };
 

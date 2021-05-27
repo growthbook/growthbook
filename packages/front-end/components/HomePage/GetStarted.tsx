@@ -40,6 +40,7 @@ const GetStarted = ({
           <DataSourceForm
             data={{}}
             existing={false}
+            source="get-started"
             onCancel={() => setDataSourceOpen(false)}
             onSuccess={() => setDataSourceOpen(false)}
           />
@@ -48,6 +49,7 @@ const GetStarted = ({
           <MetricForm
             current={{}}
             edit={false}
+            source="get-started"
             onClose={() => setMetricsOpen(false)}
           />
         )}
@@ -318,9 +320,9 @@ const GetStarted = ({
                         />
                         Add teammates to your account
                       </p>
-                      <a className="action-link non-active-step">
+                      <span className="action-link non-active-step">
                         Invite team <FiArrowRight />
-                      </a>
+                      </span>
                     </div>
                   </div>
                 </a>

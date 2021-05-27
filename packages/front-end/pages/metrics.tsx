@@ -43,7 +43,13 @@ const MetricsPage = (): React.ReactElement => {
   if (!metrics.length) {
     return (
       <div className="container p-4">
-        {modalData && <MetricForm {...modalData} onClose={closeModal} />}
+        {modalData && (
+          <MetricForm
+            {...modalData}
+            onClose={closeModal}
+            source="blank-state"
+          />
+        )}
         <h1>Metrics</h1>
         <p>
           Metrics define success and failure for your business. Every business
@@ -87,7 +93,9 @@ const MetricsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
-      {modalData && <MetricForm {...modalData} onClose={closeModal} />}
+      {modalData && (
+        <MetricForm {...modalData} onClose={closeModal} source="metrics-list" />
+      )}
       <h3 className="mb-3">
         Your Metrics
         {permissions.createMetrics && (
