@@ -1,27 +1,30 @@
 import React from "react";
-import useApi from "../../hooks/useApi";
 import Link from "next/link";
-import LoadingOverlay from "../../components/LoadingOverlay";
-//import { BiTimeFive } from "react-icons/bi";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MdChevronRight } from "react-icons/md";
 import { FiArrowRight } from "react-icons/fi";
+import { useState } from "react";
+import DataSourceForm from "../Settings/DataSourceForm";
+import { useRouter } from "next/router";
+import MetricForm from "../Metrics/MetricForm";
+import NewExperimentForm from "../Experiment/NewExperimentForm";
 
-const GetStarted = (): React.ReactElement => {
-  const { data } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
-
+const GetStarted = ({
+  experiments,
+}: {
+  experiments: ExperimentInterfaceStringDates[];
+}): React.ReactElement => {
   const { metrics, datasources } = useDefinitions();
 
-  if (!data) {
-    return <LoadingOverlay />;
-  }
+  const [dataSourceOpen, setDataSourceOpen] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [experimentsOpen, setExperimentsOpen] = useState(false);
+  const router = useRouter();
 
   const hasDataSource = datasources.length > 0;
   const hasMetrics = metrics.length > 0;
-  const hasExperiments = data?.experiments?.length > 0;
+  const hasExperiments = experiments.length > 0;
   const currentStep = hasExperiments
     ? 4
     : hasMetrics
@@ -33,6 +36,27 @@ const GetStarted = (): React.ReactElement => {
   return (
     <>
       <div className="container-fluid mt-3 pagecontents getstarted">
+        {dataSourceOpen && (
+          <DataSourceForm
+            data={{}}
+            existing={false}
+            onCancel={() => setDataSourceOpen(false)}
+            onSuccess={() => setDataSourceOpen(false)}
+          />
+        )}
+        {metricsOpen && (
+          <MetricForm
+            current={{}}
+            edit={false}
+            onClose={() => setMetricsOpen(false)}
+          />
+        )}
+        {experimentsOpen && (
+          <NewExperimentForm
+            onClose={() => setExperimentsOpen(false)}
+            source="get-started"
+          />
+        )}
         <div className="row">
           <div className="col-12 col-lg-8">
             <div className="row mb-3">
@@ -43,141 +67,140 @@ const GetStarted = (): React.ReactElement => {
             </div>
             <div className="row mb-3">
               <div className="col">
-                <Link href="/settings/datasources">
-                  <a className="boxlink">
-                    <div
-                      className={`card gsbox ${
-                        currentStep === 1 ? "border-primary active-step" : ""
-                      } ${hasDataSource ? "step-done" : ""}`}
-                    >
-                      <div className="card-body">
-                        <div className="card-title">
-                          <h3 className="text-blue">
-                            1. Connect to your data source(s)
-                          </h3>
-                        </div>
-                        <p className="card-text">
-                          <img
-                            className="float-right mx-4"
-                            src="/images/database.png"
-                          />
-                          Growth Book needs read access to where your experiment
-                          and event data lives. We support most data sources,
-                          even manually inputted data. (if you do want to use
-                          manual data, you can skip this step)
-                        </p>
-                        <a
-                          className={`action-link ${
-                            hasDataSource
-                              ? "btn btn-success"
-                              : currentStep === 1
-                              ? "btn btn-primary"
-                              : "non-active-step"
-                          }`}
-                        >
-                          {hasDataSource ? (
-                            "Done"
-                          ) : (
-                            <>
-                              Add data source <FiArrowRight />
-                            </>
-                          )}
-                        </a>
-                      </div>
+                <div
+                  className={`card gsbox ${
+                    currentStep === 1 ? "border-primary active-step" : ""
+                  } ${hasDataSource ? "step-done" : ""}`}
+                >
+                  <div className="card-body">
+                    <div className="card-title">
+                      <h3 className="text-blue">
+                        1. Connect to your data source(s)
+                      </h3>
                     </div>
-                  </a>
-                </Link>
+                    <p className="card-text">
+                      <img
+                        className="float-right mx-4"
+                        src="/images/database.png"
+                      />
+                      Growth Book needs read access to where your experiment and
+                      metric data lives. We support Mixpanel, Snowflake,
+                      Redshift, BigQuery, Google Analytics, and more.
+                    </p>
+                    <a
+                      className={`action-link ${
+                        hasDataSource
+                          ? "btn btn-success"
+                          : currentStep === 1
+                          ? "btn btn-primary"
+                          : "non-active-step"
+                      }`}
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (hasDataSource) {
+                          router.push("/settings/datasources");
+                        } else {
+                          setDataSourceOpen(true);
+                        }
+                      }}
+                    >
+                      {hasDataSource ? "View data sources" : "Add data source"}{" "}
+                      <FiArrowRight />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="row mb-3">
               <div className="col">
-                <Link href="/metrics">
-                  <a className="boxlink">
-                    <div
-                      className={`card gsbox ${
-                        currentStep === 2 ? "border-primary active-step" : ""
-                      } ${hasMetrics ? "step-done" : ""}`}
-                    >
-                      <div className="card-body">
-                        <div className="card-title">
-                          <h3 className="text-blue">2. Define metrics</h3>
-                        </div>
-                        <p className="card-text">
-                          <img
-                            className="float-right mx-4"
-                            src="/images/metrics.png"
-                          />
-                          Create a library of metrics from which you can measure
-                          your experiments against. You can always add more at
-                          any time, and even add them retroactively to past
-                          experiments.
-                        </p>
-                        <a
-                          className={`action-link ${
-                            hasMetrics
-                              ? "btn btn-success"
-                              : currentStep === 2
-                              ? "btn btn-primary"
-                              : "non-active-step"
-                          }`}
-                        >
-                          {hasMetrics ? (
-                            "Done"
-                          ) : (
-                            <>
-                              Add metrics <FiArrowRight />
-                            </>
-                          )}
-                        </a>
-                      </div>
+                <div
+                  className={`card gsbox ${
+                    currentStep === 2 ? "border-primary active-step" : ""
+                  } ${hasMetrics ? "step-done" : ""}`}
+                >
+                  <div className="card-body">
+                    <div className="card-title">
+                      <h3 className="text-blue">2. Define metrics</h3>
                     </div>
-                  </a>
-                </Link>
+                    <p className="card-text">
+                      <img
+                        className="float-right mx-4"
+                        src="/images/metrics.png"
+                      />
+                      Create a library of metrics to experiment against. You can
+                      always add more at any time, and even add them
+                      retroactively to past experiments.
+                    </p>
+                    <a
+                      className={`action-link ${
+                        hasMetrics
+                          ? "btn btn-success"
+                          : currentStep === 2
+                          ? "btn btn-primary"
+                          : "non-active-step"
+                      }`}
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!hasMetrics) {
+                          setMetricsOpen(true);
+                        } else {
+                          router.push("/metrics");
+                        }
+                      }}
+                    >
+                      {hasMetrics ? "View metrics" : "Add metric"}{" "}
+                      <FiArrowRight />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="row mb-3">
               <div className="col">
-                <Link href="/ideas">
-                  <a className="boxlink">
-                    <div
-                      className={`card gsbox ${
-                        currentStep === 3 ? "border-primary active-step" : ""
-                      } ${hasExperiments ? "step-done" : ""}`}
-                    >
-                      <div className="card-body">
-                        <div className="card-title">
-                          <h3 className="text-blue">3. Create an experiment</h3>
-                        </div>
-                        <p className="card-text">
-                          <img
-                            className="float-right mx-4"
-                            src="/images/beaker.png"
-                          />
-                          Start a draft experiment, add metrics, and convert to
-                          a running experiment.
-                        </p>
-
-                        <a
-                          className={`action-link ${
-                            hasExperiments
-                              ? "btn btn-success"
-                              : currentStep === 3
-                              ? "btn btn-primary"
-                              : "non-active-step"
-                          }`}
-                        >
-                          {hasExperiments ? (
-                            "Done"
-                          ) : (
-                            <>
-                              Create experiment <FiArrowRight />
-                            </>
-                          )}
-                        </a>
-                      </div>
+                <div
+                  className={`card gsbox ${
+                    currentStep === 3 ? "border-primary active-step" : ""
+                  } ${hasExperiments ? "step-done" : ""}`}
+                >
+                  <div className="card-body">
+                    <div className="card-title">
+                      <h3 className="text-blue">3. Create an experiment</h3>
                     </div>
-                  </a>
-                </Link>
+                    <p className="card-text">
+                      <img
+                        className="float-right mx-4"
+                        src="/images/beaker.png"
+                      />
+                      Create a draft experiment, implement using our SDKs, start
+                      it, and analyze results.
+                    </p>
+                    <a
+                      className={`action-link ${
+                        hasExperiments
+                          ? "btn btn-success"
+                          : currentStep === 3
+                          ? "btn btn-primary"
+                          : "non-active-step"
+                      }`}
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!hasExperiments) {
+                          setExperimentsOpen(true);
+                        } else {
+                          router.push("/experiments");
+                        }
+                      }}
+                    >
+                      {hasExperiments
+                        ? "View experiments"
+                        : "Create experiment"}{" "}
+                      <FiArrowRight />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

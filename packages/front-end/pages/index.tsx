@@ -1,6 +1,5 @@
 import React from "react";
 import Head from "next/head";
-//import FeedbackLoop from "../components/HomePage/FeedbackLoop";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -9,12 +8,25 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 
 export default function Home(): React.ReactElement {
-  const { data } = useApi<{
+  const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
-  const { metrics, ready, datasources } = useDefinitions();
+  const {
+    metrics,
+    ready,
+    datasources,
+    error: definitionsError,
+  } = useDefinitions();
 
-  if (!data) {
+  if (error || definitionsError) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error?.message || definitionsError}
+      </div>
+    );
+  }
+
+  if (!data || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -34,7 +46,7 @@ export default function Home(): React.ReactElement {
 
       {ready && isNew && (
         <div className="container-fluid mt-3 pagecontents getstarted">
-          <GetStarted />
+          <GetStarted experiments={data.experiments} />
         </div>
       )}
 
