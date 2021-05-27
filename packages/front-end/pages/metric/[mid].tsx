@@ -84,6 +84,7 @@ const MetricPage: FC = () => {
         <MetricForm
           current={metric}
           edit={true}
+          source="metrics-detail"
           initialStep={editModalOpen !== true ? editModalOpen : 0}
           onClose={(success) => {
             setEditModalOpen(false);

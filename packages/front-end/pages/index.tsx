@@ -1,17 +1,39 @@
 import React from "react";
 import Head from "next/head";
-//import FeedbackLoop from "../components/HomePage/FeedbackLoop";
-import Link from "next/link";
-import { FaCheck } from "react-icons/fa";
-import clsx from "clsx";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
+import GetStarted from "../components/HomePage/GetStarted";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import useApi from "../hooks/useApi";
 
 export default function Home(): React.ReactElement {
-  const { metrics, ready, datasources } = useDefinitions();
+  const { data, error } = useApi<{
+    experiments: ExperimentInterfaceStringDates[];
+  }>("/experiments");
+  const {
+    metrics,
+    ready,
+    datasources,
+    error: definitionsError,
+  } = useDefinitions();
 
-  const isNew = metrics.length < 1;
+  if (error || definitionsError) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error?.message || definitionsError}
+      </div>
+    );
+  }
+
+  if (!data || !ready) {
+    return <LoadingOverlay />;
+  }
+
+  const hasDataSource = datasources.length > 0;
+  const hasMetrics = metrics.length > 0;
+  const hasExperiments = data?.experiments?.length > 0;
+  const isNew = !(hasMetrics && hasExperiments && hasDataSource);
 
   return (
     <>
@@ -23,40 +45,8 @@ export default function Home(): React.ReactElement {
       {!ready && <LoadingOverlay />}
 
       {ready && isNew && (
-        <div className="container p-5">
-          <div className="text-center">
-            <h1>Welcome to Growth Book!</h1>
-            <p>
-              There are two things you need to set up before you can start fully
-              utilizing our platform
-            </p>
-          </div>
-          <div className="list-group">
-            <Link href="/settings/datasources">
-              <a
-                className={clsx("list-group-item list-group-item-action", {
-                  "list-group-item-success": datasources.length > 0,
-                })}
-              >
-                <div className="d-flex">
-                  <div style={{ flex: 1 }}>
-                    1. Connect to your Data Source{" "}
-                    <span className="text-muted">(optional)</span>
-                  </div>
-                  {datasources.length > 0 && (
-                    <div>
-                      <FaCheck />
-                    </div>
-                  )}
-                </div>
-              </a>
-            </Link>
-            <Link href="/metrics">
-              <a className="list-group-item list-group-item-action">
-                2. Define your Key Metrics
-              </a>
-            </Link>
-          </div>
+        <div className="container-fluid mt-3 pagecontents getstarted">
+          <GetStarted experiments={data.experiments} />
         </div>
       )}
 

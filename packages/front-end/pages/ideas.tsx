@@ -128,7 +128,7 @@ const IdeasPage = (): React.ReactElement => {
                     "bg-light": idea.archived,
                   })}
                   style={{
-                    wordBreak: "break-all",
+                    wordBreak: "break-word",
                     opacity: idea.archived ? 0.7 : 1,
                   }}
                 >
