@@ -11,6 +11,7 @@ export interface Props {
   domain: [number, number];
   //width: string | number;
   height: number;
+  inverse?: boolean;
   graphWidth?: number;
   expected?: number;
   significant: boolean;
@@ -34,6 +35,7 @@ const AlignedGraph: FC<Props> = ({
   axisOnly = false,
   //width = "100%",
   height = 30,
+  inverse = false,
   graphWidth = 500,
   gridColor = "#90e0efaa",
   axisColor = "#023e8a",
@@ -67,6 +69,12 @@ const AlignedGraph: FC<Props> = ({
 
   const barHeight = Math.floor(height / 2) - barThickness / 2;
 
+  console.log("inverse", inverse);
+  if (inverse) {
+    const tmp = sigBarColorNeg;
+    sigBarColorNeg = sigBarColorPos;
+    sigBarColorPos = tmp;
+  }
   // rough number of columns:
   const numTicks = 6;
   // todo: make ticks programic based roughtly on the width

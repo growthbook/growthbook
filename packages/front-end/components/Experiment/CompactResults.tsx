@@ -7,6 +7,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
 import { formatDistance } from "date-fns";
+import { MdSwapCalls } from "react-icons/md";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -115,8 +116,42 @@ const CompactResults: FC<{
             const metric = getMetricById(m);
             if (!variations[0]?.metrics?.[m]) {
               return (
-                <tr key={m}>
-                  <th>{metric.name}</th>
+                <tr
+                  key={m + "nodata"}
+                  className={`metricrow nodata ${
+                    metric.inverse ? "inverse" : ""
+                  }`}
+                >
+                  <th className="metricname">
+                    {metric.name}{" "}
+                    {metric.inverse ? (
+                      <div className="inverse-indicator tiptrigger">
+                        <MdSwapCalls />
+                        <div
+                          className="tooltip bs-tooltip-bottom"
+                          role="tooltip"
+                          style={{
+                            top: "100%",
+                            left: "50%",
+                            transform: "translate(-50%, 0)",
+                          }}
+                        >
+                          <div
+                            className="arrow"
+                            style={{ left: "50%", marginLeft: "-0.4rem" }}
+                          ></div>
+                          <div
+                            className="tooltip-inner"
+                            style={{ minWidth: "140px" }}
+                          >
+                            metric is inverse, lower is better
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      ""
+                    )}
+                  </th>
                   {experiment.variations.map((v, i) => {
                     const stats = { ...variations[i]?.metrics?.[m] };
                     return (
@@ -150,11 +185,42 @@ const CompactResults: FC<{
               );
             }
             return (
-              <tr key={m}>
-                <th>{metric.name}</th>
+              <tr
+                key={m}
+                className={`metricrow ${metric.inverse ? "inverse" : ""}`}
+              >
+                <th className="metricname">
+                  {metric.name}{" "}
+                  {metric.inverse ? (
+                    <div className="inverse-indicator tiptrigger">
+                      <MdSwapCalls />
+                      <div
+                        className="tooltip bs-tooltip-bottom"
+                        role="tooltip"
+                        style={{
+                          top: "100%",
+                          left: "50%",
+                          transform: "translate(-50%, 0)",
+                        }}
+                      >
+                        <div
+                          className="arrow"
+                          style={{ left: "50%", marginLeft: "-0.4rem" }}
+                        ></div>
+                        <div
+                          className="tooltip-inner"
+                          style={{ minWidth: "140px" }}
+                        >
+                          metric is inverse, lower is better
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    ""
+                  )}
+                </th>
                 {experiment.variations.map((v, i) => {
                   const stats = { ...variations[i].metrics[m] };
-
                   const ci = stats.ci || [];
                   const expected = stats.expected;
 
@@ -238,6 +304,7 @@ const CompactResults: FC<{
                                 significant={false}
                                 showAxis={false}
                                 height={70}
+                                inverse={!!metric.inverse}
                               />
                             </td>
                           </>
@@ -302,6 +369,7 @@ const CompactResults: FC<{
                               }
                               showAxis={false}
                               height={70}
+                              inverse={!!metric.inverse}
                             />
                           </div>
                         </td>

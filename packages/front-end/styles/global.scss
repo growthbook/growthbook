@@ -195,6 +195,10 @@ pre {
     opacity: 0.6;
   }
 
+  .inverse-indicator {
+    color: $orange;
+  }
+
   &.aligned-graph {
     td.variation:not(.value):not(.won):not(.lost) {
       opacity: 1;
@@ -209,6 +213,7 @@ pre {
       display: block;
     }
   }
+
   .compact-graph {
     padding: 0;
     position: relative;
@@ -303,6 +308,42 @@ pre {
   }
   td.lost {
     background-color: rgba(#edaca6, 0.3);
+  }
+  .inverse td.won {
+    background-color: rgba(#edaca6, 0.3);
+    color: $dark-red;
+  }
+  .inverse td.lost {
+    background-color: rgba(#a6edd1, 0.3);
+    color: $dark-green;
+    .expected {
+      font-weight: bold;
+    }
+  }
+
+  .metricname:hover {
+    z-index: 1060;
+  }
+  .tiptrigger {
+    display: inline-block;
+    position: relative;
+    .tooltip {
+      display: none;
+      font-family: inherit;
+      opacity: 0;
+
+      .tooltip-inner {
+        color: #fff;
+        background-color: $blue;
+      }
+      .arrow::before {
+        border-bottom-color: $blue;
+      }
+    }
+    &:hover .tooltip {
+      display: block;
+      opacity: 1;
+    }
   }
 }
 
