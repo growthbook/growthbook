@@ -9,6 +9,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  error?: string;
   size?: "md" | "lg" | "max";
   inline?: boolean;
   autoCloseOnSubmit?: boolean;
@@ -30,9 +31,14 @@ const Modal: FC<ModalProps> = ({
   autoCloseOnSubmit = true,
   inline = false,
   solidOverlay = false,
+  error: externalError,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setError(externalError);
+  }, [externalError]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -81,7 +87,7 @@ const Modal: FC<ModalProps> = ({
       </div>
       {submit || close ? (
         <div className="modal-footer">
-          {error && <div className="text-danger mr-3">{error}</div>}
+          {error && <div className="alert alert-danger mr-auto">{error}</div>}
           {submit ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}

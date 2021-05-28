@@ -22,6 +22,54 @@ export type MetricFormProps = {
   onClose: (refresh?: boolean) => void;
 };
 
+function validateSQL(
+  sql: string,
+  type: MetricType,
+  userIdType: "user" | "anonymous" | "either"
+) {
+  if (!sql.length) {
+    throw new Error("SQL cannot be empty");
+  }
+
+  // require a SELECT statement
+  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
+    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
+  }
+  if (!sql.match(/timestamp/i)) {
+    throw new Error("Must select a `timestamp` column.");
+  }
+  if (type !== "binomial" && !sql.match(/value/i)) {
+    throw new Error("Must select a `value` column.");
+  }
+  if (userIdType !== "user" && !sql.match(/anonymous_id/i)) {
+    throw new Error("Must select an `anonymous_id` column.");
+  }
+  if (userIdType !== "anonymous" && !sql.match(/user_id/i)) {
+    throw new Error("Must select a `user_id` column.");
+  }
+}
+function validateBasicInfo(value: Partial<MetricInterface>) {
+  if (value.name.length < 1) {
+    throw new Error("Metric name cannot be empty");
+  }
+}
+function validateQuerySettings(
+  datasourceSettingsSupport: boolean,
+  sqlInput: boolean,
+  value: Partial<MetricInterface>
+) {
+  if (!datasourceSettingsSupport) {
+    return;
+  }
+  if (sqlInput) {
+    validateSQL(value.sql, value.type, value.userIdType);
+  } else {
+    if (value.table.length < 1) {
+      throw new Error("Table name cannot be empty");
+    }
+  }
+}
+
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
@@ -139,17 +187,6 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = async () => {
-    // Require a metric name
-    if (value.name.length < 1) {
-      setStep(0);
-      throw new Error("Metric name is required.");
-    }
-    // If the data source supports queries, require a table name at least
-    if (datasourceSettingsSupport && value.table.length < 1) {
-      setStep(1);
-      throw new Error("Table name is required.");
-    }
-
     const body = JSON.stringify({
       ...value,
       sql: sqlInput ? value.sql : "",
@@ -244,7 +281,10 @@ const MetricForm: FC<MetricFormProps> = ({
       step={step}
       setStep={setStep}
     >
-      <Page display="Basic Info">
+      <Page
+        display="Basic Info"
+        validate={async () => validateBasicInfo(value)}
+      >
         <div className="form-group">
           Metric Name
           <input
@@ -287,7 +327,17 @@ const MetricForm: FC<MetricFormProps> = ({
           <GoogleAnalyticsMetrics inputProps={inputs.table} type={value.type} />
         )}
       </Page>
-      <Page display="Query Settings" enabled={datasourceSettingsSupport}>
+      <Page
+        display="Query Settings"
+        enabled={datasourceSettingsSupport}
+        validate={async () => {
+          validateQuerySettings(
+            datasourceSettingsSupport,
+            supportsSQL && sqlInput,
+            value
+          );
+        }}
+      >
         {supportsSQL && (
           <div className="form-group bg-light border px-3 py-2">
             <div className="form-check form-check-inline">
@@ -345,6 +395,8 @@ const MetricForm: FC<MetricFormProps> = ({
                     rows={15}
                     placeholder="SELECT ..."
                     autoFocus
+                    required
+                    minLength={15}
                   />
                 </div>
               </div>

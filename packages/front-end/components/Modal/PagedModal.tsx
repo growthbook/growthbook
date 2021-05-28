@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useState } from "react";
 import { Children, FC, isValidElement, ReactNode } from "react";
 import Modal from "../Modal";
 
@@ -13,32 +14,54 @@ type Props = {
   submit: () => Promise<void>;
 
   step: number;
-  setStep: (number) => void;
+  setStep: (step: number) => void;
 };
 
 const PagedModal: FC<Props> = (props) => {
   const { step, setStep, children, submit, cta, ...passThrough } = props;
 
-  const steps: { display: string; enabled: boolean }[] = [];
+  const [error, setError] = useState("");
+
+  const steps: {
+    display: string;
+    enabled: boolean;
+    validate?: () => Promise<void>;
+  }[] = [];
   let content: ReactNode;
   let nextStep: number = null;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
-    const { display, enabled } = child.props;
+    const { display, enabled, validate } = child.props;
     if (content && enabled !== false && !nextStep) {
       nextStep = steps.length;
     }
     if (step === steps.length) {
       content = <>{child}</>;
     }
-    steps.push({ display, enabled });
+    steps.push({ display, enabled, validate });
   });
+
+  async function validateSteps(before?: number) {
+    before = before ?? steps.length;
+    for (let i = 0; i < before; i++) {
+      if (steps[i].enabled === false) continue;
+      if (!steps[i].validate) continue;
+      console.log("Validating step", i);
+      try {
+        await steps[i].validate();
+      } catch (e) {
+        setStep(i);
+        throw e;
+      }
+    }
+  }
 
   return (
     <Modal
       open={true}
       {...passThrough}
       submit={async () => {
+        await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
           props.close();
@@ -46,6 +69,7 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
+      error={error}
       autoCloseOnSubmit={false}
       cta={!nextStep ? cta : "Next"}
     >
@@ -58,9 +82,15 @@ const PagedModal: FC<Props> = (props) => {
               active: step === i,
               disabled: enabled === false,
             })}
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
-              setStep(i);
+              setError("");
+              try {
+                await validateSteps(i);
+                setStep(i);
+              } catch (e) {
+                setError(e.message);
+              }
             }}
           >
             {i + 1}. {display}
