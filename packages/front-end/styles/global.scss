@@ -86,6 +86,37 @@ pre {
   overflow-y: auto;
 }
 
+.tiptrigger {
+  display: inline-block;
+  position: relative;
+  .tooltip {
+    display: none;
+    font-family: inherit;
+    opacity: 0;
+
+    &.bs-tooltip-bottom {
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, 0);
+    }
+    .arrow {
+      left: 50%;
+      margin-left: -0.4rem;
+    }
+    .tooltip-inner {
+      color: #fff;
+      background-color: $blue;
+    }
+    .arrow::before {
+      border-bottom-color: $blue;
+    }
+  }
+  &:hover .tooltip {
+    display: block;
+    opacity: 1;
+  }
+}
+
 .experiment-compact-holder {
   width: 100%;
   overflow-x: auto;
@@ -323,27 +354,6 @@ pre {
 
   .metricname:hover {
     z-index: 1060;
-  }
-  .tiptrigger {
-    display: inline-block;
-    position: relative;
-    .tooltip {
-      display: none;
-      font-family: inherit;
-      opacity: 0;
-
-      .tooltip-inner {
-        color: #fff;
-        background-color: $blue;
-      }
-      .arrow::before {
-        border-bottom-color: $blue;
-      }
-    }
-    &:hover .tooltip {
-      display: block;
-      opacity: 1;
-    }
   }
 }
 

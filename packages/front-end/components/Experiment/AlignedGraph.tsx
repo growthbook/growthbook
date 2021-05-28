@@ -69,7 +69,6 @@ const AlignedGraph: FC<Props> = ({
 
   const barHeight = Math.floor(height / 2) - barThickness / 2;
 
-  console.log("inverse", inverse);
   if (inverse) {
     [sigBarColorNeg, sigBarColorPos] = [sigBarColorPos, sigBarColorNeg];
   }

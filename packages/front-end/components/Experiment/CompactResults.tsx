@@ -8,6 +8,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
 import { formatDistance } from "date-fns";
 import { MdSwapCalls } from "react-icons/md";
+import Tooltip from "../Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -125,29 +126,12 @@ const CompactResults: FC<{
                   <th className="metricname">
                     {metric.name}{" "}
                     {metric.inverse ? (
-                      <div className="inverse-indicator tiptrigger">
+                      <Tooltip
+                        text="metric is inverse, lower is better"
+                        className="inverse-indicator"
+                      >
                         <MdSwapCalls />
-                        <div
-                          className="tooltip bs-tooltip-bottom"
-                          role="tooltip"
-                          style={{
-                            top: "100%",
-                            left: "50%",
-                            transform: "translate(-50%, 0)",
-                          }}
-                        >
-                          <div
-                            className="arrow"
-                            style={{ left: "50%", marginLeft: "-0.4rem" }}
-                          ></div>
-                          <div
-                            className="tooltip-inner"
-                            style={{ minWidth: "140px" }}
-                          >
-                            metric is inverse, lower is better
-                          </div>
-                        </div>
-                      </div>
+                      </Tooltip>
                     ) : (
                       ""
                     )}
@@ -192,29 +176,12 @@ const CompactResults: FC<{
                 <th className="metricname">
                   {metric.name}{" "}
                   {metric.inverse ? (
-                    <div className="inverse-indicator tiptrigger">
+                    <Tooltip
+                      text="metric is inverse, lower is better"
+                      className="inverse-indicator"
+                    >
                       <MdSwapCalls />
-                      <div
-                        className="tooltip bs-tooltip-bottom"
-                        role="tooltip"
-                        style={{
-                          top: "100%",
-                          left: "50%",
-                          transform: "translate(-50%, 0)",
-                        }}
-                      >
-                        <div
-                          className="arrow"
-                          style={{ left: "50%", marginLeft: "-0.4rem" }}
-                        ></div>
-                        <div
-                          className="tooltip-inner"
-                          style={{ minWidth: "140px" }}
-                        >
-                          metric is inverse, lower is better
-                        </div>
-                      </div>
-                    </div>
+                    </Tooltip>
                   ) : (
                     ""
                   )}
