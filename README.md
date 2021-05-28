@@ -1,20 +1,24 @@
-<p align="center"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" /></p>
+<p align="center"><a href="https://www.growthbook.io"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" alt="Growth Book - The Open Source A/B Testing Platform" /></a></p>
+<p align="center"><b>The Open Source A/B Testing Platform</b></p>
+<p align="center">
+    <a href="https://github.com/growthbook/growthbook/actions/workflows/ci.yml"><img src="https://img.shields.io/github/workflow/status/growthbook/growthbook/CI" alt="Build Status" height="22"/></a>
+    <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
+    <a href="https://github.com/growthbook/growthbook/releases"><img src="https://img.shields.io/github/v/release/growthbook/growthbook?color=blue&sort=semver" alt="Release" height="22"/></a>
+    <a href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"><img src="https://img.shields.io/badge/slack-join-E01E5A" alt="Join us on Slack" height="22"/></a>
+</p>
 
-# Open Source A/B Testing Platform
-
-This repo is the actual Growth Book application where you connect to your data sources, define metrics, and analyze experiment results.
-
-In addition, there are **client libraries** to help you implement A/B tests in [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), and [Ruby](https://github.com/growthbook/growthbook-ruby) with more coming soon.
+![growthbook-results](https://user-images.githubusercontent.com/1087514/119926797-a958a000-bf3d-11eb-8a6d-7f01383f4f68.png)
 
 ## Major Features
 
+- Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), and [Ruby](https://github.com/growthbook/growthbook-ruby) with more coming soon
+- **Visual Editor** for non-technical users to create experiments _(beta)_
 - Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
 - Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - Drill down into A/B test results (e.g. by browser, country, etc.)
 - Lightweight idea board and prioritization framework
 - Document everything! (upload screenshots, add markdown comments, and more)
 - Automated email alerts when tests become significant
-- Visual Editor for non-technical users to create experiments _(beta)_
 
 ## Community
 
@@ -36,23 +40,10 @@ Don't want to install, deploy, and maintain Growth Book on your own? Let us do i
 
 ## Setup
 
-```sh
-# Install dependencies
-yarn
-
-# Create .env.local files for the front-end and back-end
-yarn init:dev
-```
-
-Edit the default values in `packages/back-end/.env.local` and `packages/front-end/.env.local` as needed.
-
-### S3
-
-S3 is used to store uploaded experiment screenshots. We support multiple ways of providing credentials with the following order of precedence:
-
-1.  Environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (on dev, add to `packages/back-end/.env.local`)
-2.  Shared credentials file `~/.aws/credentials`
-3.  ECS credentials provider or EC2 instance IAM role (when deployed to AWS)
+1.  Run `yarn` to install dependencies.
+2.  Run `yarn init:dev` to initialize your dev environment
+3.  Configure MongoDB, S3, and an email server (see below)
+4.  Update `packages/back-end/.env.local` with your MongoDB connection string, S3 bucket, and email settings
 
 ### MongoDB
 
@@ -67,6 +58,15 @@ docker run -d --name mongo \
 
 For production, we recommend using MongoDB Atlas or another fully managed service.
 The Growth Book app only stores meta info and aggregate stats, so the size of MongoDB should stay comfortably within the free tier for most deployments.
+
+### S3
+
+S3 is used to store uploaded experiment screenshots. We support multiple ways of providing credentials with the following order of precedence:
+
+1.  Environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (on dev, add to `packages/back-end/.env.local`)
+2.  Shared credentials file `~/.aws/credentials`
+3.  ECS credentials provider or EC2 instance IAM role (when deployed to AWS)
+
 
 ### Email
 
