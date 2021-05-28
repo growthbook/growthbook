@@ -71,9 +71,7 @@ const AlignedGraph: FC<Props> = ({
 
   console.log("inverse", inverse);
   if (inverse) {
-    const tmp = sigBarColorNeg;
-    sigBarColorNeg = sigBarColorPos;
-    sigBarColorPos = tmp;
+    [sigBarColorNeg, sigBarColorPos] = [sigBarColorPos, sigBarColorNeg];
   }
   // rough number of columns:
   const numTicks = 6;
