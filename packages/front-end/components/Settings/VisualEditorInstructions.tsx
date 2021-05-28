@@ -1,16 +1,20 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
 import { useState } from "react";
-import { FaKey } from "react-icons/fa";
+import { FaKey, FaPencilAlt } from "react-icons/fa";
 import Code from "../Code";
 import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({
   apiKeys,
   mutate,
+  url,
+  changeUrl,
 }: {
   apiKeys: ApiKeyInterface[];
   mutate: () => void;
+  url?: string;
+  changeUrl?: () => void;
 }) {
   const [key, setKey] = useState("");
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
@@ -74,7 +78,22 @@ export default function VisualEditorInstructions({
           </div>
         </div>
       )}
-      <p>Add the below code to the HEAD of the website you want to test.</p>
+      {url ? (
+        <p>
+          Add the below code to <code>{url}</code>{" "}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              changeUrl();
+            }}
+          >
+            <FaPencilAlt />
+          </a>
+        </p>
+      ) : (
+        <p>Add the below code to the HEAD of the website you want to test.</p>
+      )}
       <Code
         language="html"
         code={`<script>

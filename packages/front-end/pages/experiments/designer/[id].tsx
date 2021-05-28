@@ -43,6 +43,7 @@ import {
   dataURItoBlob,
 } from "../../../services/visualDesigner";
 import Link from "next/link";
+import VisualEditorScriptMissing from "../../../components/Experiment/VisualEditorScriptMissing";
 
 const EditorPage: FC = () => {
   const router = useRouter();
@@ -192,7 +193,7 @@ const EditorPage: FC = () => {
     setIframeError(false);
   }, [url]);
 
-  // When the iframe loads, wait 1s before showing an error message about missing the visual-designer.js script
+  // When the iframe loads, wait 1s before showing an error message about missing the script
   useEffect(() => {
     if (!iframeReady) {
       sendCommand({
@@ -527,22 +528,33 @@ const EditorPage: FC = () => {
           )}
         </div>
       )}
-      {urlModalOpen && (
+      {(!url || urlModalOpen) && (
         <Modal
-          header="Change Preview URL"
+          header={
+            url
+              ? "Change Preview URL"
+              : "What URL do you want to load in the editor?"
+          }
           open={true}
-          close={() => setUrlModalOpen(false)}
+          close={url ? () => setUrlModalOpen(false) : null}
           submit={async () => {
-            setUrl(variationData.url);
-            setDirty(true);
+            if (variationData.url === url) {
+              setIframeReady(false);
+              setIframeLoaded(false);
+              setIframeError(false);
+              iframe.current.src = iframe.current.src + "";
+            } else {
+              setDirty(true);
+              setUrl(variationData.url);
+            }
           }}
         >
-          <div className="form-group">
-            Preview URL
+          <div className="form-group text-left">
             <input
               type="text"
               className="form-control"
               value={variationData.url}
+              placeholder="https://"
               onChange={(e) => {
                 setVariationData({
                   ...variationData,
@@ -582,57 +594,46 @@ const EditorPage: FC = () => {
         </div>
         {!iframeReady && (
           <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,.6)",
+            }}
+          ></div>
+        )}
+        {!iframeReady && (
+          <div
             className={clsx(
-              "d-flex text-light flex-column justify-content-center",
+              "d-flex flex-column justify-content-center",
               styles.iframeError
             )}
           >
             <div>
               {url && iframeError ? (
-                <div>
-                  <div className="alert alert-warning">
-                    The URL has loaded, but we are unable to communicate with it
-                    yet. Make sure the page is loading this script:
-                    <div>
-                      <code>{`<script async src="https://cdn.growthbook.io/visual-designer.js"></script>`}</code>
-                    </div>
-                    <div className="mt-4">
-                      After adding the script:
-                      <br />
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIframeReady(false);
-                          setIframeLoaded(false);
-                          setIframeError(false);
-                          iframe.current.src = iframe.current.src + "";
-                        }}
-                      >
-                        Reload
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : !url && loaded ? (
-                <div className="alert alert-info">
-                  No Preview URL set for the visual designer.
-                  <div className="pt-2">
-                    <button
-                      className="btn btn-primary"
-                      onClick={(e) => {
-                        e.preventDefault();
+                <>
+                  <div className="container bg-light text-dark p-4 border">
+                    <h3>Missing Required Script</h3>
+                    <VisualEditorScriptMissing
+                      url={url}
+                      changeUrl={() => {
                         setUrlModalOpen(true);
                       }}
-                    >
-                      Set URL
-                    </button>
+                      onSuccess={() => {
+                        setIframeReady(false);
+                        setIframeLoaded(false);
+                        setIframeError(false);
+                        iframe.current.src = iframe.current.src + "";
+                      }}
+                    />
                   </div>
-                </div>
-              ) : (
-                <>
-                  <LoadingSpinner /> Loading...
                 </>
+              ) : (
+                <div className="text-light" style={{ fontSize: "2em" }}>
+                  <LoadingSpinner /> Loading
+                </div>
               )}
             </div>
           </div>
