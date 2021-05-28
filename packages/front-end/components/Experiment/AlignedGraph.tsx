@@ -169,29 +169,60 @@ const AlignedGraph: FC<Props> = ({
           <>
             <div className="experiment-tooltip">
               <div className="tooltip-results d-flex justify-content-center">
-                <div className="d-flex justify-content-center">
-                  <div className="px-1 result-text">Worst case:</div>
-                  <div
-                    className={`px-1 tooltip-ci ci-worst ${
-                      ci[0] < 0 ? "ci-neg" : "ci-pos"
-                    }`}
-                  >
-                    {ci[0] > 0 && "+"}
-                    {parseFloat((ci[0] * 100).toFixed(2))}%
-                  </div>
-                </div>
+                {inverse ? (
+                  <>
+                    <div className="d-flex justify-content-center">
+                      <div className="px-1 result-text">Best case:</div>
+                      <div
+                        className={`px-1 tooltip-ci ci-worst ${
+                          ci[0] < 0 ? "ci-pos" : "ci-neg"
+                        }`}
+                      >
+                        {ci[0] > 0 && "+"}
+                        {parseFloat((ci[0] * 100).toFixed(2))}%
+                      </div>
+                    </div>
 
-                <div className="d-flex justify-content-center">
-                  <div className="px-1 result-text">Best case:</div>
-                  <div
-                    className={`px-1 tooltip-ci ci-best ${
-                      ci[1] < 0 ? "ci-neg" : "ci-pos"
-                    }`}
-                  >
-                    {ci[1] > 0 && "+"}
-                    {parseFloat((ci[1] * 100).toFixed(2))}%
-                  </div>
-                </div>
+                    <div className="d-flex justify-content-center">
+                      <div className="px-1 result-text">Worst case:</div>
+                      <div
+                        className={`px-1 tooltip-ci ci-best ${
+                          ci[1] < 0 ? "ci-pos" : "ci-neg"
+                        }`}
+                      >
+                        {ci[1] > 0 && "+"}
+                        {parseFloat((ci[1] * 100).toFixed(2))}%
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // regular, non inverse case
+                  <>
+                    <div className="d-flex justify-content-center">
+                      <div className="px-1 result-text">Worst case:</div>
+                      <div
+                        className={`px-1 tooltip-ci ci-worst ${
+                          ci[0] < 0 ? "ci-neg" : "ci-pos"
+                        }`}
+                      >
+                        {ci[0] > 0 && "+"}
+                        {parseFloat((ci[0] * 100).toFixed(2))}%
+                      </div>
+                    </div>
+
+                    <div className="d-flex justify-content-center">
+                      <div className="px-1 result-text">Best case:</div>
+                      <div
+                        className={`px-1 tooltip-ci ci-best ${
+                          ci[1] < 0 ? "ci-neg" : "ci-pos"
+                        }`}
+                      >
+                        {ci[1] > 0 && "+"}
+                        {parseFloat((ci[1] * 100).toFixed(2))}%
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="expectedwrap text-right">
