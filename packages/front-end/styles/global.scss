@@ -340,17 +340,6 @@ pre {
   td.lost {
     background-color: rgba(#edaca6, 0.3);
   }
-  .inverse td.won {
-    background-color: rgba(#edaca6, 0.3);
-    color: $dark-red;
-  }
-  .inverse td.lost {
-    background-color: rgba(#a6edd1, 0.3);
-    color: $dark-green;
-    .expected {
-      font-weight: bold;
-    }
-  }
 
   .metricname:hover {
     z-index: 1060;
