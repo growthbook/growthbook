@@ -86,6 +86,37 @@ pre {
   overflow-y: auto;
 }
 
+.tiptrigger {
+  display: inline-block;
+  position: relative;
+  .tooltip {
+    display: none;
+    font-family: inherit;
+    opacity: 0;
+
+    &.bs-tooltip-bottom {
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, 0);
+    }
+    .arrow {
+      left: 50%;
+      margin-left: -0.4rem;
+    }
+    .tooltip-inner {
+      color: #fff;
+      background-color: $blue;
+    }
+    .arrow::before {
+      border-bottom-color: $blue;
+    }
+  }
+  &:hover .tooltip {
+    display: block;
+    opacity: 1;
+  }
+}
+
 .experiment-compact-holder {
   width: 100%;
   overflow-x: auto;
@@ -195,6 +226,10 @@ pre {
     opacity: 0.6;
   }
 
+  .inverse-indicator {
+    color: $orange;
+  }
+
   &.aligned-graph {
     td.variation:not(.value):not(.won):not(.lost) {
       opacity: 1;
@@ -209,6 +244,7 @@ pre {
       display: block;
     }
   }
+
   .compact-graph {
     padding: 0;
     position: relative;
@@ -303,6 +339,10 @@ pre {
   }
   td.lost {
     background-color: rgba(#edaca6, 0.3);
+  }
+
+  .metricname:hover {
+    z-index: 1060;
   }
 }
 
