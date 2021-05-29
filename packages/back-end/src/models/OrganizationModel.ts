@@ -37,6 +37,7 @@ const organizationSchema = new mongoose.Schema({
   },
   settings: {
     implementationTypes: [String],
+    confidenceLevel: Number,
     customized: Boolean,
     logoPath: String,
     primaryColor: String,

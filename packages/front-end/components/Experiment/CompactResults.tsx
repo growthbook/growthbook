@@ -9,6 +9,8 @@ import AlignedGraph from "./AlignedGraph";
 import { formatDistance } from "date-fns";
 import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip";
+import { useContext } from "react";
+import { UserContext } from "../../components/ProtectedPage";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -21,9 +23,12 @@ const CompactResults: FC<{
   experiment: ExperimentInterfaceStringDates;
 }> = ({ snapshot, experiment }) => {
   const { getMetricById } = useDefinitions();
+  const { getConfidenceLevel } = useContext(UserContext);
 
   const results = snapshot.results[0];
   const variations = results?.variations || [];
+  const upperConfidenceLevel = getConfidenceLevel();
+  const lowerConfidenceLevel = 1 - upperConfidenceLevel;
 
   let lowerBound: number, upperBound: number;
   const domain: [number, number] = [0, 0];
@@ -78,7 +83,7 @@ const CompactResults: FC<{
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Percent Change (95% CI)
+                    Percent Change ({upperConfidenceLevel * 100}% CI)
                   </th>
                 )}
               </>
@@ -284,8 +289,8 @@ const CompactResults: FC<{
                       <td
                         className={clsx("value", {
                           variation: i > 0,
-                          won: stats.chanceToWin > 0.95,
-                          lost: stats.chanceToWin < 0.05,
+                          won: stats.chanceToWin > upperConfidenceLevel,
+                          lost: stats.chanceToWin < lowerConfidenceLevel,
                         })}
                       >
                         <div className="result-number">
@@ -307,8 +312,8 @@ const CompactResults: FC<{
                           className={clsx(
                             "chance variation result-number align-middle",
                             {
-                              won: stats.chanceToWin > 0.95,
-                              lost: stats.chanceToWin < 0.05,
+                              won: stats.chanceToWin > upperConfidenceLevel,
+                              lost: stats.chanceToWin < lowerConfidenceLevel,
                             }
                           )}
                         >
@@ -320,8 +325,8 @@ const CompactResults: FC<{
                           className={clsx(
                             "variation compact-graph pb-0 align-middle",
                             {
-                              won: stats.chanceToWin > 0.95,
-                              lost: stats.chanceToWin < 0.05,
+                              won: stats.chanceToWin > upperConfidenceLevel,
+                              lost: stats.chanceToWin < lowerConfidenceLevel,
                             }
                           )}
                         >
@@ -331,8 +336,8 @@ const CompactResults: FC<{
                               domain={domain}
                               expected={expected}
                               significant={
-                                stats.chanceToWin > 0.95 ||
-                                stats.chanceToWin < 0.05
+                                stats.chanceToWin > upperConfidenceLevel ||
+                                stats.chanceToWin < lowerConfidenceLevel
                               }
                               showAxis={false}
                               height={70}

@@ -51,6 +51,7 @@ export interface OrganizationInterface {
   };
   settings?: {
     implementationTypes?: ImplementationType[];
+    confidenceLevel?: number;
     customized?: boolean;
     logoPath?: string;
     primaryColor?: string;

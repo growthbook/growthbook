@@ -7,6 +7,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { useContext } from "react";
+import { UserContext } from "../../components/ProtectedPage";
 
 type ColorScheme = {
   left: {
@@ -78,6 +80,10 @@ const PercentImprovementGraph: FC<Props> = ({
   ticks.push(ci[1]);
 
   ticks.sort();
+
+  const { getConfidenceLevel } = useContext(UserContext);
+  const upperConfidenceLevel = getConfidenceLevel();
+  const lowerConfidenceLevel = 1 - upperConfidenceLevel;
 
   // simple bin smoother:
   const maxx = Math.max(...buckets.map((b) => b.x));
@@ -173,24 +179,24 @@ const PercentImprovementGraph: FC<Props> = ({
         <defs>
           <linearGradient id={`positive_${uid}`} x1="0" y1="1" x2="0" y2="0">
             <stop
-              offset="5%"
+              offset={`${lowerConfidenceLevel * 100}%`}
               stopColor={inverse ? colors.left.light : colors.right.light}
               stopOpacity={1}
             />
             <stop
-              offset="95%"
+              offset={`${upperConfidenceLevel * 100}%`}
               stopColor={inverse ? colors.left.dark : colors.right.dark}
               stopOpacity={1}
             />
           </linearGradient>
           <linearGradient id={`negative_${uid}`} x1="0" y1="1" x2="0" y2="0">
             <stop
-              offset="5%"
+              offset={`${lowerConfidenceLevel * 100}%`}
               stopColor={inverse ? colors.right.light : colors.left.light}
               stopOpacity={1}
             />
             <stop
-              offset="95%"
+              offset={`${upperConfidenceLevel * 100}%`}
               stopColor={inverse ? colors.right.dark : colors.left.dark}
               stopOpacity={1}
             />
