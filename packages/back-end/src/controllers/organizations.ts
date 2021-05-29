@@ -627,7 +627,10 @@ export async function putOrganization(
           settings.implementationTypes
         );
       "confidenceLevel" in settings &&
-        req.organization.set("confidenceLevel", settings.confidenceLevel);
+        req.organization.set(
+          "settings.confidenceLevel",
+          settings.confidenceLevel
+        );
       "customized" in settings &&
         req.organization.set("settings.customized", settings.customized);
       "logoPath" in settings &&
