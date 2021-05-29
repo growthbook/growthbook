@@ -80,7 +80,7 @@ const CompactResults: FC<{
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Percent Change ({ciUpperDisplay}% CI)
+                    Percent Change ({ciUpperDisplay} CI)
                   </th>
                 )}
               </>
