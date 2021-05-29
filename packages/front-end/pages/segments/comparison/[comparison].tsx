@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useContext } from "react";
+import { FC, useState, useEffect } from "react";
 import useForm from "../../../hooks/useForm";
 import MetricsSelector from "../../../components/Experiment/MetricsSelector";
 import { formatConversionRate } from "../../../services/metrics";
@@ -16,7 +16,7 @@ import RunQueriesButton, {
 } from "../../../components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
 import { useDefinitions } from "../../../services/DefinitionsContext";
-import { UserContext } from "../../../components/ProtectedPage";
+import useConfidenceLevels from "../../../hooks/useConfidenceLevels";
 
 const colors = colorThemes.neutral;
 
@@ -64,7 +64,7 @@ const SegmentComparisonPage: FC = () => {
   const { apiCall } = useAuth();
   const [saveError, setSaveError] = useState(null);
 
-  const { getConfidenceLevel } = useContext(UserContext);
+  const { ciUpperDisplay } = useConfidenceLevels();
 
   useEffect(() => {
     if (data && !value.segment1) {
@@ -447,8 +447,7 @@ const SegmentComparisonPage: FC = () => {
                 {segment2.buckets && segment2.buckets.length > 0 && (
                   <div className="row">
                     <div className="col">
-                      {Math.round(getConfidenceLevel() * 100)}% confident that
-                      the difference is between{" "}
+                      {ciUpperDisplay} confident that the difference is between{" "}
                       <strong>{percentFormatter.format(segment2.ci[0])}</strong>{" "}
                       and{" "}
                       <strong>{percentFormatter.format(segment2.ci[1])}</strong>{" "}
