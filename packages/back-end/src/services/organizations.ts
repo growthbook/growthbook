@@ -20,6 +20,17 @@ export async function getOrganizationById(id: string) {
   });
 }
 
+export async function getConfidenceLevelsForOrg(id: string) {
+  const org = await getOrganizationById(id);
+  const ciUpper = org?.settings?.confidenceLevel || 0.95;
+  return {
+    ciUpper,
+    ciLower: 1 - ciUpper,
+    ciUpperDisplay: Math.round(ciUpper * 100) + "%",
+    ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+  };
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string
