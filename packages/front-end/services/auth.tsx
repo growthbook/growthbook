@@ -4,6 +4,7 @@ import { NextRouter, useRouter } from "next/router";
 import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import { OrganizationInterface } from "back-end/types/organization";
+import Modal from "../components/Modal";
 
 const apiHost: string = process.env.NEXT_PUBLIC_API_HOST;
 
@@ -99,14 +100,21 @@ export const AuthProvider: React.FC = ({ children }) => {
     setSpecialOrg,
   ] = useState<Partial<OrganizationInterface> | null>(null);
   const [AuthComponent, setAuthComponent] = useState<FC | null>(null);
+  const [error, setError] = useState("");
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   useEffect(() => {
-    authSource.init(router).then(({ isAuthenticated }) => {
-      setIsAuthenticated(isAuthenticated);
-      setLoading(false);
-    });
+    authSource
+      .init(router)
+      .then(({ isAuthenticated }) => {
+        setIsAuthenticated(isAuthenticated);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e.message);
+        console.error(e);
+      });
   }, []);
 
   const orgList = [...organizations];
@@ -116,6 +124,37 @@ export const AuthProvider: React.FC = ({ children }) => {
       name: specialOrg.name,
       role: "admin",
     });
+  }
+
+  if (error && authSource === localAuthSource) {
+    return (
+      <Modal
+        header="logo"
+        open={true}
+        cta="Try Again"
+        submit={async () => {
+          try {
+            const { isAuthenticated } = await authSource.init(router);
+            setError("");
+            setIsAuthenticated(isAuthenticated);
+            setLoading(false);
+          } catch (e) {
+            console.error(e);
+            throw new Error("Still receiving error");
+          }
+        }}
+      >
+        <h3>Error Reaching API</h3>
+        <p>
+          Could not communicate with the Growth Book API at{" "}
+          <code>{process.env.NEXT_PUBLIC_API_HOST}</code>.
+        </p>
+        <p>
+          If you just started the server with <code>yarn dev</code>, wait a
+          minute for the back-end to fully initialize and try again.
+        </p>
+      </Modal>
+    );
   }
 
   return (
