@@ -1,7 +1,6 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { RequestHandler, ErrorRequestHandler } from "express";
-import "./util/logger";
 import mongoInit from "./init/mongo";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -92,6 +91,7 @@ const loggerRedact = {
 };
 const preAuthLogger = pino({
   redact: loggerRedact,
+  autoLogging: process.env.NODE_ENV === "production",
 });
 
 // Visual Designer js file (does not require JWT or cors)

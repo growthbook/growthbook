@@ -781,6 +781,11 @@
     "@types/yargs" "^15.0.0"
     chalk "^4.0.0"
 
+"@jitsu/sdk-js@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@jitsu/sdk-js/-/sdk-js-2.2.0.tgz#5a88f84a360c05671f9c7bfb35dee23e963b3aaa"
+  integrity sha512-AIOovUcZHccAvCB6vWIz4quxQyCWcgVpR+IzOQsIrUanxPKn469HVt5uwQKBWkPSglEXqCK3Mip9w9mS93shJA==
+
 "@jukben/emoji-search@^2.0.1":
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/@jukben/emoji-search/-/emoji-search-2.0.1.tgz#128ff80e3efaf00430cf1e235e5af81445f6f991"

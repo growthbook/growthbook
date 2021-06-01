@@ -49,7 +49,6 @@ import {
 import { SegmentModel } from "../models/SegmentModel";
 import { DimensionModel } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import logger from "../util/logger";
 import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { DataSourceModel } from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
@@ -590,8 +589,8 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      logger.error("New org email sending failure:");
-      logger.error(e.message);
+      console.error("New org email sending failure:");
+      console.error(e.message);
     }
 
     res.status(200).json({

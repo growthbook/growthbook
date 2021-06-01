@@ -1,5 +1,5 @@
 /* 
-Track anonymous usage statistics using Plausible.io
+Track anonymous usage statistics
 - No cookies or identifiable information are sent.
 - Helps us figure out what features are the most popular 
   and which ones need more work.
@@ -7,16 +7,12 @@ Track anonymous usage statistics using Plausible.io
   abandon the form, that tells us the UI needs improvement.
 - You can disable this tracking completely by setting 
   NEXT_PUBLIC_DISABLE_TELEMETRY=1 in your env.
-- To console.log the telemetry data instead of sending to Plausible,
+- To console.log the telemetry data instead of sending to us,
   you can set NEXT_PUBLIC_TELEMETRY_DEBUG=1 in your env.
 */
 
-declare global {
-  interface Window {
-    // eslint-disable-next-line
-    plausible: any;
-  }
-}
+import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
+import { isCloud } from "./utils";
 
 export function isTelemetryEnabled() {
   return (
@@ -25,6 +21,7 @@ export function isTelemetryEnabled() {
   );
 }
 
+let jitsu: JitsuClient;
 export default function track(
   event: string,
   props: Record<string, unknown> = {}
@@ -35,10 +32,28 @@ export default function track(
   if (!isTelemetryEnabled()) return;
   if (typeof window === "undefined") return;
 
-  window.plausible =
-    window.plausible ||
-    function (...args) {
-      (window.plausible.q = window.plausible.q || []).push(args);
-    };
-  window.plausible(event, { props });
+  if (!jitsu) {
+    jitsu = jitsuClient({
+      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
+      log_level: "ERROR",
+      tracking_host: "https://t.growthbook.io",
+      cookie_name: "__growthbookid",
+      capture_3rd_party_cookies: false,
+    });
+  }
+
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+  jitsu.track(event, {
+    ...props,
+    page_url: location.pathname,
+    page_title: "",
+    source_ip: "",
+    url: document.location.protocol + "//" + host + location.pathname,
+    doc_host: host,
+    doc_search: "",
+    doc_path: location.pathname,
+    referer: "",
+  });
 }

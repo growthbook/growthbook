@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^1.9.0",
+    "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@visx/stats": "^1.7.0",
     "@visx/visx": "^1.10.0",
