@@ -70,7 +70,7 @@ const ImplementationTypeModal: FC<{
               key: "code",
               display: "Code",
               description:
-                "Use our Browser, NodeJS, PHP, or Ruby SDK to code the variations",
+                "Use our Javascript, React, PHP, or Ruby client library to code the variations",
               enabled: implementationTypes.includes("code"),
             },
             {

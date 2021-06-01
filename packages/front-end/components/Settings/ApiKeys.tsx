@@ -23,8 +23,8 @@ const ApiKeys: FC = () => {
     <div>
       {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
       <p>
-        API keys can be used with our SDKs (Javascript, React, PHP, Ruby) or the
-        Visual Editor.{" "}
+        API keys can be used with our Client Libraries (Javascript, React, PHP,
+        Ruby) or the Visual Editor.{" "}
         <a
           href="https://docs.growthbook.io/api"
           target="_blank"

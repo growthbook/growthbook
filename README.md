@@ -12,7 +12,7 @@
 ## Major Features
 
 - Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), and [Ruby](https://github.com/growthbook/growthbook-ruby) with more coming soon
-- **Visual Editor** for non-technical users to create experiments _(beta)_
+- [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
 - Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
 - Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - Drill down into A/B test results (e.g. by browser, country, etc.)

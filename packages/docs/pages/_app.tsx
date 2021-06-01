@@ -1,8 +1,10 @@
 import * as React from "react";
 import { AppProps } from "next/app";
 import Head from "next/head";
-import TopNav from "../components/TopNav";
 import Link from "next/link";
+import "tailwindcss/tailwind.css";
+import { useEffect } from "react";
+import { FaMoon, FaSun, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
@@ -80,6 +82,35 @@ function App({
   pageProps,
   router,
 }: ModAppProps): React.ReactElement {
+  const [dark, setDark] = React.useState<null | boolean>(null);
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+  useEffect(() => {
+    if (dark === null) return;
+    if (dark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    try {
+      localStorage.theme = dark ? "dark" : "light";
+    } catch (e) {
+      // ignore local storage errors
+    }
+  }, [dark]);
+
+  // Scroll to top of content div when the route changes
+  useEffect(() => {
+    const handleRouteChange = () => {
+      document.querySelector("main").scrollTop = 0;
+    };
+    router.events.on("routeChangeComplete", handleRouteChange);
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+    };
+  }, []);
+
   let currentIndex = -1;
   linksInOrder.forEach((l, i) => {
     if (l.href === router.pathname) {
@@ -88,7 +119,7 @@ function App({
   });
 
   return (
-    <>
+    <div className="h-screen dark:bg-gray-800">
       <Head>
         <title>Growth Book Docs</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -101,16 +132,6 @@ function App({
           rel="stylesheet"
           type="text/css"
           href="https://cdn.jsdelivr.net/npm/prism-themes@1.7.0/themes/prism-dracula.css"
-        />
-        <link
-          rel="preload"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
-          as="style"
-        />
-        <link
-          rel="stylesheet"
-          type="text/css"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
         />
         <link rel="preconnect" href="https://fonts.gstatic.com" />
         <link
@@ -132,116 +153,158 @@ function App({
         img {
           max-width: 100%;
         }
+        html {
+          color-scheme: light;
+        }
+        html.dark {
+          color-scheme: dark;
+        }
         `}</style>
-        <style>{``}</style>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+            try {
+              if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark')
+              } else {
+                document.documentElement.classList.remove('dark')
+              }
+            }
+            catch(e) {}
+            `,
+          }}
+        />
       </Head>
-      <TopNav />
-      <div className="container-fluid">
-        <div className="row">
-          <div className="col-md-3 col-xl-2">
-            <div className="d-flex d-md-none pb-3 sticky-top border-bottom align-items-center">
-              <div className="mr-2">Jump&nbsp;to:</div>
-              <div className="w-100">
-                <div>
-                  <select
-                    className="form-control"
-                    placeholder="Jump to Section"
-                    value={router.pathname}
-                    onChange={(e) => {
-                      router.push(e.target.value);
-                    }}
+      <div className="flex h-full w-full">
+        <div className="max-w-0 md:max-w-lg p-0 overflow-x-hidden h-full md:p-5 overflow-y-auto border-r border-gray-200 dark:border-gray-600 dark:text-gray-200">
+          <div className="">
+            <Link href="/">
+              <a>
+                <img src="/growth-book-logo.png" className="w-48 mb-6" />
+              </a>
+            </Link>
+
+            {navLinks.map((link, i) => {
+              const active = router.pathname === link.href;
+              return (
+                <div key={i} className="mb-2">
+                  <div
+                    className={`rounded py-1 px-2 ${
+                      active
+                        ? "bg-gray-200 dark:bg-gray-600 font-bold"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
                   >
-                    {navLinks.map((link) => (
-                      <React.Fragment key={link.href}>
-                        <option value={link.href}>{link.name}</option>
-                        {link.links &&
-                          link.links.map((sublink) => (
-                            <option value={sublink.href} key={sublink.href}>
-                              &nbsp;&nbsp;⊢&nbsp;{sublink.name}
-                            </option>
-                          ))}
-                      </React.Fragment>
-                    ))}
-                  </select>
+                    <Link href={link.href}>
+                      <a className="block">{link.name}</a>
+                    </Link>
+                  </div>
+
+                  {link.links &&
+                    link.links.map((sublink, j) => {
+                      const active = router.pathname === sublink.href;
+                      return (
+                        <div
+                          className={`rounded py-1 px-2 ml-4 ${
+                            active
+                              ? "bg-gray-200 dark:bg-gray-600 font-bold"
+                              : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                          key={j}
+                        >
+                          <Link href={sublink.href}>
+                            <a className="block">{sublink.name}</a>
+                          </Link>
+                        </div>
+                      );
+                    })}
                 </div>
-              </div>
-            </div>
-
-            <div
-              className="d-none d-md-block bg-light border rounded sticky-top p-3 mb-3"
-              style={{ maxHeight: "100vh", overflowY: "auto" }}
-            >
-              <h4 className="text-muted">Menu</h4>
-              {navLinks.map((link, i) => {
-                const active = router.pathname === link.href;
-                return (
-                  <div key={i}>
-                    <div
-                      className={`rounded`}
-                      style={{
-                        backgroundColor: active ? "#ddd" : "",
-                        fontWeight: active ? "bold" : "normal",
-                      }}
-                    >
-                      <Link href={link.href}>
-                        <a className="p-2 d-block">{link.name}</a>
-                      </Link>
-                    </div>
-
-                    {link.links &&
-                      link.links.map((sublink, j) => {
-                        const active = router.pathname === sublink.href;
-                        return (
-                          <div
-                            className={`rounded ml-3`}
-                            key={j}
-                            style={{
-                              backgroundColor: active ? "#ddd" : "",
-                            }}
-                          >
-                            <Link href={sublink.href}>
-                              <a className="p-2 d-block">{sublink.name}</a>
-                            </Link>
-                          </div>
-                        );
-                      })}
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
-          <div className="col pt-2">
-            <div className="d-flex flex-column h-100">
-              <main style={{ flex: 1 }}>
-                <Component {...pageProps} />
-              </main>
-              {currentIndex >= 0 && (
-                <footer className="mt-4 border-top mb-2">
-                  <div className="row p-4">
-                    {currentIndex > 0 && (
-                      <div className="col-auto">
-                        <Link href={linksInOrder[currentIndex - 1].href}>
-                          <a>&#x2039; Previous</a>
-                        </Link>
-                        <span className="d-none text-muted d-md-inline ml-2">
-                          ({linksInOrder[currentIndex - 1].name})
-                        </span>
-                      </div>
-                    )}
-                    <div className="col"></div>
-                    {currentIndex < linksInOrder.length - 1 && (
-                      <div className="col-auto">
-                        <span className="d-none text-muted d-md-inline mr-2">
-                          ({linksInOrder[currentIndex + 1].name})
-                        </span>
-                        <Link href={linksInOrder[currentIndex + 1].href}>
-                          <a>Next &#x203A;</a>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-center border-top p-4">
+        </div>
+        <div className="flex flex-col h-screen flex-grow">
+          <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-600 flex">
+            <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
+              <a href="https://www.growthbook.io" className="mr-6">
+                Home
+              </a>
+              <a
+                href="https://github.com/growthbook/growthbook"
+                className="mr-6"
+              >
+                GitHub
+              </a>
+              <a href="https://app.growthbook.io">Try for free</a>
+            </div>
+            <div className="flex md:hidden items-center text-sm">
+              <Link href="/">
+                <a className="block">
+                  <img src="/growth-book-logo.png" className="w-32 mr-3" />
+                </a>
+              </Link>
+
+              <select
+                className="bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100 p-1 mx-1 rounded"
+                placeholder="Jump to Section"
+                value={router.pathname}
+                onChange={(e) => {
+                  router.push(e.target.value);
+                }}
+              >
+                {navLinks.map((link) => (
+                  <React.Fragment key={link.href}>
+                    <option value={link.href}>{link.name}</option>
+                    {link.links &&
+                      link.links.map((sublink) => (
+                        <option value={sublink.href} key={sublink.href}>
+                          &nbsp;&nbsp;⊢&nbsp;{sublink.name}
+                        </option>
+                      ))}
+                  </React.Fragment>
+                ))}
+              </select>
+            </div>
+            <div className="flex-grow"></div>
+            <button
+              className="text-gray-100 text-xl bg-gray-800 w-8 h-8 text-center hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 rounded-full"
+              onClick={(e) => {
+                e.preventDefault();
+                setDark(!dark);
+              }}
+              title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? (
+                <FaSun className="mx-auto" />
+              ) : (
+                <FaMoon className="mx-auto" />
+              )}
+            </button>
+          </nav>
+          <main className="p-5 flex-grow overflow-y-auto">
+            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl">
+              <Component {...pageProps} />
+            </div>
+          </main>
+          {currentIndex >= 0 && (
+            <div className="p-5 border-t border-gray-100 dark:border-gray-600">
+              <footer className="dark:text-gray-200 max-w-3xl">
+                <div className="flex">
+                  {currentIndex > 0 && (
+                    <div className="flex">
+                      <Link href={linksInOrder[currentIndex - 1].href}>
+                        <a className="flex items-center">
+                          <FaChevronLeft /> Previous
+                        </a>
+                      </Link>
+                      <span className="hidden md:inline opacity-60 ml-2">
+                        ({linksInOrder[currentIndex - 1].name})
+                      </span>
+                    </div>
+                  )}
+                  <div className="text-center flex-grow mx-4 opacity-60">
                     <a
+                      className="hidden lg:inline"
                       href={`https://github.com/growthbook/growthbook/blob/main/packages/docs/pages${
                         router.pathname
                       }${
@@ -253,13 +316,25 @@ function App({
                       Edit this page on GitHub
                     </a>
                   </div>
-                </footer>
-              )}
+                  {currentIndex < linksInOrder.length - 1 && (
+                    <div className="flex">
+                      <span className="hidden md:inline opacity-60 mr-2">
+                        ({linksInOrder[currentIndex + 1].name})
+                      </span>
+                      <Link href={linksInOrder[currentIndex + 1].href}>
+                        <a className="flex items-center">
+                          Next <FaChevronRight />
+                        </a>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </footer>
             </div>
-          </div>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
