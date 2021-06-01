@@ -10,8 +10,7 @@
     "test": "jest --forceExit --coverage --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
-    "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js",
-    "init:dev": "cp -n .env.example .env.local"
+    "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^5.5.0",

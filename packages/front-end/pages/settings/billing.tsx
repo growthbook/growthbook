@@ -5,11 +5,12 @@ import { SettingsApiResponse } from ".";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
 import useApi from "../../hooks/useApi";
+import { isCloud } from "../../services/utils";
 
 const BillingPage: FC = () => {
   const { data, error } = useApi<SettingsApiResponse>(`/organization`);
 
-  if (!process.env.NEXT_PUBLIC_IS_CLOUD) {
+  if (!isCloud()) {
     return (
       <div className="alert alert-info">
         This page is not available for self-hosted installations.

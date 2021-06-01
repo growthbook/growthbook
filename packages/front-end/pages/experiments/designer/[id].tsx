@@ -44,6 +44,7 @@ import {
 } from "../../../services/visualDesigner";
 import Link from "next/link";
 import VisualEditorScriptMissing from "../../../components/Experiment/VisualEditorScriptMissing";
+import { uploadFile } from "../../../services/files";
 
 const EditorPage: FC = () => {
   const router = useRouter();
@@ -774,29 +775,10 @@ const EditorPage: FC = () => {
                 const promises = variationData.variations.map(async (v, i) => {
                   if (!v.screenshot || !v.screenshot.match(/^data/)) return;
 
-                  const ext = "png";
-
-                  const { uploadURL, fileURL } = await apiCall<{
-                    uploadURL: string;
-                    fileURL: string;
-                  }>(`/experiment/${data.experiment.id}/upload/${ext}`, {
-                    method: "POST",
-                  });
-
                   const blob = dataURItoBlob(v.screenshot);
                   const file = new File([blob], "screenshot.png");
 
-                  const res = await fetch(uploadURL, {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "image/png",
-                    },
-                    body: file,
-                  });
-                  if (!res.ok) {
-                    console.error(res);
-                    throw new Error("Failed to upload screenshot");
-                  }
+                  const { fileURL } = await uploadFile(apiCall, file);
 
                   variationsClone[i].screenshots =
                     variationsClone[i].screenshots || [];

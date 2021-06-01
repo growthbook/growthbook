@@ -18,6 +18,7 @@ import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
+import { isCloud } from "../../services/utils";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -122,7 +123,7 @@ const TopNav: FC<{
 
         {showNotices && (
           <>
-            {process.env.NEXT_PUBLIC_IS_CLOUD &&
+            {isCloud() &&
               permissions.organizationSettings &&
               subscriptionStatus === "trialing" &&
               trialRemaining >= 0 && (
@@ -138,7 +139,7 @@ const TopNav: FC<{
                   {trialRemaining === 1 ? "" : "s"} left in trial
                 </button>
               )}
-            {process.env.NEXT_PUBLIC_IS_CLOUD &&
+            {isCloud() &&
               permissions.organizationSettings &&
               subscriptionStatus === "past_due" && (
                 <button
@@ -235,7 +236,7 @@ const TopNav: FC<{
               Edit Profile
             </button>
             <div className="dropdown-divider"></div>
-            {!process.env.NEXT_PUBLIC_IS_CLOUD && (
+            {!isCloud() && (
               <>
                 <button
                   className="dropdown-item"

@@ -1,7 +1,8 @@
 import Auth from "../components/Auth/Auth";
 import { AuthSource } from "../services/auth";
+import { getApiHost } from "../services/utils";
 
-const apiHost: string = process.env.NEXT_PUBLIC_API_HOST;
+const apiHost = getApiHost();
 
 let token: string;
 let createdAt: number;

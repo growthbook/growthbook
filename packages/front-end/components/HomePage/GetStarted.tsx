@@ -175,8 +175,8 @@ const GetStarted = ({
                         className="float-right mx-4"
                         src="/images/beaker.png"
                       />
-                      Create a draft experiment, implement using our SDKs, start
-                      it, and analyze results.
+                      Create a draft experiment, implement using our Client
+                      Libraries or Visual Editor, start it, and analyze results.
                     </p>
                     <a
                       className={`action-link ${

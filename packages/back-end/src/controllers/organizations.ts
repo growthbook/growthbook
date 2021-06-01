@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createOrganization,
@@ -49,11 +49,11 @@ import {
 import { SegmentModel } from "../models/SegmentModel";
 import { DimensionModel } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import logger from "../util/logger";
 import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { DataSourceModel } from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getAllGroups } from "../services/group";
+import { uploadFile } from "../services/files";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -589,8 +589,8 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      logger.error("New org email sending failure:");
-      logger.error(e.message);
+      console.error("New org email sending failure:");
+      console.error(e.message);
     }
 
     res.status(200).json({
@@ -938,5 +938,14 @@ export async function getQueries(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),
+  });
+}
+
+export async function putUpload(req: Request, res: Response) {
+  const { signature, path } = req.query as { signature: string; path: string };
+  await uploadFile(path, signature, req.body);
+
+  res.status(200).json({
+    status: 200,
   });
 }

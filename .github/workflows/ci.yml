@@ -40,23 +40,12 @@ jobs:
 
       - name: test
         run: |
-          # Create .env.local for each package
-          cd packages/front-end/
-          cp .env.example .env.local
-          cd ../back-end/
-          cp .env.example .env.local
-          cd ../../
-
           # Run the test suite
           yarn test
 
           # Cleanup
-          cd packages/front-end
-          rm .env.local
-          rm -rf coverage
-          cd ../back-end
-          rm .env.local
-          rm -rf coverage
+          rm -rf packages/front-end/coverage
+          rm -rf packages/back-end/coverage
 
       - name: check for file changes
         id: changes

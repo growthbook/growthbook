@@ -3,8 +3,9 @@ import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import Modal from "../components/Modal";
+import { getApiHost, isCloud } from "../services/utils";
 
-const apiHost: string = process.env.NEXT_PUBLIC_API_HOST;
+const apiHost = getApiHost();
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function ResetPasswordPage(): ReactElement {
       });
   }, [token, router.isReady]);
 
-  if (process.env.NEXT_PUBLIC_IS_CLOUD) {
+  if (isCloud()) {
     return (
       <div className="container">
         <div className="alert alert-danger">

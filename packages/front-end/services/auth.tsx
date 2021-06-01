@@ -5,8 +5,9 @@ import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import { OrganizationInterface } from "back-end/types/organization";
 import Modal from "../components/Modal";
+import { getApiHost, isCloud } from "./utils";
 
-const apiHost: string = process.env.NEXT_PUBLIC_API_HOST;
+const apiHost = getApiHost();
 
 export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
 
@@ -37,6 +38,8 @@ export type OrganizationMember = {
 };
 
 export type UserOrganizations = OrganizationMember[];
+
+export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
@@ -86,9 +89,7 @@ export interface AuthSource {
   getJWT: () => Promise<string>;
 }
 
-const authSource = process.env.NEXT_PUBLIC_IS_CLOUD
-  ? auth0AuthSource
-  : localAuthSource;
+const authSource = isCloud() ? auth0AuthSource : localAuthSource;
 
 export const AuthProvider: React.FC = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -147,7 +148,7 @@ export const AuthProvider: React.FC = ({ children }) => {
         <h3>Error Reaching API</h3>
         <p>
           Could not communicate with the Growth Book API at{" "}
-          <code>{process.env.NEXT_PUBLIC_API_HOST}</code>.
+          <code>{getApiHost()}</code>.
         </p>
         <p>
           If you just started the server with <code>yarn dev</code>, wait a

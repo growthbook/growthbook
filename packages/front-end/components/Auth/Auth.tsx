@@ -1,9 +1,10 @@
 import { ReactElement, useState } from "react";
 import useForm from "../../hooks/useForm";
 import track from "../../services/track";
+import { getApiHost } from "../../services/utils";
 import Modal from "../Modal";
 
-const apiHost: string = process.env.NEXT_PUBLIC_API_HOST;
+const apiHost = getApiHost();
 
 export default function Auth({
   onSuccess,

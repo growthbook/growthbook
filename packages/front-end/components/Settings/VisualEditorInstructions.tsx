@@ -2,6 +2,7 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
 import { useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
+import { getApiHost, isCloud } from "../../services/utils";
 import Code from "../Code";
 import ApiKeysModal from "./ApiKeysModal";
 
@@ -52,9 +53,9 @@ export default function VisualEditorInstructions({
     );
   }
 
-  const visualScriptHost = process.env.NEXT_PUBLIC_IS_CLOUD
+  const visualScriptHost = isCloud()
     ? "https://cdn.growthbook.io"
-    : process.env.NEXT_PUBLIC_API_HOST;
+    : getApiHost();
 
   return (
     <div>

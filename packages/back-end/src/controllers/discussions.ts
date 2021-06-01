@@ -221,7 +221,7 @@ export async function postImageUploadUrl(req: AuthRequest, res: Response) {
   const now = new Date();
   const { uploadURL, fileURL } = await getFileUploadURL(
     filetype,
-    `${req.organization.id}/uploads/${now.toISOString().substr(0, 7)}/`
+    `${req.organization.id}/${now.toISOString().substr(0, 7)}/`
   );
 
   res.status(200).json({

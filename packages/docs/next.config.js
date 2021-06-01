@@ -10,8 +10,8 @@ const withMDX = require("@next/mdx")({
     rehypePlugins: [
       rehypePrism, 
       [addClasses, {
-        "table": "table table-bordered",
-        "img": "border my-3"
+        "img": "border border-gray-100 dark:border-gray-700",
+        "pre": "border border-transparent dark:border-gray-700"
       }]
     ],
   },
