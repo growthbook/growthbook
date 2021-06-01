@@ -6,6 +6,7 @@ import {
 } from "../../services/metrics";
 import PercentImprovementGraph from "./PercentImprovementGraph";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -20,6 +21,7 @@ const MetricResults: FC<{
 }> = ({ metric, snapshot, variationNames }) => {
   const { getMetricById } = useDefinitions();
   const m = getMetricById(metric);
+  const { ciUpper, ciLower, ciUpperDisplay } = useConfidenceLevels();
 
   if (!snapshot?.results?.[0]?.variations?.[0]?.metrics?.[metric]) {
     return (
@@ -60,7 +62,7 @@ const MetricResults: FC<{
                 className="text-muted"
                 style={{ fontWeight: "normal", fontSize: "0.9em" }}
               >
-                95% Confidence Interval
+                {ciUpperDisplay} Confidence Interval
               </div>
             </th>
           </tr>
@@ -74,10 +76,10 @@ const MetricResults: FC<{
             let cn = "";
             if (stats.value <= 150) cn += " notenoughdata";
             else cn += " enoughdata";
-            if (stats.chanceToWin > 0.95) cn += " winning significant";
-            else if (stats.chanceToWin > 0.9) cn += " almostwinning";
-            else if (stats.chanceToWin < 0.05) cn += " losing significant";
-            else if (stats.chanceToWin < 0.1) cn += " almostlosing";
+            if (stats.chanceToWin > ciUpper) cn += " winning significant";
+            else if (stats.chanceToWin > ciUpper - 0.05) cn += " almostwinning";
+            else if (stats.chanceToWin < ciLower) cn += " losing significant";
+            else if (stats.chanceToWin < ciLower + 0.05) cn += " almostlosing";
             if (i === 0) cn += " control";
             return (
               <tr key={name} className={`results-row ${cn}`}>
@@ -125,7 +127,8 @@ const MetricResults: FC<{
                             domain={domain}
                           />
                           <p className="text-center">
-                            95% confident that the change is between{" "}
+                            {ciUpperDisplay} confident that the change is
+                            between{" "}
                             <strong>
                               {percentFormatter.format(stats.ci[0])}
                             </strong>{" "}

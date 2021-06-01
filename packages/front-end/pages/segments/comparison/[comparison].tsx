@@ -16,6 +16,7 @@ import RunQueriesButton, {
 } from "../../../components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
 import { useDefinitions } from "../../../services/DefinitionsContext";
+import useConfidenceLevels from "../../../hooks/useConfidenceLevels";
 
 const colors = colorThemes.neutral;
 
@@ -62,6 +63,8 @@ const SegmentComparisonPage: FC = () => {
   const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
   const [saveError, setSaveError] = useState(null);
+
+  const { ciUpperDisplay } = useConfidenceLevels();
 
   useEffect(() => {
     if (data && !value.segment1) {
@@ -444,7 +447,7 @@ const SegmentComparisonPage: FC = () => {
                 {segment2.buckets && segment2.buckets.length > 0 && (
                   <div className="row">
                     <div className="col">
-                      95% confident that the difference is between{" "}
+                      {ciUpperDisplay} confident that the difference is between{" "}
                       <strong>{percentFormatter.format(segment2.ci[0])}</strong>{" "}
                       and{" "}
                       <strong>{percentFormatter.format(segment2.ci[1])}</strong>{" "}

@@ -626,6 +626,11 @@ export async function putOrganization(
           "settings.implementationTypes",
           settings.implementationTypes
         );
+      "confidenceLevel" in settings &&
+        req.organization.set(
+          "settings.confidenceLevel",
+          settings.confidenceLevel
+        );
       "customized" in settings &&
         req.organization.set("settings.customized", settings.customized);
       "logoPath" in settings &&
@@ -802,7 +807,6 @@ export async function putDataSource(
   try {
     datasource.set("name", name);
     datasource.set("dateUpdated", new Date());
-    console.log(settings);
     datasource.set("settings", settings);
 
     if (

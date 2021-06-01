@@ -22,6 +22,7 @@ export type SubscriptionStatus =
 
 export type OrganizationSettings = {
   implementationTypes?: ImplementationType[];
+  confidenceLevel?: number;
   customized?: boolean;
   logoPath?: string;
   primaryColor?: string;

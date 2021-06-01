@@ -7,6 +7,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 
 type ColorScheme = {
   left: {
@@ -78,6 +79,8 @@ const PercentImprovementGraph: FC<Props> = ({
   ticks.push(ci[1]);
 
   ticks.sort();
+
+  const { ciUpperDisplay, ciLowerDisplay } = useConfidenceLevels();
 
   // simple bin smoother:
   const maxx = Math.max(...buckets.map((b) => b.x));
@@ -173,24 +176,24 @@ const PercentImprovementGraph: FC<Props> = ({
         <defs>
           <linearGradient id={`positive_${uid}`} x1="0" y1="1" x2="0" y2="0">
             <stop
-              offset="5%"
+              offset={ciLowerDisplay}
               stopColor={inverse ? colors.left.light : colors.right.light}
               stopOpacity={1}
             />
             <stop
-              offset="95%"
+              offset={ciUpperDisplay}
               stopColor={inverse ? colors.left.dark : colors.right.dark}
               stopOpacity={1}
             />
           </linearGradient>
           <linearGradient id={`negative_${uid}`} x1="0" y1="1" x2="0" y2="0">
             <stop
-              offset="5%"
+              offset={ciLowerDisplay}
               stopColor={inverse ? colors.right.light : colors.left.light}
               stopOpacity={1}
             />
             <stop
-              offset="95%"
+              offset={ciUpperDisplay}
               stopColor={inverse ? colors.right.dark : colors.left.dark}
               stopOpacity={1}
             />

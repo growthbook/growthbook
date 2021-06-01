@@ -9,6 +9,7 @@ import {
 import { getDataSourceById } from "./services/datasource";
 import pino from "pino";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./services/email";
+import { getConfidenceLevelsForOrg } from "./services/organizations";
 
 const MAX_UPDATES = 10;
 const UPDATE_FREQUENCY = 360;
@@ -67,6 +68,11 @@ const timer = setTimeout(() => {
         "Updating experiment - Success"
       );
 
+      // get the org confidence level settings:
+      const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
+        experiment.organization
+      );
+
       // check this and the previous snapshot to see if anything changed:
 
       // asumptions:
@@ -87,8 +93,8 @@ const timer = setTimeout(() => {
             // checks to see if anything changed:
 
             if (
-              curVar.metrics[m].chanceToWin > 0.95 &&
-              lastVar.metrics[m].chanceToWin < 0.95
+              curVar.metrics[m].chanceToWin > ciUpper &&
+              lastVar.metrics[m].chanceToWin < ciUpper
             ) {
               // this test variation has gone significant, and won
               experimentChanges.push(
@@ -107,8 +113,8 @@ const timer = setTimeout(() => {
                 "The metric "+getMetricById(m)+" is no longer a significant improvement for variation "+experiment.variations[i].name+" ("+lastVar.metrics[m].chanceToWin.toFixed(3)+" to "+ curVar.metrics[m].chanceToWin.toFixed(3)+")"
               );
             } */
-              curVar.metrics[m].chanceToWin < 0.05 &&
-              lastVar.metrics[m].chanceToWin > 0.05
+              curVar.metrics[m].chanceToWin < ciLower &&
+              lastVar.metrics[m].chanceToWin > ciLower
             ) {
               // this test variation has gone significant, and lost
               experimentChanges.push(
