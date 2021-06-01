@@ -47,7 +47,6 @@ import {
 import { DimensionModel } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
-import { getFileUploadURL } from "../services/files";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { DimensionInterface } from "../../types/dimension";
@@ -1486,27 +1485,6 @@ export async function postSnapshot(
     });
     console.error(e);
   }
-}
-export async function postScreenshotUploadUrl(req: AuthRequest, res: Response) {
-  if (!req.permissions.draftExperiments) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { filetype, id }: { filetype: string; id: string } = req.params;
-
-  const { uploadURL, fileURL } = await getFileUploadURL(
-    filetype,
-    `${req.organization.id}/${id}/`
-  );
-
-  res.status(200).json({
-    status: 200,
-    uploadURL,
-    fileURL,
-  });
 }
 
 export async function deleteScreenshot(

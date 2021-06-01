@@ -24,94 +24,32 @@
 
 Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
 
-View the developer docs at https://docs.growthbook.io
-
 ## Requirements
 
-- NodeJS 12.x or higher (https://nodejs.org/en/)
-- Yarn (`sudo npm install -g yarn`)
+- NodeJS 12.x or higher
+- Yarn
 - MongoDB 3.2 or higher
 - A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
-- AWS S3 bucket and access keys that allow writing (for image/file uploads)
-- An email provider for sending invites, forgot password emails, etc.
-- Google OAuth keys (only if using Google Analytics as a data source)
+- _(optional)_ An SMTP server for emailing invites, reset password links, etc.
+- _(optional)_ Google OAuth keys (only if using Google Analytics as a data source)
 
 Don't want to install, deploy, and maintain Growth Book on your own? Let us do it for you at https://www.growthbook.io
 
-## Setup
+## Dev Quick Start
 
-1.  Run `yarn` to install dependencies.
-2.  Run `yarn init:dev` to initialize your dev environment
-3.  Configure MongoDB, S3, and an email server (see below)
-4.  Update `packages/back-end/.env.local` with your MongoDB connection string, S3 bucket, and email settings
+1.  Start MongoDB locally:
+    ```sh
+    docker run -d -p 27017:27017 --name mongo \
+      -e MONGO_INITDB_ROOT_USERNAME=root \
+      -e MONGO_INITDB_ROOT_PASSWORD=password \
+      mongo
+    ```
+2.  Run `yarn` to install dependencies
+3.  Run `yarn dev` and visit http://localhost:3000
 
-### MongoDB
+If you need to change any of the default settings (e.g. to configure an email server or add Google OAuth Keys), copy `packages/back-end/.env.example` to `packages/back-end/.env.local` and edit that file as needed.
 
-To quickly get a local MongoDB instance running for development, you can use docker:
-
-```sh
-docker run -d --name mongo \
-    -e MONGO_INITDB_ROOT_USERNAME=root \
-    -e MONGO_INITDB_ROOT_PASSWORD=password \
-    mongo
-```
-
-For production, we recommend using MongoDB Atlas or another fully managed service.
-The Growth Book app only stores meta info and aggregate stats, so the size of MongoDB should stay comfortably within the free tier for most deployments.
-
-### S3
-
-S3 is used to store uploaded experiment screenshots. We support multiple ways of providing credentials with the following order of precedence:
-
-1.  Environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (on dev, add to `packages/back-end/.env.local`)
-2.  Shared credentials file `~/.aws/credentials`
-3.  ECS credentials provider or EC2 instance IAM role (when deployed to AWS)
-
-
-### Email
-
-Growth Book sends a few transactional emails (team member invites, forgot password, etc.).
-
-You can configure the email server using environment variables. Here's an example for Sendgrid:
-
-```
-EMAIL_ENABLED=true
-EMAIL_HOST=smtp.sendgrid.net
-EMAIL_PORT=465
-EMAIL_HOST_USER=apikey
-EMAIL_HOST_PASSWORD=SG.123abc
-EMAIL_USE_TLS=true
-EMAIL_FROM=noreply@example.com
-# Site Manager is alerted when a new organization is created
-SITE_MANAGER_EMAIL=admin@example.com
-```
-
-## Running Growth Book
-
-This is a monorepo with 3 packages - `back-end`, `front-end`, and `docs`. For ease-of-use, we've added helper scripts at the top level.
-
-### Development
-
-- `yarn dev` - Start dev servers with hot reloading
-  - Front-end: http://localhost:3000
-  - Back-end: http://localhost:3100
-  - Docs: http://localhost:3200
-- `yarn lint` - Run eslint and auto-fix errors when possible
-- `yarn pretty` - Run prettier across the entire codebase
-- `yarn type-check` - Check for typescript compile errors
-- `yarn test` - Run the test suites
-
-### Production
-
-For production, you must first build with Typescript/Webpack and then serve it with NodeJS.
-
-- `yarn build:front` - Build the front-end and output to `packages/front-end/dist/`
-- `yarn build:back` - Build the back-end and output to `packages/back-end/dist/`
-- `yarn build:docs` - Build the docs and output to `packages/docs/dist/`
-- `yarn build` - Build everything in parallel
-- `yarn start:front` - Serve the front-end at http://localhost:3000
-- `yarn start:back` - Serve the back-end at http://localhost:3100
-- `yarn start:docs` - Serve the docs at http://localhost:3200
+View the full developer docs at https://docs.growthbook.io
 
 ## License
 

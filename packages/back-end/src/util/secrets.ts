@@ -4,17 +4,15 @@ import fs from "fs";
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
 
-if (!prod) {
-  if (fs.existsSync(".env.local")) {
-    dotenv.config({ path: ".env.local" });
-  } else {
-    throw new Error("Missing dev env file. Run: cp .env.example .env.local");
-  }
+if (fs.existsSync(".env.local")) {
+  dotenv.config({ path: ".env.local" });
 }
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export const MONGODB_URI = process.env.MONGODB_URI;
+export const MONGODB_URI =
+  process.env.MONGODB_URI ??
+  (prod ? "" : "mongodb://root:password@localhost:27017/");
 if (!MONGODB_URI) {
   throw new Error("Missing MONGODB_URI environment variable");
 }

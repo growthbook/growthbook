@@ -5,17 +5,16 @@
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
-    "type-check": "wsrun type-check",
-    "test": "wsrun test",
-    "dev": "wsrun dev",
-    "build": "wsrun build",
+    "type-check": "wsrun -m type-check",
+    "test": "wsrun -m test",
+    "dev": "wsrun -m dev",
+    "build": "wsrun -m build",
     "build:back": "yarn workspace back-end build",
     "build:front": "yarn workspace front-end build",
     "build:docs": "yarn workspace docs build",
     "start:back": "yarn workspace back-end start",
     "start:front": "yarn workspace front-end start",
-    "start:docs": "yarn workspace docs start",
-    "init:dev": "wsrun init:dev"
+    "start:docs": "yarn workspace docs start"
   },
   "workspaces": [
     "packages/*"

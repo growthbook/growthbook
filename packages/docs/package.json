@@ -7,9 +7,7 @@
     "dev": "next dev -p 3200",
     "build": "next build",
     "start": "next start -p 3200",
-    "test": "echo 'no tests for docs yet'",
-    "type-check": "tsc --pretty --noEmit",
-    "init:dev": "touch next.config.js"
+    "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
     "@mapbox/rehype-prism": "^0.6.0",

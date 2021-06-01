@@ -15,6 +15,7 @@ import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getJWTCheck, processJWT } from "./services/auth";
 import compression from "compression";
+import fs from "fs";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -29,6 +30,7 @@ import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as slackController from "./controllers/slack";
+import { getUploadsDir } from "./services/files";
 
 // Wrap every controller function in asyncHandler to catch errors properly
 function wrapController(controller: Record<string, RequestHandler>): void {
@@ -161,6 +163,27 @@ if (!IS_CLOUD) {
   );
 }
 
+// File uploads don't require auth tokens.
+// Upload urls are signed and image access is public.
+if (!IS_CLOUD) {
+  // Create 'uploads' directory if it doesn't exist yet
+  const uploadDir = getUploadsDir();
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+  }
+
+  app.put(
+    "/upload",
+    bodyParser.raw({
+      type: "image/*",
+      limit: "10mb",
+    }),
+    preAuthLogger,
+    organizationsController.putUpload
+  );
+  app.use("/upload", express.static(uploadDir));
+}
+
 // All other routes require a valid JWT
 app.use(getJWTCheck());
 
@@ -281,10 +304,6 @@ app.post("/experiment/:id/watch", experimentsController.watchExperiment);
 app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
-app.post(
-  "/experiment/:id/upload/:filetype",
-  experimentsController.postScreenshotUploadUrl
-);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot

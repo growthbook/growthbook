@@ -10,6 +10,7 @@ import { useAuth } from "../../services/auth";
 import styles from "./ScreenshotUpload.module.scss";
 import clsx from "clsx";
 import LoadingOverlay from "../LoadingOverlay";
+import { uploadFile } from "../../services/files";
 
 type props = {
   experiment: string;
@@ -29,22 +30,7 @@ const ScreenshotUpload = ({
     setLoading(loading + files.length);
 
     files.forEach(async (file) => {
-      const ext = file.name.split(".").reverse()[0];
-
-      const { uploadURL, fileURL } = await apiCall<{
-        uploadURL: string;
-        fileURL: string;
-      }>(`/experiment/${experiment}/upload/${ext}`, {
-        method: "POST",
-      });
-
-      await fetch(uploadURL, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
-      });
+      const { fileURL } = await uploadFile(apiCall, file);
 
       await apiCall(
         `/experiment/${experiment}/variation/${variation}/screenshot`,

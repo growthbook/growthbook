@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
 import { FiChevronDown } from "react-icons/fi";
+import { isCloud } from "../../services/utils";
 
 export type SidebarLinkProps = {
   name: string;
@@ -30,10 +31,10 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   if (props.settingsPermission && !permissions.organizationSettings)
     return null;
 
-  if (props.cloudOnly && !process.env.NEXT_PUBLIC_IS_CLOUD) {
+  if (props.cloudOnly && !isCloud()) {
     return null;
   }
-  if (props.selfHostedOnly && process.env.NEXT_PUBLIC_IS_CLOUD) {
+  if (props.selfHostedOnly && isCloud()) {
     return null;
   }
 

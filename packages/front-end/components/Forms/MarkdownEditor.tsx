@@ -3,6 +3,7 @@ import { ReactElement, useEffect, useState } from "react";
 import RichMarkdownEditor from "rich-markdown-editor";
 import { useAuth } from "../../services/auth";
 import { ago } from "../../services/dates";
+import { uploadFile } from "../../services/files";
 import styles from "./markdown-editor.module.scss";
 
 export default function MarkdownEditor({
@@ -127,23 +128,7 @@ export default function MarkdownEditor({
         }}
         placeholder={editPlaceholder}
         uploadImage={async (file) => {
-          const ext = file.name.split(".").reverse()[0];
-
-          const { uploadURL, fileURL } = await apiCall<{
-            uploadURL: string;
-            fileURL: string;
-          }>(`/upload/${ext}`, {
-            method: "POST",
-          });
-
-          await fetch(uploadURL, {
-            method: "PUT",
-            headers: {
-              "Content-Type": file.type,
-            },
-            body: file,
-          });
-
+          const { fileURL } = await uploadFile(apiCall, file);
           return fileURL;
         }}
       />

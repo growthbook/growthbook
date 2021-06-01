@@ -14,6 +14,7 @@ import Markdown from "./Markdown";
 import { useAuth } from "../../services/auth";
 import { useDropzone } from "react-dropzone";
 import LoadingOverlay from "../LoadingOverlay";
+import { uploadFile } from "../../services/files";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
@@ -48,38 +49,20 @@ const MarkdownInput: FC<{
 
   const onDrop = (files: File[]) => {
     setUploading(true);
-    let newValue = value;
+    const toAdd: string[] = [];
     const promises = Promise.all(
-      files.map(async (file) => {
-        const ext = file.name.split(".").reverse()[0];
+      files.map(async (file, i) => {
         const name = file.name.replace(/[^a-zA-Z0-9_\-.\s]*/g, "");
 
-        const { uploadURL, fileURL } = await apiCall<{
-          uploadURL: string;
-          fileURL: string;
-        }>(`/upload/${ext}`, {
-          method: "POST",
-        });
+        const { fileURL } = await uploadFile(apiCall, file);
 
-        if (newValue.length > 0 && newValue.substr(-1) !== "\n") {
-          newValue += "\n";
-        }
-
-        newValue += `![${name}](${fileURL})`;
-
-        await fetch(uploadURL, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
+        toAdd[i] = `![${name}](${fileURL})`;
       })
     );
 
     promises
       .then(() => {
-        setValue(newValue + "\n");
+        setValue(value + toAdd.join("\n") + "\n");
         setUploading(false);
       })
       .catch((e) => {
