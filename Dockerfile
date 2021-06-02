@@ -16,4 +16,9 @@ RUN \
   # Clear the yarn cache
   && yarn cache clean
 
+# The front-end app (NextJS)
+EXPOSE 3000
+# The back-end api (Express)
+EXPOSE 3100
+
 CMD ["yarn","start"]

@@ -20,10 +20,6 @@
 - Document everything! (upload screenshots, add markdown comments, and more)
 - Automated email alerts when tests become significant
 
-## Community
-
-Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
-
 ## Requirements
 
 - Docker (plus docker-compose for running locally)
@@ -40,28 +36,13 @@ We also offer a hosted cloud version that's free to get started: https://app.gro
 2.  Start docker-compose: `docker-compose up -d`
 3.  Visit http://localhost:3000
 
-If you need to change any of the default settings (e.g. to configure an email server or add Google OAuth Keys), edit `docker-compose.yml` and add environment variables for the growthbook service.
+## Documentation and Support
 
-These are all the environment variables you can set:
+View [Docker](https://hub.docker.com/r/growthbook/growthbook) for all configuration options.
 
-- **JWT_SECRET** - Auth signing key (use a long random string)
-- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
-- **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
-- **MONGODB_URI** - The MongoDB connection string
-- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
-- **API_HOST** - (default set to http://localhost:3100)
-- Email SMTP Settings:
-- **EMAIL_ENABLED** ("true" or "false")
-- **EMAIL_HOST**
-- **EMAIL_PORT**
-- **EMAIL_HOST_USER**
-- **EMAIL_HOST_PASSWORD**
-- **EMAIL_USE_TLS** ("true" or "false")
-- Google OAuth Settings (only if using Google Analytics as a data source)
-- **GOOGLE_OAUTH_CLIENT_ID**
-- **GOOGLE_OAUTH_CLIENT_SECRET**
+View the [Growth Book Docs](https://docs.growthbook.io) for info on how to setup and use the platform.
 
-View the full developer docs at https://docs.growthbook.io
+Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
 
 ## License
 

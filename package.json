@@ -9,7 +9,8 @@
     "test": "wsrun -m test",
     "dev": "wsrun -p '*-end' -m dev",
     "build": "wsrun -p '*-end' -m build",
-    "start": "wsrun -p '*-end' -m start"
+    "start": "wsrun -p '*-end' -m start",
+    "cron": "yarn workspace back-end cron"
   },
   "workspaces": [
     "packages/*"
