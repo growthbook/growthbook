@@ -13,6 +13,8 @@ import {
   FaKey,
   FaDatabase,
   FaCreditCard,
+  FaBookOpen,
+  FaArrowRight,
 } from "react-icons/fa";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
@@ -286,6 +288,18 @@ const Layout = (): React.ReactElement => {
               </ul>
             </div>
           </div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="p-3">
+          <a
+            href="https://docs.growthbook.io"
+            className="btn btn-outline-light btn-block"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <FaBookOpen className="mr-2" /> View Docs{" "}
+            <FaArrowRight className="ml-2" />
+          </a>
         </div>
       </div>
 

@@ -5,7 +5,6 @@ import { SegmentInterface } from "back-end/types/segment";
 import { useContext } from "react";
 import { createContext, FC } from "react";
 import useApi from "../hooks/useApi";
-import { useAuth } from "./auth";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -64,14 +63,13 @@ export function useDefinitions() {
 }
 
 export const DefinitionsProvider: FC = ({ children }) => {
-  const { orgId } = useAuth();
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions?orgId=" + orgId
+    "/organization/definitions"
   );
 
   let value: DefinitionContextValue;
   if (error) {
-    value = { ...defaultValue, error: error?.message || error };
+    value = { ...defaultValue, error: error?.message || "" };
   } else if (!data) {
     value = defaultValue;
   } else {

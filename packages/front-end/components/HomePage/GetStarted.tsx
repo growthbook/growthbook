@@ -85,14 +85,13 @@ const GetStarted = ({
                 <div className="d-flex align-items-center">
                   <strong className="mr-2">Just here to explore?</strong>
                   <div style={{ flex: 1 }}>
-                    Start with some{" "}
+                    Quick start with some{" "}
                     <Tooltip
                       text="Includes a sample experiment with results. Don't worry, it's easy to remove later."
                       style={{ borderBottom: "1px dotted #666" }}
                     >
                       sample data
-                    </Tooltip>{" "}
-                    instead
+                    </Tooltip>
                   </div>
                   {hasSampleExperiment ? (
                     <Link href="/experiment/exp_sample">
@@ -298,8 +297,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://docs.growthbook.io/app"
                         >
-                          Learn about connecting to data sources and defining
-                          metrics
+                          View the <strong>Growth Book App</strong> docs
                         </a>
                       </div>
                     </div>
@@ -313,8 +311,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://docs.growthbook.io/lib"
                         >
-                          Learn about ways to integrate Growth Book with your
-                          app
+                          View our <strong>Client Library</strong> docs
                         </a>
                       </div>
                     </div>
@@ -328,7 +325,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
                         >
-                          Contact us for help on our slack channel
+                          Chat with us on <strong>Slack</strong>
                         </a>
                       </div>
                     </div>
@@ -342,7 +339,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://github.com/growthbook/growthbook/issues"
                         >
-                          Open an issue on github
+                          Open an issue on <strong>GitHub</strong>
                         </a>
                       </div>
                     </div>
