@@ -2,7 +2,7 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
 import { useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
-import { getApiHost, isCloud } from "../../services/utils";
+import { getApiHost, isCloud } from "../../services/env";
 import Code from "../Code";
 import ApiKeysModal from "./ApiKeysModal";
 

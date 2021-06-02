@@ -26,28 +26,40 @@ Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbook
 
 ## Requirements
 
-- NodeJS 12.x or higher
-- Yarn
+- Docker (plus docker-compose for running locally)
 - MongoDB 3.2 or higher
 - A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
 - _(optional)_ An SMTP server for emailing invites, reset password links, etc.
 - _(optional)_ Google OAuth keys (only if using Google Analytics as a data source)
 
-Don't want to install, deploy, and maintain Growth Book on your own? Let us do it for you at https://www.growthbook.io
+We also offer a hosted cloud version that's free to get started: https://app.growthbook.io
 
-## Dev Quick Start
+## Quick Start
 
-1.  Start MongoDB locally:
-    ```sh
-    docker run -d -p 27017:27017 --name mongo \
-      -e MONGO_INITDB_ROOT_USERNAME=root \
-      -e MONGO_INITDB_ROOT_PASSWORD=password \
-      mongo
-    ```
-2.  Run `yarn` to install dependencies
-3.  Run `yarn dev` and visit http://localhost:3000
+1.  Clone this repo: `git clone https://github.com/growthbook/growthbook.git && cd growthbook`
+2.  Start docker-compose: `docker-compose up -d`
+3.  Visit http://localhost:3000
 
-If you need to change any of the default settings (e.g. to configure an email server or add Google OAuth Keys), copy `packages/back-end/.env.example` to `packages/back-end/.env.local` and edit that file as needed.
+If you need to change any of the default settings (e.g. to configure an email server or add Google OAuth Keys), edit `docker-compose.yml` and add environment variables for the growthbook service.
+
+These are all the environment variables you can set:
+
+- **JWT_SECRET** - Auth signing key (use a long random string)
+- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
+- **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
+- **MONGODB_URI** - The MongoDB connection string
+- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
+- **API_HOST** - (default set to http://localhost:3100)
+- Email SMTP Settings:
+- **EMAIL_ENABLED** ("true" or "false")
+- **EMAIL_HOST**
+- **EMAIL_PORT**
+- **EMAIL_HOST_USER**
+- **EMAIL_HOST_PASSWORD**
+- **EMAIL_USE_TLS** ("true" or "false")
+- Google OAuth Settings (only if using Google Analytics as a data source)
+- **GOOGLE_OAUTH_CLIENT_ID**
+- **GOOGLE_OAUTH_CLIENT_SECRET**
 
 View the full developer docs at https://docs.growthbook.io
 

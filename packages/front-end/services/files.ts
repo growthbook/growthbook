@@ -1,7 +1,5 @@
 import { ApiCallType } from "./auth";
-import { getApiHost } from "./utils";
-
-const apiHost = getApiHost();
+import { getApiHost } from "./env";
 
 export async function uploadFile(
   apiCall: ApiCallType<{ uploadURL: string; fileURL: string }>,
@@ -13,7 +11,7 @@ export async function uploadFile(
   });
 
   const res = await fetch(
-    uploadURL.match(/^\//) ? apiHost + uploadURL : uploadURL,
+    uploadURL.match(/^\//) ? getApiHost() + uploadURL : uploadURL,
     {
       method: "PUT",
       headers: {
@@ -28,6 +26,6 @@ export async function uploadFile(
   }
 
   return {
-    fileURL: fileURL.match(/^\//) ? apiHost + fileURL : fileURL,
+    fileURL: fileURL.match(/^\//) ? getApiHost() + fileURL : fileURL,
   };
 }
