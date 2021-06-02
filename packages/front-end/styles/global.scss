@@ -10,7 +10,8 @@ $h6-font-size: $font-size-base !default;
 
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
-@import url("https://fonts.googleapis.com/css?family=Roboto:400,700,300");
+@import url("https://fonts.googleapis.com/css?family=Roboto:400,600,700,300");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 html,
 body,
@@ -114,6 +115,59 @@ pre {
   &:hover .tooltip {
     display: block;
     opacity: 1;
+  }
+}
+.welcome {
+  z-index: 1000;
+  position: relative;
+  min-height: 100vh;
+  font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+
+  .full-height {
+    min-height: 100vh;
+  }
+  .intro-side {
+    background-color: $purple;
+    background: radial-gradient(
+      at 50% 100%,
+      rgba(109, 18, 228, 0.75),
+      rgb(15, 1, 94)
+    );
+    color: #fff;
+    vertical-align: middle;
+    min-height: 100%;
+  }
+  .ghosted-logo {
+    background: transparent url("/logo/growth-book-logomark-ghosted.png") 50%
+      50%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    min-height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 10px;
+    right: 10px;
+    opacity: 0.5;
+  }
+  .logo {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+  .form-side {
+    background-color: #fff;
+    .formwrap {
+      width: 100%;
+      max-width: 500px;
+    }
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
   }
 }
 

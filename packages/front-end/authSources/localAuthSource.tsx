@@ -1,4 +1,4 @@
-import Auth from "../components/Auth/Auth";
+import Welcome from "../components/Auth/Welcome";
 import { AuthSource } from "../services/auth";
 import { getApiHost } from "../services/utils";
 
@@ -48,7 +48,7 @@ const localAuthSource: AuthSource = {
     loggingIn = new Promise((resolve) => {
       setAuthComponent(() => {
         return (
-          <Auth
+          <Welcome
             onSuccess={(t) => {
               token = t;
               createdAt = Date.now();
