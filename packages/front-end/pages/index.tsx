@@ -8,7 +8,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 
 export default function Home(): React.ReactElement {
-  const { data, error } = useApi<{
+  const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
   const {
@@ -31,8 +31,9 @@ export default function Home(): React.ReactElement {
   }
 
   const hasDataSource = datasources.length > 0;
-  const hasMetrics = metrics.length > 0;
-  const hasExperiments = data?.experiments?.length > 0;
+  const hasMetrics = metrics.filter((m) => m.id !== "met_sample").length > 0;
+  const hasExperiments =
+    data?.experiments?.filter((e) => e.id !== "exp_sample")?.length > 0;
   const isNew = !(hasMetrics && hasExperiments && hasDataSource);
 
   return (
@@ -46,7 +47,7 @@ export default function Home(): React.ReactElement {
 
       {ready && isNew && (
         <div className="container-fluid mt-3 pagecontents getstarted">
-          <GetStarted experiments={data.experiments} />
+          <GetStarted experiments={data.experiments} mutate={mutate} />
         </div>
       )}
 

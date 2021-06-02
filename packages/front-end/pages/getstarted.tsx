@@ -6,7 +6,7 @@ import useApi from "../hooks/useApi";
 import { useDefinitions } from "../services/DefinitionsContext";
 
 const getStartedPage = (): React.ReactElement => {
-  const { data, error } = useApi<{
+  const { data, mutate, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
   const { ready, error: definitionsError } = useDefinitions();
@@ -26,7 +26,7 @@ const getStartedPage = (): React.ReactElement => {
   return (
     <>
       <div className="container-fluid mt-3 pagecontents getstarted">
-        <GetStarted experiments={data.experiments} />
+        <GetStarted experiments={data.experiments} mutate={mutate} />
       </div>
     </>
   );

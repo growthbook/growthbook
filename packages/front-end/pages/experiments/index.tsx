@@ -241,7 +241,17 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <Tabs>
+          <Tabs
+            defaultTab={
+              byStatus.running.length > 0
+                ? "Running"
+                : byStatus.draft.length > 0
+                ? "Drafts"
+                : byStatus.stopped.length > 0
+                ? "Stopped"
+                : null
+            }
+          >
             <Tab
               display="Running"
               anchor="running"

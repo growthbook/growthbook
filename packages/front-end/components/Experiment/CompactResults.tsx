@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { formatConversionRate } from "../../services/metrics";
 import clsx from "clsx";
@@ -225,7 +225,7 @@ const CompactResults: FC<{
                       experiment.status === "running";
 
                     return (
-                      <>
+                      <Fragment key={i}>
                         <td className="value variation">
                           <div className="result-number">
                             {formatConversionRate(metric.type, stats.cr)}
@@ -278,7 +278,7 @@ const CompactResults: FC<{
                             </td>
                           </>
                         )}
-                      </>
+                      </Fragment>
                     );
                   }
                   return (

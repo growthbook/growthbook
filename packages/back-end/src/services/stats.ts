@@ -58,7 +58,6 @@ function abTest(
   expected: number
 ): ABTestStats {
   const NUM_SAMPLES = 1e5;
-  const HISTOGRAM_BUCKETS = 50;
 
   // Simulate the distributions a bunch of times to get a list of percent changes
   const change: number[] = Array(NUM_SAMPLES);
@@ -73,61 +72,60 @@ function abTest(
     return a - b;
   });
 
-  if (chanceToWin === null) {
-    chanceToWin = wins / NUM_SAMPLES;
-  }
-
-  // CI are the array elements 2.5% and 97.5% from the start
-  const ci: [number, number] = [
+  const simulatedCI: [number, number] = [
     change[Math.floor(change.length * 0.025)],
     change[Math.floor(change.length * 0.975)],
   ];
 
-  // Make a histogram of the data (only include 99% of inner values to remove outliers)
-  const minValue = change[Math.floor(change.length * 0.005)];
-  const maxValue = change[Math.floor(change.length * 0.995)];
-  const bucketSize = (maxValue - minValue) / HISTOGRAM_BUCKETS;
-  const buckets: { min: number; max: number; count: number }[] = Array(
-    HISTOGRAM_BUCKETS
-  );
-  for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
-    buckets[i] = {
-      min: i * bucketSize + minValue,
-      max: (i + 1) * bucketSize + minValue,
-      count: 0,
-    };
+  let ci: [number, number];
+
+  // Using the simulation for chanceToWin and the CI
+  if (chanceToWin === null) {
+    chanceToWin = wins / NUM_SAMPLES;
+    ci = simulatedCI;
   }
-
-  // Fill the histogram with the percent changes
-  let currentBucket = 0;
-  for (let i = 0; i < change.length; i++) {
-    if (change[i] < minValue || change[i] > maxValue) {
-      continue;
+  // If chanceToWin was calculated using a Bayesian formula
+  else {
+    // If it's close to significance, estimate the CI from the chanceToWin, otherwise, use the simulation data for the CI.
+    // This is a hacky fix for when the simulation CI crosses zero even though chanceToWin is significant.
+    // The bug happens because the CI and chanceToWin are calculated using different methods and don't always 100% agree.
+    // A better fix is to calculate a Bayesian credible interval instead of using a frequentist Confidence Interval
+    if (
+      (chanceToWin > 0.7 && chanceToWin < 0.99) ||
+      (chanceToWin < 0.3 && chanceToWin > 0.01)
+    ) {
+      ci = getCIFromChanceToWin(chanceToWin, expected);
+    } else {
+      ci = simulatedCI;
     }
-
-    while (buckets[currentBucket] && change[i] > buckets[currentBucket].max) {
-      currentBucket++;
-    }
-    if (!buckets[currentBucket]) break;
-
-    buckets[currentBucket].count++;
   }
 
   return {
     ci,
     expected,
-    buckets: buckets.map((bucket) => {
-      // Round to 4 decimal places
-      const midpoint = parseFloat(((bucket.max + bucket.min) / 2).toFixed(4));
-      const value = parseFloat((bucket.count / change.length).toFixed(4));
-
-      return {
-        x: midpoint,
-        y: value,
-      };
-    }),
+    buckets: [],
     chanceToWin,
   };
+}
+
+function getCIFromChanceToWin(
+  chanceToWin: number,
+  percentImprovement: number
+): [number, number] {
+  const alpha = 0.05;
+
+  const a = jStat.normal.inv(1 - chanceToWin, 0, 1);
+  const b = jStat.normal.inv(chanceToWin > 0.5 ? alpha : 1 - alpha, 0, 1);
+
+  const d = Math.abs((percentImprovement * b) / a);
+  console.log({
+    chanceToWin,
+    percentImprovement,
+    a,
+    b,
+    d,
+  });
+  return [percentImprovement - d, percentImprovement + d];
 }
 
 function getExpectedValue(

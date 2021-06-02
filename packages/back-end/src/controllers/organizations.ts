@@ -43,6 +43,7 @@ import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
 import {
+  createManualSnapshot,
   getMetricsByDatasource,
   getMetricsByOrganization,
 } from "../services/experiments";
@@ -54,6 +55,9 @@ import { DataSourceModel } from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
+import { ExperimentInterface } from "../../types/experiment";
+import { MetricModel } from "../models/MetricModel";
+import { MetricInterface } from "../../types/metric";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -83,6 +87,106 @@ export async function getUser(req: AuthRequest, res: Response) {
       role: getRole(org, req.userId),
       settings: org.settings || {},
     })),
+  });
+}
+
+export async function postSampleData(req: AuthRequest, res: Response) {
+  const orgId = req.organization?.id;
+  if (!orgId) {
+    throw new Error("Must be part of an organization");
+  }
+
+  const existingMetric = await MetricModel.findOne({
+    organization: orgId,
+    id: "met_sample",
+  });
+  if (existingMetric) {
+    throw new Error("Sample data already exists");
+  }
+
+  const metric: Partial<MetricInterface> = {
+    id: "met_sample",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "Sample Conversions",
+    description: `Part of the Growth Book sample data set. Feel free to delete when finished exploring.`,
+    type: "binomial",
+    organization: orgId,
+    userIdType: "anonymous",
+  };
+  await MetricModel.create(metric);
+
+  const lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - 7);
+
+  const experiment: ExperimentInterface = {
+    id: "exp_sample",
+    organization: orgId,
+    archived: false,
+    name: "Sample Experiment",
+    status: "stopped",
+    description: `Part of the Growth Book sample data set. Feel free to delete when finished exploring.`,
+    hypothesis:
+      "Making the buttons green on the pricing page will increase conversions",
+    previewURL: "",
+    targetURLRegex: "",
+    sqlOverride: new Map(),
+    variations: [
+      {
+        name: "Control",
+        value: `{"color": "blue"}`,
+        screenshots: [
+          {
+            path: "/images/pricing-default.png",
+          },
+        ],
+      },
+      {
+        name: "Variation",
+        value: `{"color": "green"}`,
+        screenshots: [
+          {
+            path: "/images/pricing-green.png",
+          },
+        ],
+      },
+    ],
+    autoAssign: false,
+    autoSnapshots: false,
+    datasource: null,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    implementation: "code",
+    metrics: [metric.id],
+    owner: req.userId,
+    trackingKey: "sample-experiment",
+    userIdType: "anonymous",
+    tags: [],
+    conversionWindowDays: 3,
+    results: "won",
+    winner: 1,
+    phases: [
+      {
+        dateStarted: lastWeek,
+        dateEnded: new Date(),
+        phase: "main",
+        reason: "",
+        coverage: 1,
+        variationWeights: [0.5, 0.5],
+        groups: [],
+      },
+    ],
+  };
+  await ExperimentModel.create(experiment);
+
+  await createManualSnapshot(experiment, 0, [15500, 15400], {
+    [metric.id]: [950, 1025],
+  });
+
+  res.status(200).json({
+    status: 200,
+    experiment: experiment.id,
+    metric: metric.id,
   });
 }
 

@@ -9,22 +9,33 @@ import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
+import { FaChevronRight, FaDatabase } from "react-icons/fa";
+import Button from "../Button";
+import Tooltip from "../Tooltip";
+import { useAuth } from "../../services/auth";
 
 const GetStarted = ({
   experiments,
+  mutate,
 }: {
   experiments: ExperimentInterfaceStringDates[];
+  mutate: () => void;
 }): React.ReactElement => {
-  const { metrics, datasources } = useDefinitions();
+  const { metrics, datasources, mutateDefinitions } = useDefinitions();
+  const { apiCall } = useAuth();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [experimentsOpen, setExperimentsOpen] = useState(false);
   const router = useRouter();
 
+  const hasSampleExperiment =
+    experiments.filter((m) => m.id === "exp_sample").length > 0;
+
   const hasDataSource = datasources.length > 0;
-  const hasMetrics = metrics.length > 0;
-  const hasExperiments = experiments.length > 0;
+  const hasMetrics = metrics.filter((m) => m.id !== "met_sample").length > 0;
+  const hasExperiments =
+    experiments.filter((m) => m.id !== "exp_sample").length > 0;
   const currentStep = hasExperiments
     ? 4
     : hasMetrics
@@ -64,9 +75,53 @@ const GetStarted = ({
             <div className="row mb-3">
               <div className="col-auto">
                 <h1>Let&apos;s get started!</h1>
-                <p>Follow the steps below to start using Growth Book</p>
+                <p className="mb-0">
+                  Follow the steps below to start using Growth Book
+                </p>
               </div>
             </div>
+            {!(hasMetrics || hasExperiments) && (
+              <div className="alert alert-info mb-3">
+                <div className="d-flex align-items-center">
+                  <strong className="mr-2">Just here to explore?</strong>
+                  <div style={{ flex: 1 }}>
+                    Start with some{" "}
+                    <Tooltip
+                      text="Includes a sample experiment with results. Don't worry, it's easy to remove later."
+                      style={{ borderBottom: "1px dotted #666" }}
+                    >
+                      sample data
+                    </Tooltip>{" "}
+                    instead
+                  </div>
+                  {hasSampleExperiment ? (
+                    <Link href="/experiment/exp_sample">
+                      <a className="btn btn-sm btn-success ml-3">
+                        View Sample Experiment <FaChevronRight />
+                      </a>
+                    </Link>
+                  ) : (
+                    <Button
+                      color="primary"
+                      className="btn-sm ml-3"
+                      onClick={async () => {
+                        await apiCall<{
+                          experiment: string;
+                          metric: string;
+                        }>(`/organization/sample-data`, {
+                          method: "POST",
+                        });
+                        await mutateDefinitions();
+                        await mutate();
+                        await router.push("/experiment/exp_sample");
+                      }}
+                    >
+                      <FaDatabase /> Import Sample Data
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="row mb-3">
               <div className="col">
                 <div

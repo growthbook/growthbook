@@ -1,29 +1,18 @@
 import { FC, useState } from "react";
 import { FaPlus, FaPencilAlt } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
-import Link from "next/link";
 import { ago } from "../../services/dates";
 import Button from "../../components/Button";
-import { useAuth } from "../../services/auth";
-import { useRouter } from "next/router";
 import SegmentForm from "../../components/Segments/SegmentForm";
-import { SegmentComparisonInterface } from "back-end/types/segment-comparison";
 import { useDefinitions } from "../../services/DefinitionsContext";
 
 const SegmentPage: FC = () => {
-  const { data, error } = useApi<{
-    comparisons: SegmentComparisonInterface[];
-  }>("/segments/comparisons");
-
   const {
     segments,
-    getSegmentById,
     ready,
     getDatasourceById,
     datasources,
-    getMetricById,
     error: segmentsError,
   } = useDefinitions();
 
@@ -32,10 +21,7 @@ const SegmentPage: FC = () => {
     setSegmentForm,
   ] = useState<null | Partial<SegmentInterface>>(null);
 
-  const { apiCall } = useAuth();
-  const router = useRouter();
-
-  if (!error && !segmentsError && (!data || !ready)) {
+  if (!segmentsError && !ready) {
     return <LoadingOverlay />;
   }
 
@@ -92,8 +78,7 @@ const SegmentPage: FC = () => {
             <p>
               Segments define important groups of users - for example,
               &quot;annual subscribers&quot; or &quot;left-handed people from
-              France.&quot; In Growth Book, you can compare segments against
-              each other or use them to target experiments to subsets of users.
+              France.&quot;
             </p>
             <table className="table appbox table-hover">
               <thead>
@@ -140,95 +125,6 @@ const SegmentPage: FC = () => {
           You don&apos;t have any segments defined yet. Click the green button
           above to create your first one.
         </div>
-      )}
-      {segments.length > 0 && (
-        <>
-          <hr />
-          <div className="row mb-3 pt-4">
-            <div className="col-auto">
-              <h3>Comparisons</h3>
-            </div>
-            <div className="col-auto">
-              <Button
-                color="success"
-                onClick={async () => {
-                  const res = await apiCall<{ id: string }>(
-                    `/segments/comparisons`,
-                    {
-                      method: "POST",
-                    }
-                  );
-                  await router.push(`/segments/comparison/${res.id}`);
-                }}
-              >
-                <FaPlus /> New Comparison
-              </Button>
-            </div>
-          </div>
-          {error && (
-            <div className="alert alert-danger">
-              There was an error loading the list of segment comparisons
-            </div>
-          )}
-          {data.comparisons.length > 0 && (
-            <div className="row">
-              <div className="col-auto">
-                <table className="table table-hover appbox">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th className="d-none d-lg-table-cell">Datasource</th>
-                      <th className="d-none d-sm-table-cell">Segment 1</th>
-                      <th className="d-none d-sm-table-cell">Segment 2</th>
-                      <th className="d-none d-md-table-cell">Metrics</th>
-                      <th>Last Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.comparisons.map((a) => (
-                      <tr
-                        key={a.id}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          router.push(`/segments/comparison/${a.id}`);
-                        }}
-                      >
-                        <td>
-                          <Link href={`/segments/comparison/${a.id}`}>
-                            <a>{a.title}</a>
-                          </Link>
-                        </td>
-                        <td className="d-none d-lg-table-cell">
-                          {getDatasourceById(a.datasource)?.name || ""}
-                        </td>
-                        <td className="d-none d-sm-table-cell">
-                          {getSegmentById(a.segment1.segment)?.name}
-                        </td>
-                        <td className="d-none d-sm-table-cell">
-                          {getSegmentById(a.segment2.segment)?.name}
-                        </td>
-                        <td className="d-none d-md-table-cell">
-                          {a.metrics.map((m) => (
-                            <div className="badge badge-secondary mr-1" key={m}>
-                              {getMetricById(m)?.name || m}
-                            </div>
-                          ))}
-                        </td>
-                        <td>{ago(a.dateUpdated)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {data && data.comparisons.length === 0 && (
-            <div className="alert alert-info">
-              You don&apos;t have any segment comparisons yet. Click the green
-              button above to create your first one.
-            </div>
-          )}
-        </>
       )}
     </div>
   );

@@ -245,6 +245,7 @@ app.post("/oauth/google", organizationsController.postGoogleOauthRedirect);
 app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", organizationsController.getQueries);
+app.post("/organization/sample-data", organizationsController.postSampleData);
 
 // Learnings
 app.get("/learnings", learningsController.getLearnings);

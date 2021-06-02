@@ -14,20 +14,28 @@ const Tabs: FC<{
   className?: string;
   navClassName?: string;
   tabContentsClassName?: string;
+  defaultTab?: string;
 }> = ({
   children,
   orientation,
   className,
   tabContentsClassName,
   navClassName,
+  defaultTab,
 }) => {
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(defaultTab || null);
 
   const [loaded, setLoaded] = useState({});
 
   const tabs: ReactElement[] = [];
 
   const contents: ReactNode[] = [];
+
+  useEffect(() => {
+    if (!active && defaultTab) {
+      setActive(defaultTab);
+    }
+  }, [defaultTab, active]);
 
   const anchorMap = new Map<string, string>();
   let activeChosen = null;
