@@ -26,8 +26,7 @@ Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbook
 
 ## Requirements
 
-- NodeJS 12.x or higher
-- Yarn
+- Docker (plus docker-compose for running locally)
 - MongoDB 3.2 or higher
 - A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
 - _(optional)_ An SMTP server for emailing invites, reset password links, etc.
