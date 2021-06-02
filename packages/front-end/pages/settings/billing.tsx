@@ -5,7 +5,7 @@ import { SettingsApiResponse } from ".";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
 import useApi from "../../hooks/useApi";
-import { isCloud } from "../../services/utils";
+import { isCloud } from "../../services/env";
 
 const BillingPage: FC = () => {
   const { data, error } = useApi<SettingsApiResponse>(`/organization`);

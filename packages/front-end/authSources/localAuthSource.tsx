@@ -1,8 +1,6 @@
 import Auth from "../components/Auth/Auth";
 import { AuthSource } from "../services/auth";
-import { getApiHost } from "../services/utils";
-
-const apiHost = getApiHost();
+import { getApiHost } from "../services/env";
 
 let token: string;
 let createdAt: number;
@@ -14,7 +12,7 @@ async function refreshToken(): Promise<void> {
     return;
   }
 
-  const res = await fetch(apiHost + "/auth/refresh", {
+  const res = await fetch(getApiHost() + "/auth/refresh", {
     method: "POST",
     credentials: "include",
   });
@@ -67,7 +65,7 @@ const localAuthSource: AuthSource = {
   logout: async () => {
     token = "";
     createdAt = 0;
-    await fetch(apiHost + "/auth/logout", {
+    await fetch(getApiHost() + "/auth/logout", {
       method: "POST",
       credentials: "include",
     });

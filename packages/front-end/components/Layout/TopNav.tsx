@@ -18,7 +18,7 @@ import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import { isCloud } from "../../services/utils";
+import { isCloud } from "../../services/env";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;

@@ -5,9 +5,7 @@ import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import { OrganizationInterface } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, isCloud } from "./utils";
-
-const apiHost = getApiHost();
+import { getApiHost, isCloud } from "./env";
 
 export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
 
@@ -90,8 +88,6 @@ export interface AuthSource {
   getJWT: () => Promise<string>;
 }
 
-const authSource = isCloud() ? auth0AuthSource : localAuthSource;
-
 export const AuthProvider: React.FC = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -105,6 +101,8 @@ export const AuthProvider: React.FC = ({ children }) => {
   const [error, setError] = useState("");
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
+
+  const authSource = isCloud() ? auth0AuthSource : localAuthSource;
 
   useEffect(() => {
     authSource
@@ -148,12 +146,8 @@ export const AuthProvider: React.FC = ({ children }) => {
       >
         <h3>Error Reaching API</h3>
         <p>
-          Could not communicate with the Growth Book API at{" "}
-          <code>{getApiHost()}</code>.
-        </p>
-        <p>
-          If you just started the server with <code>yarn dev</code>, wait a
-          minute for the back-end to fully initialize and try again.
+          Could not reach the Growth Book API at <code>{getApiHost()}</code>. Is
+          it running?
         </p>
       </Modal>
     );
@@ -195,7 +189,7 @@ export const AuthProvider: React.FC = ({ children }) => {
             init.headers["X-Organization"] = orgId;
           }
 
-          const response = await fetch(apiHost + url, init);
+          const response = await fetch(getApiHost() + url, init);
 
           const responseData = await response.json();
 

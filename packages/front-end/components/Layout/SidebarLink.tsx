@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
 import { FiChevronDown } from "react-icons/fi";
-import { isCloud } from "../../services/utils";
+import { isCloud } from "../../services/env";
 
 export type SidebarLinkProps = {
   name: string;

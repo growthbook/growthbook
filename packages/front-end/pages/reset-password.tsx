@@ -3,9 +3,7 @@ import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import Modal from "../components/Modal";
-import { getApiHost, isCloud } from "../services/utils";
-
-const apiHost = getApiHost();
+import { getApiHost, isCloud } from "../services/env";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -25,7 +23,7 @@ export default function ResetPasswordPage(): ReactElement {
     }
 
     // Check if token is valid
-    fetch(apiHost + "/auth/reset/" + token)
+    fetch(getApiHost() + "/auth/reset/" + token)
       .then((res) => res.json())
       .then((json: { status: number; message?: string; email?: string }) => {
         if (json.status > 200) {
@@ -57,7 +55,7 @@ export default function ResetPasswordPage(): ReactElement {
         success || error || loading
           ? undefined
           : async () => {
-              const res = await fetch(apiHost + "/auth/reset/" + token, {
+              const res = await fetch(getApiHost() + "/auth/reset/" + token, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
