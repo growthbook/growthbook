@@ -1,10 +1,8 @@
 import { ReactElement, useState } from "react";
 import useForm from "../../hooks/useForm";
 import track from "../../services/track";
-import { getApiHost } from "../../services/utils";
+import { getApiHost } from "../../services/env";
 import LoadingOverlay from "../../components/LoadingOverlay";
-
-const apiHost = getApiHost();
 
 export default function Auth({
   onSuccess,
@@ -45,7 +43,7 @@ export default function Auth({
     state === "forgotSuccess"
       ? undefined
       : async () => {
-          const res = await fetch(apiHost + "/auth/" + state, {
+          const res = await fetch(getApiHost() + "/auth/" + state, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
