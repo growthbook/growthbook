@@ -13,7 +13,7 @@ export default function Auth({
 }): ReactElement {
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
-  >("firsttime");
+  >("login");
   const [value, inputProps] = useForm({
     companyname: "",
     name: "",
@@ -130,7 +130,7 @@ export default function Auth({
           </div>
           <div className="col-sm-7 form-side p-0">
             <div className="welcomemodal p-4 h-100">
-              <div className="h-100 align-items-center d-flex pr-2">
+              <div className="h-100 align-items-center justify-content-center d-flex pr-2">
                 <div className="formwrap">
                   <form
                     onSubmit={async (e) => {
