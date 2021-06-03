@@ -53,45 +53,39 @@ jobs:
           # All changes in this push
           FILE_CHANGES=$(git diff --name-only HEAD^ HEAD)
 
-          # See if any relevant back-end changes were made
-          HAS_BACKEND_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'yarn.lock|packages/back-end' && echo "true" || echo "false")
+          # See if any changes were made to the back-end
+          HAS_BACKEND_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'yarn.lock|back-end' && echo "true" || echo "false")
           echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
 
-      - name: Configure AWS credentials
+          # See if any changes were made to the app (front-end or back-end)
+          HAS_APP_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'ci.yml|yarn.lock|package.json|Dockerfile|back-end|front-end' && echo "true" || echo "false")
+          echo "::set-output name=app::${HAS_APP_CHANGES}"
+      
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.app == 'true'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build, tag, and push image to Docker Hub
+        if: github.ref == 'refs/heads/main' && steps.changes.outputs.app == 'true'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build and push the docker image
+          docker build -t growthbook/growthbook:latest -t growthbook/growthbook:$IMAGE_TAG .
+          docker push growthbook/growthbook
+
+      - name: Configure AWS credentials for Growth Book Cloud
         if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build, tag, and push image to Amazon ECR
-        if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: api
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          # Build the back-end
-          yarn workspace back-end build
-
-          # Move into the back-end package and add the root yarn.lock
-          cp yarn.lock packages/back-end/yarn.lock
-          cd packages/back-end
-
-          # Build and push the docker image
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY
-
-          # Cleanup
-          rm yarn.lock
-
-      - name: Deploy to ECS
+      
+      - name: Deploy Back-end to ECS for Growth Book Cloud
         if: github.ref == 'refs/heads/main' && steps.changes.outputs.backend == 'true'
         run:
           aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

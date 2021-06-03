@@ -22,10 +22,3 @@ export function getEvenSplit(n: number) {
 
   return weights;
 }
-
-export function getApiHost(): string {
-  return process.env.NEXT_PUBLIC_API_HOST || "http://localhost:3100";
-}
-export function isCloud(): boolean {
-  return !!process.env.NEXT_PUBLIC_IS_CLOUD;
-}

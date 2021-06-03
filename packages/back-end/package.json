@@ -5,10 +5,11 @@
   "scripts": {
     "copy-templates": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "dev": "yarn copy-templates && ts-node-dev src/server.ts",
-    "build": "tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-templates",
+    "build": "rm -rf dist && tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-templates",
     "start": "node dist/server.js",
     "test": "jest --forceExit --coverage --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
+    "cron": "node dist/cron.js",
     "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
     "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
   },

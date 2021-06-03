@@ -6,27 +6,18 @@ Track anonymous usage statistics
 - For example, if people start creating a metric and then 
   abandon the form, that tells us the UI needs improvement.
 - You can disable this tracking completely by setting 
-  NEXT_PUBLIC_DISABLE_TELEMETRY=1 in your env.
-- To console.log the telemetry data instead of sending to us,
-  you can set NEXT_PUBLIC_TELEMETRY_DEBUG=1 in your env.
+  DISABLE_TELEMETRY=1 in your env.
 */
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
-import { isCloud } from "./utils";
-
-export function isTelemetryEnabled() {
-  return (
-    !process.env.NEXT_PUBLIC_DISABLE_TELEMETRY &&
-    !process.env.NEXT_PUBLIC_TELEMETRY_DEBUG
-  );
-}
+import { inTelemetryDebugMode, isCloud, isTelemetryEnabled } from "./env";
 
 let jitsu: JitsuClient;
 export default function track(
   event: string,
   props: Record<string, unknown> = {}
 ): void {
-  if (process.env.NEXT_PUBLIC_TELEMETRY_DEBUG) {
+  if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, props);
   }
   if (!isTelemetryEnabled()) return;

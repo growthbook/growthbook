@@ -1,0 +1,15 @@
+# Build and test artifacts
+.git
+.github
+node_modules
+packages/front-end/.next
+packages/back-end/coverage
+**/dist
+**/*.log
+
+# Docs package
+packages/docs
+
+# Secrets / private data
+**/*.env.local
+packages/back-end/uploads

@@ -8,19 +8,16 @@
     "type-check": "wsrun -m type-check",
     "test": "wsrun -m test",
     "dev": "wsrun -p '*-end' -m dev",
-    "dev:docs": "yarn workspace docs dev",
-    "build": "wsrun -m build",
-    "build:back": "yarn workspace back-end build",
-    "build:front": "yarn workspace front-end build",
-    "build:docs": "yarn workspace docs build",
-    "start:back": "yarn workspace back-end start",
-    "start:front": "yarn workspace front-end start",
-    "start:docs": "yarn workspace docs start"
+    "build": "wsrun -p '*-end' -m build",
+    "start": "wsrun -p '*-end' -m start",
+    "cron": "yarn workspace back-end cron"
   },
   "workspaces": [
     "packages/*"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "wsrun": "^5.2.4"
+  },
   "devDependencies": {
     "@next/eslint-plugin-next": "^10.2.0",
     "@types/eslint": "^6.1.1",
@@ -33,8 +30,7 @@
     "husky": "^4.2.5",
     "lint-staged": "^10.2.7",
     "prettier": "^2.2.1",
-    "typescript": "^4.2.4",
-    "wsrun": "^5.2.4"
+    "typescript": "^4.2.4"
   },
   "husky": {
     "hooks": {

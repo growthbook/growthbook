@@ -20,36 +20,29 @@
 - Document everything! (upload screenshots, add markdown comments, and more)
 - Automated email alerts when tests become significant
 
-## Community
-
-Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
-
 ## Requirements
 
-- NodeJS 12.x or higher
-- Yarn
+- Docker (plus docker-compose for running locally)
 - MongoDB 3.2 or higher
 - A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
 - _(optional)_ An SMTP server for emailing invites, reset password links, etc.
 - _(optional)_ Google OAuth keys (only if using Google Analytics as a data source)
 
-Don't want to install, deploy, and maintain Growth Book on your own? Let us do it for you at https://www.growthbook.io
+We also offer a hosted cloud version that's free to get started: https://app.growthbook.io
 
-## Dev Quick Start
+## Quick Start
 
-1.  Start MongoDB locally:
-    ```sh
-    docker run -d -p 27017:27017 --name mongo \
-      -e MONGO_INITDB_ROOT_USERNAME=root \
-      -e MONGO_INITDB_ROOT_PASSWORD=password \
-      mongo
-    ```
-2.  Run `yarn` to install dependencies
-3.  Run `yarn dev` and visit http://localhost:3000
+1.  Clone this repo: `git clone https://github.com/growthbook/growthbook.git && cd growthbook`
+2.  Start docker-compose: `docker-compose up -d`
+3.  Visit http://localhost:3000
 
-If you need to change any of the default settings (e.g. to configure an email server or add Google OAuth Keys), copy `packages/back-end/.env.example` to `packages/back-end/.env.local` and edit that file as needed.
+## Documentation and Support
 
-View the full developer docs at https://docs.growthbook.io
+View [Docker](https://hub.docker.com/r/growthbook/growthbook) for all configuration options.
+
+View the [Growth Book Docs](https://docs.growthbook.io) for info on how to setup and use the platform.
+
+Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
 
 ## License
 
