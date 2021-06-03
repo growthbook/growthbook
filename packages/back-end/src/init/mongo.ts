@@ -6,9 +6,13 @@ mongoose.Promise = bluebird;
 
 export default async () => {
   // Connect to MongoDB
-  return await mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useCreateIndex: true,
-    useUnifiedTopology: true,
-  });
+  try {
+    return await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useCreateIndex: true,
+      useUnifiedTopology: true,
+    });
+  } catch (e) {
+    console.error(e);
+  }
 };
