@@ -123,9 +123,6 @@ pre {
   min-height: 100vh;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
 
-  .full-height {
-    min-height: 100vh;
-  }
   .intro-side {
     background-color: $purple;
     background: radial-gradient(
@@ -134,6 +131,7 @@ pre {
       rgb(15, 1, 94)
     );
     color: #fff;
+    padding-bottom: 30px;
     vertical-align: middle;
     min-height: 100%;
   }
@@ -168,6 +166,16 @@ pre {
   h2,
   h3 {
     font-weight: 600;
+  }
+}
+@media (min-width: 575px) {
+  .welcome {
+    .full-height {
+      min-height: 100vh;
+    }
+    .intro-side {
+      padding-bottom: 0;
+    }
   }
 }
 

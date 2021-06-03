@@ -12,9 +12,10 @@ export default function Auth({
   onSuccess: (token: string) => void;
 }): ReactElement {
   const [state, setState] = useState<
-    "login" | "register" | "forgot" | "forgotSuccess"
-  >("login");
+    "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
+  >("firsttime");
   const [value, inputProps] = useForm({
+    companyname: "",
     name: "",
     email: "",
     password: "",
@@ -36,6 +37,8 @@ export default function Auth({
       ? "Sign in"
       : state === "forgot"
       ? "Look up"
+      : state === "firsttime"
+      ? "Sign up"
       : "Submit";
 
   const submit =
@@ -49,6 +52,7 @@ export default function Auth({
             },
             credentials: "include",
             body: JSON.stringify({
+              companyname: value.companyname,
               email: value.email,
               name: value.name,
               password: value.password,
@@ -68,7 +72,9 @@ export default function Auth({
           if (state === "register") {
             track("Register");
           }
-
+          if (state === "firsttime") {
+            track("Register-first");
+          }
           if (state === "forgot") {
             setState("forgotSuccess");
           } else {
@@ -76,6 +82,26 @@ export default function Auth({
           }
         };
 
+  const welcomeContent =
+    state === "login" ? (
+      <p>Welcome back, lets get started with some experiments</p>
+    ) : state === "register" ? (
+      <p>
+        Let&apos;s get started with some experimentation. Enter your information
+        to get started.
+      </p>
+    ) : state === "forgot" ? (
+      <p>Happens to the best of us</p>
+    ) : state === "firsttime" ? (
+      <>
+        <p>
+          Getting started with Growth Book only takes a few minutes. <br />
+          To start, we&apos;ll need a bit of information about you.
+        </p>
+      </>
+    ) : (
+      <p>Let&apos;s get started with some experimentation</p>
+    );
   return (
     <>
       <div className="welcome">
@@ -86,7 +112,7 @@ export default function Auth({
             <div className="p-sm-1 p-md-3 pt-3 pt-sm-3 pt-md-5 d-flex align-items-center justify-content-center h-100">
               <div className="text-center">
                 <h1 className="title h1">{welcomeMsg[welcomeMsgIndex]}</h1>
-                <p>Let&apos;s get started with some experimentation.</p>
+                {welcomeContent}
               </div>
             </div>
             <div className="logo">
@@ -102,9 +128,9 @@ export default function Auth({
               </a>
             </div>
           </div>
-          <div className="col-sm-7 form-side ">
+          <div className="col-sm-7 form-side p-0">
             <div className="welcomemodal p-4 h-100">
-              <div className="h-100 align-items-center d-flex ">
+              <div className="h-100 align-items-center d-flex pr-2">
                 <div className="formwrap">
                   <form
                     onSubmit={async (e) => {
@@ -123,7 +149,7 @@ export default function Auth({
                   >
                     {state === "register" && (
                       <div>
-                        <h3>Register</h3>
+                        <h3 className="h2">Register</h3>
                         <p>
                           Already have an account?{" "}
                           <a
@@ -138,9 +164,18 @@ export default function Auth({
                         </p>
                       </div>
                     )}
+                    {state === "firsttime" && (
+                      <div>
+                        <h3 className="h2">Create your account</h3>
+                        <p>
+                          This information is stored locally to set up your
+                          account.
+                        </p>
+                      </div>
+                    )}
                     {state === "login" && (
                       <div>
-                        <h3>Log In</h3>
+                        <h3 className="h2">Log In</h3>
                         <p>
                           Don&apos;t have an account yet?{" "}
                           <a
@@ -157,7 +192,7 @@ export default function Auth({
                     )}
                     {state === "forgot" && (
                       <div>
-                        <h3>Forgot Password</h3>
+                        <h3 className="h2">Forgot Password</h3>
                         <p>
                           <a
                             href="#"
@@ -173,7 +208,7 @@ export default function Auth({
                     )}
                     {state === "forgotSuccess" && (
                       <div>
-                        <h3>Forgot Password</h3>
+                        <h3 className="h2">Forgot Password</h3>
                         <div className="alert alert-success">
                           Password reset link sent to{" "}
                           <strong>{value.email}</strong>.
@@ -195,23 +230,39 @@ export default function Auth({
                         </p>
                       </div>
                     )}
-                    {state === "register" && (
+                    {state === "firsttime" && (
                       <div className="form-group">
-                        Name
+                        Company name
                         <input
                           required
                           type="text"
-                          name="name"
-                          autoComplete="name"
+                          name="companyname"
+                          autoComplete="companyname"
                           minLength={2}
-                          {...inputProps.name}
+                          {...inputProps.companyname}
                           className="form-control"
                         />
                       </div>
                     )}
+                    {state === "register" ||
+                      (state === "firsttime" && (
+                        <div className="form-group">
+                          Name
+                          <input
+                            required
+                            type="text"
+                            name="name"
+                            autoComplete="name"
+                            minLength={2}
+                            {...inputProps.name}
+                            className="form-control"
+                          />
+                        </div>
+                      ))}
                     {(state === "login" ||
                       state === "register" ||
-                      state === "forgot") && (
+                      state === "forgot" ||
+                      state === "firsttime") && (
                       <div className="form-group">
                         Email Address
                         <input
@@ -224,7 +275,9 @@ export default function Auth({
                         />
                       </div>
                     )}
-                    {(state === "login" || state === "register") && (
+                    {(state === "login" ||
+                      state === "register" ||
+                      state === "firsttime") && (
                       <div className="form-group">
                         Password
                         <input
