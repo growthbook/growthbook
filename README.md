@@ -44,6 +44,8 @@ View the [Growth Book Docs](https://docs.growthbook.io) for info on how to setup
 
 Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
 
+Check out [CONTRIBUTING.md](/CONTRIBUTING.md) for instructions on setting up a local development environment.
+
 ## License
 
 This project uses the MIT license. The core Growth Book app will always remain free, although we may add some commercial enterprise add-ons in the future.
