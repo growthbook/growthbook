@@ -3,7 +3,7 @@ import jwt from "express-jwt";
 import jwks from "jwks-rsa";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserDocument } from "../models/UserModel";
+import { UserDocument, UserModel } from "../models/UserModel";
 import {
   getOrganizationById,
   getPermissionsByRole,
@@ -13,6 +13,7 @@ import { MemberRole } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
+import { OrganizationModel } from "../models/OrganizationModel";
 
 // Self-hosted deployments use local auth
 function getLocalJWTCheck() {
@@ -139,4 +140,29 @@ export function validatePasswordFormat(password: string): void {
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
+}
+
+async function checkNewInstallation() {
+  const doc = await OrganizationModel.findOne();
+  if (doc) {
+    return false;
+  }
+
+  const doc2 = await UserModel.findOne();
+  if (doc2) {
+    return false;
+  }
+
+  return true;
+}
+
+let newInstallationPromise: Promise<boolean> = null;
+export function isNewInstallation() {
+  if (!newInstallationPromise) {
+    newInstallationPromise = checkNewInstallation();
+  }
+  return newInstallationPromise;
+}
+export function markInstalled() {
+  newInstallationPromise = new Promise((resolve) => resolve(false));
 }

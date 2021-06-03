@@ -154,6 +154,11 @@ if (!IS_CLOUD) {
   app.post("/auth/login", preAuthLogger, authController.postLogin);
   app.post("/auth/logout", preAuthLogger, authController.postLogout);
   app.post("/auth/register", preAuthLogger, authController.postRegister);
+  app.post(
+    "/auth/firsttime",
+    preAuthLogger,
+    authController.postFirstTimeRegister
+  );
   app.post("/auth/forgot", preAuthLogger, authController.postForgotPassword);
   app.get("/auth/reset/:token", preAuthLogger, authController.getResetPassword);
   app.post(

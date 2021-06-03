@@ -10,8 +10,15 @@ import {
   deleteForgotPasswordToken,
   getUserIdFromForgotPasswordToken,
 } from "../models/ForgotPasswordModel";
-import { validatePasswordFormat } from "../services/auth";
-import { getEmailFromUserId } from "../services/organizations";
+import {
+  isNewInstallation,
+  markInstalled,
+  validatePasswordFormat,
+} from "../services/auth";
+import {
+  createOrganization,
+  getEmailFromUserId,
+} from "../services/organizations";
 import {
   createUser,
   getUserByEmail,
@@ -55,9 +62,12 @@ export async function postRefresh(req: Request, res: Response) {
   // Look for refresh token header
   const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
   if (!refreshToken) {
+    const newInstallation = await isNewInstallation();
+
     return res.json({
       status: 200,
       authenticated: false,
+      newInstallation,
     });
   }
 
@@ -139,6 +149,38 @@ export async function postRegister(req: Request, res: Response) {
 
   // Create new account
   const user = await createUser(name, email, password);
+  return successResponse(req, res, user.id);
+}
+
+export async function postFirstTimeRegister(req: Request, res: Response) {
+  const {
+    email,
+    name,
+    password,
+    companyname,
+  }: {
+    email: string;
+    name: string;
+    password: string;
+    companyname: string;
+  } = req.body;
+
+  validatePasswordFormat(password);
+  if (companyname.length < 3) {
+    throw Error("Company length must be at least 3 characters");
+  }
+
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    return res.status(400).json({
+      status: 400,
+      message: "An error ocurred, please refresh the page and try again.",
+    });
+  }
+
+  const user = await createUser(name, email, password);
+  await createOrganization(email, user.id, companyname, "");
+  markInstalled();
   return successResponse(req, res, user.id);
 }
 

@@ -6,12 +6,14 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 
 export default function Auth({
   onSuccess,
+  firstTime = false,
 }: {
   onSuccess: (token: string) => void;
+  firstTime?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
-  >("login");
+  >(firstTime ? "firsttime" : "login");
   const [value, inputProps] = useForm({
     companyname: "",
     name: "",
@@ -23,8 +25,8 @@ export default function Auth({
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
 
   const welcomeMsg = [
-    "Welcome to Growth Book!",
-    "Hello! Welcome to Growth Book",
+    <>Welcome to Growth&nbsp;Book!</>,
+    <>Hello! Welcome to Growth&nbsp;Book</>,
     "Hello there, Welcome!",
     "Hey there!",
   ];
@@ -102,7 +104,7 @@ export default function Auth({
     );
   return (
     <>
-      <div className="welcome">
+      <div className="welcome container-fluid">
         {loading && <LoadingOverlay />}
         <div className="row full-height align-items-stretch d-flex flex-fill d-flex justify-content-start">
           <div className="col-sm-5 intro-side ">
@@ -164,10 +166,11 @@ export default function Auth({
                     )}
                     {state === "firsttime" && (
                       <div>
-                        <h3 className="h2">Create your account</h3>
+                        <h3 className="h2">Set up your first account</h3>
                         <p>
-                          This information is stored locally to set up your
-                          account.
+                          This information stays on your servers and is never
+                          shared. <br />
+                          You can invite the rest of your team later.
                         </p>
                       </div>
                     )}
@@ -235,6 +238,7 @@ export default function Auth({
                           required
                           type="text"
                           name="companyname"
+                          autoFocus
                           autoComplete="companyname"
                           minLength={2}
                           {...inputProps.companyname}
@@ -242,21 +246,21 @@ export default function Auth({
                         />
                       </div>
                     )}
-                    {state === "register" ||
-                      (state === "firsttime" && (
-                        <div className="form-group">
-                          Name
-                          <input
-                            required
-                            type="text"
-                            name="name"
-                            autoComplete="name"
-                            minLength={2}
-                            {...inputProps.name}
-                            className="form-control"
-                          />
-                        </div>
-                      ))}
+                    {(state === "register" || state === "firsttime") && (
+                      <div className="form-group">
+                        Name
+                        <input
+                          required
+                          type="text"
+                          name="name"
+                          autoFocus={state === "register"}
+                          autoComplete="name"
+                          minLength={2}
+                          {...inputProps.name}
+                          className="form-control"
+                        />
+                      </div>
+                    )}
                     {(state === "login" ||
                       state === "register" ||
                       state === "forgot" ||
@@ -267,6 +271,7 @@ export default function Auth({
                           required
                           type="email"
                           name="email"
+                          autoFocus={state === "login" || state === "forgot"}
                           autoComplete="username"
                           {...inputProps.email}
                           className="form-control"
@@ -309,7 +314,10 @@ export default function Auth({
                     {error && (
                       <div className="alert alert-danger mr-auto">{error}</div>
                     )}
-                    <button className={`btn btn-primary w-100`} type="submit">
+                    <button
+                      className={`btn btn-primary btn-block btn-lg`}
+                      type="submit"
+                    >
                       {cta}
                     </button>
                   </form>

@@ -2,6 +2,7 @@ import Welcome from "../components/Auth/Welcome";
 import { AuthSource } from "../services/auth";
 import { getApiHost } from "../services/env";
 
+let newInstallation = false;
 let token: string;
 let createdAt: number;
 let loggingIn: Promise<{ isAuthenticated: boolean }>;
@@ -19,9 +20,11 @@ async function refreshToken(): Promise<void> {
   const data: {
     token?: string;
     email?: string;
+    newInstallation?: boolean;
   } = await res.json();
 
   token = data.token || "";
+  newInstallation = data.newInstallation || false;
   createdAt = Date.now();
 }
 
@@ -47,7 +50,9 @@ const localAuthSource: AuthSource = {
       setAuthComponent(() => {
         return (
           <Welcome
+            firstTime={newInstallation}
             onSuccess={(t) => {
+              newInstallation = false;
               token = t;
               createdAt = Date.now();
               setAuthComponent(null);
