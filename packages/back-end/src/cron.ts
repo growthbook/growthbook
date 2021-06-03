@@ -19,9 +19,6 @@ const logger = parentLogger.child({
   cron: true,
 });
 
-// TODO: await this
-init();
-
 logger.info("Cron started");
 
 // Time out after 30 minutes
@@ -31,6 +28,8 @@ const timer = setTimeout(() => {
 }, 30 * 60 * 1000);
 
 (async () => {
+  await init();
+
   const latestDate = new Date();
   latestDate.setMinutes(latestDate.getMinutes() - UPDATE_FREQUENCY);
 

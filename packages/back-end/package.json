@@ -38,6 +38,7 @@
     "jwks-rsa": "^1.8.0",
     "lodash": "^4.17.15",
     "md5": "^2.2.1",
+    "mongodb": "^3.6.9",
     "mongoose": "^5.7.5",
     "node-fetch": "^2.6.1",
     "node-gzip": "^1.1.2",
@@ -53,6 +54,7 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
+    "@shelf/jest-mongodb": "^1.2.5",
     "@types/async": "^3.0.2",
     "@types/body-parser": "^1.17.1",
     "@types/chai": "^4.2.3",
@@ -81,7 +83,6 @@
     "@types/uniqid": "^5.2.0",
     "chai": "^4.2.0",
     "jest": "^26.6.3",
-    "mongodb": "^3.6.3",
     "supertest": "^4.0.2",
     "ts-jest": "^26.5.6",
     "ts-node-dev": "^1.1.6",

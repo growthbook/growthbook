@@ -3,8 +3,9 @@ import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 
 type ModalProps = {
-  header?: "logo" | string | ReactElement;
+  header?: "logo" | string | ReactElement | boolean;
   open: boolean;
+  className?: string;
   submitColor?: string;
   cta?: string;
   closeCta?: string;
@@ -28,6 +29,7 @@ const Modal: FC<ModalProps> = ({
   ctaEnabled = true,
   closeCta = "Cancel",
   size = "md",
+  className = "",
   autoCloseOnSubmit = true,
   inline = false,
   solidOverlay = false,
@@ -54,34 +56,52 @@ const Modal: FC<ModalProps> = ({
   }, [open]);
 
   const contents = (
-    <div className="modal-content" style={{ maxHeight: "93vh" }}>
+    <div className={`modal-content ${className}`} style={{ maxHeight: "93vh" }}>
       {loading && <LoadingOverlay />}
-      <div className="modal-header">
-        <h5 className="modal-title">
-          {header === "logo" ? (
-            <img
-              alt="Growth Book"
-              src="/logo/growthbook-logo.png"
-              style={{ height: 40 }}
-            />
-          ) : (
-            header
+      {header ? (
+        <div className="modal-header">
+          <h5 className="modal-title">
+            {header === "logo" ? (
+              <img
+                alt="Growth Book"
+                src="/logo/growthbook-logo.png"
+                style={{ height: 40 }}
+              />
+            ) : (
+              header
+            )}
+          </h5>
+          {close && (
+            <button
+              type="button"
+              className="close"
+              onClick={(e) => {
+                e.preventDefault();
+                close();
+              }}
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           )}
-        </h5>
-        {close && (
-          <button
-            type="button"
-            className="close"
-            onClick={(e) => {
-              e.preventDefault();
-              close();
-            }}
-            aria-label="Close"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          {close && (
+            <button
+              type="button"
+              className="close"
+              onClick={(e) => {
+                e.preventDefault();
+                close();
+              }}
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+        </>
+      )}
       <div className="modal-body" ref={bodyRef} style={{ overflowY: "auto" }}>
         {children}
       </div>

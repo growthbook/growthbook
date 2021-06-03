@@ -1,7 +1,4 @@
-import app, { init } from "./app";
-
-// TODO: await this
-init();
+import app from "./app";
 
 const server = app.listen(app.get("port"), () => {
   console.log(
