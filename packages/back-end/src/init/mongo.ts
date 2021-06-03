@@ -14,5 +14,6 @@ export default async () => {
     });
   } catch (e) {
     console.error(e);
+    throw new Error("MongoDB connection error.");
   }
 };

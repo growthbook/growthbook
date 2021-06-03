@@ -17,6 +17,18 @@ async function refreshToken(): Promise<void> {
     method: "POST",
     credentials: "include",
   });
+  if (!res.ok) {
+    // try parsing json to get an error message
+    return res
+      .json()
+      .then(async (data) => {
+        console.log(data);
+        throw new Error(data?.message || "Error connecting to the API");
+      })
+      .catch((e) => {
+        throw new Error(e.message);
+      });
+  }
   const data: {
     token?: string;
     email?: string;

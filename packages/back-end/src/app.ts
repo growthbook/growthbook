@@ -1,6 +1,12 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { RequestHandler, ErrorRequestHandler } from "express";
+import express, {
+  RequestHandler,
+  ErrorRequestHandler,
+  Request,
+  Response,
+  NextFunction,
+} from "express";
 import mongoInit from "./init/mongo";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -54,11 +60,32 @@ wrapController(slackController);
 
 const app = express();
 
+export async function init() {
+  await mongoInit();
+}
+
+let initPromise: Promise<void>;
+const initMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!initPromise) {
+    initPromise = init();
+  }
+  try {
+    await initPromise;
+    next();
+  } catch (e) {
+    next(e);
+  }
+};
+
 app.set("port", process.env.PORT || 3100);
 app.use(cookieParser());
 
 // Health check route (does not require JWT or cors)
-app.get("/healthcheck", (req, res) => {
+app.get("/healthcheck", initMiddleware, (req, res) => {
   // TODO: more robust health check?
   res.status(200).json({
     status: 200,
@@ -95,7 +122,7 @@ const preAuthLogger = pino({
 });
 
 // Visual Designer js file (does not require JWT or cors)
-app.get("/js/:key.js", preAuthLogger, getExperimentsScript);
+app.get("/js/:key.js", preAuthLogger, initMiddleware, getExperimentsScript);
 
 // Stripe webhook (needs raw body)
 app.post(
@@ -104,6 +131,7 @@ app.post(
     type: "application/json",
   }),
   preAuthLogger,
+  initMiddleware,
   stripeController.postWebhook
 );
 
@@ -115,14 +143,11 @@ app.post(
     verify: verifySlackRequestSignature,
   }),
   preAuthLogger,
+  initMiddleware,
   slackController.postIdeas
 );
 
 app.use(bodyParser.json());
-
-export async function init() {
-  await mongoInit();
-}
 
 // Config route (does not require JWT, does require cors with origin = *)
 app.get(
@@ -132,6 +157,7 @@ app.get(
     origin: "*",
   }),
   preAuthLogger,
+  initMiddleware,
   getExperimentConfig
 );
 
@@ -146,6 +172,7 @@ app.use(
     origin: origins,
   })
 );
+app.use(initMiddleware);
 
 // Pre-auth requests
 // Managed cloud deployment uses Auth0 instead

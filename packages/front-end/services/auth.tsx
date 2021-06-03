@@ -139,16 +139,18 @@ export const AuthProvider: React.FC = ({ children }) => {
             setIsAuthenticated(isAuthenticated);
             setLoading(false);
           } catch (e) {
+            setError(e.message);
             console.error(e);
             throw new Error("Still receiving error");
           }
         }}
       >
-        <h3>Error Reaching API</h3>
         <p>
-          Could not reach the Growth Book API at <code>{getApiHost()}</code>. Is
-          it running?
+          Error connecting to the Growth Book API at <code>{getApiHost()}</code>
+          .
         </p>
+        <p>Received the following error message:</p>
+        <div className="alert alert-danger">{error}</div>
       </Modal>
     );
   }
