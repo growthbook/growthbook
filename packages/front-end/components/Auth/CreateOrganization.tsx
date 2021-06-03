@@ -38,7 +38,7 @@ export default function CreateOrganization(): ReactElement {
   );
   return (
     <>
-      <WelcomeFrame leftside={leftside}>
+      <WelcomeFrame leftside={leftside} loading={loading}>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
