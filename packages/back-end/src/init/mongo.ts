@@ -7,7 +7,12 @@ mongoose.Promise = bluebird;
 export default async () => {
   // Connect to MongoDB
   try {
-    return await mongoose.connect(MONGODB_URI, {
+    let uri = MONGODB_URI;
+    if (process.env.NODE_ENV === "test") {
+      uri = process.env.MONGO_URL;
+    }
+
+    return await mongoose.connect(uri, {
       useNewUrlParser: true,
       useCreateIndex: true,
       useUnifiedTopology: true,
