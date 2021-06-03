@@ -3,6 +3,8 @@ name: CI
 on: [push]
 
 jobs:
+  # See which files have changed
+  # Used to skip future jobs and steps
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -31,7 +33,9 @@ jobs:
           # See if any changes were made to the back-end
           HAS_BACKEND_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'ci.yml|yarn.lock|package.json|Dockerfile|back-end' && echo "true" || echo "false")
           echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
-
+  # Linting, type-checking, and tests
+  # Runs on every push to every branch (plus on all new tags)
+  # Only run if code has changed (i.e. skip if only the README was modified)
   ci:
     runs-on: ubuntu-latest
     needs: changes
@@ -76,6 +80,9 @@ jobs:
           rm -rf packages/front-end/coverage
           rm -rf packages/back-end/coverage
 
+  # Build and publish the commit to docker
+  # Runs on pushes to the main branch or when a release is made
+  # Only runs if code changed on the front-end or back-end (e.g. skip if only docs changed)
   docker:
     runs-on: ubuntu-latest
     needs: [changes, ci]
@@ -92,7 +99,7 @@ jobs:
       - name: Build, tag, and push image to Docker Hub
         run: |
           # Build and push the docker image
-          docker build -t growthbook/growthbook:latest -t growthbook/growthbook:$GITHUB_SHA .
+          docker build -t growthbook/growthbook:latest -t growthbook/growthbook:git-${GITHUB_SHA::7} .
 
           # If this is a release, add the version tag as well
           if [[ $GITHUB_REF = refs\/tags\/v* ]]; then
@@ -102,6 +109,9 @@ jobs:
 
           docker push -a growthbook/growthbook
 
+  # Deploy the back-end for Growth Book Cloud
+  # Runs on pushes to the main branch
+  # Only runs if there are back-end code changes
   prod:
     runs-on: ubuntu-latest
     needs: [changes, ci, docker]
