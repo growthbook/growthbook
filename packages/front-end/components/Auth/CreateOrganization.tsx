@@ -4,6 +4,7 @@ import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
 import { UserContext } from "../ProtectedPage";
+import { FiLogOut } from "react-icons/fi";
 
 export default function CreateOrganization(): ReactElement {
   const [value, inputProps] = useForm({
@@ -13,7 +14,7 @@ export default function CreateOrganization(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const { apiCall } = useAuth();
+  const { apiCall, logout } = useAuth();
   const { update } = useContext(UserContext);
 
   const submit = async () => {
@@ -39,6 +40,17 @@ export default function CreateOrganization(): ReactElement {
   return (
     <>
       <WelcomeFrame leftside={leftside} loading={loading}>
+        <a
+          className="logout-link"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setLoading(true);
+            logout();
+          }}
+        >
+          <FiLogOut /> log out
+        </a>
         <form
           onSubmit={async (e) => {
             e.preventDefault();

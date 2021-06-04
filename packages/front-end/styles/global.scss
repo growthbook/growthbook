@@ -167,6 +167,11 @@ pre {
   h3 {
     font-weight: 600;
   }
+  .logout-link {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
 }
 @media (min-width: 575px) {
   .welcome {
