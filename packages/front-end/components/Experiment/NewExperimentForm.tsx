@@ -134,8 +134,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const variationKeys =
-    getDatasourceById(value.datasource)?.settings?.experiments
-      ?.variationFormat === "key";
+    getDatasourceById(value.datasource)?.settings?.variationIdFormat === "key";
 
   const deleteVariation = (i: number) => {
     const variations = [...value.variations];

@@ -68,31 +68,13 @@ export default abstract class SqlIntegration
     // TODO: new connection params for bigquery
     this.setParams(encryptedParams);
     this.settings = {
-      default: {
-        timestampColumn: "received_at",
-        userIdColumn: "user_id",
-        ...settings.default,
+      queries: {
+        usersQuery: "",
+        experimentsQuery: "",
+        pageviewsQuery: "",
+        ...settings.queries,
       },
-      experiments: {
-        experimentIdColumn: "experiment_id",
-        table: "experiment_viewed",
-        variationColumn: "variation_id",
-        variationFormat: "index",
-        ...settings.experiments,
-      },
-      users: {
-        table: "users",
-        ...settings.users,
-      },
-      pageviews: {
-        table: "pages",
-        urlColumn: "path",
-        ...settings.pageviews,
-      },
-      identifies: {
-        table: "identifies",
-        ...settings.identifies,
-      },
+      variationIdFormat: "index",
     };
   }
 
@@ -136,31 +118,23 @@ export default abstract class SqlIntegration
   getPastExperimentQuery(from: Date) {
     return format(`-- Past Experiments
     WITH
+      __experiments as (
+        ${this.settings.queries.experimentsQuery}
+      ),
       __experimentDates as (
         SELECT
-          ${
-            this.settings?.experiments?.experimentIdColumn || "experiment_id"
-          } as experiment_id,
-          ${this.getVariationColumn()} as variation_id,
-          ${this.dateTrunc(
-            this.getTimestampColumn(null, "experiments")
-          )} as date,
-          count(distinct ${this.getAnonymousIdColumn(
-            null,
-            "experiments"
-          )}) as users
+          experiment_id,
+          variation_id,
+          ${this.dateTrunc("timestamp")} as date,
+          count(distinct anonymous_id) as users
         FROM
-          ${this.getFullTableName(
-            this.settings?.experiments?.table || "experiment_viewed"
-          )}
+          __experiments
         WHERE
-          ${this.getTimestampColumn(null, "experiments")} > ${this.toTimestamp(
-      from
-    )}
+          timestamp > ${this.toTimestamp(from)}
         GROUP BY
-          ${this.settings?.experiments?.experimentIdColumn || "experiment_id"},
-          ${this.getVariationColumn()},
-          ${this.dateTrunc(this.getTimestampColumn(null, "experiments"))}
+          experiment_id,
+          variation_id,
+          ${this.dateTrunc("timestamp")}
       ),
       __userThresholds as (
         SELECT
@@ -534,19 +508,13 @@ export default abstract class SqlIntegration
     };
   }
 
-  getIdentifiesJoinSql(column: string, userId: boolean = true) {
-    const identifiesColumn = userId
-      ? this.getUserIdColumn(null, "identifies")
-      : this.getAnonymousIdColumn(null, "identifies");
-
-    return `JOIN ${this.getFullTableName(
-      this.settings?.identifies?.table || "identifies"
-    )} i ON (
-      i.${identifiesColumn} = ${column}
+  private getIdentifiesJoinSql(column: string, userId: boolean = true) {
+    return `JOIN (${this.settings.queries.usersQuery}) i ON (
+      i.${userId ? "user_id" : "anonymous_id"} = ${column}
     )`;
   }
 
-  getExperimentUsersSql(
+  private getExperimentUsersSql(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     activationMetric: MetricInterface | null,
@@ -616,7 +584,7 @@ export default abstract class SqlIntegration
       dimension
     `;
   }
-  getExperimentMetricSql(
+  private getExperimentMetricSql(
     metric: MetricInterface,
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -771,7 +739,7 @@ export default abstract class SqlIntegration
 
       rows.forEach(({ variation, dimension, count, mean, stddev }) => {
         const varIndex =
-          this.settings?.experiments?.variationFormat === "key"
+          this.settings?.variationIdFormat === "key"
             ? variationKeyMap.get(variation)
             : parseInt(variation);
 
@@ -807,7 +775,7 @@ export default abstract class SqlIntegration
         }[] = await this.runQuery(sql);
         rows.forEach(({ variation, dimension, users }) => {
           const varIndex =
-            this.settings?.experiments?.variationFormat === "key"
+            this.settings?.variationIdFormat === "key"
               ? variationKeyMap.get(variation)
               : parseInt(variation);
           if (varIndex < 0 || varIndex >= experiment.variations.length) {
@@ -837,7 +805,7 @@ export default abstract class SqlIntegration
     return results;
   }
 
-  getMetricCTE(
+  private getMetricCTE(
     metric: MetricInterface,
     conversionWindowDays: number,
     userId: boolean = true
@@ -895,7 +863,7 @@ export default abstract class SqlIntegration
       }
     `;
   }
-  getExperimentCTE(
+  private getExperimentCTE(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     userId: boolean = true
@@ -905,56 +873,42 @@ export default abstract class SqlIntegration
     // Need to use userId, but experiment is anonymous only
     if (userId && experiment.userIdType === "anonymous") {
       userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql(
-        "m." + this.getAnonymousIdColumn(null, "experiments"),
-        false
-      );
+      join = this.getIdentifiesJoinSql("e.anonymous_id", false);
     }
     // Need to use anonymousId, but experiment is user only
     else if (!userId && experiment.userIdType === "user") {
       userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql(
-        "m." + this.getUserIdColumn(null, "experiments"),
-        true
-      );
+      join = this.getIdentifiesJoinSql("e.user_id", true);
     }
     // Otherwise, can query the experiment directly
     else {
-      userIdCol = userId
-        ? this.getUserIdColumn(null, "experiments")
-        : this.getAnonymousIdColumn(null, "experiments");
+      userIdCol = userId ? "e.user_id" : "e.anonymous_id";
     }
-
-    const timestampCol = "e." + this.getTimestampColumn(null, "experiments");
 
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
-      e.${this.getVariationColumn()} as variation,
-      ${timestampCol} as actual_start,
+      e.variation_id as variation,
+      e.timestamp as actual_start,
       ${this.addDateInterval(
-        timestampCol,
+        "e.timestamp",
         experiment.conversionWindowDays
       )} as conversion_end,
-      ${this.subtractHalfHour(timestampCol)} as session_start
+      ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
-      ${this.getFullTableName(
-        this.settings?.experiments?.table || "experiment_viewed"
-      )} e
+        (${this.settings.queries.experimentsQuery}) e
       ${join}
     WHERE
-      e.${
-        this.settings?.experiments?.experimentIdColumn || "experiment_id"
-      } = '${experiment.trackingKey}'
-      AND ${timestampCol} >= ${this.toTimestamp(phase.dateStarted)}
-      ${
-        phase.dateEnded
-          ? `AND ${timestampCol} <= ${this.toTimestamp(phase.dateEnded)}`
-          : ""
-      }
+        e.experiment_id = '${experiment.trackingKey}'
+        AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
+        ${
+          phase.dateEnded
+            ? `AND e.timestamp <= ${this.toTimestamp(phase.dateEnded)}`
+            : ""
+        }
     `;
   }
-  getSegmentCTE(sql: string, name: string, userId: boolean = true) {
+  private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
     // Need to map user_id to anonymous_id
     if (!userId) {
       return `-- Segment (${name})
@@ -972,7 +926,10 @@ export default abstract class SqlIntegration
     `;
   }
 
-  getDimensionCTE(dimension: DimensionInterface, userId: boolean = true) {
+  private getDimensionCTE(
+    dimension: DimensionInterface,
+    userId: boolean = true
+  ) {
     // Need to map user_id to anonymous_id
     if (!userId) {
       return `-- Dimension (${dimension.name})
@@ -990,36 +947,30 @@ export default abstract class SqlIntegration
     `;
   }
 
-  getPageUsersCTE(
+  private getPageUsersCTE(
     params: MetricValueParams | UsersQueryParams,
     userId: boolean = true
   ): string {
-    const timestampCol = this.getTimestampColumn(null, "pageviews");
     // TODO: use identifies if table is missing the requested userId type
-    const userIdCol = userId
-      ? this.getUserIdColumn(null, "pageviews")
-      : this.getAnonymousIdColumn(null, "pageviews");
+    const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
 
     return `-- Users visiting specific pages
     SELECT
       ${userIdCol} as user_id,
-      MIN(${timestampCol}) as actual_start,
+      MIN(p.timestamp) as actual_start,
       ${this.addDateInterval(
-        `MIN(${timestampCol})`,
+        `MIN(p.timestamp)`,
         params.conversionWindow
       )} as conversion_end,
-      ${this.subtractHalfHour(`MIN(${timestampCol})`)} as session_start
+      ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM
-      ${this.getFullTableName(this.settings.pageviews?.table || "pages")}
+        (${this.settings.queries.pageviewsQuery}) p
     WHERE
-      ${timestampCol} >= ${this.toTimestamp(this.dateOnly(params.from))}
-      AND ${timestampCol} <= ${this.toTimestamp(this.dateOnly(params.to))}
+      p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
+      AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
       ${
         params.urlRegex && params.urlRegex !== ".*"
-          ? `AND ${this.regexMatch(
-              this.settings.pageviews?.urlColumn || "path",
-              params.urlRegex
-            )}`
+          ? `AND ${this.regexMatch("path", params.urlRegex)}`
           : ""
       }
     GROUP BY
@@ -1027,7 +978,7 @@ export default abstract class SqlIntegration
     `;
   }
 
-  dateOnly(orig: Date) {
+  private dateOnly(orig: Date) {
     const date = new Date(orig);
 
     date.setHours(0);
@@ -1038,7 +989,7 @@ export default abstract class SqlIntegration
     return date;
   }
 
-  capValue(cap: number, value: string) {
+  private capValue(cap: number, value: string) {
     if (!cap) {
       return value;
     }
@@ -1046,7 +997,7 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  getMetricColumn(metric: MetricInterface, alias = "m") {
+  private getMetricColumn(metric: MetricInterface, alias = "m") {
     if (metric.sql) return alias + ".value";
 
     if (metric.type === "duration") {
@@ -1058,7 +1009,7 @@ export default abstract class SqlIntegration
     return alias + "." + metric.column;
   }
 
-  getRawMetricSqlValue(metric: MetricInterface, alias: string = "m") {
+  private getRawMetricSqlValue(metric: MetricInterface, alias: string = "m") {
     if (metric.type === "binomial") {
       return "1";
     } else if (metric.sql) {
@@ -1072,7 +1023,10 @@ export default abstract class SqlIntegration
     }
     return "1";
   }
-  getAggregateMetricSqlValue(metric: MetricInterface, col: string = "m.value") {
+  private getAggregateMetricSqlValue(
+    metric: MetricInterface,
+    col: string = "m.value"
+  ) {
     if (metric.type === "count") {
       return this.capValue(
         metric.cap,
@@ -1093,51 +1047,15 @@ export default abstract class SqlIntegration
     }
     return "1";
   }
-  getUserIdColumn(
-    metric: null | MetricInterface,
-    section:
-      | "experiments"
-      | "pageviews"
-      | "users"
-      | "identifies"
-      | "default" = "default"
-  ): string {
-    if (metric && metric.sql) return "user_id";
-
-    return (
-      (metric && metric.userIdColumn) ||
-      this.settings[section]?.userIdColumn ||
-      this.settings?.default?.userIdColumn ||
-      "user_id"
-    );
+  private getUserIdColumn(metric: MetricInterface): string {
+    return metric.sql ? "user_id" : metric.userIdColumn || "user_id";
   }
-  getAnonymousIdColumn(
-    metric: null | MetricInterface,
-    section: "experiments" | "pageviews" | "identifies" | "default" = "default"
-  ): string {
-    if (metric && metric.sql) return "anonymous_id";
-
-    return (
-      (metric && metric.anonymousIdColumn) ||
-      this.settings[section]?.anonymousIdColumn ||
-      this.settings?.default?.anonymousIdColumn ||
-      "anonymous_id"
-    );
+  private getAnonymousIdColumn(metric: MetricInterface): string {
+    return metric.sql
+      ? "anonymous_id"
+      : metric.anonymousIdColumn || "anonymous_id";
   }
-  getTimestampColumn(
-    metric: null | MetricInterface,
-    section: "experiments" | "pageviews" | "default" = "default"
-  ): string {
-    if (metric && metric.sql) return "timestamp";
-
-    return (
-      (metric && metric.timestampColumn) ||
-      this.settings[section]?.timestampColumn ||
-      this.settings?.default?.timestampColumn ||
-      "received_at"
-    );
-  }
-  getVariationColumn() {
-    return this.settings?.experiments?.variationColumn || "variation_id";
+  private getTimestampColumn(metric: MetricInterface): string {
+    return metric.sql ? "timestamp" : metric.timestampColumn || "received_at";
   }
 }

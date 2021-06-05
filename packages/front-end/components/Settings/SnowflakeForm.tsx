@@ -14,6 +14,7 @@ const SnowflakeForm: FC<{
           type="text"
           className="form-control"
           name="account"
+          required
           placeholder="xy12345.us-east-2.aws"
           value={params.account || ""}
           onChange={onParamChange}
@@ -25,6 +26,7 @@ const SnowflakeForm: FC<{
           type="text"
           className="form-control"
           name="username"
+          required
           value={params.username || ""}
           onChange={onParamChange}
         />
@@ -35,6 +37,7 @@ const SnowflakeForm: FC<{
           type="password"
           className="form-control"
           name="password"
+          required={!existing}
           value={params.password || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
@@ -46,6 +49,7 @@ const SnowflakeForm: FC<{
           type="text"
           className="form-control"
           name="database"
+          required
           value={params.database || ""}
           onChange={onParamChange}
         />
@@ -56,6 +60,7 @@ const SnowflakeForm: FC<{
           type="text"
           className="form-control"
           name="schema"
+          required
           value={params.schema || ""}
           onChange={onParamChange}
         />
@@ -66,6 +71,7 @@ const SnowflakeForm: FC<{
           type="text"
           className="form-control"
           name="warehouse"
+          required
           value={params.warehouse || ""}
           onChange={onParamChange}
         />

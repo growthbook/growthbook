@@ -35,35 +35,19 @@ export interface DataSourceProperties {
 type WithParams<B, P> = Omit<B, "params"> & { params: P };
 
 export type DataSourceSettings = {
-  default?: {
-    timestampColumn?: string;
-    userIdColumn?: string;
-    anonymousIdColumn?: string;
+  variationIdFormat?: "key" | "index";
+  queries?: {
+    usersQuery: string;
+    experimentsQuery: string;
+    pageviewsQuery: string;
   };
-  experiments?: {
-    table?: string;
-    timestampColumn?: string;
-    userIdColumn?: string;
-    anonymousIdColumn?: string;
-    experimentIdColumn?: string;
-    variationColumn?: string;
-    variationFormat: "index" | "key";
-  };
-  users?: {
-    table?: string;
-    userIdColumn?: string;
-  };
-  identifies?: {
-    table?: string;
-    anonymousIdColumn?: string;
-    userIdColumn?: string;
-  };
-  pageviews?: {
-    table?: string;
-    urlColumn?: string;
-    timestampColumn?: string;
-    userIdColumn?: string;
-    anonymousIdColumn?: string;
+  events?: {
+    experimentEvent: string;
+    experimentIdProperty: string;
+    variationIdProperty: string;
+    pageviewEvent: string;
+    urlProperty: string;
+    userAgentProperty: string;
   };
 };
 

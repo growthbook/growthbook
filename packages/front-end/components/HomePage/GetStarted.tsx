@@ -155,7 +155,7 @@ const GetStarted = ({
                       onClick={(e) => {
                         e.preventDefault();
                         if (hasDataSource) {
-                          router.push("/settings/datasources");
+                          router.push("/datasources");
                         } else {
                           setDataSourceOpen(true);
                         }

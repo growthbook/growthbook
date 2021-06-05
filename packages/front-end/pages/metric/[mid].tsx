@@ -63,8 +63,6 @@ const MetricPage: FC = () => {
     : null;
   const experiments = data.experiments;
 
-  const datasourceDefaults = datasource?.settings?.default;
-
   let analysis = data.metric.analysis;
   if (!("average" in analysis)) {
     analysis = null;
@@ -345,8 +343,7 @@ const MetricPage: FC = () => {
                             title="User Id Col"
                             type="code"
                           >
-                            {metric.userIdColumn ||
-                              datasourceDefaults.userIdColumn}
+                            {metric.userIdColumn}
                           </RightRailSectionGroup>
                         )}
                         {metric.userIdType !== "user" && customizeUserIds && (
@@ -354,8 +351,7 @@ const MetricPage: FC = () => {
                             title="Anon Id Col"
                             type="code"
                           >
-                            {metric.anonymousIdColumn ||
-                              datasourceDefaults.anonymousIdColumn}
+                            {metric.anonymousIdColumn}
                           </RightRailSectionGroup>
                         )}
                         {customzeTimestamp && (
@@ -363,8 +359,7 @@ const MetricPage: FC = () => {
                             title="Timestamp Col"
                             type="code"
                           >
-                            {metric.timestampColumn ||
-                              datasourceDefaults.timestampColumn}
+                            {metric.timestampColumn}
                           </RightRailSectionGroup>
                         )}
                         {metric.conditions?.length > 0 && (

@@ -81,7 +81,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/settings",
     Icon: BsGear,
     divider: true,
-    path: /^(settings|admin)/,
+    path: /^(settings|admin|datasources)/,
     settingsPermission: true,
     autoClose: true,
     subLinks: [
@@ -112,9 +112,9 @@ const navlinks: SidebarLinkProps[] = [
       },
       {
         name: "Data Sources",
-        href: "/settings/datasources",
+        href: "/datasources",
         Icon: FaDatabase,
-        path: /^settings\/datasources/,
+        path: /^datasources/,
       },
       {
         name: "Admin",
