@@ -135,6 +135,10 @@ const DataSourceForm: FC<{
     setHasError(false);
 
     try {
+      if (!datasource.type) {
+        throw new Error("Please select a data source type");
+      }
+
       // Update
       if (data.id) {
         const res = await apiCall<{ status: number; message: string }>(
@@ -267,6 +271,7 @@ const DataSourceForm: FC<{
           className="form-control"
           value={datasource.type}
           disabled={existing}
+          required
           onChange={(e) => {
             const option = typeOptions.filter(
               (o) => o.type === e.target.value

@@ -357,7 +357,7 @@ FROM
                   required
                   value={datasource.settings?.variationIdFormat || "index"}
                 >
-                  <option value="index">Index</option>
+                  <option value="index">Array Index</option>
                   <option value="key">String Keys</option>
                 </select>
               </div>
@@ -365,13 +365,13 @@ FROM
             <div className="col-md-5 col-lg-4">
               <div className="pt-md-3">
                 <p>
-                  <strong>Index</strong> means the control is <code>0</code>,
-                  the first variation is <code>1</code>, etc..
+                  <strong>Array Index</strong> means the ids are numeric
+                  (control is <code>0</code>, the 1st variation is{" "}
+                  <code>1</code>, etc.).
                 </p>
                 <p>
-                  <strong>String Keys</strong> means the control and variations
-                  have their own identifiers (e.g. <code>control</code> or{" "}
-                  <code>blue-buttons</code>)
+                  <strong>String Keys</strong> means the ids are custom strings
+                  (e.g. <code>control</code> or <code>blue-buttons</code>).
                 </p>
               </div>
             </div>

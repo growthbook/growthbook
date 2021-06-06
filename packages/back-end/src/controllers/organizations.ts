@@ -59,6 +59,7 @@ import { ExperimentInterface } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
 import { format } from "sql-formatter";
+import { PostgresConnectionParams } from "../../types/integrations/postgres";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -854,6 +855,9 @@ export async function postDataSources(
       userAgentProperty: "",
       ...settings?.events,
     };
+
+    const schema = (params as PostgresConnectionParams)?.defaultSchema;
+
     settings.queries = {
       experimentsQuery: `SELECT
   user_id,
@@ -864,7 +868,7 @@ export async function postDataSources(
   context_page_path as url,
   context_user_agent as user_agent
 FROM
-  experiment_viewed`,
+  ${schema ? schema + "." : ""}experiment_viewed`,
       pageviewsQuery: `SELECT
   user_id,
   anonymous_id,
@@ -872,12 +876,12 @@ FROM
   path as url,
   context_user_agent as user_agent
 FROM
-  pages`,
+  ${schema ? schema + "." : ""}pages`,
       usersQuery: `SELECT
   user_id,
   anonymous_id
 FROM
-  identifies`,
+  ${schema ? schema + "." : ""}identifies`,
       ...settings?.queries,
     };
 

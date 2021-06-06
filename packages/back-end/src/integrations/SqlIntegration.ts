@@ -290,6 +290,11 @@ export default abstract class SqlIntegration
     // TODO: support by date
     return format(`-- ${params.name} - ${params.metric.name} Metric
       WITH
+        ${this.getIdentifiesCTE(userId, {
+          segment: !!params.segmentQuery,
+          metrics: [params.metric],
+        })}
+        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
         __users as (${this.getPageUsersCTE(params, userId)})
         ${
           params.segmentQuery
@@ -409,6 +414,10 @@ export default abstract class SqlIntegration
 
     return format(`-- ${params.name} - Number of Users
       WITH
+        ${this.getIdentifiesCTE(userId, {
+          segment: !!params.segmentQuery,
+        })}
+        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
         __users as (${this.getPageUsersCTE(params, userId)})
         ${
           params.segmentQuery
@@ -594,8 +603,41 @@ export default abstract class SqlIntegration
     };
   }
 
+  private getIdentifiesCTE(
+    userId: boolean,
+    {
+      metrics,
+      dimension,
+      segment,
+    }: {
+      metrics?: MetricInterface[];
+      dimension?: boolean;
+      segment?: boolean;
+    }
+  ): string {
+    const select = `__identities as (${getUsersQuery(
+      this.settings,
+      this.getSchema()
+    )}),`;
+
+    if (metrics) {
+      for (let i = 0; i < metrics.length; i++) {
+        if (!metrics[i]) continue;
+        if (userId && metrics[i].userIdType === "anonymous") {
+          return select;
+        } else if (!userId && metrics[i].userIdType === "user") {
+          return select;
+        }
+      }
+    }
+    if (dimension && !userId) return select;
+    if (segment && !userId) return select;
+
+    return "";
+  }
+
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
-    return `JOIN (${getUsersQuery(this.settings, this.getSchema())}) i ON (
+    return `JOIN __identities i ON (
       i.${userId ? "user_id" : "anonymous_id"} = ${column}
     )`;
   }
@@ -621,6 +663,14 @@ export default abstract class SqlIntegration
 
     return `-- Number of users in experiment
     WITH
+      ${this.getIdentifiesCTE(userId, {
+        dimension: !!dimension,
+        metrics: [activationMetric],
+      })}
+      __rawExperiment as (${getExperimentQuery(
+        this.settings,
+        this.getSchema()
+      )}),
       __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
       ${
         dimension
@@ -692,6 +742,14 @@ export default abstract class SqlIntegration
 
     return `-- ${metric.name} (${metric.type})
     WITH
+      ${this.getIdentifiesCTE(userId, {
+        dimension: !!dimension,
+        metrics: [metric, activationMetric],
+      })}
+      __rawExperiment as (${getExperimentQuery(
+        this.settings,
+        this.getSchema()
+      )}),
       __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
       , __metric as (${this.getMetricCTE(
         metric,
@@ -989,7 +1047,7 @@ export default abstract class SqlIntegration
       )} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
-        (${getExperimentQuery(this.settings, this.getSchema())}) e
+        __rawExperiment e
       ${join}
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
@@ -1057,7 +1115,7 @@ export default abstract class SqlIntegration
       )} as conversion_end,
       ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM
-        (${getPageviewsQuery(this.settings, this.getSchema())}) p
+        __pageviews p
     WHERE
       p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
       AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
