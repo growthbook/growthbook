@@ -78,27 +78,32 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     "postgres",
     dsParams,
     {
-      default: {
-        userIdColumn: "user_id",
-        anonymousIdColumn: "user_id",
-        timestampColumn: "received_at",
+      queries: {
+        experimentsQuery: `SELECT
+    user_id,
+    user_id as anonymous_id,
+    received_at as timestamp,
+    experiment_id,
+    variation_id,
+    '' as url,
+    '' as user_agent
+  FROM
+    experiment_viewed`,
+        pageviewsQuery: `SELECT
+    user_id,
+    user_id as anonymous_id,
+    received_at as timestamp,
+    '' as url,
+    '' as user_agent
+  FROM
+    pages`,
+        usersQuery: `SELECT
+    user_id,
+    user_id as anonymous_id
+  FROM
+    identifies`,
       },
-      experiments: {
-        table: "experiment_viewed",
-        experimentIdColumn: "experiment_id",
-        variationColumn: "variation_id",
-        variationFormat: "index",
-      },
-      identifies: {
-        table: "users",
-      },
-      users: {
-        table: "users",
-      },
-      pageviews: {
-        table: "pages",
-        urlColumn: "path",
-      },
+      variationIdFormat: "index",
     }
   );
   const integration = getSourceIntegrationObject(datasource);

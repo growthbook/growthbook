@@ -23,6 +23,7 @@ const PostgresForm: FC<{
             type="text"
             className="form-control"
             name="host"
+            required
             value={params.host || ""}
             onChange={onParamChange}
           />
@@ -33,6 +34,7 @@ const PostgresForm: FC<{
             type="number"
             className="form-control"
             name="port"
+            required
             value={params.port || ""}
             onChange={onParamChange}
           />
@@ -43,6 +45,7 @@ const PostgresForm: FC<{
             type="text"
             className="form-control"
             name="database"
+            required
             value={params.database || ""}
             onChange={onParamChange}
           />
@@ -53,6 +56,7 @@ const PostgresForm: FC<{
             type="text"
             className="form-control"
             name="user"
+            required
             value={params.user || ""}
             onChange={onParamChange}
           />
@@ -63,6 +67,7 @@ const PostgresForm: FC<{
             type="password"
             className="form-control"
             name="password"
+            required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
             placeholder={existing ? "(Keep existing)" : ""}
@@ -76,6 +81,7 @@ const PostgresForm: FC<{
             name="defaultSchema"
             value={params.defaultSchema || ""}
             onChange={onParamChange}
+            placeholder="(optional)"
           />
         </div>
       </div>

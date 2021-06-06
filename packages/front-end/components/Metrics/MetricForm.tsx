@@ -215,10 +215,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const sqlPreviewData = {
     userIdCol: "",
-    timestampCol:
-      value.timestampColumn ||
-      currentDataSource?.settings?.default?.timestampColumn ||
-      "received_at",
+    timestampCol: value.timestampColumn || "received_at",
     weekAgo: weekAgo.toISOString().substr(0, 10),
     column: "",
     where: value.conditions
@@ -230,24 +227,14 @@ const MetricForm: FC<MetricFormProps> = ({
       .join("\n"),
   };
   if (value.userIdType === "user") {
-    sqlPreviewData.userIdCol =
-      value.userIdColumn ||
-      currentDataSource?.settings?.default?.userIdColumn ||
-      "user_id";
+    sqlPreviewData.userIdCol = value.userIdColumn || "user_id";
   } else if (value.userIdType === "anonymous") {
-    sqlPreviewData.userIdCol =
-      value.anonymousIdColumn ||
-      currentDataSource?.settings?.default?.anonymousIdColumn ||
-      "anonymous_id";
+    sqlPreviewData.userIdCol = value.anonymousIdColumn || "anonymous_id";
   } else {
     sqlPreviewData.userIdCol =
-      (value.userIdColumn ||
-        currentDataSource?.settings?.default?.userIdColumn ||
-        "user_id") +
+      (value.userIdColumn || "user_id") +
       " /*or " +
-      (value.anonymousIdColumn ||
-        currentDataSource?.settings?.default?.anonymousIdColumn ||
-        "anonymous_id") +
+      (value.anonymousIdColumn || "anonymous_id") +
       "*/";
   }
 
@@ -493,10 +480,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     Timestamp Column
                     <input
                       type="text"
-                      placeholder={
-                        currentDataSource?.settings?.default?.timestampColumn ||
-                        "received_at"
-                      }
+                      placeholder={"received_at"}
                       className="form-control"
                       {...inputs.timestampColumn}
                     />
@@ -517,10 +501,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     User Id Column
                     <input
                       type="text"
-                      placeholder={
-                        currentDataSource?.settings?.default?.userIdColumn ||
-                        "user_id"
-                      }
+                      placeholder={"user_id"}
                       className="form-control"
                       {...inputs.userIdColumn}
                     />
@@ -531,10 +512,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     Anonymous Id Column
                     <input
                       type="text"
-                      placeholder={
-                        currentDataSource?.settings?.default
-                          ?.anonymousIdColumn || "anonymous_id"
-                      }
+                      placeholder={"anonymous_id"}
                       className="form-control"
                       {...inputs.anonymousIdColumn}
                     />
@@ -551,18 +529,9 @@ const MetricForm: FC<MetricFormProps> = ({
                   <Code
                     language="sql"
                     code={`SELECT
-${
-  value.userIdType !== "anonymous"
-    ? `  ${
-        currentDataSource?.settings?.default?.userIdColumn || "user_id"
-      } as user_id,\n`
-    : ""
-}${
+${value.userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
                       value.userIdType !== "user"
-                        ? `  ${
-                            currentDataSource?.settings?.default
-                              ?.anonymousIdColumn || "anonymous_id"
-                          } as anonymous_id,\n`
+                        ? `  ${"anonymous_id"} as anonymous_id,\n`
                         : ""
                     }${
                       value.type === "binomial"
@@ -572,10 +541,7 @@ ${
                         : value.type === "revenue"
                         ? "  amount as value,\n"
                         : "  duration as value,\n"
-                    }  ${
-                      currentDataSource?.settings?.default?.timestampColumn ||
-                      "received_at"
-                    } as timestamp
+                    }  ${"received_at"} as timestamp
 FROM
   ${
     value.type === "binomial" || value.type === "count"

@@ -37,6 +37,7 @@ const MixpanelForm: FC<{
             type="password"
             className="form-control"
             name="secret"
+            required={!existing}
             value={params.secret || ""}
             onChange={onParamChange}
             placeholder={existing ? "(Keep existing)" : ""}

@@ -110,7 +110,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
         }
       },
       mutateDefinitions: async (changes) => {
-        await mutate(Object.assign({ status: 200, ...data }, changes));
+        await mutate(Object.assign({ status: 200, ...data }, changes), true);
       },
     };
   }

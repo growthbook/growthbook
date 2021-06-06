@@ -1,4 +1,4 @@
-import { FC, Fragment } from "react";
+import React, { FC, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { formatConversionRate } from "../../services/metrics";
 import clsx from "clsx";
@@ -60,16 +60,14 @@ const CompactResults: FC<{
               Metric
             </th>
             {experiment.variations.map((v, i) => (
-              <>
-                <th colSpan={i ? 3 : 1} className="value">
-                  {v.name}
-                </th>
-              </>
+              <th colSpan={i ? 3 : 1} className="value" key={i}>
+                {v.name}
+              </th>
             ))}
           </tr>
           <tr>
             {experiment.variations.map((v, i) => (
-              <>
+              <React.Fragment key={i}>
                 <th className={clsx("value", `variation${i} text-center`)}>
                   Value
                 </th>
@@ -83,7 +81,7 @@ const CompactResults: FC<{
                     Percent Change ({ciUpperDisplay} CI)
                   </th>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tr>
         </thead>
@@ -91,7 +89,7 @@ const CompactResults: FC<{
           <tr>
             <th>Users</th>
             {experiment.variations.map((v, i) => (
-              <>
+              <React.Fragment key={i}>
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>
@@ -112,7 +110,7 @@ const CompactResults: FC<{
                     </td>
                   </>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tr>
           {experiment.metrics?.map((m) => {
@@ -141,7 +139,7 @@ const CompactResults: FC<{
                   {experiment.variations.map((v, i) => {
                     const stats = { ...variations[i]?.metrics?.[m] };
                     return (
-                      <>
+                      <React.Fragment key={i}>
                         <td className="variation">
                           {stats.value ? (
                             <>
@@ -164,7 +162,7 @@ const CompactResults: FC<{
                           )}
                         </td>
                         {i > 0 && <td colSpan={2} className="variation"></td>}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tr>

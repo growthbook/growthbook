@@ -1,13 +1,12 @@
 import { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
-import { FaPlus, FaPencilAlt, FaCloudDownloadAlt } from "react-icons/fa";
 import DataSourceForm from "./DataSourceForm";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import DeleteButton from "../DeleteButton";
-import Button from "../Button";
+import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Link from "next/link";
+import { datetime } from "../../services/dates";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -20,25 +19,7 @@ const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     user: "",
     defaultSchema: "",
   },
-  settings: {
-    default: {
-      timestampColumn: "received_at",
-      userIdColumn: "user_id",
-    },
-    experiments: {
-      experimentIdColumn: "experiment_id",
-      table: "experiment_viewed",
-      variationColumn: "variation_id",
-      variationFormat: "index",
-    },
-    users: {
-      table: "users",
-    },
-    pageviews: {
-      table: "pages",
-      urlColumn: "path",
-    },
-  },
+  settings: {},
 };
 
 const DataSources: FC = () => {
@@ -47,8 +28,6 @@ const DataSources: FC = () => {
   );
 
   const router = useRouter();
-
-  const { apiCall } = useAuth();
 
   const { datasources, error, mutateDefinitions, ready } = useDefinitions();
 
@@ -65,59 +44,26 @@ const DataSources: FC = () => {
         <table className="table appbox table-hover">
           <thead>
             <tr>
-              <th>Name</th>
+              <th>Display Name</th>
               <th>Type</th>
-              <th>Actions</th>
+              <th>Date Added</th>
             </tr>
           </thead>
           <tbody>
             {datasources.map((d, i) => (
-              <tr className="nav-item" key={i}>
-                <td>{d.name}</td>
-                <td>{d.type}</td>
+              <tr
+                className="nav-item"
+                key={i}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(`/datasources/${d.id}`);
+                }}
+              >
                 <td>
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEdit(d);
-                    }}
-                  >
-                    <FaPencilAlt /> Edit
-                  </button>{" "}
-                  <DeleteButton
-                    displayName={d.name}
-                    text="Delete"
-                    onClick={async () => {
-                      await apiCall(`/datasource/${d.id}`, {
-                        method: "DELETE",
-                      });
-                      mutateDefinitions({});
-                    }}
-                  />{" "}
-                  {!["google_analytics", "mixpanel"].includes(d.type) &&
-                    d?.settings?.experiments?.table && (
-                      <Button
-                        color="outline-secondary"
-                        onClick={async () => {
-                          const res = await apiCall<{ id: string }>(
-                            "/experiments/import",
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                datasource: d.id,
-                              }),
-                            }
-                          );
-                          if (res.id) {
-                            await router.push(`/experiments/import/${res.id}`);
-                          }
-                        }}
-                      >
-                        <FaCloudDownloadAlt /> Import
-                      </Button>
-                    )}
+                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>
                 </td>
+                <td>{d.type}</td>
+                <td>{datetime(d.dateCreated)}</td>
               </tr>
             ))}
           </tbody>

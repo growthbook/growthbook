@@ -66,7 +66,7 @@ const EventsPage = (): React.ReactElement => {
   }
   if (!datasource) {
     return (
-      <Link href="/settings/datasources">
+      <Link href="/datasources">
         <a className="btn btn-success">Add a Data Source</a>
       </Link>
     );

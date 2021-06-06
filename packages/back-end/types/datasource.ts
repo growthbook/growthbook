@@ -35,6 +35,20 @@ export interface DataSourceProperties {
 type WithParams<B, P> = Omit<B, "params"> & { params: P };
 
 export type DataSourceSettings = {
+  variationIdFormat?: "key" | "index";
+  queries?: {
+    usersQuery: string;
+    experimentsQuery: string;
+    pageviewsQuery: string;
+  };
+  events?: {
+    experimentEvent: string;
+    experimentIdProperty: string;
+    variationIdProperty: string;
+    pageviewEvent: string;
+    urlProperty: string;
+    userAgentProperty: string;
+  };
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;
@@ -47,7 +61,7 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     experimentIdColumn?: string;
     variationColumn?: string;
-    variationFormat: "index" | "key";
+    variationFormat?: "index" | "key";
   };
   users?: {
     table?: string;
