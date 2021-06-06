@@ -57,7 +57,10 @@ const EditDataSourceSettingsForm: FC<{
             userAgentProperty: "",
             ...data?.settings?.events,
           },
-          variationIdFormat: "index",
+          variationIdFormat:
+            data?.settings?.variationIdFormat ||
+            data?.settings?.experiments?.variationFormat ||
+            "index",
         },
       };
       setDatasource(newValue);
@@ -332,6 +335,45 @@ FROM
                   <code>user_agent</code>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          <div className="row mb-3">
+            <div className="col">
+              <div className="form-group">
+                <label className="font-weight-bold">Variation Id Format</label>
+                <select
+                  className="form-control"
+                  name="variationFormat"
+                  onChange={(e) => {
+                    setDatasource({
+                      ...datasource,
+                      settings: {
+                        variationIdFormat: e.target.value as "index" | "key",
+                        ...datasource.settings,
+                      },
+                    });
+                  }}
+                  required
+                  value={datasource.settings?.variationIdFormat || "index"}
+                >
+                  <option value="index">Index</option>
+                  <option value="key">String Keys</option>
+                </select>
+              </div>
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-3">
+                <p>
+                  <strong>Index</strong> means the control is <code>0</code>,
+                  the first variation is <code>1</code>, etc..
+                </p>
+                <p>
+                  <strong>String Keys</strong> means the control and variations
+                  have their own identifiers (e.g. <code>control</code> or{" "}
+                  <code>blue-buttons</code>)
+                </p>
+              </div>
             </div>
           </div>
 

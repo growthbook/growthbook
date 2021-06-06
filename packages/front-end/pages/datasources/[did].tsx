@@ -112,6 +112,12 @@ const DataSourcePage: FC = () => {
               </div>
             )}
           </div>
+          {d.type === "google_analytics" && (
+            <div className="alert alert-info">
+              Google Analytics data sources do not require any additional
+              configuration.
+            </div>
+          )}
           {supportsEvents && (
             <>
               <h3 className="mb-3">Query Settings</h3>

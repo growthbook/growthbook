@@ -84,15 +84,17 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     user_id as anonymous_id,
     received_at as timestamp,
     experiment_id,
-    variation_id
+    variation_id,
+    '' as url,
+    '' as user_agent
   FROM
     experiment_viewed`,
         pageviewsQuery: `SELECT
     user_id,
     user_id as anonymous_id,
     received_at as timestamp,
-    path,
-    user_agent
+    '' as url,
+    '' as user_agent
   FROM
     pages`,
         usersQuery: `SELECT

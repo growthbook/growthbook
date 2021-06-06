@@ -6,6 +6,7 @@ import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
+import { datetime } from "../../services/dates";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -18,40 +19,7 @@ const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     user: "",
     defaultSchema: "",
   },
-  settings: {
-    variationIdFormat: "index",
-    queries: {
-      experimentsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  experiment_id,
-  variation_id
-FROM
-  experiment_viewed`,
-      pageviewsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  path,
-  user_agent
-FROM
-  pages`,
-      usersQuery: `SELECT
-  user_id,
-  anonymous_id
-FROM
-  identifies`,
-    },
-    events: {
-      experimentEvent: "$experiment_started",
-      experimentIdProperty: "Experiment name",
-      variationIdProperty: "Variant name",
-      pageviewEvent: "Page view",
-      urlProperty: "$current_url",
-      userAgentProperty: "",
-    },
-  },
+  settings: {},
 };
 
 const DataSources: FC = () => {
@@ -78,6 +46,7 @@ const DataSources: FC = () => {
             <tr>
               <th>Display Name</th>
               <th>Type</th>
+              <th>Date Added</th>
             </tr>
           </thead>
           <tbody>
@@ -94,6 +63,7 @@ const DataSources: FC = () => {
                   <Link href={`/datasources/${d.id}`}>{d.name}</Link>
                 </td>
                 <td>{d.type}</td>
+                <td>{datetime(d.dateCreated)}</td>
               </tr>
             ))}
           </tbody>

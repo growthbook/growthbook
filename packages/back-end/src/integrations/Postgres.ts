@@ -19,11 +19,8 @@ export default class Postgres extends SqlIntegration {
   runQuery(sql: string) {
     return runPostgresQuery(this.params, sql);
   }
-  getFullTableName(table: string): string {
-    if (this.params.defaultSchema && !table.match(/\./)) {
-      return this.params.defaultSchema + "." + table;
-    }
-    return table;
+  getSchema(): string {
+    return this.params.defaultSchema || "";
   }
   percentile(col: string, percentile: number) {
     return `PERCENTILE_DISC ( ${percentile} ) WITHIN GROUP (ORDER BY ${col})`;
