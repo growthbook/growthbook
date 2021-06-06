@@ -31,25 +31,27 @@ All of these rules are evaluated locally in your app at runtime and no HTTP requ
 
 ## Implementation
 
-We offer official client libraries in a few popular languages with more coming soon:
+There are generally two ways to implement experiments. 
+The first is using our [Visual Editor](/app/visual) and the second is using one of our [Client Libraries](/lib) (for Javascript, React, PHP, or Ruby).
 
-*  [Javascript/Typescript](/lib/js)
-*  [React](/lib/react)
-*  [PHP](/lib/php)
-*  [Ruby](/lib/ruby)
-*  Go - *coming soon*
-*  Python - *coming soon*
-
-It's not required to use these libraries.  You can do variation assignment yourself or use another library like PlanOut.
-
+It's also possible to use a completely custom implementation (or another library like PlanOut).
 The only requirement is that you track in your datasource when users are put into an experiment and which variation they received.
 
 ## Starting and Stopping
 
-The client libraries never communicate with the Growth Book servers.  So as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately.  And the experiment will continue until you remove the code and do another deploy.
+When you start an experiment, you will be prompted for how you want to split traffic between the variations and who you want to roll the test out to.  
 
-If you want to be able to control experiments within the Growth Book App, you can integrate with the [API](/api-docs).
+When stopping an experiment, you'll be prompted to enter which variation (if any) won and why you are stopping the test.
 
+### Client Library Integration
+
+If you are using the Client Libraries to implement experiments, there are some additional steps you must take.  
+
+The Client Libraries never communicate with the Growth Book servers.  That means as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately and the experiment will continue until you remove the code and do another deploy.
+
+This separation has huge performance and reliability benefits (if Growth Book goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
+
+To get the best of both worlds, you can integrate with the [API](/api-docs). In essense, you would periodically fetch and cache the latest experiment settings in something like Redis.  Then your app would query the cache to determine which experiments are running. You get the benefits of separation and the convenience of using the Growth Book UI to manage experiments.
 ## Results
 
 ![Results Table](/images/results-table.png)
@@ -57,10 +59,9 @@ If you want to be able to control experiments within the Growth Book App, you ca
 Each row of this table is a different metric.
 
 **Chance to Beat Control** is a bayesian statistic telling you how likely it is that the variation is better.  Typically,
-you want to wait until this reaches 95%.
+you want to wait until this reaches 95% at which point the row will turn green. Likewise, if this number drops below 5%, the row will turn red indicating the variation is significantly worse than the control.
 
-**Percent Change** shows how much better/worse the variation is compared to the control.  The numbers show the median and the 95% confidence interval.
-To generate these numbers, we use statistical bootstrapping and simulate your experiment 10,000 times.
+**Percent Change** shows how much better/worse the variation is compared to the control. To generate these numbers, we use statistical bootstrapping and simulate your experiment 10,000 times. What you see is the 95% confidence interval from these simulations.
 
 If you have pre-defined dimensions for your users, you can use the **Dimension** dropdown to drill down into your results.
 This is very useful for debugging (e.g. if Safari is down, but the other browser are fine, you may have an implementation bug).
