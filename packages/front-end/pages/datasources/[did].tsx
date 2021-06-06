@@ -10,6 +10,12 @@ import DataSourceForm from "../../components/Settings/DataSourceForm";
 import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
+import {
+  getExperimentQuery,
+  getPageviewsQuery,
+  getUsersQuery,
+} from "../../services/datasources";
+import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
@@ -27,8 +33,6 @@ const DataSourcePage: FC = () => {
 
   const d = getDatasourceById(did);
 
-  console.log(d);
-
   const { apiCall } = useAuth();
 
   if (error) {
@@ -44,6 +48,9 @@ const DataSourcePage: FC = () => {
       </div>
     );
   }
+
+  const supportsSQL = !["google_analytics", "mixpanel"].includes(d.type);
+  const supportsEvents = d.type === "mixpanel";
 
   return (
     <div className="container mt-3 pagecontents">
@@ -91,48 +98,88 @@ const DataSourcePage: FC = () => {
                 <FaKey /> Edit Connection Info
               </a>
             </div>
-            <div className="col-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditSettings(true);
-                }}
-              >
-                <FaCode /> Edit Queries
-              </a>
-            </div>
-          </div>
-          <div className="mb-4">
-            <h3>Experiments SQL</h3>
-            <div>Used to pull experiment results.</div>
-            {d.settings?.queries?.experimentsQuery ? (
-              <Code language="sql" code={d.settings.queries.experimentsQuery} />
-            ) : (
-              <div className="alert alert-danger">No Query Defined Yet</div>
+            {(supportsSQL || supportsEvents) && (
+              <div className="col-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditSettings(true);
+                  }}
+                >
+                  <FaCode /> Edit {supportsSQL ? "Queries" : "Query Settings"}
+                </a>
+              </div>
             )}
           </div>
-          <div className="mb-4">
-            <h3>Users Query</h3>
-            <div>
-              Used to join users to anonymous sessions before they logged in.
-            </div>
-            <Code
-              language="sql"
-              code={`SELECT\n  user_id,\n  anonymous_id,\n  received_at as timestamp\nFROM\n  identifies`}
-            />
-          </div>
-          <div className="mb-4">
-            <h3>Pageviews Query</h3>
-            <div>Used to predict running time before an experiment starts.</div>
-            <Code
-              language="sql"
-              code={`SELECT\n  user_id,\n  anonymous_id,\n  page_path as url,\n  context_user_agent as user_agent,\n  received_at as timestamp\nFROM\n  pages`}
-            />
-          </div>
+          {supportsEvents && (
+            <>
+              <h3 className="mb-3">Query Settings</h3>
+              <table className="table table-bordered">
+                <tbody>
+                  {Object.keys(d.settings.events).map((k) => {
+                    return (
+                      <tr key={k}>
+                        <th>
+                          {k[0].toUpperCase() +
+                            k.replace(/([A-Z])/g, " $1").slice(1)}
+                        </th>
+                        <td>
+                          <code>{d.settings.events[k]}</code>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <ul></ul>
+            </>
+          )}
+          {supportsSQL && (
+            <>
+              <div className="mb-4">
+                <h3>Experiments SQL</h3>
+                <div>Used to pull experiment results.</div>
+                <Code
+                  language="sql"
+                  code={getExperimentQuery(
+                    d.settings,
+                    (d.params as PostgresConnectionParams)?.defaultSchema
+                  )}
+                />
+              </div>
+              <div className="mb-4">
+                <h3>Users Query</h3>
+                <div>
+                  Used to join users to anonymous sessions before they logged
+                  in.
+                </div>
+                <Code
+                  language="sql"
+                  code={getUsersQuery(
+                    d.settings,
+                    (d.params as PostgresConnectionParams)?.defaultSchema
+                  )}
+                />
+              </div>
+              <div className="mb-4">
+                <h3>Pageviews Query</h3>
+                <div>
+                  Used to predict running time before an experiment starts.
+                </div>
+                <Code
+                  language="sql"
+                  code={getPageviewsQuery(
+                    d.settings,
+                    (d.params as PostgresConnectionParams)?.defaultSchema
+                  )}
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="col-md-3">
-          {!["google_analytics", "mixpanel"].includes(d.type) && (
+          {supportsSQL && (
             <div className="card">
               <div className="card-body">
                 <h2>Import Past Experiments</h2>

@@ -1,9 +1,15 @@
 import { FC, useState, useEffect, ChangeEventHandler } from "react";
 import { useAuth } from "../../services/auth";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  getExperimentQuery,
+  getPageviewsQuery,
+  getUsersQuery,
+} from "../../services/datasources";
 import track from "../../services/track";
 import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
+import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -29,10 +35,18 @@ const EditDataSourceSettingsForm: FC<{
         ...data,
         settings: {
           queries: {
-            usersQuery: "",
-            experimentsQuery: "",
-            pageviewsQuery: "",
-            ...data?.settings?.queries,
+            usersQuery: getUsersQuery(
+              data.settings,
+              (data.params as PostgresConnectionParams)?.defaultSchema
+            ),
+            experimentsQuery: getExperimentQuery(
+              data.settings,
+              (data.params as PostgresConnectionParams)?.defaultSchema
+            ),
+            pageviewsQuery: getPageviewsQuery(
+              data.settings,
+              (data.params as PostgresConnectionParams)?.defaultSchema
+            ),
           },
           events: {
             experimentEvent: "",
@@ -210,6 +224,17 @@ const EditDataSourceSettingsForm: FC<{
               value={datasource.settings?.events?.urlProperty || ""}
             />
           </div>
+          <div className="form-group">
+            <label>User Agent Property</label>
+            <input
+              type="text"
+              className="form-control"
+              name="userAgentProperty"
+              placeholder="user_agent"
+              onChange={onSettingsChange("events")}
+              value={datasource.settings?.events?.userAgentProperty || ""}
+            />
+          </div>
         </div>
       )}
       {settingsSupported && datasource.type !== "mixpanel" && (
@@ -234,15 +259,17 @@ const EditDataSourceSettingsForm: FC<{
   anonymous_id,
   received_at as timestamp,
   experiment_id,
-  variation_id
+  variation_id,
+  context_page_path as url,
+  context_user_agent as user_agent
 FROM
   experiment_viewed`,
                         pageviewsQuery: `SELECT
   user_id,
   anonymous_id,
   received_at as timestamp,
-  path,
-  user_agent
+  path as url,
+  context_user_agent as user_agent
 FROM
   pages`,
                         usersQuery: `SELECT
@@ -375,7 +402,7 @@ FROM
                   <code>timestamp</code>
                 </li>
                 <li>
-                  <code>path</code>
+                  <code>url</code>
                 </li>
                 <li>
                   <code>user_agent</code>

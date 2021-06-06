@@ -2,6 +2,9 @@ import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
+  getExperimentQuery,
+  getUsersQuery,
+  getPageviewsQuery,
 } from "../../types/datasource";
 import {
   ExperimentResults,
@@ -68,13 +71,7 @@ export default abstract class SqlIntegration
     // TODO: new connection params for bigquery
     this.setParams(encryptedParams);
     this.settings = {
-      queries: {
-        usersQuery: "",
-        experimentsQuery: "",
-        pageviewsQuery: "",
-        ...settings.queries,
-      },
-      variationIdFormat: "index",
+      ...settings,
     };
   }
 
@@ -93,8 +90,8 @@ export default abstract class SqlIntegration
     return true;
   }
 
-  getFullTableName(table: string): string {
-    return table;
+  getSchema(): string {
+    return "";
   }
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
@@ -119,7 +116,7 @@ export default abstract class SqlIntegration
     return format(`-- Past Experiments
     WITH
       __experiments as (
-        ${this.settings.queries.experimentsQuery}
+        ${getExperimentQuery(this.settings, this.getSchema())}
       ),
       __experimentDates as (
         SELECT
@@ -509,7 +506,7 @@ export default abstract class SqlIntegration
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
-    return `JOIN (${this.settings.queries.usersQuery}) i ON (
+    return `JOIN (${getUsersQuery(this.settings, this.getSchema())}) i ON (
       i.${userId ? "user_id" : "anonymous_id"} = ${column}
     )`;
   }
@@ -739,7 +736,8 @@ export default abstract class SqlIntegration
 
       rows.forEach(({ variation, dimension, count, mean, stddev }) => {
         const varIndex =
-          this.settings?.variationIdFormat === "key"
+          (this.settings?.variationIdFormat ||
+            this.settings?.experiments?.variationFormat) === "key"
             ? variationKeyMap.get(variation)
             : parseInt(variation);
 
@@ -775,7 +773,8 @@ export default abstract class SqlIntegration
         }[] = await this.runQuery(sql);
         rows.forEach(({ variation, dimension, users }) => {
           const varIndex =
-            this.settings?.variationIdFormat === "key"
+            (this.settings?.variationIdFormat ||
+              this.settings?.experiments?.variationFormat) === "key"
               ? variationKeyMap.get(variation)
               : parseInt(variation);
           if (varIndex < 0 || varIndex >= experiment.variations.length) {
@@ -839,6 +838,8 @@ export default abstract class SqlIntegration
 
     const timestampCol = "m." + this.getTimestampColumn(metric);
 
+    const schema = this.getSchema();
+
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as user_id,
@@ -851,7 +852,10 @@ export default abstract class SqlIntegration
         ${this.subtractHalfHour(timestampCol)} as session_start
       FROM
         ${
-          metric.sql ? `(${metric.sql})` : this.getFullTableName(metric.table)
+          metric.sql
+            ? `(${metric.sql})`
+            : (schema && !metric.table.match(/\./) ? schema + "." : "") +
+              metric.table
         } m
         ${join}
       ${
@@ -896,7 +900,7 @@ export default abstract class SqlIntegration
       )} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
-        (${this.settings.queries.experimentsQuery}) e
+        (${getExperimentQuery(this.settings, this.getSchema())}) e
       ${join}
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
@@ -964,7 +968,7 @@ export default abstract class SqlIntegration
       )} as conversion_end,
       ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM
-        (${this.settings.queries.pageviewsQuery}) p
+        (${getPageviewsQuery(this.settings, this.getSchema())}) p
     WHERE
       p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
       AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
