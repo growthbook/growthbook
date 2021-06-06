@@ -232,16 +232,16 @@ function App({
           <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
             <div className="flex max-w-3xl">
               <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
-                <a href="https://www.growthbook.io" className="mr-6">
+                <a href="https://www.growthbook.io" className="inline mr-6">
                   Home
                 </a>
                 <a
                   href="https://github.com/growthbook/growthbook"
-                  className="mr-6"
+                  className="inline mr-6"
                 >
                   <FaGithub className="inline" /> GitHub
                 </a>
-                <a href="https://app.growthbook.io">
+                <a href="https://app.growthbook.io" className="inline">
                   <FaCloud className="inline" /> Try for free
                 </a>
               </div>
