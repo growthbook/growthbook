@@ -34,7 +34,7 @@ export function verifySlackRequestSignature(
   const sig =
     "v0=" +
     crypto.createHmac("sha256", SLACK_SIGNING_SECRET).update(str).digest("hex");
-  const slackSignature = req.headers["x-slack-signature"];
+  const slackSignature = req.headers["x-slack-signature"] as string;
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(slackSignature))) {
     throw new Error("Signatures do not match");
   }
