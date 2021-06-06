@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "copy-templates": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "dev": "yarn copy-templates && ts-node-dev src/server.ts",
+    "dev": "yarn copy-templates && node-dev src/server.ts",
     "build": "rm -rf dist && tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src && yarn copy-templates",
     "start": "node dist/server.js",
     "test": "jest --forceExit --coverage --verbose --detectOpenHandles",
@@ -69,7 +69,7 @@
     "@types/jsonwebtoken": "^8.5.1",
     "@types/lodash": "^4.14.157",
     "@types/md5": "^2.2.0",
-    "@types/node": "^12.7.8",
+    "@types/node": "^14.0.0",
     "@types/node-fetch": "^2.5.8",
     "@types/node-gzip": "^1.1.0",
     "@types/nodemailer": "^6.4.1",
@@ -83,9 +83,10 @@
     "@types/uniqid": "^5.2.0",
     "chai": "^4.2.0",
     "jest": "^26.6.3",
+    "node-dev": "^7.0.0",
     "supertest": "^4.0.2",
     "ts-jest": "^26.5.6",
-    "ts-node-dev": "^1.1.6",
+    "ts-node": "^10.0.0",
     "typescript": "^4.2.4"
   },
   "license": "MIT"
