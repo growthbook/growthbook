@@ -228,7 +228,7 @@ function App({
             })}
           </div>
         </div>
-        <div className="flex flex-col h-screen flex-grow">
+        <div className="flex flex-col h-screen flex-grow w-full">
           <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
             <div className="flex max-w-3xl">
               <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
@@ -290,8 +290,8 @@ function App({
               </button>
             </div>
           </nav>
-          <main className="p-5 flex-grow overflow-y-auto">
-            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl">
+          <main className="p-5 flex-grow overflow-y-auto w-full">
+            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl w-full">
               <div className="float-right ml-4 mb-4 hidden lg:block">
                 <a
                   className="text-sm opacity-80 hover:opacity-100"
