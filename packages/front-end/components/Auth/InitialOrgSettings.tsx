@@ -1,0 +1,253 @@
+import { ReactElement, useContext, useState } from "react";
+import useForm from "../../hooks/useForm";
+import { useAuth } from "../../services/auth";
+import track from "../../services/track";
+import WelcomeFrame from "./WelcomeFrame";
+import { UserContext } from "../ProtectedPage";
+import { FiLogOut } from "react-icons/fi";
+import Tooltip from "../../components/Tooltip";
+
+export default function InitialOrgSettings(): ReactElement {
+  const techStacks = [
+    { display: "Python", value: "python" },
+    { display: "Ruby", value: "ruby" },
+    { display: "Node JS/javascript", value: "node-js" },
+    { display: "PHP", value: "php" },
+    { display: ".Net", value: "dotnet" },
+    { display: "React", value: "react" },
+  ];
+  const dataSources = [
+    { display: "Redshift", value: "redshift" },
+    { display: "Google Analytics", value: "google_analytics" },
+    { display: "AWS Athena", value: "athena" },
+    { display: "Snowflake", value: "snowflake" },
+    { display: "Postgres", value: "postgres" },
+    { display: "BigQuery", value: "bigquery" },
+    { display: "Mixpanel", value: "mixpanel" },
+  ];
+
+  const [value, inputProps, manualUpdate] = useForm({
+    types: {
+      visual: false,
+      code: false,
+    },
+    datasource: [],
+    dataother: "",
+    techstack: [],
+    techother: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const { apiCall, logout } = useAuth();
+  const { update } = useContext(UserContext);
+
+  const submit = async () => {
+    // add the other to the array:
+    const datas = [...value.datasource];
+    const techs = [...value.techstack];
+    if (value.dataother) {
+      datas.push(value.dataother.trim());
+    }
+    if (value.techother) {
+      techs.push(value.techother.trim());
+    }
+
+    await apiCall("/organization", {
+      method: "PUT",
+      body: JSON.stringify({
+        types: value.types,
+        dataSouce: datas,
+        techStack: techs,
+      }),
+    });
+
+    track("onboarding questions");
+    update();
+  };
+
+  const leftside = (
+    <>
+      <h1 className="title h1">Welcome to Growth&nbsp;Book</h1>
+      <p>One last page...</p>
+    </>
+  );
+
+  return (
+    <>
+      <WelcomeFrame leftside={leftside} loading={loading}>
+        <a
+          className="logout-link"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setLoading(true);
+            logout();
+          }}
+        >
+          <FiLogOut /> log out
+        </a>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (loading) return;
+            setError(null);
+            setLoading(true);
+            try {
+              await submit();
+              setLoading(false);
+            } catch (e) {
+              setError(e.message);
+              setLoading(false);
+            }
+          }}
+        >
+          <div>
+            <h3 className="h2">Organization settings</h3>
+            <p className="text-muted">Help us understand your needs.</p>
+          </div>
+          <div className="form-group">
+            <div className="form-check">
+              <input
+                type="checkbox"
+                className="form-check-input "
+                checked={value.types.visual}
+                onChange={(e) => {
+                  manualUpdate({
+                    types: {
+                      code: true,
+                      visual: e.target.checked,
+                    },
+                  });
+                }}
+                id="checkbox-visualeditor"
+              />
+
+              <label
+                htmlFor="checkbox-visualeditor"
+                className="form-check-label"
+              >
+                Enable Visual Editor{" "}
+                <Tooltip
+                  text="The visual editor allows you to create A/B tests by editing pages from the front-end. You will need to add a snippet of code to your site. (You can change this at any time later). "
+                  tipMinWidth="200px"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="row">
+            <div className="col-12 col-sm-6">
+              <div className="form-group">
+                <h4>Data sources</h4>
+                {dataSources.map((d) => {
+                  const checked = value.datasource.indexOf(d.value) > -1;
+                  return (
+                    <div className="form-check" key={d.value}>
+                      <label className="form-check-label">
+                        <input
+                          type="checkbox"
+                          className="form-check-input "
+                          checked={checked}
+                          onChange={() => {
+                            const newd = [...value.datasource];
+                            if (checked) {
+                              // uncheck
+                              const index: number = newd.indexOf(d.value, 0);
+                              if (index > -1) {
+                                newd.splice(index, 1);
+                              }
+                            } else {
+                              newd.push(d.value);
+                            }
+                            manualUpdate({
+                              datasource: newd,
+                            });
+                          }}
+                          id="checkbox-visualeditor"
+                        />
+
+                        {d.display}
+                      </label>
+                    </div>
+                  );
+                })}
+                Other:
+                <input
+                  required
+                  type="text"
+                  name="dataother"
+                  autoComplete="dataother"
+                  {...inputProps.dataother}
+                  className="form-control"
+                />
+              </div>
+            </div>
+            <div className="col-12 col-sm-6">
+              <div className="form-group">
+                <h4>Tech stacks</h4>
+                {techStacks.map((t) => {
+                  const checked = value.techstack.indexOf(t.value) > -1;
+                  return (
+                    <div className="form-check" key={t.value}>
+                      <label className="form-check-label">
+                        <input
+                          type="checkbox"
+                          className="form-check-input "
+                          checked={checked}
+                          onChange={() => {
+                            const newt = [...value.techstack];
+                            if (checked) {
+                              // uncheck
+                              const index: number = newt.indexOf(t.value, 0);
+                              if (index > -1) {
+                                newt.splice(index, 1);
+                              }
+                            } else {
+                              // check
+                              newt.push(t.value);
+                            }
+                            manualUpdate({
+                              techstack: newt,
+                            });
+                          }}
+                          id="checkbox-visualeditor"
+                        />
+
+                        {t.display}
+                      </label>
+                    </div>
+                  );
+                })}
+                Other:
+                <input
+                  required
+                  type="text"
+                  name="techother"
+                  autoComplete="techother"
+                  {...inputProps.techother}
+                  className="form-control"
+                />
+              </div>
+            </div>
+          </div>
+
+          {error && <div className="alert alert-danger mr-auto">{error}</div>}
+          <button className={`btn btn-primary btn-block btn-lg`} type="submit">
+            Save
+          </button>
+        </form>
+        <div className="text-right mt-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault(); // skip...
+            }}
+          >
+            or skip
+          </a>
+        </div>
+      </WelcomeFrame>
+    </>
+  );
+}

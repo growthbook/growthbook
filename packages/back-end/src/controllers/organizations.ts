@@ -746,6 +746,10 @@ export async function putOrganization(
           "settings.secondaryColor",
           settings.secondaryColor
         );
+      "datasources" in settings &&
+        req.organization.set("settings.datasources", settings.datasources);
+      "techsources" in settings &&
+        req.organization.set("settings.techsources", settings.techsources);
     }
     await req.organization.save();
     res.status(200).json({

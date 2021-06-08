@@ -106,7 +106,10 @@ pre {
     }
     .tooltip-inner {
       color: #fff;
+      max-width: 400px;
+      padding: 0.7em 1em;
       background-color: $blue;
+      box-shadow: 1px 1px 4px rgb(0 0 0 / 40%);
     }
     .arrow::before {
       border-bottom-color: $blue;
@@ -171,6 +174,9 @@ pre {
     position: absolute;
     top: 20px;
     right: 20px;
+  }
+  .tiptrigger {
+    top: -1px;
   }
 }
 @media (min-width: 575px) {

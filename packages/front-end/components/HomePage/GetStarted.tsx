@@ -141,10 +141,28 @@ const GetStarted = ({
                       />
                       Growth Book needs read access to where your experiment and
                       metric data lives. We support Mixpanel, Snowflake,
-                      Redshift, BigQuery, Google Analytics, and more.
+                      Redshift, BigQuery, Google Analytics, and more. If you
+                      don&apos;t see yours,{" "}
+                      <a
+                        className={`action-link`}
+                        href="https://www.growthbook.io/contact"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Let us know,
+                      </a>{" "}
+                      or{" "}
+                      <a
+                        href="https://github.com/growthbook/growthbook/issues/new"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        open an issue
+                      </a>
+                      .
                     </p>
                     <a
-                      className={`action-link ${
+                      className={`action-link mr-3 ${
                         hasDataSource
                           ? "btn btn-success"
                           : currentStep === 1
