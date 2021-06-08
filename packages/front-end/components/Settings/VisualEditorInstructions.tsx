@@ -81,7 +81,7 @@ export default function VisualEditorInstructions({
       )}
       {url ? (
         <p>
-          Add the below code to <code>{url}</code>{" "}
+          Modify and add the below code to <code>{url}</code>{" "}
           <a
             href="#"
             onClick={(e) => {
@@ -93,7 +93,10 @@ export default function VisualEditorInstructions({
           </a>
         </p>
       ) : (
-        <p>Add the below code to the HEAD of the website you want to test.</p>
+        <p>
+          Modify and add the below code to the HEAD of the website you want to
+          test.
+        </p>
       )}
       <Code
         language="html"

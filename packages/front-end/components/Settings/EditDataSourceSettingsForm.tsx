@@ -72,38 +72,18 @@ const EditDataSourceSettingsForm: FC<{
   }
 
   const handleSubmit = async () => {
-    if (!dirty && data.id) return;
+    if (!dirty) return;
 
     // Update
-    if (data.id) {
-      const res = await apiCall<{ status: number; message: string }>(
-        `/datasource/${data.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(datasource),
-        }
-      );
-      if (res.status > 200) {
-        throw new Error(res.message);
-      }
-    }
-    // Create
-    else {
-      const res = await apiCall<{ status: number; message: string }>(
-        `/datasources`,
-        {
-          method: "POST",
-          body: JSON.stringify(datasource),
-        }
-      );
-      if (res.status > 200) {
-        throw new Error(res.message);
-      }
-      track("Submit Datasource Settings Form", {
-        source,
-        type: datasource.type,
-      });
-    }
+    await apiCall(`/datasource/${data.id}`, {
+      method: "PUT",
+      body: JSON.stringify(datasource),
+    });
+
+    track("Edit Data Source Queries", {
+      type: data.type,
+      source,
+    });
 
     setDirty(false);
     onSuccess();

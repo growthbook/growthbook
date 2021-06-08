@@ -8,6 +8,7 @@ import useForm from "../../hooks/useForm";
 import { ImplementationType } from "back-end/types/experiment";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
+import track from "../../services/track";
 
 export type SettingsApiResponse = {
   status: number;
@@ -172,6 +173,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }
     });
     setOrganizations(organizations);
+
+    // Track usage of the Visual Editor
+    if (
+      value.types.visual &&
+      !(data?.organization?.settings?.implementationTypes || []).includes(
+        "visual"
+      )
+    ) {
+      track("Enable Visual Editor");
+    }
   };
 
   return (

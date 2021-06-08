@@ -56,5 +56,7 @@ export interface OrganizationInterface {
     logoPath?: string;
     primaryColor?: string;
     secondaryColor?: string;
+    datasources?: string[];
+    techsources?: string[];
   };
 }
