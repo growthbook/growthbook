@@ -53,7 +53,10 @@ const GetStarted = ({
             existing={false}
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
-            onSuccess={() => setDataSourceOpen(false)}
+            onSuccess={() => {
+              setDataSourceOpen(false);
+              mutateDefinitions();
+            }}
           />
         )}
         {metricsOpen && (
@@ -61,7 +64,12 @@ const GetStarted = ({
             current={{}}
             edit={false}
             source="get-started"
-            onClose={() => setMetricsOpen(false)}
+            onClose={(refresh) => {
+              setMetricsOpen(false);
+              if (refresh) {
+                mutateDefinitions();
+              }
+            }}
           />
         )}
         {experimentsOpen && (
@@ -173,7 +181,7 @@ const GetStarted = ({
                       onClick={(e) => {
                         e.preventDefault();
                         if (hasDataSource) {
-                          router.push("/settings/datasources");
+                          router.push("/datasources");
                         } else {
                           setDataSourceOpen(true);
                         }

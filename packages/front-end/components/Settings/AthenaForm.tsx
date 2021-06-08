@@ -14,6 +14,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="region"
+          required
           value={params.region || ""}
           onChange={onParamChange}
         />
@@ -24,6 +25,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="workGroup"
+          required
           value={params.workGroup || ""}
           onChange={onParamChange}
         />
@@ -34,6 +36,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="accessKeyId"
+          required={!existing}
           value={params.accessKeyId || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
@@ -45,6 +48,7 @@ const AthenaForm: FC<{
           type="password"
           className="form-control"
           name="secretAccessKey"
+          required={!existing}
           value={params.secretAccessKey || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
@@ -56,6 +60,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="database"
+          required
           value={params.database || ""}
           onChange={onParamChange}
         />
@@ -66,6 +71,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="bucketUri"
+          required
           value={params.bucketUri || ""}
           onChange={onParamChange}
         />

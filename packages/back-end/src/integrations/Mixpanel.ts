@@ -47,20 +47,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
       encryptedParams
     );
     this.settings = {
-      default: {
-        userIdColumn: "unique_id",
-      },
-      experiments: {
-        experimentIdColumn: "Experiment name",
-        table: "$experiment_started",
-        variationColumn: "Variant name",
-        variationFormat: "index",
-        ...settings.experiments,
-      },
-      pageviews: {
-        table: "Page view",
-        urlColumn: "$current_url",
-        ...settings.pageviews,
+      variationIdFormat: "index",
+      events: {
+        experimentEvent: "$experiment_started",
+        experimentIdProperty: "Experiment name",
+        variationIdProperty: "Variant name",
+        pageviewEvent: "Page view",
+        urlProperty: "$current_url",
+        userAgentProperty: "",
+        ...settings.events,
       },
     };
   }
@@ -147,7 +142,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           )}) {
             state.inExperiment = true;
             state.variation = ${this.getPropertyColumn(
-              this.settings.experiments.variationColumn || "Variant name",
+              this.settings.events.variationIdProperty || "Variant name",
               "e"
             )};
             ${
@@ -277,7 +272,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
       dimensions[row.dimension].variations.push({
         variation:
-          this.settings.experiments.variationFormat === "key"
+          this.settings.variationIdFormat === "key"
             ? variationKeyMap.get(row.variation)
             : parseInt(row.variation),
         users: row.users || 0,
@@ -700,13 +695,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidPageCondition(urlRegex?: string, event: string = "event") {
     if (urlRegex && urlRegex !== ".*") {
-      const urlCol = this.settings.pageviews.urlColumn;
+      const urlCol = this.settings.events.urlProperty;
       return `${event}.name === "${
-        this.settings.pageviews.table || "Page view"
+        this.settings.events.pageviewEvent || "Page view"
       }" && ${event}.properties["${urlCol}"] && ${event}.properties["${urlCol}"].match(/${urlRegex}/)`;
     } else {
       return `${event}.name === "${
-        this.settings.pageviews.table || "Page view"
+        this.settings.events.pageviewEvent || "Page view"
       }"`;
     }
   }
@@ -744,9 +739,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidExperimentCondition(id: string, event: string = "e") {
     const experimentEvent =
-      this.settings.experiments.table || "$experiment_started";
+      this.settings.events.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
-      this.settings.experiments.experimentIdColumn || "Experiment name",
+      this.settings.events.experimentIdProperty || "Experiment name",
       event
     );
     return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}"`;

@@ -20,30 +20,66 @@ To effectively use Growth Book, you'll need to tell us a little about the shape 
 
 ### SQL Sources
 
-The default settings assume you are using Segment to populate your database, but everything is customizeable if that's not the case.
+To query SQL data warehouses, we need 3 core SELECT statements. 
+The default values assume you are using Segment to populate your data warehouse, although you can customize the SQL at any time.
 
-- Defaults
-  -  **timestamp column** - The default timestamp column for all tables
-  -  **user id column** - The default column that stores a logged-in user id for all tables
-  -  **anonymous id column** - The default column that stores an anonymous id for logged-out users
-- Users
-  -  **table** - Table that contains all logged-in users. Multiple rows per user id are fine since we unique the values before counting.
-- Anonymous Id Mapping
-  -  **table** - Table that maps logged-out anonymous ids to logged-in user ids
-- Page Views
-  -  **table** - Table that contains one row per page view.
-  -  **url path column** - The column in this table that stores the URL path (e.g. `/about/us`)
-- Experiments
-  -  **table** - Table that maps a user id to an experiment variation. Duplicate rows are fine since we unique values before counting.
-  -  **experiment id column** - The name of the column in this table which stores the experiment id
-  -  **variation id column** - The name of the column in this table which stores the variation id
-  -  **variation id format** - What format the variation id is stored in.
-     1.  Numeric (0 = control, 1 = variation 1, etc.)
-     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+Growth Book combines these queries as needed and adds filters/grouping on top of them using Common Table Expressions (CTEs). 
+Any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse.
+
+#### 1. Experiments Query
+
+This SELECT statment is used to pull experiment variation assignments.  There should be one row every time a user is put into an experiment along with the variation they were assigned.
+
+Default value:
+
+```sql
+SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  context_page_path as url,
+  context_user_agent as user_agent
+FROM
+  experiment_viewed
+```
+
+#### 2. Users Query
+
+This SELECT statment is used to join users to anonymous sessions from before they logged in. It should return a mapping from anonymous_id to user_id.
+Most user_ids should have at least 1 associated anonymous_id for this to work properly.
+
+Default value:
+
+```sql
+SELECT
+  user_id,
+  anonymous_id
+FROM
+  identifies
+```
+
+#### 3. Page Views Query
+
+This SELECT statment is used to predict running time before an experiment starts. It does this by looking at historical traffic to the pages where your experiment will run.
+
+Default value:
+
+```sql
+SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  path as url,
+  context_user_agent as user_agent
+FROM
+  pages
+```
 
 ### Mixpanel
 
-We query Mixpanel using JQL.  Instead of tables and columns, we need to know about your events and property names.
+We query Mixpanel using JQL.  We have sensible defaults for the event and property names, but you can change them if you need to.
 
 - Experiments
   -  **View Experiments Event** - The name of the event you are firing when a user is put into a variation
@@ -55,6 +91,7 @@ We query Mixpanel using JQL.  Instead of tables and columns, we need to know abo
 - Page Views
   -  **Page Views Event** - the name of the event you are firing for every page view on your site
   -  **URL Path Property** - in the event, the property name that stores the URL path for the pageview 
+  -  **User Agent Property** - In the event, the property name that stores the user agent for the pageview
 
 ## Connection Info
 
@@ -62,7 +99,7 @@ Connection info is encrypted twice - once within the app and again by the databa
 
 Growth Book only runs `SELECT` queries (or the equivalent for non-SQL data sources).  We still always recommend creating read-only users with as few permissions as possible.
 
-If you are using the managed Growth Book App (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+If you are using Growth Book Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
 
 ### AWS Athena
 

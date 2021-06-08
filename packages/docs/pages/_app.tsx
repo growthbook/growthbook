@@ -4,7 +4,14 @@ import Head from "next/head";
 import Link from "next/link";
 import "tailwindcss/tailwind.css";
 import { useEffect } from "react";
-import { FaMoon, FaSun, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import {
+  FaMoon,
+  FaSun,
+  FaChevronLeft,
+  FaChevronRight,
+  FaGithub,
+  FaCloud,
+} from "react-icons/fa";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
@@ -65,9 +72,7 @@ const navLinks = [
   },
 ];
 
-const linksInOrder: { name: string; href: string }[] = [
-  { name: "Docs Home", href: "/" },
-];
+const linksInOrder: { name: string; href: string }[] = [];
 navLinks.forEach((l) => {
   linksInOrder.push({ name: l.name, href: l.href });
   if (l.links) {
@@ -223,115 +228,120 @@ function App({
             })}
           </div>
         </div>
-        <div className="flex flex-col h-screen flex-grow">
-          <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-600 flex">
-            <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
-              <a href="https://www.growthbook.io" className="mr-6">
-                Home
-              </a>
-              <a
-                href="https://github.com/growthbook/growthbook"
-                className="mr-6"
-              >
-                GitHub
-              </a>
-              <a href="https://app.growthbook.io">Try for free</a>
-            </div>
-            <div className="flex md:hidden items-center text-sm">
-              <Link href="/">
-                <a className="block">
-                  <img src="/growth-book-logo.png" className="w-32 mr-3" />
+        <div className="flex flex-col h-screen flex-grow w-full">
+          <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
+            <div className="flex max-w-3xl">
+              <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
+                <a href="https://www.growthbook.io" className="mr-6">
+                  Home
                 </a>
-              </Link>
+                <a
+                  href="https://github.com/growthbook/growthbook"
+                  className="mr-6"
+                >
+                  <FaGithub className="inline" /> GitHub
+                </a>
+                <a href="https://app.growthbook.io">
+                  <FaCloud className="inline" /> Try for free
+                </a>
+              </div>
+              <div className="flex md:hidden items-center text-sm">
+                <Link href="/">
+                  <a className="block">
+                    <img src="/growth-book-logo.png" className="w-32 mr-3" />
+                  </a>
+                </Link>
 
-              <select
-                className="bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100 p-1 mx-1 rounded"
-                placeholder="Jump to Section"
-                value={router.pathname}
-                onChange={(e) => {
-                  router.push(e.target.value);
+                <select
+                  className="bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100 p-1 mx-1 rounded"
+                  placeholder="Jump to Section"
+                  value={router.pathname}
+                  onChange={(e) => {
+                    router.push(e.target.value);
+                  }}
+                >
+                  {navLinks.map((link) => (
+                    <React.Fragment key={link.href}>
+                      <option value={link.href}>{link.name}</option>
+                      {link.links &&
+                        link.links.map((sublink) => (
+                          <option value={sublink.href} key={sublink.href}>
+                            {sublink.name}
+                          </option>
+                        ))}
+                    </React.Fragment>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-grow"></div>
+              <button
+                className="text-gray-100 text-xl bg-gray-800 w-8 h-8 text-center hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 rounded-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDark(!dark);
                 }}
+                title={dark ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {navLinks.map((link) => (
-                  <React.Fragment key={link.href}>
-                    <option value={link.href}>{link.name}</option>
-                    {link.links &&
-                      link.links.map((sublink) => (
-                        <option value={sublink.href} key={sublink.href}>
-                          &nbsp;&nbsp;⊢&nbsp;{sublink.name}
-                        </option>
-                      ))}
-                  </React.Fragment>
-                ))}
-              </select>
+                {dark ? (
+                  <FaSun className="mx-auto" />
+                ) : (
+                  <FaMoon className="mx-auto" />
+                )}
+              </button>
             </div>
-            <div className="flex-grow"></div>
-            <button
-              className="text-gray-100 text-xl bg-gray-800 w-8 h-8 text-center hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 rounded-full"
-              onClick={(e) => {
-                e.preventDefault();
-                setDark(!dark);
-              }}
-              title={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {dark ? (
-                <FaSun className="mx-auto" />
-              ) : (
-                <FaMoon className="mx-auto" />
-              )}
-            </button>
           </nav>
-          <main className="p-5 flex-grow overflow-y-auto">
-            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl">
+          <main className="p-5 flex-grow overflow-y-auto w-full">
+            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl w-full">
+              <div className="float-right ml-4 mb-4 hidden lg:block">
+                <a
+                  className="text-sm opacity-80 hover:opacity-100"
+                  href={`https://github.com/growthbook/growthbook/edit/main/packages/docs/pages${
+                    router.pathname
+                  }${
+                    ["/lib", "/app"].includes(router.pathname) ? "/index" : ""
+                  }${router.pathname === "/" ? "index" : ""}.mdx`}
+                >
+                  Edit this page on GitHub
+                </a>
+              </div>
+
               <Component {...pageProps} />
+
+              {currentIndex >= 0 && (
+                <div className="p-5 border-t border-gray-100 dark:border-gray-600">
+                  <footer className="dark:text-gray-200 max-w-3xl">
+                    <div className="flex">
+                      {currentIndex > 0 && (
+                        <div className="flex">
+                          <Link href={linksInOrder[currentIndex - 1].href}>
+                            <a className="flex items-center">
+                              <FaChevronLeft /> Previous
+                            </a>
+                          </Link>
+                          <span className="hidden md:inline opacity-60 ml-2">
+                            ({linksInOrder[currentIndex - 1].name})
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-grow"></div>
+                      {currentIndex < linksInOrder.length - 1 && (
+                        <div className="flex">
+                          <span className="hidden md:inline opacity-60 mr-2">
+                            ({linksInOrder[currentIndex + 1].name})
+                          </span>
+                          <Link href={linksInOrder[currentIndex + 1].href}>
+                            <a className="flex items-center">
+                              Next <FaChevronRight />
+                            </a>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </footer>
+                </div>
+              )}
             </div>
           </main>
-          {currentIndex >= 0 && (
-            <div className="p-5 border-t border-gray-100 dark:border-gray-600">
-              <footer className="dark:text-gray-200 max-w-3xl">
-                <div className="flex">
-                  {currentIndex > 0 && (
-                    <div className="flex">
-                      <Link href={linksInOrder[currentIndex - 1].href}>
-                        <a className="flex items-center">
-                          <FaChevronLeft /> Previous
-                        </a>
-                      </Link>
-                      <span className="hidden md:inline opacity-60 ml-2">
-                        ({linksInOrder[currentIndex - 1].name})
-                      </span>
-                    </div>
-                  )}
-                  <div className="text-center flex-grow mx-4 opacity-60">
-                    <a
-                      className="hidden lg:inline"
-                      href={`https://github.com/growthbook/growthbook/blob/main/packages/docs/pages${
-                        router.pathname
-                      }${
-                        ["/lib", "/app"].includes(router.pathname)
-                          ? "/index"
-                          : ""
-                      }${router.pathname === "/" ? "index" : ""}.mdx`}
-                    >
-                      Edit this page on GitHub
-                    </a>
-                  </div>
-                  {currentIndex < linksInOrder.length - 1 && (
-                    <div className="flex">
-                      <span className="hidden md:inline opacity-60 mr-2">
-                        ({linksInOrder[currentIndex + 1].name})
-                      </span>
-                      <Link href={linksInOrder[currentIndex + 1].href}>
-                        <a className="flex items-center">
-                          Next <FaChevronRight />
-                        </a>
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </footer>
-            </div>
-          )}
         </div>
       </div>
     </div>

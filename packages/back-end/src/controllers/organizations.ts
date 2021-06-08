@@ -58,6 +58,8 @@ import { uploadFile } from "../services/files";
 import { ExperimentInterface } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
+import { format } from "sql-formatter";
+import { PostgresConnectionParams } from "../../types/integrations/postgres";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -843,9 +845,50 @@ export async function postDataSources(
     });
   }
 
-  const { name, type, params, settings } = req.body;
+  const { name, type, params } = req.body;
+  const settings = req.body.settings || {};
 
   try {
+    // Set default event properties and queries
+    settings.events = {
+      experimentEvent: "$experiment_started",
+      experimentIdProperty: "Experiment name",
+      variationIdProperty: "Variant name",
+      pageviewEvent: "Page view",
+      urlProperty: "$current_url",
+      userAgentProperty: "",
+      ...settings?.events,
+    };
+
+    const schema = (params as PostgresConnectionParams)?.defaultSchema;
+
+    settings.queries = {
+      experimentsQuery: `SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  context_page_path as url,
+  context_user_agent as user_agent
+FROM
+  ${schema ? schema + "." : ""}experiment_viewed`,
+      pageviewsQuery: `SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  path as url,
+  context_user_agent as user_agent
+FROM
+  ${schema ? schema + "." : ""}pages`,
+      usersQuery: `SELECT
+  user_id,
+  anonymous_id
+FROM
+  ${schema ? schema + "." : ""}identifies`,
+      ...settings?.queries,
+    };
+
     await createDataSource(req.organization.id, name, type, params, settings);
 
     res.status(200).json({
@@ -910,6 +953,15 @@ export async function putDataSource(
         "Cannot change the type of an existing data source. Create a new one instead.",
     });
     return;
+  }
+
+  // Format queries on save
+  if (settings?.queries?.experimentsQuery) {
+    settings.queries.experimentsQuery = format(
+      settings.queries.experimentsQuery
+    );
+    settings.queries.usersQuery = format(settings.queries.usersQuery);
+    settings.queries.pageviewsQuery = format(settings.queries.pageviewsQuery);
   }
 
   try {

@@ -10,6 +10,22 @@ const dataSourceSchema = new mongoose.Schema({
   type: { type: String },
   params: String,
   settings: {
+    queries: {
+      usersQuery: String,
+      experimentsQuery: String,
+      pageviewsQuery: String,
+    },
+    events: {
+      experimentEvent: String,
+      experimentIdProperty: String,
+      variationIdProperty: String,
+      pageviewEvent: String,
+      urlProperty: String,
+      userAgentProperty: String,
+    },
+    variationIdFormat: String,
+
+    // Deprecated
     default: {
       timestampColumn: String,
       userIdColumn: String,

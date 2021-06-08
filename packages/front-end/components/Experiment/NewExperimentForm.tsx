@@ -133,9 +133,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     phases: initialPhases,
   });
 
+  const datasource = getDatasourceById(value.datasource);
   const variationKeys =
-    getDatasourceById(value.datasource)?.settings?.experiments
-      ?.variationFormat === "key";
+    (datasource?.settings?.variationIdFormat ||
+      datasource?.settings?.experiments?.variationFormat) === "key";
 
   const deleteVariation = (i: number) => {
     const variations = [...value.variations];

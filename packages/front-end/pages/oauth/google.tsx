@@ -30,7 +30,7 @@ const Google: FC = () => {
 
   const redirectToSettings = () => {
     mutateDefinitions({});
-    router.push("/settings/datasources");
+    router.push("/datasources");
   };
 
   return (
