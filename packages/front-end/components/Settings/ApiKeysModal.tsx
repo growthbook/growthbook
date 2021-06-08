@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import useForm from "../../hooks/useForm";
+import track from "../../services/track";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -18,6 +19,7 @@ const ApiKeysModal: FC<{
       method: "POST",
       body: JSON.stringify(value),
     });
+    track("Create API Key");
     onCreate();
   };
 

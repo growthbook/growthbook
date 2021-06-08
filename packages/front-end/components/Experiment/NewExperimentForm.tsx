@@ -188,6 +188,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     );
     track("Create Experiment", {
       source,
+      implementation: data.implementation || "code",
+      numTags: data.tags.length,
+      numMetrics: data.metrics.length,
+      numVariations: data.variations.length,
     });
     refreshWatching();
 

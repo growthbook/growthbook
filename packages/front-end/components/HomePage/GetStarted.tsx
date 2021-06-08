@@ -9,10 +9,14 @@ import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import { FaChevronRight, FaDatabase } from "react-icons/fa";
+import { FaChevronRight, FaDatabase, FaDesktop } from "react-icons/fa";
 import Button from "../Button";
 import Tooltip from "../Tooltip";
 import { useAuth } from "../../services/auth";
+import { HiCursorClick } from "react-icons/hi";
+import { useContext } from "react";
+import { UserContext } from "../ProtectedPage";
+import track from "../../services/track";
 
 const GetStarted = ({
   experiments,
@@ -23,6 +27,11 @@ const GetStarted = ({
 }): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
+
+  const {
+    settings: { implementationTypes },
+  } = useContext(UserContext);
+  const visualEditorEnabled = (implementationTypes || []).includes("visual");
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
@@ -120,6 +129,7 @@ const GetStarted = ({
                         });
                         await mutateDefinitions();
                         await mutate();
+                        track("Add Sample Data");
                         await router.push("/experiment/exp_sample");
                       }}
                     >
@@ -157,7 +167,7 @@ const GetStarted = ({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Let us know,
+                        let us know
                       </a>{" "}
                       or{" "}
                       <a
@@ -165,7 +175,7 @@ const GetStarted = ({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        open an issue
+                        open a GitHub issue
                       </a>
                       .
                     </p>
@@ -405,6 +415,49 @@ const GetStarted = ({
                   </div>
                 </a>
               </Link>
+              {!visualEditorEnabled && (
+                <Link href="/settings">
+                  <a className="boxlink">
+                    <div className={`card gsbox mb-3`}>
+                      <div className="card-body">
+                        <div className="card-title">
+                          <h3 className="text-blue">
+                            Enable the Visual Editor
+                          </h3>
+                        </div>
+                        <p className="card-text">
+                          <div className="float-right mx-4 position-relative">
+                            <FaDesktop
+                              style={{
+                                fontSize: "3.4em",
+                                color: "#71B1E9",
+                                stroke: "#fff",
+                                strokeWidth: 3,
+                              }}
+                            />
+                            <HiCursorClick
+                              style={{
+                                fontSize: "2.4em",
+                                position: "absolute",
+                                bottom: 3,
+                                right: -3,
+                                stroke: "#fff",
+                                color: "#4A8AC2",
+                                strokeWidth: "1px",
+                              }}
+                            />
+                          </div>
+                          Let your non-technical teammates implement A/B tests
+                          without writing code.
+                        </p>
+                        <span className="action-link non-active-step">
+                          Go to settings <FiArrowRight />
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                </Link>
+              )}
               <p className="text-center">
                 Need more help? Ask questions in our{" "}
                 <a

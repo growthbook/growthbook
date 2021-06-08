@@ -1,8 +1,7 @@
 /* 
 Track anonymous usage statistics
-- No cookies or identifiable information are sent.
-- Helps us figure out what features are the most popular 
-  and which ones need more work.
+- No identifiable information is sent.
+- Helps us figure out how often features are used so we can prioritize development
 - For example, if people start creating a metric and then 
   abandon the form, that tells us the UI needs improvement.
 - You can disable this tracking completely by setting 
@@ -17,11 +16,29 @@ export default function track(
   event: string,
   props: Record<string, unknown> = {}
 ): void {
+  // Only run client-side, not during SSR
+  if (typeof window === "undefined") return;
+
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+  const trackProps = {
+    ...props,
+    org_hash: window["gbOrgHash"] || "",
+    page_url: location.pathname,
+    page_title: "",
+    source_ip: "",
+    url: document.location.protocol + "//" + host + location.pathname,
+    doc_host: host,
+    doc_search: "",
+    doc_path: location.pathname,
+    referer: "",
+  };
+
   if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, props);
+    console.log("Telemetry Event - ", event, trackProps);
   }
   if (!isTelemetryEnabled()) return;
-  if (typeof window === "undefined") return;
 
   if (!jitsu) {
     jitsu = jitsuClient({
@@ -33,18 +50,5 @@ export default function track(
     });
   }
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
-  jitsu.track(event, {
-    ...props,
-    page_url: location.pathname,
-    page_title: "",
-    source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
-    doc_search: "",
-    doc_path: location.pathname,
-    referer: "",
-  });
+  jitsu.track(event, trackProps);
 }

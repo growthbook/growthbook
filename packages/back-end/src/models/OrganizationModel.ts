@@ -42,6 +42,8 @@ const organizationSchema = new mongoose.Schema({
     logoPath: String,
     primaryColor: String,
     secondaryColor: String,
+    datasources: [String],
+    techsources: [String],
   },
 });
 

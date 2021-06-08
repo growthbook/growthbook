@@ -9,6 +9,8 @@ import {
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
+import md5 from "md5";
+import track from "../services/track";
 
 type User = { id: string; email: string; name: string };
 
@@ -110,8 +112,11 @@ const ProtectedPage: React.FC<{
   };
 
   useEffect(() => {
+    // Anonymous hash of the orgId for telemetry data
+    window["gbOrgHash"] = orgId ? md5(orgId) : "";
     if (orgId) {
       refreshUsers();
+      track("Organization Loaded");
     }
   }, [orgId]);
 

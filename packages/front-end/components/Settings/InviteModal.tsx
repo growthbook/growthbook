@@ -3,6 +3,7 @@ import { MemberRole, useAuth } from "../../services/auth";
 import useForm from "../../hooks/useForm";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
+import track from "../../services/track";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -38,6 +39,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       setEmailSent(resp.emailSent);
       mutate();
     }
+
+    track("Team Member Invited", {
+      emailSent,
+      role: value.role,
+    });
   };
 
   return (

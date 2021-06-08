@@ -11,10 +11,14 @@ export default function InitialOrgSettings(): ReactElement {
   const techStacks = [
     { display: "Python", value: "python" },
     { display: "Ruby", value: "ruby" },
-    { display: "Node JS/javascript", value: "node-js" },
+    { display: "Node JS", value: "node" },
     { display: "PHP", value: "php" },
+    { display: "Go", value: "go" },
+    { display: "Java", value: "java" },
     { display: ".Net", value: "dotnet" },
     { display: "React", value: "react" },
+    { display: "Angular", value: "angular" },
+    { display: "Vue", value: "vue" },
   ];
   const dataSources = [
     { display: "Redshift", value: "redshift" },
