@@ -144,7 +144,7 @@ const GetStarted = ({
                       Redshift, BigQuery, Google Analytics, and more. If you
                       don&apos;t see yours,{" "}
                       <a
-                        className={`action-link`}
+                        className={``}
                         href="https://www.growthbook.io/contact"
                         target="_blank"
                         rel="noreferrer"
