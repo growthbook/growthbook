@@ -2,6 +2,8 @@
 
 Interested in making Growth Book better? So are we! This guide should help get you setup with a local development environment so you can make changes, create PRs, and get your code merged.
 
+If you just want to contribute a client library in a new language and not make changes to the app itself, you can skip the instructions here and view https://docs.growthbook.io/lib/build-your-own instead.
+
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)

@@ -64,6 +64,10 @@ const navLinks = [
         href: "/lib/ruby",
         name: "Ruby",
       },
+      {
+        href: "/lib/build-your-own",
+        name: "Build Your Own",
+      },
     ],
   },
   {

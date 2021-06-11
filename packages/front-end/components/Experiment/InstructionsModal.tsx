@@ -9,6 +9,7 @@ import useForm from "../../hooks/useForm";
 import { useEffect } from "react";
 import {
   generateJavascriptSnippet,
+  getUrlRegex,
   TrackingType,
 } from "../../services/codegen";
 import TextareaAutosize from "react-textarea-autosize";
@@ -17,7 +18,8 @@ import Code from "../Code";
 
 type Experiment = {
   key: string;
-  variations: string[];
+  // eslint-disable-next-line
+  variations: any[];
   weights?: number[];
   status?: string;
   coverage?: number;
@@ -44,6 +46,25 @@ function phpArrayFormat(json: unknown) {
 function indentLines(code: string, indent: number = 2) {
   const spaces = " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
+}
+function withHashAttribute(expDef: Experiment) {
+  const { anon, ...otherProps } = expDef;
+
+  if (anon) {
+    return {
+      ...otherProps,
+      hashAttribute: "anonId",
+    };
+  } else {
+    return {
+      ...otherProps,
+    };
+  }
+}
+function withRealRegex(stringified: string): string {
+  return stringified.replace(/("url"\s*:\s*)"([^"]+)"/, (match, key, value) => {
+    return key + getUrlRegex(value);
+  });
 }
 
 const InstructionsModal: FC<{
@@ -166,8 +187,8 @@ const InstructionsModal: FC<{
           </p>
           <Code
             language="javascript"
-            code={`const { value } = user.experiment(${stringify(
-              expDef
+            code={`const { value } = growthbook.run(${withRealRegex(
+              stringify(withHashAttribute(expDef))
             )})\n\nconsole.log(value${
               !variationParam
                 ? ""
@@ -191,7 +212,7 @@ const InstructionsModal: FC<{
           </p>
           <Code
             language="tsx"
-            code={`function MyComponent() {\n  const { value } = user.experiment(${indentLines(
+            code={`function MyComponent() {\n  const { value } = useExperiment(${indentLines(
               stringify(expDef)
             )})\n\n  return <div>{value${
               !variationParam
@@ -288,6 +309,10 @@ const InstructionsModal: FC<{
                   maxRows={6}
                   {...inputProps.funcs[i]}
                 />
+                <small className="form-text text-muted">
+                  Will be executed if user is assigned variation:{" "}
+                  <code>{v.name}</code>
+                </small>
               </div>
             ))}
           </form>

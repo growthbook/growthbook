@@ -1,0 +1,281 @@
+# Build Your Own Client Library 
+
+This guide is meant for library authors looking to build a Growth Book client library in a currently unsupported language.
+
+Growth Book client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
+
+All libraries should follow this specification as closely as the language permits to maintain consistency.
+
+## Data structures
+
+These are the 3 main data structures used in the client libraries.
+
+`Context + Experiment = Result`
+
+### Context
+
+Defines the experimental context (attributes used for variation assignment and targeting).
+
+At a minimum, the context should support the following optional properties:
+
+-  **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
+-  **user** (`Map`) - Map of user attributes that are used to assign variations
+-  **groups** (`Map`) - A map of which groups the user belongs to (key is the group name, value is boolean)
+-  **url** (`string`) - The URL of the current page
+-  **overrides** (`Map`) - Override properties of specific experiments (used for Remote Config)
+-  **forcedVariations** (`Map`) - Force specific experiments to always assign a specific variation (used for QA)
+-  **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+-  **trackingCallback** (`function`) - A function that takes `experiment` and `result` as arguments.
+
+An example of a `user`:
+
+```json
+{
+  "id": "123",
+  "anonId": "abcdef",
+  "company": "growthbook"
+}
+```
+
+An example of `trackingCallback` in javascript:
+
+```js
+function track(experiment, result) {
+  analytics.track("Experiment Viewed", {
+    experimentId: experiment.key,
+    variationId: result.variationId
+  });
+}
+```
+
+### Experiment
+
+Defines a single experiment:
+
+-  **key** (`string`) - The globally unique tracking key for the experiment
+-  **variations** (`any[]`) - The different variations to choose between
+-  **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+-  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
+-  **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+-  **url** (`RegExp`) - Users can only be included in this experiment if the current URL matches this regex
+-  **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
+-  **groups** (`string[]`) - Limits the experiment to specific user groups
+-  **force** (`number`) - All users included in the experiment will be forced into the specific variation index
+-  **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+
+The only required properties are `key` and `variations`. Everything else is optional.
+
+### Result
+
+The result of running an Experiment given a specific Context
+
+-  **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
+-  **variationId** (`string`) - The array index of the assigned variation
+-  **value** (`any`) - The array value of the assigned variation
+-  **hashAttribute** (`string`) - The user attribute used to assign a variation
+-  **hashValue** (`string)` - The value of that attribute
+
+The `variationId` and `value` should always be set, even when `inExperiment` is false.
+
+## Running an Experiment
+
+The main export of the libraries is a simple `GrowthBook` wrapper class with a `run` method that returns a `Result` object.
+
+```js
+growthbook = new GrowthBook(context);
+result = growthbook.run(experiment);
+```
+
+There are a bunch of ordered steps to run an experiment:
+
+1.  If `experiment.variations` has fewer than 2 variations, return immediately (not in experiment, variationId `0`)
+2.  If `context.enabled` is false, return immediately (not in experiment, variationId `0`)
+3.  If `context.overrides[experiment.key]` is set, merge override properties into the experiment
+4.  If `context.url` contains a querystring `{experiment.key}=[0-9]+`, return immediately (not in experiment, variationId from querystring)
+5.  If `context.forcedVariations[experiment.key]` is defined, return immediately (not in experiment, forced variation)
+6.  If `experiment.status` is "draft", return immediately (not in experiment, variationId `0`)
+7.  Get the user hash attribute and value (`context.user[experiment.hashAttribute || "id"]`) and if empty, return immediately (not in experiment, variationId `0`)
+8.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
+9.  If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
+10. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
+11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
+12. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
+13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
+14.  Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+    ```js
+    n = (fnv32_1a(id + experiment.key) % 1000) / 1000
+    ```
+15.  Apply coverage to weights:
+    ```js
+    // Default weights to an even split
+    weights = experiment.weights
+    if(!weights) {
+      weights = Array(experiment.variations.length)
+        .fill(1/experiment.variations.length)
+    }
+
+    // Multiple each weight by the coverage (or 1 if not set)
+    weights = weights.map(w => w*(experiment.coverage || 1));
+    ```
+16.  Loop through `weights` until you reach the hash value
+    ```js
+    cumulative = 0
+    assigned = -1
+    for (i=0; i<weights.length; i++) {
+      cumulative += weights[i]
+      if (n < cumulative) {
+        assigned = i
+        break
+      }
+    }
+    ```
+17.  If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+18.  Fire `context.trackingCallback` if set
+19.  Return (**in experiment**, assigned variation)
+
+## Remote Config
+
+`context.overrides` allows overriding a subset of experiment properties without changing code. For example, changing an experiment's status from `running` to `stopped`.
+
+The overrides are typically stored in a database or cache so there should be an easy way to pass them in as a JSON-encoded object. The object will look something like this:
+
+```json
+{
+  "my-experiment-key": {
+    "status": "stopped"
+  },
+  "my-other-experiment": {
+    "coverage": 0.5,
+    "groups": "beta-testers"
+  }
+}
+```
+
+The full list of supported override properties is:
+-  weights
+-  status
+-  force
+-  coverage
+-  groups
+-  url
+
+Note that the above list specifically does not include `variations`. The only way to change the variations is to change the code.
+This restriction makes testing and maintaining code much much easier.
+
+## Developer Experience
+
+Having a good developer experience is super important.
+
+### Basic Usage
+
+It should be very simple to run a basic A/B test:
+
+```js
+result = growthbook.run({
+  key: "my-experiment",
+  variations: ["A", "B"]
+})
+
+print(result.value) // "A" or "B"
+```
+
+And it should feel natural to scale up to more complex use cases:
+
+```js
+// 50% of beta testers, 80/20 split between variations
+result = growthbook.run({
+  key: "complex-experiment",
+  variations: [
+    {color: "blue", size: "small"},
+    {color: "green", size: "large"}
+  ],
+  weights: [0.8, 0.2],
+  coverage: 0.5,
+  groups: ["beta-testers"]
+})
+
+print(result.value.color, result.value.size) // "blue,small" OR "green,large"
+```
+
+### Type Hinting
+
+Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for client libraries.
+
+If possible, use generics to type the return value.  If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
+
+If your type system supports specifying a minimum array length, it's best to type `experiment.variations` as requiring at least 2 elements.
+
+The `experiment.status` field should be typed as a string union or enum if possible. The only valid values are `draft`, `running`, and `stopped`.
+
+### URL Regexes
+
+If your language has support for a native regex type, you should use that instead of strings for `experiment.url`.
+
+However, in all languages, `context.overrides` needs to remain serializeable to JSON, so strings must be used there. When importing overrides from JSON, you would convert the strings to actual regex objects.
+
+Since the regex deals with URLs, make sure you are escaping `/` if needed.  The string value `"^/post/[0-9]+"` should work as expected and not throw an error.
+
+### Handling Errors
+
+The general rule is to be strict in development and lenient in production.
+
+You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.run`.
+
+For the below edge cases in production, just act as if the problematic property didn't exist and ignore errors:
+-  `experiment.weights` is a different length from `experiment.variations`
+-  `experiment.weights` adds up to something other than 1
+-  `experiment.coverage` is greater than 1
+-  `context.trackingCallback` throws an error
+-  URL querystring specifies an invalid variation index
+
+For the below edge cases in production, the experiment should be disabled (everyone gets assigned variation `0`):
+-  `experiment.url` is an invalid regex
+-  `experiment.coverage` is less than 0
+-  `experiment.force` specifies an invalid variation index
+-  `context.forcedVariations` specifies an invalid variation index
+-  `experiment.include` throws an error
+-  `experiment.status` is set to an unknown value
+-  `experiment.hashAttribute` is an empty string
+
+### Subscriptions
+
+Sometimes it's useful to be able to "subscribe" to a GrowthBook instance and be alerted every time `growthbook.run` is called. This is different from the tracking callback since it also fires when a user is *not* included in an experiment.
+
+```js
+growthbook.subscribe(function(experiment, result) {
+  // do something
+})
+```
+
+It's best to only re-fire the callbacks for an experiment if the result has changed. That means either the `inExperiment` flag has changed or the `variationId` has changed.
+
+If it makes sense for your language, this function should return an "unsubscriber". A simple callback that removes the subscription.
+
+```js
+unsubscriber = growthbook.subscribe(...)
+unsubscriber()
+```
+
+In addition to subscriptions you may also want to expose a `growthbook.getAllResults` method that returns a map of the latest results indexed by experiment key.
+
+### Memory Management
+
+Subscriptions and tracking calls require storing references to many objects and functions. If it makes sense for your language, libraries should provide a `growthbook.destroy` method to remove all of these references and release their memory.
+
+## Tests
+
+We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages.
+
+1.  Copy/paste the test suite from an existing client library
+2.  Do global search/replace to fix common syntax differences (e.g. replacing `->` in php with `.` in javascript)
+3.  Manually fix the rest of the syntax errors and coding patterns
+4.  Run the tests!
+5.  Go back to step 3 a bunch of times :)
+
+## Getting Help
+
+Join our [Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help or want to chat. We're also happy to hop on a call and do some pair programming.
+
+## Attribution
+
+Open a [https://github.com/growthbook/growthbook/issues](GitHub issue) with a link to your project and we'll make sure we add it to our docs and give you proper credit for your hard work.
