@@ -157,7 +157,6 @@ export default abstract class SqlIntegration
   // eslint-disable-next-line
   abstract getNonSensitiveParams(): any;
   constructor(encryptedParams: string, settings: DataSourceSettings) {
-    // TODO: new connection params for bigquery
     this.setParams(encryptedParams);
     this.settings = {
       ...settings,

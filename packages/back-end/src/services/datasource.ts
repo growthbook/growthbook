@@ -10,6 +10,7 @@ import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import { SourceIntegrationInterface } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
+import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
 import { DataSourceModel } from "../models/DataSourceModel";
 import {
@@ -66,6 +67,8 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
     obj = new Postgres(params, settings);
   } else if (type === "bigquery") {
     obj = new BigQuery(params, settings);
+  } else if (type === "clickhouse") {
+    obj = new ClickHouse(params, settings);
   } else if (type === "mixpanel") {
     obj = new Mixpanel(params, settings);
   } else {

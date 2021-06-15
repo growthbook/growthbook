@@ -74,9 +74,10 @@ const DataSources: FC = () => {
             Connect Growth Book to your data so we can automatically fetch
             experiment results and metric values. We currently support{" "}
             <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
-            <strong>BigQuery</strong>, <strong>Postgres</strong>,{" "}
-            <strong>Athena</strong>, <strong>Mixpanel</strong>, and{" "}
-            <strong>Google Analytics</strong> with more coming soon.
+            <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
+            <strong>Postgres</strong>, <strong>Athena</strong>,{" "}
+            <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
+            with more coming soon.
           </p>
           <p>
             We only ever fetch aggregate data, so none of your user&apos;s
