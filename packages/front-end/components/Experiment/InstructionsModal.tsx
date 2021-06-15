@@ -66,6 +66,11 @@ function withRealRegex(stringified: string): string {
     return key + getUrlRegex(value);
   });
 }
+function toPythonParams(stringified: string): string {
+  return stringified
+    .replace(/^\{|\}$/g, "")
+    .replace(/\n {2}"([a-zA-Z0-9_]+)": /g, "\n  $1 = ");
+}
 
 const InstructionsModal: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -247,6 +252,27 @@ const InstructionsModal: FC<{
             }\n);\n$result = $user->experiment($experiment);\n\necho $result->value${
               !variationParam ? "" : '["' + variationParam + '"]'
             }; // ${variationParamList}`}
+          />
+        </Tab>
+        <Tab display="Python">
+          <p>
+            Install our{" "}
+            <a
+              href="https://github.io/growthbook/growthbook-python"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Python Client Library
+            </a>{" "}
+            and then...
+          </p>
+          <Code
+            language="python"
+            code={`from growthbook import Experiment\n\nresult = gb.run(Experiment(${toPythonParams(
+              stringify(withHashAttribute(expDef))
+            )}))\n\n# ${variationParamList}\nprint(result.value${
+              !variationParam ? "" : '["' + variationParam + '"]'
+            })`}
           />
         </Tab>
         <Tab display="Inline Script">

@@ -1,0 +1,259 @@
+# Python
+
+View the full documentation on [GitHub](https://github.com/growthbook/growthbook-python).
+
+## Installation
+
+`pip install growthbook` (recommended) or copy `growthbook.py` into your project
+
+## Quick Usage
+
+```python
+from growthbook import GrowthBook, Experiment
+
+userId = "123"
+
+def on_experiment_viewed(experiment, result):
+  # Use whatever event tracking system you want
+  analytics.track(userId, "Experiment Viewed", {
+    'experimentId': experiment.key,
+    'variationId': result.variationId
+  })
+
+gb = GrowthBook(
+  user = {"id": userId},
+  trackingCallback = on_experiment_viewed
+)
+
+result = gb.run(Experiment(
+  key = "my-experiment",
+  variations = ["A", "B"]
+))
+
+print(result.value) # "A" or "B"
+```
+
+## GrowthBook class
+
+The GrowthBook constructor has the following parameters:
+
+-  **enabled** (`boolean`) - Flag to globally disable all experiments. Default true.
+-  **user** (`dict`) - Dictionary of user attributes that are used to assign variations
+-  **groups** (`dict`) - A dictionary of which groups the user belongs to (key is the group name, value is boolean)
+-  **url** (`string`) - The URL of the current request (if applicable)
+-  **overrides** (`dict`) - Nested dictionary of experiment property overrides (used for Remote Config)
+-  **forcedVariations** (`dict`) - Dictionary of forced experiment variations (used for QA)
+-  **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+-  **trackingCallback** (`callable`) - A function that takes `experiment` and `result` as arguments.
+
+## Experiment class
+
+Below are all of the possible properties you can set for an Experiment:
+
+-  **key** (`string`) - The globally unique tracking key for the experiment
+-  **variations** (`any[]`) - The different variations to choose between
+-  **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
+-  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
+-  **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+-  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
+-  **include** (`callable`) - A function that returns true if the user should be part of the experiment and false if they should not be
+-  **groups** (`string[]`) - Limits the experiment to specific user groups
+-  **force** (`int`) - All users included in the experiment will be forced into the specified variation index
+-  **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
+
+
+## Running Experiments
+
+Run experiments by calling `gb.run(experiment)` which returns an object with a few useful properties:
+
+```python
+result = gb.run(Experiment(
+  key = "my-experiment",
+  variations = ["A", "B"]
+))
+
+# If user is part of the experiment
+print(result.inExperiment) # true or false
+
+# The index of the assigned variation
+print(result.variationId) # 0 or 1
+
+# The value of the assigned variation
+print(result.value) # "A" or "B"
+
+# The user attribute used to assign a variation
+print(result.hashAttribute) # "id"
+
+# The value of that attribute
+print(result.hashValue) # e.g. "123"
+```
+
+The `inExperiment` flag is only set to true if the user was randomly assigned a variation.  If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
+
+### Example Experiments
+
+3-way experiment with uneven variation weights:
+```python
+gb.run(Experiment(
+  key = "3-way-uneven",
+  variations = ["A","B","C"],
+  weights = [0.5, 0.25, 0.25]
+))
+```
+
+Slow rollout (10% of users who opted into "beta" features):
+```python
+# User is in the "qa" and "beta" groups
+gb = GrowthBook(
+  user = {"id": "123"},
+  groups = {
+    "qa": isQATester(),
+    "beta": betaFeaturesEnabled()
+  }
+)
+
+gb.run(Experiment(
+  key = "slow-rollout",
+  variations = ["A", "B"],
+  coverage = 0.1,
+  groups = ["beta"]
+))
+```
+
+Complex variations and custom targeting
+```python
+result = gb.run(Experiment(
+  key = "complex-variations",
+  variations = [
+    {'color': "blue", 'size': "large"},
+    {'color': "green", 'size': "small"}
+  ],
+  url = "^/post/[0-9]+$"
+  include = lambda: isPremium or creditsRemaining > 50
+))
+
+# Either "blue,large" OR "green,small"
+print(result.value["color"] + "," + result.value["size"])
+```
+
+Assign variations based on something other than user id
+```python
+gb = GrowthBook(
+  user = {
+    "id": "123",
+    "company": "growthbook"
+  }
+)
+
+gb.run(Experiment(
+  key = "by-company-id",
+  variations = ["A", "B"],
+  hashAttribute = "company"
+))
+
+# Users in the same company will always get the same variation
+```
+
+### Overriding Experiment Configuration
+
+It's common practice to adjust experiment settings after a test is live.  For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
+
+For example, to roll out a winning variation to 100% of users:
+```python
+gb = GrowthBook(
+  user = {"id": "123"},
+  overrides = {
+    "experiment-key": {
+      "status": "stopped",
+      "force": 1
+    }
+  }
+)
+
+result = gb.run(Experiment(
+  key = "experiment-key",
+  variations = ["A", "B"]
+))
+
+print(result.value) # Always "B"
+```
+
+The full list of experiment properties you can override is:
+*  status
+*  force
+*  weights
+*  coverage
+*  groups
+*  url
+
+If you use the Growth Book App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format.  It's a great way to make sure your experiments are always up-to-date.
+
+### Django
+
+For Django (and other web frameworks), we recommend adding a simple middleware where you instantiate the GrowthBook object
+
+```python
+from growthbook import GrowthBook
+
+def growthbook_middleware(get_response):
+    def middleware(request):
+        request.gb = GrowthBook(
+          # ...
+        )
+        response = get_response(request)
+
+        request.gb.destroy() # Cleanup
+
+        return response
+    return middleware
+```
+
+Then, you can easily run an experiment in any of your views:
+
+```python
+from growthbook import Experiment
+
+def index(request):
+    result = request.gb.run(Experiment(
+      # ...
+    ))
+    # ...
+```
+
+## Event Tracking and Analyzing Results
+
+This library only handles assigning variations to users.  The 2 other parts required for an A/B testing platform are Tracking and Analysis.
+
+### Tracking
+
+It's likely you already have some event tracking on your site with the metrics you want to optimize (Segment, Mixpanel, etc.).
+
+For A/B tests, you just need to track one additional event - when someone views a variation.  
+
+```python
+# Specify a tracking callback when instantiating the client
+gb = GrowthBook(
+  user = {"id": "123"},
+  trackingCallback = on_experiment_viewed
+})
+```
+
+Below are examples for a few popular event tracking tools:
+
+#### Segment
+```python
+def on_experiment_viewed(experiment, result):
+  analytics.track(userId, "Experiment Viewed", {
+    'experimentId': experiment.key,
+    'variationId': result.variationId
+  })
+```
+
+#### Mixpanel
+```python
+def on_experiment_viewed(experiment, result):
+  mp.track(userId, "$experiment_started", {
+    'Experiment name': experiment.key,
+    'Variant name': result.variationId
+  })
+```

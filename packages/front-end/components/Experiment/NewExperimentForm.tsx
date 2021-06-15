@@ -239,7 +239,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   key: "code",
                   display: "Code",
                   description:
-                    "Using one of our Client Libraries (Javascript, React, PHP, or Ruby)",
+                    "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
                 },
                 {
                   key: "visual",

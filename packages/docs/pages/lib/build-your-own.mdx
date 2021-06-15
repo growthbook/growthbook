@@ -130,7 +130,7 @@ There are a bunch of ordered steps to run an experiment:
     }
     ```
 17.  If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
-18.  Fire `context.trackingCallback` if set
+18.  Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
 19.  Return (**in experiment**, assigned variation)
 
 ## Remote Config
@@ -278,4 +278,4 @@ Join our [Slack community](https://join.slack.com/t/growthbookusers/shared_invit
 
 ## Attribution
 
-Open a [https://github.com/growthbook/growthbook/issues](GitHub issue) with a link to your project and we'll make sure we add it to our docs and give you proper credit for your hard work.
+Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a link to your project and we'll make sure we add it to our docs and give you proper credit for your hard work.
