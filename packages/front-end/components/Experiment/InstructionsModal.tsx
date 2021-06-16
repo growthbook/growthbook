@@ -71,6 +71,11 @@ function toPythonParams(stringified: string): string {
     .replace(/^\{|\}$/g, "")
     .replace(/\n {2}"([a-zA-Z0-9_]+)": /g, "\n  $1 = ");
 }
+function toRubyParams(stringified: string): string {
+  return stringified
+    .replace(/^\[|\]$/g, "")
+    .replace(/"([a-zA-Z]+)" => /g, ":$1 => ");
+}
 
 const InstructionsModal: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -178,7 +183,7 @@ const InstructionsModal: FC<{
       closeCta="Close"
     >
       <Tabs className="mb-3">
-        <Tab display="Javascript">
+        <Tab display="JS">
           <p>
             Install our{" "}
             <a
@@ -275,7 +280,38 @@ const InstructionsModal: FC<{
             })`}
           />
         </Tab>
-        <Tab display="Inline Script">
+        <Tab display="Ruby">
+          <p>
+            Install our{" "}
+            <a
+              href="https://github.io/growthbook/growthbook-ruby"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ruby Client Library
+            </a>{" "}
+            and then...
+          </p>
+          <Code
+            language="ruby"
+            code={`exp = Growthbook::Experiment.new("${expDef.key}", ${
+              expDef.variations.length
+            }${
+              removeKeyAndVariations(expDef)
+                ? ",\n  " +
+                  toRubyParams(
+                    indentLines(phpArrayFormat(removeKeyAndVariations(expDef)))
+                  ) +
+                  "\n"
+                : ""
+            })\n\nresult = user.experiment(exp)\ncase result.variation\n${experiment.variations
+              .map((v, i) => {
+                return `when ${i}\n  puts ${JSON.stringify(v.name)}`;
+              })
+              .join("\n")}\nelse\n  puts "Not in experiment"`}
+          />
+        </Tab>
+        <Tab display="Inline">
           <div className="alert alert-warning">
             <FaExclamationTriangle /> Inline Scripts are a beta feature. Use at
             your own risk and make sure to test!
