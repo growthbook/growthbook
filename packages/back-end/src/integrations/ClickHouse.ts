@@ -49,8 +49,7 @@ export default class ClickHouse extends SqlIntegration {
     return `date_sub(hour, 30, ${col})`;
   }
   regexMatch(col: string, regex: string) {
-    // Does the regex need to escape `\` here?
-    return `match(${col}, "${regex}")`;
+    return `match(${col}, '${regex.replace(/\\/g, "\\\\")}')`;
   }
   percentile(col: string, percentile: number) {
     return `quantile(${percentile})(${col})`;
