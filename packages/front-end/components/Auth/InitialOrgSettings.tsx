@@ -28,6 +28,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "Postgres", value: "postgres" },
     { display: "BigQuery", value: "bigquery" },
     { display: "Mixpanel", value: "mixpanel" },
+    { display: "ClickHouse", value: "clickhouse" },
   ];
 
   const [value, inputProps, manualUpdate] = useForm({

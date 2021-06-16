@@ -39,9 +39,9 @@ const DimensionsPage: FC = () => {
         </div>
         <div className="alert alert-info">
           Dimensions are only available if you connect Growth Book to a
-          compatible data source (Snowflake, Redshift, BigQuery, Athena,
-          Postgres, or Mixpanel). Support for other data sources like Google
-          Analytics is coming soon.
+          compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
+          Athena, Postgres, or Mixpanel). Support for other data sources like
+          Google Analytics is coming soon.
         </div>
       </div>
     );

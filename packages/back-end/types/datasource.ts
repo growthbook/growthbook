@@ -1,5 +1,6 @@
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
+import { ClickHouseConnectionParams } from "./integrations/clickhouse";
 import { GoogleAnalyticsParams } from "./integrations/googleanalytics";
 import { MixpanelConnectionParams } from "./integrations/mixpanel";
 import { PostgresConnectionParams } from "./integrations/postgres";
@@ -12,6 +13,7 @@ export type DataSourceType =
   | "snowflake"
   | "postgres"
   | "bigquery"
+  | "clickhouse"
   | "mixpanel";
 
 export type DataSourceParams =
@@ -20,6 +22,7 @@ export type DataSourceParams =
   | GoogleAnalyticsParams
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
+  | ClickHouseConnectionParams
   | MixpanelConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
@@ -113,6 +116,10 @@ interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
 
+interface ClickHouseDataSource extends DataSourceBase {
+  type: "clickhouse";
+}
+
 interface MixpanelDataSource extends DataSourceBase {
   type: "mixpanel";
 }
@@ -141,6 +148,10 @@ export type BigQueryDataSourceWithParams = WithParams<
   BigQueryDataSource,
   BigQueryConnectionParams
 >;
+export type ClickHouseDataSourceWithParams = WithParams<
+  ClickHouseDataSource,
+  ClickHouseConnectionParams
+>;
 export type MixpanelDataSourceWithParams = WithParams<
   MixpanelDataSource,
   MixpanelConnectionParams
@@ -153,6 +164,7 @@ export type DataSourceInterface =
   | SnowflakeDataSource
   | PostgresDataSource
   | BigQueryDataSource
+  | ClickHouseDataSource
   | MixpanelDataSource;
 
 export type DataSourceInterfaceWithParams =
@@ -162,4 +174,5 @@ export type DataSourceInterfaceWithParams =
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
   | BigQueryDataSourceWithParams
+  | ClickHouseDataSourceWithParams
   | MixpanelDataSourceWithParams;

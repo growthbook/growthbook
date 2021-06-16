@@ -11,7 +11,6 @@ export default class BigQuery extends SqlIntegration {
     );
   }
   getNonSensitiveParams(): Partial<BigQueryConnectionParams> {
-    // TODO: remove sensitive params
     return {
       ...this.params,
       privateKey: undefined,

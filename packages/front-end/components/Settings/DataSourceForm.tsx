@@ -16,6 +16,7 @@ import PostgresForm from "./PostgresForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import SnowflakeForm from "./SnowflakeForm";
 import BigQueryForm from "./BigQueryForm";
+import ClickHouseForm from "./ClickHouseForm";
 import MixpanelForm from "./MixpanelForm";
 import track from "../../services/track";
 import Modal from "../Modal";
@@ -84,6 +85,17 @@ const typeOptions: {
       privateKey: "",
       clientEmail: "",
       projectId: "",
+    },
+  },
+  {
+    type: "clickhouse",
+    display: "ClickHouse",
+    default: {
+      url: "",
+      port: 8123,
+      username: "",
+      password: "",
+      database: "",
     },
   },
   {
@@ -238,6 +250,14 @@ const DataSourceForm: FC<{
   } else if (datasource.type === "snowflake") {
     connSettings = (
       <SnowflakeForm
+        existing={existing}
+        onParamChange={onParamChange}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "clickhouse") {
+    connSettings = (
+      <ClickHouseForm
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}

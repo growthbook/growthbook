@@ -1,9 +1,9 @@
 import { FC, ChangeEventHandler } from "react";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import { isCloud } from "../../services/env";
 
-const PostgresForm: FC<{
-  params: Partial<PostgresConnectionParams>;
+const ClickHouseForm: FC<{
+  params: Partial<ClickHouseConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
 }> = ({ params, existing, onParamChange }) => {
@@ -21,13 +21,13 @@ const PostgresForm: FC<{
       ) : null}
       <div className="row">
         <div className="form-group col-md-12">
-          <label>Host</label>
+          <label>URL</label>
           <input
             type="text"
             className="form-control"
-            name="host"
+            name="url"
             required
-            value={params.host || ""}
+            value={params.url || ""}
             onChange={onParamChange}
           />
         </div>
@@ -48,19 +48,17 @@ const PostgresForm: FC<{
             type="text"
             className="form-control"
             name="database"
-            required
             value={params.database || ""}
             onChange={onParamChange}
           />
         </div>
         <div className="form-group col-md-12">
-          <label>User</label>
+          <label>Username</label>
           <input
             type="text"
             className="form-control"
-            name="user"
-            required
-            value={params.user || ""}
+            name="username"
+            value={params.username || ""}
             onChange={onParamChange}
           />
         </div>
@@ -70,21 +68,9 @@ const PostgresForm: FC<{
             type="password"
             className="form-control"
             name="password"
-            required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
             placeholder={existing ? "(Keep existing)" : ""}
-          />
-        </div>
-        <div className="form-group col-md-12">
-          <label>Default Schema</label>
-          <input
-            type="text"
-            className="form-control"
-            name="defaultSchema"
-            value={params.defaultSchema || ""}
-            onChange={onParamChange}
-            placeholder="(optional)"
           />
         </div>
       </div>
@@ -92,4 +78,4 @@ const PostgresForm: FC<{
   );
 };
 
-export default PostgresForm;
+export default ClickHouseForm;

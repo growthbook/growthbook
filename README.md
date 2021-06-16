@@ -11,9 +11,9 @@
 
 ## Major Features
 
-- Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), and [Ruby](https://github.com/growthbook/growthbook-ruby) with more coming soon
+- Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
 - [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
-- Query multiple data sources (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, and Google Analytics)
+- Query multiple data sources (Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, and Google Analytics)
 - Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - Drill down into A/B test results (e.g. by browser, country, etc.)
 - Lightweight idea board and prioritization framework
@@ -24,7 +24,7 @@
 
 - Docker (plus docker-compose for running locally)
 - MongoDB 3.2 or higher
-- A compatible data source (Snowflake, Redshift, BigQuery, Mixpanel, Postgres, Athena, or Google Analytics)
+- A compatible data source (Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, or Google Analytics)
 - _(optional)_ An SMTP server for emailing invites, reset password links, etc.
 - _(optional)_ Google OAuth keys (only if using Google Analytics as a data source)
 
