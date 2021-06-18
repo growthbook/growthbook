@@ -55,36 +55,54 @@
     </div>
     <div id="root" class="mb-5">
       <div class="mr-3 p-4 border rounded bg-light">
+        <button class="btn btn-sm btn-outline-secondary float-right">Refresh</button>
         <h2>Hello World</h2>
         <p>This box is being A/B tested!</p>
-        <p>Refresh the page to get another random variation for the headline and button.</p>
+        <p>Refresh to get another random variation for the headline and button.</p>
         <a class="btn btn-secondary" href="#">Click Here</a>
         <span class="text-muted d-none">This variation must be pretty good if it got you to click...</span>
       </div>
     </div>
     <script>
-      function pickRandom(arr) {
-        const i = Math.floor(Math.random()*arr.length);
-        return arr[i]
-      }
+      (function() {
+        const root = document.getElementById("root")
+        const h2 = root.querySelector("h2")
+        const a = root.querySelector("a")
+        const span = root.querySelector("span")
+        const button = root.querySelector("button")
 
-      const greetings = ["Hello There", "Welcome", "Good Day", "Howdy!", "Aloha", "Ahoy!"]
-      const btns = ["primary","secondary","success","warning","danger","outline-primary","outline-danger","outline-success"]
-      const ctas = ["Click Here", "Free Kittens", "Learn More", "Get Started", "Launch Missiles"]
+        const greetings = ["Hello There", "Welcome", "Good Day", "Howdy!", "Aloha", "Ahoy!"]
+        const btns = ["primary","secondary","success","warning","danger","outline-primary","outline-danger","outline-success"]
+        const ctas = ["Click Here", "Free Kittens", "Learn More", "Get Started", "Launch Missiles"]
 
-      const root = document.getElementById("root")
-      root.querySelector("h2").innerHTML = pickRandom(greetings);
-      root.querySelector("a").className = `btn btn-${pickRandom(btns)}`;
-      root.querySelector("a").innerHTML = pickRandom(ctas);
+        function pickRandom(arr) {
+          const i = Math.floor(Math.random()*arr.length);
+          return arr[i]
+        }
+        function render() {
+          span.classList.add("d-none")
+          h2.innerHTML = pickRandom(greetings);
+          a.className = `btn btn-${pickRandom(btns)}`;
+          a.innerHTML = pickRandom(ctas);
+        }
 
-      root.querySelector("a").addEventListener("click", (e) => {
-        e.preventDefault();
-        root.querySelector("span").classList.remove("d-none");
-      });
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          span.classList.remove("d-none");
+        });
+        button.addEventListener("click", (e) => {
+          e.preventDefault();
+          render();
+        })
+
+        render()
+      })();
+
+
     </script>
     <h3><strong>Step 1.</strong> Configure Your App...</h3>
-    <div class="row mb-5 pt-2">
-      <div class="col">
+    <div class="row pt-2">
+      <div class="col mb-4">
         <h5 class="text-muted">...for our <strong>Client Libraries</strong></h5>
         <pre><code class="language-jsx">import { GrowthBook } from '@growthbook/growthbook'
 
@@ -99,7 +117,7 @@ const growthbook = new GrowthBook({
 })</code></pre>
         <small>Available for <a href="https://docs.growthbook.io/lib/js">Javascript</a>, <a href="https://docs.growthbook.io/lib/react">ReactJS</a>, <a href="https://docs.growthbook.io/lib/php">PHP</a>, <a href="https://docs.growthbook.io/lib/ruby">Ruby</a>, and <a href="https://docs.growthbook.io/lib/python">Python</a></small>
       </div>
-      <div class="col">
+      <div class="col mb-5">
         <h5 class="text-muted">...for our <strong>Visual Editor</strong></h5>
         <pre><code class="language-markup">&lt;script&gt;
 window.GROWTHBOOK_CONFIG = {
@@ -117,8 +135,8 @@ window.GROWTHBOOK_CONFIG = {
     </div>
     <h3><strong>Step 2.</strong> Run Experiments...</h3>
     
-    <div class="row mb-5 pt-2">
-      <div class="col">
+    <div class="row pt-2">
+      <div class="col mb-4">
         <h5 class="text-muted">...by <strong>writing code</strong></h5>
         <pre><code class="language-jsx">const result = growthbook.run({
   key: "new-greeting",
@@ -133,15 +151,16 @@ window.GROWTHBOOK_CONFIG = {
 console.log(result.value)</code></pre>
         <small>Completely local evaluation with no network requests or blocking calls</small>
       </div>
-      <div class="col">
+      <div class="col mb-5">
         <h5 class="text-muted">...or with our <strong>point &amp; click tool</strong></h5>
-        <img src="https://docs.growthbook.io/images/visual-editor.png" style="max-width:100%;border:1px solid #ddd;"/>
+        <img src="https://docs.growthbook.io/images/visual-editor.png" style="max-width:100%;border:1px solid #ddd;min-width:320px"/>
       </div>
     </div>
     <div class="mb-5">
       <h3><strong>Step 3.</strong> Analyze results</h3>
       <h5 class="pt-2 text-muted mb-3">Pull data from wherever it lives: <strong>Mixpanel</strong>, <strong>Redshift</strong>, <strong>Snowflake</strong>, <strong>BigQuery</strong>, <strong>Google Analytics</strong>, and more.</h5>
       <img src="https://user-images.githubusercontent.com/1087514/119926797-a958a000-bf3d-11eb-8a6d-7f01383f4f68.png" style="max-width:100%;border:1px solid #ddd"/>
+      <small>Bayesian stats engine that supports <strong>conversion</strong>, <strong>count</strong>, <strong>duration</strong>, and <strong>revenue</strong> metrics.</small>
     </div>
     <div style="margin-bottom: 50px;">
       Ready to get started? Check out <a href="https://www.growthbook.io">growthbook.io</a>
