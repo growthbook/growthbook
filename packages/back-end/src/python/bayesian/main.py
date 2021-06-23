@@ -1,3 +1,9 @@
+# Medium article inspiration:
+#   https://towardsdatascience.com/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8
+# Original code:
+#   https://github.com/itamarfaran/public-sandbox/tree/master/bayesian_blog
+
+
 import numpy as np
 from scipy.stats import norm, beta
 from scipy.special import digamma, polygamma, roots_hermitenorm
