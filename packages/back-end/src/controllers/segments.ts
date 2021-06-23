@@ -10,13 +10,7 @@ import {
   getSourceIntegrationObject,
   getDataSourceById,
 } from "../services/datasource";
-import {
-  countABTest,
-  binomialABTest,
-  ABTestStats,
-  bootstrapABTest,
-  getValueCR,
-} from "../services/stats";
+import { ABTestStats, getValueCR, abtest } from "../services/stats";
 import { getMetricsByDatasource } from "../services/experiments";
 import {
   QueryMap,
@@ -178,7 +172,7 @@ async function processResults(
   // Stats for each metric
   const metrics = await getMetricsByDatasource(doc.datasource);
   const selectedMetrics = metrics.filter((m) => doc.metrics.includes(m.id));
-  selectedMetrics.forEach((m) => {
+  selectedMetrics.forEach(async (m) => {
     const segment1Result: MetricValueResult = data.get(`${m.id}_segment1`)
       ?.result;
     const segment2Result: MetricValueResult = data.get(`${m.id}_segment2`)
@@ -208,42 +202,14 @@ async function processResults(
         ci: [0, 0],
         expected: 0,
       };
-    } else if (m.type === "duration") {
-      stats = bootstrapABTest(
-        v1Stats,
-        results.users.segment1,
-        v2Stats,
-        results.users.segment2,
-        m.ignoreNulls
-      );
-    } else if (m.type === "revenue") {
-      stats = bootstrapABTest(
-        v1Stats,
-        results.users.segment1,
-        v2Stats,
-        results.users.segment2,
-        m.ignoreNulls
-      );
-    } else if (m.type === "count") {
-      stats = countABTest(
-        v1,
-        results.users.segment1,
-        v2,
-        results.users.segment2
-      );
-    } else if (m.type === "binomial") {
-      stats = binomialABTest(
-        v1,
-        results.users.segment1 - v1,
-        v2,
-        results.users.segment2 - v2
-      );
     } else {
-      throw new Error("Not support for metrics of type " + m.type);
-    }
-
-    if (m.inverse) {
-      stats.chanceToWin = 1 - stats.chanceToWin;
+      stats = await abtest(
+        m,
+        results.users.segment1,
+        v1Stats,
+        results.users.segment2,
+        v2Stats
+      );
     }
 
     results.metrics[m.id] = {

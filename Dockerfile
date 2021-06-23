@@ -1,12 +1,18 @@
 FROM node:14-alpine
 
+# Install python for stats models
+RUN apk add --no-cache \
+  python3 \
+  py3-numpy \
+  py3-scipy
+
 WORKDIR /usr/local/src/app
 
 # Copy only the required files
 COPY . /usr/local/src/app
 
 RUN \
-  # Install with dev dependencies
+  # Install app with dev dependencies
   yarn install --frozen-lockfile --ignore-optional \
   # Build the app
   && yarn build \

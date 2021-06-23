@@ -10,6 +10,7 @@ import { formatDistance } from "date-fns";
 import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
+import { FaQuestionCircle } from "react-icons/fa";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -22,7 +23,7 @@ const CompactResults: FC<{
   experiment: ExperimentInterfaceStringDates;
 }> = ({ snapshot, experiment }) => {
   const { getMetricById } = useDefinitions();
-  const { ciUpper, ciLower, ciUpperDisplay } = useConfidenceLevels();
+  const { ciUpper, ciLower } = useConfidenceLevels();
 
   const results = snapshot.results[0];
   const variations = results?.variations || [];
@@ -49,6 +50,8 @@ const CompactResults: FC<{
   domain[0] = lowerBound;
   domain[1] = upperBound;
 
+  const hasRisk = !!Object.values(variations[1]?.metrics || {})?.[0]?.risk;
+
   return (
     <div className="mb-4 pb-4 experiment-compact-holder">
       <SRMWarning srm={results.srm} />
@@ -60,7 +63,7 @@ const CompactResults: FC<{
               Metric
             </th>
             {experiment.variations.map((v, i) => (
-              <th colSpan={i ? 3 : 1} className="value" key={i}>
+              <th colSpan={i ? 4 : 1} className="value" key={i}>
                 {v.name}
               </th>
             ))}
@@ -76,9 +79,17 @@ const CompactResults: FC<{
                     Chance to Beat Control
                   </th>
                 )}
+                {hasRisk && i > 0 && (
+                  <th className={`variation${i} text-center`}>
+                    Risk{" "}
+                    <Tooltip text="If you choose this variation and it happens to be worse, how much would you lose?">
+                      <FaQuestionCircle />
+                    </Tooltip>
+                  </th>
+                )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Percent Change ({ciUpperDisplay} CI)
+                    Percent Improvement
                   </th>
                 )}
               </React.Fragment>
@@ -96,6 +107,7 @@ const CompactResults: FC<{
                 {i > 0 && (
                   <>
                     <td className="empty-td"></td>
+                    {hasRisk && <td className="empty-td"></td>}
                     <td className="p-0">
                       <div>
                         <AlignedGraph
@@ -161,7 +173,12 @@ const CompactResults: FC<{
                             <em>no data</em>
                           )}
                         </td>
-                        {i > 0 && <td colSpan={2} className="variation"></td>}
+                        {i > 0 && (
+                          <td
+                            colSpan={hasRisk ? 4 : 3}
+                            className="variation"
+                          ></td>
+                        )}
                       </React.Fragment>
                     );
                   })}
@@ -242,7 +259,10 @@ const CompactResults: FC<{
                         </td>
                         {i > 0 && (
                           <>
-                            <td className="variation text-center text-muted">
+                            <td
+                              className="variation text-center text-muted"
+                              colSpan={hasRisk ? 2 : 1}
+                            >
                               <div>
                                 <div className="badge badge-pill badge-warning">
                                   not enough data
@@ -270,7 +290,7 @@ const CompactResults: FC<{
                                 ci={[0, 0]}
                                 significant={false}
                                 showAxis={false}
-                                height={70}
+                                height={62}
                                 inverse={!!metric.inverse}
                               />
                             </td>
@@ -284,8 +304,6 @@ const CompactResults: FC<{
                       <td
                         className={clsx("value", {
                           variation: i > 0,
-                          won: stats.chanceToWin > ciUpper,
-                          lost: stats.chanceToWin < ciLower,
                         })}
                       >
                         <div className="result-number">
@@ -304,30 +322,40 @@ const CompactResults: FC<{
                       </td>
                       {i > 0 && (
                         <td
-                          className={clsx(
-                            "chance variation result-number align-middle",
-                            {
-                              won: stats.chanceToWin > ciUpper,
-                              lost: stats.chanceToWin < ciLower,
-                            }
-                          )}
+                          className={clsx("chance variation result-number", {
+                            won: stats.chanceToWin > ciUpper,
+                            lost: stats.chanceToWin < ciLower,
+                          })}
                         >
                           {percentFormatter.format(stats.chanceToWin)}
                         </td>
                       )}
-                      {i > 0 && (
-                        <td
-                          className={clsx(
-                            "variation compact-graph pb-0 align-middle",
-                            {
-                              won: stats.chanceToWin > ciUpper,
-                              lost: stats.chanceToWin < ciLower,
-                            }
+                      {hasRisk && i > 0 && (
+                        <td className={clsx("result-number")}>
+                          {percentFormatter.format(
+                            -1 * (stats.risk / stats.cr)
                           )}
-                        >
+                          {metric.type !== "binomial" && (
+                            <div>
+                              <small className="text-muted">
+                                <em>
+                                  {formatConversionRate(
+                                    metric.type,
+                                    -1 * stats.risk
+                                  )}{" "}
+                                  / user
+                                </em>
+                              </small>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                      {i > 0 && (
+                        <td className={clsx("compact-graph pb-0 align-middle")}>
                           <div>
                             <AlignedGraph
                               ci={ci}
+                              hdi={stats.hdi}
                               domain={domain}
                               expected={expected}
                               significant={
@@ -335,7 +363,7 @@ const CompactResults: FC<{
                                 stats.chanceToWin < ciLower
                               }
                               showAxis={false}
-                              height={70}
+                              height={62}
                               inverse={!!metric.inverse}
                             />
                           </div>

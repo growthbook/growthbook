@@ -6,6 +6,12 @@ export interface SnapshotMetric {
   users: number;
   ci?: [number, number];
   expected?: number;
+  risk?: number;
+  hdi?: {
+    dist: string;
+    mean?: number;
+    stddev?: number;
+  };
   buckets?: {
     x: number;
     y: number;

@@ -28,7 +28,13 @@ const experimentSnapshotSchema = new mongoose.Schema({
               cr: Number,
               users: Number,
               ci: [Number],
+              hdi: {
+                dist: String,
+                mean: Number,
+                stddev: Number,
+              },
               expected: Number,
+              risk: Number,
               buckets: [
                 {
                   _id: false,

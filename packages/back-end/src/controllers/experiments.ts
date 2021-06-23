@@ -23,8 +23,6 @@ import {
   getDataSourceById,
   getSourceIntegrationObject,
 } from "../services/datasource";
-import { binomialABTest, srm } from "../services/stats";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { addTagsDiff } from "../services/tag";
 import { userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
@@ -119,114 +117,6 @@ export async function getExperimentsFrequencyMonth(
   });
 }
 
-// eslint-disable-next-line
-function getMockSnapshot(phase: number = 0): ExperimentSnapshotInterface {
-  const USERS_A = Math.floor(Math.random() * 300 + 4850);
-  const USERS_B = Math.floor(Math.random() * 300 + 4850);
-  const CONV_A: number[] = [];
-  const CONV_B: number[] = [];
-  for (let i = 0; i < 4; i++) {
-    CONV_A.push(
-      Math.floor(((0.25 * Math.random()) / (Math.pow(i, 2) + 1)) * USERS_A)
-    );
-  }
-  for (let i = 0; i < 4; i++) {
-    CONV_B.push(
-      Math.floor(((0.33 * Math.random()) / (Math.pow(i, 2) + 1)) * USERS_B)
-    );
-  }
-
-  return {
-    id: "something",
-    experiment: "Growth Book",
-    dateCreated: new Date(),
-    phase,
-    manual: false,
-    results: [
-      {
-        name: "All",
-        srm: srm([USERS_A, USERS_B], [0.5, 0.5]),
-        variations: [
-          {
-            users: USERS_A,
-            metrics: {
-              "modal opens": {
-                value: CONV_A[0],
-                cr: CONV_A[0] / USERS_A,
-                users: USERS_A,
-              },
-              "member registrations": {
-                value: CONV_A[1],
-                cr: CONV_A[1] / USERS_A,
-                users: USERS_A,
-              },
-              purchases: {
-                value: CONV_A[2],
-                cr: CONV_A[2] / USERS_A,
-                users: USERS_A,
-              },
-              refunds: {
-                value: CONV_A[3],
-                cr: CONV_A[3] / USERS_A,
-                users: USERS_A,
-              },
-            },
-          },
-          {
-            users: USERS_B,
-            metrics: {
-              "modal opens": {
-                value: CONV_B[0],
-                cr: CONV_B[0] / USERS_B,
-                users: USERS_B,
-                ...binomialABTest(
-                  CONV_A[0],
-                  USERS_A - CONV_A[0],
-                  CONV_B[0],
-                  USERS_B - CONV_B[0]
-                ),
-              },
-              "member registrations": {
-                value: CONV_B[1],
-                cr: CONV_B[1] / USERS_B,
-                users: USERS_B,
-                ...binomialABTest(
-                  CONV_A[1],
-                  USERS_A - CONV_A[1],
-                  CONV_B[1],
-                  USERS_B - CONV_B[1]
-                ),
-              },
-              purchases: {
-                value: CONV_B[2],
-                cr: CONV_B[2] / USERS_B,
-                users: USERS_B,
-                ...binomialABTest(
-                  CONV_A[2],
-                  USERS_A - CONV_A[2],
-                  CONV_B[2],
-                  USERS_B - CONV_B[2]
-                ),
-              },
-              refunds: {
-                value: CONV_B[3],
-                cr: CONV_B[3] / USERS_B,
-                users: USERS_B,
-                ...binomialABTest(
-                  CONV_A[3],
-                  USERS_A - CONV_A[3],
-                  CONV_B[3],
-                  USERS_B - CONV_B[3]
-                ),
-              },
-            },
-          },
-        ],
-      },
-    ],
-  };
-}
-
 export async function getExperiment(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
@@ -260,9 +150,6 @@ async function _getSnapshot(
   phase: string,
   dimension?: string
 ) {
-  // Change this to use mock data
-  const USE_MOCK_DATA = false;
-
   const experiment = await getExperimentById(id);
 
   if (!experiment) {
@@ -273,9 +160,7 @@ async function _getSnapshot(
     throw new Error("You do not have access to view this experiment");
   }
 
-  return USE_MOCK_DATA
-    ? getMockSnapshot()
-    : await getLatestSnapshot(experiment.id, parseInt(phase), dimension);
+  return await getLatestSnapshot(experiment.id, parseInt(phase), dimension);
 }
 
 export async function getSnapshotWithDimension(

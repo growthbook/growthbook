@@ -5,9 +5,12 @@ import { scaleLinear } from "@visx/scale";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
+import { ViolinPlot } from "@visx/stats";
+import { jStat } from "jstat";
 
 export interface Props {
   ci?: [number, number] | [];
+  hdi?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   //width: string | number;
   height: number;
@@ -28,6 +31,7 @@ export interface Props {
 
 const AlignedGraph: FC<Props> = ({
   ci,
+  hdi,
   domain,
   expected,
   significant = false,
@@ -45,6 +49,8 @@ const AlignedGraph: FC<Props> = ({
   sigBarColorNeg = "#D94032cc",
   expectedColor = "#fb8500",
 }) => {
+  significant = ci ? ci[0] > 0 || ci[1] < 0 : significant;
+
   const barThickness = 16;
 
   const tickLabelColor = axisColor;
@@ -77,6 +83,27 @@ const AlignedGraph: FC<Props> = ({
   // todo: make ticks programic based roughtly on the width
   // todo: make the significant threashold centralized, and adjustable.
 
+  const gradient: { color: string; percent: number }[] = [];
+  let gradientId = "";
+  if (ci && hdi) {
+    gradientId = "gr_" + ci[0] + "_" + ci[1];
+    if (ci[0] < 0) {
+      gradient.push({ color: sigBarColorNeg, percent: 0 });
+      if (ci[1] > 0) {
+        const w = ci[1] - ci[0];
+        const wNeg = (100 * (-1 * ci[0])) / w;
+        gradient.push({ color: sigBarColorNeg, percent: wNeg });
+        gradient.push({ color: sigBarColorPos, percent: wNeg + 0.001 });
+        gradient.push({ color: sigBarColorPos, percent: 100 });
+      } else {
+        gradient.push({ color: sigBarColorNeg, percent: 100 });
+      }
+    } else {
+      gradient.push({ color: sigBarColorPos, percent: 0 });
+      gradient.push({ color: sigBarColorPos, percent: 100 });
+    }
+  }
+
   return (
     <>
       <div className="d-flex aligned-graph align-items-center aligned-graph-row">
@@ -94,6 +121,25 @@ const AlignedGraph: FC<Props> = ({
                 });
                 return (
                   <svg width={graphWidth} height={height}>
+                    <defs>
+                      {gradient.length > 0 && (
+                        <linearGradient
+                          id={gradientId}
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          {gradient.map((g) => (
+                            <stop
+                              key={g.percent}
+                              offset={g.percent + "%"}
+                              stopColor={g.color}
+                            />
+                          ))}
+                        </linearGradient>
+                      )}
+                    </defs>
                     {!showAxis && (
                       <>
                         <GridColumns
@@ -133,30 +179,77 @@ const AlignedGraph: FC<Props> = ({
                     )}
                     {!axisOnly && (
                       <>
-                        <rect
-                          x={xScale(ci[0])}
-                          y={barHeight}
-                          width={xScale(ci[1]) - xScale(ci[0])}
-                          height={barThickness}
-                          fill={
-                            significant
-                              ? expected > 0
-                                ? sigBarColorPos
-                                : sigBarColorNeg
-                              : barColor
-                          }
-                          rx={8}
-                        />
-                        <Line
-                          fill="#000000"
-                          strokeWidth={3}
-                          stroke={expectedColor}
-                          from={{ x: xScale(expected), y: barHeight }}
-                          to={{
-                            x: xScale(expected),
-                            y: barHeight + barThickness,
-                          }}
-                        />
+                        {hdi ? (
+                          <ViolinPlot
+                            top={barHeight}
+                            width={barHeight}
+                            left={xScale(ci[0])}
+                            data={[
+                              0.025,
+                              0.05,
+                              0.1,
+                              0.2,
+                              0.3,
+                              0.4,
+                              0.5,
+                              0.6,
+                              0.7,
+                              0.8,
+                              0.9,
+                              0.95,
+                              0.975,
+                            ].map((n) => {
+                              let x = jStat.normal.inv(n, hdi.mean, hdi.stddev);
+                              const y = jStat.normal.pdf(
+                                x,
+                                hdi.mean,
+                                hdi.stddev
+                              );
+
+                              if (hdi.dist === "lognormal") {
+                                x = Math.exp(x) - 1;
+                              }
+
+                              return {
+                                x,
+                                y,
+                              };
+                            })}
+                            valueScale={xScale}
+                            count={(d) => d.y}
+                            value={(d) => d.x}
+                            horizontal={true}
+                            fill={`url(#${gradientId})`}
+                            fillOpacity={0.6}
+                          />
+                        ) : (
+                          <>
+                            <rect
+                              x={xScale(ci[0])}
+                              y={barHeight}
+                              width={xScale(ci[1]) - xScale(ci[0])}
+                              height={barThickness}
+                              fill={
+                                significant
+                                  ? expected > 0
+                                    ? sigBarColorPos
+                                    : sigBarColorNeg
+                                  : barColor
+                              }
+                              rx={8}
+                            />
+                            <Line
+                              fill="#000000"
+                              strokeWidth={3}
+                              stroke={expectedColor}
+                              from={{ x: xScale(expected), y: barHeight }}
+                              to={{
+                                x: xScale(expected),
+                                y: barHeight + barThickness,
+                              }}
+                            />
+                          </>
+                        )}
                       </>
                     )}
                   </svg>
@@ -225,15 +318,12 @@ const AlignedGraph: FC<Props> = ({
                 )}
               </div>
             </div>
-            <div className="expectedwrap text-right">
+            <div className="expectedwrap text-right d-none">
               <span className="expectedArrows">
                 {expected > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
                 {parseFloat((expected * 100).toFixed(1)) + "%"}{" "}
-              </span>
-              <span className="errorrange">
-                &plusmn; {parseFloat(((ci[1] - expected) * 100).toFixed(1))}%
               </span>
             </div>
           </>

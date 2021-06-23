@@ -3,11 +3,20 @@
 import { jStat } from "jstat";
 import { MetricInterface } from "../../types/metric";
 import { MetricStats } from "../types/Integration";
+import { PythonShell } from "python-shell";
+import path from "path";
+import { promisify } from "util";
 
 export interface ABTestStats {
   expected: number;
   chanceToWin: number;
+  hdi?: {
+    dist: string;
+    mean?: number;
+    stddev?: number;
+  };
   ci: [number, number];
+  risk?: number;
   buckets: {
     x: number;
     y: number;
@@ -134,12 +143,12 @@ function getExpectedValue(
   b: number,
   nB: number
 ): number {
-  const pA = a / nA;
-  const pB = b / nB;
-  return (pB - pA) / pA;
+  const pA = nA > 0 ? a / nA : 0;
+  const pB = nB > 0 ? b / nB : 0;
+  return pA !== 0 ? (pB - pA) / pA : 0;
 }
 
-export function binomialABTest(
+function binomialABTest(
   aSuccess: number,
   aFailure: number,
   bSuccess: number,
@@ -158,7 +167,7 @@ export function binomialABTest(
   );
 }
 
-export function countABTest(
+function countABTest(
   aCount: number,
   aVisits: number,
   bCount: number,
@@ -172,7 +181,7 @@ export function countABTest(
   );
 }
 
-export function bootstrapABTest(
+function bootstrapABTest(
   aStats: MetricStats,
   aVisits: number,
   bStats: MetricStats,
@@ -210,6 +219,93 @@ export function bootstrapABTest(
     null,
     expected
   );
+}
+
+function getVariationValue(
+  metric: MetricInterface,
+  stats: MetricStats,
+  users: number
+): number {
+  if (metric.type === "binomial" || metric.type === "count") {
+    return stats.count;
+  }
+  return stats.mean * users;
+}
+
+export async function oldAbTest(
+  metric: MetricInterface,
+  aUsers: number,
+  aStats: MetricStats,
+  bUsers: number,
+  bStats: MetricStats
+): Promise<ABTestStats> {
+  if (metric.type === "binomial") {
+    return binomialABTest(
+      aStats.count,
+      aUsers - aStats.count,
+      bStats.count,
+      bUsers - bStats.count
+    );
+  } else if (metric.type === "count") {
+    return countABTest(aStats.count, aUsers, bStats.count, bUsers);
+  } else {
+    return bootstrapABTest(aStats, aUsers, bStats, bUsers, metric.ignoreNulls);
+  }
+}
+
+export async function abtest(
+  metric: MetricInterface,
+  aUsers: number,
+  aStats: MetricStats,
+  bUsers: number,
+  bStats: MetricStats
+): Promise<ABTestStats> {
+  if (metric.ignoreNulls) {
+    aUsers = aStats.count;
+    bUsers = bStats.count;
+  }
+
+  const options = {
+    args: [
+      metric.type,
+      JSON.stringify({
+        users: [aUsers, bUsers],
+        count: [aStats.count, bStats.count],
+        mean: [aStats.mean, bStats.mean],
+        stddev: [aStats.stddev, bStats.stddev],
+      }),
+    ],
+  };
+
+  const script = path.join(__dirname, "..", "python", "bayesian", "main.py");
+
+  const result = await promisify(PythonShell.run)(script, options);
+  const parsed: {
+    chance_to_win: number;
+    ci: [number, number];
+    risk: number;
+    hdi: {
+      dist: string;
+      mean?: number;
+      stddev?: number;
+    };
+  } = JSON.parse(result[0]);
+
+  return {
+    expected: getExpectedValue(
+      getVariationValue(metric, aStats, aUsers),
+      aUsers,
+      getVariationValue(metric, bStats, bUsers),
+      bUsers
+    ),
+    chanceToWin: metric.inverse
+      ? 1 - parsed.chance_to_win
+      : parsed.chance_to_win,
+    ci: parsed.ci,
+    risk: parsed.risk,
+    hdi: parsed.hdi,
+    buckets: [],
+  };
 }
 
 export function getValueCR(
