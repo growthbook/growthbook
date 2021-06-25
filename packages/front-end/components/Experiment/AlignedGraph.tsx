@@ -90,7 +90,7 @@ const AlignedGraph: FC<Props> = ({
 
   const gradient: { color: string; percent: number }[] = [];
   let gradientId = "";
-  if (ci) {
+  if (ci && barFillType === "gradient") {
     gradientId = "gr_" + ci[0] + "_" + ci[1];
     if (ci[0] < 0) {
       gradient.push({ color: sigBarColorNeg, percent: 0 });
@@ -135,8 +135,8 @@ const AlignedGraph: FC<Props> = ({
                 });
                 return (
                   <svg width={graphWidth} height={height}>
-                    <defs>
-                      {gradient.length > 0 && (
+                    {gradient.length > 0 && (
+                      <defs>
                         <linearGradient
                           id={gradientId}
                           x1="0%"
@@ -152,8 +152,8 @@ const AlignedGraph: FC<Props> = ({
                             />
                           ))}
                         </linearGradient>
-                      )}
-                    </defs>
+                      </defs>
+                    )}
                     {!showAxis && (
                       <>
                         <GridColumns

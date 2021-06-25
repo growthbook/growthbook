@@ -172,54 +172,56 @@ async function processResults(
   // Stats for each metric
   const metrics = await getMetricsByDatasource(doc.datasource);
   const selectedMetrics = metrics.filter((m) => doc.metrics.includes(m.id));
-  selectedMetrics.forEach(async (m) => {
-    const segment1Result: MetricValueResult = data.get(`${m.id}_segment1`)
-      ?.result;
-    const segment2Result: MetricValueResult = data.get(`${m.id}_segment2`)
-      ?.result;
+  await Promise.all(
+    selectedMetrics.map(async (m) => {
+      const segment1Result: MetricValueResult = data.get(`${m.id}_segment1`)
+        ?.result;
+      const segment2Result: MetricValueResult = data.get(`${m.id}_segment2`)
+        ?.result;
 
-    // TODO: support calculating total from dates
+      // TODO: support calculating total from dates
 
-    const v1Stats: MetricStats = {
-      count: segment1Result?.count || 0,
-      mean: segment1Result?.mean || 0,
-      stddev: segment1Result?.stddev || 0,
-    };
-    const v2Stats: MetricStats = {
-      count: segment2Result?.count || 0,
-      mean: segment2Result?.mean || 0,
-      stddev: segment2Result?.stddev || 0,
-    };
-
-    const v1 = v1Stats.mean * v1Stats.count;
-    const v2 = v2Stats.mean * v2Stats.count;
-
-    let stats: ABTestStats;
-    if (!v1 || !v2 || !results.users.segment1 || !results.users.segment2) {
-      stats = {
-        buckets: [],
-        chanceToWin: 0,
-        ci: [0, 0],
-        expected: 0,
+      const v1Stats: MetricStats = {
+        count: segment1Result?.count || 0,
+        mean: segment1Result?.mean || 0,
+        stddev: segment1Result?.stddev || 0,
       };
-    } else {
-      stats = await abtest(
-        m,
-        results.users.segment1,
-        v1Stats,
-        results.users.segment2,
-        v2Stats
-      );
-    }
+      const v2Stats: MetricStats = {
+        count: segment2Result?.count || 0,
+        mean: segment2Result?.mean || 0,
+        stddev: segment2Result?.stddev || 0,
+      };
 
-    results.metrics[m.id] = {
-      segment1: getValueCR(m, v1, v1Stats.count, results.users.segment1),
-      segment2: {
-        ...getValueCR(m, v2, v2Stats.count, results.users.segment2),
-        ...stats,
-      },
-    };
-  });
+      const v1 = v1Stats.mean * v1Stats.count;
+      const v2 = v2Stats.mean * v2Stats.count;
+
+      let stats: ABTestStats;
+      if (!v1 || !v2 || !results.users.segment1 || !results.users.segment2) {
+        stats = {
+          buckets: [],
+          chanceToWin: 0,
+          ci: [0, 0],
+          expected: 0,
+        };
+      } else {
+        stats = await abtest(
+          m,
+          results.users.segment1,
+          v1Stats,
+          results.users.segment2,
+          v2Stats
+        );
+      }
+
+      results.metrics[m.id] = {
+        segment1: getValueCR(m, v1, v1Stats.count, results.users.segment1),
+        segment2: {
+          ...getValueCR(m, v2, v2Stats.count, results.users.segment2),
+          ...stats,
+        },
+      };
+    })
+  );
 
   return results;
 }
