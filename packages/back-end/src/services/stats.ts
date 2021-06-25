@@ -8,7 +8,7 @@ import { promisify } from "util";
 export interface ABTestStats {
   expected: number;
   chanceToWin: number;
-  hdi?: {
+  uplift?: {
     dist: string;
     mean?: number;
     stddev?: number;
@@ -64,7 +64,7 @@ export async function abtest(
     expected: number;
     ci: [number, number];
     risk: number;
-    hdi: {
+    uplift: {
       dist: string;
       mean?: number;
       stddev?: number;
@@ -78,7 +78,7 @@ export async function abtest(
       : parsed.chance_to_win,
     ci: parsed.ci,
     risk: parsed.risk,
-    hdi: parsed.hdi,
+    uplift: parsed.uplift,
     buckets: [],
   };
 }

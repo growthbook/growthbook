@@ -4,14 +4,14 @@
     <a href="https://github.com/growthbook/growthbook/actions/workflows/ci.yml"><img src="https://img.shields.io/github/workflow/status/growthbook/growthbook/CI" alt="Build Status" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/releases"><img src="https://img.shields.io/github/v/release/growthbook/growthbook?color=blue&sort=semver" alt="Release" height="22"/></a>
-    <a href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"><img src="https://img.shields.io/badge/slack-join-E01E5A" alt="Join us on Slack" height="22"/></a>
+    <a href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
 
 Get up and running in 1 minute with:
 
 ```sh
 git clone https://github.com/growthbook/growthbook.git && cd growthbook
-docker-compose up -d
+docker-compose up
 # Then visit http://localhost:3000
 ```
 
@@ -19,14 +19,14 @@ docker-compose up -d
 
 ## Major Features
 
-- 💻 Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
-- 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
-- ❄️ Query multiple data sources (Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, and Google Analytics)
+- ❄️ Pull data from Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, or Google Analytics
 - 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
-- 💡 Lightweight idea board and prioritization framework
-- 📝 Document everything! (upload screenshots, add markdown comments, and more)
+- 💻 Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
+- 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
+- 📝 Document experiments with screenshots and GitHub Flavored Markdown
 - 🔔 Automated email alerts when tests become significant
+- 💡 Lightweight idea board and objective prioritization framework
 
 ## Try Growth Book
 
@@ -40,16 +40,22 @@ Growth Book is built with a NextJS front-end, an ExpressJS API, and a Python sta
 
 The front-end, back-end, and stats engine are bundled together into a single Docker image. View the image on [Docker Hub](https://hub.docker.com/r/growthbook/growthbook) for all possible environment variables and commands.
 
-If you have any questions or need help getting set up, [please get in touch](mailto:hello@growthbook.io)!
+If you have any questions or need help, [please get in touch](mailto:hello@growthbook.io)!
 
 ## Documentation and Support
 
 View the [Growth Book Docs](https://docs.growthbook.io) for info on how to setup and use the platform.
 
-Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
+Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you get stuck, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
 
-Check out [CONTRIBUTING.md](/CONTRIBUTING.md) for instructions on setting up a local development environment.
+## Contributors
+
+We ❤️ all contributions!
+
+Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
+
+If you want to, you can reach out via [Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
 
 ## License
 
-This project uses the MIT license. The core Growth Book app will always remain free, although we may add some commercial enterprise add-ons in the future.
+This project uses the MIT license. The core Growth Book app will always remain open and free, although we may add some commercial enterprise add-ons in the future.

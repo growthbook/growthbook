@@ -99,8 +99,8 @@ const CompactResults: FC<{
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Relative Uplift{" "}
-                    {barType === "violin" && (
+                    Percent Change{" "}
+                    {barType === "violin" && hasRisk && (
                       <Tooltip text="The true value is more likely to be in the thicker parts of the graph">
                         <FaQuestionCircle />
                       </Tooltip>
@@ -142,17 +142,17 @@ const CompactResults: FC<{
           </tr>
           {experiment.metrics?.map((m) => {
             const metric = getMetricById(m);
-            if (!variations[0]?.metrics?.[m]) {
+            if (!metric || !variations[0]?.metrics?.[m]) {
               return (
                 <tr
                   key={m + "nodata"}
                   className={`metricrow nodata ${
-                    metric.inverse ? "inverse" : ""
+                    metric?.inverse ? "inverse" : ""
                   }`}
                 >
                   <th className="metricname">
-                    {metric.name}{" "}
-                    {metric.inverse ? (
+                    {metric?.name}{" "}
+                    {metric?.inverse ? (
                       <Tooltip
                         text="metric is inverse, lower is better"
                         className="inverse-indicator"
@@ -171,7 +171,7 @@ const CompactResults: FC<{
                           {stats.value ? (
                             <>
                               <div className="result-number">
-                                {formatConversionRate(metric.type, stats.cr)}
+                                {formatConversionRate(metric?.type, stats.cr)}
                               </div>
                               <div>
                                 <small className="text-muted">
@@ -356,7 +356,17 @@ const CompactResults: FC<{
                         </td>
                       )}
                       {hasRisk && i > 0 && (
-                        <td className={clsx("align-middle")}>
+                        <td
+                          className={clsx("value align-middle", {
+                            variation: i > 0,
+                            won:
+                              barFillType === "significant" &&
+                              stats.chanceToWin > ciUpper,
+                            lost:
+                              barFillType === "significant" &&
+                              stats.chanceToWin < ciLower,
+                          })}
+                        >
                           {metric.inverse ? (
                             ""
                           ) : stats.risk / stats.cr > 0.00005 ? (
@@ -400,7 +410,7 @@ const CompactResults: FC<{
                           <div>
                             <AlignedGraph
                               ci={ci}
-                              hdi={stats.hdi}
+                              uplift={stats.uplift}
                               domain={domain}
                               expected={expected}
                               barType={barType}

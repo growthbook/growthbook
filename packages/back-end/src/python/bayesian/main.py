@@ -66,7 +66,7 @@ def binomial_ab_test(x_a, n_a, x_b, n_b):
         "chance_to_win": d1_beta.sf(0),
         "expected": (np.exp(d2_beta.ppf(0.5)) - 1),
         "ci": (np.exp(d2_beta.ppf((.025, .975))) - 1).tolist(),
-        "hdi": {
+        "uplift": {
             "dist": "lognormal",
             "mean": ci_mean,
             "stddev": ci_std,
@@ -108,7 +108,7 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
         "chance_to_win": d1_norm.sf(0),
         "expected": (np.exp(d2_norm.ppf(0.5)) - 1),
         "ci": (np.exp(d2_norm.ppf((.025, .975))) - 1).tolist(),
-        "hdi": {
+        "uplift": {
             "dist": "lognormal",
             "mean": ci_mean,
             "stddev": ci_std,

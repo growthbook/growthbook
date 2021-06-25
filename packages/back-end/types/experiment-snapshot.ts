@@ -7,7 +7,7 @@ export interface SnapshotMetric {
   ci?: [number, number];
   expected?: number;
   risk?: number;
-  hdi?: {
+  uplift?: {
     dist: string;
     mean?: number;
     stddev?: number;

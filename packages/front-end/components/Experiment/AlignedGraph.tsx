@@ -12,7 +12,7 @@ export interface Props {
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant";
-  hdi?: { dist: string; mean?: number; stddev?: number };
+  uplift?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   //width: string | number;
   height: number;
@@ -35,7 +35,7 @@ const AlignedGraph: FC<Props> = ({
   ci,
   barType = "pill",
   barFillType = "gradient",
-  hdi,
+  uplift,
   domain,
   expected,
   significant = false,
@@ -51,9 +51,8 @@ const AlignedGraph: FC<Props> = ({
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
-  expectedColor = "#fb8500",
 }) => {
-  if (barType == "violin" && !hdi) {
+  if (barType == "violin" && !uplift) {
     barType = "pill";
   }
 
@@ -214,14 +213,18 @@ const AlignedGraph: FC<Props> = ({
                               0.95,
                               0.975,
                             ].map((n) => {
-                              let x = jStat.normal.inv(n, hdi.mean, hdi.stddev);
+                              let x = jStat.normal.inv(
+                                n,
+                                uplift.mean,
+                                uplift.stddev
+                              );
                               const y = jStat.normal.pdf(
                                 x,
-                                hdi.mean,
-                                hdi.stddev
+                                uplift.mean,
+                                uplift.stddev
                               );
 
-                              if (hdi.dist === "lognormal") {
+                              if (uplift.dist === "lognormal") {
                                 x = Math.exp(x) - 1;
                               }
 
@@ -251,7 +254,7 @@ const AlignedGraph: FC<Props> = ({
                         <Line
                           fill="#000000"
                           strokeWidth={3}
-                          stroke={hdi ? "#666" : expectedColor}
+                          stroke={"#666"}
                           from={{ x: xScale(expected), y: barHeight }}
                           to={{
                             x: xScale(expected),
@@ -268,67 +271,6 @@ const AlignedGraph: FC<Props> = ({
         </div>
         {!axisOnly && (
           <>
-            {!hdi && (
-              <div className="experiment-tooltip">
-                <div className="tooltip-results d-flex justify-content-center">
-                  {inverse ? (
-                    <>
-                      <div className="d-flex justify-content-center">
-                        <div className="px-1 result-text">Best case:</div>
-                        <div
-                          className={`px-1 tooltip-ci ci-worst ${
-                            ci[0] < 0 ? "ci-pos" : "ci-neg"
-                          }`}
-                        >
-                          {ci[0] > 0 && "+"}
-                          {parseFloat((ci[0] * 100).toFixed(2))}%
-                        </div>
-                      </div>
-
-                      <div className="d-flex justify-content-center">
-                        <div className="px-1 result-text">Worst case:</div>
-                        <div
-                          className={`px-1 tooltip-ci ci-best ${
-                            ci[1] < 0 ? "ci-pos" : "ci-neg"
-                          }`}
-                        >
-                          {ci[1] > 0 && "+"}
-                          {parseFloat((ci[1] * 100).toFixed(2))}%
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    // regular, non inverse case
-                    <>
-                      <div className="d-flex justify-content-center">
-                        <div className="px-1 result-text">Worst case:</div>
-                        <div
-                          className={`px-1 tooltip-ci ci-worst ${
-                            ci[0] < 0 ? "ci-neg" : "ci-pos"
-                          }`}
-                        >
-                          {ci[0] > 0 && "+"}
-                          {parseFloat((ci[0] * 100).toFixed(2))}%
-                        </div>
-                      </div>
-
-                      <div className="d-flex justify-content-center">
-                        <div className="px-1 result-text">Best case:</div>
-                        <div
-                          className={`px-1 tooltip-ci ci-best ${
-                            ci[1] < 0 ? "ci-neg" : "ci-pos"
-                          }`}
-                        >
-                          {ci[1] > 0 && "+"}
-                          {parseFloat((ci[1] * 100).toFixed(2))}%
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="expectedwrap text-right">
               <span className="expectedArrows">
                 {expected > 0 ? <FaArrowUp /> : <FaArrowDown />}
@@ -336,11 +278,6 @@ const AlignedGraph: FC<Props> = ({
               <span className="expected bold">
                 {parseFloat((expected * 100).toFixed(1)) + "%"}{" "}
               </span>
-              {!hdi && (
-                <span className="errorrange">
-                  &plusmn; {parseFloat(((ci[1] - expected) * 100).toFixed(1))}%
-                </span>
-              )}
             </div>
           </>
         )}
