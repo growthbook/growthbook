@@ -215,8 +215,7 @@ export async function getManualSnapshotData(
     const mean = value / users;
     return {
       mean,
-      count:
-        metric.type === "count" || metric.type === "binomial" ? value : users,
+      count: metric.type === "binomial" ? value : users,
       stddev:
         metric.type === "binomial"
           ? Math.sqrt(mean * (1 - mean))

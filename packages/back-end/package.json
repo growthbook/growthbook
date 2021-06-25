@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "build:python": "mkdir -p dist/python && cp -r src/python/* dist/python",
+    "build:python": "rm -rf dist/python && mkdir -p dist/python && cp -r src/python/* dist/python",
     "build:clean": "rm -rf dist",
     "build:typescript": "tsc && rm -rf dist/types && mv dist/src/* dist/ && rm -rf dist/src",
     "dev": "yarn build:emails && yarn build:python && node-dev src/server.ts",

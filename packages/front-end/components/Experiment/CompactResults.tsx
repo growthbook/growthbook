@@ -18,10 +18,21 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function hasEnoughData(value1: number, value2: number): boolean {
+  return Math.max(value1, value2) >= 150 && Math.min(value1, value2) >= 25;
+}
+
 const CompactResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
-}> = ({ snapshot, experiment }) => {
+  barFillType?: "gradient" | "significant";
+  barType?: "pill" | "violin";
+}> = ({
+  snapshot,
+  experiment,
+  barFillType = "gradient",
+  barType = "violin",
+}) => {
   const { getMetricById } = useDefinitions();
   const { ciUpper, ciLower } = useConfidenceLevels();
 
@@ -36,8 +47,7 @@ const CompactResults: FC<{
         const stats = { ...variations[i].metrics[m] };
         if (
           i > 0 &&
-          stats.value >= 150 &&
-          variations[0].metrics[m]?.value >= 150
+          hasEnoughData(stats.value, variations[0].metrics[m]?.value || 0)
         ) {
           const ci = stats.ci || [];
           if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
@@ -63,7 +73,7 @@ const CompactResults: FC<{
               Metric
             </th>
             {experiment.variations.map((v, i) => (
-              <th colSpan={i ? 4 : 1} className="value" key={i}>
+              <th colSpan={i ? (hasRisk ? 4 : 3) : 1} className="value" key={i}>
                 {v.name}
               </th>
             ))}
@@ -82,14 +92,19 @@ const CompactResults: FC<{
                 {hasRisk && i > 0 && (
                   <th className={`variation${i} text-center`}>
                     Risk{" "}
-                    <Tooltip text="If you choose this variation and it happens to be worse, how much would you lose?">
+                    <Tooltip text="If you choose this variation and it's actually worse, how much would you lose?">
                       <FaQuestionCircle />
                     </Tooltip>
                   </th>
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
-                    Percent Improvement
+                    Relative Uplift{" "}
+                    {barType === "violin" && (
+                      <Tooltip text="The true value is more likely to be in the thicker parts of the graph">
+                        <FaQuestionCircle />
+                      </Tooltip>
+                    )}
                   </th>
                 )}
               </React.Fragment>
@@ -175,7 +190,7 @@ const CompactResults: FC<{
                         </td>
                         {i > 0 && (
                           <td
-                            colSpan={hasRisk ? 4 : 3}
+                            colSpan={hasRisk ? 3 : 2}
                             className="variation"
                           ></td>
                         )}
@@ -209,9 +224,10 @@ const CompactResults: FC<{
                   const expected = stats.expected;
 
                   if (
-                    Math.max(stats.value, variations[0].metrics[m]?.value) <
-                      150 ||
-                    Math.min(stats.value, variations[0].metrics[m]?.value) < 25
+                    !hasEnoughData(
+                      stats.value,
+                      variations[0].metrics[m]?.value || 0
+                    )
                   ) {
                     const percentComplete = Math.min(
                       Math.max(stats.value, variations[0].metrics[m]?.value) /
@@ -302,8 +318,14 @@ const CompactResults: FC<{
                   return (
                     <>
                       <td
-                        className={clsx("value", {
+                        className={clsx("value align-middle", {
                           variation: i > 0,
+                          won:
+                            barFillType === "significant" &&
+                            stats.chanceToWin > ciUpper,
+                          lost:
+                            barFillType === "significant" &&
+                            stats.chanceToWin < ciLower,
                         })}
                       >
                         <div className="result-number">
@@ -322,42 +344,67 @@ const CompactResults: FC<{
                       </td>
                       {i > 0 && (
                         <td
-                          className={clsx("chance variation result-number", {
-                            won: stats.chanceToWin > ciUpper,
-                            lost: stats.chanceToWin < ciLower,
-                          })}
+                          className={clsx(
+                            "chance variation result-number align-middle",
+                            {
+                              won: stats.chanceToWin > ciUpper,
+                              lost: stats.chanceToWin < ciLower,
+                            }
+                          )}
                         >
                           {percentFormatter.format(stats.chanceToWin)}
                         </td>
                       )}
                       {hasRisk && i > 0 && (
-                        <td className={clsx("result-number")}>
-                          {percentFormatter.format(
-                            -1 * (stats.risk / stats.cr)
-                          )}
-                          {metric.type !== "binomial" && (
-                            <div>
-                              <small className="text-muted">
-                                <em>
-                                  {formatConversionRate(
-                                    metric.type,
-                                    -1 * stats.risk
-                                  )}{" "}
-                                  / user
-                                </em>
-                              </small>
-                            </div>
+                        <td className={clsx("align-middle")}>
+                          {metric.inverse ? (
+                            ""
+                          ) : stats.risk / stats.cr > 0.00005 ? (
+                            <>
+                              <div className="result-number">
+                                {percentFormatter.format(
+                                  -1 * (stats.risk / stats.cr)
+                                )}
+                              </div>
+                              {metric.type !== "binomial" && (
+                                <div>
+                                  <small className="text-muted">
+                                    <em>
+                                      {formatConversionRate(
+                                        metric.type,
+                                        -1 * stats.risk
+                                      )}{" "}
+                                      / user
+                                    </em>
+                                  </small>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div>0%</div>
                           )}
                         </td>
                       )}
                       {i > 0 && (
-                        <td className={clsx("compact-graph pb-0 align-middle")}>
+                        <td
+                          className={clsx("compact-graph pb-0 align-middle", {
+                            variation: barFillType === "significant",
+                            won:
+                              barFillType === "significant" &&
+                              stats.chanceToWin > ciUpper,
+                            lost:
+                              barFillType === "significant" &&
+                              stats.chanceToWin < ciLower,
+                          })}
+                        >
                           <div>
                             <AlignedGraph
                               ci={ci}
                               hdi={stats.hdi}
                               domain={domain}
                               expected={expected}
+                              barType={barType}
+                              barFillType={barFillType}
                               significant={
                                 stats.chanceToWin > ciUpper ||
                                 stats.chanceToWin < ciLower

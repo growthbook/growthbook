@@ -64,6 +64,7 @@ def binomial_ab_test(x_a, n_a, x_b, n_b):
 
     return {
         "chance_to_win": d1_beta.sf(0),
+        "expected": (np.exp(d2_beta.ppf(0.5)) - 1),
         "ci": (np.exp(d2_beta.ppf((.025, .975))) - 1).tolist(),
         "hdi": {
             "dist": "lognormal",
@@ -104,10 +105,11 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
     risk_norm = gq - norm.mean((mu_a, mu_b))
 
     return {
-        "chance_to_win": 1 - d1_norm.cdf(0),
-        "ci": d2_norm.ppf((.025, .975)).tolist(),
+        "chance_to_win": d1_norm.sf(0),
+        "expected": (np.exp(d2_norm.ppf(0.5)) - 1),
+        "ci": (np.exp(d2_norm.ppf((.025, .975))) - 1).tolist(),
         "hdi": {
-            "dist": "normal",
+            "dist": "lognormal",
             "mean": ci_mean,
             "stddev": ci_std,
         },
@@ -115,6 +117,10 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
     }
 
 
+# python main.py binomial \
+#   '{"users":[1283,1321],"count":[254,289],"mean":[52.3,14.1],"stddev":[14.1,13.7]}'
+# python main.py normal \
+#   '{"users":[1283,1321],"count":[254,289],"mean":[52.3,14.1],"stddev":[14.1,13.7]}'
 if __name__ == '__main__':
     metric = sys.argv[1]
     data = json.loads(sys.argv[2])

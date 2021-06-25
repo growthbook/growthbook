@@ -10,6 +10,8 @@ import { jStat } from "jstat";
 
 export interface Props {
   ci?: [number, number] | [];
+  barType?: "pill" | "violin";
+  barFillType?: "gradient" | "significant";
   hdi?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   //width: string | number;
@@ -31,6 +33,8 @@ export interface Props {
 
 const AlignedGraph: FC<Props> = ({
   ci,
+  barType = "pill",
+  barFillType = "gradient",
   hdi,
   domain,
   expected,
@@ -49,7 +53,9 @@ const AlignedGraph: FC<Props> = ({
   sigBarColorNeg = "#D94032cc",
   expectedColor = "#fb8500",
 }) => {
-  significant = ci ? ci[0] > 0 || ci[1] < 0 : significant;
+  if (barType == "violin" && !hdi) {
+    barType = "pill";
+  }
 
   const barThickness = 16;
 
@@ -85,7 +91,7 @@ const AlignedGraph: FC<Props> = ({
 
   const gradient: { color: string; percent: number }[] = [];
   let gradientId = "";
-  if (ci && hdi) {
+  if (ci) {
     gradientId = "gr_" + ci[0] + "_" + ci[1];
     if (ci[0] < 0) {
       gradient.push({ color: sigBarColorNeg, percent: 0 });
@@ -103,6 +109,15 @@ const AlignedGraph: FC<Props> = ({
       gradient.push({ color: sigBarColorPos, percent: 100 });
     }
   }
+
+  const barFill =
+    barFillType === "gradient"
+      ? `url(#${gradientId})`
+      : significant
+      ? expected > 0
+        ? sigBarColorPos
+        : sigBarColorNeg
+      : barColor;
 
   return (
     <>
@@ -179,10 +194,10 @@ const AlignedGraph: FC<Props> = ({
                     )}
                     {!axisOnly && (
                       <>
-                        {hdi ? (
+                        {barType === "violin" && (
                           <ViolinPlot
                             top={barHeight}
-                            width={barHeight}
+                            width={barThickness}
                             left={xScale(ci[0])}
                             data={[
                               0.025,
@@ -219,37 +234,30 @@ const AlignedGraph: FC<Props> = ({
                             count={(d) => d.y}
                             value={(d) => d.x}
                             horizontal={true}
-                            fill={`url(#${gradientId})`}
-                            fillOpacity={0.6}
+                            fill={barFill}
+                            fillOpacity={0.8}
                           />
-                        ) : (
-                          <>
-                            <rect
-                              x={xScale(ci[0])}
-                              y={barHeight}
-                              width={xScale(ci[1]) - xScale(ci[0])}
-                              height={barThickness}
-                              fill={
-                                significant
-                                  ? expected > 0
-                                    ? sigBarColorPos
-                                    : sigBarColorNeg
-                                  : barColor
-                              }
-                              rx={8}
-                            />
-                            <Line
-                              fill="#000000"
-                              strokeWidth={3}
-                              stroke={expectedColor}
-                              from={{ x: xScale(expected), y: barHeight }}
-                              to={{
-                                x: xScale(expected),
-                                y: barHeight + barThickness,
-                              }}
-                            />
-                          </>
                         )}
+                        {barType === "pill" && (
+                          <rect
+                            x={xScale(ci[0])}
+                            y={barHeight}
+                            width={xScale(ci[1]) - xScale(ci[0])}
+                            height={barThickness}
+                            fill={barFill}
+                            rx={8}
+                          />
+                        )}
+                        <Line
+                          fill="#000000"
+                          strokeWidth={3}
+                          stroke={hdi ? "#666" : expectedColor}
+                          from={{ x: xScale(expected), y: barHeight }}
+                          to={{
+                            x: xScale(expected),
+                            y: barHeight + barThickness,
+                          }}
+                        />
                       </>
                     )}
                   </svg>
@@ -260,71 +268,79 @@ const AlignedGraph: FC<Props> = ({
         </div>
         {!axisOnly && (
           <>
-            <div className="experiment-tooltip">
-              <div className="tooltip-results d-flex justify-content-center">
-                {inverse ? (
-                  <>
-                    <div className="d-flex justify-content-center">
-                      <div className="px-1 result-text">Best case:</div>
-                      <div
-                        className={`px-1 tooltip-ci ci-worst ${
-                          ci[0] < 0 ? "ci-pos" : "ci-neg"
-                        }`}
-                      >
-                        {ci[0] > 0 && "+"}
-                        {parseFloat((ci[0] * 100).toFixed(2))}%
+            {!hdi && (
+              <div className="experiment-tooltip">
+                <div className="tooltip-results d-flex justify-content-center">
+                  {inverse ? (
+                    <>
+                      <div className="d-flex justify-content-center">
+                        <div className="px-1 result-text">Best case:</div>
+                        <div
+                          className={`px-1 tooltip-ci ci-worst ${
+                            ci[0] < 0 ? "ci-pos" : "ci-neg"
+                          }`}
+                        >
+                          {ci[0] > 0 && "+"}
+                          {parseFloat((ci[0] * 100).toFixed(2))}%
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="d-flex justify-content-center">
-                      <div className="px-1 result-text">Worst case:</div>
-                      <div
-                        className={`px-1 tooltip-ci ci-best ${
-                          ci[1] < 0 ? "ci-pos" : "ci-neg"
-                        }`}
-                      >
-                        {ci[1] > 0 && "+"}
-                        {parseFloat((ci[1] * 100).toFixed(2))}%
+                      <div className="d-flex justify-content-center">
+                        <div className="px-1 result-text">Worst case:</div>
+                        <div
+                          className={`px-1 tooltip-ci ci-best ${
+                            ci[1] < 0 ? "ci-pos" : "ci-neg"
+                          }`}
+                        >
+                          {ci[1] > 0 && "+"}
+                          {parseFloat((ci[1] * 100).toFixed(2))}%
+                        </div>
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  // regular, non inverse case
-                  <>
-                    <div className="d-flex justify-content-center">
-                      <div className="px-1 result-text">Worst case:</div>
-                      <div
-                        className={`px-1 tooltip-ci ci-worst ${
-                          ci[0] < 0 ? "ci-neg" : "ci-pos"
-                        }`}
-                      >
-                        {ci[0] > 0 && "+"}
-                        {parseFloat((ci[0] * 100).toFixed(2))}%
+                    </>
+                  ) : (
+                    // regular, non inverse case
+                    <>
+                      <div className="d-flex justify-content-center">
+                        <div className="px-1 result-text">Worst case:</div>
+                        <div
+                          className={`px-1 tooltip-ci ci-worst ${
+                            ci[0] < 0 ? "ci-neg" : "ci-pos"
+                          }`}
+                        >
+                          {ci[0] > 0 && "+"}
+                          {parseFloat((ci[0] * 100).toFixed(2))}%
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="d-flex justify-content-center">
-                      <div className="px-1 result-text">Best case:</div>
-                      <div
-                        className={`px-1 tooltip-ci ci-best ${
-                          ci[1] < 0 ? "ci-neg" : "ci-pos"
-                        }`}
-                      >
-                        {ci[1] > 0 && "+"}
-                        {parseFloat((ci[1] * 100).toFixed(2))}%
+                      <div className="d-flex justify-content-center">
+                        <div className="px-1 result-text">Best case:</div>
+                        <div
+                          className={`px-1 tooltip-ci ci-best ${
+                            ci[1] < 0 ? "ci-neg" : "ci-pos"
+                          }`}
+                        >
+                          {ci[1] > 0 && "+"}
+                          {parseFloat((ci[1] * 100).toFixed(2))}%
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="expectedwrap text-right d-none">
+            )}
+
+            <div className="expectedwrap text-right">
               <span className="expectedArrows">
                 {expected > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
                 {parseFloat((expected * 100).toFixed(1)) + "%"}{" "}
               </span>
+              {!hdi && (
+                <span className="errorrange">
+                  &plusmn; {parseFloat(((ci[1] - expected) * 100).toFixed(1))}%
+                </span>
+              )}
             </div>
           </>
         )}
