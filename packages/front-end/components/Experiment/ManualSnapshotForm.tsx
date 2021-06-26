@@ -93,8 +93,8 @@ const ManualSnapshotForm: FC<{
         } else if (m.type === "count") {
           return {
             count: values.users[i],
-            mean: v.count / values.users[i],
-            stddev: Math.sqrt(v.count / values.users[i]),
+            mean: v.mean,
+            stddev: Math.sqrt(v.mean),
           };
         } else if (m.type === "revenue") {
           return {
@@ -227,7 +227,7 @@ const ManualSnapshotForm: FC<{
                   {m.type === "binomial" ? (
                     <th>Conversions</th>
                   ) : m.type === "count" ? (
-                    <th>Total Count</th>
+                    <th>Average Count per User</th>
                   ) : (
                     <>
                       {m.type === "revenue" && <th>Conversions</th>}
@@ -238,7 +238,7 @@ const ManualSnapshotForm: FC<{
                       <th>Standard Deviation</th>
                     </>
                   )}
-                  {(m.type === "binomial" || m.type === "count") && (
+                  {m.type === "binomial" && (
                     <th>{getMetricConversionTitle(m.type)}</th>
                   )}
                   <th>Chance to Beat Baseline</th>
@@ -248,12 +248,20 @@ const ManualSnapshotForm: FC<{
                 {experiment.variations.map((v, i) => (
                   <tr key={i}>
                     <td>{v.name}</td>
-                    {m.type === "binomial" || m.type === "count" ? (
+                    {m.type === "binomial" ? (
                       <td>
                         <input
                           type="number"
                           required
                           {...inputProps.metrics[m.id][i].count}
+                        />
+                      </td>
+                    ) : m.type === "count" ? (
+                      <td>
+                        <input
+                          type="number"
+                          required
+                          {...inputProps.metrics[m.id][i].mean}
                         />
                       </td>
                     ) : (
@@ -283,7 +291,7 @@ const ManualSnapshotForm: FC<{
                         </td>
                       </>
                     )}
-                    {(m.type === "binomial" || m.type === "count") && (
+                    {m.type === "binomial" && (
                       <td>
                         {values.users[i] > 0 &&
                           values.metrics[m.id][i].count > 0 &&

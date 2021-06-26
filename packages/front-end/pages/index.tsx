@@ -31,9 +31,10 @@ export default function Home(): React.ReactElement {
   }
 
   const hasDataSource = datasources.length > 0;
-  const hasMetrics = metrics.filter((m) => m.id !== "met_sample").length > 0;
+  const hasMetrics =
+    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
   const hasExperiments =
-    data?.experiments?.filter((e) => e.id !== "exp_sample")?.length > 0;
+    data?.experiments?.filter((e) => !e.id.match(/^exp_sample/))?.length > 0;
   const isNew = !(hasMetrics && hasExperiments && hasDataSource);
 
   return (

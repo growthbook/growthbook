@@ -359,7 +359,7 @@ const CompactResults: FC<{
                       )}
                       {hasRisk && i > 0 && (
                         <td
-                          className={clsx("value align-middle", {
+                          className={clsx("align-middle", {
                             variation: i > 0,
                             won:
                               barFillType === "significant" &&
