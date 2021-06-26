@@ -105,7 +105,6 @@ const ManualSnapshotForm: FC<{
         }
       });
     });
-    console.log(ret);
     return ret;
   }
 
