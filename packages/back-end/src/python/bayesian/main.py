@@ -79,6 +79,11 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
     # Uninformative prior
     mu0, s0, n0 = 0, 1, 1
 
+    # Base the prior mean/stddev on the combined sample data
+    # The prior above has too big an effect with small sample sizes
+    mu0 = (m_a + m_b)/2
+    s0 = np.sqrt((s_a**2 + s_b**2)/2)
+
     # Update the prior
     inv_vars = n0 / np.power(s0, 2), n_a / np.power(s_a, 2)
     mu_a = np.average((mu0, m_a), weights=inv_vars)
@@ -125,14 +130,10 @@ if __name__ == '__main__':
     metric = sys.argv[1]
     data = json.loads(sys.argv[2])
 
-    x_a = data["count"][0]
-    n_a = data["users"][0]
-    m_a = data["mean"][0]
-    s_a = data["stddev"][0]
-    x_b = data["count"][1]
-    n_b = data["users"][1]
-    m_b = data["mean"][1]
-    s_b = data["stddev"][1]
+    x_a, x_b = data["count"]
+    n_a, n_b = data["users"]
+    m_a, m_b = data["mean"]
+    s_a, s_b = data["stddev"]
 
     if metric == 'binomial':
         print(json.dumps(binomial_ab_test(

@@ -60,7 +60,9 @@ const CompactResults: FC<{
   domain[0] = lowerBound;
   domain[1] = upperBound;
 
-  const hasRisk = !!Object.values(variations[1]?.metrics || {})?.[0]?.risk;
+  const hasRisk =
+    Object.values(variations[1]?.metrics || {}).filter((x) => x.risk > 0)
+      .length > 0;
 
   return (
     <div className="mb-4 pb-4 experiment-compact-holder">
