@@ -1,6 +1,5 @@
 import { jStat } from "jstat";
-import { MetricInterface } from "../../types/metric";
-import { MetricStats } from "../types/Integration";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
 import path from "path";
 import { promisify } from "util";
@@ -59,7 +58,7 @@ export async function abtest(
   const script = path.join(__dirname, "..", "python", "bayesian", "main.py");
 
   const result = await promisify(PythonShell.run)(script, options);
-  const parsed: {
+  let parsed: {
     chance_to_win: number;
     expected: number;
     ci: [number, number];
@@ -69,7 +68,13 @@ export async function abtest(
       mean?: number;
       stddev?: number;
     };
-  } = JSON.parse(result[0]);
+  };
+  try {
+    parsed = JSON.parse(result[0]);
+  } catch (e) {
+    console.error("Failed to run stats model", options.args, result);
+    throw e;
+  }
 
   return {
     expected: parsed.expected,

@@ -25,7 +25,6 @@ import {
   MetricValueResult,
   UsersResult,
   UsersQueryParams,
-  MetricStats,
 } from "../types/Integration";
 import { SegmentModel, SegmentDocument } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
@@ -33,6 +32,7 @@ import {
   SegmentComparisonInterface,
   SegmentComparisonResults,
 } from "../../types/segment-comparison";
+import { MetricStats } from "../../types/metric";
 
 export async function getAllSegments(req: AuthRequest, res: Response) {
   const segments = await SegmentModel.find({

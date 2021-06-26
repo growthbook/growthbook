@@ -182,7 +182,18 @@ export async function postSampleData(req: AuthRequest, res: Response) {
   await ExperimentModel.create(experiment);
 
   await createManualSnapshot(experiment, 0, [15500, 15400], {
-    [metric.id]: [950, 1025],
+    [metric.id]: [
+      {
+        count: 950,
+        mean: 950 / 15500,
+        stddev: 1,
+      },
+      {
+        count: 1025,
+        mean: 1025 / 15400,
+        stddev: 1,
+      },
+    ],
   });
 
   res.status(200).json({

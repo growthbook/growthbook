@@ -10,9 +10,9 @@ import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
 import { QueryMap } from "./queries";
-import { MetricStats, PastExperimentResult } from "../types/Integration";
+import { PastExperimentResult } from "../types/Integration";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
@@ -191,7 +191,9 @@ export async function getManualSnapshotData(
   experiment: ExperimentInterface,
   phaseIndex: number,
   users: number[],
-  metrics: { [key: string]: number[] }
+  metrics: {
+    [key: string]: MetricStats[];
+  }
 ) {
   // Default variation values, override from SQL results if available
   const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
@@ -207,54 +209,39 @@ export async function getManualSnapshotData(
     metricMap.set(m.id, m);
   });
 
-  function getStats(
-    users: number,
-    value: number,
-    metric: MetricInterface
-  ): MetricStats {
-    const mean = value / users;
-    return {
-      mean,
-      count: metric.type === "binomial" ? value : users,
-      stddev:
-        metric.type === "binomial"
-          ? Math.sqrt(mean * (1 - mean))
-          : metric.type === "count"
-          ? Math.sqrt(mean)
-          : mean,
-    };
-  }
-
   await Promise.all(
     Object.keys(metrics).map((m) => {
       const metric = metricMap.get(m);
-      const aStats = getStats(users[0], metrics[m][0], metric);
       return Promise.all(
         experiment.variations.map(async (v, i) => {
+          const valueCR = getValueCR(
+            metric,
+            metrics[m][i].mean * users[i],
+            metrics[m][i].count,
+            users[i]
+          );
+
           // Baseline
           if (!i) {
-            variations[i].metrics[m] = getValueCR(
-              metric,
-              metrics[m][i],
-              users[i],
-              users[i]
-            );
+            variations[i].metrics[m] = {
+              ...valueCR,
+              stats: metrics[m][i],
+            };
           }
           // Variation
           else {
-            const bStats = getStats(users[i], metrics[m][i], metric);
-
-            const stats = await abtest(
+            const result = await abtest(
               metric,
               users[0],
-              aStats,
-              users[1],
-              bStats
+              metrics[m][0],
+              users[i],
+              metrics[m][i]
             );
 
             variations[i].metrics[m] = {
-              ...getValueCR(metric, metrics[m][i], users[i], users[i]),
-              ...stats,
+              ...valueCR,
+              ...result,
+              stats: metrics[m][i],
             };
           }
         })
@@ -279,7 +266,9 @@ export async function createManualSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   users: number[],
-  metrics: { [key: string]: number[] }
+  metrics: {
+    [key: string]: MetricStats[];
+  }
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -408,19 +397,17 @@ export async function createSnapshot(
               // We aren't doing a correction for multiple tests, so the numbers would be misleading for the break down
               // Can enable this later when we have a more robust stats engine
               if (!i || dimension) {
-                variations[i].metrics[k] = getValueCR(
-                  metric,
-                  value,
-                  data.count,
-                  variations[i].users
-                );
+                variations[i].metrics[k] = {
+                  ...getValueCR(metric, value, data.count, variations[i].users),
+                  stats: data,
+                };
                 return;
               }
 
-              let stats: ABTestStats;
+              let result: ABTestStats;
               // Short cut if either the baseline or variation has no data
               if (!baselineSuccess || !success) {
-                stats = {
+                result = {
                   buckets: [],
                   chanceToWin: 0,
                   ci: [0, 0],
@@ -428,7 +415,7 @@ export async function createSnapshot(
                   expected: 0,
                 };
               } else {
-                stats = await abtest(
+                result = await abtest(
                   metric,
                   variations[0].users,
                   v[0],
@@ -439,7 +426,8 @@ export async function createSnapshot(
 
               variations[i].metrics[k] = {
                 ...getValueCR(metric, value, data.count, variations[i].users),
-                ...stats,
+                ...result,
+                stats: data,
               };
             })
           )

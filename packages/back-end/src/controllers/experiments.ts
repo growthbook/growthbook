@@ -17,7 +17,11 @@ import {
   processPastExperiments,
 } from "../services/experiments";
 import uniqid from "uniqid";
-import { MetricAnalysis, MetricInterface } from "../../types/metric";
+import {
+  MetricAnalysis,
+  MetricInterface,
+  MetricStats,
+} from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import {
   getDataSourceById,
@@ -1194,12 +1198,14 @@ export async function putMetric(
 }
 
 export async function previewManualSnapshot(
-  req: AuthRequest<{ [key: string]: number[] }>,
+  req: AuthRequest<{
+    users: number[];
+    metrics: { [key: string]: MetricStats[] };
+  }>,
   res: Response
 ) {
   const { id, phase }: { id: string; phase: string } = req.params;
 
-  const { users, ...metrics } = req.body;
   const exp = await getExperimentById(id);
 
   if (!exp) {
@@ -1220,7 +1226,12 @@ export async function previewManualSnapshot(
   }
 
   try {
-    const data = await getManualSnapshotData(exp, phaseIndex, users, metrics);
+    const data = await getManualSnapshotData(
+      exp,
+      phaseIndex,
+      req.body.users,
+      req.body.metrics
+    );
     res.status(200).json({
       status: 200,
       snapshot: data,
@@ -1237,7 +1248,8 @@ export async function postSnapshot(
   req: AuthRequest<{
     phase: number;
     dimension?: string;
-    data?: { [key: string]: number[] };
+    users?: number[];
+    metrics?: { [key: string]: MetricStats[] };
   }>,
   res: Response
 ) {
@@ -1274,12 +1286,13 @@ export async function postSnapshot(
 
   // Manual snapshot
   if (!exp.datasource) {
-    const {
-      data: { users, ...metrics },
-    } = req.body;
-
     try {
-      const snapshot = await createManualSnapshot(exp, phase, users, metrics);
+      const snapshot = await createManualSnapshot(
+        exp,
+        phase,
+        req.body.users,
+        req.body.metrics
+      );
       res.status(200).json({
         status: 200,
         snapshot,
