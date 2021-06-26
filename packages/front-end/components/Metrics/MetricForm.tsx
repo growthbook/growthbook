@@ -149,7 +149,10 @@ const MetricForm: FC<MetricFormProps> = ({
     !!currentDataSource && !["google_analytics"].includes(datasourceType);
 
   const conditionsSupported = !["google_analytics"].includes(datasourceType);
-  const capSupported = !["google_analytics"].includes(datasourceType);
+  const capSupported =
+    datasourceType && !["google_analytics"].includes(datasourceType);
+
+  const ignoreNullsSupported = !["google_analytics"].includes(datasourceType);
 
   const supportsSQL =
     datasourceSettingsSupport && !["mixpanel"].includes(datasourceType);
@@ -624,7 +627,7 @@ GROUP BY
             </small>
           </div>
         )}
-        {capSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only
             <select className="form-control" {...inputs.ignoreNulls}>

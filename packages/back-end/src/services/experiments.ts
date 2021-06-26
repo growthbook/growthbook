@@ -216,7 +216,7 @@ export async function getManualSnapshotData(
         experiment.variations.map(async (v, i) => {
           const valueCR = getValueCR(
             metric,
-            metrics[m][i].mean * users[i],
+            metrics[m][i].mean * metrics[m][i].count,
             metrics[m][i].count,
             users[i]
           );

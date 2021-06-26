@@ -185,12 +185,12 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     [metric.id]: [
       {
         count: 950,
-        mean: 950 / 15500,
+        mean: 1,
         stddev: 1,
       },
       {
         count: 1025,
-        mean: 1025 / 15400,
+        mean: 1,
         stddev: 1,
       },
     ],

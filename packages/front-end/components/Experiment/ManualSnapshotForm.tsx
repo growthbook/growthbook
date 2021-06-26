@@ -96,6 +96,12 @@ const ManualSnapshotForm: FC<{
             mean: v.count / values.users[i],
             stddev: Math.sqrt(v.count / values.users[i]),
           };
+        } else if (m.type === "revenue") {
+          return {
+            count: v.count,
+            mean: v.mean,
+            stddev: v.stddev,
+          };
         } else {
           return {
             count: values.users[i],
@@ -224,7 +230,11 @@ const ManualSnapshotForm: FC<{
                     <th>Total Count</th>
                   ) : (
                     <>
-                      <th>Average (per user)</th>
+                      {m.type === "revenue" && <th>Conversions</th>}
+                      <th>
+                        Average (per{" "}
+                        {m.type === "revenue" ? "conversion" : "user"})
+                      </th>
                       <th>Standard Deviation</th>
                     </>
                   )}
@@ -248,6 +258,15 @@ const ManualSnapshotForm: FC<{
                       </td>
                     ) : (
                       <>
+                        {m.type === "revenue" && (
+                          <td>
+                            <input
+                              type="number"
+                              required
+                              {...inputProps.metrics[m.id][i].count}
+                            />
+                          </td>
+                        )}
                         <td>
                           <input
                             type="number"
