@@ -9,6 +9,7 @@ import { ViolinPlot } from "@visx/stats";
 import { jStat } from "jstat";
 
 export interface Props {
+  id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant";
@@ -32,6 +33,7 @@ export interface Props {
 }
 
 const AlignedGraph: FC<Props> = ({
+  id,
   ci,
   barType = "pill",
   barFillType = "gradient",
@@ -89,9 +91,8 @@ const AlignedGraph: FC<Props> = ({
   // todo: make the significant threashold centralized, and adjustable.
 
   const gradient: { color: string; percent: number }[] = [];
-  let gradientId = "";
+  const gradientId = "gr_" + id;
   if (ci && barFillType === "gradient") {
-    gradientId = "gr_" + ci[0] + "_" + ci[1];
     if (ci[0] < 0) {
       gradient.push({ color: sigBarColorNeg, percent: 0 });
       if (ci[1] > 0) {

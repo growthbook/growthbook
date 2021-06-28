@@ -146,6 +146,7 @@ const CompactResults: FC<{
                     <td className="p-0">
                       <div>
                         <AlignedGraph
+                          id={experiment.id + "_" + i + "_axis"}
                           domain={domain}
                           significant={true}
                           showAxis={true}
@@ -326,6 +327,7 @@ const CompactResults: FC<{
                             </td>
                             <td className="variation compact-graph pb-0 align-middle">
                               <AlignedGraph
+                                id={experiment.id + "_" + i + "_" + m}
                                 domain={domain}
                                 axisOnly={true}
                                 ci={[0, 0]}
@@ -483,6 +485,7 @@ const CompactResults: FC<{
                             <AlignedGraph
                               ci={ci}
                               uplift={stats.uplift}
+                              id={experiment.id + "_" + i + "_" + m}
                               domain={domain}
                               expected={expected}
                               barType={barType}
