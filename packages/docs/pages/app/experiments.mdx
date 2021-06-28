@@ -52,18 +52,24 @@ The Client Libraries never communicate with the Growth Book servers.  That means
 This separation has huge performance and reliability benefits (if Growth Book goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
 
 To get the best of both worlds, you can integrate with the [API](/api-docs). In essense, you would periodically fetch and cache the latest experiment settings in something like Redis.  Then your app would query the cache to determine which experiments are running. You get the benefits of separation and the convenience of using the Growth Book UI to manage experiments.
+
 ## Results
 
 ![Results Table](/images/results-table.png)
 
 Each row of this table is a different metric.
 
-**Chance to Beat Control** is a bayesian statistic telling you how likely it is that the variation is better.  Typically,
-you want to wait until this reaches 95% at which point the row will turn green. Likewise, if this number drops below 5%, the row will turn red indicating the variation is significantly worse than the control.
+**Chance to Beat Control** tells you the probability that the variation is better. The closer this gets to 100%, the more likely the variation is better.  The closer it gets to 0% the more likely the variation is worse.
+Numbers in the middle are inconclusive and require more data.  We recommend waiting until it reaches 95% or 5% before deciding on a winner as a general rule of thumb.
 
-**Percent Change** shows how much better/worse the variation is compared to the control. To generate these numbers, we use statistical bootstrapping and simulate your experiment 10,000 times. What you see is the 95% confidence interval from these simulations.
+**Risk** tells you how much you will lose if you choose the variation as the winner, but it ends up actually being worse (no matter how unlikely that is).
 
-If you have pre-defined dimensions for your users, you can use the **Dimension** dropdown to drill down into your results.
+**Percent Change** shows how much better/worse the variation is compared to the control. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
+As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
+
+### Dimensions
+
+If you have defined dimensions for your users, you can use the **Dimension** dropdown to drill down into your results.
 This is very useful for debugging (e.g. if Safari is down, but the other browser are fine, you may have an implementation bug).
 
 Be careful, the more metrics and dimensions you look at, the more likely you are to see a false positive. If you find something that looks 

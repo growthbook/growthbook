@@ -5,21 +5,14 @@ import {
 } from "../../types/experiment-snapshot";
 import { MetricModel } from "../models/MetricModel";
 import uniqid from "uniqid";
-import {
-  binomialABTest,
-  srm,
-  ABTestStats,
-  countABTest,
-  bootstrapABTest,
-  getValueCR,
-} from "./stats";
+import { srm, ABTestStats, abtest, getValueCR } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
 import { QueryMap } from "./queries";
 import { PastExperimentResult } from "../types/Integration";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
@@ -198,7 +191,9 @@ export async function getManualSnapshotData(
   experiment: ExperimentInterface,
   phaseIndex: number,
   users: number[],
-  metrics: { [key: string]: number[] }
+  metrics: {
+    [key: string]: MetricStats[];
+  }
 ) {
   // Default variation values, override from SQL results if available
   const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
@@ -214,64 +209,45 @@ export async function getManualSnapshotData(
     metricMap.set(m.id, m);
   });
 
-  Object.keys(metrics).forEach((m) => {
-    const metric = metricMap.get(m);
-    experiment.variations.forEach((v, i) => {
-      // Baseline
-      if (!i) {
-        variations[i].metrics[m] = getValueCR(
-          metric,
-          metrics[m][i],
-          users[i],
-          users[i]
-        );
-      }
-      // Variation
-      else {
-        const type = metric.type;
-        let stats: ABTestStats;
-
-        if (type === "binomial") {
-          stats = binomialABTest(
-            metrics[m][0],
-            users[0] - metrics[m][0],
-            metrics[m][i],
-            users[i] - metrics[m][i]
+  await Promise.all(
+    Object.keys(metrics).map((m) => {
+      const metric = metricMap.get(m);
+      return Promise.all(
+        experiment.variations.map(async (v, i) => {
+          const valueCR = getValueCR(
+            metric,
+            metrics[m][i].mean * metrics[m][i].count,
+            metrics[m][i].count,
+            users[i]
           );
-        } else if (type === "count") {
-          stats = countABTest(metrics[m][0], users[0], metrics[m][i], users[i]);
-        } else if (type === "duration") {
-          stats = bootstrapABTest(
-            {
-              mean: metrics[m][0] / users[0],
-              count: users[0],
-              stddev: metrics[m][0] / users[0],
-            },
-            users[0],
-            {
-              mean: metrics[m][i] / users[i],
-              count: users[i],
-              stddev: metrics[m][i] / users[i],
-            },
-            users[i],
-            metric?.ignoreNulls || false
-          );
-        } else {
-          throw new Error("Metric type not supported: " + type);
-        }
-        // TODO: support other metric types
 
-        if (metric.inverse) {
-          stats.chanceToWin = 1 - stats.chanceToWin;
-        }
+          // Baseline
+          if (!i) {
+            variations[i].metrics[m] = {
+              ...valueCR,
+              stats: metrics[m][i],
+            };
+          }
+          // Variation
+          else {
+            const result = await abtest(
+              metric,
+              users[0],
+              metrics[m][0],
+              users[i],
+              metrics[m][i]
+            );
 
-        variations[i].metrics[m] = {
-          ...getValueCR(metric, metrics[m][i], users[i], users[i]),
-          ...stats,
-        };
-      }
-    });
-  });
+            variations[i].metrics[m] = {
+              ...valueCR,
+              ...result,
+              stats: metrics[m][i],
+            };
+          }
+        })
+      );
+    })
+  );
 
   // Check to see if the observed number of samples per variation matches what we expect
   // This returns a p-value and a small value indicates the results are untrustworthy
@@ -290,7 +266,9 @@ export async function createManualSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   users: number[],
-  metrics: { [key: string]: number[] }
+  metrics: {
+    [key: string]: MetricStats[];
+  }
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -373,127 +351,105 @@ export async function createSnapshot(
     variations: SnapshotVariation[];
   }[] = [];
 
-  rows.forEach((d) => {
-    // Default variation values, override from SQL results if available
-    const variations: SnapshotVariation[] = experiment.variations.map(() => ({
-      users: 0,
-      metrics: {},
-    }));
+  await Promise.all(
+    rows.map(async (d) => {
+      // Default variation values, override from SQL results if available
+      const variations: SnapshotVariation[] = experiment.variations.map(() => ({
+        users: 0,
+        metrics: {},
+      }));
 
-    const metricData = new Map<
-      string,
-      { count: number; mean: number; stddev: number }[]
-    >();
-    d.variations.forEach((row) => {
-      const variation = row.variation;
-      if (!variations[variation]) {
-        return;
-      }
-      variations[variation].users = row.users || 0;
-
-      row.metrics.forEach((m) => {
-        const doc = metricData.get(m.metric) || [];
-        doc[variation] = {
-          count: m.count,
-          mean: m.mean,
-          stddev: m.stddev,
-        };
-        metricData.set(m.metric, doc);
-      });
-    });
-
-    metricData.forEach((v, k) => {
-      const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
-
-      v.forEach((data, i) => {
-        const success = data.count * data.mean;
-
-        const metric = metricMap.get(k);
-        const type = metric?.type || "binomial";
-        const ignoreNulls = metric?.ignoreNulls || false;
-
-        const value = success;
-
-        // Don't do stats for the baseline or when breaking down by dimension
-        // We aren't doing a correction for multiple tests, so the numbers would be misleading for the break down
-        // Can enable this later when we have a more robust stats engine
-        if (!i || dimension) {
-          variations[i].metrics[k] = getValueCR(
-            metric,
-            value,
-            data.count,
-            variations[i].users
-          );
+      const metricData = new Map<
+        string,
+        { count: number; mean: number; stddev: number }[]
+      >();
+      d.variations.forEach((row) => {
+        const variation = row.variation;
+        if (!variations[variation]) {
           return;
         }
+        variations[variation].users = row.users || 0;
 
-        let stats: ABTestStats;
-        // Short cut if either the baseline or variation has no data
-        if (!baselineSuccess || !success) {
-          stats = {
-            buckets: [],
-            chanceToWin: 0,
-            ci: [0, 0],
-            expected: 0,
+        row.metrics.forEach((m) => {
+          const doc = metricData.get(m.metric) || [];
+          doc[variation] = {
+            count: m.count,
+            mean: m.mean,
+            stddev: m.stddev,
           };
-        } else if (type === "binomial") {
-          stats = binomialABTest(
-            baselineSuccess,
-            variations[0].users - baselineSuccess,
-            success,
-            variations[i].users - success
-          );
-        } else if (type === "count") {
-          stats = countABTest(
-            baselineSuccess,
-            variations[0].users,
-            success,
-            variations[i].users
-          );
-        } else if (type === "duration") {
-          stats = bootstrapABTest(
-            v[0],
-            variations[0].users,
-            data,
-            variations[i].users,
-            ignoreNulls
-          );
-        } else if (type === "revenue") {
-          stats = bootstrapABTest(
-            v[0],
-            variations[0].users,
-            data,
-            variations[i].users,
-            ignoreNulls
-          );
-        } else {
-          throw new Error("Metric type not supported: " + type);
-        }
-
-        if (metric.inverse) {
-          stats.chanceToWin = 1 - stats.chanceToWin;
-        }
-
-        variations[i].metrics[k] = {
-          ...getValueCR(metric, value, data.count, variations[i].users),
-          ...stats,
-        };
+          metricData.set(m.metric, doc);
+        });
       });
-    });
 
-    // Check to see if the observed number of samples per variation matches what we expect
-    // This returns a p-value and a small value indicates the results are untrustworthy
-    const sampleRatioMismatch = srm(
-      variations.map((v) => v.users),
-      phase.variationWeights
-    );
+      const metricPromises: Promise<void[]>[] = [];
+      metricData.forEach((v, k) => {
+        const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
-    results.push({
-      name: d.dimension,
-      srm: sampleRatioMismatch,
-      variations,
-    });
-  });
+        metricPromises.push(
+          Promise.all(
+            v.map(async (data, i) => {
+              const success = data.count * data.mean;
+
+              const metric = metricMap.get(k);
+              const value = success;
+
+              // Don't do stats for the baseline or when breaking down by dimension
+              // We aren't doing a correction for multiple tests, so the numbers would be misleading for the break down
+              // Can enable this later when we have a more robust stats engine
+              if (!i || dimension) {
+                variations[i].metrics[k] = {
+                  ...getValueCR(metric, value, data.count, variations[i].users),
+                  stats: data,
+                };
+                return;
+              }
+
+              let result: ABTestStats;
+              // Short cut if either the baseline or variation has no data
+              if (!baselineSuccess || !success) {
+                result = {
+                  buckets: [],
+                  chanceToWin: 0,
+                  ci: [0, 0],
+                  risk: [0, 0],
+                  expected: 0,
+                };
+              } else {
+                result = await abtest(
+                  metric,
+                  variations[0].users,
+                  v[0],
+                  variations[i].users,
+                  data
+                );
+              }
+
+              variations[i].metrics[k] = {
+                ...getValueCR(metric, value, data.count, variations[i].users),
+                ...result,
+                stats: data,
+              };
+            })
+          )
+        );
+      });
+
+      await Promise.all(metricPromises);
+
+      // Check to see if the observed number of samples per variation matches what we expect
+      // This returns a p-value and a small value indicates the results are untrustworthy
+      const sampleRatioMismatch = srm(
+        variations.map((v) => v.users),
+        phase.variationWeights
+      );
+
+      results.push({
+        name: d.dimension,
+        srm: sampleRatioMismatch,
+        variations,
+      });
+    })
+  );
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),

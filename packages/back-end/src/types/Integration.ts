@@ -4,14 +4,8 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
-
-export interface MetricStats {
-  count: number;
-  stddev: number;
-  mean: number;
-}
 
 export type VariationMetricResult = MetricStats & {
   metric: string;

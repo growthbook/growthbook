@@ -3,6 +3,12 @@ import { Queries } from "./query";
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 
+export interface MetricStats {
+  count: number;
+  stddev: number;
+  mean: number;
+}
+
 export interface MetricAnalysis {
   createdAt: Date;
   users: number;

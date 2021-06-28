@@ -95,28 +95,24 @@ const MetricForm: FC<MetricFormProps> = ({
       display: "Binomial",
       description: "Percent of users who do something",
       sub: "click, view, download, bounce, etc.",
-      tooltip: "Uses Bayesian statistics for analysis",
     },
     {
       key: "count",
       display: "Count",
       description: "Number of actions per user",
       sub: "clicks, views, downloads, etc.",
-      tooltip: "Uses Bayesian statistics for analysis",
     },
     {
       key: "duration",
       display: "Duration",
       description: "How long something takes",
       sub: "time on site, loading speed, etc.",
-      tooltip: "Uses bootstrapping for analysis",
     },
     {
       key: "revenue",
       display: "Revenue",
       description: "How much money a user pays (in USD)",
       sub: "revenue per visitor, average order value, etc.",
-      tooltip: "Uses bootstrapping for analysis",
     },
   ];
 
@@ -153,7 +149,10 @@ const MetricForm: FC<MetricFormProps> = ({
     !!currentDataSource && !["google_analytics"].includes(datasourceType);
 
   const conditionsSupported = !["google_analytics"].includes(datasourceType);
-  const capSupported = !["google_analytics"].includes(datasourceType);
+  const capSupported =
+    datasourceType && !["google_analytics"].includes(datasourceType);
+
+  const ignoreNullsSupported = !["google_analytics"].includes(datasourceType);
 
   const supportsSQL =
     datasourceSettingsSupport && !["mixpanel"].includes(datasourceType);
@@ -628,7 +627,7 @@ GROUP BY
             </small>
           </div>
         )}
-        {capSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only
             <select className="form-control" {...inputs.ignoreNulls}>

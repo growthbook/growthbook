@@ -38,13 +38,15 @@ const GetStarted = ({
   const [experimentsOpen, setExperimentsOpen] = useState(false);
   const router = useRouter();
 
-  const hasSampleExperiment =
-    experiments.filter((m) => m.id === "exp_sample").length > 0;
+  const hasSampleExperiment = experiments.filter((m) =>
+    m.id.match(/^exp_sample/)
+  )[0];
 
   const hasDataSource = datasources.length > 0;
-  const hasMetrics = metrics.filter((m) => m.id !== "met_sample").length > 0;
+  const hasMetrics =
+    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
   const hasExperiments =
-    experiments.filter((m) => m.id !== "exp_sample").length > 0;
+    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
   const currentStep = hasExperiments
     ? 4
     : hasMetrics
@@ -111,7 +113,7 @@ const GetStarted = ({
                     </Tooltip>
                   </div>
                   {hasSampleExperiment ? (
-                    <Link href="/experiment/exp_sample">
+                    <Link href={`/experiment/${hasSampleExperiment.id}`}>
                       <a className="btn btn-sm btn-success ml-3">
                         View Sample Experiment <FaChevronRight />
                       </a>
@@ -121,16 +123,15 @@ const GetStarted = ({
                       color="primary"
                       className="btn-sm ml-3"
                       onClick={async () => {
-                        await apiCall<{
+                        const res = await apiCall<{
                           experiment: string;
-                          metric: string;
                         }>(`/organization/sample-data`, {
                           method: "POST",
                         });
                         await mutateDefinitions();
                         await mutate();
                         track("Add Sample Data");
-                        await router.push("/experiment/exp_sample");
+                        await router.push("/experiment/" + res.experiment);
                       }}
                     >
                       <FaDatabase /> Import Sample Data

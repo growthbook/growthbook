@@ -418,6 +418,12 @@ const ExperimentPage = (): ReactElement => {
       </div>
       <Tabs>
         <Tab display="Info" anchor="info">
+          {experiment.id.match(/^exp_sample_/) && (
+            <div className="alert alert-info">
+              Click the &quot;Results&quot; tab above to see how the sample
+              experiment performed.
+            </div>
+          )}
           <div className="row mb-3">
             <div className="col-md-9">
               {canEdit && !experiment.archived && (

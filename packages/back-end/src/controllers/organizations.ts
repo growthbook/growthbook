@@ -60,6 +60,7 @@ import { MetricModel } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
 import { format } from "sql-formatter";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
+import uniqid from "uniqid";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -100,14 +101,14 @@ export async function postSampleData(req: AuthRequest, res: Response) {
 
   const existingMetric = await MetricModel.findOne({
     organization: orgId,
-    id: "met_sample",
+    id: /^met_sample/,
   });
   if (existingMetric) {
     throw new Error("Sample data already exists");
   }
 
-  const metric: Partial<MetricInterface> = {
-    id: "met_sample",
+  const metric1: Partial<MetricInterface> = {
+    id: uniqid("met_sample_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     name: "Sample Conversions",
@@ -116,13 +117,25 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     organization: orgId,
     userIdType: "anonymous",
   };
-  await MetricModel.create(metric);
+  await MetricModel.create(metric1);
+
+  const metric2: Partial<MetricInterface> = {
+    id: uniqid("met_sample_"),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "Sample Revenue per User",
+    description: `Part of the Growth Book sample data set. Feel free to delete when finished exploring.`,
+    type: "revenue",
+    organization: orgId,
+    userIdType: "anonymous",
+  };
+  await MetricModel.create(metric2);
 
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
 
   const experiment: ExperimentInterface = {
-    id: "exp_sample",
+    id: uniqid("exp_sample_"),
     organization: orgId,
     archived: false,
     name: "Sample Experiment",
@@ -159,7 +172,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     dateCreated: new Date(),
     dateUpdated: new Date(),
     implementation: "code",
-    metrics: [metric.id],
+    metrics: [metric1.id, metric2.id],
     owner: req.userId,
     trackingKey: "sample-experiment",
     userIdType: "anonymous",
@@ -167,6 +180,11 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     conversionWindowDays: 3,
     results: "won",
     winner: 1,
+    analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾
+
+Revenue did not reach 95% significance, but the risk is so low it doesn't seem worth it to keep waiting.
+
+**Ready to get some wins yourself?** [Finish setting up your account](/getstarted)`,
     phases: [
       {
         dateStarted: lastWeek,
@@ -182,13 +200,35 @@ export async function postSampleData(req: AuthRequest, res: Response) {
   await ExperimentModel.create(experiment);
 
   await createManualSnapshot(experiment, 0, [15500, 15400], {
-    [metric.id]: [950, 1025],
+    [metric1.id]: [
+      {
+        count: 950,
+        mean: 1,
+        stddev: 1,
+      },
+      {
+        count: 1025,
+        mean: 1,
+        stddev: 1,
+      },
+    ],
+    [metric2.id]: [
+      {
+        count: 950,
+        mean: 26.54,
+        stddev: 16.75,
+      },
+      {
+        count: 1025,
+        mean: 25.13,
+        stddev: 16.87,
+      },
+    ],
   });
 
   res.status(200).json({
     status: 200,
     experiment: experiment.id,
-    metric: metric.id,
   });
 }
 

@@ -1,4 +1,5 @@
 import { QueryLanguage } from "./datasource";
+import { MetricStats } from "./metric";
 
 export interface SnapshotMetric {
   value: number;
@@ -6,6 +7,13 @@ export interface SnapshotMetric {
   users: number;
   ci?: [number, number];
   expected?: number;
+  risk?: [number, number];
+  stats?: MetricStats;
+  uplift?: {
+    dist: string;
+    mean?: number;
+    stddev?: number;
+  };
   buckets?: {
     x: number;
     y: number;

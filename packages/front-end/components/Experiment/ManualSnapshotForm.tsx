@@ -5,10 +5,14 @@ import {
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface, MetricStats } from "back-end/types/metric";
 import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import {
+  formatConversionRate,
+  getMetricConversionTitle,
+} from "../../services/metrics";
 
 type SnapshotPreview = {
   srm: number;
@@ -22,12 +26,10 @@ const ManualSnapshotForm: FC<{
   lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
 }> = ({ experiment, close, success, lastSnapshot, phase }) => {
-  const { metrics } = useDefinitions();
+  const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const filteredMetrics: Partial<MetricInterface>[] = [
-    { id: "users", name: "Users" },
-  ];
+  const filteredMetrics: Partial<MetricInterface>[] = [];
 
   if (metrics) {
     experiment.metrics.forEach((mid) => {
@@ -41,18 +43,29 @@ const ManualSnapshotForm: FC<{
     filteredMetrics.map((m) => m.id).join("-");
 
   const initialValue: {
-    [key: string]: number[];
-  } = {};
+    users: number[];
+    metrics: {
+      [key: string]: MetricStats[];
+    };
+  } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
+  if (lastSnapshot?.results?.[0]) {
+    initialValue.users = lastSnapshot.results[0].variations.map((v) => v.users);
+  }
   filteredMetrics.forEach(({ id }) => {
-    initialValue[id] = Array(experiment.variations.length).fill(0);
+    initialValue.metrics[id] = Array(experiment.variations.length).fill({
+      count: 0,
+      mean: 0,
+      stddev: 0,
+    });
     if (lastSnapshot?.results?.[0]) {
       for (let i = 0; i < experiment.variations.length; i++) {
         const variation = lastSnapshot.results[0].variations[i];
-        if (id === "users" && variation) {
-          initialValue[id][i] = variation.users;
-        }
         if (variation?.metrics[id]) {
-          initialValue[id][i] = variation.metrics[id].value;
+          initialValue.metrics[id][i] = variation.metrics[id].stats || {
+            count: variation.metrics[id].value,
+            mean: variation.metrics[id].value,
+            stddev: 0,
+          };
         }
       }
     }
@@ -66,6 +79,41 @@ const ManualSnapshotForm: FC<{
   });
   const [preview, setPreview] = useState<SnapshotPreview>(null);
 
+  function getStats() {
+    const ret: { [key: string]: MetricStats[] } = {};
+    Object.keys(values.metrics).forEach((key) => {
+      const m = getMetricById(key);
+      ret[key] = values.metrics[key].map((v, i) => {
+        if (m.type === "binomial") {
+          return {
+            count: v.count,
+            mean: 1,
+            stddev: 1,
+          };
+        } else if (m.type === "count") {
+          return {
+            count: values.users[i],
+            mean: v.mean,
+            stddev: Math.sqrt(v.mean),
+          };
+        } else if (m.type === "revenue") {
+          return {
+            count: v.count,
+            mean: v.mean,
+            stddev: v.stddev,
+          };
+        } else {
+          return {
+            count: values.users[i],
+            mean: v.mean,
+            stddev: v.stddev,
+          };
+        }
+      });
+    });
+    return ret;
+  }
+
   // Get preview stats when the value changes
   useEffect(() => {
     if (!hash) return;
@@ -75,14 +123,18 @@ const ManualSnapshotForm: FC<{
       setPreview(null);
       return;
     }
-    const metricsToTest: { [key: string]: number[] } = {};
-    Object.keys(values).forEach((key) => {
+    const metricsToTest: { [key: string]: MetricStats[] } = {};
+    const stats = getStats();
+    Object.keys(stats).forEach((key) => {
       // Only preview metrics which have all variations filled out
-      if (values[key].filter((n) => n <= 0).length > 0) {
+      if (
+        stats[key].filter((n) => Math.min(n.count, n.mean, n.stddev) <= 0)
+          .length > 0
+      ) {
         setPreview(null);
         return;
       }
-      metricsToTest[key] = values[key];
+      metricsToTest[key] = stats[key];
     });
 
     // Make sure there's at least 1 metric fully entered
@@ -94,7 +146,10 @@ const ManualSnapshotForm: FC<{
             `/experiment/${experiment.id}/snapshot/${phase}/preview`,
             {
               method: "POST",
-              body: JSON.stringify(metricsToTest),
+              body: JSON.stringify({
+                users: values.users,
+                metrics: metricsToTest,
+              }),
             }
           );
           if (cancel) return;
@@ -118,7 +173,8 @@ const ManualSnapshotForm: FC<{
         method: "POST",
         body: JSON.stringify({
           phase,
-          data: values,
+          users: values.users,
+          metrics: getStats(),
         }),
       }
     );
@@ -137,89 +193,129 @@ const ManualSnapshotForm: FC<{
     >
       <p>Manually enter the latest data for the experiment below.</p>
       <div style={{ overflowY: "auto", overflowX: "hidden" }}>
+        <div className="mb-3">
+          <h4>Users</h4>
+          <div className="row">
+            {experiment.variations.map((v, i) => (
+              <div className="col-auto" key={i}>
+                <div className="input-group">
+                  <div className="input-group-prepend">
+                    <div className="input-group-text">{v.name}</div>
+                  </div>
+                  <input type="number" required {...inputProps.users[i]} />
+                </div>
+              </div>
+            ))}
+            {preview && preview.srm < 0.001 && (
+              <div className="col-12">
+                <div className="my-2 alert alert-danger">
+                  Sample Ratio Mismatch (SRM) detected. Please double check the
+                  number of users. If they are correct, there is likely a bug in
+                  the test implementation.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         {filteredMetrics.map((m) => (
           <div className="mb-3" key={m.id}>
             <h4>{m.name}</h4>
-            {m.id === "users" ? (
-              <div className="row">
+            <table className="table table-sm">
+              <thead>
+                <tr>
+                  <th></th>
+                  {m.type === "binomial" ? (
+                    <th>Conversions</th>
+                  ) : m.type === "count" ? (
+                    <th>Average Count per User</th>
+                  ) : (
+                    <>
+                      {m.type === "revenue" && <th>Conversions</th>}
+                      <th>
+                        Average (per{" "}
+                        {m.type === "revenue" ? "conversion" : "user"})
+                      </th>
+                      <th>Standard Deviation</th>
+                    </>
+                  )}
+                  {m.type === "binomial" && (
+                    <th>{getMetricConversionTitle(m.type)}</th>
+                  )}
+                  <th>Chance to Beat Baseline</th>
+                </tr>
+              </thead>
+              <tbody>
                 {experiment.variations.map((v, i) => (
-                  <div className="col-auto" key={i}>
-                    <div className="input-group">
-                      <div className="input-group-prepend">
-                        <div className="input-group-text">{v.name}</div>
-                      </div>
-                      <input
-                        type="number"
-                        required
-                        {...(inputProps[m.id] ? inputProps[m.id][i] : {})}
-                      />
-                    </div>
-                  </div>
-                ))}
-                {preview && preview.srm < 0.001 && (
-                  <div className="col-12">
-                    <div className="my-2 alert alert-danger">
-                      Sample Ratio Mismatch (SRM) detected. Please double check
-                      the number of users. If they are correct, there is likely
-                      a bug in the test implementation.
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <table className="table table-sm">
-                <thead>
-                  <tr>
-                    <th>Raw Value</th>
-                    <th>Conversion Rate</th>
-                    <th>Chance to Beat Baseline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {experiment.variations.map((v, i) => (
-                    <tr key={i}>
+                  <tr key={i}>
+                    <td>{v.name}</td>
+                    {m.type === "binomial" ? (
                       <td>
-                        <div className="input-group">
-                          <div className="input-group-prepend">
-                            <div className="input-group-text">{v.name}</div>
-                          </div>
+                        <input
+                          type="number"
+                          required
+                          {...inputProps.metrics[m.id][i].count}
+                        />
+                      </td>
+                    ) : m.type === "count" ? (
+                      <td>
+                        <input
+                          type="number"
+                          required
+                          {...inputProps.metrics[m.id][i].mean}
+                        />
+                      </td>
+                    ) : (
+                      <>
+                        {m.type === "revenue" && (
+                          <td>
+                            <input
+                              type="number"
+                              required
+                              {...inputProps.metrics[m.id][i].count}
+                            />
+                          </td>
+                        )}
+                        <td>
                           <input
                             type="number"
                             required
-                            {...(inputProps[m.id] ? inputProps[m.id][i] : {})}
+                            {...inputProps.metrics[m.id][i].mean}
                           />
-                        </div>
-                      </td>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            required
+                            {...inputProps.metrics[m.id][i].stddev}
+                          />
+                        </td>
+                      </>
+                    )}
+                    {m.type === "binomial" && (
                       <td>
                         {values.users[i] > 0 &&
-                          values[m.id][i] > 0 &&
-                          (m.type === "binomial"
-                            ? parseFloat(
-                                (
-                                  (100 * values[m.id][i]) /
-                                  values.users[i]
-                                ).toFixed(2)
-                              ) + "%"
-                            : parseFloat(
-                                (values[m.id][i] / values.users[i]).toFixed(2)
-                              ))}
+                          values.metrics[m.id][i].count > 0 &&
+                          formatConversionRate(
+                            m.type,
+                            values.metrics[m.id][i].count / values.users[i]
+                          )}
                       </td>
-                      <td>
-                        {i > 0 &&
-                          preview &&
-                          preview.variations[i].metrics[m.id] &&
-                          parseFloat(
-                            (
-                              preview.variations[i].metrics[m.id].chanceToWin *
-                              100
-                            ).toFixed(2)
-                          ) + "%"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                    )}
+                    <td>
+                      {i > 0 &&
+                        preview &&
+                        preview.variations[i].metrics[m.id] &&
+                        parseFloat(
+                          (
+                            preview.variations[i].metrics[m.id].chanceToWin *
+                            100
+                          ).toFixed(2)
+                        ) + "%"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ))}
       </div>
