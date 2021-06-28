@@ -4,10 +4,11 @@ The Growth Book API is pretty easy to integrate into any tech stack.
 
 To get started, on the Growth Book settings page, generate an API key.
 
-As of right now, there is only a single public API endpoint: `/config/{apiKey}`.  If you are using Growth Book Cloud (https://app.growthbook.io), the endpoint is accessible from our global CDN: https://cdn.growthbook.io/config/{apiKey}.  
+As of right now, there is only a single public API endpoint that returns experiment configuration info.
 
-This returns configuration info for every experiment. 
-It can be passed directly into our client libraries or you can use the info to implement your own variation assignment and targeting.
+For **self-hosted** deployments, the endpoint is at http://localhost:3100/config/{myKey} (note: port 3000 is the default front-end app, port 3100 is the API)
+
+For **Growth Book Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/config/{myKey}
 
 Here is an example API response:
 
