@@ -187,7 +187,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.io/growthbook/growthbook-js"
+              href="https://github.com/growthbook/growthbook-js"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -212,7 +212,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.io/growthbook/growthbook-react"
+              href="https://github.com/growthbook/growthbook-react"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -237,7 +237,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.io/growthbook/growthbook-php"
+              href="https://github.com/growthbook/growthbook-php"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -263,7 +263,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.io/growthbook/growthbook-python"
+              href="https://github.com/growthbook/growthbook-python"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -284,7 +284,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.io/growthbook/growthbook-ruby"
+              href="https://github.com/growthbook/growthbook-ruby"
               target="_blank"
               rel="noopener noreferrer"
             >
