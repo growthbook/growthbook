@@ -71,18 +71,13 @@ def binomial_ab_test(x_a, n_a, x_b, n_b):
             "mean": ci_mean,
             "stddev": ci_std,
         },
-        "risk": risk_beta[1]
+        "risk": risk_beta.tolist()
     }
 
 
 def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
     # Uninformative prior
-    mu0, s0, n0 = 0, 1, 1
-
-    # Base the prior mean/stddev on the combined sample data
-    # The prior above has too big an effect with small sample sizes
-    mu0 = (m_a + m_b)/2
-    s0 = np.sqrt((s_a**2 + s_b**2)/2)
+    mu0, s0, n0 = 0, 1, 0
 
     # Update the prior
     inv_vars = n0 / np.power(s0, 2), n_a / np.power(s_a, 2)
@@ -118,7 +113,7 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b):
             "mean": ci_mean,
             "stddev": ci_std,
         },
-        "risk": risk_norm[1]
+        "risk": risk_norm.tolist()
     }
 
 

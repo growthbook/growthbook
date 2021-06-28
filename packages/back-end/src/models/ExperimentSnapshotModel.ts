@@ -39,7 +39,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 stddev: Number,
               },
               expected: Number,
-              risk: Number,
+              risk: [Number],
               buckets: [
                 {
                   _id: false,

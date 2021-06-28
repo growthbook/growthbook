@@ -41,6 +41,7 @@ const segmentComparisonSchema = new mongoose.Schema({
           cr: Number,
           users: Number,
           ci: [Number],
+          risk: [Number],
           expected: Number,
           buckets: [
             {

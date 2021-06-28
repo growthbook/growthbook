@@ -13,7 +13,7 @@ export interface ABTestStats {
     stddev?: number;
   };
   ci: [number, number];
-  risk?: number;
+  risk?: [number, number];
   buckets: {
     x: number;
     y: number;
@@ -62,7 +62,7 @@ export async function abtest(
     chance_to_win: number;
     expected: number;
     ci: [number, number];
-    risk: number;
+    risk: [number, number];
     uplift: {
       dist: string;
       mean?: number;

@@ -7,7 +7,7 @@ export interface SnapshotMetric {
   users: number;
   ci?: [number, number];
   expected?: number;
-  risk?: number;
+  risk?: [number, number];
   stats?: MetricStats;
   uplift?: {
     dist: string;

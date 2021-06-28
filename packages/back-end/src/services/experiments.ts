@@ -411,7 +411,7 @@ export async function createSnapshot(
                   buckets: [],
                   chanceToWin: 0,
                   ci: [0, 0],
-                  risk: 0,
+                  risk: [0, 0],
                   expected: 0,
                 };
               } else {

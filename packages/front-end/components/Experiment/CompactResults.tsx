@@ -61,8 +61,11 @@ const CompactResults: FC<{
   domain[1] = upperBound;
 
   const hasRisk =
-    Object.values(variations[1]?.metrics || {}).filter((x) => x.risk > 0)
-      .length > 0;
+    Object.values(variations[1]?.metrics || {}).filter(
+      (x) => x.risk?.length > 0
+    ).length > 0;
+
+  const showControlRisk: boolean = hasRisk && false;
 
   return (
     <div className="mb-4 pb-4 experiment-compact-holder">
@@ -75,7 +78,11 @@ const CompactResults: FC<{
               Metric
             </th>
             {experiment.variations.map((v, i) => (
-              <th colSpan={i ? (hasRisk ? 4 : 3) : 1} className="value" key={i}>
+              <th
+                colSpan={i ? (hasRisk ? 4 : 3) : showControlRisk ? 2 : 1}
+                className="value"
+                key={i}
+              >
                 {v.name}
               </th>
             ))}
@@ -86,18 +93,28 @@ const CompactResults: FC<{
                 <th className={clsx("value", `variation${i} text-center`)}>
                   Value
                 </th>
+                {showControlRisk && i == 0 && (
+                  <th className={`variation${i} text-center`}>
+                    Risk&nbsp;
+                    <Tooltip text="How much you will lose if you choose the Control and you are wrong">
+                      <FaQuestionCircle />
+                    </Tooltip>
+                  </th>
+                )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
                     Chance to Beat Control
                   </th>
                 )}
                 {hasRisk && i > 0 && (
-                  <th className={`variation${i} text-center`}>
-                    Risk{" "}
-                    <Tooltip text="If you choose this variation and it's actually worse, how much would you lose?">
-                      <FaQuestionCircle />
-                    </Tooltip>
-                  </th>
+                  <>
+                    <th className={`variation${i} text-center`}>
+                      Risk&nbsp;
+                      <Tooltip text="How much you will lose if you choose this Variation and you are wrong">
+                        <FaQuestionCircle />
+                      </Tooltip>
+                    </th>
+                  </>
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
@@ -121,6 +138,7 @@ const CompactResults: FC<{
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>
+                {i === 0 && showControlRisk && <td className="empty-td"></td>}
                 {i > 0 && (
                   <>
                     <td className="empty-td"></td>
@@ -190,6 +208,7 @@ const CompactResults: FC<{
                             <em>no data</em>
                           )}
                         </td>
+                        {showControlRisk && <td className="empty-td"></td>}
                         {i > 0 && (
                           <td
                             colSpan={hasRisk ? 3 : 2}
@@ -202,6 +221,7 @@ const CompactResults: FC<{
                 </tr>
               );
             }
+
             return (
               <tr
                 key={m}
@@ -275,6 +295,9 @@ const CompactResults: FC<{
                             </small>
                           </div>
                         </td>
+                        {i === 0 && showControlRisk && (
+                          <td className="empty-td"></td>
+                        )}
                         {i > 0 && (
                           <>
                             <td
@@ -344,6 +367,50 @@ const CompactResults: FC<{
                           </small>
                         </div>
                       </td>
+                      {i === 0 && showControlRisk && (
+                        <td className={clsx("align-middle")}>
+                          <div className="result-number">
+                            {percentFormatter.format(
+                              Math.max(
+                                ...variations.map((v) => {
+                                  const data = v.metrics[m];
+                                  if (!data || !data.risk || !data.risk.length)
+                                    return 0;
+                                  return metric.inverse
+                                    ? data.risk[1]
+                                    : data.risk[0];
+                                })
+                              ) / stats.cr
+                            )}
+                          </div>
+                          {metric.type !== "binomial" && (
+                            <div>
+                              <small className="text-muted">
+                                <em>
+                                  {formatConversionRate(
+                                    metric.type,
+                                    Math.max(
+                                      ...variations.map((v) => {
+                                        const data = v.metrics[m];
+                                        if (
+                                          !data ||
+                                          !data.risk ||
+                                          !data.risk.length
+                                        )
+                                          return 0;
+                                        return metric.inverse
+                                          ? data.risk[1]
+                                          : data.risk[0];
+                                      })
+                                    )
+                                  )}
+                                  &nbsp;/&nbsp;user
+                                </em>
+                              </small>
+                            </div>
+                          )}
+                        </td>
+                      )}
                       {i > 0 && (
                         <td
                           className={clsx(
@@ -360,7 +427,6 @@ const CompactResults: FC<{
                       {hasRisk && i > 0 && (
                         <td
                           className={clsx("align-middle", {
-                            variation: i > 0,
                             won:
                               barFillType === "significant" &&
                               stats.chanceToWin > ciUpper,
@@ -369,31 +435,35 @@ const CompactResults: FC<{
                               stats.chanceToWin < ciLower,
                           })}
                         >
-                          {metric.inverse ? (
-                            ""
-                          ) : stats.risk / stats.cr > 0.00005 ? (
+                          {(!metric.inverse && stats.risk[1] < stats.risk[0]) ||
+                          (metric.inverse && stats.risk[0] < stats.risk[1]) ? (
                             <>
                               <div className="result-number">
                                 {percentFormatter.format(
-                                  -1 * (stats.risk / stats.cr)
+                                  (metric.inverse
+                                    ? stats.risk[0]
+                                    : stats.risk[1]) / stats.cr
                                 )}
                               </div>
+
                               {metric.type !== "binomial" && (
                                 <div>
                                   <small className="text-muted">
                                     <em>
                                       {formatConversionRate(
                                         metric.type,
-                                        -1 * stats.risk
-                                      )}{" "}
-                                      / user
+                                        metric.inverse
+                                          ? stats.risk[0]
+                                          : stats.risk[1]
+                                      )}
+                                      &nbsp;/&nbsp;user
                                     </em>
                                   </small>
                                 </div>
                               )}
                             </>
                           ) : (
-                            <div>0%</div>
+                            ""
                           )}
                         </td>
                       )}
