@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { OrganizationInterface } from "../../types/organization";
 
 const organizationSchema = new mongoose.Schema({
-  id: String,
+  id: {
+    type: String,
+    unique: true,
+  },
   url: String,
   name: String,
   ownerEmail: String,
@@ -46,6 +49,8 @@ const organizationSchema = new mongoose.Schema({
     techsources: [String],
   },
 });
+
+organizationSchema.index({ "members.id": 1 });
 
 export type OrganizationDocument = mongoose.Document & OrganizationInterface;
 

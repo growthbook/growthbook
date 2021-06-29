@@ -2,9 +2,15 @@ import mongoose from "mongoose";
 import { UserInterface } from "../../types/user";
 
 const userSchema = new mongoose.Schema({
-  id: String,
+  id: {
+    type: String,
+    unique: true,
+  },
   name: String,
-  email: String,
+  email: {
+    type: String,
+    unique: true,
+  },
   passwordHash: String,
   admin: Boolean,
 });
