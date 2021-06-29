@@ -6,7 +6,10 @@ export type ExperimentDocument = mongoose.Document & ExperimentInterface;
 const experimentSchema = new mongoose.Schema({
   id: String,
   trackingKey: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   owner: String,
   datasource: String,
   userIdType: String,

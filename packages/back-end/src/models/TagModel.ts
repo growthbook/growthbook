@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { TagInterface } from "../../types/tag";
 
 const tagSchema = new mongoose.Schema({
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   tags: [String],
 });
 

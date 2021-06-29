@@ -3,7 +3,10 @@ import { SegmentInterface } from "../../types/segment";
 
 const segmentSchema = new mongoose.Schema({
   id: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   datasource: String,
   name: String,
   sql: String,

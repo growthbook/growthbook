@@ -6,6 +6,7 @@ const watchSchema = new mongoose.Schema({
   organization: String,
   experiments: [String],
 });
+watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
 export type WatchDocument = mongoose.Document & WatchInterface;
 

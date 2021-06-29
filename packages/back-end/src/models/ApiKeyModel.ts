@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { ApiKeyInterface } from "../../types/apikey";
 
 const apiKeySchema = new mongoose.Schema({
-  key: String,
+  key: {
+    type: String,
+    unique: true,
+  },
   description: String,
   organization: String,
   dateCreated: Date,

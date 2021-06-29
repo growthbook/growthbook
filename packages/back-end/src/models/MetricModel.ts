@@ -4,7 +4,10 @@ import { queriesSchema } from "./QueryModel";
 
 const metricSchema = new mongoose.Schema({
   id: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   datasource: String,
   name: String,
   description: String,

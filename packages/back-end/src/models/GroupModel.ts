@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import { GroupInterface } from "../../types/group";
 
 const groupSchema = new mongoose.Schema({
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   groups: [String],
 });
 

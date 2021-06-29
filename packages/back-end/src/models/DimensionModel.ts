@@ -3,7 +3,10 @@ import { DimensionInterface } from "../../types/dimension";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   datasource: String,
   name: String,
   sql: String,

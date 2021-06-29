@@ -4,7 +4,10 @@ import { DataSourceInterface } from "../../types/datasource";
 const dataSourceSchema = new mongoose.Schema({
   id: String,
   name: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   dateCreated: Date,
   dateUpdated: Date,
   type: { type: String },
