@@ -16,6 +16,7 @@ import {
   createImpactEstimate,
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
+import { ExperimentModel } from "../models/ExperimentModel";
 export async function getIdeas(req: AuthRequest, res: Response) {
   const ideas = await getIdeasByOrganization(req.organization.id);
 
@@ -128,10 +129,23 @@ export async function getIdea(
     }
   }
 
+  const experiment = await ExperimentModel.findOne({
+    organization: idea.organization,
+    ideaSource: idea.id,
+  });
+
   res.status(200).json({
     status: 200,
     idea,
     estimate,
+    experiment: experiment
+      ? {
+          id: experiment.id,
+          name: experiment.name,
+          status: experiment.status,
+          archived: experiment.archived,
+        }
+      : null,
   });
 }
 

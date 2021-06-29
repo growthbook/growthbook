@@ -32,6 +32,7 @@ export type NewExperimentFormProps = {
   isImport?: boolean;
   includeDescription?: boolean;
   source: string;
+  idea?: string;
   onClose: () => void;
   onCreate?: (id: string) => void;
 };
@@ -72,6 +73,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   isImport,
   includeDescription,
   source,
+  idea,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -131,6 +133,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     variations:
       initialValue?.variations || getDefaultVariations(initialNumVariations),
     phases: initialPhases,
+    ideaSource: idea || "",
   });
 
   const datasource = getDatasourceById(value.datasource);

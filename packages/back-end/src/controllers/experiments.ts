@@ -53,6 +53,8 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
+import { IdeaModel } from "../models/IdeasModel";
+import { IdeaInterface } from "../../types/idea";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -142,9 +144,18 @@ export async function getExperiment(req: AuthRequest, res: Response) {
     return;
   }
 
+  let idea: IdeaInterface;
+  if (experiment.ideaSource) {
+    idea = await IdeaModel.findOne({
+      organization: experiment.organization,
+      id: experiment.ideaSource,
+    });
+  }
+
   res.status(200).json({
     status: 200,
     experiment,
+    idea,
   });
 }
 
@@ -297,6 +308,7 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     data: data.data || "",
+    ideaSource: data.ideaSource || "",
   };
   try {
     const experiment = await createExperiment(obj);

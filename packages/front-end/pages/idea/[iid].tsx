@@ -5,7 +5,12 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import { useState, ReactElement, useContext } from "react";
 import { useAuth } from "../../services/auth";
 import DeleteButton from "../../components/DeleteButton";
-import { FaAngleLeft, FaArchive, FaChartLine } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaArchive,
+  FaChartLine,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import { UserContext } from "../../components/ProtectedPage";
@@ -24,6 +29,8 @@ import TagsInput from "../../components/TagsInput";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import StatusIndicator from "../../components/Experiment/StatusIndicator";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -50,6 +57,7 @@ const IdeaPage = (): ReactElement => {
     message: string;
     idea: IdeaInterface;
     estimate?: ImpactEstimateInterface;
+    experiment?: Partial<ExperimentInterfaceStringDates>;
   }>(`/idea/${iid}`);
 
   useSwitchOrg(data?.idea?.organization);
@@ -93,7 +101,7 @@ const IdeaPage = (): ReactElement => {
           </div>
         )}
         <div className="col"></div>
-        {!idea.archived && permissions.draftExperiments && (
+        {!idea.archived && permissions.draftExperiments && !data.experiment && (
           <div className="col-md-auto">
             <button
               className="btn btn-outline-primary mr-3"
@@ -150,6 +158,22 @@ const IdeaPage = (): ReactElement => {
         </div>
         {canEstimateImpact && <div className="col-md-3"></div>}
       </div>
+      {data.experiment && (
+        <div className="bg-white border border-info p-3 mb-3">
+          <div className="d-flex">
+            <strong className="mr-3">Linked Experiment: </strong>
+            <Link href={`/experiment/${data.experiment.id}`}>
+              <a className="mr-3">
+                <FaExternalLinkAlt /> {data.experiment.name}
+              </a>
+            </Link>
+            <StatusIndicator
+              status={data.experiment.status}
+              archived={data.experiment.archived}
+            />
+          </div>
+        </div>
+      )}
       <div className="mb-3 row">
         <div className="col">
           <InlineForm
@@ -369,6 +393,7 @@ const IdeaPage = (): ReactElement => {
       {newExperiment && (
         <NewExperimentForm
           source="idea"
+          idea={idea.id}
           onClose={() => setNewExperiment(false)}
           onCreate={async (id) => {
             await apiCall(`/idea/${iid}`, {

@@ -24,6 +24,7 @@ import {
   FaUndo,
   FaCode,
   FaPalette,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "../../services/dates";
@@ -54,6 +55,7 @@ import InstructionsModal from "../../components/Experiment/InstructionsModal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
 import Code from "../../components/Code";
+import { IdeaInterface } from "back-end/types/idea";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -76,6 +78,7 @@ const ExperimentPage = (): ReactElement => {
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
+    idea?: IdeaInterface;
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization);
@@ -644,6 +647,32 @@ const ExperimentPage = (): ReactElement => {
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>
+              {data.idea && <hr />}
+              {data.idea && (
+                <RightRailSection title="Linked Idea" canOpen={false}>
+                  <div className="my-1">
+                    {data.idea.impactScore && (
+                      <div className="float-right text-right">
+                        <div>
+                          <small>Impact Score</small>
+                        </div>
+                        <div
+                          className="badge badge-secondary"
+                          style={{ fontSize: "1.2em" }}
+                        >
+                          {data.idea.impactScore}
+                          <small style={{ fontSize: "0.7em" }}>/100</small>
+                        </div>
+                      </div>
+                    )}
+                    <Link href={`/idea/${data.idea.id}`}>
+                      <a>
+                        <FaExternalLinkAlt /> {data.idea.text}
+                      </a>
+                    </Link>
+                  </div>
+                </RightRailSection>
+              )}
             </div>
           </div>
         </Tab>

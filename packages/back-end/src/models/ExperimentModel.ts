@@ -78,6 +78,7 @@ const experimentSchema = new mongoose.Schema({
   data: String,
   lastSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  ideaSource: String,
 });
 
 export const ExperimentModel = mongoose.model<ExperimentDocument>(

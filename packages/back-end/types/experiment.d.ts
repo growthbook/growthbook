@@ -77,6 +77,7 @@ export interface ExperimentInterface {
   data?: string;
   lastSnapshotAttempt?: Date;
   autoSnapshots: boolean;
+  ideaSource?: string;
 }
 
 export type ExperimentInterfaceStringDates = Omit<
