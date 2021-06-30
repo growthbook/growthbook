@@ -1,15 +1,17 @@
-# Medium article inspiration:
-#   https://towardsdatascience.com/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8
-# Original code:
-#   https://github.com/itamarfaran/public-sandbox/tree/master/bayesian_blog
-
-
+import sys
+import json
 import numpy as np
 from scipy.stats import norm, beta
 from scipy.special import digamma, polygamma, roots_hermitenorm
 from orthogonal import roots_sh_jacobi
-import sys
-import json
+
+
+"""
+Medium article inspiration: 
+    https://towardsdatascience.com/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8
+Original code:
+    https://github.com/itamarfaran/public-sandbox/tree/master/bayesian_blog
+"""
 
 
 def log_beta_mean(a, b): return digamma(a) - digamma(a + b)
