@@ -61,6 +61,8 @@ import { MetricInterface } from "../../types/metric";
 import { format } from "sql-formatter";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
+import { WebhookModel } from "../models/WebhookModel";
+import { createWebhook } from "../services/webhooks";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -1082,6 +1084,57 @@ export async function deleteApiKey(req: AuthRequest, res: Response) {
   const { key }: { key: string } = req.params;
 
   await deleteByOrganizationAndApiKey(req.organization.id, key);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function getWebhooks(req: AuthRequest, res: Response) {
+  const webhooks = await WebhookModel.find({
+    organization: req.organization.id,
+  });
+  res.status(200).json({
+    status: 200,
+    webhooks,
+  });
+}
+
+export async function postWebhook(
+  req: AuthRequest<{ name: string; endpoint: string }>,
+  res: Response
+) {
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { name, endpoint } = req.body;
+
+  const webhook = await createWebhook(req.organization.id, name, endpoint);
+
+  res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+
+export async function deleteWebhook(req: AuthRequest, res: Response) {
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id }: { id: string } = req.params;
+
+  await WebhookModel.deleteOne({
+    organization: req.organization.id,
+    id,
+  });
 
   res.status(200).json({
     status: 200,

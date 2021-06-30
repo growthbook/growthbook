@@ -20,6 +20,7 @@ import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
+import { GiPirateHook } from "react-icons/gi";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -109,6 +110,12 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/keys",
         Icon: FaKey,
         path: /^settings\/keys/,
+      },
+      {
+        name: "Webhooks",
+        href: "/settings/webhooks",
+        Icon: GiPirateHook,
+        path: /^settings\/webhooks/,
       },
       {
         name: "Data Sources",

@@ -5,11 +5,8 @@ import fs from "fs";
 import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
-import {
-  ErrorResponse,
-  ExperimentOverride,
-  ExperimentOverridesResponse,
-} from "../../types/api";
+import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
+import { getExperimentOverrides } from "../services/organizations";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -36,49 +33,8 @@ export async function getExperimentConfig(
         error: "Invalid API key",
       });
     }
-    const experiments = await getExperimentsByOrganization(organization);
-    const overrides: Record<string, ExperimentOverride> = {};
 
-    experiments.forEach((exp) => {
-      if (exp.archived) {
-        return;
-      }
-
-      const key = exp.trackingKey || exp.id;
-      const groups: string[] = [];
-
-      const phase = exp.phases[exp.phases.length - 1];
-      if (phase && exp.status === "running" && phase.groups?.length > 0) {
-        groups.push(...phase.groups);
-      }
-
-      const override: ExperimentOverride = {
-        status: exp.status,
-      };
-
-      if (exp.targetURLRegex) {
-        override.url = exp.targetURLRegex;
-      }
-
-      if (groups.length) {
-        override.groups = groups;
-      }
-
-      if (phase) {
-        override.coverage = phase.coverage;
-        override.weights = phase.variationWeights;
-      }
-
-      if (exp.status === "stopped" && exp.results === "won") {
-        override.force = exp.winner;
-      }
-
-      if (exp.status === "running") {
-        if (!phase) return;
-      }
-
-      overrides[key] = override;
-    });
+    const overrides = await getExperimentOverrides(organization);
 
     // TODO: add cache headers?
     res.status(200).json({
