@@ -1,5 +1,3 @@
-import sys
-import json
 import numpy as np
 from scipy.stats import norm
 from dists import Beta, Norm
@@ -43,7 +41,7 @@ def binomial_ab_test(x_a, n_a, x_b, n_b, ccr=.5):
     return output
 
 
-def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b, ccr=.05):
+def gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b, ccr=.05):
     mu_a, sd_a = Norm.posterior(NORM_PRIOR, [m_a, s_a, n_a])
     mu_b, sd_b = Norm.posterior(NORM_PRIOR, [m_b, s_b, n_b])
 
@@ -72,21 +70,21 @@ def gaussian_ab_test(n_a, m_a, s_a, n_b, m_b, s_b, ccr=.05):
 #   '{"users":[1283,1321],"count":[254,289],"mean":[52.3,14.1],"stddev":[14.1,13.7]}'
 # python main.py normal \
 #   '{"users":[1283,1321],"count":[254,289],"mean":[52.3,14.1],"stddev":[14.1,13.7]}'
+
 if __name__ == '__main__':
+    import sys
+    import json
+
     metric = sys.argv[1]
     data = json.loads(sys.argv[2])
 
-    x_a, x_b = data["count"]
-    n_a, n_b = data["users"]
-    m_a, m_b = data["mean"]
-    s_a, s_b = data["stddev"]
+    xa, xb = data['count']
+    na, nb = data['users']
+    ma, mb = data['mean']
+    sa, sb = data['stddev']
 
     if metric == 'binomial':
-        print(json.dumps(binomial_ab_test(
-            x_a, n_a, x_b, n_b
-        )))
+        print(json.dumps(binomial_ab_test(x_a=xa, n_a=na, x_b=xb, n_b=nb)))
 
-    else:
-        print(json.dumps(gaussian_ab_test(
-            n_a, m_a, s_a, n_b, m_b, s_b
-        )))
+    else:  # todo: should be elif
+        print(json.dumps(gaussian_ab_test(m_a=ma, s_a=sa, n_a=na, m_b=mb, s_b=sb, n_b=nb)))
