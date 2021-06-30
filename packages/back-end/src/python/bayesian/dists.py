@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Iterable, Tuple
 from warnings import warn
 import numpy as np
-from numpy import vectorize, ndarray
+from numpy import ndarray, vectorize
 from scipy.stats import rv_continuous, beta, norm
 from scipy.special import digamma, polygamma, roots_hermitenorm
 from orthogonal import roots_sh_jacobi
@@ -13,6 +13,16 @@ EPSILON = 1e-04
 
 class BayesABDist(ABC):
     dist: rv_continuous
+
+    @staticmethod
+    @abstractmethod
+    def posterior(prior, data):
+        """
+        :type prior: Iterable
+        :type data: Iterable
+        :rtype: Tuple[ndarray, ndarray]
+        """
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -61,6 +71,12 @@ class Beta(BayesABDist):
     dist = beta
 
     @staticmethod
+    def posterior(prior, data):
+        a = prior[0] + data[0]
+        b = prior[1] + data[1] - data[0]
+        return a, b
+
+    @staticmethod
     def moments(par1, par2, log=False):
         if log:
             mean = par1 / (par1 + par2)
@@ -78,6 +94,14 @@ class Beta(BayesABDist):
 
 class Norm(BayesABDist):
     dist = norm
+
+    @staticmethod
+    def posterior(prior, data):
+        inv_var_0 = prior[2] / np.power(prior[1], 2)
+        inv_var_d = data[2] / np.power(data[1], 2)
+        var = 1 / (inv_var_0 + inv_var_d)
+        loc = var * (inv_var_0 * prior[0] + inv_var_d * data[0])
+        return loc, np.sqrt(var)
 
     @staticmethod
     def moments(par1, par2, log=False):
