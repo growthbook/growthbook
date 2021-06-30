@@ -47,6 +47,7 @@ def gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b, ccr=.05):
 
     mean_a, var_a = Norm.moments(mu_a, sd_a, log=True)
     mean_b, var_b = Norm.moments(mu_b, sd_b, log=True)
+
     mean_diff = mean_b - mean_a
     std_diff = np.sqrt(var_a + var_b)
 

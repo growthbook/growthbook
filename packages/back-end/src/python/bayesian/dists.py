@@ -48,21 +48,21 @@ class BayesABDist(ABC):
 
     # todo: @vectorize
     @classmethod
-    def risk(cls, par_a1, par_a2, par_b1, par_b2, n=24):
+    def risk(cls, a_par1, a_par2, b_par1, b_par2, n=24):
         """
-        :type par_a1: float
-        :type par_a2: float
-        :type par_b1: float
-        :type par_b2: float
+        :type a_par1: float
+        :type a_par2: float
+        :type b_par1: float
+        :type b_par2: float
         :type n: int
         :rtype: ndarray
         """
-        nodes_a, weights_a = cls.gq(n, par_a1, par_a2)
-        nodes_b, weights_b = cls.gq(n, par_b1, par_b2)
+        nodes_a, weights_a = cls.gq(n, a_par1, a_par2)
+        nodes_b, weights_b = cls.gq(n, b_par1, b_par2)
 
-        gq = sum(nodes_a * cls.dist.cdf(nodes_a, par_b1, par_b2) * weights_a) + \
-            sum(nodes_b * cls.dist.cdf(nodes_b, par_a1, par_a2) * weights_b)
-        out = gq - cls.dist.mean((par_a1, par_b1), (par_a2, par_b2))
+        gq = sum(nodes_a * cls.dist.cdf(nodes_a, b_par1, b_par2) * weights_a) + \
+            sum(nodes_b * cls.dist.cdf(nodes_b, a_par1, a_par2) * weights_b)
+        out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))
 
         return out
 
@@ -100,8 +100,10 @@ class Norm(BayesABDist):
         inv_var_0 = prior[2] / np.power(prior[1], 2)
         inv_var_d = data[2] / np.power(data[1], 2)
         var = 1 / (inv_var_0 + inv_var_d)
+
         loc = var * (inv_var_0 * prior[0] + inv_var_d * data[0])
-        return loc, np.sqrt(var)
+        scale = np.sqrt(var)
+        return loc, scale
 
     @staticmethod
     def moments(par1, par2, log=False):
