@@ -51,8 +51,7 @@ The Client Libraries never communicate with the Growth Book servers.  That means
 
 This separation has huge performance and reliability benefits (if Growth Book goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
 
-To get the best of both worlds, you can integrate with the [API](/api-docs). In essense, you would periodically fetch and cache the latest experiment settings in something like Redis.  Then your app would query the cache to determine which experiments are running. You get the benefits of separation and the convenience of using the Growth Book UI to manage experiments.
-
+To get the best of both worlds, you can store a cached copy of experiments in Redis (or similar) and keep it up-to-date either by periodically hitting the [Growth Book API](/api-docs) or setting up a [Webhook Endpoint](/app/webhooks). Then your app can query the cache at runtime to get the latest experiment statuses.
 ## Results
 
 ![Results Table](/images/results-table.png)

@@ -15,6 +15,7 @@ import {
   FaCreditCard,
   FaBookOpen,
   FaArrowRight,
+  FaBolt,
 } from "react-icons/fa";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
@@ -109,6 +110,12 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/keys",
         Icon: FaKey,
         path: /^settings\/keys/,
+      },
+      {
+        name: "Webhooks",
+        href: "/settings/webhooks",
+        Icon: FaBolt,
+        path: /^settings\/webhooks/,
       },
       {
         name: "Data Sources",

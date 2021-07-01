@@ -55,6 +55,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
+import { queueWebhook } from "../init/queue";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -324,6 +325,8 @@ export async function postExperiments(
 
     await ensureWatching(req.userId, req.organization.id, experiment.id);
 
+    await queueWebhook(req.organization.id);
+
     res.status(200).json({
       status: 200,
       experiment,
@@ -456,20 +459,35 @@ export async function postExperiment(
     "targetURLRegex",
     "data",
   ];
+  const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
+    "trackingKey",
+    "userIdType",
+    "variations",
+    "status",
+    "winner",
+    "implementation",
+    "targetURLRegex",
+  ];
   const existing: ExperimentInterface = exp.toJSON();
+  let requiresWebhook = false;
   keys.forEach((key) => {
-    if (key in data && data[key] !== existing[key]) {
+    if (!(key in data)) {
+      return;
+    }
+
+    // Do a deep comparison for arrays, shallow for everything else
+    let hasChanges = data[key] !== existing[key];
+    if (key === "metrics" || key === "variations") {
+      hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
+    }
+
+    if (hasChanges) {
       exp.set(key, data[key]);
+      if (keysRequiringWebhook.includes(key)) {
+        requiresWebhook = true;
+      }
     }
   });
-
-  // the comp above doesn't work for arrays:
-  // not sure here of the best way to check
-  // for changes in the arrays, so just going to save it
-  if (data["metrics"]) exp.set("metrics", data.metrics);
-  if (data["variations"]) exp.set("variations", data.variations);
-
-  //exp.markModified(`variations[${variation}]`);
   await exp.save();
 
   await req.audit({
@@ -485,6 +503,10 @@ export async function postExperiment(
   await addTagsDiff(req.organization.id, existing.tags || [], data.tags || []);
 
   await ensureWatching(req.userId, req.organization.id, exp.id);
+
+  if (requiresWebhook) {
+    await queueWebhook(req.organization.id);
+  }
 
   res.status(200).json({
     status: 200,
@@ -517,6 +539,9 @@ export async function postExperimentArchive(req: AuthRequest, res: Response) {
 
   try {
     await exp.save();
+
+    await queueWebhook(req.organization.id);
+
     // TODO: audit
     res.status(200).json({
       status: 200,
@@ -554,6 +579,9 @@ export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
 
   try {
     await exp.save();
+
+    await queueWebhook(req.organization.id);
+
     // TODO: audit
     res.status(200).json({
       status: 200,
@@ -639,6 +667,8 @@ export async function postExperimentStop(
         reason,
       }),
     });
+
+    await queueWebhook(req.organization.id);
 
     res.status(200).json({
       status: 200,
@@ -726,6 +756,8 @@ export async function postExperimentPhase(
     });
 
     await ensureWatching(req.userId, req.organization.id, exp.id);
+
+    await queueWebhook(req.organization.id);
 
     res.status(200).json({
       status: 200,
@@ -878,6 +910,8 @@ export async function deleteExperiment(
       id: exp.id,
     },
   });
+
+  await queueWebhook(req.organization.id);
 
   res.status(200).json({
     status: 200,

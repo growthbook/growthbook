@@ -13,6 +13,8 @@ import {
   OrganizationInterface,
   Permissions,
 } from "../../types/organization";
+import { getExperimentsByOrganization } from "./experiments";
+import { ExperimentOverride } from "../../types/api";
 
 export async function getOrganizationById(id: string) {
   return OrganizationModel.findOne({
@@ -222,4 +224,52 @@ export async function inviteUser(
 export async function getEmailFromUserId(userId: string) {
   const u = await UserModel.findOne({ id: userId });
   return u.email;
+}
+
+export async function getExperimentOverrides(organization: string) {
+  const experiments = await getExperimentsByOrganization(organization);
+  const overrides: Record<string, ExperimentOverride> = {};
+
+  experiments.forEach((exp) => {
+    if (exp.archived) {
+      return;
+    }
+
+    const key = exp.trackingKey || exp.id;
+    const groups: string[] = [];
+
+    const phase = exp.phases[exp.phases.length - 1];
+    if (phase && exp.status === "running" && phase.groups?.length > 0) {
+      groups.push(...phase.groups);
+    }
+
+    const override: ExperimentOverride = {
+      status: exp.status,
+    };
+
+    if (exp.targetURLRegex) {
+      override.url = exp.targetURLRegex;
+    }
+
+    if (groups.length) {
+      override.groups = groups;
+    }
+
+    if (phase) {
+      override.coverage = phase.coverage;
+      override.weights = phase.variationWeights;
+    }
+
+    if (exp.status === "stopped" && exp.results === "won") {
+      override.force = exp.winner;
+    }
+
+    if (exp.status === "running") {
+      if (!phase) return;
+    }
+
+    overrides[key] = override;
+  });
+
+  return overrides;
 }

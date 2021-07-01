@@ -36,6 +36,7 @@ import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
+import { queueInit } from "./init/queue";
 
 // Wrap every controller function in asyncHandler to catch errors properly
 function wrapController(controller: Record<string, RequestHandler>): void {
@@ -62,6 +63,7 @@ const app = express();
 
 export async function init() {
   await mongoInit();
+  await queueInit();
 }
 
 let initPromise: Promise<void>;
@@ -91,6 +93,10 @@ app.get("/healthcheck", initMiddleware, (req, res) => {
     status: 200,
     healthy: true,
   });
+});
+
+app.get("/favicon.ico", (req, res) => {
+  res.status(404).send("");
 });
 
 app.use(compression());
@@ -408,6 +414,11 @@ app.delete("/datasource/:id", organizationsController.deleteDataSource);
 app.get("/keys", organizationsController.getApiKeys);
 app.post("/keys", organizationsController.postApiKey);
 app.delete("/key/:key", organizationsController.deleteApiKey);
+
+// Webhooks
+app.get("/webhooks", organizationsController.getWebhooks);
+app.post("/webhooks", organizationsController.postWebhook);
+app.delete("/webhook/:id", organizationsController.deleteWebhook);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
