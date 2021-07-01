@@ -35,15 +35,26 @@ const WebhooksModal: FC<{
     >
       <div className="form-group">
         <label>Display Name</label>
-        <input type="text" {...inputProps.name} className="form-control" />
+        <input
+          type="text"
+          {...inputProps.name}
+          required
+          className="form-control"
+        />
       </div>
       <div className="form-group">
         <label>HTTP Endpoint</label>
         <input
           type="url"
+          required
           placeholder="https://"
           {...inputProps.endpoint}
           className="form-control"
+          onInvalid={(event) => {
+            (event.target as HTMLInputElement).setCustomValidity(
+              "Please enter a valid URL, including the http:// or https:// prefix."
+            );
+          }}
         />
         <small className="form-text text-muted">
           Must accept <code>POST</code> requests

@@ -91,7 +91,7 @@ app.post("/webhook", bodyParser.raw(), (req, res) => {
 
 ## Errors and Retries
 
-If your endpoint returns any HTTP status besides `200`, the webhook will be considered undelivered.
+If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 

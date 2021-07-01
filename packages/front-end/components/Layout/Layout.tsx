@@ -15,12 +15,12 @@ import {
   FaCreditCard,
   FaBookOpen,
   FaArrowRight,
+  FaBolt,
 } from "react-icons/fa";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
-import { GiPirateHook } from "react-icons/gi";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -114,7 +114,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Webhooks",
         href: "/settings/webhooks",
-        Icon: GiPirateHook,
+        Icon: FaBolt,
         path: /^settings\/webhooks/,
       },
       {

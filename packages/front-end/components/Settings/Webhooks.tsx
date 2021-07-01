@@ -6,8 +6,7 @@ import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
-import { GiPirateHook } from "react-icons/gi";
-import { FaCheck } from "react-icons/fa";
+import { FaCheck, FaBolt } from "react-icons/fa";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
@@ -94,7 +93,7 @@ const Webhooks: FC = () => {
           setOpen(true);
         }}
       >
-        <GiPirateHook /> Create Webhook
+        <FaBolt /> Create Webhook
       </button>
     </div>
   );
