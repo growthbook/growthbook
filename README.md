@@ -10,12 +10,12 @@
 Get up and running in 1 minute with:
 
 ```sh
-git clone https://github.com/growthbook/growthbook.git && cd growthbook
-docker-compose up
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook
+docker-compose up -d
 # Then visit http://localhost:3000
 ```
-
-![Growth Book Results Screenshot](packages/docs/public/images/results-table.png)
+[![Grwoth Book Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
 
 ## Major Features
 
@@ -39,6 +39,13 @@ Create a free [Growth Book Cloud](https://app.growthbook.io) account to get star
 Growth Book is built with a NextJS front-end, an ExpressJS API, and a Python stats engine. It uses MongoDB to store login credentials, cached experiment results, and meta data.
 
 The front-end, back-end, and stats engine are bundled together into a single Docker image. View the image on [Docker Hub](https://hub.docker.com/r/growthbook/growthbook) for all possible environment variables and commands.
+
+This repo includes an example [docker-compose.yml](https://github.com/growthbook/growthbook/blob/main/docker-compose.yml) file to quickly launch the app on your development machine:
+
+```sh
+docker-compose up -d
+# Then visit http://localhost:3000
+```
 
 If you have any questions or need help, [please get in touch](mailto:hello@growthbook.io)!
 
