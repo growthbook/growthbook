@@ -40,7 +40,16 @@ const navLinks = [
       },
       {
         href: "/app/visual",
-        name: "Visual Editor (beta)",
+        name: "Visual Editor",
+        beta: true,
+      },
+      {
+        href: "/api-docs",
+        name: "API",
+      },
+      {
+        href: "/app/webhooks",
+        name: "Webhooks",
       },
     ],
   },
@@ -73,10 +82,6 @@ const navLinks = [
         name: "Build Your Own",
       },
     ],
-  },
-  {
-    href: "/api-docs",
-    name: "API",
   },
 ];
 
@@ -218,7 +223,7 @@ function App({
                       const active = router.pathname === sublink.href;
                       return (
                         <div
-                          className={`rounded py-1 px-2 ml-4 ${
+                          className={`rounded py-1 mb-1 px-2 ml-4 ${
                             active
                               ? "bg-gray-200 dark:bg-gray-600 font-bold"
                               : "hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -226,7 +231,16 @@ function App({
                           key={j}
                         >
                           <Link href={sublink.href}>
-                            <a className="block">{sublink.name}</a>
+                            <a className="block">
+                              {sublink.name}
+                              {sublink.beta ? (
+                                <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
+                                  beta
+                                </span>
+                              ) : (
+                                ""
+                              )}
+                            </a>
                           </Link>
                         </div>
                       );

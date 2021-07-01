@@ -30,7 +30,7 @@ const Webhooks: FC = () => {
         Webhooks push the latest experiment overrides to your server whenever an
         experiment is modified within the Growth Book app.{" "}
         <a
-          href="https://docs.growthbook.io/webhooks"
+          href="https://docs.growthbook.io/app/webhooks"
           target="_blank"
           rel="noreferrer"
         >
@@ -44,7 +44,7 @@ const Webhooks: FC = () => {
             <tr>
               <th>Webhook</th>
               <th>Endpoint</th>
-              <th>Signing Key</th>
+              <th>Shared Secret</th>
               <th>Status</th>
               <th></th>
             </tr>
