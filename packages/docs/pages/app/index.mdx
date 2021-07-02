@@ -4,25 +4,122 @@ The Growth Book App is a web application to manage your A/B tests and analyze re
 
 ## Installation
 
-You can host the app yourself with the [Open Source project](https://github.com/growthbook/growthbook).  Or, we can host it for you at https://app.growthbook.io.
+<div className="bg-blue-200 dark:bg-blue-900 py-2 px-4 rounded flex">
+  <div className="text-yellow-500 pt-1 mr-3">
+     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" style={{fill:"currentColor"}}><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/></svg>
+  </div>
+  <div>Don't want to install or host the app yourself? <a href="https://app.growthbook.io">Growth Book Cloud</a> is a fully managed version that's free to get started.</div>
+  <div className="text-yellow-500 pt-1 ml-3">
+     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" style={{fill:"currentColor"}}><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/></svg>
+  </div>
+</div>
 
-### Self-Hosted (Open Source)
+Growth Book consists of a NextJS front-end, an ExpressJS API, and a Python stats engine.  Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
 
-The Growth Book App is fully open source and uses the permissive MIT license.
+In addition to the app itself, you will also need a MongoDB instance to store login credentials, cached experiment results, and metadata.
 
-Get it up and running in only a few minutes using Docker:
+You can use **docker-compose** to get started quickly:
 
-```bash
-git clone https://github.com/growthbook/growthbook.git
-cd growthbook
-docker-compose up -d
+```yml
+# docker-compose.yml
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
 ```
 
-### Managed (Growth Book Cloud)
+Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
-We also offer a fully hosted version of Growth Book at https://app.growthbook.io.
+## Configuration
 
-Create a free account and get started instantly.
+The Growth Book App is configured via environment variables.  Below are all of the configuration options:
+
+- **NODE_ENV** - Set to "production" to turn on additional optimizations and API request logging
+- **JWT_SECRET** - Auth signing key (use a long random string)
+- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
+- **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
+- **MONGODB_URI** - The MongoDB connection string
+- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
+- **API_HOST** - (default set to http://localhost:3100)
+- Email SMTP Settings:
+  - **EMAIL_ENABLED** ("true" or "false")
+  - **EMAIL_HOST**
+  - **EMAIL_PORT**
+  - **EMAIL_HOST_USER**
+  - **EMAIL_HOST_PASSWORD**
+  - **EMAIL_USE_TLS** ("true" or "false")
+- Google OAuth Settings (only if using Google Analytics as a data source)
+  - **GOOGLE_OAUTH_CLIENT_ID**
+  - **GOOGLE_OAUTH_CLIENT_SECRET**
+
+### Changing the Ports
+
+The Docker image exposes 2 ports: `3000` for the front-end and `3100` for the API.
+
+If you need to change these, you can use Docker port mappings.  You'll also need to set the environment variables **API_HOST** and **APP_ORIGIN** to include your new ports.
+
+Here's an example of switching to ports `4000` and `4100` in `docker-compose.yml`:
+
+
+```yml
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "4000:3000"
+      - "4100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - APP_ORIGIN=http://localhost:4000
+      - API_HOST=http://localhost:4100
+      ...
+```
+
+Now your app would be available on [http://localhost:4000](http://localhost:4000)
+
+### Volumes
+
+Images uploaded in the Growth Book app are stored in `/usr/local/src/app/packages/back-end/uploads`.  We recommend mounting a volume there so images can be persisted.
+
+Also, if you are running MongoDB through Docker, you will need to mount a volume to `/data/db` to persist data between container restarts.  In production, we highly suggest just using a hosted solution like [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) instead.
+
+### Commands
+
+These are the possible commands you can use:
+
+-  `["yarn", "start"]` - default, start both front-end and back-end in parallel
+-  `["yarn", "workspace", "front-end", "run"]` - run only the front-end
+-  `["yarn", "workspace", "back-end", "run"]` - run only the back-end
+
+## Docker Tags
+
+Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch.
+
+The most recent commit is tagged with `latest`. GitHub Releases are also tagged (e.g. `0.2.1`).
+
+If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
+
+### Updating to Latest
+
+If you are using docker-compose, you can update with:
+
+```bash
+docker-compose pull growthbook
+docker-compose stop growthbook
+docker-compose up -d --no-deps growthbook
+```
 
 ## Using the App
 

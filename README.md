@@ -13,9 +13,17 @@ Get up and running in 1 minute with:
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
 docker-compose up -d
-# Then visit http://localhost:3000
 ```
+Then visit http://localhost:3000
+
 [![Grwoth Book Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
+
+## Our Philosophy
+
+The top 1% of companies spend thousands of hours building their own A/B testing platforms in-house.
+The other 99% are left paying for expensive 3rd party SaaS tools or hacking together unmaintained open source libraries.
+
+Growth Book gives you the flexibility and power of a fully-featured in-house A/B testing platform without needing to build it yourself.
 
 ## Major Features
 
@@ -36,24 +44,29 @@ Create a free [Growth Book Cloud](https://app.growthbook.io) account to get star
 
 ### Open Source
 
-Growth Book is built with a NextJS front-end, an ExpressJS API, and a Python stats engine. It uses MongoDB to store login credentials, cached experiment results, and meta data.
+Growth Book is built with React, NodeJS, and Python, bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
 
-The front-end, back-end, and stats engine are bundled together into a single Docker image. View the image on [Docker Hub](https://hub.docker.com/r/growthbook/growthbook) for all possible environment variables and commands.
-
-This repo includes an example [docker-compose.yml](https://github.com/growthbook/growthbook/blob/main/docker-compose.yml) file to quickly launch the app on your development machine:
+The included [docker-compose.yml](https://github.com/growthbook/growthbook/blob/main/docker-compose.yml) file contains the Growth Book App and a MongoDB instance (for storing cached experiment results and metadata):
 
 ```sh
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook
 docker-compose up -d
-# Then visit http://localhost:3000
 ```
 
-If you have any questions or need help, [please get in touch](mailto:hello@growthbook.io)!
+Then visit http://localhost:3000 to view the app.
+
+Check out the full [installation and configuration instructions](https://docs.growthbook.io/app) for more details.
 
 ## Documentation and Support
 
-View the [Growth Book Docs](https://docs.growthbook.io) for info on how to setup and use the platform.
+View the [Growth Book Docs](https://docs.growthbook.io) for info on how to configure and use the platform.
 
-Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you get stuck, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
+Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you get stuck, want to chat, or are thinking of a new feature.
+
+Or email us at [hello@growthbook.io](mailto:hello@growthbook.io) if Slack isn't your thing.
+
+We're here to help - and to make Growth Book even better!
 
 ## Contributors
 
