@@ -194,7 +194,7 @@ function App({
         />
       </Head>
       <div className="flex h-full w-full">
-        <div className="max-w-0 md:max-w-lg p-0 overflow-x-hidden h-full md:p-5 overflow-y-auto border-r border-gray-200 dark:border-gray-600 dark:text-gray-200">
+        <div className="max-w-0 md:max-w-lg p-0 overflow-x-hidden h-full md:p-5 overflow-y-auto border-r border-gray-100 dark:border-gray-700 dark:text-gray-200">
           <div className="">
             <Link href="/">
               <a>
@@ -251,7 +251,7 @@ function App({
           </div>
         </div>
         <div className="flex flex-col h-screen flex-grow w-full">
-          <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
+          <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
             <div className="flex max-w-3xl">
               <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
                 <a href="https://www.growthbook.io" className="mr-6">
@@ -330,7 +330,7 @@ function App({
               <Component {...pageProps} />
 
               {currentIndex >= 0 && (
-                <div className="p-5 border-t border-gray-100 dark:border-gray-600">
+                <div className="p-5 border-t border-gray-100 dark:border-gray-700">
                   <footer className="dark:text-gray-200 max-w-3xl">
                     <div className="flex">
                       {currentIndex > 0 && (

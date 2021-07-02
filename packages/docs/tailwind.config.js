@@ -1,3 +1,6 @@
+// eslint-disable-next-line
+const path = require("path");
+
 const round = (num) =>
   num
     .toFixed(7)
@@ -7,8 +10,10 @@ const em = (px, base) => `${round(px / base)}em`;
 
 module.exports = {
   purge: {
-    content: ["./**/*.{jsx,tsx,mdx}"],
-    safelist: ["border", "dark:border-gray-700"],
+    content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
+    options: {
+      safelist: ["border"],
+    },
   },
   theme: {
     extend: {

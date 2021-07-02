@@ -68,7 +68,7 @@ The Growth Book App is configured via environment variables.  Below are all of t
 
 The Docker image exposes 2 ports: `3000` for the front-end and `3100` for the API.
 
-If you need to change these, you can use Docker port mapping.  You'll also need to set the environment variables **API_HOST** and **APP_ORIGIN** to include your new ports.
+If you need to change these, you can use Docker port mappings.  You'll also need to set the environment variables **API_HOST** and **APP_ORIGIN** to include your new ports.
 
 Here's an example of switching to ports `4000` and `4100` in `docker-compose.yml`:
 
@@ -107,11 +107,9 @@ These are the possible commands you can use:
 
 Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch.
 
-Every commit has it's own tag (e.g. `git-41278e9`).
+The most recent commit is tagged with `latest`. GitHub Releases are also tagged (e.g. `0.2.1`).
 
-The most recent commit is tagged with `latest`.
-
-There are also periodic versioned releases on GitHub and they have a corresponding tag (e.g. `0.2.1`).
+If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
 
 ### Updating to Latest
 
