@@ -14,7 +14,7 @@ class TestBinom(TestCase):
                     'expected': 0.0,
                     'ci': None,
                     'uplift': None,
-                    'risk': [0.15, 0.15]}
+                    'risk': [0.13333, 0.13333]}
 
         for key in expected.keys():
             ex = expected[key]

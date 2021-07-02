@@ -15,7 +15,7 @@ BETA_PRIOR = 1, 1
 NORM_PRIOR = 0, 1, 0
 
 
-def binomial_ab_test(x_a, n_a, x_b, n_b, ccr=.5):
+def binomial_ab_test(x_a, n_a, x_b, n_b, ccr=.05):
     alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [x_a, n_a])
     alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [x_b, n_b])
 
@@ -28,7 +28,7 @@ def binomial_ab_test(x_a, n_a, x_b, n_b, ccr=.5):
     chance_to_win = norm.sf(0, mean_diff, std_diff)
     expected = np.exp(mean_diff) - 1
     ci = np.exp(norm.ppf([ccr / 2, 1 - ccr / 2], mean_diff, std_diff)) - 1
-    risk_beta = Beta.risk(alpha_a, alpha_b, beta_a, beta_b)
+    risk_beta = Beta.risk(alpha_a, beta_a, alpha_b, beta_b)
 
     output = {'chance_to_win': chance_to_win,
               'expected': expected,
@@ -73,8 +73,8 @@ def gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b, ccr=.05):
 #   '{"users":[1283,1321],"count":[254,289],"mean":[52.3,14.1],"stddev":[14.1,13.7]}'
 
 if __name__ == '__main__':
-    import sys
     import json
+    import sys
 
     metric = sys.argv[1]
     data = json.loads(sys.argv[2])
