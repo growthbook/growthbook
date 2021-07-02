@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import numpy as np
+import pandas as pd
 from scipy.stats import beta, norm
 from scipy.special import digamma
 from dists import Beta, Norm
@@ -15,7 +16,29 @@ def roundsum(x, decimals=DECIMALS):
 
 class TestBeta(TestCase):
     def test_posterior(self):
-        self.fail()
+        prior = 1, 1
+        data = 1, 2
+        result = Beta.posterior(prior, data)
+        outcome = (2, 2)
+
+        for res, out in zip(result, outcome):
+            self.assertEqual(res, out)
+
+        prior = 1, 1
+        data = pd.Series([1, 10]), pd.Series([2, 20])
+        result = Beta.posterior(prior, data)
+        outcome = pd.Series([2, 11]), pd.Series([2, 11])
+
+        for res, out in zip(result, outcome):
+            pd.testing.assert_series_equal(res, out)
+
+        prior = pd.Series([1, 2]), pd.Series([1, 3])
+        data = pd.Series([1, 10]), pd.Series([2, 20])
+        result = Beta.posterior(prior, data)
+        outcome = pd.Series([2, 12]), pd.Series([2, 13])
+
+        for res, out in zip(result, outcome):
+            pd.testing.assert_series_equal(res, out)
 
     def test_moments(self):
         self.fail()
@@ -32,7 +55,29 @@ class TestBeta(TestCase):
 
 class TestNorm(TestCase):
     def test_posterior(self):
-        self.fail()
+        prior = 0, 1, 10
+        data = 12, 1, 10
+        result = Norm.posterior(prior, data)
+        outcome = (6, np.sqrt(1/20))
+
+        for res, out in zip(result, outcome):
+            self.assertEqual(res, out)
+
+        prior = 0, 1, 10
+        data = pd.Series([12, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
+        result = Norm.posterior(prior, data)
+        outcome = pd.Series([6., 50.]), pd.Series([np.sqrt(1/20), np.sqrt(1/20)])
+
+        for res, out in zip(result, outcome):
+            pd.testing.assert_series_equal(res, out)
+
+        prior = pd.Series([0, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
+        data = pd.Series([12, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
+        result = Norm.posterior(prior, data)
+        outcome = pd.Series([6., 100.]), pd.Series([np.sqrt(1/20), np.sqrt(1/20)])
+
+        for res, out in zip(result, outcome):
+            pd.testing.assert_series_equal(res, out)
 
     def test_moments(self):
         self.fail()
