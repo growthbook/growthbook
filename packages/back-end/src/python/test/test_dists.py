@@ -63,6 +63,10 @@ class TestBeta(TestCase):
         for res, out in zip(result, expected):
             np.testing.assert_array_almost_equal(res, out)
 
+        self.assertRaises(RuntimeError, Beta.moments, 1, -1)
+        self.assertRaises(RuntimeError, Beta.moments, -1, 1)
+        self.assertRaises(RuntimeError, Beta.moments, -1, -1)
+
     def test_gq(self):
         test_cases = zip([10, 100, 500, 1000, 10000],
                          [10000, 1000, 500, 100, 10])
@@ -118,6 +122,11 @@ class TestNorm(TestCase):
         for res, out in zip(result, expected):
             np.testing.assert_array_almost_equal(res, out)
 
+        self.assertWarns(RuntimeWarning, Norm.moments, 0.1, 1, log=True)
+        self.assertRaises(RuntimeError, Norm.moments, 0, 1, log=True)
+        self.assertRaises(RuntimeError, Norm.moments, -1, 1, log=True)
+        self.assertRaises(RuntimeError, Norm.moments, 1, -1)
+
     def test_gq(self):
         test_cases = zip([0, -2, 2, 10],
                          [.01, 1, 4, .0001])
@@ -125,6 +134,9 @@ class TestNorm(TestCase):
             x, w = Norm.gq(24, loc, scale)
             for p in range(8):
                 self.assertEqual(roundsum(x ** p * w), roundsum(norm.moment(p, loc, scale)))
+
+        self.assertRaises(RuntimeError, Norm.gq, 24, 0, 0)
+        self.assertRaises(RuntimeError, Norm.gq, 24, 0, -1)
 
 
 if __name__ == '__main__':

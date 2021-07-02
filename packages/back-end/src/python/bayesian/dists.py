@@ -78,6 +78,9 @@ class Beta(BayesABDist):
 
     @staticmethod
     def moments(par1, par2, log=False):
+        if np.sum(par2 < 0) + np.sum(par1 < 0):
+            raise RuntimeError('params of beta distribution cannot be negative')
+
         if log:
             mean = digamma(par1) - digamma(par1 + par2)
             var = polygamma(1, par1) - polygamma(1, par1 + par2)
@@ -107,9 +110,18 @@ class Norm(BayesABDist):
 
     @staticmethod
     def moments(par1, par2, log=False):
+        if np.sum(par2 < 0):
+            raise RuntimeError('got negative standard deviation.')
+
         if log:
-            if np.sum(norm.cdf(0, par1, par2) > EPSILON):
-                warn(f'probability of being negative is higher than {EPSILON}. log approximation is in-exact')
+            if np.sum(par1 <= 0):
+                raise RuntimeError('got mu <= 0. cannot use log approximation.')
+
+            max_prob = np.max(norm.cdf(0, par1, par2))
+            if max_prob > EPSILON:
+                warn(f'probability of being negative is higher than {EPSILON} (={max_prob}). '
+                     f'log approximation is in-exact', RuntimeWarning)
+
             mean = np.log(par1)
             var = np.power(par2 / par1, 2)
         else:
@@ -119,6 +131,9 @@ class Norm(BayesABDist):
 
     @staticmethod
     def gq(n, par1, par2):
+        if par2 <= 0:
+            raise RuntimeError('got negative standard deviation.')
+
         x, w, m = roots_hermitenorm(int(n), True)
         x = par2 * x + par1
         w /= m
