@@ -79,11 +79,11 @@ class Beta(BayesABDist):
     @staticmethod
     def moments(par1, par2, log=False):
         if log:
-            mean = par1 / (par1 + par2)
-            var = par1 * par2 / (np.power(par1 + par2, 2) * (par1 + par2 + 1))
-        else:
             mean = digamma(par1) - digamma(par1 + par2)
             var = polygamma(1, par1) - polygamma(1, par1 + par2)
+        else:
+            mean = par1 / (par1 + par2)
+            var = par1 * par2 / (np.power(par1 + par2, 2) * (par1 + par2 + 1))
         return mean, var
 
     @staticmethod
