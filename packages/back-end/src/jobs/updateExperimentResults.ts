@@ -1,55 +1,70 @@
-import { init } from "./app";
-import { ExperimentModel } from "./models/ExperimentModel";
+import Agenda, { Job } from "agenda";
+import { ExperimentModel } from "../models/ExperimentModel";
+import { getDataSourceById } from "../services/datasource";
+import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
   getExperimentWatchers,
   getLatestSnapshot,
   getMetricById,
-} from "./services/experiments";
-import { getDataSourceById } from "./services/datasource";
+} from "../services/experiments";
+import { getConfidenceLevelsForOrg } from "../services/organizations";
 import pino from "pino";
-import { isEmailEnabled, sendExperimentChangesEmail } from "./services/email";
-import { getConfidenceLevelsForOrg } from "./services/organizations";
 
-const MAX_UPDATES = 10;
-const UPDATE_FREQUENCY = 360;
+const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
-const parentLogger = pino();
-const logger = parentLogger.child({
-  cron: true,
-});
+const UPDATE_SINGLE_EXP = "updateSingleExperiment";
+type UpdateSingleExpJob = Job<{
+  experimentId: string;
+}>;
 
-logger.info("Cron started");
+export default async function (agenda: Agenda) {
+  const parentLogger = pino();
 
-// Time out after 30 minutes
-const timer = setTimeout(() => {
-  logger.warn("Cron Timeout");
-  process.exit(1);
-}, 30 * 60 * 1000);
+  agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
+    // All experiments that haven't been updated in at least 6 hours
+    const latestDate = new Date();
+    latestDate.setMinutes(latestDate.getMinutes() - 360);
 
-(async () => {
-  await init();
+    const experimentIds = (
+      await ExperimentModel.find(
+        {
+          datasource: {
+            $exists: true,
+            $ne: "",
+          },
+          status: "running",
+          autoSnapshots: true,
+          lastSnapshotAttempt: {
+            $lte: latestDate,
+          },
+        },
+        {
+          id: true,
+        }
+      )
+        .limit(100)
+        .sort({
+          lastSnapshotAttempt: 1,
+        })
+    ).map((e) => e.id);
 
-  const latestDate = new Date();
-  latestDate.setMinutes(latestDate.getMinutes() - UPDATE_FREQUENCY);
+    for (let i = 0; i < experimentIds.length; i++) {
+      await queueExerimentUpdate(experimentIds[i]);
+    }
+  });
 
-  const experiments = await ExperimentModel.find({
-    datasource: {
-      $exists: true,
-      $ne: "",
-    },
-    status: "running",
-    autoSnapshots: true,
-    lastSnapshotAttempt: {
-      $lte: latestDate,
-    },
-  })
-    .limit(MAX_UPDATES)
-    .sort({
-      lastSnapshotAttempt: 1,
+  agenda.define(UPDATE_SINGLE_EXP, async (job: UpdateSingleExpJob) => {
+    const logger = parentLogger.child({
+      cron: true,
     });
 
-  const promises = experiments.map(async (experiment) => {
+    const { experimentId } = job.attrs.data;
+
+    const experiment = await ExperimentModel.findOne({
+      id: experimentId,
+    });
+
     try {
       logger.info({ experiment: experiment.id }, "Updating experiment - Start");
       const datasource = await getDataSourceById(experiment.datasource);
@@ -187,8 +202,26 @@ const timer = setTimeout(() => {
       }
     }
   });
-  await Promise.all(promises);
-  logger.info("Cron finished");
-  clearTimeout(timer);
-  process.exit(0);
-})();
+
+  // Update experiment results
+  await startUpdateJob();
+
+  async function startUpdateJob() {
+    const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
+    updateResultsJob.unique({});
+    updateResultsJob.repeatEvery("10 minutes");
+    await updateResultsJob.save();
+  }
+
+  async function queueExerimentUpdate(experimentId: string) {
+    const job = agenda.create(UPDATE_SINGLE_EXP, {
+      experimentId,
+    }) as UpdateSingleExpJob;
+
+    job.unique({
+      experimentId,
+    });
+    job.schedule(new Date());
+    await job.save();
+  }
+}
