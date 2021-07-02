@@ -57,11 +57,11 @@ class BayesABDist(ABC):
         :type n: int
         :rtype: ndarray
         """
-        nodes_a, weights_a = cls.gq(n, a_par1, a_par2)
-        nodes_b, weights_b = cls.gq(n, b_par1, b_par2)
+        a_nodes, a_weights = cls.gq(n, a_par1, a_par2)
+        b_nodes, b_weights = cls.gq(n, b_par1, b_par2)
 
-        gq = sum(nodes_a * cls.dist.cdf(nodes_a, b_par1, b_par2) * weights_a) + \
-            sum(nodes_b * cls.dist.cdf(nodes_b, a_par1, a_par2) * weights_b)
+        gq = sum(a_nodes * cls.dist.cdf(a_nodes, b_par1, b_par2) * a_weights) + \
+            sum(b_nodes * cls.dist.cdf(b_nodes, a_par1, a_par2) * b_weights)
         out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))
 
         return out
