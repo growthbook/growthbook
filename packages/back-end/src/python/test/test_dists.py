@@ -1,4 +1,5 @@
-from unittest import TestCase
+from functools import partial
+from unittest import TestCase, main as unittest_main
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,7 @@ from dists import Beta, Norm
 
 
 DECIMALS = 5
+round_ = partial(np.round, decimals=DECIMALS)
 
 
 def roundsum(x, decimals=DECIMALS):
@@ -41,7 +43,25 @@ class TestBeta(TestCase):
             pd.testing.assert_series_equal(res, out)
 
     def test_moments(self):
-        self.fail()
+        pars = 12, 745
+        result = Beta.moments(*pars)
+        expected = beta.mean(*pars), beta.var(*pars)
+        for res, out in zip(result, expected):
+            self.assertEqual(round_(res), round_(out))
+
+        pars = 12, 745
+        result = Beta.moments(*pars, log=True)
+        mean = beta.expect(np.log, pars)
+        var = beta.expect(lambda x: np.log(x) ** 2, pars) - mean ** 2
+        expected = mean, var
+        for res, out in zip(result, expected):
+            self.assertEqual(round_(res), round_(out))
+
+        pars = np.array([12, 745]), np.array([745, 12])
+        result = Beta.moments(*pars)
+        expected = beta.mean(*pars), beta.var(*pars)
+        for res, out in zip(result, expected):
+            np.testing.assert_array_almost_equal(res, out)
 
     def test_gq(self):
         test_cases = zip([10, 100, 500, 1000, 10000],
@@ -80,7 +100,23 @@ class TestNorm(TestCase):
             pd.testing.assert_series_equal(res, out)
 
     def test_moments(self):
-        self.fail()
+        pars = 10, 100
+        result = Norm.moments(*pars)
+        expected = norm.mean(*pars), norm.var(*pars)
+        for res, out in zip(result, expected):
+            self.assertEqual(round_(res), round_(out))
+
+        pars = 100, 10
+        result = Norm.moments(*pars, log=True)
+        expected = np.log(100), (10 / 100) ** 2
+        for res, out in zip(result, expected):
+            self.assertEqual(round_(res), round_(out))
+
+        pars = np.array([10, 100]), np.array([100, 10])
+        result = Norm.moments(*pars)
+        expected = norm.mean(*pars), norm.var(*pars)
+        for res, out in zip(result, expected):
+            np.testing.assert_array_almost_equal(res, out)
 
     def test_gq(self):
         test_cases = zip([0, -2, 2, 10],
@@ -89,3 +125,7 @@ class TestNorm(TestCase):
             x, w = Norm.gq(24, loc, scale)
             for p in range(8):
                 self.assertEqual(roundsum(x ** p * w), roundsum(norm.moment(p, loc, scale)))
+
+
+if __name__ == '__main__':
+    unittest_main()
