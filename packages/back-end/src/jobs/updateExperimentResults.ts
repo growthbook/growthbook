@@ -13,6 +13,9 @@ import pino from "pino";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 
+// Time between experiment result updates (6 hours)
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
@@ -24,9 +27,8 @@ const parentLogger = pino();
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // All experiments that haven't been updated in at least 6 hours
-    const latestDate = new Date();
-    latestDate.setMinutes(latestDate.getMinutes() - 360);
+    // All experiments that haven't been updated in at least UPDATE_EVERY ms
+    const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
     const experimentIds = (
       await ExperimentModel.find(

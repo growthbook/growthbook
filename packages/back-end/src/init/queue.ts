@@ -7,6 +7,7 @@ let agenda: Agenda;
 export async function queueInit() {
   agenda = new Agenda({
     mongo: mongoose.connection.db,
+    defaultLockLimit: 5,
   });
 
   addExperimentResultsJob(agenda);
