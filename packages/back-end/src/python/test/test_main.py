@@ -9,12 +9,12 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 class TestBinom(TestCase):
     def test_binomial_ab_test(self):
-        result = binomial_ab_test(1, 1, 1, 1)
-        expected = {'chance_to_win': 0.5,
-                    'expected': 0.0,
+        result = binomial_ab_test(49, 100, 51, 100)
+        expected = {'chance_to_win': 0.61052,
+                    'expected': 0.0404,
                     'ci': None,
                     'uplift': None,
-                    'risk': [0.13333, 0.13333]}
+                    'risk': [0.03872, 0.01912]}
 
         for key in expected.keys():
             ex = expected[key]
@@ -29,12 +29,12 @@ class TestBinom(TestCase):
 
 class TestNorm(TestCase):
     def test_gaussian_ab_test(self):
-        result = gaussian_ab_test(10, .1, 1, 10, .1, 1)
-        expected = {'chance_to_win': 0.5,
-                    'expected': 0.0,
+        result = gaussian_ab_test(10, .5, 10, 10.5, 1, 10)
+        expected = {'chance_to_win': 0.92427,
+                    'expected': 0.05,
                     'ci': None,
                     'uplift': None,
-                    'risk': [0.05642, 0.05642]}
+                    'risk': [0.51256, 0.01256]}
 
         for key in expected.keys():
             ex = expected[key]
