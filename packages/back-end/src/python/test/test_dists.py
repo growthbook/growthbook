@@ -3,8 +3,8 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 import pandas as pd
-from scipy.stats import beta, norm
 from scipy.special import digamma
+from scipy.stats import beta, norm
 from dists import Beta, Norm
 
 

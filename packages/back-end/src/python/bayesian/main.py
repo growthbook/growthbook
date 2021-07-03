@@ -6,6 +6,7 @@ from dists import Beta, Norm
 """
 Medium article inspiration: 
     https://towardsdatascience.com/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8
+
 Original code:
     https://github.com/itamarfaran/public-sandbox/tree/master/bayesian_blog
 """
