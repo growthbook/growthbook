@@ -1,7 +1,7 @@
 from functools import partial
 from unittest import TestCase, main as unittest_main
 import numpy as np
-from main import binomial_ab_test, gaussian_ab_test
+from bayesian.main import binomial_ab_test, gaussian_ab_test
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)

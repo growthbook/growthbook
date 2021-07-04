@@ -3,9 +3,9 @@ from typing import Iterable, Tuple
 from warnings import warn
 import numpy as np
 from numpy import ndarray, vectorize
-from orthogonal import roots_sh_jacobi
-from scipy.special import digamma, polygamma, roots_hermitenorm  # , roots_sh_jacobi
 from scipy.stats import beta, norm, rv_continuous
+from scipy.special import digamma, polygamma, roots_hermitenorm  # , roots_sh_jacobi
+from .orthogonal import roots_sh_jacobi
 
 
 EPSILON = 1e-04

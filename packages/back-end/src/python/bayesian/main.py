@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.stats import norm
-from dists import Beta, Norm
+from .dists import Beta, Norm
 
 
 """
