@@ -43,21 +43,21 @@ export async function abtest(
     };
   }
 
-  const options = {
-    args: [
-      metric.type,
-      JSON.stringify({
-        users: [aUsers, bUsers],
-        count: [aStats.count, bStats.count],
-        mean: [aStats.mean, bStats.mean],
-        stddev: [aStats.stddev, bStats.stddev],
-      }),
-    ],
-  };
+  const args = [
+    metric.type,
+    JSON.stringify({
+      users: [aUsers, bUsers],
+      count: [aStats.count, bStats.count],
+      mean: [aStats.mean, bStats.mean],
+      stddev: [aStats.stddev, bStats.stddev],
+    }),
+  ];
 
-  const script = path.join(__dirname, "..", "python", "bayesian", "main.py");
-
-  const result = await promisify(PythonShell.run)(script, options);
+  const result = await promisify(PythonShell.run)("bayesian.main", {
+    cwd: path.join(__dirname, "..", "python"),
+    pythonOptions: ["-m"],
+    args,
+  });
   let parsed: {
     chance_to_win: number;
     expected: number;
@@ -72,7 +72,7 @@ export async function abtest(
   try {
     parsed = JSON.parse(result[0]);
   } catch (e) {
-    console.error("Failed to run stats model", options.args, result);
+    console.error("Failed to run stats model", args, result);
     throw e;
   }
 

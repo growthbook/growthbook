@@ -10,7 +10,9 @@
     "dev": "node-dev src/server.ts",
     "build": "yarn build:clean && yarn build:typescript && yarn build:python && yarn build:emails",
     "start": "node dist/server.js",
-    "test": "NO_INIT=1 jest --forceExit --coverage --verbose --detectOpenHandles",
+    "test:node": "NO_INIT=1 jest --forceExit --coverage --verbose --detectOpenHandles",
+    "test:python": "cd src/python && python3 -m unittest discover",
+    "test": "yarn test:python && yarn test:node",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
     "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"

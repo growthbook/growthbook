@@ -48,6 +48,11 @@ jobs:
         with:
           node-version: 12.x
 
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
       - name: Get yarn cache directory
         id: yarn-cache
         run: |
@@ -63,6 +68,9 @@ jobs:
       - name: install dependencies
         run: |
           yarn
+          python -m pip install --upgrade pip
+          pip install numpy scipy pandas
+
         env:
           CI: true
 
@@ -75,10 +83,6 @@ jobs:
         run: |
           # Run the test suite
           yarn test
-
-          # Cleanup
-          rm -rf packages/front-end/coverage
-          rm -rf packages/back-end/coverage
 
   # Build and publish the commit to docker
   # Runs on pushes to the main branch or when a release is made
