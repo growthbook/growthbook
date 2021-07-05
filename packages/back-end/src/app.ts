@@ -61,27 +61,33 @@ wrapController(slackController);
 
 const app = express();
 
-export async function init() {
-  await mongoInit();
-  await queueInit();
+let initPromise: Promise<void>;
+async function init() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await mongoInit();
+      await queueInit();
+    })();
+  }
+  await initPromise;
 }
 
-let initPromise: Promise<void>;
 const initMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  if (!initPromise) {
-    initPromise = init();
-  }
   try {
-    await initPromise;
+    await init();
     next();
   } catch (e) {
     next(e);
   }
 };
+
+if (!process.env.NO_INIT) {
+  init();
+}
 
 app.set("port", process.env.PORT || 3100);
 app.use(cookieParser());

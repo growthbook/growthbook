@@ -55,7 +55,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { queueWebhook } from "../init/queue";
+import { queueWebhook } from "../jobs/webhooks";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
