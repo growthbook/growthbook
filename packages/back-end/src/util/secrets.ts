@@ -34,12 +34,16 @@ export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
-  throw new Error("Must specify ENCRYPTION_KEY environment variable");
+  throw new Error(
+    "Cannot use ENCRYPTION_KEY=dev in production. Please set to a long random string."
+  );
 }
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
-  throw new Error("Must specify JWT_SECRET environment variable");
+  throw new Error(
+    "Cannot use JWT_SECRET=dev in production. Please set to a long random string."
+  );
 }
 
 export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";

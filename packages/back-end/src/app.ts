@@ -3,9 +3,7 @@ import cookieParser from "cookie-parser";
 import express, {
   RequestHandler,
   ErrorRequestHandler,
-  Request,
   Response,
-  NextFunction,
 } from "express";
 import mongoInit from "./init/mongo";
 import cors from "cors";
@@ -37,6 +35,7 @@ import * as dimensionsController from "./controllers/dimensions";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
+import { isEmailEnabled } from "./services/email";
 
 // Wrap every controller function in asyncHandler to catch errors properly
 function wrapController(controller: Record<string, RequestHandler>): void {
@@ -72,28 +71,21 @@ async function init() {
   await initPromise;
 }
 
-const initMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    await init();
-    next();
-  } catch (e) {
-    next(e);
-  }
-};
-
 if (!process.env.NO_INIT) {
   init();
 }
 
 app.set("port", process.env.PORT || 3100);
+
+// Pretty print on dev
+if (process.env.NODE_ENV !== "production") {
+  app.set("json spaces", 2);
+}
+
 app.use(cookieParser());
 
 // Health check route (does not require JWT or cors)
-app.get("/healthcheck", initMiddleware, (req, res) => {
+app.get("/healthcheck", (req, res) => {
   // TODO: more robust health check?
   res.status(200).json({
     status: 200,
@@ -107,34 +99,66 @@ app.get("/favicon.ico", (req, res) => {
 
 app.use(compression());
 
-const loggerRedact = {
-  paths: [
-    "req.headers.authorization",
-    'req.headers["if-none-match"]',
-    'req.headers["cache-control"]',
-    'req.headers["upgrade-insecure-requests"]',
-    "req.headers.cookie",
-    "req.headers.connection",
-    'req.headers["accept"]',
-    'req.headers["accept-encoding"]',
-    'req.headers["accept-language"]',
-    'req.headers["sec-fetch-site"]',
-    'req.headers["sec-fetch-mode"]',
-    'req.headers["sec-fetch-dest"]',
-    "res.headers.etag",
-    'res.headers["x-powered-by"]',
-    'res.headers["access-control-allow-credentials"]',
-    'res.headers["access-control-allow-origin"]',
-  ],
-  remove: true,
-};
-const preAuthLogger = pino({
-  redact: loggerRedact,
+app.get("/", (req, res) => {
+  res.json({
+    name: "Growth Book API",
+    production: process.env.NODE_ENV === "production",
+    api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
+    app_origin: APP_ORIGIN,
+    email_enabled: isEmailEnabled(),
+  });
+});
+
+// Request logging
+const logger = pino({
   autoLogging: process.env.NODE_ENV === "production",
+  redact: {
+    paths: [
+      "req.headers.authorization",
+      'req.headers["if-none-match"]',
+      'req.headers["cache-control"]',
+      'req.headers["upgrade-insecure-requests"]',
+      "req.headers.cookie",
+      "req.headers.connection",
+      'req.headers["accept"]',
+      'req.headers["accept-encoding"]',
+      'req.headers["accept-language"]',
+      'req.headers["sec-fetch-site"]',
+      'req.headers["sec-fetch-mode"]',
+      'req.headers["sec-fetch-dest"]',
+      'req.headers["sec-ch-ua-mobile"]',
+      'req.headers["sec-ch-ua"]',
+      'req.headers["sec-fetch-user"]',
+      "res.headers.etag",
+      'res.headers["x-powered-by"]',
+      'res.headers["access-control-allow-credentials"]',
+      'res.headers["access-control-allow-origin"]',
+    ],
+    remove: true,
+  },
+  prettyPrint:
+    process.env.NODE_ENV === "production"
+      ? false
+      : {
+          colorize: true,
+          translateTime: "SYS:standard",
+          messageFormat: "{levelLabel} {req.url}",
+        },
+});
+app.use(logger);
+
+// Initialize db connections
+app.use(async (req, res, next) => {
+  try {
+    await init();
+    next();
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Visual Designer js file (does not require JWT or cors)
-app.get("/js/:key.js", preAuthLogger, initMiddleware, getExperimentsScript);
+app.get("/js/:key.js", getExperimentsScript);
 
 // Stripe webhook (needs raw body)
 app.post(
@@ -142,8 +166,6 @@ app.post(
   bodyParser.raw({
     type: "application/json",
   }),
-  preAuthLogger,
-  initMiddleware,
   stripeController.postWebhook
 );
 
@@ -154,8 +176,6 @@ app.post(
     extended: true,
     verify: verifySlackRequestSignature,
   }),
-  preAuthLogger,
-  initMiddleware,
   slackController.postIdeas
 );
 
@@ -168,8 +188,6 @@ app.get(
     credentials: false,
     origin: "*",
   }),
-  preAuthLogger,
-  initMiddleware,
   getExperimentConfig
 );
 
@@ -184,27 +202,18 @@ app.use(
     origin: origins,
   })
 );
-app.use(initMiddleware);
 
 // Pre-auth requests
 // Managed cloud deployment uses Auth0 instead
 if (!IS_CLOUD) {
-  app.post("/auth/refresh", preAuthLogger, authController.postRefresh);
-  app.post("/auth/login", preAuthLogger, authController.postLogin);
-  app.post("/auth/logout", preAuthLogger, authController.postLogout);
-  app.post("/auth/register", preAuthLogger, authController.postRegister);
-  app.post(
-    "/auth/firsttime",
-    preAuthLogger,
-    authController.postFirstTimeRegister
-  );
-  app.post("/auth/forgot", preAuthLogger, authController.postForgotPassword);
-  app.get("/auth/reset/:token", preAuthLogger, authController.getResetPassword);
-  app.post(
-    "/auth/reset/:token",
-    preAuthLogger,
-    authController.postResetPassword
-  );
+  app.post("/auth/refresh", authController.postRefresh);
+  app.post("/auth/login", authController.postLogin);
+  app.post("/auth/logout", authController.postLogout);
+  app.post("/auth/register", authController.postRegister);
+  app.post("/auth/firsttime", authController.postFirstTimeRegister);
+  app.post("/auth/forgot", authController.postForgotPassword);
+  app.get("/auth/reset/:token", authController.getResetPassword);
+  app.post("/auth/reset/:token", authController.postResetPassword);
 }
 
 // File uploads don't require auth tokens.
@@ -222,7 +231,6 @@ if (!IS_CLOUD) {
       type: "image/*",
       limit: "10mb",
     }),
-    preAuthLogger,
     organizationsController.putUpload
   );
   app.use("/upload", express.static(uploadDir));
@@ -234,16 +242,16 @@ app.use(getJWTCheck());
 // Add logged in user props to the request
 app.use(processJWT);
 
-const logger = pino({
-  autoLogging: process.env.NODE_ENV === "production",
-  redact: loggerRedact,
-  reqCustomProps: (req: AuthRequest) => ({
-    userId: req.userId,
-    admin: !!req.admin,
-  }),
-});
-
-app.use(logger);
+// Add logged in user props to the logger
+app.use(
+  (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
+    res.log = req.log = req.log.child({
+      userId: req.userId,
+      admin: !!req.admin,
+    });
+    next();
+  }
+);
 
 // Event Tracking
 //app.get("/events", eventsController.getEvents);
@@ -469,10 +477,10 @@ app.use(function (req, res) {
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   const status = err.status || 400;
 
-  if (process.env.NODE_ENV === "production" && req.log) {
+  if (req.log) {
     req.log.error(err);
   } else {
-    console.error(err);
+    logger.logger.error(err);
   }
 
   res.status(status).json({
