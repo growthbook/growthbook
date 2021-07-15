@@ -5,7 +5,8 @@ import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { LearningInterface } from "back-end/types/insight";
 import { PresentationInterface } from "back-end/types/presentation";
-import NewPresentation from "../components/NewPresentation/NewPresentation";
+//import NewPresentation from "../components/NewPresentation/NewPresentation";
+import NewShare from "../components/Share/NewShare";
 import ConfirmModal from "../components/ConfirmModal";
 import { useAuth } from "../services/auth";
 import EditPresentation from "../components/EditPresentation/EditPresentation";
@@ -65,10 +66,13 @@ const SharePage = (): React.ReactElement => {
         >
           <FaPlus /> Add your first Presentation
         </button>
-        <NewPresentation
+        <NewShare
           modalState={openNewPresentationModal}
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
+          onClose={() => {
+            console.log("do something");
+          }}
         />
       </div>
     );
@@ -218,10 +222,13 @@ const SharePage = (): React.ReactElement => {
           </button>
         </div>
       </div>
-      <NewPresentation
+      <NewShare
         modalState={openNewPresentationModal}
         setModalState={setOpenNewPresentationModal}
         refreshList={mutate}
+        onClose={() => {
+          console.log("do something");
+        }}
       />
       <EditPresentation
         modalState={openEditPresentationModal}

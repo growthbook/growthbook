@@ -340,6 +340,7 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
+app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
