@@ -297,6 +297,11 @@ const MetricPage: FC = () => {
                 open={() => setEditModalOpen(0)}
                 canOpen={canEdit}
               >
+                {metric.tags?.length && (
+                  <RightRailSectionGroup type="badge">
+                    {metric.tags}
+                  </RightRailSectionGroup>
+                )}
                 <RightRailSectionGroup title="Type" type="badge">
                   {metric.type}
                 </RightRailSectionGroup>

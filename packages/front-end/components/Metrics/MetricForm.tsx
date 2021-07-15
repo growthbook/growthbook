@@ -10,6 +10,7 @@ import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEffect } from "react";
 import Code from "../Code";
+import TagsInput from "../TagsInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -135,6 +136,7 @@ const MetricForm: FC<MetricFormProps> = ({
       anonymousIdColumn: current.anonymousIdColumn || "",
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
+      tags: current.tags || [],
     },
     current.id || "new"
   );
@@ -278,6 +280,13 @@ const MetricForm: FC<MetricFormProps> = ({
             required
             className="form-control"
             {...inputs.name}
+          />
+        </div>
+        <div className="form-group">
+          Tags
+          <TagsInput
+            value={value.tags}
+            onChange={(tags) => manualUpdate({ tags })}
           />
         </div>
         <div className="form-group">

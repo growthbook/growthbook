@@ -1137,6 +1137,7 @@ export async function postMetrics(
     earlyStart,
     cap,
     sql,
+    tags,
     conditions,
     datasource,
     timestampColumn,
@@ -1182,6 +1183,7 @@ export async function postMetrics(
     anonymousIdColumn,
     timestampColumn,
     conditions,
+    tags,
   });
 
   res.status(200).json({
@@ -1221,6 +1223,7 @@ export async function putMetric(
     "ignoreNulls",
     "cap",
     "sql",
+    "tags",
     "conditions",
     "dateUpdated",
     "table",

@@ -25,6 +25,7 @@ const metricSchema = new mongoose.Schema({
   userIdType: String,
   sql: String,
   timestampColumn: String,
+  tags: [String],
   conditions: [
     {
       _id: false,
