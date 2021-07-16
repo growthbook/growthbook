@@ -110,12 +110,18 @@ export function getMetricById(id: string) {
 }
 
 export async function createMetric(data: Partial<MetricInterface>) {
-  return MetricModel.create({
+  const metric = MetricModel.create({
     ...data,
     id: uniqid("met_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
+
+  if (data.tags) {
+    await addTags(data.organization, data.tags);
+  }
+
+  return metric;
 }
 
 function generateTrackingKey(name: string, n: number): string {

@@ -1214,6 +1214,7 @@ export async function putMetric(
     return;
   }
 
+  const existing: MetricInterface = metric.toJSON();
   const fields: (keyof MetricInterface)[] = [
     "name",
     "description",
@@ -1240,6 +1241,12 @@ export async function putMetric(
   });
 
   await metric.save();
+
+  await addTagsDiff(
+    req.organization.id,
+    existing.tags || [],
+    req.body.tags || []
+  );
 
   res.status(200).json({
     status: 200,
