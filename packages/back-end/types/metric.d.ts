@@ -35,6 +35,7 @@ export interface MetricInterface {
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
+  tags?: string[];
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";

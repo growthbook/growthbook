@@ -390,6 +390,18 @@ const MetricPage: FC = () => {
                   ]}
                 </RightRailSectionGroup>
               </RightRailSection>
+              <hr />
+              <RightRailSection
+                title="Tags"
+                open={() => setEditModalOpen(0)}
+                canOpen={canEdit}
+              >
+                {metric.tags?.length > 0 && (
+                  <RightRailSectionGroup type="badge">
+                    {metric.tags}
+                  </RightRailSectionGroup>
+                )}
+              </RightRailSection>
             </div>
           </div>
         </Tab>

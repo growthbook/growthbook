@@ -121,6 +121,7 @@ const MetricsPage = (): React.ReactElement => {
           <tr>
             <th>Name</th>
             <th>Type</th>
+            <th>Tags</th>
             <th className="d-none d-lg-table-cell">Data Source</th>
             <th className="d-none d-md-table-cell">Last Updated</th>
           </tr>
@@ -141,6 +142,14 @@ const MetricsPage = (): React.ReactElement => {
                 </Link>
               </td>
               <td>{metric.type}</td>
+
+              <td className="nowrap">
+                {Object.values(metric.tags).map((col) => (
+                  <span className="tag badge badge-secondary mr-2" key={col}>
+                    {col}
+                  </span>
+                ))}
+              </td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
                   ? getDatasourceById(metric.datasource)?.name || ""
