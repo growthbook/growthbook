@@ -11,6 +11,10 @@ import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
+import { useState } from "react";
+
+const RISK_THRESHOLD_WIN = 0.0025;
+const RISK_THRESHOLD_LOSE = 0.015;
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -39,6 +43,8 @@ const CompactResults: FC<{
   const results = snapshot.results[0];
   const variations = results?.variations || [];
 
+  const [riskVariation, setRiskVariation] = useState(1);
+
   let lowerBound: number, upperBound: number;
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
@@ -65,8 +71,6 @@ const CompactResults: FC<{
       (x) => x.risk?.length > 0
     ).length > 0;
 
-  const showControlRisk: boolean = hasRisk && false;
-
   return (
     <div className="mb-4 pb-4 experiment-compact-holder">
       <SRMWarning srm={results.srm} />
@@ -74,15 +78,39 @@ const CompactResults: FC<{
       <table className={`table experiment-compact aligned-graph`}>
         <thead>
           <tr>
-            <th rowSpan={2} className="metric">
+            <th rowSpan={2} className="metric" style={{ minWidth: 125 }}>
               Metric
             </th>
-            {experiment.variations.map((v, i) => (
+            {hasRisk && (
               <th
-                colSpan={i ? (hasRisk ? 4 : 3) : showControlRisk ? 2 : 1}
-                className="value"
-                key={i}
+                rowSpan={2}
+                className="metric"
+                style={{ maxWidth: 142, minWidth: 125 }}
               >
+                Risk of Choosing&nbsp;
+                <Tooltip text="How much you are likely to lose if you choose this variation and it's actually worse">
+                  <FaQuestionCircle />
+                </Tooltip>
+                <div className="mt-1">
+                  <select
+                    className="form-control form-control-sm"
+                    style={{ maxWidth: 150 }}
+                    value={riskVariation}
+                    onChange={(e) => {
+                      setRiskVariation(parseInt(e.target.value));
+                    }}
+                  >
+                    {experiment.variations.map((v, i) => (
+                      <option key={v.name} value={i}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </th>
+            )}
+            {experiment.variations.map((v, i) => (
+              <th colSpan={i ? 3 : 1} className="value" key={i}>
                 {v.name}
               </th>
             ))}
@@ -93,28 +121,13 @@ const CompactResults: FC<{
                 <th className={clsx("value", `variation${i} text-center`)}>
                   Value
                 </th>
-                {showControlRisk && i == 0 && (
-                  <th className={`variation${i} text-center`}>
-                    Risk&nbsp;
-                    <Tooltip text="How much you will lose if you choose the Control and you are wrong">
-                      <FaQuestionCircle />
-                    </Tooltip>
-                  </th>
-                )}
                 {i > 0 && (
-                  <th className={`variation${i} text-center`}>
+                  <th
+                    className={`variation${i} text-center`}
+                    style={{ minWidth: 110 }}
+                  >
                     Chance to Beat Control
                   </th>
-                )}
-                {hasRisk && i > 0 && (
-                  <>
-                    <th className={`variation${i} text-center`}>
-                      Risk&nbsp;
-                      <Tooltip text="How much you will lose if you choose this Variation and you are wrong">
-                        <FaQuestionCircle />
-                      </Tooltip>
-                    </th>
-                  </>
                 )}
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
@@ -133,16 +146,15 @@ const CompactResults: FC<{
         <tbody>
           <tr>
             <th>Users</th>
+            <th className="empty-td"></th>
             {experiment.variations.map((v, i) => (
               <React.Fragment key={i}>
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>
-                {i === 0 && showControlRisk && <td className="empty-td"></td>}
                 {i > 0 && (
                   <>
                     <td className="empty-td"></td>
-                    {hasRisk && <td className="empty-td"></td>}
                     <td className="p-0">
                       <div>
                         <AlignedGraph
@@ -184,6 +196,7 @@ const CompactResults: FC<{
                       ""
                     )}
                   </th>
+                  <th className="empty-td"></th>
                   {experiment.variations.map((v, i) => {
                     const stats = { ...variations[i]?.metrics?.[m] };
                     return (
@@ -209,18 +222,34 @@ const CompactResults: FC<{
                             <em>no data</em>
                           )}
                         </td>
-                        {showControlRisk && <td className="empty-td"></td>}
-                        {i > 0 && (
-                          <td
-                            colSpan={hasRisk ? 3 : 2}
-                            className="variation"
-                          ></td>
-                        )}
+                        {i > 0 && <td colSpan={2} className="variation"></td>}
                       </React.Fragment>
                     );
                   })}
                 </tr>
               );
+            }
+
+            let risk: number;
+            let riskCR: number;
+            if (hasRisk) {
+              if (riskVariation > 0) {
+                risk =
+                  variations[riskVariation]?.metrics?.[m]?.risk?.[
+                    metric.inverse ? 0 : 1
+                  ];
+                riskCR = variations[riskVariation]?.metrics?.[m]?.cr;
+              } else {
+                risk = 0;
+                variations.forEach((v, i) => {
+                  if (!i) return;
+                  const vRisk = v.metrics?.[m]?.risk?.[metric.inverse ? 1 : 0];
+                  if (vRisk > risk) {
+                    risk = vRisk;
+                    riskCR = v.metrics?.[m]?.cr;
+                  }
+                });
+              }
             }
 
             return (
@@ -241,6 +270,28 @@ const CompactResults: FC<{
                     ""
                   )}
                 </th>
+                {hasRisk && risk !== null && riskCR > 0 && (
+                  <td
+                    className={clsx("chance variation", {
+                      won: risk / riskCR < RISK_THRESHOLD_WIN,
+                      lost: risk / riskCR > RISK_THRESHOLD_LOSE,
+                    })}
+                  >
+                    <div className="result-number">
+                      {percentFormatter.format(risk / riskCR)}
+                    </div>
+                    {metric.type !== "binomial" && (
+                      <div>
+                        <small className="text-muted">
+                          <em>
+                            {formatConversionRate(metric.type, risk)}
+                            &nbsp;/&nbsp;user
+                          </em>
+                        </small>
+                      </div>
+                    )}
+                  </td>
+                )}
                 {experiment.variations.map((v, i) => {
                   const stats = { ...variations[i].metrics[m] };
                   const ci = stats.ci || [];
@@ -296,14 +347,11 @@ const CompactResults: FC<{
                             </small>
                           </div>
                         </td>
-                        {i === 0 && showControlRisk && (
-                          <td className="empty-td"></td>
-                        )}
                         {i > 0 && (
                           <>
                             <td
                               className="variation text-center text-muted"
-                              colSpan={hasRisk ? 2 : 1}
+                              colSpan={1}
                             >
                               <div>
                                 <div className="badge badge-pill badge-warning">
@@ -369,50 +417,6 @@ const CompactResults: FC<{
                           </small>
                         </div>
                       </td>
-                      {i === 0 && showControlRisk && (
-                        <td className={clsx("align-middle")}>
-                          <div className="result-number">
-                            {percentFormatter.format(
-                              Math.max(
-                                ...variations.map((v) => {
-                                  const data = v.metrics[m];
-                                  if (!data || !data.risk || !data.risk.length)
-                                    return 0;
-                                  return metric.inverse
-                                    ? data.risk[1]
-                                    : data.risk[0];
-                                })
-                              ) / stats.cr
-                            )}
-                          </div>
-                          {metric.type !== "binomial" && (
-                            <div>
-                              <small className="text-muted">
-                                <em>
-                                  {formatConversionRate(
-                                    metric.type,
-                                    Math.max(
-                                      ...variations.map((v) => {
-                                        const data = v.metrics[m];
-                                        if (
-                                          !data ||
-                                          !data.risk ||
-                                          !data.risk.length
-                                        )
-                                          return 0;
-                                        return metric.inverse
-                                          ? data.risk[1]
-                                          : data.risk[0];
-                                      })
-                                    )
-                                  )}
-                                  &nbsp;/&nbsp;user
-                                </em>
-                              </small>
-                            </div>
-                          )}
-                        </td>
-                      )}
                       {i > 0 && (
                         <td
                           className={clsx(
@@ -424,49 +428,6 @@ const CompactResults: FC<{
                           )}
                         >
                           {percentFormatter.format(stats.chanceToWin)}
-                        </td>
-                      )}
-                      {hasRisk && i > 0 && (
-                        <td
-                          className={clsx("align-middle", {
-                            won:
-                              barFillType === "significant" &&
-                              stats.chanceToWin > ciUpper,
-                            lost:
-                              barFillType === "significant" &&
-                              stats.chanceToWin < ciLower,
-                          })}
-                        >
-                          {(!metric.inverse && stats.risk[1] < stats.risk[0]) ||
-                          (metric.inverse && stats.risk[0] < stats.risk[1]) ? (
-                            <>
-                              <div className="result-number">
-                                {percentFormatter.format(
-                                  (metric.inverse
-                                    ? stats.risk[0]
-                                    : stats.risk[1]) / stats.cr
-                                )}
-                              </div>
-
-                              {metric.type !== "binomial" && (
-                                <div>
-                                  <small className="text-muted">
-                                    <em>
-                                      {formatConversionRate(
-                                        metric.type,
-                                        metric.inverse
-                                          ? stats.risk[0]
-                                          : stats.risk[1]
-                                      )}
-                                      &nbsp;/&nbsp;user
-                                    </em>
-                                  </small>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            ""
-                          )}
                         </td>
                       )}
                       {i > 0 && (
