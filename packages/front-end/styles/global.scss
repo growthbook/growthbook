@@ -86,7 +86,9 @@ pre {
   overflow-x: hidden;
   overflow-y: auto;
 }
-
+.badge-used {
+  opacity: 0.5;
+}
 .tiptrigger {
   display: inline-block;
   position: relative;

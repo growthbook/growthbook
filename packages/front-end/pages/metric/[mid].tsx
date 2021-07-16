@@ -297,11 +297,6 @@ const MetricPage: FC = () => {
                 open={() => setEditModalOpen(0)}
                 canOpen={canEdit}
               >
-                {metric.tags?.length && (
-                  <RightRailSectionGroup type="badge">
-                    {metric.tags}
-                  </RightRailSectionGroup>
-                )}
                 <RightRailSectionGroup title="Type" type="badge">
                   {metric.type}
                 </RightRailSectionGroup>
@@ -394,6 +389,18 @@ const MetricPage: FC = () => {
                     metric.earlyStart ? "start of session" : null,
                   ]}
                 </RightRailSectionGroup>
+              </RightRailSection>
+              <hr />
+              <RightRailSection
+                title="Tags"
+                open={() => setEditModalOpen(0)}
+                canOpen={canEdit}
+              >
+                {metric.tags?.length > 0 && (
+                  <RightRailSectionGroup type="badge">
+                    {metric.tags}
+                  </RightRailSectionGroup>
+                )}
               </RightRailSection>
             </div>
           </div>

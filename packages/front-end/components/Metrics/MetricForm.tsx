@@ -78,7 +78,7 @@ const MetricForm: FC<MetricFormProps> = ({
   source,
   initialStep = 0,
 }) => {
-  const { datasources, getDatasourceById } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [sqlInput, setSqlInput] = useState(
     current?.sql || !current?.table ? true : false
@@ -286,7 +286,10 @@ const MetricForm: FC<MetricFormProps> = ({
           Tags
           <TagsInput
             value={value.tags}
-            onChange={(tags) => manualUpdate({ tags })}
+            onChange={(tags) => {
+              refreshTags(tags);
+              manualUpdate({ tags });
+            }}
           />
         </div>
         <div className="form-group">
