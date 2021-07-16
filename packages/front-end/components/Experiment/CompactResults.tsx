@@ -14,7 +14,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 
 const RISK_THRESHOLD_WIN = 0.0025;
-const RISK_THRESHOLD_LOSE = 0.015;
+const RISK_THRESHOLD_LOSE = 0.0125;
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -43,7 +43,33 @@ const CompactResults: FC<{
   const results = snapshot.results[0];
   const variations = results?.variations || [];
 
-  const [riskVariation, setRiskVariation] = useState(1);
+  const [riskVariation, setRiskVariation] = useState(() => {
+    // Calculate the total risk for each variation across all metrics
+    const sums: number[] = Array(variations.length).fill(0);
+    experiment.metrics.forEach((m) => {
+      const metric = getMetricById(m);
+      if (!metric) return;
+
+      let controlMax = 0;
+      const controlCR = variations[0].metrics[m]?.cr;
+      if (!controlCR) return;
+      variations.forEach((v, i) => {
+        if (!i) return;
+        const risk = v.metrics[m]?.risk;
+        const cr = v.metrics[m]?.cr;
+        if (!risk) return;
+
+        const controlRisk = (metric.inverse ? risk[1] : risk[0]) / controlCR;
+        controlMax = Math.max(controlMax, controlRisk);
+
+        sums[i] += (metric.inverse ? risk[0] : risk[1]) / cr;
+      });
+      sums[0] += controlMax;
+    });
+
+    // Default to the variation with the lowest total risk
+    return sums.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0])[0][1];
+  });
 
   let lowerBound: number, upperBound: number;
   const domain: [number, number] = [0, 0];
@@ -232,6 +258,7 @@ const CompactResults: FC<{
 
             let risk: number;
             let riskCR: number;
+            let relativeRisk: number;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -240,7 +267,7 @@ const CompactResults: FC<{
                   ];
                 riskCR = variations[riskVariation]?.metrics?.[m]?.cr;
               } else {
-                risk = 0;
+                risk = -1;
                 variations.forEach((v, i) => {
                   if (!i) return;
                   const vRisk = v.metrics?.[m]?.risk?.[metric.inverse ? 1 : 0];
@@ -249,6 +276,9 @@ const CompactResults: FC<{
                     riskCR = v.metrics?.[m]?.cr;
                   }
                 });
+              }
+              if (riskCR) {
+                relativeRisk = risk / riskCR;
               }
             }
 
@@ -273,12 +303,15 @@ const CompactResults: FC<{
                 {hasRisk && risk !== null && riskCR > 0 && (
                   <td
                     className={clsx("chance variation", {
-                      won: risk / riskCR < RISK_THRESHOLD_WIN,
-                      lost: risk / riskCR > RISK_THRESHOLD_LOSE,
+                      won: relativeRisk <= RISK_THRESHOLD_WIN,
+                      lost: relativeRisk >= RISK_THRESHOLD_LOSE,
+                      warning:
+                        relativeRisk > RISK_THRESHOLD_WIN &&
+                        relativeRisk < RISK_THRESHOLD_LOSE,
                     })}
                   >
                     <div className="result-number">
-                      {percentFormatter.format(risk / riskCR)}
+                      {percentFormatter.format(relativeRisk)}
                     </div>
                     {metric.type !== "binomial" && (
                       <div>

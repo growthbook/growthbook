@@ -45,6 +45,7 @@ import {
 import Link from "next/link";
 import VisualEditorScriptMissing from "../../../components/Experiment/VisualEditorScriptMissing";
 import { uploadFile } from "../../../services/files";
+import useSwitchOrg from "../../../services/useSwitchOrg";
 
 const EditorPage: FC = () => {
   const router = useRouter();
@@ -53,6 +54,9 @@ const EditorPage: FC = () => {
   const { data, error } = useApi<{
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${id}`);
+
+  useSwitchOrg(data?.experiment?.organization);
+
   const [variation, setVariation] = useState(1);
   const [url, setUrl] = useState("");
   const [urlModalOpen, setUrlModalOpen] = useState(false);
