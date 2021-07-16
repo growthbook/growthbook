@@ -20,6 +20,7 @@ import ClickHouseForm from "./ClickHouseForm";
 import MixpanelForm from "./MixpanelForm";
 import track from "../../services/track";
 import Modal from "../Modal";
+import PrestoForm from "./PrestoForm";
 
 const typeOptions: {
   type: DataSourceType;
@@ -56,6 +57,19 @@ const typeOptions: {
       accessKeyId: "",
       secretAccessKey: "",
       workGroup: "primary",
+    },
+  },
+  {
+    type: "presto",
+    display: "PrestoDB or Trino",
+    default: {
+      engine: "presto",
+      host: "",
+      port: 8080,
+      username: "",
+      password: "",
+      catalog: "",
+      schema: "",
     },
   },
   {
@@ -216,6 +230,14 @@ const DataSourceForm: FC<{
   if (datasource.type === "athena") {
     connSettings = (
       <AthenaForm
+        existing={existing}
+        onParamChange={onParamChange}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "presto") {
+    connSettings = (
+      <PrestoForm
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}

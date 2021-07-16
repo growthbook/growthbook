@@ -14,6 +14,7 @@ git clone https://github.com/growthbook/growthbook.git
 cd growthbook
 docker-compose up -d
 ```
+
 Then visit http://localhost:3000
 
 [![Grwoth Book Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
@@ -27,7 +28,7 @@ Growth Book gives you the flexibility and power of a fully-featured in-house A/B
 
 ## Major Features
 
-- ❄️ Pull data from Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, or Google Analytics
+- ❄️ Pull data from Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Presto, Athena, or Google Analytics
 - 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
 - 💻 Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
