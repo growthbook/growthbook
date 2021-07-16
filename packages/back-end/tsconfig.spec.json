@@ -9,5 +9,5 @@
     "sourceMap": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*", "types/**/*", "typings/jstat/index.d.ts"]
+  "include": ["src/**/*", "types/**/*", "typings/**/*.d.ts"]
 }

@@ -24,6 +24,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "Redshift", value: "redshift" },
     { display: "Google Analytics", value: "google_analytics" },
     { display: "AWS Athena", value: "athena" },
+    { display: "PrestoDB or Trino", value: "presto" },
     { display: "Snowflake", value: "snowflake" },
     { display: "Postgres", value: "postgres" },
     { display: "BigQuery", value: "bigquery" },

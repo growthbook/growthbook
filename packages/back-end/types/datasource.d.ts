@@ -4,6 +4,7 @@ import { ClickHouseConnectionParams } from "./integrations/clickhouse";
 import { GoogleAnalyticsParams } from "./integrations/googleanalytics";
 import { MixpanelConnectionParams } from "./integrations/mixpanel";
 import { PostgresConnectionParams } from "./integrations/postgres";
+import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 
 export type DataSourceType =
@@ -14,11 +15,13 @@ export type DataSourceType =
   | "postgres"
   | "bigquery"
   | "clickhouse"
+  | "presto"
   | "mixpanel";
 
 export type DataSourceParams =
   | PostgresConnectionParams
   | AthenaConnectionParams
+  | PrestoConnectionParams
   | GoogleAnalyticsParams
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
@@ -101,6 +104,11 @@ interface RedshiftDataSource extends DataSourceBase {
 interface AthenaDataSource extends DataSourceBase {
   type: "athena";
 }
+
+interface PrestoDataSource extends DataSourceBase {
+  type: "presto";
+}
+
 interface GoogleAnalyticsDataSource extends DataSourceBase {
   type: "google_analytics";
 }
@@ -132,6 +140,10 @@ export type AthenaDataSourceWithParams = WithParams<
   AthenaDataSource,
   AthenaConnectionParams
 >;
+export type PrestoDataSourceWithParams = WithParams<
+  PrestoDataSource,
+  PrestoConnectionParams
+>;
 export type GoogleAnalyticsDataSourceWithParams = WithParams<
   GoogleAnalyticsDataSource,
   GoogleAnalyticsParams
@@ -160,6 +172,7 @@ export type MixpanelDataSourceWithParams = WithParams<
 export type DataSourceInterface =
   | RedshiftDataSource
   | AthenaDataSource
+  | PrestoDataSource
   | GoogleAnalyticsDataSource
   | SnowflakeDataSource
   | PostgresDataSource
@@ -170,6 +183,7 @@ export type DataSourceInterface =
 export type DataSourceInterfaceWithParams =
   | RedshiftDataSourceWithParams
   | AthenaDataSourceWithParams
+  | PrestoDataSourceWithParams
   | GoogleAnalyticsDataSourceWithParams
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
