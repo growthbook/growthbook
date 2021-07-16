@@ -47,6 +47,7 @@ export default function track(
       tracking_host: "https://t.growthbook.io",
       cookie_name: "__growthbookid",
       capture_3rd_party_cookies: false,
+      randomize_url: true,
     });
   }
 
