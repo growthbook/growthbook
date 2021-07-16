@@ -55,6 +55,11 @@ const CompactResults: FC<{
       if (!controlCR) return;
       variations.forEach((v, i) => {
         if (!i) return;
+        if (
+          !hasEnoughData(v.metrics[m]?.value, variations[0].metrics[m]?.value)
+        ) {
+          return;
+        }
         const risk = v.metrics[m]?.risk;
         const cr = v.metrics[m]?.cr;
         if (!risk) return;
@@ -259,6 +264,7 @@ const CompactResults: FC<{
             let risk: number;
             let riskCR: number;
             let relativeRisk: number;
+            let showRisk = false;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -266,18 +272,34 @@ const CompactResults: FC<{
                     metric.inverse ? 0 : 1
                   ];
                 riskCR = variations[riskVariation]?.metrics?.[m]?.cr;
+                showRisk =
+                  risk !== null &&
+                  riskCR > 0 &&
+                  hasEnoughData(
+                    variations[riskVariation]?.metrics?.[m]?.value,
+                    variations[0]?.metrics?.[m]?.value
+                  );
               } else {
                 risk = -1;
                 variations.forEach((v, i) => {
                   if (!i) return;
+                  if (
+                    !hasEnoughData(
+                      v.metrics[m]?.value,
+                      variations[0].metrics[m]?.value
+                    )
+                  ) {
+                    return;
+                  }
                   const vRisk = v.metrics?.[m]?.risk?.[metric.inverse ? 1 : 0];
                   if (vRisk > risk) {
                     risk = vRisk;
                     riskCR = v.metrics?.[m]?.cr;
                   }
                 });
+                showRisk = risk >= 0 && riskCR > 0;
               }
-              if (riskCR) {
+              if (showRisk) {
                 relativeRisk = risk / riskCR;
               }
             }
@@ -300,27 +322,36 @@ const CompactResults: FC<{
                     ""
                   )}
                 </th>
-                {hasRisk && risk !== null && riskCR > 0 && (
+                {hasRisk && (
                   <td
                     className={clsx("chance variation", {
-                      won: relativeRisk <= RISK_THRESHOLD_WIN,
-                      lost: relativeRisk >= RISK_THRESHOLD_LOSE,
+                      won: showRisk && relativeRisk <= RISK_THRESHOLD_WIN,
+                      lost: showRisk && relativeRisk >= RISK_THRESHOLD_LOSE,
                       warning:
+                        showRisk &&
                         relativeRisk > RISK_THRESHOLD_WIN &&
                         relativeRisk < RISK_THRESHOLD_LOSE,
                     })}
                   >
-                    <div className="result-number">
-                      {percentFormatter.format(relativeRisk)}
-                    </div>
-                    {metric.type !== "binomial" && (
-                      <div>
-                        <small className="text-muted">
-                          <em>
-                            {formatConversionRate(metric.type, risk)}
-                            &nbsp;/&nbsp;user
-                          </em>
-                        </small>
+                    {showRisk ? (
+                      <>
+                        <div className="result-number">
+                          {percentFormatter.format(relativeRisk)}
+                        </div>
+                        {metric.type !== "binomial" && (
+                          <div>
+                            <small className="text-muted">
+                              <em>
+                                {formatConversionRate(metric.type, risk)}
+                                &nbsp;/&nbsp;user
+                              </em>
+                            </small>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="badge badge-pill badge-warning">
+                        not enough data
                       </div>
                     )}
                   </td>
