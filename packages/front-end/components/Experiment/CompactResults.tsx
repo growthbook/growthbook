@@ -172,7 +172,7 @@ const CompactResults: FC<{
         <tbody>
           <tr>
             <th>Users</th>
-            <th className="empty-td"></th>
+            {hasRisk && <th className="empty-td"></th>}
             {experiment.variations.map((v, i) => (
               <React.Fragment key={i}>
                 <td className="value">
@@ -222,12 +222,12 @@ const CompactResults: FC<{
                       ""
                     )}
                   </th>
-                  <th className="empty-td"></th>
+                  {hasRisk && <th className="empty-td"></th>}
                   {experiment.variations.map((v, i) => {
                     const stats = { ...variations[i]?.metrics?.[m] };
                     return (
                       <React.Fragment key={i}>
-                        <td className="variation">
+                        <td className="value variation">
                           {stats.value ? (
                             <>
                               <div className="result-number">
