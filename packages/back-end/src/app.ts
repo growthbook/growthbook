@@ -68,7 +68,12 @@ async function init() {
       await queueInit();
     })();
   }
-  await initPromise;
+  try {
+    await initPromise;
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
 }
 
 if (!process.env.NO_INIT) {
