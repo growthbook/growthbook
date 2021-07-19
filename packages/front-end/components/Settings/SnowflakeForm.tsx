@@ -44,17 +44,6 @@ const SnowflakeForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Role</label>
-        <input
-          type="text"
-          className="form-control"
-          name="role"
-          required
-          value={params.role || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
         <label>Database</label>
         <input
           type="text"
