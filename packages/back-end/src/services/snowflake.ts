@@ -13,6 +13,7 @@ export async function runSnowflakeQuery<T>(
     database: conn.database,
     schema: conn.schema,
     warehouse: conn.warehouse,
+    role: conn.role,
   });
 
   await snowflake.connect();
