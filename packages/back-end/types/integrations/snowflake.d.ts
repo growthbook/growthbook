@@ -6,5 +6,4 @@ export interface SnowflakeConnectionParams {
   schema: string;
   role?: string;
   warehouse: string;
-  role: string;
 }
