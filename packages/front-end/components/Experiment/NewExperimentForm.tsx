@@ -130,6 +130,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     tags: initialValue?.tags || [],
     targetURLRegex: initialValue?.targetURLRegex || "",
     description: initialValue?.description || "",
+    guardrails: initialValue?.guardrails || [],
     variations:
       initialValue?.variations || getDefaultVariations(initialNumVariations),
     phases: initialPhases,
@@ -228,7 +229,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {...inputProps.name}
           />
         </div>
-        {visualAllowed && (
+        {visualAllowed && !isImport && (
           <div className="form-group">
             <label>Type</label>
             <RadioSelector
@@ -439,7 +440,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Metrics and Targeting">
         <div style={{ minHeight: 350 }}>
           <div className="form-group">
-            <label>Goal Metrics</label>
+            <label className="font-weight-bold mb-1">Goal Metrics</label>
+            <div className="mb-1 font-italic">
+              Metrics you are trying to improve with this experiment.
+            </div>
             <MetricsSelector
               selected={value.metrics}
               onChange={(metrics) => {
@@ -448,44 +452,64 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={value.datasource}
             />
           </div>
-          {isImport && (
-            <div className="form-group">
-              <label>Activation Metric</label>
-              <select {...inputProps.activationMetric} className="form-control">
-                <option value="">None</option>
-                {metrics.map((m) => (
+          <div className="form-group">
+            <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+            <div className="mb-1 font-italic">
+              Metrics you want to monitor, but are NOT specifically trying to
+              improve.
+            </div>
+            <MetricsSelector
+              selected={value.guardrails}
+              onChange={(guardrails) => {
+                manualUpdate({ guardrails });
+              }}
+              datasource={value.datasource}
+            />
+          </div>
+          <div className="form-group">
+            <label className="font-weight-bold mb-1">Activation Metric</label>
+            <div className="mb-1 font-italic">
+              Users must complete this metric before being included in the
+              analysis.
+            </div>
+            <select {...inputProps.activationMetric} className="form-control">
+              <option value="">None</option>
+              {metrics
+                .filter((m) => m.datasource === value.datasource)
+                .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
                   </option>
                 ))}
-              </select>
-              <small className="form-text text-muted">
-                If set, users must convert on this metric before being included
-                in the analysis.
-              </small>
-            </div>
-          )}
+            </select>
+            <small className="form-text text-muted">
+              This is for advanced use cases only.
+            </small>
+          </div>
+
           {getDatasourceById(value.datasource)?.type !== "mixpanel" && (
             <div className="form-group">
-              <label>Login State</label>
+              <label className="font-weight-bold">Login State</label>
               <select className="form-control" {...inputProps.userIdType}>
                 <option value="user">User</option>
                 <option value="anonymous">Anonymous</option>
               </select>
             </div>
           )}
-          <div className="form-group">
-            <label>URL Targeting</label>
-            <input
-              type="text"
-              className="form-control"
-              {...inputProps.targetURLRegex}
-            />
-            <small className="form-text text-muted">
-              e.g. <code>https://example.com/pricing</code> or{" "}
-              <code>^/post/[0-9]+</code>
-            </small>
-          </div>
+          {!isImport && (
+            <div className="form-group">
+              <label className="font-weight-bold">URL Targeting</label>
+              <input
+                type="text"
+                className="form-control"
+                {...inputProps.targetURLRegex}
+              />
+              <small className="form-text text-muted">
+                e.g. <code>https://example.com/pricing</code> or{" "}
+                <code>^/post/[0-9]+</code>
+              </small>
+            </div>
+          )}
         </div>
       </Page>
     </PagedModal>

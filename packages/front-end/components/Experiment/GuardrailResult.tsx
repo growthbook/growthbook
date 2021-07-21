@@ -9,15 +9,13 @@ import {
   FaCheckCircle,
   FaExclamation,
   FaExclamationTriangle,
-  FaMinusCircle,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "../../../back-end/types/metric";
 import { formatConversionRate } from "../../services/metrics";
 
-const WARNING_CUTOFF = 0.7;
+const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.85;
-const SUCCESS_CUTOFF = 0.5;
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -25,31 +23,47 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function hasEnoughData(value1: number, value2: number): boolean {
+  return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 20;
+}
+
 const GuardrailResults: FC<{
   variations: SnapshotVariation[];
   experiment: ExperimentInterfaceStringDates;
   metric: MetricInterface;
 }> = ({ variations, experiment, metric }) => {
-  let status: "secondary" | "danger" | "success" | "warning" | "light" =
-    "secondary";
+  let status: "danger" | "success" | "warning" | "secondary" = "secondary";
 
   const maxChance = Math.max(
     ...variations.slice(1).map((v) => {
-      return 1 - (v.metrics[metric.id]?.chanceToWin || 2);
+      if (
+        !hasEnoughData(
+          v.metrics[metric.id]?.value,
+          variations[0].metrics[metric.id]?.value
+        )
+      ) {
+        return -1;
+      }
+
+      return 1 - v.metrics[metric.id]?.chanceToWin;
     })
   );
   if (maxChance < 0) {
-    status = "light";
+    status = "secondary";
   } else if (maxChance >= DANGER_CUTOFF) {
     status = "danger";
   } else if (maxChance >= WARNING_CUTOFF) {
     status = "warning";
-  } else if (maxChance <= SUCCESS_CUTOFF) {
+  } else {
     status = "success";
   }
 
+  const hasSomeData =
+    status !== "secondary" ||
+    variations.filter((v) => v.metrics[metric.id]?.value > 0).length > 0;
+
   const [open, setOpen] = useState(
-    status !== "success" && status !== "secondary"
+    status !== "success" && (status !== "secondary" || !hasSomeData)
   );
 
   return (
@@ -57,18 +71,14 @@ const GuardrailResults: FC<{
       <div
         className={clsx(
           "cursor-pointer d-flex align-items-center guardrail alert m-0",
-          `alert-${status}`,
-          {
-            border: status === "light",
-          }
+          `alert-${status}`
         )}
         onClick={() => setOpen(!open)}
       >
         {status === "success" && <FaCheckCircle className="mr-1" />}
         {status === "warning" && <FaExclamationTriangle className="mr-1" />}
         {status === "danger" && <FaExclamation className="mr-1" />}
-        {status === "secondary" && <FaMinusCircle className="mr-1" />}
-        {status === "light" && <FaQuestionCircle className="mr-1" />}
+        {status === "secondary" && <FaQuestionCircle className="mr-1" />}
         <strong>{metric.name}</strong>
         {open ? (
           <FaAngleDown className="ml-auto" />
@@ -83,7 +93,7 @@ const GuardrailResults: FC<{
           transition: "max-height 0.3s",
         }}
       >
-        {maxChance > 0 ? (
+        {hasSomeData ? (
           <table
             className={clsx("rounded table table-bordered experiment-compact")}
           >
@@ -91,7 +101,7 @@ const GuardrailResults: FC<{
               <tr>
                 <th>Variation</th>
                 <th>Value</th>
-                <th>Probability of Losing</th>
+                <th>Chance of Being Worse</th>
               </tr>
             </thead>
             <tbody>
@@ -119,18 +129,29 @@ const GuardrailResults: FC<{
                         </small>
                       </div>
                     </td>
-                    <td
-                      className={clsx("chance result-number align-middle", {
-                        won: i > 0 && chance <= SUCCESS_CUTOFF,
-                        lost: i > 0 && chance >= DANGER_CUTOFF,
-                        warning:
-                          i > 0 &&
-                          chance >= WARNING_CUTOFF &&
-                          chance < DANGER_CUTOFF,
-                      })}
-                    >
-                      {i ? percentFormatter.format(chance) : ""}
-                    </td>
+                    {!i ? (
+                      <td></td>
+                    ) : hasEnoughData(
+                        stats.value,
+                        variations[0].metrics[metric.id]?.value
+                      ) ? (
+                      <td
+                        className={clsx("chance result-number align-middle", {
+                          won: i > 0 && chance >= 0 && chance < WARNING_CUTOFF,
+                          lost: i > 0 && chance >= DANGER_CUTOFF,
+                          warning:
+                            i > 0 &&
+                            chance >= WARNING_CUTOFF &&
+                            chance < DANGER_CUTOFF,
+                        })}
+                      >
+                        {percentFormatter.format(chance)}
+                      </td>
+                    ) : (
+                      <td>
+                        <em>not enough data</em>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

@@ -16,6 +16,10 @@ const BreakDownResults: FC<{
 
   const srmFailures = snapshot.results.filter((r) => r.srm <= 0.001);
 
+  const metrics = Array.from(
+    new Set(experiment.metrics.concat(experiment.guardrails || []))
+  );
+
   return (
     <div className="mb-4 pb-4">
       {srmFailures.length > 0 && (
@@ -64,7 +68,7 @@ const BreakDownResults: FC<{
         <strong>Warning: </strong>The more dimensions and metrics you look at,
         the more likely you are to see a false positive.
       </div>
-      {experiment.metrics.map((m) => {
+      {metrics.map((m) => {
         const metric = getMetricById(m);
 
         // Get overall stats for all dimension values combined
