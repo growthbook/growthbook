@@ -439,7 +439,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Metrics and Targeting">
         <div style={{ minHeight: 350 }}>
           <div className="form-group">
-            <label>Metrics</label>
+            <label>Goal Metrics</label>
             <MetricsSelector
               selected={value.metrics}
               onChange={(metrics) => {
