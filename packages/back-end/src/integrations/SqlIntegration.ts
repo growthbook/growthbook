@@ -14,7 +14,7 @@ import {
   VariationMetricResult,
   PastExperimentResult,
 } from "../types/Integration";
-import { format } from "sql-formatter";
+import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -201,7 +201,8 @@ export default abstract class SqlIntegration
   }
 
   getPastExperimentQuery(from: Date) {
-    return format(`-- Past Experiments
+    return format(
+      `-- Past Experiments
     WITH
       __experiments as (
         ${getExperimentQuery(this.settings, this.getSchema())}
@@ -265,7 +266,9 @@ export default abstract class SqlIntegration
       -- Skip experiments that start of the very first day since we're likely missing data
       AND ${this.dateDiff(this.toTimestamp(from), "start_date")} > 2
     ORDER BY
-      experiment_id ASC, variation_id ASC`);
+      experiment_id ASC, variation_id ASC`,
+      this.getFormatOptions()
+    );
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {
     const rows: PastExperimentResponse = await this.runQuery(query);
@@ -287,7 +290,8 @@ export default abstract class SqlIntegration
     const userId = params.userIdType === "user";
 
     // TODO: support by date
-    return format(`-- ${params.name} - ${params.metric.name} Metric
+    return format(
+      `-- ${params.name} - ${params.metric.name} Metric
       WITH
         ${this.getIdentifiesCTE(userId, {
           segment: !!params.segmentQuery,
@@ -384,7 +388,7 @@ export default abstract class SqlIntegration
       ${
         params.includeByDate
           ? `
-        UNION SELECT
+        UNION ALL SELECT
           date,
           COUNT(*) as count,
           AVG(value) as mean,
@@ -405,13 +409,16 @@ export default abstract class SqlIntegration
       `
           : ""
       }
-      `);
+      `,
+      this.getFormatOptions()
+    );
   }
 
   getUsersQuery(params: UsersQueryParams): string {
     const userId = params.userIdType === "user";
 
-    return format(`-- ${params.name} - Number of Users
+    return format(
+      `-- ${params.name} - Number of Users
       WITH
         ${this.getIdentifiesCTE(userId, {
           segment: !!params.segmentQuery,
@@ -441,7 +448,7 @@ export default abstract class SqlIntegration
       ${
         params.includeByDate
           ? `
-        UNION SELECT
+        UNION ALL SELECT
           ${this.dateTrunc("u.actual_start")} as date,
           COUNT(DISTINCT u.user_id) as users
         FROM
@@ -458,7 +465,9 @@ export default abstract class SqlIntegration
       `
           : ""
       }
-      `);
+      `,
+      this.getFormatOptions()
+    );
   }
   async runUsersQuery(query: string): Promise<UsersResult> {
     const rows: UsersQueryResponse = await this.runQuery(query);
@@ -517,6 +526,12 @@ export default abstract class SqlIntegration
     return ret;
   }
 
+  getFormatOptions(): FormatOptions {
+    return {
+      language: "redshift",
+    };
+  }
+
   async getImpactEstimation(
     urlRegex: string,
     metric: MetricInterface,
@@ -572,8 +587,9 @@ export default abstract class SqlIntegration
     ]);
 
     const formatted =
-      [usersSql, metricSql, valueSql].map((sql) => format(sql)).join(";\n\n") +
-      ";";
+      [usersSql, metricSql, valueSql]
+        .map((sql) => format(sql, this.getFormatOptions()))
+        .join(";\n\n") + ";";
 
     if (
       users &&
@@ -938,7 +954,9 @@ export default abstract class SqlIntegration
 
     const results: ExperimentResults = {
       results: [],
-      query: query.map((q) => format(q)).join(";\n\n") + ";",
+      query:
+        query.map((q) => format(q, this.getFormatOptions())).join(";\n\n") +
+        ";",
     };
 
     dimensionMap.forEach((variations, k) => {
