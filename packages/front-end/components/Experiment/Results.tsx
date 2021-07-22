@@ -187,11 +187,14 @@ const Results: FC<{
                   const metric = getMetricById(g);
                   if (!metric) return "";
 
+                  const variations = snapshot.results[0]?.variations;
+                  if (!variations) return "";
+
                   return (
                     <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
                       <GuardrailResults
                         experiment={experiment}
-                        variations={snapshot.results[0]?.variations}
+                        variations={variations}
                         metric={metric}
                       />
                     </div>
