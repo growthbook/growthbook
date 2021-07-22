@@ -103,7 +103,7 @@ const CompactResults: FC<{
     ).length > 0;
 
   return (
-    <div className="mb-4 pb-4 experiment-compact-holder">
+    <div className="mb-4 experiment-compact-holder">
       <SRMWarning srm={results.srm} />
 
       <table className={`table experiment-compact aligned-graph`}>

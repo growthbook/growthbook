@@ -318,8 +318,10 @@ export async function createSnapshot(
 
   const activationMetric = metricMap.get(experiment.activationMetric) || null;
 
-  // Only include metrics tied to this experiment
-  const selectedMetrics = experiment.metrics
+  // Only include metrics tied to this experiment (both goal and guardrail metrics)
+  const selectedMetrics = Array.from(
+    new Set(experiment.metrics.concat(experiment.guardrails || []))
+  )
     .map((m) => metricMap.get(m))
     .filter((m) => m);
   if (!selectedMetrics.length) {

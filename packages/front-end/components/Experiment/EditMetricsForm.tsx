@@ -13,6 +13,7 @@ const EditMetricsForm: FC<{
 }> = ({ experiment, cancel, mutate }) => {
   const [value, inputProps, manualUpdate] = useForm({
     metrics: experiment.metrics || [],
+    guardrails: experiment.guardrails || [],
     activationMetric: experiment.activationMetric || "",
   });
   const { apiCall } = useAuth();
@@ -33,7 +34,10 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <div className="form-group">
-        <label>Goal Metrics</label>
+        <label className="font-weight-bold mb-1">Goal Metrics</label>
+        <div className="mb-1 font-italic">
+          Metrics you are trying to improve with this experiment.
+        </div>
         <MetricsSelector
           selected={value.metrics}
           onChange={(metrics) => {
@@ -43,7 +47,24 @@ const EditMetricsForm: FC<{
         />
       </div>
       <div className="form-group">
-        <label>Activation Metric</label>
+        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+        <div className="mb-1 font-italic">
+          Metrics you want to monitor, but are NOT specifically trying to
+          improve.
+        </div>
+        <MetricsSelector
+          selected={value.guardrails}
+          onChange={(guardrails) => {
+            manualUpdate({ guardrails });
+          }}
+          datasource={experiment.datasource}
+        />
+      </div>
+      <div className="form-group">
+        <label className="font-weight-bold mb-1">Activation Metric</label>
+        <div className="mb-1 font-italic">
+          Users must complete this metric before being included in the analysis.
+        </div>
         <select {...inputProps.activationMetric} className="form-control">
           <option value="">None</option>
           {metrics
@@ -55,8 +76,7 @@ const EditMetricsForm: FC<{
             ))}
         </select>
         <small className="form-text text-muted">
-          If set, users must convert on this metric before being included in the
-          analysis.
+          This is for advanced use cases only.
         </small>
       </div>
       <div style={{ height: 100 }} />

@@ -623,9 +623,14 @@ const ExperimentPage = (): ReactElement => {
                     {getMetricById(experiment.activationMetric)?.name}
                   </RightRailSectionGroup>
                 )}
-                <RightRailSectionGroup title="Goal Metrics" type="badge">
+                <RightRailSectionGroup title="Goals" type="badge">
                   {experiment.metrics.map((m) => getMetricById(m)?.name)}
                 </RightRailSectionGroup>
+                {experiment.guardrails?.length > 0 && (
+                  <RightRailSectionGroup title="Guardrails" type="badge">
+                    {experiment.guardrails.map((m) => getMetricById(m)?.name)}
+                  </RightRailSectionGroup>
+                )}
               </RightRailSection>
               <hr />
               <RightRailSection

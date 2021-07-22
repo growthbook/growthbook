@@ -62,6 +62,7 @@ export interface ExperimentInterface {
   hypothesis?: string;
   conversionWindowDays?: number;
   metrics: string[];
+  guardrails?: string[];
   activationMetric?: string;
   sqlOverride: Map<string, string>;
   autoAssign: boolean;
