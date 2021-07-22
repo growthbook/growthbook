@@ -12,7 +12,7 @@ import {
 } from "../services/experiments";
 import { getLearningsByExperimentIds } from "../services/learnings";
 import { userHasAccess } from "../services/organizations";
-import { LearningInterface } from "../../types/insight";
+//import { LearningInterface } from "../../types/insight";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
@@ -22,23 +22,24 @@ export async function getPresentations(req: AuthRequest, res: Response) {
     req.organization.id
   );
 
-  const learnings: Record<string, LearningInterface[]> = {};
+  // disabled learnings:
+  //const learnings: Record<string, LearningInterface[]> = {};
 
-  await Promise.all(
-    presentations.map(async (v) => {
-      if (v.experimentIds) {
-        // get the experiments to show?
-        //v.experiments = await getExperimentsByIds(v.experimentIds);
-        // get the learnings?
-        learnings[v.id] = await getLearningsByExperimentIds(v.experimentIds);
-      }
-    })
-  );
+  // await Promise.all(
+  //   presentations.map(async (v) => {
+  //     if (v.experimentIds) {
+  //       // get the experiments to show?
+  //       //v.experiments = await getExperimentsByIds(v.experimentIds);
+  //       // get the learnings?
+  //       learnings[v.id] = await getLearningsByExperimentIds(v.experimentIds);
+  //     }
+  //   })
+  // );
 
   res.status(200).json({
     status: 200,
     presentations,
-    learnings,
+    //learnings,
   });
 }
 
@@ -65,16 +66,11 @@ export async function getPresentation(req: AuthRequest, res: Response) {
 
   // get the experiments to present in this presentations:
   let expIds: string[] = [];
-  if (pres.experimentIds) {
-    expIds = pres.experimentIds;
-  } else {
-    // use some other way to find the experiments... perhaps by search query options.
-    //TODO
+  if (pres.experiments) {
+    expIds = pres.experiments.map((o) => o.id);
   }
 
-  const experiments = await getExperimentsByIds(pres.experimentIds);
-  // was trying to push the experiments into the presentation model,
-  // but that wouldn't work for some reason
+  const experiments = await getExperimentsByIds(expIds);
 
   const withSnapshots: {
     experiment: ExperimentInterface;
@@ -99,6 +95,45 @@ export async function getPresentation(req: AuthRequest, res: Response) {
     status: 200,
     presentation: pres,
     learnings,
+    experiments: withSnapshots,
+  });
+}
+
+export async function getPresentationPreview(req: AuthRequest, res: Response) {
+  const { expIds } = req.query as { expIds: string };
+  const expIdsArr = expIds.split(",");
+
+  if (expIdsArr.length === 0) {
+    res.status(403).json({
+      status: 404,
+      message: "No experiments passed",
+    });
+    return;
+  }
+
+  const experiments = await getExperimentsByIds(expIdsArr);
+
+  const withSnapshots: {
+    experiment: ExperimentInterface;
+    snapshot: ExperimentSnapshotInterface;
+  }[] = [];
+  const promises = experiments.map(async (experiment, i) => {
+    // only show experiments that you have permission to view
+    if (await userHasAccess(req, experiment.organization)) {
+      const snapshot = await getLatestSnapshot(
+        experiment.id,
+        experiment.phases.length - 1
+      );
+      withSnapshots[i] = {
+        experiment,
+        snapshot,
+      };
+    }
+  });
+  await Promise.all(promises);
+
+  res.status(200).json({
+    status: 200,
     experiments: withSnapshots,
   });
 }
@@ -195,9 +230,11 @@ export async function updatePresentation(
     if (data["title"] !== p["title"]) p.set("title", data["title"]);
     if (data["description"] !== p["description"])
       p.set("description", data["description"]);
-    p.set("experimentIds", data["experimentIds"]);
+    p.set("experiments", data["experiments"]);
     p.set("options", data["options"]);
     p.set("dateUpdated", new Date());
+    p.set("theme", data["theme"]);
+    p.set("customTheme", data["customTheme"]);
 
     await p.save();
 

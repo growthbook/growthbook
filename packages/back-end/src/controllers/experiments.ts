@@ -219,10 +219,11 @@ export async function getSnapshot(req: AuthRequest, res: Response) {
 export async function getSnapshots(req: AuthRequest, res: Response) {
   const idsString = (req.query?.ids as string) || "";
   if (!idsString.length) {
-    return res.status(404).json({
-      status: 404,
-      message: "No experiments selected.",
+    res.status(200).json({
+      status: 200,
+      snapshots: [],
     });
+    return;
   }
   const ids = idsString.split(",");
 

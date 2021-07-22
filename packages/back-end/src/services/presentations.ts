@@ -1,6 +1,9 @@
 import { PresentationModel } from "../models/PresentationModel";
 import uniqid from "uniqid";
-import { PresentationInterface } from "../../types/presentation";
+import {
+  PresentationExperiment,
+  PresentationInterface,
+} from "../../types/presentation";
 //import {query} from "../config/postgres";
 
 export function getPresentationsByOrganization(organization: string) {
@@ -17,31 +20,42 @@ export function getPresentationById(id: string) {
 
 export async function removeExperimentFromPresentations(experiment: string) {
   const presentations = await PresentationModel.find({
-    experimentIds: experiment,
+    "experiments.id": experiment,
   });
 
   await Promise.all(
     presentations.map(async (presentation) => {
-      presentation.experimentIds = presentation.experimentIds.filter(
-        (id) => id !== experiment
+      presentation.experiments = presentation.experiments.filter(
+        (obj) => obj.id !== experiment
       );
-      presentation.markModified("experimentIds");
+      presentation.markModified("experiments");
       await presentation.save();
     })
   );
 }
 
 export async function createPresentation(data: Partial<PresentationInterface>) {
-  return PresentationModel.create({
-    // Default values that can be overridden
-
-    // The data object passed in
-    ...data,
-    // Values that cannot be overridden
+  const exps: PresentationExperiment[] = [...data.experiments];
+  const pres: PresentationInterface = {
+    experiments: exps,
+    title: data?.title || "",
+    description: data?.description || "",
+    userId: data.userId,
+    organization: data.organization,
+    voting: data?.voting || true,
+    theme: data?.theme || "",
     id: uniqid("pres_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-  });
+  };
+  if (data?.options) {
+    pres.options = data.options;
+  }
+  if (data?.customTheme) {
+    pres.customTheme = data.customTheme;
+  }
+
+  return PresentationModel.create(pres);
 }
 
 export function deletePresentationById(id: string) {

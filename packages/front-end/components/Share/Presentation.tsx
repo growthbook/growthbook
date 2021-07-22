@@ -1,0 +1,300 @@
+import React, { Fragment, ReactElement } from "react";
+//import styles from "./Presentation.module.scss";
+import {
+  Deck,
+  Slide,
+  Heading,
+  FlexBox,
+  Box,
+  Progress,
+  FullScreen,
+  Appear,
+} from "spectacle";
+import { PresentationInterface } from "back-end/types/presentation";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+//import { LearningInterface } from "back-end/types/insight";
+import CompactResults from "../Experiment/CompactResults";
+import { presentationThemes, defaultTheme } from "./ShareModal";
+import clsx from "clsx";
+import Markdown from "../Markdown/Markdown";
+
+type props = {
+  presentation?: PresentationInterface;
+  theme?: string;
+  title?: string;
+  desc?: string;
+  customTheme?: {
+    backgroundColor: string;
+    textColor: string;
+  };
+  experiments: {
+    experiment: ExperimentInterfaceStringDates;
+    snapshot?: ExperimentSnapshotInterface;
+  }[];
+  //learnings: LearningInterface[];
+};
+
+const Presentation = ({
+  presentation,
+  experiments,
+  theme = defaultTheme,
+  title,
+  desc,
+  customTheme,
+}: //learnings,
+props): ReactElement => {
+  // make sure experiments are in the right order - we know the order is
+  // right in the presentation object. This could be done in the API
+  const em = new Map<
+    string,
+    {
+      experiment: ExperimentInterfaceStringDates;
+      snapshot?: ExperimentSnapshotInterface;
+    }
+  >();
+  experiments.forEach((e) => {
+    em.set(e.experiment.id, e);
+  });
+
+  // get the learnings indexed by the experiment id
+  // const lm = new Map();
+  // learnings.forEach((l) => {
+  //   l.evidence.forEach((obj) => {
+  //     if (lm.has(obj.experimentId)) {
+  //       const tmp = lm.get(obj.experimentId);
+  //       tmp.push(l);
+  //       lm.set(obj.experimentId, tmp);
+  //     } else {
+  //       lm.set(obj.experimentId, [l]);
+  //     }
+  //   });
+  // });
+
+  const expSlides = [];
+  // use the list of experiments from the presentation or, if missing the
+  // presentation (in the case of preview), from the list of experiments
+  // passed in.
+  (
+    presentation?.experiments.map((o) => o.id) ||
+    experiments.map((e) => {
+      return e.experiment.id;
+    })
+  ).forEach((eid) => {
+    // get the results in the right shape:
+    const e = em.get(eid);
+
+    // get the info on which variation to mark as winner/loser
+    const variationExtra = [];
+    let sideExtra = <></>;
+    e.experiment.variations.forEach((v, i) => {
+      variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
+    });
+    if (e.experiment?.results) {
+      if (e.experiment.results === "won") {
+        // if this is a two sided test, mark the winner:
+        variationExtra[e.experiment.winner] = (
+          <Appear>
+            <div className="result variation-result result-winner">Winner!</div>
+          </Appear>
+        );
+      } else if (e.experiment.results === "lost") {
+        if (e.experiment.variations.length === 2) {
+          variationExtra[1] = (
+            <Appear>
+              <div className="result variation-result result-lost">Lost!</div>
+            </Appear>
+          );
+        } else {
+          variationExtra[0] = (
+            <Appear>
+              {() => {
+                return (
+                  <div className="result variation-result result-winner">
+                    Winner!
+                  </div>
+                );
+              }}
+            </Appear>
+          );
+        }
+      } else if (e.experiment.results === "dnf") {
+        sideExtra = (
+          <div className="result result-dnf text-center">(Did not finish)</div>
+        );
+      } else if (e.experiment.results === "inconclusive") {
+        sideExtra = (
+          <Appear>
+            <div className="result result-inconclusive text-center">
+              Inconclusive
+            </div>
+          </Appear>
+        );
+      }
+    }
+
+    expSlides.push(
+      <Slide key={expSlides.length}>
+        <div className="container-fluid">
+          <Heading className="m-0 pb-4">{e.experiment.name}</Heading>
+          <h4 className="text-center mb-4 p-2" style={{ marginTop: -30 }}>
+            {e.experiment.hypothesis}
+          </h4>
+          <div className="row variations">
+            {e.experiment.variations.map((v: Variation, j: number) => (
+              <div
+                className={`col col-${
+                  12 / e.experiment.variations.length
+                } presentationcol text-center`}
+                key={`v-${j}`}
+              >
+                <h4>{v.name}</h4>
+                <img
+                  className="expimage border"
+                  src={v.screenshots[0] && v.screenshots[0].path}
+                />
+                {variationExtra[j]}
+              </div>
+            ))}
+          </div>
+          {sideExtra}
+        </div>
+      </Slide>
+    );
+    if (e.snapshot) {
+      // const variationNames = e.experiment.variations.map((v) => v.name);
+      // const numMetrics = e.experiment.metrics.length;
+      const result = e.experiment.results;
+      const variationsPlural =
+        e.experiment.variations.length > 2 ? "variations" : "variation";
+
+      expSlides.push(
+        <Slide key={`s-${expSlides.length}`}>
+          <Heading>Results</Heading>
+          <div
+            className={clsx("alert", {
+              "alert-success": result === "won",
+              "alert-danger": result === "lost",
+              "alert-info": !result || result === "inconclusive",
+              "alert-warning": result === "dnf",
+            })}
+          >
+            <strong>
+              {result === "won" &&
+                `${
+                  e.experiment.winner > 0
+                    ? e.experiment.variations[e.experiment.winner]?.name
+                    : "A variation"
+                } beat the control and won!`}
+              {result === "lost" &&
+                `The ${variationsPlural} did not beat the control.`}
+              {result === "dnf" &&
+                `The experiment was stopped early and did not finish.`}
+              {result === "inconclusive" && `The results were inconclusive.`}
+              {!result &&
+                `The experiment was stopped, but a winner has not been selected yet.`}
+            </strong>
+            {e.experiment.analysis && (
+              <div className="card text-dark mt-2">
+                <div className="card-body">
+                  <Markdown className="card-text">
+                    {e.experiment.analysis}
+                  </Markdown>
+                </div>
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              overflowY: "auto",
+              background: "#fff",
+              maxHeight: "100%",
+              padding: "0 0",
+              color: "#444",
+              fontSize: "95%",
+            }}
+          >
+            <CompactResults snapshot={e.snapshot} experiment={e.experiment} />
+          </div>
+        </Slide>
+      );
+    }
+
+    // if we have a learning from this experiment, add a learning slide
+    // if (lm.has(eid)) {
+    //   const learnings: LearningInterface[] = lm.get(eid);
+
+    //   expSlides.push(
+    //     <Slide key={expSlides.length}>
+    //       <Heading>Insight</Heading>
+    //       {learnings.map((learning: LearningInterface) => (
+    //         <h4 key={`${eid}${learning.id}`} className="mb-5 text-center">
+    //           {learning.text}
+    //         </h4>
+    //       ))}
+    //     </Slide>
+    //   );
+    // }
+  });
+
+  const template = () => (
+    <FlexBox
+      justifyContent="space-between"
+      position="absolute"
+      bottom={0}
+      width={1}
+    >
+      <Box padding="0 1em">
+        <FullScreen color="#fff" size={30} />
+      </Box>
+      <Box padding="1em">
+        <Progress color="#fff" size={10} />
+      </Box>
+    </FlexBox>
+  );
+
+  const currentTheme = presentation?.theme
+    ? presentationThemes[presentation.theme]
+    : presentationThemes[theme];
+
+  if (theme === "custom") {
+    if (customTheme?.backgroundColor) {
+      currentTheme.colors.tertiary = customTheme.backgroundColor;
+    }
+    if (customTheme?.textColor) {
+      currentTheme.colors.primary = customTheme.textColor;
+      currentTheme.colors.secondary = customTheme.textColor;
+    }
+  }
+
+  return (
+    <>
+      <Deck theme={currentTheme} template={template}>
+        <Slide>
+          <FlexBox height="100%" className="flexwrap">
+            <Heading fontSize={55}>
+              {presentation?.title
+                ? presentation.title
+                : title
+                ? title
+                : "A/B Tests Review"}
+              {presentation?.description ? (
+                <h3 className="subtitle">{presentation.description}</h3>
+              ) : desc ? (
+                <h3 className="subtitle">{desc}</h3>
+              ) : (
+                ""
+              )}
+            </Heading>
+          </FlexBox>
+        </Slide>
+        {expSlides}
+      </Deck>
+    </>
+  );
+};
+
+export default Presentation;

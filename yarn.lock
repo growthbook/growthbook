@@ -10678,10 +10678,10 @@ spdx-license-ids@^3.0.0:
   resolved "https://registry.yarnpkg.com/spdx-license-ids/-/spdx-license-ids-3.0.7.tgz#e9c18a410e5ed7e12442a549fbd8afa767038d65"
   integrity sha512-U+MTEOO0AiDzxwFvoa4JVnMV6mZlJKk2sBLt90s7G0Gd0Mlknc7kxEn3nuDPNZRta7O2uy8oLcZLVT+4sqNZHQ==
 
-spectacle@^8.2.0:
-  version "8.2.0"
-  resolved "https://registry.yarnpkg.com/spectacle/-/spectacle-8.2.0.tgz#82092750877dbd86f29ff9a9ef26b6771af95f8d"
-  integrity sha512-9doMqOKRCK7HVpmgtSmh+6HB2U+3c7WrgFlEAT18n/2mAP28kH22xZFsbjrdBl91Cz6id5U5IlrTVa094oaPiQ==
+spectacle@^8.3.0:
+  version "8.3.0"
+  resolved "https://registry.yarnpkg.com/spectacle/-/spectacle-8.3.0.tgz#17d235fd180fb88126570dd2b8063045204cabcd"
+  integrity sha512-Gcsg7AGKRltOhOMkmnHCmau8Q20cCYJz2F/VnIBoZbLhFgrTNPgc6y35672m+bKiYPool+1h9gMP9h7Rp0Iu3Q==
   dependencies:
     broadcast-channel "^3.2.0"
     broadcastchannel-polyfill "^1.0.0"

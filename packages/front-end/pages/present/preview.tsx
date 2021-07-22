@@ -18,7 +18,21 @@ const DynamicPresentation = dynamic(
 
 const PresentPage = (): React.ReactElement => {
   const router = useRouter();
-  const { pid } = router.query;
+  const {
+    expIds,
+    theme,
+    title,
+    desc,
+    backgroundcolor,
+    textcolor,
+  } = router.query as {
+    expIds: string;
+    theme: string;
+    title: string;
+    desc: string;
+    backgroundcolor: string;
+    textcolor: string;
+  };
   const { data: pdata, error } = useApi<{
     status: number;
     presentation: PresentationInterface;
@@ -27,7 +41,7 @@ const PresentPage = (): React.ReactElement => {
       experiment: ExperimentInterfaceStringDates;
       snapshot?: ExperimentSnapshotInterface;
     }[];
-  }>(`/presentation/${pid}`);
+  }>(`/presentation/preview/?expIds=${expIds}`);
 
   useSwitchOrg(pdata?.presentation?.organization);
 
@@ -40,12 +54,17 @@ const PresentPage = (): React.ReactElement => {
   if (pdata.status !== 200) {
     return <div>Sorry, presentation not found</div>;
   }
-
   return (
     <>
       <DynamicPresentation
-        presentation={pdata.presentation}
         experiments={pdata.experiments}
+        theme={theme}
+        title={title}
+        desc={desc}
+        customTheme={{
+          backgroundColor: "#" + backgroundcolor,
+          textColor: "#" + textcolor,
+        }}
         //learnings={pdata.learnings}
       />
     </>

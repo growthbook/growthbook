@@ -438,6 +438,7 @@ app.delete("/webhook/:id", organizationsController.deleteWebhook);
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
 app.post("/presentation", presentationController.postPresentation);
+app.get("/presentation/preview", presentationController.getPresentationPreview);
 app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);

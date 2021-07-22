@@ -134,7 +134,7 @@ const CompactResults: FC<{
           <tr>
             <th>Users</th>
             {experiment.variations.map((v, i) => (
-              <React.Fragment key={i}>
+              <React.Fragment key={`u-${i}`}>
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>
@@ -343,7 +343,7 @@ const CompactResults: FC<{
                     );
                   }
                   return (
-                    <>
+                    <Fragment key={i}>
                       <td
                         className={clsx("value align-middle", {
                           variation: i > 0,
@@ -501,7 +501,7 @@ const CompactResults: FC<{
                           </div>
                         </td>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tr>
