@@ -21,4 +21,13 @@ module.exports = withMDX({
   future: {
     webpack5: true,
   },
+  redirects: async () => {
+    return [
+      {
+        source: '/api-docs',
+        destination: '/app/api',
+        permanent: true,
+      },
+    ]
+  }
 });

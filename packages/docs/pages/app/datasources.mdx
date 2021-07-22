@@ -6,15 +6,15 @@ You can use Growth Book without a Data Source, but the user experience is not as
 
 Below are the currently supported Data Sources:
 
--  Redshift
--  Snowflake
--  BigQuery
--  ClickHouse
--  AWS Athena
--  Postgres
--  PrestoDB (and Trino)
--  Mixpanel
--  Google Analytics
+- Redshift
+- Snowflake
+- BigQuery
+- ClickHouse
+- AWS Athena
+- Postgres
+- PrestoDB (and Trino)
+- Mixpanel
+- Google Analytics
 
 ## Configuration Settings
 
@@ -22,15 +22,15 @@ To effectively use Growth Book, you'll need to tell us a little about the shape 
 
 ### SQL Sources
 
-To query SQL data warehouses, we need 3 core SELECT statements. 
+To query SQL data warehouses, we need 3 core SELECT statements.
 The default values assume you are using Segment to populate your data warehouse, although you can customize the SQL at any time.
 
-Growth Book combines these queries as needed and adds filters/grouping on top of them using Common Table Expressions (CTEs). 
+Growth Book combines these queries as needed and adds filters/grouping on top of them using Common Table Expressions (CTEs).
 Any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse.
 
 #### 1. Experiments Query
 
-This SELECT statment is used to pull experiment variation assignments.  There should be one row every time a user is put into an experiment along with the variation they were assigned.
+This SELECT statment is used to pull experiment variation assignments. There should be one row every time a user is put into an experiment along with the variation they were assigned.
 
 Default value:
 
@@ -81,25 +81,25 @@ FROM
 
 ### Mixpanel
 
-We query Mixpanel using JQL.  We have sensible defaults for the event and property names, but you can change them if you need to.
+We query Mixpanel using JQL. We have sensible defaults for the event and property names, but you can change them if you need to.
 
 - Experiments
-  -  **View Experiments Event** - The name of the event you are firing when a user is put into a variation
-  -  **Experiment Id Property** - The property name that stores the experiment tracking key
-  -  **Variation Id Property** - The property name that stores the variation the user was assigned
-  -  **Variation Id Format** - What format the variation id is stored in.
-     1.  Numeric (0 = control, 1 = variation 1, etc.)
-     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+  - **View Experiments Event** - The name of the event you are firing when a user is put into a variation
+  - **Experiment Id Property** - The property name that stores the experiment tracking key
+  - **Variation Id Property** - The property name that stores the variation the user was assigned
+  - **Variation Id Format** - What format the variation id is stored in.
+    1.  Numeric (0 = control, 1 = variation 1, etc.)
+    2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
 - Page Views
-  -  **Page Views Event** - the name of the event you are firing for every page view on your site
-  -  **URL Path Property** - in the event, the property name that stores the URL path for the pageview 
-  -  **User Agent Property** - In the event, the property name that stores the user agent for the pageview
+  - **Page Views Event** - the name of the event you are firing for every page view on your site
+  - **URL Path Property** - in the event, the property name that stores the URL path for the pageview
+  - **User Agent Property** - In the event, the property name that stores the user agent for the pageview
 
 ## Connection Info
 
 Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
 
-Growth Book only runs `SELECT` queries (or the equivalent for non-SQL data sources).  We still always recommend creating read-only users with as few permissions as possible.
+Growth Book only runs `SELECT` queries (or the equivalent for non-SQL data sources). We still always recommend creating read-only users with as few permissions as possible.
 
 If you are using Growth Book Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
 
@@ -107,7 +107,7 @@ If you are using Growth Book Cloud (https://app.growthbook.io), make sure to whi
 
 Unlike other database engines with their own user management system, Athena uses IAM for authentication.
 
-We recommend creating a new IAM user with readonly permissions for Growth Book.  The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+We recommend creating a new IAM user with readonly permissions for Growth Book. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
 
 For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
 
@@ -121,6 +121,7 @@ It should contain the project_id, client_email, and private_key.
 You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
 
 To add the datasource in Growth Book, you will need:
+
 1.  The service account username
 2.  The service account secret
 3.  Your project id (found on the Project Settings Overview page)
@@ -130,8 +131,9 @@ To add the datasource in Growth Book, you will need:
 Because of Google Analytics tracking limitations, a user can only be in a single experiment at a time. We highly recommend using a more full-featured data source for serious A/B testing.
 
 We require 3 things to query the Google Analytics API:
+
 1.  OAuth Authorization
 2.  View ID (found in Admin -> View Settings)
 3.  Custom Dimension Index
 
-When tracking experiment views, the custom dimension value must be formatted as `experiment-key:variation-index`.  For example: `my-test:0` for the control and `my-test:1` for the 1st variation.
+When tracking experiment views, the custom dimension value must be formatted as `experiment-key:variation-index`. For example: `my-test:0` for the control and `my-test:1` for the 1st variation.

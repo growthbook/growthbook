@@ -1,4 +1,4 @@
-# Build Your Own Client Library 
+# Build Your Own Client Library
 
 This guide is meant for library authors looking to build a Growth Book client library in a currently unsupported language.
 
@@ -18,14 +18,14 @@ Defines the experimental context (attributes used for variation assignment and t
 
 At a minimum, the context should support the following optional properties:
 
--  **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
--  **user** (`Map`) - Map of user attributes that are used to assign variations
--  **groups** (`Map`) - A map of which groups the user belongs to (key is the group name, value is boolean)
--  **url** (`string`) - The URL of the current page
--  **overrides** (`Map`) - Override properties of specific experiments (used for Remote Config)
--  **forcedVariations** (`Map`) - Force specific experiments to always assign a specific variation (used for QA)
--  **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
--  **trackingCallback** (`function`) - A function that takes `experiment` and `result` as arguments.
+- **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
+- **user** (`Map`) - Map of user attributes that are used to assign variations
+- **groups** (`Map`) - A map of which groups the user belongs to (key is the group name, value is boolean)
+- **url** (`string`) - The URL of the current page
+- **overrides** (`Map`) - Override properties of specific experiments (used for Remote Config)
+- **forcedVariations** (`Map`) - Force specific experiments to always assign a specific variation (used for QA)
+- **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+- **trackingCallback** (`function`) - A function that takes `experiment` and `result` as arguments.
 
 An example of a `user`:
 
@@ -43,7 +43,7 @@ An example of `trackingCallback` in javascript:
 function track(experiment, result) {
   analytics.track("Experiment Viewed", {
     experimentId: experiment.key,
-    variationId: result.variationId
+    variationId: result.variationId,
   });
 }
 ```
@@ -52,16 +52,16 @@ function track(experiment, result) {
 
 Defines a single experiment:
 
--  **key** (`string`) - The globally unique tracking key for the experiment
--  **variations** (`any[]`) - The different variations to choose between
--  **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
--  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
--  **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
--  **url** (`RegExp`) - Users can only be included in this experiment if the current URL matches this regex
--  **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
--  **groups** (`string[]`) - Limits the experiment to specific user groups
--  **force** (`number`) - All users included in the experiment will be forced into the specific variation index
--  **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **key** (`string`) - The globally unique tracking key for the experiment
+- **variations** (`any[]`) - The different variations to choose between
+- **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+- **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
+- **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **url** (`RegExp`) - Users can only be included in this experiment if the current URL matches this regex
+- **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
+- **groups** (`string[]`) - Limits the experiment to specific user groups
+- **force** (`number`) - All users included in the experiment will be forced into the specific variation index
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
 
 The only required properties are `key` and `variations`. Everything else is optional.
 
@@ -69,11 +69,11 @@ The only required properties are `key` and `variations`. Everything else is opti
 
 The result of running an Experiment given a specific Context
 
--  **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
--  **variationId** (`string`) - The array index of the assigned variation
--  **value** (`any`) - The array value of the assigned variation
--  **hashAttribute** (`string`) - The user attribute used to assign a variation
--  **hashValue** (`string)` - The value of that attribute
+- **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
+- **variationId** (`string`) - The array index of the assigned variation
+- **value** (`any`) - The array value of the assigned variation
+- **hashAttribute** (`string`) - The user attribute used to assign a variation
+- **hashValue** (`string)` - The value of that attribute
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
 
@@ -101,11 +101,16 @@ There are a bunch of ordered steps to run an experiment:
 11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
 12. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
 13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-14.  Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+14. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+
+
     ```js
     n = (fnv32_1a(id + experiment.key) % 1000) / 1000
     ```
-15.  Apply coverage to weights:
+
+15. Apply coverage to weights:
+
+
     ```js
     // Default weights to an even split
     weights = experiment.weights
@@ -117,7 +122,10 @@ There are a bunch of ordered steps to run an experiment:
     // Multiple each weight by the coverage (or 1 if not set)
     weights = weights.map(w => w*(experiment.coverage || 1));
     ```
-16.  Loop through `weights` until you reach the hash value
+
+16. Loop through `weights` until you reach the hash value
+
+
     ```js
     cumulative = 0
     assigned = -1
@@ -129,9 +137,10 @@ There are a bunch of ordered steps to run an experiment:
       }
     }
     ```
-17.  If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
-18.  Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
-19.  Return (**in experiment**, assigned variation)
+
+17. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+18. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
+19. Return (**in experiment**, assigned variation)
 
 ## Remote Config
 
@@ -152,12 +161,13 @@ The overrides are typically stored in a database or cache so there should be an 
 ```
 
 The full list of supported override properties is:
--  weights
--  status
--  force
--  coverage
--  groups
--  url
+
+- weights
+- status
+- force
+- coverage
+- groups
+- url
 
 Note that the above list specifically does not include `variations`. The only way to change the variations is to change the code.
 This restriction makes testing and maintaining code much much easier.
@@ -173,10 +183,10 @@ It should be very simple to run a basic A/B test:
 ```js
 result = growthbook.run({
   key: "my-experiment",
-  variations: ["A", "B"]
-})
+  variations: ["A", "B"],
+});
 
-print(result.value) // "A" or "B"
+print(result.value); // "A" or "B"
 ```
 
 And it should feel natural to scale up to more complex use cases:
@@ -186,22 +196,22 @@ And it should feel natural to scale up to more complex use cases:
 result = growthbook.run({
   key: "complex-experiment",
   variations: [
-    {color: "blue", size: "small"},
-    {color: "green", size: "large"}
+    { color: "blue", size: "small" },
+    { color: "green", size: "large" },
   ],
   weights: [0.8, 0.2],
   coverage: 0.5,
-  groups: ["beta-testers"]
-})
+  groups: ["beta-testers"],
+});
 
-print(result.value.color, result.value.size) // "blue,small" OR "green,large"
+print(result.value.color, result.value.size); // "blue,small" OR "green,large"
 ```
 
 ### Type Hinting
 
 Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for client libraries.
 
-If possible, use generics to type the return value.  If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
+If possible, use generics to type the return value. If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
 
 If your type system supports specifying a minimum array length, it's best to type `experiment.variations` as requiring at least 2 elements.
 
@@ -213,7 +223,7 @@ If your language has support for a native regex type, you should use that instea
 
 However, in all languages, `context.overrides` needs to remain serializeable to JSON, so strings must be used there. When importing overrides from JSON, you would convert the strings to actual regex objects.
 
-Since the regex deals with URLs, make sure you are escaping `/` if needed.  The string value `"^/post/[0-9]+"` should work as expected and not throw an error.
+Since the regex deals with URLs, make sure you are escaping `/` if needed. The string value `"^/post/[0-9]+"` should work as expected and not throw an error.
 
 ### Handling Errors
 
@@ -222,29 +232,31 @@ The general rule is to be strict in development and lenient in production.
 You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.run`.
 
 For the below edge cases in production, just act as if the problematic property didn't exist and ignore errors:
--  `experiment.weights` is a different length from `experiment.variations`
--  `experiment.weights` adds up to something other than 1
--  `experiment.coverage` is greater than 1
--  `context.trackingCallback` throws an error
--  URL querystring specifies an invalid variation index
+
+- `experiment.weights` is a different length from `experiment.variations`
+- `experiment.weights` adds up to something other than 1
+- `experiment.coverage` is greater than 1
+- `context.trackingCallback` throws an error
+- URL querystring specifies an invalid variation index
 
 For the below edge cases in production, the experiment should be disabled (everyone gets assigned variation `0`):
--  `experiment.url` is an invalid regex
--  `experiment.coverage` is less than 0
--  `experiment.force` specifies an invalid variation index
--  `context.forcedVariations` specifies an invalid variation index
--  `experiment.include` throws an error
--  `experiment.status` is set to an unknown value
--  `experiment.hashAttribute` is an empty string
+
+- `experiment.url` is an invalid regex
+- `experiment.coverage` is less than 0
+- `experiment.force` specifies an invalid variation index
+- `context.forcedVariations` specifies an invalid variation index
+- `experiment.include` throws an error
+- `experiment.status` is set to an unknown value
+- `experiment.hashAttribute` is an empty string
 
 ### Subscriptions
 
-Sometimes it's useful to be able to "subscribe" to a GrowthBook instance and be alerted every time `growthbook.run` is called. This is different from the tracking callback since it also fires when a user is *not* included in an experiment.
+Sometimes it's useful to be able to "subscribe" to a GrowthBook instance and be alerted every time `growthbook.run` is called. This is different from the tracking callback since it also fires when a user is _not_ included in an experiment.
 
 ```js
-growthbook.subscribe(function(experiment, result) {
+growthbook.subscribe(function (experiment, result) {
   // do something
-})
+});
 ```
 
 It's best to only re-fire the callbacks for an experiment if the result has changed. That means either the `inExperiment` flag has changed or the `variationId` has changed.

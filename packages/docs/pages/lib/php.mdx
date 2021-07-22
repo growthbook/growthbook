@@ -48,13 +48,13 @@ As shown above, the simplest experiment you can define has an id and an array of
 
 There is an optional 3rd argument, which is an associative array of additional options:
 
--  **weights** (`float[]`) - How to weight traffic between variations. Must add to 1 and be the same length as the number of variations.
--  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
--  **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
--  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
--  **groups** (`string[]`) - User groups that should be included in the experiment (e.g. internal employees, qa testers)
--  **force** (`int`) - All users included in the experiment will be forced into the specific variation index
--  **randomizationUnit** (`string`) - The type of user id to use for variation assignment. Defaults to `id`.
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1 and be the same length as the number of variations.
+- **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
+- **groups** (`string[]`) - User groups that should be included in the experiment (e.g. internal employees, qa testers)
+- **force** (`int`) - All users included in the experiment will be forced into the specific variation index
+- **randomizationUnit** (`string`) - The type of user id to use for variation assignment. Defaults to `id`.
 
 ## Running Experiments
 
@@ -75,7 +75,7 @@ echo $result->variationId; // 0 or 1
 echo $result->value; // "A" or "B"
 ```
 
-The `inExperiment` flag can be false if the experiment defines any sort of targeting rules which the user does not pass.  In this case, the user is always assigned variation index `0` and the first variation value.
+The `inExperiment` flag can be false if the experiment defines any sort of targeting rules which the user does not pass. In this case, the user is always assigned variation index `0` and the first variation value.
 
 ## Client Configuration
 
@@ -90,10 +90,10 @@ $client = new Growthbook\Client($config);
 
 The `Growthbook\Config` constructor takes an associative array of options. Below are all of the available options currently:
 
--  **enabled** - Default true. Set to false to completely disable all experiments.
--  **logger** - An optional psr-3 logger instance
--  **url** - The url of the page (defaults to `$_SERVER['REQUEST_URL']` if not set)
--  **enableQueryStringOverride** - Default false.  If true, enables forcing variations via the URL.  Very useful for QA.  https://example.com/?my-experiment=1
+- **enabled** - Default true. Set to false to completely disable all experiments.
+- **logger** - An optional psr-3 logger instance
+- **url** - The url of the page (defaults to `$_SERVER['REQUEST_URL']` if not set)
+- **enableQueryStringOverride** - Default false. If true, enables forcing variations via the URL. Very useful for QA. https://example.com/?my-experiment=1
 
 You can change configuration options at any time by setting properties directly:
 
@@ -152,9 +152,9 @@ In the above example, if the user is not in either `beta` or `qa`, then `$result
 
 ## Overriding Weights and Targeting
 
-It's common practice to adjust experiment settings after a test is live.  For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
+It's common practice to adjust experiment settings after a test is live. For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
 
-Instead of constantly changing your code, you can use client overrides.  For example, to roll out a winning variation to 100% of users:
+Instead of constantly changing your code, you can use client overrides. For example, to roll out a winning variation to 100% of users:
 
 ```php
 $client->overrides->set("experiment-key", [
@@ -165,14 +165,15 @@ $client->overrides->set("experiment-key", [
 ```
 
 The full list of experiment properties you can override is:
-*  status
-*  force
-*  weights
-*  coverage
-*  groups
-*  url
 
-This data structure can be easily seralized and stored in a database or returned from an API.  There is a small helper function if you have all of your overrides in a single JSON object:
+- status
+- force
+- weights
+- coverage
+- groups
+- url
+
+This data structure can be easily seralized and stored in a database or returned from an API. There is a small helper function if you have all of your overrides in a single JSON object:
 
 ```php
 $json = '{
@@ -195,7 +196,7 @@ $client->importOverrides($overrides);
 
 It's likely you already have some event tracking on your site with the metrics you want to optimize (Google Analytics, Segment, Mixpanel, etc.).
 
-For A/B tests, you just need to track one additional event - when someone views a variation.  
+For A/B tests, you just need to track one additional event - when someone views a variation.
 
 You can call `$client->getViewedExperiments()` at the end of a request to forward to your analytics tool of choice.
 
@@ -215,12 +216,12 @@ foreach($impressions as $impression) {
 ```
 
 Each impression object has the following properties:
--  experiment (the full experiment object)
--  result (the result of the $user->experiment call)
--  userId (the id used to randomize the experiment result)
 
-Often times you'll want to do the event tracking from the front-end with javascript.  To do this, simply add a block to your template (shown here in plain PHP, but similar idea for Twig, Blade, etc.).
+- experiment (the full experiment object)
+- result (the result of the $user->experiment call)
+- userId (the id used to randomize the experiment result)
 
+Often times you'll want to do the event tracking from the front-end with javascript. To do this, simply add a block to your template (shown here in plain PHP, but similar idea for Twig, Blade, etc.).
 
 ```php
 <script>
@@ -233,31 +234,34 @@ Often times you'll want to do the event tracking from the front-end with javascr
 Below are examples for a few popular front-end tracking libraries:
 
 #### Google Analytics
+
 ```php
-ga('send', 'event', 'experiment', 
-  "<?= $impression->experiment->key ?>", 
-  "<?= $impression->result->variationId ?>", 
+ga('send', 'event', 'experiment',
+  "<?= $impression->experiment->key ?>",
+  "<?= $impression->result->variationId ?>",
   {
     // Custom dimension for easier analysis
-    'dimension1': "<?= 
-      $impression->experiment->key.':'.$impression->result->variationId 
+    'dimension1': "<?=
+      $impression->experiment->key.':'.$impression->result->variationId
     ?>"
   }
 );
 ```
 
 #### Segment
+
 ```php
 analytics.track("Experiment Viewed", <?=json_encode([
   "experimentId" => $impression->experiment->key,
-  "variationId" => $impression->result->variationId 
+  "variationId" => $impression->result->variationId
 ])?>);
 ```
 
 #### Mixpanel
+
 ```php
 mixpanel.track("Experiment Viewed", <?=json_encode([
   'Experiment name' => $impression->experiment->key,
-  'Variant name' => $impression->result->variationId 
+  'Variant name' => $impression->result->variationId
 ])?>);
 ```

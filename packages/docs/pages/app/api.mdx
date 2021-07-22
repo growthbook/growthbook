@@ -45,21 +45,20 @@ The `status` field just mirrors the HTTP status code.
 
 The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
 
--  **status** - Either "draft", "running", or "stopped".  Stopped experiments are only included in the response if a non-control variation won.
--  **weights** - How traffic should be weighted between variations. Will add up to 1.
--  **coverage** - A float from 0 to 1 (inclusive) which specifies what percent of users to include in the experiment.
--  **groups** - An array of user groups who are eligible for the experiment
--  **url** - A regex for which URLs the experiment should run on
--  **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
-
+- **status** - Either "draft", "running", or "stopped". Stopped experiments are only included in the response if a non-control variation won.
+- **weights** - How traffic should be weighted between variations. Will add up to 1.
+- **coverage** - A float from 0 to 1 (inclusive) which specifies what percent of users to include in the experiment.
+- **groups** - An array of user groups who are eligible for the experiment
+- **url** - A regex for which URLs the experiment should run on
+- **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
 
 ## Official Client Libraries
 
 We offer official client libraries that work with these data structures in a few popular languages with more coming soon.
 
-*  [Javascript/Typescript](/lib/js)
-*  [React](/lib/react)
-*  [PHP](/lib/php)
-*  [Ruby](/lib/ruby)
-*  [Python](/lib/python)
-*  [Build your own](/lib/build-your-own)
+- [Javascript/Typescript](/lib/js)
+- [React](/lib/react)
+- [PHP](/lib/php)
+- [Ruby](/lib/ruby)
+- [Python](/lib/python)
+- [Build your own](/lib/build-your-own)

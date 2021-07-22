@@ -57,9 +57,9 @@ client.enabled=true
 
 The `client.user` method takes a single hash with a few possible keys:
 
--  `id` - The logged-in user id
--  `anonId` - An anonymous identifier for the user (session id, cookie, ip, etc.)
--  `attributes` - A hash with user attributes. These are never sent across the network and are only used to locally evaluate experiment targeting rules.
+- `id` - The logged-in user id
+- `anonId` - An anonymous identifier for the user (session id, cookie, ip, etc.)
+- `attributes` - A hash with user attributes. These are never sent across the network and are only used to locally evaluate experiment targeting rules.
 
 Although all of these are technically optional, at least 1 type of id must be set or the user will be excluded from all experiments.
 
@@ -96,7 +96,7 @@ user.attributes={
 
 ## Experiment Configuration
 
-The default test is a 50/50 split with no targeting or customization.  There are a few ways to configure this on a test-by-test basis.
+The default test is a 50/50 split with no targeting or customization. There are a few ways to configure this on a test-by-test basis.
 
 ### Option 1: Global Configuration
 
@@ -109,9 +109,9 @@ client.experiments=[
 
   # 3-way test with reduced coverage and unequal weights
   Growthbook::Experiment.new(
-    "my-other-test", 
-    3, 
-    :coverage => 0.4, 
+    "my-other-test",
+    3,
+    :coverage => 0.4,
     :weights => [0.5, 0.25, 0.25]
   )
 ]
@@ -148,6 +148,7 @@ client.importExperimentsHash(parsed["experiments"])
 As shown in the quick start above, you can use a `Growthbook::Experiment` object directly to run an experiment.
 
 The below example shows all of the possible experiment options you can set:
+
 ```ruby
 # 1st argument is the experiment id
 # 2nd argument is the number of variations
@@ -207,7 +208,7 @@ end
 With this approach, you parameterize the variations by associating them with data.
 
 ```ruby
-experiment = Growthbook::Experiment.new("experiment-id", 2, 
+experiment = Growthbook::Experiment.new("experiment-id", 2,
   :data => {
     "color" => ["blue", "green"]
   }
@@ -224,7 +225,7 @@ result.data["unknown"] == nil # true
 
 ### Approach 3: Configuration System
 
-If you already have an existing configuration or feature flag system, you can do a deeper integration that 
+If you already have an existing configuration or feature flag system, you can do a deeper integration that
 avoids `experiment` calls throughout your code base entirely.
 
 All you need to do is modify your existing config system to get experiment overrides before falling back to your normal lookup process:
@@ -232,7 +233,7 @@ All you need to do is modify your existing config system to get experiment overr
 ```ruby
 # Your existing function
 def getConfig(key)
-  # Look for a valid matching experiment. 
+  # Look for a valid matching experiment.
   # If found, choose a variation and return the value for the requested key
   result = user.lookupByDataKey(key)
   if result != nil
@@ -247,6 +248,7 @@ end
 Instead of generic keys like `color`, you probably want to be more descriptive with this approach (e.g. `homepage.cta.color`).
 
 With the following experiment data:
+
 ```ruby
 {
   :data => {
@@ -261,7 +263,7 @@ You can now do:
 buttonColor = getConfig("homepage.cta.color")
 ```
 
-Your code now no longer cares where the value comes from. It could be a hard-coded config value or part of an experiment.  This is the cleanest approach of the 3, but it can be difficult to debug if things go wrong.
+Your code now no longer cares where the value comes from. It could be a hard-coded config value or part of an experiment. This is the cleanest approach of the 3, but it can be difficult to debug if things go wrong.
 
 ## Tracking
 

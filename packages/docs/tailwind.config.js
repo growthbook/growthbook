@@ -12,7 +12,7 @@ module.exports = {
   purge: {
     content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
     options: {
-      safelist: ["border"],
+      safelist: ["border", "justify-content", "pb-4"],
     },
   },
   theme: {

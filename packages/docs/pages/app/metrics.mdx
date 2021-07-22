@@ -1,19 +1,19 @@
 # Metrics
 
-Metrics are what your experiments are trying to optimize.  Growth Book has a very flexible and powerful way to define metrics.
+Metrics are what your experiments are trying to improve (or at least not hurt). Growth Book has a very flexible and powerful way to define metrics.
 
 ## Conversion Types
 
-Metrics can have different statistical distributions. Below are the ones Growth Book supports:
+Metrics can have different units and statistical distributions. Below are the ones Growth Book supports:
 
-| Conversion Type | Description                               | Example                  |
-|-----------------|-------------------------------------------|--------------------------|
-| binomial        | A simple yes/no conversion                | Created Account          |
-| count           | Counts multiple conversions per user      | Pages per Visit          |
-| duration        | How much time something takes on average  | Time on Site             |
-| revenue         | The revenue gained/lost on average        | Revenue per User         |
+| Conversion Type | Description                              | Example          |
+| --------------- | ---------------------------------------- | ---------------- |
+| binomial        | A simple yes/no conversion               | Created Account  |
+| count           | Counts multiple conversions per user     | Pages per Visit  |
+| duration        | How much time something takes on average | Time on Site     |
+| revenue         | The revenue gained/lost on average       | Revenue per User |
 
-Need a metric type we don't support yet?  Let us know!
+Need a metric type we don't support yet? Let us know!
 
 ## Query settings
 
@@ -26,6 +26,7 @@ If your data source supports SQL, this is the preferred way to define metrics. Y
 Your SELECT statement should return one row per "conversion event". This may be a page view, a purchase, a session, or something else.
 
 Example:
+
 ```sql
 SELECT
   user_id as user_id,
@@ -55,3 +56,52 @@ FROM
 The query builder prompts you for things such as table/column names and constructs a query behind the scenes.
 
 For non-SQL data sources (e.g. Google Analytics, Mixpanel), this is the only option. Otherwise, if you data sources supports it, inputting raw SQL is easier and more flexible.
+
+## Behavior
+
+The behavior tab lets you tweak how the metric is used in experiments. Depending on the metric type and datasource you chose, some or all of the following will be available:
+
+### What is the Goal?
+
+For the vast majority of metrics, the goal is to increase the value. But for some metrics like "Bounce Rate" and "Page Load Time", lower is actually better.
+
+Setting this to "decrease" basically inverts the "Chance to Beat Control" value in experiment results so that "beating" the control means decreasing the value. This will also reverse the red and green coloring on graphs.
+
+### Capped Value
+
+Large outliers can have an outsized effect on experiment results. For example, if your normal order size is $10 and someone happens to make a $5000 order, whatever variation that person is in will automatically "win" any experiment even if it had no effect on their behavior.
+
+If set above zero, all values will be capped at this value. So in the above example, if you set the cap to $100, the $5000 purchase will still be counted, but only as $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own.
+
+We recommend setting this at the 99th percentile in most cases.
+
+### Converted Users Only
+
+This setting controls the denominator for the metric.
+
+When set to `No` (the default), the average metric value is calculated as `(total value) / (number of users)`.
+
+When set to `Yes`, the denominator only includes users who have a non-null value for this metric. So the average value is calculated as `(total value) / (number of users with non-null value)`.
+
+The most common use case is with Revenue. Setting to "No" gives you `Revenue per User`. Setting to "Yes" gives you `Average Order Value`.
+
+### In an Experiment, start counting...
+
+This controls when metrics start counting for a user.
+
+The vast majority of the time, you only want to count metrics **after** the user is assigned a variation (the default). So if someone clicks a button and then later views your experiment, that previous click doesn't count.
+
+If you instead pick `At the start of the user's session`, we will also include conversions that happen up to 30 minutes **before** being put into the experiment.
+
+Why would you ever want to do this?
+
+Imagine the average person stays on your site for 60 seconds and your experiment can trigger at any time.
+
+If you just look at the average time spent after the experiment, the numbers will lose a lot of meaning. A value of `20 seconds` might be horrible if it happened to someone after only 5 seconds on your site since they are staying a lot less time than average. But, that same `20 seconds` might be great if it happened to someone after 55 seconds since their visit is a lot longer than usual.
+Over time, these things will average out and you can eventually see patterns, but you need an enormous amount of data to get to that point.
+
+If instead, you consider the entire session duration, you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
+
+Keep in mind, these two things are answering slightly different questions.
+`How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
+The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.

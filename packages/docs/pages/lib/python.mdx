@@ -37,30 +37,29 @@ print(result.value) # "A" or "B"
 
 The GrowthBook constructor has the following parameters:
 
--  **enabled** (`boolean`) - Flag to globally disable all experiments. Default true.
--  **user** (`dict`) - Dictionary of user attributes that are used to assign variations
--  **groups** (`dict`) - A dictionary of which groups the user belongs to (key is the group name, value is boolean)
--  **url** (`string`) - The URL of the current request (if applicable)
--  **overrides** (`dict`) - Nested dictionary of experiment property overrides (used for Remote Config)
--  **forcedVariations** (`dict`) - Dictionary of forced experiment variations (used for QA)
--  **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
--  **trackingCallback** (`callable`) - A function that takes `experiment` and `result` as arguments.
+- **enabled** (`boolean`) - Flag to globally disable all experiments. Default true.
+- **user** (`dict`) - Dictionary of user attributes that are used to assign variations
+- **groups** (`dict`) - A dictionary of which groups the user belongs to (key is the group name, value is boolean)
+- **url** (`string`) - The URL of the current request (if applicable)
+- **overrides** (`dict`) - Nested dictionary of experiment property overrides (used for Remote Config)
+- **forcedVariations** (`dict`) - Dictionary of forced experiment variations (used for QA)
+- **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+- **trackingCallback** (`callable`) - A function that takes `experiment` and `result` as arguments.
 
 ## Experiment class
 
 Below are all of the possible properties you can set for an Experiment:
 
--  **key** (`string`) - The globally unique tracking key for the experiment
--  **variations** (`any[]`) - The different variations to choose between
--  **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
--  **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development.  "stopped" is only active when forcing a winning variation to 100% of users.
--  **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
--  **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
--  **include** (`callable`) - A function that returns true if the user should be part of the experiment and false if they should not be
--  **groups** (`string[]`) - Limits the experiment to specific user groups
--  **force** (`int`) - All users included in the experiment will be forced into the specified variation index
--  **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
-
+- **key** (`string`) - The globally unique tracking key for the experiment
+- **variations** (`any[]`) - The different variations to choose between
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
+- **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
+- **include** (`callable`) - A function that returns true if the user should be part of the experiment and false if they should not be
+- **groups** (`string[]`) - Limits the experiment to specific user groups
+- **force** (`int`) - All users included in the experiment will be forced into the specified variation index
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
 
 ## Running Experiments
 
@@ -88,11 +87,12 @@ print(result.hashAttribute) # "id"
 print(result.hashValue) # e.g. "123"
 ```
 
-The `inExperiment` flag is only set to true if the user was randomly assigned a variation.  If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
+The `inExperiment` flag is only set to true if the user was randomly assigned a variation. If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
 
 ### Example Experiments
 
 3-way experiment with uneven variation weights:
+
 ```python
 gb.run(Experiment(
   key = "3-way-uneven",
@@ -102,6 +102,7 @@ gb.run(Experiment(
 ```
 
 Slow rollout (10% of users who opted into "beta" features):
+
 ```python
 # User is in the "qa" and "beta" groups
 gb = GrowthBook(
@@ -121,6 +122,7 @@ gb.run(Experiment(
 ```
 
 Complex variations and custom targeting
+
 ```python
 result = gb.run(Experiment(
   key = "complex-variations",
@@ -137,6 +139,7 @@ print(result.value["color"] + "," + result.value["size"])
 ```
 
 Assign variations based on something other than user id
+
 ```python
 gb = GrowthBook(
   user = {
@@ -156,9 +159,10 @@ gb.run(Experiment(
 
 ### Overriding Experiment Configuration
 
-It's common practice to adjust experiment settings after a test is live.  For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
+It's common practice to adjust experiment settings after a test is live. For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
 
 For example, to roll out a winning variation to 100% of users:
+
 ```python
 gb = GrowthBook(
   user = {"id": "123"},
@@ -179,14 +183,15 @@ print(result.value) # Always "B"
 ```
 
 The full list of experiment properties you can override is:
-*  status
-*  force
-*  weights
-*  coverage
-*  groups
-*  url
 
-If you use the Growth Book App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format.  It's a great way to make sure your experiments are always up-to-date.
+- status
+- force
+- weights
+- coverage
+- groups
+- url
+
+If you use the Growth Book App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format. It's a great way to make sure your experiments are always up-to-date.
 
 ### Django
 
@@ -222,13 +227,13 @@ def index(request):
 
 ## Event Tracking and Analyzing Results
 
-This library only handles assigning variations to users.  The 2 other parts required for an A/B testing platform are Tracking and Analysis.
+This library only handles assigning variations to users. The 2 other parts required for an A/B testing platform are Tracking and Analysis.
 
 ### Tracking
 
 It's likely you already have some event tracking on your site with the metrics you want to optimize (Segment, Mixpanel, etc.).
 
-For A/B tests, you just need to track one additional event - when someone views a variation.  
+For A/B tests, you just need to track one additional event - when someone views a variation.
 
 ```python
 # Specify a tracking callback when instantiating the client
@@ -241,6 +246,7 @@ gb = GrowthBook(
 Below are examples for a few popular event tracking tools:
 
 #### Segment
+
 ```python
 def on_experiment_viewed(experiment, result):
   analytics.track(userId, "Experiment Viewed", {
@@ -250,6 +256,7 @@ def on_experiment_viewed(experiment, result):
 ```
 
 #### Mixpanel
+
 ```python
 def on_experiment_viewed(experiment, result):
   mp.track(userId, "$experiment_started", {
