@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import GuardrailResults from "./GuardrailResult";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -21,7 +22,7 @@ const Results: FC<{
   editMetrics: () => void;
   editResult: () => void;
 }> = ({ experiment, editMetrics, editResult }) => {
-  const { dimensions } = useDefinitions();
+  const { dimensions, getMetricById } = useDefinitions();
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
@@ -175,7 +176,31 @@ const Results: FC<{
         <BreakDownResults snapshot={snapshot} experiment={experiment} />
       )}
       {snapshot && !snapshot.dimension && (
-        <CompactResults snapshot={snapshot} experiment={experiment} />
+        <>
+          <CompactResults snapshot={snapshot} experiment={experiment} />
+          {experiment.guardrails?.length > 0 && (
+            <div className="mb-3">
+              <hr />
+              <h2 className="mt-4">Guardrails</h2>
+              <div className="row mt-3">
+                {experiment.guardrails.map((g) => {
+                  const metric = getMetricById(g);
+                  if (!metric) return "";
+
+                  return (
+                    <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
+                      <GuardrailResults
+                        experiment={experiment}
+                        variations={snapshot.results[0]?.variations}
+                        metric={metric}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
       {snapshot && (
         <div>
