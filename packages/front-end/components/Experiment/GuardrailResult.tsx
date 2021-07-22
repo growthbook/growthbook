@@ -15,7 +15,7 @@ import { MetricInterface } from "../../../back-end/types/metric";
 import { formatConversionRate } from "../../services/metrics";
 
 const WARNING_CUTOFF = 0.65;
-const DANGER_CUTOFF = 0.85;
+const DANGER_CUTOFF = 0.9;
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
