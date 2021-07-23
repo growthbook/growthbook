@@ -225,6 +225,7 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
     });
     return;
   }
+
   const ids = idsString.split(",");
 
   let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];

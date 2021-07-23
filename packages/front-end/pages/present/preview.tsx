@@ -36,7 +36,6 @@ const PresentPage = (): React.ReactElement => {
   const { data: pdata, error } = useApi<{
     status: number;
     presentation: PresentationInterface;
-    //learnings: LearningInterface[];
     experiments: {
       experiment: ExperimentInterfaceStringDates;
       snapshot?: ExperimentSnapshotInterface;
@@ -46,14 +45,16 @@ const PresentPage = (): React.ReactElement => {
   useSwitchOrg(pdata?.presentation?.organization);
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return (
+      <div className="alert alert-danger">
+        Couldn&apos;t find the presentation. Are you sure it still exists?
+      </div>
+    );
   }
   if (!pdata) {
     return <LoadingOverlay />;
   }
-  if (pdata.status !== 200) {
-    return <div>Sorry, presentation not found</div>;
-  }
+
   return (
     <>
       <DynamicPresentation
@@ -65,7 +66,6 @@ const PresentPage = (): React.ReactElement => {
           backgroundColor: "#" + backgroundcolor,
           textColor: "#" + textcolor,
         }}
-        //learnings={pdata.learnings}
       />
     </>
   );

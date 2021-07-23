@@ -10,9 +10,8 @@ import {
   getExperimentsByIds,
   getLatestSnapshot,
 } from "../services/experiments";
-import { getLearningsByExperimentIds } from "../services/learnings";
+//import { getLearningsByExperimentIds } from "../services/learnings";
 import { userHasAccess } from "../services/organizations";
-//import { LearningInterface } from "../../types/insight";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
@@ -22,24 +21,9 @@ export async function getPresentations(req: AuthRequest, res: Response) {
     req.organization.id
   );
 
-  // disabled learnings:
-  //const learnings: Record<string, LearningInterface[]> = {};
-
-  // await Promise.all(
-  //   presentations.map(async (v) => {
-  //     if (v.experimentIds) {
-  //       // get the experiments to show?
-  //       //v.experiments = await getExperimentsByIds(v.experimentIds);
-  //       // get the learnings?
-  //       learnings[v.id] = await getLearningsByExperimentIds(v.experimentIds);
-  //     }
-  //   })
-  // );
-
   res.status(200).json({
     status: 200,
     presentations,
-    //learnings,
   });
 }
 
@@ -66,8 +50,10 @@ export async function getPresentation(req: AuthRequest, res: Response) {
 
   // get the experiments to present in this presentations:
   let expIds: string[] = [];
-  if (pres.experiments) {
-    expIds = pres.experiments.map((o) => o.id);
+  if (pres.slides) {
+    expIds = pres.slides
+      .filter((o) => o.type === "experiment")
+      .map((o) => o.id);
   }
 
   const experiments = await getExperimentsByIds(expIds);
@@ -77,10 +63,13 @@ export async function getPresentation(req: AuthRequest, res: Response) {
     snapshot: ExperimentSnapshotInterface;
   }[] = [];
   const promises = experiments.map(async (experiment, i) => {
-    const snapshot = await getLatestSnapshot(
-      experiment.id,
-      experiment.phases.length - 1
-    );
+    // get best phase to show:
+    let phase = experiment.phases.length - 1;
+    experiment.phases.forEach((p, j) => {
+      if (p.phase === "main") phase = j;
+    });
+
+    const snapshot = await getLatestSnapshot(experiment.id, phase);
     withSnapshots[i] = {
       experiment,
       snapshot,
@@ -89,12 +78,10 @@ export async function getPresentation(req: AuthRequest, res: Response) {
   await Promise.all(promises);
 
   // get the learnigns associated with these experiments:
-  const learnings = await getLearningsByExperimentIds(expIds);
 
   res.status(200).json({
     status: 200,
     presentation: pres,
-    learnings,
     experiments: withSnapshots,
   });
 }
@@ -120,10 +107,12 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const promises = experiments.map(async (experiment, i) => {
     // only show experiments that you have permission to view
     if (await userHasAccess(req, experiment.organization)) {
-      const snapshot = await getLatestSnapshot(
-        experiment.id,
-        experiment.phases.length - 1
-      );
+      // get best phase to show:
+      let phase = experiment.phases.length - 1;
+      experiment.phases.forEach((p, j) => {
+        if (p.phase === "main") phase = j;
+      });
+      const snapshot = await getLatestSnapshot(experiment.id, phase);
       withSnapshots[i] = {
         experiment,
         snapshot,
@@ -230,7 +219,7 @@ export async function updatePresentation(
     if (data["title"] !== p["title"]) p.set("title", data["title"]);
     if (data["description"] !== p["description"])
       p.set("description", data["description"]);
-    p.set("experiments", data["experiments"]);
+    p.set("slides", data["slides"]);
     p.set("options", data["options"]);
     p.set("dateUpdated", new Date());
     p.set("theme", data["theme"]);

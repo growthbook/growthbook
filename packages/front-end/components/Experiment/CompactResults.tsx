@@ -134,7 +134,7 @@ const CompactResults: FC<{
           <tr>
             <th>Users</th>
             {experiment.variations.map((v, i) => (
-              <React.Fragment key={`u-${i}`}>
+              <React.Fragment key={i}>
                 <td className="value">
                   {numberFormatter.format(variations[i]?.users || 0)}
                 </td>

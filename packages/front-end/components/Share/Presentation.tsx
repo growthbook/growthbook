@@ -1,5 +1,4 @@
 import React, { Fragment, ReactElement } from "react";
-//import styles from "./Presentation.module.scss";
 import {
   Deck,
   Slide,
@@ -16,7 +15,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-//import { LearningInterface } from "back-end/types/insight";
 import CompactResults from "../Experiment/CompactResults";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 import clsx from "clsx";
@@ -35,7 +33,6 @@ type props = {
     experiment: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
   }[];
-  //learnings: LearningInterface[];
 };
 
 const Presentation = ({
@@ -45,8 +42,7 @@ const Presentation = ({
   title,
   desc,
   customTheme,
-}: //learnings,
-props): ReactElement => {
+}: props): ReactElement => {
   // make sure experiments are in the right order - we know the order is
   // right in the presentation object. This could be done in the API
   const em = new Map<
@@ -60,26 +56,12 @@ props): ReactElement => {
     em.set(e.experiment.id, e);
   });
 
-  // get the learnings indexed by the experiment id
-  // const lm = new Map();
-  // learnings.forEach((l) => {
-  //   l.evidence.forEach((obj) => {
-  //     if (lm.has(obj.experimentId)) {
-  //       const tmp = lm.get(obj.experimentId);
-  //       tmp.push(l);
-  //       lm.set(obj.experimentId, tmp);
-  //     } else {
-  //       lm.set(obj.experimentId, [l]);
-  //     }
-  //   });
-  // });
-
   const expSlides = [];
   // use the list of experiments from the presentation or, if missing the
   // presentation (in the case of preview), from the list of experiments
   // passed in.
   (
-    presentation?.experiments.map((o) => o.id) ||
+    presentation?.slides.map((o) => o.id) ||
     experiments.map((e) => {
       return e.experiment.id;
     })
@@ -222,22 +204,6 @@ props): ReactElement => {
         </Slide>
       );
     }
-
-    // if we have a learning from this experiment, add a learning slide
-    // if (lm.has(eid)) {
-    //   const learnings: LearningInterface[] = lm.get(eid);
-
-    //   expSlides.push(
-    //     <Slide key={expSlides.length}>
-    //       <Heading>Insight</Heading>
-    //       {learnings.map((learning: LearningInterface) => (
-    //         <h4 key={`${eid}${learning.id}`} className="mb-5 text-center">
-    //           {learning.text}
-    //         </h4>
-    //       ))}
-    //     </Slide>
-    //   );
-    // }
   });
 
   const template = () => (
@@ -256,17 +222,24 @@ props): ReactElement => {
     </FlexBox>
   );
 
-  const currentTheme = presentation?.theme
-    ? presentationThemes[presentation.theme]
-    : presentationThemes[theme];
+  const themeName = presentation?.theme ? presentation.theme : theme;
+  const currentTheme = presentationThemes[themeName];
 
-  if (theme === "custom") {
-    if (customTheme?.backgroundColor) {
-      currentTheme.colors.tertiary = customTheme.backgroundColor;
-    }
-    if (customTheme?.textColor) {
-      currentTheme.colors.primary = customTheme.textColor;
-      currentTheme.colors.secondary = customTheme.textColor;
+  if (themeName === "custom") {
+    if (presentation?.customTheme) {
+      // set in the presentation object from mongo:
+      currentTheme.colors.tertiary = presentation.customTheme.backgroundColor;
+      currentTheme.colors.primary = presentation.customTheme.textColor;
+      currentTheme.colors.secondary = presentation.customTheme.textColor;
+    } else {
+      // the custom theme is set by a preview:
+      if (customTheme?.backgroundColor) {
+        currentTheme.colors.tertiary = customTheme.backgroundColor;
+      }
+      if (customTheme?.textColor) {
+        currentTheme.colors.primary = customTheme.textColor;
+        currentTheme.colors.secondary = customTheme.textColor;
+      }
     }
   }
 

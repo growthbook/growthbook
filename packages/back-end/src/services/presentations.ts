@@ -1,7 +1,7 @@
 import { PresentationModel } from "../models/PresentationModel";
 import uniqid from "uniqid";
 import {
-  PresentationExperiment,
+  PresentationSlide,
   PresentationInterface,
 } from "../../types/presentation";
 //import {query} from "../config/postgres";
@@ -20,13 +20,13 @@ export function getPresentationById(id: string) {
 
 export async function removeExperimentFromPresentations(experiment: string) {
   const presentations = await PresentationModel.find({
-    "experiments.id": experiment,
+    "slides.id": experiment,
   });
 
   await Promise.all(
     presentations.map(async (presentation) => {
-      presentation.experiments = presentation.experiments.filter(
-        (obj) => obj.id !== experiment
+      presentation.slides = presentation.slides.filter(
+        (obj) => obj.id !== experiment || obj.type !== "experiment"
       );
       presentation.markModified("experiments");
       await presentation.save();
@@ -35,9 +35,9 @@ export async function removeExperimentFromPresentations(experiment: string) {
 }
 
 export async function createPresentation(data: Partial<PresentationInterface>) {
-  const exps: PresentationExperiment[] = [...data.experiments];
+  const exps: PresentationSlide[] = [...data.slides];
   const pres: PresentationInterface = {
-    experiments: exps,
+    slides: exps,
     title: data?.title || "",
     description: data?.description || "",
     userId: data.userId,

@@ -11,9 +11,9 @@ export interface PresentationOptions {
   hideRisk: boolean;
 }
 
-export interface PresentationExperiment {
+export interface PresentationSlide {
   id: string;
-  type: string;
+  type: "experiment";
   options?: PresentationOptions;
 }
 
@@ -31,7 +31,7 @@ export interface PresentationInterface {
   sharable?: boolean;
   voting?: boolean;
   options?: PresentationOptions;
-  experiments: PresentationExperiment[];
+  slides: PresentationSlide[];
   dateCreated: Date;
   dateUpdated: Date;
 }

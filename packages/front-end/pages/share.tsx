@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import useApi from "../hooks/useApi";
 import Link from "next/link";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import { useAuth } from "../services/auth";
 import { date } from "../services/dates";
 import { FaPlus } from "react-icons/fa";
 import Modal from "../components/Modal";
+import { UserContext } from "../components/ProtectedPage";
 import CopyToClipboard from "../components/CopyToClipboard";
 
 const SharePage = (): React.ReactElement => {
@@ -29,6 +30,7 @@ const SharePage = (): React.ReactElement => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { getUserDisplay } = useContext(UserContext);
   const { apiCall } = useAuth();
 
   const { data: p, error: error, mutate } = useApi<{
@@ -38,7 +40,11 @@ const SharePage = (): React.ReactElement => {
   }>("/presentations");
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred fetching the lists of shares.
+      </div>
+    );
   }
   if (!p) {
     return <LoadingOverlay />;
@@ -136,9 +142,14 @@ const SharePage = (): React.ReactElement => {
                 <p className="mt-1 mb-0">{pres.description}</p>
               </div>
               <div className="px-4">
-                Experiments: {pres.experiments.length}
+                Experiments: {pres?.slides.length || "?"}
                 <div className="subtitle text-muted text-sm">
-                  <small>Created: {date(pres.dateCreated)}</small>
+                  <small>
+                    <p className="mb-0">
+                      Created by: {getUserDisplay(pres?.userId)}
+                    </p>
+                    <p className="mb-0">on: {date(pres.dateCreated)}</p>
+                  </small>
                 </div>
                 {/* <p className="mt-1 mb-0">
                   Insights:{" "}
@@ -215,7 +226,7 @@ const SharePage = (): React.ReactElement => {
                   className="btn btn-outline-primary mr-3"
                   onClick={(e) => {
                     e.preventDefault();
-                    setSharableLink(`/present/${pres.id}?exportMode=true`);
+                    setSharableLink(`/present/${pres.id}`);
                     setSharableLinkModal(true);
                   }}
                 >
@@ -278,8 +289,15 @@ const SharePage = (): React.ReactElement => {
           <div className="text-center">
             <div className="text-center mb-2">
               <CopyToClipboard
+                text={`${window.location.origin}${sharableLink}?exportMode=true`}
+                label="Non-slide version"
+                className="justify-content-center"
+              />
+            </div>
+            <div className="text-center mb-2">
+              <CopyToClipboard
                 text={`${window.location.origin}${sharableLink}`}
-                label="Link"
+                label="Full presentation"
                 className="justify-content-center"
               />
             </div>

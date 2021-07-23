@@ -10,10 +10,9 @@ import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-//import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import {
-  PresentationExperiment,
   PresentationInterface,
+  PresentationSlide,
 } from "back-end/types/presentation";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
 import {
@@ -186,7 +185,7 @@ const ShareModal = ({
         backgroundColor: "#3400a3",
         textColor: "#ffffff",
       },
-      experiments: existing?.experiments || [],
+      slides: existing?.slides || [],
       sharable: existing?.sharable || true,
     },
     existing?.id
@@ -220,27 +219,19 @@ const ShareModal = ({
 
     const l = { ...value };
     try {
+      // paths for update or save new
       const postURL = existing?.id
         ? `/presentation/${existing.id}`
         : "/presentation";
 
-      const res = await apiCall<{ status: number; message?: string }>(postURL, {
+      await apiCall<{ status: number; message?: string }>(postURL, {
         method: "POST",
         body: JSON.stringify(l),
       });
 
-      if (res.status === 200) {
-        onSuccess();
-        refreshList();
-        setLoading(false);
-      } else {
-        console.error(res);
-        setSaveError(
-          res.message ||
-            "There was an error submitting the form. Please try again."
-        );
-        setLoading(false);
-      }
+      if (onSuccess && typeof onSuccess === "function") onSuccess();
+      setLoading(false);
+      refreshList();
     } catch (e) {
       console.error(e);
       setSaveError(e.message);
@@ -255,7 +246,7 @@ const ShareModal = ({
       </div>
     );
   }
-  if (!experiments) {
+  if (experiments.length === 0) {
     return (
       <div className="alert alert-danger">
         You need some experiments to share first.
@@ -290,7 +281,7 @@ const ShareModal = ({
   });
 
   const selectedExperiments = new Map();
-  value.experiments.map((obj: PresentationExperiment) => {
+  value.slides.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });
 
@@ -315,13 +306,13 @@ const ShareModal = ({
     });
     const tmp = {
       ...value,
-      experiments: exps,
+      slides: exps,
     };
     manualUpdate(tmp);
   };
 
-  const reorder = (experiments, startIndex, endIndex) => {
-    const result = [...experiments];
+  const reorder = (slides, startIndex, endIndex) => {
+    const result = [...slides];
     const [removed] = result.splice(startIndex, 1);
     result.splice(endIndex, 0, removed);
     return result;
@@ -334,8 +325,8 @@ const ShareModal = ({
     }
     const tmp = {
       ...value,
-      experiments: reorder(
-        value.experiments,
+      slides: reorder(
+        value.slides,
         result.source.index,
         result.destination.index
       ),
@@ -357,206 +348,198 @@ const ShareModal = ({
   resetServerContext();
 
   const tabContents = [];
-  {
-    Object.entries(byStatus).forEach(([status]) => {
-      tabContents.push(
-        <Tab
-          key={status}
-          display={
-            status.charAt(0).toUpperCase() + status.substr(1).toLowerCase()
-          }
-          anchor={status}
-          count={byStatus[status].length}
-        >
-          {byStatus.stopped.length > 0 ? (
-            <table className="table table-hover experiment-table appbox">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th style={{ width: "99%" }}>Experiment</th>
-                  <th>Tags</th>
-                  <th>Owner</th>
-                  <th>Ended</th>
-                  <th>Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byStatus[status]
-                  .sort(
-                    (a, b) =>
-                      new Date(
-                        b.phases[b.phases.length - 1]?.dateEnded
-                      ).getTime() -
-                      new Date(
-                        a.phases[a.phases.length - 1]?.dateEnded
-                      ).getTime()
-                  )
-                  .map((e: ExperimentInterfaceStringDates) => {
-                    const phase = e.phases[e.phases.length - 1];
-                    if (!phase) return null;
 
-                    let hasScreenShots = true;
-                    e.variations.forEach((v) => {
-                      if (v.screenshots.length < 1) {
-                        hasScreenShots = false;
-                      }
-                    });
-                    return (
-                      <tr
-                        key={e.id}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          setSelectedExperiments(e);
-                        }}
-                        className={`cursor-pointer ${
-                          selectedExperiments.has(e.id) ? "selected" : ""
-                        }`}
-                      >
-                        <td>
-                          <span className="h3 mb-0 checkmark">
-                            <FaCheck />
+  Object.entries(byStatus).forEach(([status]) => {
+    tabContents.push(
+      <Tab
+        key={status}
+        display={
+          status.charAt(0).toUpperCase() + status.substr(1).toLowerCase()
+        }
+        anchor={status}
+        count={byStatus[status].length}
+      >
+        {byStatus.stopped.length > 0 ? (
+          <table className="table table-hover experiment-table appbox">
+            <thead>
+              <tr>
+                <th></th>
+                <th style={{ width: "99%" }}>Experiment</th>
+                <th>Tags</th>
+                <th>Owner</th>
+                <th>Ended</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byStatus[status]
+                .sort(
+                  (a, b) =>
+                    new Date(
+                      b.phases[b.phases.length - 1]?.dateEnded
+                    ).getTime() -
+                    new Date(a.phases[a.phases.length - 1]?.dateEnded).getTime()
+                )
+                .map((e: ExperimentInterfaceStringDates) => {
+                  const phase = e.phases[e.phases.length - 1];
+                  if (!phase) return null;
+
+                  let hasScreenShots = true;
+                  e.variations.forEach((v) => {
+                    if (v.screenshots.length < 1) {
+                      hasScreenShots = false;
+                    }
+                  });
+                  return (
+                    <tr
+                      key={e.id}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setSelectedExperiments(e);
+                      }}
+                      className={`cursor-pointer ${
+                        selectedExperiments.has(e.id) ? "selected" : ""
+                      }`}
+                    >
+                      <td>
+                        <span className="h3 mb-0 checkmark">
+                          <FaCheck />
+                        </span>
+                      </td>
+                      <td>
+                        <div className="d-flex">
+                          <h4 className="testname h5">
+                            {e.name}
+                            {hasScreenShots ? (
+                              <></>
+                            ) : (
+                              <span className="text-warning pl-3">
+                                <Tooltip text="This experiment is missing screen shots">
+                                  <FiAlertTriangle />
+                                </Tooltip>
+                              </span>
+                            )}
+                          </h4>
+                        </div>
+                      </td>
+                      <td className="nowrap">
+                        {Object.values(e.tags).map((col, i) => (
+                          <span
+                            className="tag badge badge-secondary mr-2"
+                            key={i}
+                          >
+                            {col}
                           </span>
-                        </td>
-                        <td>
-                          <div className="d-flex">
-                            <h4 className="testname h5">
-                              {e.name}
-                              {hasScreenShots ? (
-                                <></>
-                              ) : (
-                                <span className="text-warning pl-3">
-                                  <Tooltip text="This experiment is missing screen shots">
-                                    <FiAlertTriangle />
-                                  </Tooltip>
-                                </span>
-                              )}
-                            </h4>
-                          </div>
-                        </td>
-                        <td className="nowrap">
-                          {Object.values(e.tags).map((col, i) => (
-                            <span
-                              className="tag badge badge-secondary mr-2"
-                              key={i}
-                            >
-                              {col}
-                            </span>
-                          ))}
-                        </td>
-                        <td className="nowrap">
-                          {getUserDisplay(e.owner, false)}
-                        </td>
-                        <td
-                          className="nowrap"
-                          title={datetime(phase.dateEnded)}
-                        >
-                          {ago(phase.dateEnded)}
-                        </td>
-                        <td className="nowrap">
-                          <ResultsIndicator results={e.results} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="alert alert-info">
-              No {isFiltered ? "matching" : "stopped"} experiments
-            </div>
-          )}
-        </Tab>
-      );
-      // end of the byStatus loop
-    });
-  }
+                        ))}
+                      </td>
+                      <td className="nowrap">
+                        {getUserDisplay(e.owner, false)}
+                      </td>
+                      <td className="nowrap" title={datetime(phase.dateEnded)}>
+                        {ago(phase.dateEnded)}
+                      </td>
+                      <td className="nowrap">
+                        <ResultsIndicator results={e.results} />
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="alert alert-info">
+            No {isFiltered ? "matching" : "stopped"} experiments
+          </div>
+        )}
+      </Tab>
+    );
+    // end of the byStatus loop
+  });
+
   // end tab contents
 
   let counter = 0;
   const selectedList = [];
   //const expOptionsList = [];
-  {
-    selectedExperiments.forEach((exp: ExperimentInterfaceStringDates, id) => {
-      selectedList.push(
-        <Draggable key={id} draggableId={id} index={counter++}>
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              className="shared-exp-div"
-              style={getItemStyle(
-                snapshot.isDragging,
-                provided.draggableProps.style
-              )}
-            >
-              <div className="d-flex align-items-center">
+
+  selectedExperiments.forEach((exp: ExperimentInterfaceStringDates, id) => {
+    selectedList.push(
+      <Draggable key={id} draggableId={id} index={counter++}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className="shared-exp-div"
+            style={getItemStyle(
+              snapshot.isDragging,
+              provided.draggableProps.style
+            )}
+          >
+            <div className="d-flex align-items-center">
+              <span className="drag-handle mr-2" {...provided.dragHandleProps}>
+                <GrDrag />
+              </span>
+              <h5 className="mb-0">{exp.name}</h5>
+              <div className="ml-auto">
                 <span
-                  className="drag-handle mr-2"
-                  {...provided.dragHandleProps}
+                  className="delete-exp cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedExperiments(exp);
+                  }}
                 >
-                  <GrDrag />
+                  <FaRegTrashAlt />
                 </span>
-                <h5 className="mb-0">{exp.name}</h5>
-                <div className="ml-auto">
-                  <span
-                    className="delete-exp cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSelectedExperiments(exp);
-                    }}
-                  >
-                    <FaRegTrashAlt />
-                  </span>
-                </div>
               </div>
             </div>
-          )}
-        </Draggable>
-      );
-      // adding options for each experiment... disabled for now
-      // expOptionsList.push(
-      //   <div>
-      //     {exp.name}
-      //     <div className="row">
-      //       <div className="col">
-      //         <div className="form-group form-check">
-      //           <label className="form-check-label">
-      //             <input
-      //               type="checkbox"
-      //               className="form-check-input"
-      //               checked={value.options[id]?.showScreenShots}
-      //               onChange={(e) => {
-      //                 const opt = { ...value.options };
-      //                 opt[id].showScreenShots = e.target.checked;
-      //                 const tmp = {
-      //                   ...value,
-      //                   options: opt,
-      //                 };
-      //                 manualUpdate(tmp);
-      //               }}
-      //               id="checkbox-showscreenshots"
-      //             />
-      //             Show screen shots (if avaliable)
-      //           </label>
-      //         </div>
-      //         <div className="form-row form-inline">
-      //           <div className="form-group">
-      //             <label className="mr-3">Graph type</label>
-      //             <select
-      //               className="form-control"
-      //               {...inputProps.options[id].graphType}
-      //             >
-      //               <option selected>{defaultGraph}</option>
-      //               <option>violin</option>
-      //             </select>
-      //           </div>
-      //         </div>
-      //       </div>
-      //     </div>
-      //   </div>
-      // );
-    });
-  }
+          </div>
+        )}
+      </Draggable>
+    );
+    // adding options for each experiment... disabled for now
+    // expOptionsList.push(
+    //   <div>
+    //     {exp.name}
+    //     <div className="row">
+    //       <div className="col">
+    //         <div className="form-group form-check">
+    //           <label className="form-check-label">
+    //             <input
+    //               type="checkbox"
+    //               className="form-check-input"
+    //               checked={value.options[id]?.showScreenShots}
+    //               onChange={(e) => {
+    //                 const opt = { ...value.options };
+    //                 opt[id].showScreenShots = e.target.checked;
+    //                 const tmp = {
+    //                   ...value,
+    //                   options: opt,
+    //                 };
+    //                 manualUpdate(tmp);
+    //               }}
+    //               id="checkbox-showscreenshots"
+    //             />
+    //             Show screen shots (if avaliable)
+    //           </label>
+    //         </div>
+    //         <div className="form-row form-inline">
+    //           <div className="form-group">
+    //             <label className="mr-3">Graph type</label>
+    //             <select
+    //               className="form-control"
+    //               {...inputProps.options[id].graphType}
+    //             >
+    //               <option selected>{defaultGraph}</option>
+    //               <option>violin</option>
+    //             </select>
+    //           </div>
+    //         </div>
+    //       </div>
+    //     </div>
+    //   </div>
+    // );
+  });
+
   const presThemes = [];
   for (const [key, value] of Object.entries(presentationThemes)) {
     if (value.show) {
@@ -567,19 +550,18 @@ const ShareModal = ({
       );
     }
   }
-  //presThemes.push(<option value="custom">Custom</option>);
 
   let previewUrl =
     "preview?expIds=" +
-    value.experiments
+    value.slides
       .map((o) => {
         return o.id;
       })
       .join(",") +
     "&title=" +
-    value.title +
+    encodeURIComponent(value.title) +
     "&desc=" +
-    value.description +
+    encodeURIComponent(value.description) +
     "&theme=" +
     value.theme;
   if (value.theme === "custom") {
@@ -591,83 +573,82 @@ const ShareModal = ({
   }
 
   if (!modalState) {
-    return <></>;
+    return null;
   }
 
   return (
-    <>
-      <PagedModal
-        header={title}
-        close={() => setModalState(false)}
-        submit={submitForm}
-        cta="Save"
-        closeCta="Cancel"
-        navStyle="underlined"
-        navFill={true}
-        size="max"
-        step={step}
-        setStep={setStep}
-      >
-        <Page display="Select Experiments">
-          <div className="row new-share">
-            <div className="col-sm-12 col-md-4">
-              <h4>Selected experiments to share</h4>
-              <div className="selected-area h-100">
-                <DragDropContext onDragEnd={onDragEnd}>
-                  <Droppable droppableId="droppable">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className=""
-                      >
-                        {selectedList.length ? (
-                          selectedList.map((l) => {
-                            return l;
-                          })
-                        ) : (
-                          <span className="text-muted">
-                            Choose from experiments on the right
-                          </span>
-                        )}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
-              </div>
-            </div>
-            <div className="col-sm-12 col-md-8">
-              <div className="form-group">
-                <div className="filters md-form row mb-3 align-items-center">
-                  <div className="col">
-                    <input
-                      type="search"
-                      className=" form-control"
-                      placeholder="Search"
-                      aria-controls="dtBasicExample"
-                      {...searchInputProps}
-                    />
-                  </div>
-                </div>
-                <Tabs
-                  defaultTab={
-                    byStatus.stopped.length > 0
-                      ? "Stopped"
-                      : byStatus.running.length > 0
-                      ? "Running"
-                      : null
-                  }
-                >
-                  {tabContents.map((con) => {
-                    return con;
-                  })}
-                </Tabs>
-              </div>
+    <PagedModal
+      header={title}
+      close={() => setModalState(false)}
+      submit={submitForm}
+      cta="Save"
+      closeCta="Cancel"
+      navStyle="underlined"
+      navFill={true}
+      size="max"
+      step={step}
+      setStep={setStep}
+    >
+      <Page display="Select Experiments">
+        <div className="row new-share">
+          <div className="col-sm-12 col-md-4">
+            <h4>Selected experiments to share</h4>
+            <div className="selected-area h-100">
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="droppable">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className=""
+                    >
+                      {selectedList.length ? (
+                        selectedList.map((l) => {
+                          return l;
+                        })
+                      ) : (
+                        <span className="text-muted">
+                          Choose from experiments on the right
+                        </span>
+                      )}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
           </div>
-        </Page>
-        {/* <Page display="Experiment options">
+          <div className="col-sm-12 col-md-8">
+            <div className="form-group">
+              <div className="filters md-form row mb-3 align-items-center">
+                <div className="col">
+                  <input
+                    type="search"
+                    className=" form-control"
+                    placeholder="Search"
+                    aria-controls="dtBasicExample"
+                    {...searchInputProps}
+                  />
+                </div>
+              </div>
+              <Tabs
+                defaultTab={
+                  byStatus.stopped.length > 0
+                    ? "Stopped"
+                    : byStatus.running.length > 0
+                    ? "Running"
+                    : null
+                }
+              >
+                {tabContents.map((con) => {
+                  return con;
+                })}
+              </Tabs>
+            </div>
+          </div>
+        </div>
+      </Page>
+      {/* <Page display="Experiment options">
           <div className="row new-share">
             <div className="col-sm-12 col-md-4">
               <h4>Selected experiments to share</h4>
@@ -680,44 +661,44 @@ const ShareModal = ({
             </div>
           </div>
         </Page> */}
-        <Page display="Presentation Options">
-          <div className="row new-share">
-            <div className="col-sm-12 col-md-6" style={{ minHeight: "350px" }}>
-              <div className="form-group row">
-                <label
-                  htmlFor="inputtitle"
-                  className="col-sm-4 col-form-label text-right"
-                >
-                  Title
-                </label>
-                <div className="col-sm-8">
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="inputtitle"
-                    placeholder=""
-                    {...inputProps.title}
-                  />
-                </div>
+      <Page display="Presentation Options">
+        <div className="row new-share">
+          <div className="col-sm-12 col-md-6" style={{ minHeight: "350px" }}>
+            <div className="form-group row">
+              <label
+                htmlFor="inputtitle"
+                className="col-sm-4 col-form-label text-right"
+              >
+                Title
+              </label>
+              <div className="col-sm-8">
+                <input
+                  type="text"
+                  className="form-control"
+                  id="inputtitle"
+                  placeholder=""
+                  {...inputProps.title}
+                />
               </div>
-              <div className="form-group row">
-                <label
-                  htmlFor="inputdesc"
-                  className="col-sm-4 col-form-label text-right"
-                >
-                  Sub-title
-                </label>
-                <div className="col-sm-8">
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="inputdesc"
-                    placeholder=""
-                    {...inputProps.description}
-                  />
-                </div>
+            </div>
+            <div className="form-group row">
+              <label
+                htmlFor="inputdesc"
+                className="col-sm-4 col-form-label text-right"
+              >
+                Sub-title
+              </label>
+              <div className="col-sm-8">
+                <input
+                  type="text"
+                  className="form-control"
+                  id="inputdesc"
+                  placeholder=""
+                  {...inputProps.description}
+                />
               </div>
-              {/* <div className="form-group row">
+            </div>
+            {/* <div className="form-group row">
                 <label className="form-check-label col-sm-4 col-form-label text-right">
                   Enable sharing
                 </label>
@@ -733,7 +714,7 @@ const ShareModal = ({
                   />
                 </div>
               </div> */}
-              {/* <div className="form-group row">
+            {/* <div className="form-group row">
                   <label className="form-check-label col-sm-4 col-form-label text-right">
                     Enable voting
                   </label>
@@ -749,77 +730,73 @@ const ShareModal = ({
                     />
                   </div> 
                 </div>*/}
+            <div className="form-group row">
+              <label htmlFor="" className="col-sm-4 col-form-label text-right">
+                Presentation theme
+              </label>
+              <div className="col-sm-8">
+                <select className="form-control" {...inputProps.theme}>
+                  {presThemes.map((opt) => {
+                    return opt;
+                  })}
+                </select>
+              </div>
+            </div>
+            {value.theme === "custom" && (
               <div className="form-group row">
-                <label
-                  htmlFor=""
-                  className="col-sm-4 col-form-label text-right"
-                >
-                  Presentation theme
-                </label>
-                <div className="col-sm-8">
-                  <select className="form-control" {...inputProps.theme}>
-                    {presThemes.map((opt) => {
-                      return opt;
-                    })}
-                  </select>
+                <div className="col text-center">
+                  <label htmlFor="custombackground" className="text-center">
+                    Background color
+                  </label>
+                  <HexColorPicker
+                    onChange={(c) => {
+                      const tmp = { ...value };
+                      tmp.customTheme["backgroundColor"] = c;
+                      manualUpdate(tmp);
+                    }}
+                    style={{ margin: "0 auto" }}
+                    color={value.customTheme?.backgroundColor || ""}
+                    id="custombackground"
+                  />
+                </div>
+                <div className="col text-center">
+                  <label htmlFor="custombackground" className="text-center">
+                    Text color
+                  </label>
+                  <HexColorPicker
+                    onChange={(c) => {
+                      const tmp = { ...value };
+                      tmp.customTheme["textColor"] = c;
+                      manualUpdate(tmp);
+                    }}
+                    style={{ margin: "0 auto" }}
+                    color={value.customTheme?.textColor || ""}
+                    id="customtextcolor"
+                  />
                 </div>
               </div>
-              {value.theme === "custom" && (
-                <div className="form-group row">
-                  <div className="col text-center">
-                    <label htmlFor="custombackground" className="text-center">
-                      Background color
-                    </label>
-                    <HexColorPicker
-                      onChange={(c) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["backgroundColor"] = c;
-                        manualUpdate(tmp);
-                      }}
-                      style={{ margin: "0 auto" }}
-                      color={value.customTheme?.backgroundColor || ""}
-                      id="custombackground"
-                    />
-                  </div>
-                  <div className="col text-center">
-                    <label htmlFor="custombackground" className="text-center">
-                      Text color
-                    </label>
-                    <HexColorPicker
-                      onChange={(c) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["textColor"] = c;
-                        manualUpdate(tmp);
-                      }}
-                      style={{ margin: "0 auto" }}
-                      color={value.customTheme?.textColor || ""}
-                      id="customtextcolor"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="col-sm-12 col-md-6">
-              <h4>Preview</h4>
-              <div style={{ position: "absolute", left: "49%", top: "52%" }}>
-                <LoadingSpinner />
-              </div>
-              <iframe
-                src={`http://localhost:3000/present/${previewUrl}`}
-                style={{
-                  width: "100%",
-                  border: "1px solid #999",
-                  position: "relative",
-                }}
-                className="h-100"
-                frameBorder="0"
-              ></iframe>
-            </div>
+            )}
           </div>
-          {saveError}
-        </Page>
-      </PagedModal>
-    </>
+          <div className="col-sm-12 col-md-6">
+            <h4>Preview</h4>
+            <div style={{ position: "absolute", left: "49%", top: "52%" }}>
+              <LoadingSpinner />
+            </div>
+            <iframe
+              src={`http://localhost:3000/present/${previewUrl}`}
+              style={{
+                width: "100%",
+                border: "1px solid #999",
+                position: "relative",
+              }}
+              className="h-100"
+              frameBorder="0"
+            ></iframe>
+          </div>
+        </div>
+        {saveError}
+      </Page>
+    </PagedModal>
   );
 };
 
