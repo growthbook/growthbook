@@ -265,6 +265,11 @@ const Presentation = ({
           </FlexBox>
         </Slide>
         {expSlides}
+        <Slide>
+          <FlexBox height="100%" className="flexwrap">
+            <Heading fontSize={55}>Thanks!</Heading>
+          </FlexBox>
+        </Slide>
       </Deck>
     </>
   );
