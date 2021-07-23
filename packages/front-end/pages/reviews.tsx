@@ -52,7 +52,7 @@ const SharePage = (): React.ReactElement => {
   if (!p.presentations.length) {
     return (
       <div className="container p-4">
-        <h1>Presentations</h1>
+        <h1>Reviews</h1>
         <p>
           Auto-generate slide decks to present experiment results and insights.
         </p>
@@ -71,10 +71,10 @@ const SharePage = (): React.ReactElement => {
             setOpenNewPresentationModal(true);
           }}
         >
-          <FaPlus /> Add your first Presentation
+          <FaPlus /> Add your first review
         </button>
         <ShareModal
-          title="New Share"
+          title="New Review"
           modalState={openNewPresentationModal}
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
@@ -251,25 +251,25 @@ const SharePage = (): React.ReactElement => {
               setOpenNewPresentationModal(true);
             }}
           >
-            New Share
+            New Review
           </button>
         </div>
       </div>
       <ShareModal
-        title="New Share"
+        title="New Review"
         modalState={openNewPresentationModal}
         setModalState={setOpenNewPresentationModal}
         refreshList={mutate}
       />
       <ShareModal
-        title="Edit Share"
+        title="Edit Review"
         modalState={openEditPresentationModal}
         setModalState={setOpenEditPresentationModal}
         existing={specificPresentation}
         refreshList={mutate}
       />
       <ConfirmModal
-        title="Are you sure you want to delete this presentation?"
+        title="Are you sure you want to delete this review?"
         subtitle="This action cannot be undone"
         yesText="Yes, delete it"
         noText="Nevermind"

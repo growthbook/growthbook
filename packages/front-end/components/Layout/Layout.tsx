@@ -44,10 +44,10 @@ const navlinks: SidebarLinkProps[] = [
   },
   */
   {
-    name: "Share",
-    href: "/share",
+    name: "Reviews",
+    href: "/reviews",
     icon: "present.svg",
-    path: /^share/,
+    path: /^reviews/,
   },
   {
     name: "Definitions",
