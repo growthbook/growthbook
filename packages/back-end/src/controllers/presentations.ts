@@ -10,7 +10,6 @@ import {
   getExperimentsByIds,
   getLatestSnapshot,
 } from "../services/experiments";
-//import { getLearningsByExperimentIds } from "../services/learnings";
 import { userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";

@@ -28,7 +28,7 @@ export async function removeExperimentFromPresentations(experiment: string) {
       presentation.slides = presentation.slides.filter(
         (obj) => obj.id !== experiment || obj.type !== "experiment"
       );
-      presentation.markModified("experiments");
+      presentation.markModified("slides");
       await presentation.save();
     })
   );
