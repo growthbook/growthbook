@@ -1,5 +1,6 @@
 import { QueryLanguage } from "./datasource";
 import { MetricStats } from "./metric";
+import { Queries } from "./query";
 
 export interface SnapshotMetric {
   value: number;
@@ -36,8 +37,9 @@ export interface ExperimentSnapshotInterface {
   manual: boolean;
   query?: string;
   queryLanguage?: QueryLanguage;
+  queries?: Queries;
   dimension?: string;
-  results: {
+  results?: {
     name: string;
     srm: number;
     variations: SnapshotVariation[];

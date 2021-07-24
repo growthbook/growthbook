@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
   id: String,
@@ -10,6 +11,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   manual: Boolean,
   query: String,
   queryLanguage: String,
+  queries: queriesSchema,
   dimension: String,
   results: [
     {
