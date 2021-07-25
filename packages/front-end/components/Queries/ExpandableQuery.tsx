@@ -38,7 +38,15 @@ const ExpandableQuery: FC<{
             background:
               "linear-gradient(to bottom, rgba(45,45,45,0) 0%,rgba(45,45,45,0.8) 60%)",
           }}
-          onClick={() => queryOpen && setQueryOpen(false)}
+          onClick={(e) => {
+            if (!queryOpen) return;
+            setQueryOpen(false);
+
+            const pre = (e.target as HTMLDivElement).previousElementSibling;
+            if (pre) {
+              pre.scrollTo({ top: 0 });
+            }
+          }}
         >
           click to {queryOpen ? "minimize" : "expand"}
         </div>
@@ -62,7 +70,15 @@ const ExpandableQuery: FC<{
               background:
                 "linear-gradient(to bottom, rgba(212,237,218,0) 0%,rgba(212,237,218,0.8) 60%)",
             }}
-            onClick={() => resultsOpen && setResultsOpen(false)}
+            onClick={(e) => {
+              if (!resultsOpen) return;
+              setResultsOpen(false);
+
+              const pre = (e.target as HTMLDivElement).previousElementSibling;
+              if (pre) {
+                pre.scrollTo({ top: 0 });
+              }
+            }}
           >
             click to {resultsOpen ? "minimize" : "expand"}
           </div>

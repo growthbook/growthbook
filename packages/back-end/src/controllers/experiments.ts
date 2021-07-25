@@ -1120,7 +1120,14 @@ export async function getMetric(req: AuthRequest, res: Response) {
   const experiments = await ExperimentModel.find(
     {
       organization: req.organization.id,
-      metrics: metric.id,
+      $or: [
+        {
+          metrics: metric.id,
+        },
+        {
+          guardrails: metric.id,
+        },
+      ],
       archived: {
         $ne: true,
       },
@@ -1353,8 +1360,23 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
 }
 export async function cancelSnapshot(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({ id });
-  res.status(200).json(await cancelRun(snapshot, req.organization.id));
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    id,
+    organization: req.organization.id,
+  });
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+  res.status(200).json(
+    await cancelRun(snapshot, req.organization.id, async () => {
+      await ExperimentSnapshotModel.deleteOne({
+        id,
+      });
+    })
+  );
 }
 export async function postSnapshot(
   req: AuthRequest<{

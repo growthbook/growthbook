@@ -62,6 +62,15 @@ const Results: FC<{
     (d) => d.datasource === experiment.datasource
   );
 
+  const status = getQueryStatus(latest?.queries || []);
+
+  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+
+  const phaseAgeMinutes =
+    (Date.now() -
+      new Date(experiment.phases?.[phase]?.dateStarted || 0).getTime()) /
+    (1000 * 60);
+
   return (
     <>
       {experiment.status === "stopped" && (
@@ -189,7 +198,7 @@ const Results: FC<{
               >
                 <RunQueriesButton
                   cta="Update Data"
-                  initialStatus={getQueryStatus(latest.queries || [])}
+                  initialStatus={status}
                   statusEndpoint={`/snapshot/${latest.id}/status`}
                   cancelEndpoint={`/snapshot/${latest.id}/cancel`}
                   onReady={() => {
@@ -197,6 +206,7 @@ const Results: FC<{
                   }}
                   icon="refresh"
                   color="outline-primary"
+                  containerClass="d-flex"
                 />
               </form>
             ) : (
@@ -211,21 +221,56 @@ const Results: FC<{
           </div>
         )}
       </div>
+      {status === "failed" && (
+        <div className="alert alert-danger">
+          The most recent update ({ago(latest.dateCreated)}) failed.
+          <ViewAsyncQueriesButton
+            queries={latest.queries.map((q) => q.query)}
+            color="danger btn-sm ml-3"
+          />
+        </div>
+      )}
+      {status === "running" && (
+        <div className="alert alert-info">
+          Results are being updated now.
+          {snapshot && (
+            <>
+              The data below is from the previous run (
+              {ago(snapshot.dateCreated)}).
+            </>
+          )}
+          <ViewAsyncQueriesButton
+            queries={latest.queries.map((q) => q.query)}
+            color="info btn-sm ml-3"
+            display="View Running Queries"
+          />
+        </div>
+      )}
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info">
           Add at least 1 metric to view results.
         </div>
       )}
-      {!snapshot && experiment.metrics.length > 0 && (
+      {!hasData && experiment.metrics.length > 0 && (
         <div className="alert alert-info">
           No data yet.{" "}
-          {permissions.runExperiments && `Click the "Update" button above.`}
+          {snapshot &&
+            phaseAgeMinutes >= 120 &&
+            "Make sure your experiment is tracking properly."}
+          {snapshot &&
+            phaseAgeMinutes < 120 &&
+            "It was just started " +
+              ago(experiment.phases[phase].dateStarted) +
+              ". Give it a little longer and click the 'Update' button above to check again."}
+          {!snapshot &&
+            permissions.runExperiments &&
+            `Click the "Update" button above.`}
         </div>
       )}
-      {snapshot && snapshot.dimension && (
+      {hasData && snapshot.dimension && (
         <BreakDownResults snapshot={snapshot} experiment={experiment} />
       )}
-      {snapshot && !snapshot.dimension && (
+      {hasData && !snapshot.dimension && (
         <>
           <CompactResults snapshot={snapshot} experiment={experiment} />
           {experiment.guardrails?.length > 0 && (
@@ -268,36 +313,19 @@ const Results: FC<{
               Add/Remove Metrics
             </button>
           )}
-          {latest && latest.queries?.length > 0 ? (
-            <>
-              <ViewAsyncQueriesButton
-                queries={latest.queries.map((q) => q.query)}
-                display={
-                  snapshot && latest.id !== snapshot.id
-                    ? "View Running Queries"
-                    : "View Queries"
-                }
-              />
-              {snapshot &&
-                latest.id !== snapshot.id &&
-                snapshot.queries?.length > 0 && (
-                  <ViewAsyncQueriesButton
-                    queries={snapshot.queries.map((q) => q.query)}
-                    display="View Previous Queries"
-                  />
-                )}
-            </>
+
+          {snapshot.queries?.length > 0 ? (
+            <ViewAsyncQueriesButton
+              queries={snapshot.queries.map((q) => q.query)}
+            />
           ) : (
-            <>
-              {snapshot &&
-                snapshot.query &&
-                snapshot.queryLanguage !== "none" && (
-                  <ViewQueryButton
-                    queries={[snapshot.query]}
-                    language={snapshot.queryLanguage}
-                  />
-                )}
-            </>
+            // From old query engine
+            snapshot.query && (
+              <ViewQueryButton
+                queries={[snapshot.query]}
+                language={snapshot.queryLanguage}
+              />
+            )
           )}
         </div>
       )}

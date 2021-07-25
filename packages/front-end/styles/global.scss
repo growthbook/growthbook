@@ -100,17 +100,26 @@ pre {
     color: rgba(0, 0, 0, 0);
   }
 
+  pre {
+    max-height: 590px;
+    overflow: hidden !important;
+  }
+
   &:hover .fader {
     color: inherit;
   }
   &.expanded {
     cursor: initial;
-    max-height: 5000px;
+    max-height: 600px;
     .fader {
       display: none;
     }
     &:hover .fader {
       display: block;
+    }
+
+    pre {
+      overflow-y: auto !important;
     }
   }
 }

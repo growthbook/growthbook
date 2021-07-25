@@ -17,7 +17,7 @@ import {
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
-export type QueryMap = Map<string, QueryDocument>;
+export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
   runStarted: Date;
@@ -171,18 +171,27 @@ export async function getExperimentResults(
   activationMetric: MetricInterface | null,
   dimension: DimensionInterface | null
 ): Promise<QueryDocument> {
-  try {
-    const { results, query } = await integration.getExperimentResults(
-      experiment,
-      phase,
-      metrics,
-      activationMetric,
-      dimension
-    );
-    return createNewQuery(integration, query, results);
-  } catch (e) {
-    return createNewQuery(integration, "", null, e.message);
-  }
+  const query = integration.getExperimentResultsQuery(
+    experiment,
+    phase,
+    metrics,
+    activationMetric,
+    dimension
+  );
+
+  return getQueryDoc(
+    integration,
+    query,
+    () =>
+      integration.getExperimentResults(
+        experiment,
+        phase,
+        metrics,
+        activationMetric,
+        dimension
+      ),
+    false
+  );
 }
 
 export async function getExperimentUsers(
@@ -335,7 +344,8 @@ export async function startRun<T>(
 
 export async function cancelRun<T extends DocumentWithQueries>(
   doc: T,
-  organization: string
+  organization: string,
+  onDelete?: () => Promise<void>
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -346,9 +356,13 @@ export async function cancelRun<T extends DocumentWithQueries>(
 
   // Only cancel if it's currently running
   if (doc.queries.filter((q) => q.status === "running").length > 0) {
-    doc.set("queries", []);
-    doc.set("runStarted", null);
-    await doc.save();
+    if (onDelete) {
+      await onDelete();
+    } else {
+      doc.set("queries", []);
+      doc.set("runStarted", null);
+      await doc.save();
+    }
   }
 
   return {

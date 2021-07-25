@@ -21,10 +21,7 @@ export interface DimensionResult {
   variations: VariationResult[];
 }
 
-export interface ExperimentResults {
-  query: string;
-  results: DimensionResult[];
-}
+export type ExperimentResults = DimensionResult[];
 
 export interface ExperimentUsersResult {
   dimensions: {
@@ -138,6 +135,13 @@ export interface SourceIntegrationInterface {
   organization: string;
   // eslint-disable-next-line
   getNonSensitiveParams(): any;
+  getExperimentResultsQuery(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    metrics: MetricInterface[],
+    activationMetric: MetricInterface | null,
+    dimension: DimensionInterface | null
+  ): string;
   getExperimentResults(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,

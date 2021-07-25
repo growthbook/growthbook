@@ -944,6 +944,40 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
+  getExperimentResultsQuery(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    metrics: MetricInterface[],
+    activationMetric: MetricInterface | null,
+    dimension: DimensionInterface | null
+  ): string {
+    const query: string[] = [];
+
+    // Users query
+    query.push(
+      this.getExperimentUsersQuery({
+        experiment,
+        phase,
+        activationMetric,
+        dimension,
+      })
+    );
+    metrics.forEach((m) => {
+      const sql = this.getExperimentMetricQuery({
+        metric: m,
+        experiment,
+        phase,
+        activationMetric,
+        dimension,
+      });
+      query.push(sql);
+    });
+
+    return (
+      query.map((q) => format(q, this.getFormatOptions())).join(";\n\n") + ";"
+    );
+  }
+
   async getExperimentResults(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -1054,15 +1088,10 @@ export default abstract class SqlIntegration
 
     await Promise.all(promises);
 
-    const results: ExperimentResults = {
-      results: [],
-      query:
-        query.map((q) => format(q, this.getFormatOptions())).join(";\n\n") +
-        ";",
-    };
+    const results: ExperimentResults = [];
 
     dimensionMap.forEach((variations, k) => {
-      results.results.push({
+      results.push({
         dimension: k,
         variations,
       });
@@ -1272,7 +1301,7 @@ export default abstract class SqlIntegration
 
     if (metric.type === "duration") {
       // Custom SQL column expression
-      if (metric.column.match(/\{alias\}/)) {
+      if (metric.column?.match(/\{alias\}/)) {
         return metric.column.replace(/\{alias\}/g, alias);
       }
     }

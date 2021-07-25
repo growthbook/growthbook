@@ -488,6 +488,15 @@ export async function processSnapshotData(
       });
     })
   );
+
+  if (!results.length) {
+    results.push({
+      name: "All",
+      srm: 1,
+      variations: [],
+    });
+  }
+
   return results;
 }
 
@@ -495,8 +504,7 @@ export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   datasource: DataSourceInterface,
-  dimension?: DimensionInterface,
-  separateQueries: boolean = true
+  dimension?: DimensionInterface
 ) {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -536,15 +544,12 @@ export async function createSnapshot(
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
   // Run it as a single synchronous task (non-sql datasources and legacy code)
-  if (
-    !separateQueries ||
-    !integration.getSourceProperties().separateExperimentResultQueries
-  ) {
+  if (!integration.getSourceProperties().separateExperimentResultQueries) {
     queryDocs["results"] = getExperimentResults(
       integration,
       experiment,
       phase,
-      metrics,
+      selectedMetrics,
       activationMetric,
       dimension
     );

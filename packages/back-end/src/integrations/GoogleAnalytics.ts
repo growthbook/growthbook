@@ -253,11 +253,11 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Not implemented for GA");
   }
 
-  async getExperimentResults(
+  getExperimentResultsQuery(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     metrics: MetricInterface[]
-  ): Promise<ExperimentResults> {
+  ): string {
     const metricExpressions = metrics.map((m) => ({
       expression: m.table,
     }));
@@ -283,10 +283,20 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       ],
     };
 
+    return JSON.stringify(query, null, 2);
+  }
+
+  async getExperimentResults(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    metrics: MetricInterface[]
+  ): Promise<ExperimentResults> {
+    const query = this.getExperimentResultsQuery(experiment, phase, metrics);
+
     const result = await google.analyticsreporting("v4").reports.batchGet({
       auth: this.getAuth(),
       requestBody: {
-        reportRequests: [query],
+        reportRequests: [JSON.parse(query)],
       },
     });
 
@@ -326,15 +336,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       });
     });
 
-    return {
-      results: [
-        {
-          dimension: "All",
-          variations: rows,
-        },
-      ],
-      query: JSON.stringify(query, null, 2),
-    };
+    return [
+      {
+        dimension: "All",
+        variations: rows,
+      },
+    ];
   }
 };
 export default GoogleAnalytics;

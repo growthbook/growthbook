@@ -623,12 +623,28 @@ const ExperimentPage = (): ReactElement => {
                     {getMetricById(experiment.activationMetric)?.name}
                   </RightRailSectionGroup>
                 )}
-                <RightRailSectionGroup title="Goals" type="badge">
-                  {experiment.metrics.map((m) => getMetricById(m)?.name)}
+                <RightRailSectionGroup title="Goals" type="custom">
+                  {experiment.metrics.map((m) => {
+                    return (
+                      <Link href={`/metric/${m}`} key={m}>
+                        <a className="badge badge-secondary mr-2">
+                          {getMetricById(m)?.name}
+                        </a>
+                      </Link>
+                    );
+                  })}
                 </RightRailSectionGroup>
                 {experiment.guardrails?.length > 0 && (
-                  <RightRailSectionGroup title="Guardrails" type="badge">
-                    {experiment.guardrails.map((m) => getMetricById(m)?.name)}
+                  <RightRailSectionGroup title="Guardrails" type="custom">
+                    {experiment.guardrails.map((m) => {
+                      return (
+                        <Link href={`/metric/${m}`} key={m}>
+                          <a className="badge badge-secondary mr-2">
+                            {getMetricById(m)?.name}
+                          </a>
+                        </Link>
+                      );
+                    })}
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>
