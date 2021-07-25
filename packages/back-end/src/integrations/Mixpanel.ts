@@ -11,7 +11,9 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   DimensionResult,
+  ExperimentMetricResult,
   ExperimentResults,
+  ExperimentUsersResult,
   ImpactEstimationResult,
   MetricValueParams,
   MetricValueResult,
@@ -58,6 +60,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
         ...settings.events,
       },
     };
+  }
+  getExperimentUsersQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentMetricQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+    throw new Error("Method not implemented.");
   }
   async getExperimentResults(
     experiment: ExperimentInterface,
@@ -309,6 +323,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       type: "api",
       queryLanguage: "javascript",
       metricCaps: true,
+      separateExperimentResultQueries: false,
     };
   }
 

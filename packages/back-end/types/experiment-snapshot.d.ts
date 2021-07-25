@@ -31,13 +31,15 @@ export interface SnapshotVariation {
 
 export interface ExperimentSnapshotInterface {
   id: string;
+  organization: string;
   experiment: string;
   phase: number;
   dateCreated: Date;
+  runStarted: Date;
   manual: boolean;
   query?: string;
   queryLanguage?: QueryLanguage;
-  queries?: Queries;
+  queries: Queries;
   dimension?: string;
   results?: {
     name: string;

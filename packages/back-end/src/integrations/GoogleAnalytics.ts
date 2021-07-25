@@ -10,6 +10,8 @@ import {
   VariationResult,
   MetricValueResultDate,
   PastExperimentResult,
+  ExperimentUsersResult,
+  ExperimentMetricResult,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -42,6 +44,18 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
       encryptedParams
     );
+  }
+  getExperimentUsersQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentMetricQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+    throw new Error("Method not implemented.");
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
@@ -206,6 +220,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       type: "api",
       queryLanguage: "json",
       metricCaps: false,
+      separateExperimentResultQueries: false,
     };
   }
 

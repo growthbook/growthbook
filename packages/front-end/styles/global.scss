@@ -82,6 +82,38 @@ pre {
 .flex-1 {
   flex: 1;
 }
+.expandable-container {
+  overflow: hidden;
+  max-height: 120px;
+  cursor: pointer;
+  transition: max-height 0.3s;
+  position: relative;
+
+  .fader {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 15px 0 5px;
+    text-align: center;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0);
+  }
+
+  &:hover .fader {
+    color: inherit;
+  }
+  &.expanded {
+    cursor: initial;
+    max-height: 5000px;
+    .fader {
+      display: none;
+    }
+    &:hover .fader {
+      display: block;
+    }
+  }
+}
 .vertical-scroll {
   overflow-x: hidden;
   overflow-y: auto;

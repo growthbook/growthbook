@@ -4,10 +4,12 @@ import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
   id: String,
+  organization: String,
   experiment: String,
   phase: Number,
   type: { type: String },
   dateCreated: Date,
+  runStarted: Date,
   manual: Boolean,
   query: String,
   queryLanguage: String,

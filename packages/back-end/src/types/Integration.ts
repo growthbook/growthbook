@@ -26,12 +26,47 @@ export interface ExperimentResults {
   results: DimensionResult[];
 }
 
+export interface ExperimentUsersResult {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      users: number;
+    }[];
+  }[];
+}
+export interface ExperimentMetricResult {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      stats: MetricStats;
+    }[];
+  }[];
+}
+
 export interface ImpactEstimationResult {
   query: string;
   metricTotal: number;
   users: number;
   value: number;
 }
+
+export type ExperimentUsersQueryParams = {
+  experiment: ExperimentInterface;
+  phase: ExperimentPhase;
+  activationMetric: MetricInterface | null;
+  dimension: DimensionInterface | null;
+};
+
+export type ExperimentMetricQueryParams = {
+  experiment: ExperimentInterface;
+  phase: ExperimentPhase;
+  metric: MetricInterface;
+  activationMetric: MetricInterface | null;
+  dimension: DimensionInterface | null;
+};
+
 export type UsersQueryParams = {
   name: string;
   userIdType: "anonymous" | "user" | "either";
@@ -119,8 +154,18 @@ export interface SourceIntegrationInterface {
   ): Promise<ImpactEstimationResult>;
   getUsersQuery(params: UsersQueryParams): string;
   getMetricValueQuery(params: MetricValueParams): string;
+  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string;
+  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   runUsersQuery(query: string): Promise<UsersResult>;
   runMetricValueQuery(query: string): Promise<MetricValueResult>;
+  runExperimentUsersQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentUsersResult>;
+  runExperimentMetricQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentMetricResult>;
   getPastExperimentQuery(from: Date): string;
   runPastExperimentQuery(query: string): Promise<PastExperimentResult>;
 }

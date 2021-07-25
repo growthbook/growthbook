@@ -13,6 +13,10 @@ import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import GuardrailResults from "./GuardrailResult";
+import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
+import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
+import { useAuth } from "../../services/auth";
+import { ago, datetime } from "../../services/dates";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -24,6 +28,8 @@ const Results: FC<{
 }> = ({ experiment, editMetrics, editResult }) => {
   const { dimensions, getMetricById } = useDefinitions();
 
+  const { apiCall } = useAuth();
+
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
 
@@ -31,6 +37,7 @@ const Results: FC<{
 
   const { data, error, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
+    latest?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "")
@@ -44,6 +51,7 @@ const Results: FC<{
   }
 
   const snapshot = data.snapshot;
+  const latest = data.latest;
 
   const result = experiment.results;
 
@@ -149,15 +157,57 @@ const Results: FC<{
           </div>
         )}
         <div style={{ flex: 1 }} />
+        {snapshot && (
+          <div
+            className="col-auto text-muted font-italic"
+            style={{ paddingTop: 6 }}
+            title={datetime(snapshot.dateCreated)}
+          >
+            <small>last updated {ago(snapshot.dateCreated)}</small>
+          </div>
+        )}
         {permissions.runExperiments && experiment.metrics.length > 0 && (
           <div className="col-auto">
-            <RefreshSnapshotButton
-              mutate={mutate}
-              phase={phase}
-              experiment={experiment}
-              lastSnapshot={snapshot}
-              dimension={dimension}
-            />
+            {experiment.datasource && latest && latest.queries?.length > 0 ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  apiCall(`/experiment/${experiment.id}/snapshot`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      phase,
+                      dimension,
+                    }),
+                  })
+                    .then(() => {
+                      mutate();
+                    })
+                    .catch((e) => {
+                      console.error(e);
+                    });
+                }}
+              >
+                <RunQueriesButton
+                  cta="Update Data"
+                  initialStatus={getQueryStatus(latest.queries || [])}
+                  statusEndpoint={`/snapshot/${latest.id}/status`}
+                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                  onReady={() => {
+                    mutate();
+                  }}
+                  icon="refresh"
+                  color="outline-primary"
+                />
+              </form>
+            ) : (
+              <RefreshSnapshotButton
+                mutate={mutate}
+                phase={phase}
+                experiment={experiment}
+                lastSnapshot={snapshot}
+                dimension={dimension}
+              />
+            )}
           </div>
         )}
       </div>
@@ -218,11 +268,36 @@ const Results: FC<{
               Add/Remove Metrics
             </button>
           )}
-          {snapshot && snapshot.query && snapshot.queryLanguage !== "none" && (
-            <ViewQueryButton
-              queries={[snapshot.query]}
-              language={snapshot.queryLanguage}
-            />
+          {latest && latest.queries?.length > 0 ? (
+            <>
+              <ViewAsyncQueriesButton
+                queries={latest.queries.map((q) => q.query)}
+                display={
+                  snapshot && latest.id !== snapshot.id
+                    ? "View Running Queries"
+                    : "View Queries"
+                }
+              />
+              {snapshot &&
+                latest.id !== snapshot.id &&
+                snapshot.queries?.length > 0 && (
+                  <ViewAsyncQueriesButton
+                    queries={snapshot.queries.map((q) => q.query)}
+                    display="View Previous Queries"
+                  />
+                )}
+            </>
+          ) : (
+            <>
+              {snapshot &&
+                snapshot.query &&
+                snapshot.queryLanguage !== "none" && (
+                  <ViewQueryButton
+                    queries={[snapshot.query]}
+                    language={snapshot.queryLanguage}
+                  />
+                )}
+            </>
           )}
         </div>
       )}

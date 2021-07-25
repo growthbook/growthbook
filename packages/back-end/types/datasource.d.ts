@@ -36,6 +36,7 @@ export interface DataSourceProperties {
   includeInConfig: boolean;
   readonlyFields: string[];
   metricCaps: boolean;
+  separateExperimentResultQueries: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & { params: P };

@@ -43,6 +43,7 @@ const RunQueriesButton: FC<{
   initialStatus: QueryStatus;
   icon?: "run" | "refresh";
   onReady: () => void;
+  color?: string;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -51,6 +52,7 @@ const RunQueriesButton: FC<{
   initialStatus,
   onReady,
   icon = "run",
+  color = "success",
 }) => {
   const { data, error, mutate } = useApi<{
     queryStatus: QueryStatus;
@@ -127,7 +129,7 @@ const RunQueriesButton: FC<{
   return (
     <div>
       <button
-        className={clsx("btn btn-success", {
+        className={clsx("btn", `btn-${color}`, {
           disabled: status === "running",
         })}
         type="submit"

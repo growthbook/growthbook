@@ -113,7 +113,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
-      datasource
+      datasource,
+      null,
+      false
     );
     logger.info("Success");
 

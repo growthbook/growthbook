@@ -13,6 +13,10 @@ import {
   SourceIntegrationInterface,
   VariationMetricResult,
   PastExperimentResult,
+  ExperimentMetricQueryParams,
+  ExperimentMetricResult,
+  ExperimentUsersQueryParams,
+  ExperimentUsersResult,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
@@ -51,6 +55,18 @@ type PastExperimentResponse = {
   start_date: string;
   end_date: string;
   users: string;
+}[];
+type ExperimentUsersQueryResponse = {
+  dimension?: string;
+  variation: string;
+  users: string;
+}[];
+type ExperimentMetricQueryResponse = {
+  dimension?: string;
+  variation: string;
+  count: string;
+  mean: string;
+  stddev: string;
 }[];
 
 export function getExperimentQuery(
@@ -170,6 +186,7 @@ export default abstract class SqlIntegration
       type: "database",
       queryLanguage: "sql",
       metricCaps: true,
+      separateExperimentResultQueries: true,
     };
   }
 
@@ -469,6 +486,104 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
+
+  async runExperimentUsersQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentUsersResult> {
+    const rows: ExperimentUsersQueryResponse = await this.runQuery(query);
+    const ret: ExperimentUsersResult = {
+      dimensions: [],
+    };
+
+    const variationKeyMap = new Map<string, number>();
+    experiment.variations.forEach((v, i) => {
+      variationKeyMap.set(v.key, i);
+    });
+
+    const dimensionMap = new Map<string, number>();
+    rows.forEach(({ variation, dimension, users }) => {
+      let i = 0;
+      if (dimensionMap.has(dimension)) {
+        i = dimensionMap.get(dimension);
+      } else {
+        i = ret.dimensions.length;
+        ret.dimensions.push({
+          dimension,
+          variations: [],
+        });
+        dimensionMap.set(dimension, i);
+      }
+
+      const varIndex =
+        (this.settings?.variationIdFormat ||
+          this.settings?.experiments?.variationFormat) === "key"
+          ? variationKeyMap.get(variation)
+          : parseInt(variation);
+      if (varIndex < 0 || varIndex >= experiment.variations.length) {
+        console.log("Unexpected variation", variation);
+        return;
+      }
+
+      ret.dimensions[i].variations.push({
+        variation: varIndex,
+        users: parseInt(users) || 0,
+      });
+    });
+
+    return ret;
+  }
+  async runExperimentMetricQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentMetricResult> {
+    const rows: ExperimentMetricQueryResponse = await this.runQuery(query);
+    const ret: ExperimentMetricResult = {
+      dimensions: [],
+    };
+
+    const variationKeyMap = new Map<string, number>();
+    experiment.variations.forEach((v, i) => {
+      variationKeyMap.set(v.key, i);
+    });
+
+    const dimensionMap = new Map<string, number>();
+    rows.forEach(({ variation, dimension, count, mean, stddev }) => {
+      let i = 0;
+      if (dimensionMap.has(dimension)) {
+        i = dimensionMap.get(dimension);
+      } else {
+        i = ret.dimensions.length;
+        ret.dimensions.push({
+          dimension,
+          variations: [],
+        });
+        dimensionMap.set(dimension, i);
+      }
+
+      const varIndex =
+        (this.settings?.variationIdFormat ||
+          this.settings?.experiments?.variationFormat) === "key"
+          ? variationKeyMap.get(variation)
+          : parseInt(variation);
+      if (varIndex < 0 || varIndex >= experiment.variations.length) {
+        console.log("Unexpected variation", variation);
+        return;
+      }
+
+      ret.dimensions[i].variations.push({
+        variation: varIndex,
+        stats: {
+          mean: parseFloat(mean) || 0,
+          count: parseFloat(count) || 0,
+          stddev: parseFloat(stddev) || 0,
+        },
+      });
+    });
+
+    return ret;
+  }
+
   async runUsersQuery(query: string): Promise<UsersResult> {
     const rows: UsersQueryResponse = await this.runQuery(query);
     const ret: UsersResult = {
@@ -657,26 +772,13 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  private getExperimentUsersSql(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
-  ) {
-    if (experiment.sqlOverride && experiment.sqlOverride.has("users")) {
-      return experiment.sqlOverride
-        .get("users")
-        .replace(/{{\s*dateStart\s*}}/g, this.toTimestamp(phase.dateStarted))
-        .replace(
-          /{{\s*dateEnd\s*}}/g,
-          this.toTimestamp(phase.dateEnded || new Date())
-        )
-        .replace(/{{\s*experimentKey\s*}}/g, `'${experiment.trackingKey}'`);
-    }
+  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string {
+    const { experiment, phase, dimension, activationMetric } = params;
 
     const userId = experiment.userIdType === "user";
 
-    return `-- Number of users in experiment
+    return format(
+      `-- Number of users in experiment
     WITH
       ${this.getIdentifiesCTE(userId, {
         dimension: !!dimension,
@@ -733,15 +835,12 @@ export default abstract class SqlIntegration
     GROUP BY
       variation,
       dimension
-    `;
+    `,
+      this.getFormatOptions()
+    );
   }
-  private getExperimentMetricSql(
-    metric: MetricInterface,
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
-  ): string {
+  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
+    const { metric, experiment, phase, dimension, activationMetric } = params;
     if (experiment.sqlOverride && experiment.sqlOverride.has(metric.id)) {
       return experiment.sqlOverride
         .get(metric.id)
@@ -755,7 +854,8 @@ export default abstract class SqlIntegration
 
     const userId = experiment.userIdType === "user";
 
-    return `-- ${metric.name} (${metric.type})
+    return format(
+      `-- ${metric.name} (${metric.type})
     WITH
       ${this.getIdentifiesCTE(userId, {
         dimension: !!dimension,
@@ -840,7 +940,9 @@ export default abstract class SqlIntegration
     GROUP BY
       variation,
       dimension
-    `;
+    `,
+      this.getFormatOptions()
+    );
   }
   async getExperimentResults(
     experiment: ExperimentInterface,
@@ -880,13 +982,13 @@ export default abstract class SqlIntegration
     };
 
     const promises = metrics.map(async (m) => {
-      const sql = this.getExperimentMetricSql(
-        m,
+      const sql = this.getExperimentMetricQuery({
+        metric: m,
         experiment,
         phase,
         activationMetric,
-        dimension
-      );
+        dimension,
+      });
       query.push(sql);
       const rows: {
         variation: string;
@@ -921,12 +1023,12 @@ export default abstract class SqlIntegration
     // Users query
     promises.push(
       (async () => {
-        const sql = this.getExperimentUsersSql(
+        const sql = this.getExperimentUsersQuery({
           experiment,
           phase,
           activationMetric,
-          dimension
-        );
+          dimension,
+        });
         query.push(sql);
         const rows: {
           variation: string;

@@ -3,6 +3,8 @@ import {
   UsersQueryParams,
   MetricValueParams,
   SourceIntegrationInterface,
+  ExperimentUsersQueryParams,
+  ExperimentMetricQueryParams,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
@@ -12,6 +14,9 @@ import {
   QueryPointer,
   QueryStatus,
 } from "../../types/query";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { MetricInterface } from "../../types/metric";
+import { DimensionInterface } from "../../types/dimension";
 export type QueryMap = Map<string, QueryDocument>;
 
 export type InterfaceWithQueries = {
@@ -58,21 +63,24 @@ async function getExistingQuery(
 
 async function createNewQuery(
   integration: SourceIntegrationInterface,
-  query: string
+  query: string,
+  // eslint-disable-next-line
+  result: null | Record<string, any> = null,
+  error: null | string = null
 ): Promise<QueryDocument> {
   const data: QueryInterface = {
     createdAt: new Date(),
     datasource: integration.datasource,
-    finishedAt: null,
+    finishedAt: result || error ? new Date() : null,
     heartbeat: new Date(),
     id: uniqid("qry_"),
     language: integration.getSourceProperties().queryLanguage,
     organization: integration.organization,
     query,
     startedAt: new Date(),
-    status: "running",
-    result: null,
-    error: null,
+    status: result ? "succeeded" : error ? "failed" : "running",
+    result,
+    error,
   };
   return await QueryModel.create(data);
 }
@@ -105,11 +113,14 @@ function runBackgroundQuery<T>(run: Promise<T>, doc: QueryDocument) {
 async function getQueryDoc<T>(
   integration: SourceIntegrationInterface,
   query: string,
-  run: (query: string) => Promise<T>
+  run: (query: string) => Promise<T>,
+  useExisting: boolean = true
 ): Promise<QueryDocument> {
   // Re-use recent identical query
-  const existing = await getExistingQuery(integration, query);
-  if (existing) return existing;
+  if (useExisting) {
+    const existing = await getExistingQuery(integration, query);
+    if (existing) return existing;
+  }
 
   // Otherwise, create a new query in mongo;
   const doc = await createNewQuery(integration, query);
@@ -149,6 +160,54 @@ export async function getMetricValue(
     integration,
     integration.getMetricValueQuery(params),
     (query: string) => integration.runMetricValueQuery(query)
+  );
+}
+
+export async function getExperimentResults(
+  integration: SourceIntegrationInterface,
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  metrics: MetricInterface[],
+  activationMetric: MetricInterface | null,
+  dimension: DimensionInterface | null
+): Promise<QueryDocument> {
+  try {
+    const { results, query } = await integration.getExperimentResults(
+      experiment,
+      phase,
+      metrics,
+      activationMetric,
+      dimension
+    );
+    return createNewQuery(integration, query, results);
+  } catch (e) {
+    return createNewQuery(integration, "", null, e.message);
+  }
+}
+
+export async function getExperimentUsers(
+  integration: SourceIntegrationInterface,
+  params: ExperimentUsersQueryParams
+): Promise<QueryDocument> {
+  return getQueryDoc(
+    integration,
+    integration.getExperimentUsersQuery(params),
+    (query: string) =>
+      integration.runExperimentUsersQuery(params.experiment, query),
+    false
+  );
+}
+
+export async function getExperimentMetric(
+  integration: SourceIntegrationInterface,
+  params: ExperimentMetricQueryParams
+): Promise<QueryDocument> {
+  return getQueryDoc(
+    integration,
+    integration.getExperimentMetricQuery(params),
+    (query: string) =>
+      integration.runExperimentMetricQuery(params.experiment, query),
+    false
   );
 }
 

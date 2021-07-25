@@ -4,7 +4,8 @@ import clsx from "clsx";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
-}> = ({ queries }) => {
+  display?: string;
+}> = ({ queries, display = "View Queries" }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -22,7 +23,7 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(true);
         }}
       >
-        View Queries {queries.length > 0 ? `(${queries.length})` : ""}
+        {display} {queries.length > 0 ? `(${queries.length})` : ""}
       </button>
     </>
   );

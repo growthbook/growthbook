@@ -361,7 +361,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, datasource);
+      await createSnapshot(exp, 0, datasource, null, false);
     })
   );
 

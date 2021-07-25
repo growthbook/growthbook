@@ -3,9 +3,7 @@ import Modal from "../Modal";
 import useApi from "../../hooks/useApi";
 import { QueryInterface } from "back-end/types/query";
 import LoadingOverlay from "../LoadingOverlay";
-import { formatDistanceStrict } from "date-fns";
-import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
-import Code from "../Code";
+import ExpandableQuery from "./ExpandableQuery";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
@@ -20,7 +18,7 @@ const AsyncQueriesModal: FC<{
       close={close}
       header="Queries"
       open={true}
-      size="max"
+      size="lg"
       closeCta="Close"
     >
       {!data && !error && <LoadingOverlay />}
@@ -35,55 +33,12 @@ const AsyncQueriesModal: FC<{
         data.queries
           .filter((q) => q !== null)
           .map((query, i) => (
-            <div key={query.id} className="mb-4">
-              <h4>
-                {query.status === "running" && (
-                  <FaCircle className="text-info mr-2" />
-                )}
-                {query.status === "failed" && (
-                  <FaExclamationTriangle className="text-danger mr-2" />
-                )}
-                {query.status === "succeeded" && (
-                  <FaCheck className="text-success mr-2" />
-                )}
-                Query {i + 1} of {data.queries.length}
-              </h4>
-              <Code language={query.language} code={query.query} />
-              {query.status === "failed" && (
-                <div className="alert alert-danger">
-                  <pre>{query.error}</pre>
-                </div>
-              )}
-              {query.status === "succeeded" && (
-                <div className="alert alert-success">
-                  <pre style={{ maxHeight: 300, overflowY: "auto" }}>
-                    {JSON.stringify(query.result, null, 2)}
-                  </pre>
-                  {query.status === "succeeded" && (
-                    <small>
-                      <em>
-                        Took{" "}
-                        {formatDistanceStrict(
-                          new Date(query.startedAt),
-                          new Date(query.finishedAt)
-                        )}
-                      </em>
-                    </small>
-                  )}
-                </div>
-              )}
-              {query.status === "running" && (
-                <div className="alert alert-info">
-                  <em>
-                    Running for{" "}
-                    {formatDistanceStrict(
-                      new Date(query.startedAt),
-                      new Date()
-                    )}
-                  </em>
-                </div>
-              )}
-            </div>
+            <ExpandableQuery
+              query={query}
+              i={i}
+              total={data.queries.length}
+              key={i}
+            />
           ))}
     </Modal>
   );
