@@ -44,7 +44,6 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   onReady: () => void;
   color?: string;
-  containerClass?: string;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -54,7 +53,6 @@ const RunQueriesButton: FC<{
   onReady,
   icon = "run",
   color = "success",
-  containerClass = "",
 }) => {
   const { data, error, mutate } = useApi<{
     queryStatus: QueryStatus;
@@ -129,7 +127,7 @@ const RunQueriesButton: FC<{
   }
 
   return (
-    <div className={containerClass}>
+    <div className="d-flex">
       {status === "running" && (
         <div>
           <button

@@ -206,7 +206,6 @@ const Results: FC<{
                   }}
                   icon="refresh"
                   color="outline-primary"
-                  containerClass="d-flex"
                 />
               </form>
             ) : (
