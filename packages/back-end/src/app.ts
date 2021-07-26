@@ -346,6 +346,8 @@ app.get(
   experimentsController.getExperimentsFrequencyMonth
 );
 app.get("/experiment/:id", experimentsController.getExperiment);
+app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
+app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",

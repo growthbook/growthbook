@@ -43,6 +43,7 @@ const RunQueriesButton: FC<{
   initialStatus: QueryStatus;
   icon?: "run" | "refresh";
   onReady: () => void;
+  color?: string;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -51,6 +52,7 @@ const RunQueriesButton: FC<{
   initialStatus,
   onReady,
   icon = "run",
+  color = "success",
 }) => {
   const { data, error, mutate } = useApi<{
     queryStatus: QueryStatus;
@@ -125,28 +127,7 @@ const RunQueriesButton: FC<{
   }
 
   return (
-    <div>
-      <button
-        className={clsx("btn btn-success", {
-          disabled: status === "running",
-        })}
-        type="submit"
-      >
-        {buttonIcon}{" "}
-        {status === "running"
-          ? `${loadingText} (${getTimeDisplay(counter)})...`
-          : cta}
-      </button>
-      {status === "running" && data?.total > 0 && (
-        <div
-          style={{
-            width:
-              Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
-            height: 5,
-          }}
-          className="bg-info"
-        ></div>
-      )}
+    <div className="d-flex">
       {status === "running" && (
         <div>
           <button
@@ -161,6 +142,29 @@ const RunQueriesButton: FC<{
           </button>
         </div>
       )}
+      <div>
+        <button
+          className={clsx("btn", `btn-${color}`, {
+            disabled: status === "running",
+          })}
+          type="submit"
+        >
+          {buttonIcon}{" "}
+          {status === "running"
+            ? `${loadingText} (${getTimeDisplay(counter)})...`
+            : cta}
+        </button>
+        {status === "running" && data?.total > 0 && (
+          <div
+            style={{
+              width:
+                Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
+              height: 5,
+            }}
+            className="bg-info"
+          ></div>
+        )}
+      </div>
       {error && <div className="text-danger">{error.message}</div>}
     </div>
   );

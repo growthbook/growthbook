@@ -9,14 +9,30 @@ import { srm, ABTestStats, abtest, getValueCR } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
-import { QueryMap } from "./queries";
-import { PastExperimentResult } from "../types/Integration";
-import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import {
+  getExperimentMetric,
+  getExperimentResults,
+  getExperimentUsers,
+  QueryMap,
+  startRun,
+} from "./queries";
+import {
+  DimensionResult,
+  ExperimentMetricResult,
+  ExperimentUsersResult,
+  PastExperimentResult,
+} from "../types/Integration";
+import {
+  ExperimentSnapshotDocument,
+  ExperimentSnapshotModel,
+} from "../models/ExperimentSnapshotModel";
 import { MetricInterface, MetricStats } from "../../types/metric";
-import { ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
+import { QueryDocument } from "../models/QueryModel";
+import { FilterQuery } from "mongoose";
 
 export function getExperimentsByOrganization(organization: string) {
   return ExperimentModel.find({
@@ -66,9 +82,18 @@ type OldSnapshotModel = ExperimentSnapshotInterface & {
 export async function getLatestSnapshot(
   experiment: string,
   phase: number,
-  dimension?: string
+  dimension?: string,
+  withResults: boolean = true
 ) {
-  const query = { experiment, phase, dimension: dimension || null };
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    experiment,
+    phase,
+    dimension: dimension || null,
+  };
+
+  if (withResults) {
+    query.results = { $exists: true, $type: "array", $ne: [] };
+  }
 
   const all = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
@@ -285,8 +310,11 @@ export async function createManualSnapshot(
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
+    organization: experiment.organization,
     experiment: experiment.id,
     phase: phaseIndex,
+    queries: [],
+    runStarted: new Date(),
     dateCreated: new Date(),
     manual: true,
     results: [
@@ -303,55 +331,77 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
-export async function createSnapshot(
+export async function processSnapshotData(
   experiment: ExperimentInterface,
-  phaseIndex: number,
-  datasource: DataSourceInterface,
-  dimension?: DimensionInterface
-) {
+  phase: ExperimentPhase,
+  queryData: QueryMap
+): Promise<
+  {
+    name: string;
+    srm: number;
+    variations: SnapshotVariation[];
+  }[]
+> {
   const metrics = await getMetricsByOrganization(experiment.organization);
-
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
 
-  const activationMetric = metricMap.get(experiment.activationMetric) || null;
+  // Combine user and metric data into a single data structure
+  const combined: {
+    [key: string]: {
+      users: number[];
+      metrics: {
+        [key: string]: MetricStats[];
+      };
+    };
+  } = {};
 
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(experiment.metrics.concat(experiment.guardrails || []))
-  )
-    .map((m) => metricMap.get(m))
-    .filter((m) => m);
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
+  // Everything done in a single query (Mixpanel, Google Analytics)
+  if (queryData.has("results")) {
+    const data = queryData.get("results").result as DimensionResult[];
+    data.forEach((row) => {
+      combined[row.dimension] = {
+        users: [],
+        metrics: {},
+      };
+      const d = combined[row.dimension];
+      row.variations.forEach((v) => {
+        d.users[v.variation] = v.users;
+        v.metrics.forEach(({ metric, ...stats }) => {
+          if (!d.metrics[metric]) d.metrics[metric] = [];
+          d.metrics[metric][v.variation] = stats;
+        });
+      });
+    });
   }
+  // Spread out over multiple queries (SQL sources)
+  else {
+    // User counts
+    const usersResult: ExperimentUsersResult = queryData.get("users")
+      ?.result as ExperimentUsersResult;
+    if (!usersResult) return [];
+    usersResult.dimensions.forEach((d) => {
+      combined[d.dimension] = { users: [], metrics: {} };
+      d.variations.forEach((v) => {
+        combined[d.dimension].users[v.variation] = v.users;
+      });
+    });
 
-  const phase = experiment.phases[phaseIndex];
-
-  // Update lastSnapshotAttempt
-  experiment.lastSnapshotAttempt = new Date();
-  await ExperimentModel.updateOne(
-    {
-      id: experiment.id,
-    },
-    {
-      $set: {
-        lastSnapshotAttempt: experiment.lastSnapshotAttempt,
-      },
-    }
-  );
-
-  // Generate and run the SQL for test results
-  const integration = getSourceIntegrationObject(datasource);
-  const { results: rows, query } = await integration.getExperimentResults(
-    experiment,
-    phase,
-    selectedMetrics,
-    activationMetric,
-    dimension
-  );
+    // Raw metric numbers
+    queryData.forEach((obj, key) => {
+      if (!metricMap.has(key)) return;
+      const data = obj.result as ExperimentMetricResult;
+      data.dimensions.forEach((d) => {
+        if (!combined[d.dimension]) return;
+        combined[d.dimension].metrics[key] = [];
+        d.variations.forEach((v) => {
+          combined[d.dimension].metrics[key][v.variation] = v.stats;
+        });
+      });
+    });
+  }
 
   const results: {
     name: string;
@@ -360,37 +410,20 @@ export async function createSnapshot(
   }[] = [];
 
   await Promise.all(
-    rows.map(async (d) => {
-      // Default variation values, override from SQL results if available
-      const variations: SnapshotVariation[] = experiment.variations.map(() => ({
-        users: 0,
-        metrics: {},
-      }));
+    Object.keys(combined).map(async (dimension) => {
+      const row = combined[dimension];
+      // One doc per variation
+      const variations: SnapshotVariation[] = experiment.variations.map(
+        (v, i) => ({
+          users: row.users[i] || 0,
+          metrics: {},
+        })
+      );
 
-      const metricData = new Map<
-        string,
-        { count: number; mean: number; stddev: number }[]
-      >();
-      d.variations.forEach((row) => {
-        const variation = row.variation;
-        if (!variations[variation]) {
-          return;
-        }
-        variations[variation].users = row.users || 0;
-
-        row.metrics.forEach((m) => {
-          const doc = metricData.get(m.metric) || [];
-          doc[variation] = {
-            count: m.count,
-            mean: m.mean,
-            stddev: m.stddev,
-          };
-          metricData.set(m.metric, doc);
-        });
-      });
-
+      // Calculate metric stats
       const metricPromises: Promise<void[]>[] = [];
-      metricData.forEach((v, k) => {
+      Object.keys(row.metrics).forEach((k) => {
+        const v = row.metrics[k];
         const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
         metricPromises.push(
@@ -401,10 +434,8 @@ export async function createSnapshot(
               const metric = metricMap.get(k);
               const value = success;
 
-              // Don't do stats for the baseline or when breaking down by dimension
-              // We aren't doing a correction for multiple tests, so the numbers would be misleading for the break down
-              // Can enable this later when we have a more robust stats engine
-              if (!i || dimension) {
+              // Don't do stats for the baseline
+              if (!i) {
                 variations[i].metrics[k] = {
                   ...getValueCR(metric, value, data.count, variations[i].users),
                   stats: data,
@@ -441,7 +472,6 @@ export async function createSnapshot(
           )
         );
       });
-
       await Promise.all(metricPromises);
 
       // Check to see if the observed number of samples per variation matches what we expect
@@ -452,20 +482,111 @@ export async function createSnapshot(
       );
 
       results.push({
-        name: d.dimension,
+        name: dimension,
         srm: sampleRatioMismatch,
         variations,
       });
     })
   );
 
+  if (!results.length) {
+    results.push({
+      name: "All",
+      srm: 1,
+      variations: [],
+    });
+  }
+
+  return results;
+}
+
+export async function createSnapshot(
+  experiment: ExperimentInterface,
+  phaseIndex: number,
+  datasource: DataSourceInterface,
+  dimension?: DimensionInterface
+) {
+  const metrics = await getMetricsByOrganization(experiment.organization);
+  const metricMap = new Map<string, MetricInterface>();
+  metrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
+  const activationMetric = metricMap.get(experiment.activationMetric) || null;
+
+  // Only include metrics tied to this experiment (both goal and guardrail metrics)
+  const selectedMetrics = Array.from(
+    new Set(experiment.metrics.concat(experiment.guardrails || []))
+  )
+    .map((m) => metricMap.get(m))
+    .filter((m) => m);
+  if (!selectedMetrics.length) {
+    throw new Error("Experiment must have at least 1 metric selected.");
+  }
+
+  const phase = experiment.phases[phaseIndex];
+
+  // Update lastSnapshotAttempt
+  experiment.lastSnapshotAttempt = new Date();
+  await ExperimentModel.updateOne(
+    {
+      id: experiment.id,
+    },
+    {
+      $set: {
+        lastSnapshotAttempt: experiment.lastSnapshotAttempt,
+      },
+    }
+  );
+
+  const integration = getSourceIntegrationObject(datasource);
+
+  const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
+
+  // Run it as a single synchronous task (non-sql datasources and legacy code)
+  if (!integration.getSourceProperties().separateExperimentResultQueries) {
+    queryDocs["results"] = getExperimentResults(
+      integration,
+      experiment,
+      phase,
+      selectedMetrics,
+      activationMetric,
+      dimension
+    );
+  }
+  // Run as multiple async queries (new way for sql datasources)
+  else {
+    queryDocs["users"] = getExperimentUsers(integration, {
+      experiment,
+      dimension,
+      activationMetric,
+      phase,
+    });
+    selectedMetrics.forEach((m) => {
+      queryDocs[m.id] = getExperimentMetric(integration, {
+        metric: m,
+        experiment,
+        dimension,
+        activationMetric,
+        phase,
+      });
+    });
+  }
+
+  const { queries, result: results } = await startRun(
+    queryDocs,
+    async (queryData) => processSnapshotData(experiment, phase, queryData)
+  );
+
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
+    organization: experiment.organization,
     experiment: experiment.id,
+    runStarted: new Date(),
     dateCreated: new Date(),
     phase: phaseIndex,
     manual: false,
-    query,
+    queries,
     queryLanguage: integration.getSourceProperties().queryLanguage,
     dimension: dimension?.id || null,
     results,

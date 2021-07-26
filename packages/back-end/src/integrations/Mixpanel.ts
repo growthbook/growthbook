@@ -11,7 +11,9 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   DimensionResult,
+  ExperimentMetricResult,
   ExperimentResults,
+  ExperimentUsersResult,
   ImpactEstimationResult,
   MetricValueParams,
   MetricValueResult,
@@ -59,6 +61,207 @@ export default class Mixpanel implements SourceIntegrationInterface {
       },
     };
   }
+  getExperimentUsersQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentMetricQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentResultsQuery(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    metrics: MetricInterface[],
+    activationMetric: MetricInterface,
+    dimension: DimensionInterface
+  ): string {
+    const hasEarlyStartMetrics = metrics.filter((m) => m.earlyStart).length > 0;
+
+    const onActivate = `
+        ${activationMetric ? "state.activated = true;" : ""}
+        state.start = e.time;
+        ${
+          hasEarlyStartMetrics
+            ? ` // Process queued values
+        state.queuedEvents.forEach((q) => {
+          // Make sure event happened during the same session (within 30 minutes)
+          if(state.start - q.time > ${30 * 60 * 1000}) return;
+          ${metrics
+            .filter((m) => m.earlyStart)
+            .map(
+              (metric, i) => `// Metric - ${metric.name}
+          if(${this.getValidMetricCondition(metric, "q")}) {
+            ${this.getMetricAggregationCode(
+              metric,
+              this.getMetricValueCode(metric, "q"),
+              `state.m${i}`
+            )}
+          }`
+            )
+            .join("\n")}
+        });
+        state.queuedEvents = [];`
+            : ""
+        }`;
+
+    const query = formatQuery(`// Experiment results - ${experiment.name}
+        const metrics = ${JSON.stringify(
+          metrics.map(({ id, name }) => ({ id, name })),
+          null,
+          2
+        )};
+  
+        return ${this.getEvents(
+          phase.dateStarted,
+          phase.dateEnded || new Date()
+        )}
+        .filter(function(e) {
+          if(${this.getValidExperimentCondition(
+            experiment.trackingKey
+          )}) return true;
+          ${
+            activationMetric
+              ? `if(${this.getValidMetricCondition(
+                  activationMetric
+                )}) return true;`
+              : ""
+          }
+          ${metrics
+            .map(
+              (metric) => `// Metric - ${metric.name}
+          if(${this.getValidMetricCondition(metric)}) return true;`
+            )
+            .join("\n")}
+          return false;
+        })
+        // Metric value per user
+        .groupByUser(function(state, events) {
+          state = state || {
+            inExperiment: false,
+            ${dimension ? "dimension: null," : ""}
+            ${activationMetric ? "activated: false," : ""}
+            start: null,
+            variation: null,
+            ${metrics.map((m, i) => `m${i}: null,`).join("\n")} ${
+      hasEarlyStartMetrics ? "queuedEvents: []" : ""
+    }
+          };
+          for(var i=0; i<events.length; i++) {
+            const e = events[i];
+            // User is put into the experiment
+            if(!state.inExperiment && ${this.getValidExperimentCondition(
+              experiment.trackingKey
+            )}) {
+              state.inExperiment = true;
+              state.variation = ${this.getPropertyColumn(
+                this.settings.events.variationIdProperty || "Variant name",
+                "e"
+              )};
+              ${
+                dimension
+                  ? `state.dimension = ${this.getPropertyColumn(
+                      dimension.sql,
+                      "e"
+                    )} || null;`
+                  : ""
+              }
+              ${activationMetric ? "" : onActivate}
+              continue;
+            }
+  
+            // Not in the experiment yet
+            if(!state.inExperiment) {
+              ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
+              continue;
+            }
+            ${
+              activationMetric
+                ? `
+              // Not activated yet
+              if(!state.activated) {
+                // Does this event activate it? (Metric - ${
+                  activationMetric.name
+                })
+                if(${this.getValidMetricCondition(activationMetric)}) {
+                  ${onActivate}
+                }
+                else {
+                  ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
+                  continue;
+                }
+              }
+            `
+                : ""
+            }
+  
+            ${this.getConversionWindowCheck(
+              experiment.conversionWindowDays || 3,
+              "state.start"
+            )}
+            ${metrics
+              .map(
+                (metric, i) => `// Metric - ${metric.name}
+              if(${this.getValidMetricCondition(metric)}) {
+                ${this.getMetricAggregationCode(
+                  metric,
+                  this.getMetricValueCode(metric),
+                  `state.m${i}`
+                )}
+              }
+            `
+              )
+              .join("")}
+          }
+          return state;
+        })
+        // Remove users that are not in the experiment
+        .filter(function(ev) {
+          if(!ev.value.inExperiment) return false;
+          if(ev.value.variation === null || ev.value.variation === undefined) return false;
+          ${activationMetric ? "if(!ev.value.activated) return false;" : ""}
+          return true;
+        })
+        // One group per experiment variation${
+          dimension ? "/dimension" : ""
+        } with summary data
+        .groupBy(["value.variation"${dimension ? ', "value.dimension"' : ""}], [
+          // Total users in the group
+          mixpanel.reducer.count(),
+          ${metrics
+            .map(
+              (metric, i) => `// Metric - ${metric.name}
+          mixpanel.reducer.numeric_summary('value.m${i}'),`
+            )
+            .join("\n")}
+        ])
+        // Convert to an object that's easier to work with
+        .map(row => {
+          const ret = {
+            variation: row.key[0],
+            dimension: ${dimension ? "row.key[1] || ''" : "''"},
+            users: row.value[0],
+            metrics: [],
+          };
+          for(let i=1; i<row.value.length; i++) {
+            ret.metrics.push({
+              id: metrics[i-1].id,
+              name: metrics[i-1].name,
+              count: row.value[i].count,
+              mean: row.value[i].avg,
+              stddev: row.value[i].stddev,
+            });
+          }
+          return ret;
+        });
+      `);
+
+    return query;
+  }
   async getExperimentResults(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -66,182 +269,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
     activationMetric: MetricInterface,
     dimension: DimensionInterface
   ): Promise<ExperimentResults> {
-    const hasEarlyStartMetrics = metrics.filter((m) => m.earlyStart).length > 0;
+    const query = this.getExperimentResultsQuery(
+      experiment,
+      phase,
+      metrics,
+      activationMetric,
+      dimension
+    );
 
-    const onActivate = `
-      ${activationMetric ? "state.activated = true;" : ""}
-      state.start = e.time;
-      ${
-        hasEarlyStartMetrics
-          ? ` // Process queued values
-      state.queuedEvents.forEach((q) => {
-        // Make sure event happened during the same session (within 30 minutes)
-        if(state.start - q.time > ${30 * 60 * 1000}) return;
-        ${metrics
-          .filter((m) => m.earlyStart)
-          .map(
-            (metric, i) => `// Metric - ${metric.name}
-        if(${this.getValidMetricCondition(metric, "q")}) {
-          ${this.getMetricAggregationCode(
-            metric,
-            this.getMetricValueCode(metric, "q"),
-            `state.m${i}`
-          )}
-        }`
-          )
-          .join("\n")}
-      });
-      state.queuedEvents = [];`
-          : ""
-      }`;
-
-    const query = formatQuery(`// Experiment results - ${experiment.name}
-      const metrics = ${JSON.stringify(
-        metrics.map(({ id, name }) => ({ id, name })),
-        null,
-        2
-      )};
-
-      return ${this.getEvents(phase.dateStarted, phase.dateEnded || new Date())}
-      .filter(function(e) {
-        if(${this.getValidExperimentCondition(
-          experiment.trackingKey
-        )}) return true;
-        ${
-          activationMetric
-            ? `if(${this.getValidMetricCondition(
-                activationMetric
-              )}) return true;`
-            : ""
-        }
-        ${metrics
-          .map(
-            (metric) => `// Metric - ${metric.name}
-        if(${this.getValidMetricCondition(metric)}) return true;`
-          )
-          .join("\n")}
-        return false;
-      })
-      // Metric value per user
-      .groupByUser(function(state, events) {
-        state = state || {
-          inExperiment: false,
-          ${dimension ? "dimension: null," : ""}
-          ${activationMetric ? "activated: false," : ""}
-          start: null,
-          variation: null,
-          ${metrics.map((m, i) => `m${i}: null,`).join("\n")} ${
-      hasEarlyStartMetrics ? "queuedEvents: []" : ""
-    }
-        };
-        for(var i=0; i<events.length; i++) {
-          const e = events[i];
-          // User is put into the experiment
-          if(!state.inExperiment && ${this.getValidExperimentCondition(
-            experiment.trackingKey
-          )}) {
-            state.inExperiment = true;
-            state.variation = ${this.getPropertyColumn(
-              this.settings.events.variationIdProperty || "Variant name",
-              "e"
-            )};
-            ${
-              dimension
-                ? `state.dimension = ${this.getPropertyColumn(
-                    dimension.sql,
-                    "e"
-                  )} || null;`
-                : ""
-            }
-            ${activationMetric ? "" : onActivate}
-            continue;
-          }
-
-          // Not in the experiment yet
-          if(!state.inExperiment) {
-            ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
-            continue;
-          }
-          ${
-            activationMetric
-              ? `
-            // Not activated yet
-            if(!state.activated) {
-              // Does this event activate it? (Metric - ${
-                activationMetric.name
-              })
-              if(${this.getValidMetricCondition(activationMetric)}) {
-                ${onActivate}
-              }
-              else {
-                ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
-                continue;
-              }
-            }
-          `
-              : ""
-          }
-
-          ${this.getConversionWindowCheck(
-            experiment.conversionWindowDays || 3,
-            "state.start"
-          )}
-          ${metrics
-            .map(
-              (metric, i) => `// Metric - ${metric.name}
-            if(${this.getValidMetricCondition(metric)}) {
-              ${this.getMetricAggregationCode(
-                metric,
-                this.getMetricValueCode(metric),
-                `state.m${i}`
-              )}
-            }
-          `
-            )
-            .join("")}
-        }
-        return state;
-      })
-      // Remove users that are not in the experiment
-      .filter(function(ev) {
-        if(!ev.value.inExperiment) return false;
-        if(ev.value.variation === null || ev.value.variation === undefined) return false;
-        ${activationMetric ? "if(!ev.value.activated) return false;" : ""}
-        return true;
-      })
-      // One group per experiment variation${
-        dimension ? "/dimension" : ""
-      } with summary data
-      .groupBy(["value.variation"${dimension ? ', "value.dimension"' : ""}], [
-        // Total users in the group
-        mixpanel.reducer.count(),
-        ${metrics
-          .map(
-            (metric, i) => `// Metric - ${metric.name}
-        mixpanel.reducer.numeric_summary('value.m${i}'),`
-          )
-          .join("\n")}
-      ])
-      // Convert to an object that's easier to work with
-      .map(row => {
-        const ret = {
-          variation: row.key[0],
-          dimension: ${dimension ? "row.key[1] || ''" : "''"},
-          users: row.value[0],
-          metrics: [],
-        };
-        for(let i=1; i<row.value.length; i++) {
-          ret.metrics.push({
-            id: metrics[i-1].id,
-            name: metrics[i-1].name,
-            count: row.value[i].count,
-            mean: row.value[i].avg,
-            stddev: row.value[i].stddev,
-          });
-        }
-        return ret;
-      });
-    `);
     const result = await runQuery<
       {
         variation: string;
@@ -285,10 +320,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       });
     });
 
-    return {
-      query,
-      results: Object.values(dimensions),
-    };
+    return Object.values(dimensions);
   }
   async testConnection(): Promise<boolean> {
     const today = new Date().toISOString().substr(0, 10);
@@ -309,6 +341,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       type: "api",
       queryLanguage: "javascript",
       metricCaps: true,
+      separateExperimentResultQueries: false,
     };
   }
 

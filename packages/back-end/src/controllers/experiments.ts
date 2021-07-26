@@ -15,6 +15,7 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
+  processSnapshotData,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -56,6 +57,7 @@ import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { queueWebhook } from "../jobs/webhooks";
+import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -164,7 +166,8 @@ async function _getSnapshot(
   organization: string,
   id: string,
   phase: string,
-  dimension?: string
+  dimension?: string,
+  withResults: boolean = true
 ) {
   const experiment = await getExperimentById(id);
 
@@ -176,7 +179,12 @@ async function _getSnapshot(
     throw new Error("You do not have access to view this experiment");
   }
 
-  return await getLatestSnapshot(experiment.id, parseInt(phase), dimension);
+  return await getLatestSnapshot(
+    experiment.id,
+    parseInt(phase),
+    dimension,
+    withResults
+  );
 }
 
 export async function getSnapshotWithDimension(
@@ -195,18 +203,36 @@ export async function getSnapshotWithDimension(
     dimension
   );
 
+  const latest = await _getSnapshot(
+    req.organization.id,
+    id,
+    phase,
+    dimension,
+    false
+  );
+
   res.status(200).json({
     status: 200,
     snapshot,
+    latest,
   });
 }
 export async function getSnapshot(req: AuthRequest, res: Response) {
   const { id, phase }: { id: string; phase: string } = req.params;
   const snapshot = await _getSnapshot(req.organization.id, id, phase);
 
+  const latest = await _getSnapshot(
+    req.organization.id,
+    id,
+    phase,
+    null,
+    false
+  );
+
   res.status(200).json({
     status: 200,
     snapshot,
+    latest,
   });
 }
 
@@ -1094,7 +1120,14 @@ export async function getMetric(req: AuthRequest, res: Response) {
   const experiments = await ExperimentModel.find(
     {
       organization: req.organization.id,
-      metrics: metric.id,
+      $or: [
+        {
+          metrics: metric.id,
+        },
+        {
+          guardrails: metric.id,
+        },
+      ],
       archived: {
         $ne: true,
       },
@@ -1302,6 +1335,49 @@ export async function previewManualSnapshot(
   }
 }
 
+export async function getSnapshotStatus(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const snapshot = await ExperimentSnapshotModel.findOne({ id });
+  if (!snapshot) throw new Error("Unknown snapshot id");
+
+  if (snapshot.organization !== req.organization?.id)
+    throw new Error("You don't have access to that snapshot");
+
+  const experiment = await ExperimentModel.findOne({
+    id: snapshot.experiment,
+  });
+  if (!experiment) throw new Error("Invalid experiment id");
+
+  const phase = experiment.phases[snapshot.phase];
+
+  const result = await getStatusEndpoint(
+    snapshot,
+    req.organization.id,
+    "results",
+    (queryData) => processSnapshotData(experiment, phase, queryData)
+  );
+  return res.status(200).json(result);
+}
+export async function cancelSnapshot(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    id,
+    organization: req.organization.id,
+  });
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+  res.status(200).json(
+    await cancelRun(snapshot, req.organization.id, async () => {
+      await ExperimentSnapshotModel.deleteOne({
+        id,
+      });
+    })
+  );
+}
 export async function postSnapshot(
   req: AuthRequest<{
     phase: number;

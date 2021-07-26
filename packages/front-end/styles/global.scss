@@ -82,6 +82,47 @@ pre {
 .flex-1 {
   flex: 1;
 }
+.expandable-container {
+  overflow: hidden;
+  max-height: 120px;
+  cursor: pointer;
+  transition: max-height 0.3s;
+  position: relative;
+
+  .fader {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 15px 0 5px;
+    text-align: center;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0);
+  }
+
+  pre {
+    max-height: 590px;
+    overflow: hidden !important;
+  }
+
+  &:hover .fader {
+    color: inherit;
+  }
+  &.expanded {
+    cursor: initial;
+    max-height: 600px;
+    .fader {
+      display: none;
+    }
+    &:hover .fader {
+      display: block;
+    }
+
+    pre {
+      overflow-y: auto !important;
+    }
+  }
+}
 .vertical-scroll {
   overflow-x: hidden;
   overflow-y: auto;
@@ -558,10 +599,14 @@ li.reports a span img {
 
 .dashboard {
   .activity-box {
-    max-height: 300px;
     background-color: #f8fbff;
     border: 1px solid #dadee3;
     padding: 10px;
+  }
+  @media (min-width: 992px) {
+    .fixed-height {
+      height: 375px;
+    }
   }
 }
 .cursor-pointer {

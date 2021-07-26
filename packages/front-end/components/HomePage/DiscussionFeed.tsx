@@ -58,7 +58,10 @@ const DiscussionFeed: FC<{
                     <strong>{name || email}</strong> commented on an{" "}
                     {comment.parentType} on {date(comment.date)}
                   </div>
-                  <div className="card-body pb-0 pt-3">
+                  <div
+                    className="card-body py-3"
+                    style={{ maxHeight: 200, overflowY: "auto" }}
+                  >
                     <Markdown className="card-text">
                       {comment.content || ""}
                     </Markdown>
