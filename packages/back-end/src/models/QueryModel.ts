@@ -11,8 +11,14 @@ export const queriesSchema = [
 ];
 
 const querySchema = new mongoose.Schema({
-  id: String,
-  organization: String,
+  id: {
+    type: String,
+    unique: true,
+  },
+  organization: {
+    type: String,
+    index: true,
+  },
   datasource: String,
   language: String,
   query: String,

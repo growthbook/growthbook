@@ -3,7 +3,10 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
-  id: String,
+  id: {
+    type: String,
+    unique: true,
+  },
   organization: String,
   experiment: String,
   phase: Number,
@@ -58,6 +61,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+});
+experimentSnapshotSchema.index({
+  experiment: 1,
+  dateCreated: -1,
 });
 
 export type ExperimentSnapshotDocument = mongoose.Document &

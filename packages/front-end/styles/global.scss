@@ -599,10 +599,14 @@ li.reports a span img {
 
 .dashboard {
   .activity-box {
-    max-height: 300px;
     background-color: #f8fbff;
     border: 1px solid #dadee3;
     padding: 10px;
+  }
+  @media (min-width: 992px) {
+    .fixed-height {
+      height: 375px;
+    }
   }
 }
 .cursor-pointer {
