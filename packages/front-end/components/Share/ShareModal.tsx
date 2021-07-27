@@ -8,6 +8,7 @@ import useForm from "../../hooks/useForm";
 import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
+import Preview from "./Preview";
 import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
@@ -239,6 +240,10 @@ const ShareModal = ({
     }
   };
 
+  if (!data) {
+    // still loading...
+    return null;
+  }
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -782,16 +787,30 @@ const ShareModal = ({
             <div style={{ position: "absolute", left: "49%", top: "52%" }}>
               <LoadingSpinner />
             </div>
-            <iframe
-              src={`http://localhost:3000/present/${previewUrl}`}
+            <div
               style={{
                 width: "100%",
-                border: "1px solid #999",
+                height: "100%",
+                maxHeight: "350px",
                 position: "relative",
               }}
-              className="h-100"
-              frameBorder="0"
-            ></iframe>
+            >
+              <Preview
+                expIds={value.slides
+                  .map((o) => {
+                    return o.id;
+                  })
+                  .join(",")}
+                title={value.title}
+                desc={value.description}
+                theme={value.theme}
+                backgroundcolor={value.customTheme.backgroundColor.replace(
+                  "#",
+                  ""
+                )}
+                textcolor={value.customTheme.textColor.replace("#", "")}
+              />
+            </div>
           </div>
         </div>
         {saveError}

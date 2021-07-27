@@ -33,6 +33,7 @@ type props = {
     experiment: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
   }[];
+  preview?: boolean;
 };
 
 const Presentation = ({
@@ -42,6 +43,7 @@ const Presentation = ({
   title,
   desc,
   customTheme,
+  preview = false,
 }: props): ReactElement => {
   // make sure experiments are in the right order - we know the order is
   // right in the presentation object. This could be done in the API
@@ -72,49 +74,72 @@ const Presentation = ({
     // get the info on which variation to mark as winner/loser
     const variationExtra = [];
     let sideExtra = <></>;
+    const variationsPlural =
+      e.experiment.variations.length > 2 ? "variations" : "variation";
+
     e.experiment.variations.forEach((v, i) => {
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
     });
-    if (e.experiment?.results) {
-      if (e.experiment.results === "won") {
-        // if this is a two sided test, mark the winner:
-        variationExtra[e.experiment.winner] = (
-          <Appear>
-            <div className="result variation-result result-winner">Winner!</div>
-          </Appear>
-        );
-      } else if (e.experiment.results === "lost") {
-        if (e.experiment.variations.length === 2) {
-          variationExtra[1] = (
+    let resultsText = "";
+    if (
+      e.experiment?.status === "running" ||
+      e.experiment?.status === "draft"
+    ) {
+      resultsText = "This experiment is still in progress";
+    } else {
+      // stopped:
+      if (e.experiment?.results) {
+        if (e.experiment.results === "won") {
+          // if this is a two sided test, mark the winner:
+          variationExtra[e.experiment.winner] = (
             <Appear>
-              <div className="result variation-result result-lost">Lost!</div>
+              <div className="result variation-result result-winner">
+                Winner!
+              </div>
             </Appear>
           );
-        } else {
-          variationExtra[0] = (
-            <Appear>
-              {() => {
-                return (
-                  <div className="result variation-result result-winner">
-                    Winner!
-                  </div>
-                );
-              }}
-            </Appear>
-          );
-        }
-      } else if (e.experiment.results === "dnf") {
-        sideExtra = (
-          <div className="result result-dnf text-center">(Did not finish)</div>
-        );
-      } else if (e.experiment.results === "inconclusive") {
-        sideExtra = (
-          <Appear>
-            <div className="result result-inconclusive text-center">
-              Inconclusive
+          resultsText =
+            e.experiment.variations[e.experiment.winner]?.name +
+            " beat the control and won";
+        } else if (e.experiment.results === "lost") {
+          resultsText = `The ${variationsPlural} beat the control and won`;
+
+          if (e.experiment.variations.length === 2) {
+            variationExtra[1] = (
+              <Appear>
+                <div className="result variation-result result-lost">Lost!</div>
+              </Appear>
+            );
+          } else {
+            variationExtra[0] = (
+              <Appear>
+                {() => {
+                  return (
+                    <div className="result variation-result result-winner">
+                      Winner!
+                    </div>
+                  );
+                }}
+              </Appear>
+            );
+          }
+        } else if (e.experiment.results === "dnf") {
+          sideExtra = (
+            <div className="result result-dnf text-center">
+              (Did not finish)
             </div>
-          </Appear>
-        );
+          );
+          resultsText = `The experiment did not finish`;
+        } else if (e.experiment.results === "inconclusive") {
+          sideExtra = (
+            <Appear>
+              <div className="result result-inconclusive text-center">
+                Inconclusive
+              </div>
+            </Appear>
+          );
+          resultsText = `The results were inconclusive`;
+        }
       }
     }
 
@@ -150,59 +175,44 @@ const Presentation = ({
       // const variationNames = e.experiment.variations.map((v) => v.name);
       // const numMetrics = e.experiment.metrics.length;
       const result = e.experiment.results;
-      const variationsPlural =
-        e.experiment.variations.length > 2 ? "variations" : "variation";
 
-      expSlides.push(
-        <Slide key={`s-${expSlides.length}`}>
-          <Heading>Results</Heading>
-          <div
-            className={clsx("alert", {
-              "alert-success": result === "won",
-              "alert-danger": result === "lost",
-              "alert-info": !result || result === "inconclusive",
-              "alert-warning": result === "dnf",
-            })}
-          >
-            <strong>
-              {result === "won" &&
-                `${
-                  e.experiment.winner > 0
-                    ? e.experiment.variations[e.experiment.winner]?.name
-                    : "A variation"
-                } beat the control and won!`}
-              {result === "lost" &&
-                `The ${variationsPlural} did not beat the control.`}
-              {result === "dnf" &&
-                `The experiment was stopped early and did not finish.`}
-              {result === "inconclusive" && `The results were inconclusive.`}
-              {!result &&
-                `The experiment was stopped, but a winner has not been selected yet.`}
-            </strong>
-            {e.experiment.analysis && (
-              <div className="card text-dark mt-2">
-                <div className="card-body">
-                  <Markdown className="card-text">
-                    {e.experiment.analysis}
-                  </Markdown>
+      if (result)
+        expSlides.push(
+          <Slide key={`s-${expSlides.length}`}>
+            <Heading>Results</Heading>
+            <div
+              className={clsx("alert", {
+                "alert-success": result === "won",
+                "alert-danger": result === "lost",
+                "alert-info": !result || result === "inconclusive",
+                "alert-warning": result === "dnf",
+              })}
+            >
+              <strong>{resultsText}</strong>
+              {e.experiment.analysis && (
+                <div className="card text-dark mt-2">
+                  <div className="card-body">
+                    <Markdown className="card-text">
+                      {e.experiment.analysis}
+                    </Markdown>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              overflowY: "auto",
-              background: "#fff",
-              maxHeight: "100%",
-              padding: "0 0",
-              color: "#444",
-              fontSize: "95%",
-            }}
-          >
-            <CompactResults snapshot={e.snapshot} experiment={e.experiment} />
-          </div>
-        </Slide>
-      );
+              )}
+            </div>
+            <div
+              style={{
+                overflowY: "auto",
+                background: "#fff",
+                maxHeight: "100%",
+                padding: "0 0",
+                color: "#444",
+                fontSize: "95%",
+              }}
+            >
+              <CompactResults snapshot={e.snapshot} experiment={e.experiment} />
+            </div>
+          </Slide>
+        );
     }
   });
 
@@ -241,6 +251,21 @@ const Presentation = ({
         currentTheme.colors.secondary = customTheme.textColor;
       }
     }
+  }
+
+  if (preview) {
+    currentTheme.backdropStyle = {
+      backgroundColor: "#ffffff",
+      width: "100vw",
+      height: "100vh",
+      transformOrigin: "top left",
+      transform: "scale(0.45)",
+    };
+    currentTheme.size = {
+      width: "100%",
+      height: "100%",
+      maxCodePaneHeight: 200,
+    };
   }
 
   return (

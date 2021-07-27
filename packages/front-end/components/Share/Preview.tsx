@@ -1,7 +1,6 @@
-import React from "react";
+import React, { FC } from "react";
 import dynamic from "next/dynamic";
 import useApi from "../../hooks/useApi";
-import { useRouter } from "next/router";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
@@ -16,23 +15,14 @@ const DynamicPresentation = dynamic(
   }
 );
 
-const PresentPage = (): React.ReactElement => {
-  const router = useRouter();
-  const {
-    expIds,
-    theme,
-    title,
-    desc,
-    backgroundcolor,
-    textcolor,
-  } = router.query as {
-    expIds: string;
-    theme: string;
-    title: string;
-    desc: string;
-    backgroundcolor: string;
-    textcolor: string;
-  };
+const Preview: FC<{
+  expIds: string;
+  theme: string;
+  title: string;
+  desc: string;
+  backgroundcolor: string;
+  textcolor: string;
+}> = ({ expIds, theme, title, desc, backgroundcolor, textcolor }) => {
   const { data: pdata, error } = useApi<{
     status: number;
     presentation: PresentationInterface;
@@ -56,18 +46,17 @@ const PresentPage = (): React.ReactElement => {
   }
 
   return (
-    <>
-      <DynamicPresentation
-        experiments={pdata.experiments}
-        theme={theme}
-        title={title}
-        desc={desc}
-        customTheme={{
-          backgroundColor: "#" + backgroundcolor,
-          textColor: "#" + textcolor,
-        }}
-      />
-    </>
+    <DynamicPresentation
+      experiments={pdata.experiments}
+      theme={theme}
+      preview={true}
+      title={title}
+      desc={desc}
+      customTheme={{
+        backgroundColor: "#" + backgroundcolor,
+        textColor: "#" + textcolor,
+      }}
+    />
   );
 };
-export default PresentPage;
+export default Preview;
