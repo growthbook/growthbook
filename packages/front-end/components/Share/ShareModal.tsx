@@ -556,27 +556,6 @@ const ShareModal = ({
     }
   }
 
-  let previewUrl =
-    "preview?expIds=" +
-    value.slides
-      .map((o) => {
-        return o.id;
-      })
-      .join(",") +
-    "&title=" +
-    encodeURIComponent(value.title) +
-    "&desc=" +
-    encodeURIComponent(value.description) +
-    "&theme=" +
-    value.theme;
-  if (value.theme === "custom") {
-    previewUrl +=
-      "&backgroundcolor=" +
-      value.customTheme.backgroundColor.replace("#", "") +
-      "&textcolor=" +
-      value.customTheme.textColor.replace("#", "");
-  }
-
   if (!modalState) {
     return null;
   }
