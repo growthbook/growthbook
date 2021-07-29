@@ -1,9 +1,11 @@
 import { FC, useState, useRef, useEffect } from "react";
 
-const CopyToClipboard: FC<{ text: string; label?: string }> = ({
-  text,
-  label,
-}) => {
+const CopyToClipboard: FC<{
+  text: string;
+  label?: string;
+  action?: string;
+  className?: string;
+}> = ({ text, label, action = "Copy to Clipboard", className }) => {
   const [supported, setSupported] = useState(false);
   const [success, setSuccess] = useState(false);
   const ref = useRef(null);
@@ -28,7 +30,7 @@ const CopyToClipboard: FC<{ text: string; label?: string }> = ({
   }, [success]);
 
   return (
-    <div className="input-group">
+    <div className={`input-group ${className}`}>
       <span className="mr-2" style={{ alignSelf: "center" }}>
         {label}
       </span>
@@ -69,7 +71,7 @@ const CopyToClipboard: FC<{ text: string; label?: string }> = ({
                 setSuccess(true);
               }}
             >
-              Copy to Clipboard
+              {action}
             </button>
           </>
         )}

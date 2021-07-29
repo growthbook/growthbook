@@ -345,6 +345,7 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
+app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
@@ -444,6 +445,7 @@ app.delete("/webhook/:id", organizationsController.deleteWebhook);
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
 app.post("/presentation", presentationController.postPresentation);
+app.get("/presentation/preview", presentationController.getPresentationPreview);
 app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);

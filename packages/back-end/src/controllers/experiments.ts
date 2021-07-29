@@ -24,6 +24,7 @@ import {
   MetricStats,
 } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
+import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import {
   getDataSourceById,
   getSourceIntegrationObject,
@@ -165,7 +166,7 @@ export async function getExperiment(req: AuthRequest, res: Response) {
 async function _getSnapshot(
   organization: string,
   id: string,
-  phase: string,
+  phase?: string,
   dimension?: string,
   withResults: boolean = true
 ) {
@@ -177,6 +178,11 @@ async function _getSnapshot(
 
   if (experiment.organization !== organization) {
     throw new Error("You do not have access to view this experiment");
+  }
+
+  if (!phase) {
+    // get the latest phase:
+    phase = String(experiment.phases.length - 1);
   }
 
   return await getLatestSnapshot(
@@ -234,6 +240,31 @@ export async function getSnapshot(req: AuthRequest, res: Response) {
     snapshot,
     latest,
   });
+}
+
+export async function getSnapshots(req: AuthRequest, res: Response) {
+  const idsString = (req.query?.ids as string) || "";
+  if (!idsString.length) {
+    res.status(200).json({
+      status: 200,
+      snapshots: [],
+    });
+    return;
+  }
+
+  const ids = idsString.split(",");
+
+  let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
+  snapshotsPromises = ids.map(async (i) => {
+    return await _getSnapshot(req.organization.id, i);
+  });
+  const snapshots = await Promise.all(snapshotsPromises);
+
+  res.status(200).json({
+    status: 200,
+    snapshots,
+  });
+  return;
 }
 
 /**

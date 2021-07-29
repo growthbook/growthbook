@@ -9,6 +9,8 @@ type Props = {
   cta?: string;
   closeCta?: string;
   size?: "md" | "lg" | "max";
+  navStyle?: "pills" | "underlined" | "tabs";
+  navFill?: boolean;
   inline?: boolean;
   close: () => void;
   submit: () => Promise<void>;
@@ -18,7 +20,16 @@ type Props = {
 };
 
 const PagedModal: FC<Props> = (props) => {
-  const { step, setStep, children, submit, cta, ...passThrough } = props;
+  const {
+    step,
+    setStep,
+    children,
+    submit,
+    navStyle,
+    navFill,
+    cta,
+    ...passThrough
+  } = props;
 
   const [error, setError] = useState("");
 
@@ -56,6 +67,11 @@ const PagedModal: FC<Props> = (props) => {
     }
   }
 
+  const navStyleClass = navStyle ? "nav-" + navStyle : "nav-pills";
+
+  const navFillClass =
+    typeof navFill === "undefined" ? "nav-fill" : navFill ? "nav-fill" : "";
+
   return (
     <Modal
       open={true}
@@ -73,7 +89,9 @@ const PagedModal: FC<Props> = (props) => {
       autoCloseOnSubmit={false}
       cta={!nextStep ? cta : "Next"}
     >
-      <nav className="nav nav-pills nav-fill mb-4 justify-content-start">
+      <nav
+        className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass}`}
+      >
         {steps.map(({ display, enabled }, i) => (
           <a
             key={i}

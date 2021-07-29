@@ -19,6 +19,7 @@ import { createLearning } from "../services/learnings";
 import { createPresentation } from "../services/presentations";
 import { DataSourceModel } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
+import { PresentationSlide } from "../../types/presentation";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -409,12 +410,15 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   });
 
   // Example presentation
+  const exp: PresentationSlide = {
+    id: evidence[0],
+    type: "experiment",
+  };
   await createPresentation({
-    title: "A/B Test Review",
-    experimentIds: evidence,
+    title: "Example A/B Test Review",
+    slides: [exp],
     organization: org.id,
     description: "",
-    options: {},
   });
 
   res.json({

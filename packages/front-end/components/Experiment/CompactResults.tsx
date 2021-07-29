@@ -455,7 +455,7 @@ const CompactResults: FC<{
                     );
                   }
                   return (
-                    <>
+                    <Fragment key={i}>
                       <td
                         className={clsx("value align-middle", {
                           variation: i > 0,
@@ -526,7 +526,7 @@ const CompactResults: FC<{
                           </div>
                         </td>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tr>

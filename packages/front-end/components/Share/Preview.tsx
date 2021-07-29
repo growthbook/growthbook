@@ -1,11 +1,11 @@
-import React from "react";
+import React, { FC } from "react";
 import dynamic from "next/dynamic";
 import useApi from "../../hooks/useApi";
-import { useRouter } from "next/router";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
 import useSwitchOrg from "../../services/useSwitchOrg";
+//import { LearningInterface } from "back-end/types/insight";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 const DynamicPresentation = dynamic(
   () => import("../../components/Share/Presentation"),
@@ -15,9 +15,25 @@ const DynamicPresentation = dynamic(
   }
 );
 
-const PresentPage = (): React.ReactElement => {
-  const router = useRouter();
-  const { pid } = router.query;
+const Preview: FC<{
+  expIds: string;
+  theme: string;
+  title: string;
+  desc: string;
+  backgroundColor: string;
+  textColor: string;
+  headingFont?: string;
+  bodyFont?: string;
+}> = ({
+  expIds,
+  theme,
+  title,
+  desc,
+  backgroundColor,
+  textColor,
+  headingFont,
+  bodyFont,
+}) => {
   const { data: pdata, error } = useApi<{
     status: number;
     presentation: PresentationInterface;
@@ -25,27 +41,35 @@ const PresentPage = (): React.ReactElement => {
       experiment: ExperimentInterfaceStringDates;
       snapshot?: ExperimentSnapshotInterface;
     }[];
-  }>(`/presentation/${pid}`);
+  }>(`/presentation/preview/?expIds=${expIds}`);
 
   useSwitchOrg(pdata?.presentation?.organization);
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return (
+      <div className="alert alert-danger">
+        Couldn&apos;t find the presentation. Are you sure it still exists?
+      </div>
+    );
   }
   if (!pdata) {
     return <LoadingOverlay />;
   }
-  if (pdata.status !== 200) {
-    return <div>Sorry, presentation not found</div>;
-  }
 
   return (
-    <>
-      <DynamicPresentation
-        presentation={pdata.presentation}
-        experiments={pdata.experiments}
-      />
-    </>
+    <DynamicPresentation
+      experiments={pdata.experiments}
+      theme={theme}
+      preview={true}
+      title={title}
+      desc={desc}
+      customTheme={{
+        backgroundColor: "#" + backgroundColor,
+        textColor: "#" + textColor,
+        headingFont: headingFont,
+        bodyFont: bodyFont,
+      }}
+    />
   );
 };
-export default PresentPage;
+export default Preview;

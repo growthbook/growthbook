@@ -1,18 +1,19 @@
-import React from "react";
+import React, { useContext } from "react";
 import useApi from "../hooks/useApi";
 import Link from "next/link";
 import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { LearningInterface } from "back-end/types/insight";
 import { PresentationInterface } from "back-end/types/presentation";
-import NewPresentation from "../components/NewPresentation/NewPresentation";
+import ShareModal from "../components/Share/ShareModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { useAuth } from "../services/auth";
-import EditPresentation from "../components/EditPresentation/EditPresentation";
 import { date } from "../services/dates";
 import { FaPlus } from "react-icons/fa";
+import Modal from "../components/Modal";
+import { UserContext } from "../components/ProtectedPage";
+import CopyToClipboard from "../components/CopyToClipboard";
 
-const SharePage = (): React.ReactElement => {
+const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
     false
   );
@@ -23,20 +24,27 @@ const SharePage = (): React.ReactElement => {
   const [openEditPresentationModal, setOpenEditPresentationModal] = useState(
     false
   );
+  const [sharableLinkModal, setSharableLinkModal] = useState(false);
+  const [sharableLink, setSharableLink] = useState("");
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<boolean>(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { getUserDisplay } = useContext(UserContext);
   const { apiCall } = useAuth();
 
   const { data: p, error: error, mutate } = useApi<{
     presentations: PresentationInterface[];
-    learnings: LearningInterface[];
+    //learnings: LearningInterface[];
     numExperiments: number;
   }>("/presentations");
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred fetching the lists of shares.
+      </div>
+    );
   }
   if (!p) {
     return <LoadingOverlay />;
@@ -63,9 +71,10 @@ const SharePage = (): React.ReactElement => {
             setOpenNewPresentationModal(true);
           }}
         >
-          <FaPlus /> Add your first Presentation
+          <FaPlus /> Add your first presentation
         </button>
-        <NewPresentation
+        <ShareModal
+          title="New Presentation"
           modalState={openNewPresentationModal}
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
@@ -98,7 +107,6 @@ const SharePage = (): React.ReactElement => {
       if (res.status === 200) {
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
-
         mutate();
       } else {
         console.error(res);
@@ -128,24 +136,30 @@ const SharePage = (): React.ReactElement => {
       presList.push(
         <div className="card mt-2" key={`pres-exp-${i}`}>
           <div className="card-body">
-            <div key={i} className="row">
-              <div className="col">
+            <div key={i} className="row d-flex">
+              <div className="col flex-grow-1">
                 <h4 className="mb-0">{pres.title}</h4>
-                <div className="subtitle text-muted text-sm">
-                  <small>{date(pres.dateCreated)}</small>
-                </div>
                 <p className="mt-1 mb-0">{pres.description}</p>
               </div>
-              <div className="col col-4">
-                Experiments: {pres.experimentIds.length}
-                <p className="mt-1 mb-0">
+              <div className="px-4">
+                Experiments: {pres?.slides.length || "?"}
+                <div className="subtitle text-muted text-sm">
+                  <small>
+                    <p className="mb-0">
+                      Created by: {getUserDisplay(pres?.userId)}
+                    </p>
+                    <p className="mb-0">on: {date(pres.dateCreated)}</p>
+                  </small>
+                </div>
+                {/* <p className="mt-1 mb-0">
                   Insights:{" "}
                   {p.learnings[pres.id] ? p.learnings[pres.id].length : 0}
-                </p>
+                </p> */}
               </div>
-              <div className="col col-3">
+              <div className="">
                 <div
                   className="delete delete-right"
+                  style={{ lineHeight: "36px" }}
                   onClick={() => {
                     deleteConfirm(pres.id);
                   }}
@@ -162,6 +176,7 @@ const SharePage = (): React.ReactElement => {
                 </div>
                 <div
                   className="edit edit-right"
+                  style={{ lineHeight: "36px" }}
                   onClick={() => {
                     setSpecificPresentation(pres);
                     setOpenEditPresentationModal(true);
@@ -179,7 +194,7 @@ const SharePage = (): React.ReactElement => {
                 </div>
                 <Link href="/present/[pid]" as={`/present/${pres.id}`}>
                   <a
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-primary mr-3"
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -187,14 +202,36 @@ const SharePage = (): React.ReactElement => {
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="#fff"
-                      height="24"
+                      height="22"
                       viewBox="0 0 24 24"
-                      width="24"
+                      width="22"
                     >
                       <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" />
                     </svg>
                   </a>
                 </Link>
+                <Link
+                  href={`/present/[pid]?exportMode=true&printMode=true`}
+                  as={`/present/${pres.id}?exportMode=true&printMode=true`}
+                >
+                  <a
+                    className="btn btn-outline-primary mr-3"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Print view
+                  </a>
+                </Link>
+                <a
+                  className="btn btn-outline-primary mr-3"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSharableLink(`/present/${pres.id}`);
+                    setSharableLinkModal(true);
+                  }}
+                >
+                  Get link
+                </a>
               </div>
             </div>
           </div>
@@ -218,16 +255,18 @@ const SharePage = (): React.ReactElement => {
           </button>
         </div>
       </div>
-      <NewPresentation
+      <ShareModal
+        title="New Presentation"
         modalState={openNewPresentationModal}
         setModalState={setOpenNewPresentationModal}
         refreshList={mutate}
       />
-      <EditPresentation
+      <ShareModal
+        title="Edit Presentation"
         modalState={openEditPresentationModal}
         setModalState={setOpenEditPresentationModal}
-        presentation={specificPresentation}
-        onSuccess={mutate}
+        existing={specificPresentation}
+        refreshList={mutate}
       />
       <ConfirmModal
         title="Are you sure you want to delete this presentation?"
@@ -240,8 +279,36 @@ const SharePage = (): React.ReactElement => {
           confirmDelete();
         }}
       />
+      {sharableLinkModal && (
+        <Modal
+          open={true}
+          header={"Sharable link"}
+          close={() => setSharableLinkModal(false)}
+          size="md"
+        >
+          <div className="text-center">
+            <div className="text-center mb-2">
+              <CopyToClipboard
+                text={`${window.location.origin}${sharableLink}?exportMode=true`}
+                label="Non-slide version"
+                className="justify-content-center"
+              />
+            </div>
+            <div className="text-center mb-2">
+              <CopyToClipboard
+                text={`${window.location.origin}${sharableLink}`}
+                label="Full presentation"
+                className="justify-content-center"
+              />
+            </div>
+            <small className="text-muted text-center">
+              (Users will need an account on your organizaiton to view)
+            </small>
+          </div>
+        </Modal>
+      )}
       {deleteError}
     </>
   );
 };
-export default SharePage;
+export default PresentationPage;

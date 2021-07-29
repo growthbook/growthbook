@@ -42,13 +42,13 @@ const navlinks: SidebarLinkProps[] = [
     icon: "learnings.svg",
     path: /^insight/,
   },
+  */
   {
     name: "Presentations",
-    href: "/share",
+    href: "/presentations",
     icon: "present.svg",
-    path: /^share/,
+    path: /^presentations/,
   },
-  */
   {
     name: "Definitions",
     href: "/metrics",
@@ -169,8 +169,8 @@ const Layout = (): React.ReactElement => {
   // hacky:
   const router = useRouter();
   const path = router.route.substr(1);
-
-  if (path.match(/^present/)) {
+  // don't show the nav for presentations
+  if (path.match(/^present\//)) {
     return null;
   }
 
