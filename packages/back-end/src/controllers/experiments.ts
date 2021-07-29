@@ -167,6 +167,7 @@ async function _getSnapshot(
   organization: string,
   id: string,
   phase?: string,
+  dimension?: string,
   withResults: boolean = true
 ) {
   const experiment = await getExperimentById(id);
