@@ -47,6 +47,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   midBlue: {
@@ -64,6 +65,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   dblue: {
@@ -81,6 +83,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   red: {
@@ -98,6 +101,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   purple: {
@@ -115,6 +119,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   green: {
@@ -132,6 +137,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
   custom: {
@@ -147,6 +153,7 @@ export const presentationThemes = {
       h2: "30px",
       header: "64px",
       paragraph: "28px",
+      text: "28px",
     },
   },
 };
@@ -185,6 +192,8 @@ const ShareModal = ({
       customTheme: existing?.customTheme || {
         backgroundColor: "#3400a3",
         textColor: "#ffffff",
+        headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+        bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
       },
       slides: existing?.slides || [],
       sharable: existing?.sharable || true,
@@ -560,6 +569,21 @@ const ShareModal = ({
     return null;
   }
 
+  const fontOptions = (
+    <>
+      <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>
+        Helvetica Neue
+      </option>
+      <option value="Arial">Arial</option>
+      <option value="Impact">Impact</option>
+      <option value='"Times New Roman", serif'>Times New Roman</option>
+      <option value="American Typewriter">American Typewriter</option>
+      <option value="Courier, Monospace">Courier</option>
+      <option value='"Comic Sans MS", "Comic Sans"'>Comic Sans</option>
+      <option value="Cursive">Cursive</option>
+    </>
+  );
+
   return (
     <PagedModal
       header={title}
@@ -575,7 +599,7 @@ const ShareModal = ({
     >
       <Page display="Select Experiments">
         <div className="row new-share">
-          <div className="col-sm-12 col-md-4">
+          <div className="col-sm-12 col-md-4 mb-5">
             <h4>Selected experiments to share</h4>
             <div className="selected-area h-100">
               <DragDropContext onDragEnd={onDragEnd}>
@@ -592,7 +616,7 @@ const ShareModal = ({
                         })
                       ) : (
                         <span className="text-muted">
-                          Choose from experiments on the right
+                          Choose experiments from the list
                         </span>
                       )}
                       {provided.placeholder}
@@ -647,7 +671,7 @@ const ShareModal = ({
         </Page> */}
       <Page display="Presentation Options">
         <div className="row new-share">
-          <div className="col-sm-12 col-md-6" style={{ minHeight: "350px" }}>
+          <div className="col-sm-12 col-md-6">
             <div className="form-group row">
               <label
                 htmlFor="inputtitle"
@@ -727,42 +751,85 @@ const ShareModal = ({
               </div>
             </div>
             {value.theme === "custom" && (
-              <div className="form-group row">
-                <div className="col text-center">
-                  <label htmlFor="custombackground" className="text-center">
-                    Background color
+              <>
+                <div className="form-group row">
+                  <label className="col-sm-4 col-form-label text-right">
+                    Heading font
                   </label>
-                  <HexColorPicker
-                    onChange={(c) => {
-                      const tmp = { ...value };
-                      tmp.customTheme["backgroundColor"] = c;
-                      manualUpdate(tmp);
-                    }}
-                    style={{ margin: "0 auto" }}
-                    color={value.customTheme?.backgroundColor || ""}
-                    id="custombackground"
-                  />
+                  <div className="col-sm-12 col-md-8">
+                    <select
+                      className="form-control"
+                      value={value.customTheme?.headingFont}
+                      onChange={(e) => {
+                        const tmp = { ...value };
+                        tmp.customTheme["headingFont"] = e.target.value;
+                        manualUpdate(tmp);
+                      }}
+                    >
+                      {fontOptions}
+                    </select>
+                  </div>
                 </div>
-                <div className="col text-center">
-                  <label htmlFor="custombackground" className="text-center">
-                    Text color
+                <div className="form-group row">
+                  <label className="col-sm-4 col-form-label text-right">
+                    Body font
                   </label>
-                  <HexColorPicker
-                    onChange={(c) => {
-                      const tmp = { ...value };
-                      tmp.customTheme["textColor"] = c;
-                      manualUpdate(tmp);
-                    }}
-                    style={{ margin: "0 auto" }}
-                    color={value.customTheme?.textColor || ""}
-                    id="customtextcolor"
-                  />
+                  <div className="col-sm-12 col-md-8">
+                    <select
+                      className="form-control"
+                      value={value.customTheme?.bodyFont}
+                      onChange={(e) => {
+                        const tmp = { ...value };
+                        tmp.customTheme["bodyFont"] = e.target.value;
+                        manualUpdate(tmp);
+                      }}
+                    >
+                      {fontOptions}
+                    </select>
+                  </div>
                 </div>
-              </div>
+                <div className="form-group row">
+                  <div className="col text-center">
+                    <label htmlFor="custombackground" className="text-center">
+                      Background color
+                    </label>
+                    <HexColorPicker
+                      onChange={(c) => {
+                        const tmp = { ...value };
+                        tmp.customTheme["backgroundColor"] = c;
+                        manualUpdate(tmp);
+                      }}
+                      style={{ margin: "0 auto" }}
+                      color={value.customTheme?.backgroundColor || ""}
+                      id="custombackground"
+                    />
+                  </div>
+                  <div className="col text-center">
+                    <label htmlFor="custombackground" className="text-center">
+                      Text color
+                    </label>
+                    <HexColorPicker
+                      onChange={(c) => {
+                        const tmp = { ...value };
+                        tmp.customTheme["textColor"] = c;
+                        manualUpdate(tmp);
+                      }}
+                      style={{ margin: "0 auto" }}
+                      color={value.customTheme?.textColor || ""}
+                      id="customtextcolor"
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
-          <div className="col-sm-12 col-md-6">
-            <h4>Preview</h4>
+          <div className="col-sm-12 col-md-6" style={{ minHeight: "350px" }}>
+            <h4>
+              Preview{" "}
+              <small className="text-muted">
+                (use the arrow keys to change pages)
+              </small>
+            </h4>
             <div style={{ position: "absolute", left: "49%", top: "52%" }}>
               <LoadingSpinner />
             </div>
@@ -783,11 +850,13 @@ const ShareModal = ({
                 title={value.title}
                 desc={value.description}
                 theme={value.theme}
-                backgroundcolor={value.customTheme.backgroundColor.replace(
+                backgroundColor={value.customTheme.backgroundColor.replace(
                   "#",
                   ""
                 )}
-                textcolor={value.customTheme.textColor.replace("#", "")}
+                textColor={value.customTheme.textColor.replace("#", "")}
+                headingFont={value.customTheme.headingFont}
+                bodyFont={value.customTheme.bodyFont}
               />
             </div>
           </div>

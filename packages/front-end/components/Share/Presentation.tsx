@@ -8,6 +8,7 @@ import {
   Progress,
   FullScreen,
   Appear,
+  Text,
 } from "spectacle";
 import { PresentationInterface } from "back-end/types/presentation";
 import {
@@ -28,6 +29,8 @@ type props = {
   customTheme?: {
     backgroundColor: string;
     textColor: string;
+    headingFont?: string;
+    bodyFont?: string;
   };
   experiments: {
     experiment: ExperimentInterfaceStringDates;
@@ -93,9 +96,9 @@ const Presentation = ({
           // if this is a two sided test, mark the winner:
           variationExtra[e.experiment.winner] = (
             <Appear>
-              <div className="result variation-result result-winner">
+              <Text className="result variation-result result-winner text-center p-2 m-0">
                 Winner!
-              </div>
+              </Text>
             </Appear>
           );
           resultsText =
@@ -107,19 +110,17 @@ const Presentation = ({
           if (e.experiment.variations.length === 2) {
             variationExtra[1] = (
               <Appear>
-                <div className="result variation-result result-lost">Lost!</div>
+                <Text className="result variation-result result-lost text-center p-2 m-0">
+                  Lost!
+                </Text>
               </Appear>
             );
           } else {
             variationExtra[0] = (
               <Appear>
-                {() => {
-                  return (
-                    <div className="result variation-result result-winner">
-                      Winner!
-                    </div>
-                  );
-                }}
+                <Text className="result variation-result result-winner text-center p-2 m-0">
+                  Winner!
+                </Text>
               </Appear>
             );
           }
@@ -133,9 +134,9 @@ const Presentation = ({
         } else if (e.experiment.results === "inconclusive") {
           sideExtra = (
             <Appear>
-              <div className="result result-inconclusive text-center">
+              <Text className="result result-inconclusive text-center m-0 p-3">
                 Inconclusive
-              </div>
+              </Text>
             </Appear>
           );
           resultsText = `The results were inconclusive`;
@@ -146,14 +147,15 @@ const Presentation = ({
     expSlides.push(
       <Slide key={expSlides.length}>
         <div className="container-fluid">
-          <Heading className="m-0 pb-4">{e.experiment.name}</Heading>
-          <h4 className="text-center mb-4 p-2" style={{ marginTop: -30 }}>
+          <Heading className="m-0 pb-0">{e.experiment.name}</Heading>
+          <Text className="text-center m-0 mb-4 p-2" fontSize={21}>
             {e.experiment.hypothesis}
-          </h4>
+          </Text>
           <div className="row variations">
             {e.experiment.variations.map((v: Variation, j: number) => (
-              <div
-                className={`col col-${
+              <Text
+                fontSize={20}
+                className={`col m-0 p-0 col-${
                   12 / e.experiment.variations.length
                 } presentationcol text-center`}
                 key={`v-${j}`}
@@ -164,7 +166,7 @@ const Presentation = ({
                   src={v.screenshots[0] && v.screenshots[0].path}
                 />
                 {variationExtra[j]}
-              </div>
+              </Text>
             ))}
           </div>
           {sideExtra}
@@ -179,7 +181,7 @@ const Presentation = ({
       if (result)
         expSlides.push(
           <Slide key={`s-${expSlides.length}`}>
-            <Heading>Results</Heading>
+            <Heading className="m-0 p-0">Results</Heading>
             <div
               className={clsx("alert", {
                 "alert-success": result === "won",
@@ -241,8 +243,15 @@ const Presentation = ({
       currentTheme.colors.tertiary = presentation.customTheme.backgroundColor;
       currentTheme.colors.primary = presentation.customTheme.textColor;
       currentTheme.colors.secondary = presentation.customTheme.textColor;
+      if (!("fonts" in currentTheme))
+        currentTheme.fonts = { header: "", text: "" };
+      currentTheme.fonts.header = presentation.customTheme.headingFont;
+      currentTheme.fonts.text = presentation.customTheme.bodyFont;
     } else {
       // the custom theme is set by a preview:
+      if (!("fonts" in currentTheme))
+        currentTheme.fonts = { header: "", text: "" };
+
       if (customTheme?.backgroundColor) {
         currentTheme.colors.tertiary = customTheme.backgroundColor;
       }
@@ -250,16 +259,20 @@ const Presentation = ({
         currentTheme.colors.primary = customTheme.textColor;
         currentTheme.colors.secondary = customTheme.textColor;
       }
+      if (customTheme?.bodyFont) {
+        currentTheme.fonts.text = customTheme.bodyFont;
+      }
+      if (customTheme?.headingFont) {
+        currentTheme.fonts.header = customTheme.headingFont;
+      }
     }
   }
 
   if (preview) {
+    // we have to tweak a few things to make it work in a div
+    currentTheme.Backdrop = "div";
     currentTheme.backdropStyle = {
       backgroundColor: "#ffffff",
-      width: "100vw",
-      height: "100vh",
-      transformOrigin: "top left",
-      transform: "scale(0.45)",
     };
     currentTheme.size = {
       width: "100%",
@@ -267,9 +280,8 @@ const Presentation = ({
       maxCodePaneHeight: 200,
     };
   }
-
   return (
-    <>
+    <div className={`presentation ${preview ? "presentation-preview" : ""}`}>
       <Deck theme={currentTheme} template={template}>
         <Slide>
           <FlexBox height="100%" className="flexwrap">
@@ -280,9 +292,13 @@ const Presentation = ({
                 ? title
                 : "A/B Tests Review"}
               {presentation?.description ? (
-                <h3 className="subtitle">{presentation.description}</h3>
+                <Text className="subtitle" fontSize={20}>
+                  {presentation.description}
+                </Text>
               ) : desc ? (
-                <h3 className="subtitle">{desc}</h3>
+                <Text className="subtitle" fontSize={20}>
+                  {desc}
+                </Text>
               ) : (
                 ""
               )}
@@ -296,7 +312,7 @@ const Presentation = ({
           </FlexBox>
         </Slide>
       </Deck>
-    </>
+    </div>
   );
 };
 

@@ -34,6 +34,8 @@ const presentationSchema = new mongoose.Schema({
   customTheme: {
     backgroundColor: String,
     textColor: String,
+    headingFont: String,
+    bodyFont: String,
   },
   sharable: Boolean,
   voting: Boolean,

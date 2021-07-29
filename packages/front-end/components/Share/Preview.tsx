@@ -20,9 +20,20 @@ const Preview: FC<{
   theme: string;
   title: string;
   desc: string;
-  backgroundcolor: string;
-  textcolor: string;
-}> = ({ expIds, theme, title, desc, backgroundcolor, textcolor }) => {
+  backgroundColor: string;
+  textColor: string;
+  headingFont?: string;
+  bodyFont?: string;
+}> = ({
+  expIds,
+  theme,
+  title,
+  desc,
+  backgroundColor,
+  textColor,
+  headingFont,
+  bodyFont,
+}) => {
   const { data: pdata, error } = useApi<{
     status: number;
     presentation: PresentationInterface;
@@ -53,8 +64,10 @@ const Preview: FC<{
       title={title}
       desc={desc}
       customTheme={{
-        backgroundColor: "#" + backgroundcolor,
-        textColor: "#" + textcolor,
+        backgroundColor: "#" + backgroundColor,
+        textColor: "#" + textColor,
+        headingFont: headingFont,
+        bodyFont: bodyFont,
       }}
     />
   );

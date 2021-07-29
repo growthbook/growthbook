@@ -27,6 +27,8 @@ export interface PresentationInterface {
   customTheme?: {
     backgroundColor: string;
     textColor: string;
+    headingFont: string;
+    bodyFont: string;
   };
   sharable?: boolean;
   voting?: boolean;
