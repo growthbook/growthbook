@@ -14,9 +14,10 @@ git clone https://github.com/growthbook/growthbook.git
 cd growthbook
 docker-compose up -d
 ```
+
 Then visit http://localhost:3000
 
-[![Grwoth Book Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
+[![Growth Book Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
 
 ## Our Philosophy
 
@@ -27,7 +28,7 @@ Growth Book gives you the flexibility and power of a fully-featured in-house A/B
 
 ## Major Features
 
-- ❄️ Pull data from Snowflake, Redshift, BigQuery, ClickHouse, Mixpanel, Postgres, Athena, or Google Analytics
+- ❄️ Pull data from Snowflake, Redshift, BigQuery, Mixpanel, Google Analytics, [and more](https://docs.growthbook.io/app/datasources)
 - 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
 - 💻 Client libraries for [React](https://github.com/growthbook/growthbook-react), [Javascript](https://github.com/growthbook/growthbook-js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
@@ -44,8 +45,6 @@ Create a free [Growth Book Cloud](https://app.growthbook.io) account to get star
 
 ### Open Source
 
-Growth Book is built with React, NodeJS, and Python, bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
-
 The included [docker-compose.yml](https://github.com/growthbook/growthbook/blob/main/docker-compose.yml) file contains the Growth Book App and a MongoDB instance (for storing cached experiment results and metadata):
 
 ```sh
@@ -56,7 +55,7 @@ docker-compose up -d
 
 Then visit http://localhost:3000 to view the app.
 
-Check out the full [installation and configuration instructions](https://docs.growthbook.io/app) for more details.
+Check out the full [Self-Hosting Instructions](https://docs.growthbook.io/self-host) for more details.
 
 ## Documentation and Support
 
@@ -70,7 +69,7 @@ We're here to help - and to make Growth Book even better!
 
 ## Contributors
 
-We ❤️ all contributions!
+We ❤️ all contributions, big and small!
 
 Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
 

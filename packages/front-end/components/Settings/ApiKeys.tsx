@@ -26,7 +26,7 @@ const ApiKeys: FC = () => {
         API keys can be used with our Client Libraries (Javascript, React, PHP,
         Ruby, or Python) or the Visual Editor.{" "}
         <a
-          href="https://docs.growthbook.io/api-docs"
+          href="https://docs.growthbook.io/app/api"
           target="_blank"
           rel="noreferrer"
         >

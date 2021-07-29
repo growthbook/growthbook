@@ -4,7 +4,9 @@ import clsx from "clsx";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
-}> = ({ queries }) => {
+  display?: string;
+  color?: string;
+}> = ({ queries, display = "View Queries", color = "link" }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -13,7 +15,7 @@ const ViewAsyncQueriesButton: FC<{
         <AsyncQueriesModal close={() => setOpen(false)} queries={queries} />
       )}
       <button
-        className={clsx("btn btn-link", {
+        className={clsx("btn", `btn-${color}`, {
           disabled: queries.length === 0,
         })}
         onClick={(e) => {
@@ -22,7 +24,7 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(true);
         }}
       >
-        View Queries {queries.length > 0 ? `(${queries.length})` : ""}
+        {display} {queries.length > 0 ? `(${queries.length})` : ""}
       </button>
     </>
   );

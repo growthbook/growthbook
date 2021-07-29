@@ -33,7 +33,6 @@ export async function addTagsDiff(
   oldTags: string[],
   newTags: string[]
 ) {
-  if (!oldTags.length) return;
   const diff = newTags.filter((x) => !oldTags.includes(x));
   if (diff.length) {
     console.log(diff);

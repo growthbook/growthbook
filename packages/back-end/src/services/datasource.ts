@@ -5,6 +5,7 @@ import GoogleAnalytics, {
   getOauth2Client,
 } from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
+import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
@@ -71,6 +72,8 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
     obj = new ClickHouse(params, settings);
   } else if (type === "mixpanel") {
     obj = new Mixpanel(params, settings);
+  } else if (type === "presto") {
+    obj = new Presto(params, settings);
   } else {
     throw new Error("Unknown data source type: " + type);
   }

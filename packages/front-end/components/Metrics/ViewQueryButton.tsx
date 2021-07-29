@@ -2,10 +2,11 @@ import { FC, useState } from "react";
 import { QueryLanguage } from "back-end/types/datasource";
 import QueryModal from "../Experiment/QueryModal";
 
-const ViewQueryButton: FC<{ language: QueryLanguage; queries: string[] }> = ({
-  language,
-  queries,
-}) => {
+const ViewQueryButton: FC<{
+  language: QueryLanguage;
+  queries: string[];
+  display?: string;
+}> = ({ language, queries, display = "View Queries" }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -24,7 +25,7 @@ const ViewQueryButton: FC<{ language: QueryLanguage; queries: string[] }> = ({
           setOpen(true);
         }}
       >
-        View Queries ({language})
+        {display} ({language})
       </button>
     </>
   );

@@ -10,5 +10,5 @@
     "outDir": "dist",
     "typeRoots": ["node_modules/@types", "./typings"]
   },
-  "include": ["src/**/*", "types/**/*.d.ts", "typings/jstat/index.d.ts"]
+  "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

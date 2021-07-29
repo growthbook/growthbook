@@ -21,9 +21,25 @@ export interface DimensionResult {
   variations: VariationResult[];
 }
 
-export interface ExperimentResults {
-  query: string;
-  results: DimensionResult[];
+export type ExperimentResults = DimensionResult[];
+
+export interface ExperimentUsersResult {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      users: number;
+    }[];
+  }[];
+}
+export interface ExperimentMetricResult {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      stats: MetricStats;
+    }[];
+  }[];
 }
 
 export interface ImpactEstimationResult {
@@ -32,6 +48,22 @@ export interface ImpactEstimationResult {
   users: number;
   value: number;
 }
+
+export type ExperimentUsersQueryParams = {
+  experiment: ExperimentInterface;
+  phase: ExperimentPhase;
+  activationMetric: MetricInterface | null;
+  dimension: DimensionInterface | null;
+};
+
+export type ExperimentMetricQueryParams = {
+  experiment: ExperimentInterface;
+  phase: ExperimentPhase;
+  metric: MetricInterface;
+  activationMetric: MetricInterface | null;
+  dimension: DimensionInterface | null;
+};
+
 export type UsersQueryParams = {
   name: string;
   userIdType: "anonymous" | "user" | "either";
@@ -103,6 +135,13 @@ export interface SourceIntegrationInterface {
   organization: string;
   // eslint-disable-next-line
   getNonSensitiveParams(): any;
+  getExperimentResultsQuery(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    metrics: MetricInterface[],
+    activationMetric: MetricInterface | null,
+    dimension: DimensionInterface | null
+  ): string;
   getExperimentResults(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -119,8 +158,18 @@ export interface SourceIntegrationInterface {
   ): Promise<ImpactEstimationResult>;
   getUsersQuery(params: UsersQueryParams): string;
   getMetricValueQuery(params: MetricValueParams): string;
+  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string;
+  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   runUsersQuery(query: string): Promise<UsersResult>;
   runMetricValueQuery(query: string): Promise<MetricValueResult>;
+  runExperimentUsersQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentUsersResult>;
+  runExperimentMetricQuery(
+    experiment: ExperimentInterface,
+    query: string
+  ): Promise<ExperimentMetricResult>;
   getPastExperimentQuery(from: Date): string;
   runPastExperimentQuery(query: string): Promise<PastExperimentResult>;
 }

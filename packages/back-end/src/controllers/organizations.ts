@@ -58,7 +58,6 @@ import { uploadFile } from "../services/files";
 import { ExperimentInterface } from "../../types/experiment";
 import { MetricModel } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
-import { format } from "sql-formatter";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
 import { WebhookModel } from "../models/WebhookModel";
@@ -995,15 +994,6 @@ export async function putDataSource(
         "Cannot change the type of an existing data source. Create a new one instead.",
     });
     return;
-  }
-
-  // Format queries on save
-  if (settings?.queries?.experimentsQuery) {
-    settings.queries.experimentsQuery = format(
-      settings.queries.experimentsQuery
-    );
-    settings.queries.usersQuery = format(settings.queries.usersQuery);
-    settings.queries.pageviewsQuery = format(settings.queries.pageviewsQuery);
   }
 
   try {

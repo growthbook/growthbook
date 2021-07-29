@@ -334,7 +334,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://docs.growthbook.io/app"
                         >
-                          View the <strong>Growth Book App</strong> docs
+                          Read our <strong>User Guide</strong>
                         </a>
                       </div>
                     </div>
@@ -348,7 +348,7 @@ const GetStarted = ({
                           rel="noreferrer"
                           href="https://docs.growthbook.io/lib"
                         >
-                          View our <strong>Client Library</strong> docs
+                          View docs for our <strong>Client Libraries</strong>
                         </a>
                       </div>
                     </div>

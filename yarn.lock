@@ -9068,6 +9068,11 @@ prelude-ls@~1.1.2:
   resolved "https://registry.yarnpkg.com/prelude-ls/-/prelude-ls-1.1.2.tgz#21932a549f5e52ffd9a827f570e04be62a97da54"
   integrity sha1-IZMqVJ9eUv/ZqCf1cOBL5iqX2lQ=
 
+presto-client@^0.11.2:
+  version "0.11.2"
+  resolved "https://registry.yarnpkg.com/presto-client/-/presto-client-0.11.2.tgz#da85987bec0df02a5effa8a5961f13c26b2bb630"
+  integrity sha512-iqJhqFu92+8Z8I1DxS3eWYfT6Oc3yAWjMoHuNTGfSnerZXFSn1XKTvm9e+6o1UyK+LDPK86/KBuistc6Q7gGEQ==
+
 prettier-linter-helpers@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/prettier-linter-helpers/-/prettier-linter-helpers-1.0.0.tgz#d23d41fe1375646de2d0104d3454a3008802cf7b"

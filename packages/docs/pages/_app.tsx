@@ -11,6 +11,7 @@ import {
   FaChevronRight,
   FaGithub,
   FaCloud,
+  FaHome,
 } from "react-icons/fa";
 
 type ModAppProps = AppProps & {
@@ -23,8 +24,12 @@ const navLinks = [
     name: "Docs Home",
   },
   {
+    href: "/self-host",
+    name: "Self-Host",
+  },
+  {
     href: "/app",
-    name: "Growth Book App",
+    name: "User Guide",
     links: [
       {
         href: "/app/datasources",
@@ -44,7 +49,7 @@ const navLinks = [
         beta: true,
       },
       {
-        href: "/api-docs",
+        href: "/app/api",
         name: "API",
       },
       {
@@ -214,7 +219,7 @@ function App({
                     }`}
                   >
                     <Link href={link.href}>
-                      <a className="block">{link.name}</a>
+                      <a className="block whitespace-nowrap">{link.name}</a>
                     </Link>
                   </div>
 
@@ -231,7 +236,7 @@ function App({
                           key={j}
                         >
                           <Link href={sublink.href}>
-                            <a className="block">
+                            <a className="block whitespace-nowrap">
                               {sublink.name}
                               {sublink.beta ? (
                                 <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
@@ -255,7 +260,7 @@ function App({
             <div className="flex max-w-3xl">
               <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
                 <a href="https://www.growthbook.io" className="mr-6">
-                  Home
+                  <FaHome className="inline" /> Home
                 </a>
                 <a
                   href="https://github.com/growthbook/growthbook"
@@ -313,6 +318,22 @@ function App({
             </div>
           </nav>
           <main className="p-5 flex-grow overflow-y-auto w-full">
+            {!currentIndex && (
+              <div className="md:hidden flex justify-center border-b border-gray-100 dark:border-gray-700 mb-4 pb-4 text-gray-600 dark:text-gray-400">
+                <a href="https://www.growthbook.io" className="mr-6">
+                  <FaHome className="inline" /> Home
+                </a>
+                <a
+                  href="https://github.com/growthbook/growthbook"
+                  className="mr-6"
+                >
+                  <FaGithub className="inline" /> GitHub
+                </a>
+                <a href="https://app.growthbook.io">
+                  <FaCloud className="inline" /> Try for free
+                </a>
+              </div>
+            )}
             <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl w-full">
               <div className="float-right ml-4 mb-4 hidden lg:block">
                 <a

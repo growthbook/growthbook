@@ -23,6 +23,7 @@ const experimentSchema = new mongoose.Schema({
   hypothesis: String,
   conversionWindowDays: Number,
   metrics: [String],
+  guardrails: [String],
   activationMetric: String,
   sqlOverride: {
     type: Map,

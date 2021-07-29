@@ -3,7 +3,6 @@ import { useAuth } from "../../services/auth";
 import { BsArrowRepeat } from "react-icons/bs";
 import Button from "../Button";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ago } from "../../services/dates";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
@@ -56,15 +55,8 @@ const RefreshSnapshotButton: FC<{
           lastSnapshot={lastSnapshot}
         />
       )}
-      {loading && longResult ? (
+      {loading && longResult && (
         <small className="text-muted mr-3">this may take several minutes</small>
-      ) : (
-        !loading &&
-        lastSnapshot && (
-          <small className="text-muted mr-3">
-            last updated {ago(lastSnapshot.dateCreated)}
-          </small>
-        )
       )}
       <Button
         color="outline-primary"

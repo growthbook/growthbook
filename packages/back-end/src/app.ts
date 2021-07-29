@@ -68,7 +68,12 @@ async function init() {
       await queueInit();
     })();
   }
-  await initPromise;
+  try {
+    await initPromise;
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
 }
 
 if (!process.env.NO_INIT) {
@@ -342,6 +347,8 @@ app.get(
 );
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get("/experiment/:id", experimentsController.getExperiment);
+app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
+app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",

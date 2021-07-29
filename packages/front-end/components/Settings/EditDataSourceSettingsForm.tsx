@@ -171,10 +171,11 @@ const EditDataSourceSettingsForm: FC<{
                 setDatasource({
                   ...datasource,
                   settings: {
-                    variationIdFormat: e.target.value as "index" | "key",
                     ...datasource.settings,
+                    variationIdFormat: e.target.value as "index" | "key",
                   },
                 });
+                setDirty(true);
               }}
               required
               value={datasource.settings?.variationIdFormat || "index"}
@@ -329,10 +330,11 @@ FROM
                     setDatasource({
                       ...datasource,
                       settings: {
-                        variationIdFormat: e.target.value as "index" | "key",
                         ...datasource.settings,
+                        variationIdFormat: e.target.value as "index" | "key",
                       },
                     });
+                    setDirty(true);
                   }}
                   required
                   value={datasource.settings?.variationIdFormat || "index"}

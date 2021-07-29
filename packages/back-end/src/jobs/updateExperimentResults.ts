@@ -7,11 +7,13 @@ import {
   getExperimentWatchers,
   getLatestSnapshot,
   getMetricById,
+  processSnapshotData,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import pino from "pino";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
+import { getStatusEndpoint } from "../services/queries";
 
 // Time between experiment result updates (6 hours)
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
@@ -115,6 +117,35 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1,
       datasource
     );
+
+    await new Promise<void>((resolve, reject) => {
+      const check = async () => {
+        const res = await getStatusEndpoint(
+          currentSnapshot,
+          currentSnapshot.organization,
+          "results",
+          (queryData) =>
+            processSnapshotData(
+              experiment,
+              experiment.phases[experiment.phases.length - 1],
+              queryData
+            )
+        );
+        if (res.queryStatus === "succeeded") {
+          resolve();
+          return;
+        }
+        if (res.queryStatus === "failed") {
+          reject("Queries failed to run");
+          return;
+        }
+        // Check every 10 seconds
+        setTimeout(check, 10000);
+      };
+      // Do the first check after a 2 second delay to quickly handle fast queries
+      setTimeout(check, 2000);
+    });
+
     logger.info("Success");
 
     await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
