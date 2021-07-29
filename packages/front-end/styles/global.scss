@@ -163,7 +163,8 @@ pre {
     opacity: 1;
   }
 }
-.nav-underlined .nav-link.active, .nav-underlined .show > .nav-link {
+.nav-underlined .nav-link.active,
+.nav-underlined .show > .nav-link {
   border-bottom: 2px solid #029dd1;
   font-weight: bold;
 }
@@ -1039,7 +1040,7 @@ li.reports a span img {
     background-color: rgba(27, 103, 235, 0.036);
   }
   .shared-exp-div {
-    border: 1px solid rgb(230,230,230);
+    border: 1px solid rgb(230, 230, 230);
     background-color: #fff;
     &:hover {
       .delete-exp {
@@ -1113,19 +1114,33 @@ li.reports a span img {
     margin: 0;
     font-weight: 400;
   }
-  .variation-result  {
+  .variation-result {
     font-weight: bold;
   }
 }
 .presentation-preview {
   width: 100%;
   height: 350px;
-   > div {
+  > div {
     width: 200%;
     height: 700px;
     transform-origin: top left;
-    transform: scale(0.50);
-   }
+    transform: scale(0.5);
+  }
+}
+
+.custom-scroll {
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: $gray-200;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: $gray-400;
+    border-radius: 10px;
+  }
 }
 
 @media (max-width: 850px) {

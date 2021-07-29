@@ -304,6 +304,10 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", organizationsController.getQueries);
 app.post("/organization/sample-data", organizationsController.postSampleData);
 
+// Kanban Board
+app.get("/board", organizationsController.getBoard);
+app.post("/board", organizationsController.postBoard);
+
 // Learnings
 app.get("/learnings", learningsController.getLearnings);
 app.post("/learnings", learningsController.postLearnings);

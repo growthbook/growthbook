@@ -16,11 +16,16 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
+import Board from "../../components/Plan/Board";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>("/experiments");
+
+  if (Math.random() > 0.00001) {
+    return data ? <Board experiments={data.experiments} /> : <LoadingOverlay />;
+  }
 
   const { ready } = useDefinitions();
 

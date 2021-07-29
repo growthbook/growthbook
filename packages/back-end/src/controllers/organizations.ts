@@ -62,6 +62,8 @@ import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
 import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
+import { BoardInterface } from "../../types/board";
+import { BoardModel } from "../models/BoardModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -1074,6 +1076,82 @@ export async function deleteApiKey(req: AuthRequest, res: Response) {
   const { key }: { key: string } = req.params;
 
   await deleteByOrganizationAndApiKey(req.organization.id, key);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function getBoard(req: AuthRequest, res: Response) {
+  if (!req.organization?.id) {
+    throw new Error("Must add an organization before modifying the board");
+  }
+
+  let board = (await BoardModel.findOne({
+    organization: req.organization.id,
+  })) as BoardInterface;
+
+  if (!board) {
+    board = {
+      organization: req.organization.id as string,
+      columns: [
+        {
+          type: "backlog",
+          display: "Backlog",
+          experiments: [],
+        },
+        {
+          type: "prioritized",
+          display: "Prioritized",
+          experiments: [],
+        },
+        {
+          type: "running",
+          display: "Running",
+          experiments: [],
+        },
+        {
+          type: "stopped",
+          display: "Stopped",
+          experiments: [],
+        },
+        {
+          type: "archived",
+          display: "Archived",
+          experiments: [],
+        },
+      ],
+    };
+  }
+
+  res.status(200).json({
+    status: 200,
+    board,
+  });
+}
+
+export async function postBoard(
+  req: AuthRequest<Partial<BoardInterface>>,
+  res: Response
+) {
+  const { columns } = req.body;
+  if (!req.organization?.id) {
+    throw new Error("Must add an organization before modifying the board");
+  }
+
+  await BoardModel.updateOne(
+    {
+      organization: req.organization.id,
+    },
+    {
+      $set: {
+        columns,
+      },
+    },
+    {
+      upsert: true,
+    }
+  );
 
   res.status(200).json({
     status: 200,
