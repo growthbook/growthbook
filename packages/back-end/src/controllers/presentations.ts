@@ -87,23 +87,27 @@ export async function getPresentation(req: AuthRequest, res: Response) {
 
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
-  const expIdsArr = expIds.split(",");
 
-  if (expIdsArr.length === 0) {
+  if (!expIds) {
     res.status(403).json({
       status: 404,
       message: "No experiments passed",
     });
     return;
   }
+  const expIdsArr = expIds.split(",");
 
   const experiments = await getExperimentsByIds(expIdsArr);
-
+  // getExperimentsByIds returns experiments in any order, we want to put it
+  // back into the order that was requested in the API call.
+  const sortedExps = expIdsArr.map((id) => {
+    return experiments.filter((o) => o.id === id)[0];
+  });
   const withSnapshots: {
     experiment: ExperimentInterface;
     snapshot: ExperimentSnapshotInterface;
   }[] = [];
-  const promises = experiments.map(async (experiment, i) => {
+  const promises = sortedExps.map(async (experiment, i) => {
     // only show experiments that you have permission to view
     if (await userHasAccess(req, experiment.organization)) {
       // get best phase to show:
