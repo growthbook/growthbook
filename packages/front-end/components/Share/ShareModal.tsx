@@ -31,7 +31,6 @@ import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import { date } from "../../services/dates";
 import track from "../../services/track";
-import { values } from "lodash";
 
 export const presentationThemes = {
   lblue: {
