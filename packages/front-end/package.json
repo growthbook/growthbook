@@ -35,6 +35,7 @@
     "react-dom": "^17.0.1",
     "react-dropzone": "^11.3.2",
     "react-icons": "^4.2.0",
+    "react-paginate": "^7.1.3",
     "react-rangeslider": "^2.2.0",
     "react-simple-code-editor": "^0.11.0",
     "react-syntax-highlighter": "^15.4.3",
