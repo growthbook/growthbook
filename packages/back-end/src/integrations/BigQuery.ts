@@ -49,7 +49,9 @@ export default class BigQuery extends SqlIntegration {
       percentile * 100
     )})]`;
   }
-
+  convertDate(fromDB: bq.BigQueryDatetime) {
+    return new Date(fromDB.value + "Z");
+  }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
   }

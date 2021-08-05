@@ -216,6 +216,10 @@ export default abstract class SqlIntegration
   dateDiff(startCol: string, endCol: string) {
     return `datediff(day, ${startCol}, ${endCol})`;
   }
+  // eslint-disable-next-line
+  convertDate(fromDB: any): Date {
+    return new Date(fromDB);
+  }
 
   getPastExperimentQuery(from: Date) {
     return format(
@@ -294,8 +298,8 @@ export default abstract class SqlIntegration
       experiments: rows.map((r) => {
         return {
           users: parseInt(r.users),
-          end_date: new Date(r.end_date),
-          start_date: new Date(r.start_date),
+          end_date: this.convertDate(r.end_date),
+          start_date: this.convertDate(r.start_date),
           experiment_id: r.experiment_id,
           variation_id: r.variation_id,
         };
@@ -594,7 +598,7 @@ export default abstract class SqlIntegration
       if (date) {
         ret.dates = ret.dates || [];
         ret.dates.push({
-          date,
+          date: this.convertDate(date).toISOString(),
           users: parseInt(users) || 0,
         });
       } else {
@@ -616,7 +620,7 @@ export default abstract class SqlIntegration
       if (date) {
         ret.dates = ret.dates || [];
         ret.dates.push({
-          date,
+          date: this.convertDate(date).toISOString(),
           count: parseInt(count) || 0,
           mean: parseFloat(mean) || 0,
           stddev: parseFloat(stddev) || 0,
