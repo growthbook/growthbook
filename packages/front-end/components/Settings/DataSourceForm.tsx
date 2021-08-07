@@ -95,10 +95,10 @@ const typeOptions: {
   },
   {
     type: "mysql",
-    display: "Mysql or MariaDB",
+    display: "MySQL or MariaDB",
     default: {
       host: "",
-      port: 5432,
+      port: 3306,
       database: "",
       user: "",
       password: "",
