@@ -21,6 +21,7 @@ import {
   DataSourceType,
 } from "../../types/datasource";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
+import Mysql from "../integrations/Mysql";
 
 export async function getDataSourcesByOrganization(organization: string) {
   return await DataSourceModel.find({
@@ -66,6 +67,8 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
     obj = new Snowflake(params, settings);
   } else if (type === "postgres") {
     obj = new Postgres(params, settings);
+  } else if (type === "mysql") {
+    obj = new Mysql(params, settings);
   } else if (type === "bigquery") {
     obj = new BigQuery(params, settings);
   } else if (type === "clickhouse") {
