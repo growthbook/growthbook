@@ -21,6 +21,7 @@ import MixpanelForm from "./MixpanelForm";
 import track from "../../services/track";
 import Modal from "../Modal";
 import PrestoForm from "./PrestoForm";
+import MysqlForm from "./MysqlForm";
 
 const typeOptions: {
   type: DataSourceType;
@@ -87,6 +88,17 @@ const typeOptions: {
     default: {
       host: "",
       port: 5432,
+      database: "",
+      user: "",
+      password: "",
+    },
+  },
+  {
+    type: "mysql",
+    display: "MySQL or MariaDB",
+    default: {
+      host: "",
+      port: 3306,
       database: "",
       user: "",
       password: "",
@@ -254,6 +266,14 @@ const DataSourceForm: FC<{
   } else if (datasource.type === "postgres") {
     connSettings = (
       <PostgresForm
+        existing={existing}
+        onParamChange={onParamChange}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "mysql") {
+    connSettings = (
+      <MysqlForm
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}

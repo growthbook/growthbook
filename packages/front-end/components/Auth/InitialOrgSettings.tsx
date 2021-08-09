@@ -27,6 +27,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "PrestoDB or Trino", value: "presto" },
     { display: "Snowflake", value: "snowflake" },
     { display: "Postgres", value: "postgres" },
+    { display: "MySQL or MariaDB", value: "mysql" },
     { display: "BigQuery", value: "bigquery" },
     { display: "Mixpanel", value: "mixpanel" },
     { display: "ClickHouse", value: "clickhouse" },
