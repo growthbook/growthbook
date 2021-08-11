@@ -11,9 +11,9 @@ import {
 } from "../util/secrets";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { OrganizationDocument } from "../models/OrganizationModel";
 import { getEmailFromUserId, getInviteUrl } from "./organizations";
 import path from "path";
+import { OrganizationInterface } from "../../types/organization";
 export function isEmailEnabled(): boolean {
   if (!EMAIL_ENABLED) return false;
   if (!EMAIL_HOST) return false;
@@ -69,7 +69,7 @@ async function sendMail({
   }
 }
 export async function sendInviteEmail(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   key: string
 ) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];

@@ -64,7 +64,7 @@ const MetricPage: FC = () => {
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis;
-  if (!("average" in analysis)) {
+  if (!analysis || !("average" in analysis)) {
     analysis = null;
   }
 

@@ -47,8 +47,11 @@ export async function postSegments(
 ) {
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource);
-  if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    req.organization.id
+  );
+  if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
@@ -85,8 +88,11 @@ export async function putSegment(
 
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource);
-  if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    req.organization.id
+  );
+  if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
@@ -168,7 +174,10 @@ async function processResults(
   };
 
   // Stats for each metric
-  const metrics = await getMetricsByDatasource(doc.datasource);
+  const metrics = await getMetricsByDatasource(
+    doc.datasource,
+    doc.organization
+  );
   const selectedMetrics = metrics.filter((m) => doc.metrics.includes(m.id));
   await Promise.all(
     selectedMetrics.map(async (m) => {
@@ -233,8 +242,18 @@ export async function getSegmentComparisonStatus(
   const result = await getStatusEndpoint(
     comparison,
     req.organization.id,
-    "results",
-    (data) => processResults(comparison, data)
+    (data) => processResults(comparison, data),
+    async (updates, results) => {
+      await SegmentComparisonModel.updateOne(
+        { id },
+        {
+          $set: {
+            ...updates,
+            results,
+          },
+        }
+      );
+    }
   );
   return res.status(200).json(result);
 }
@@ -245,7 +264,13 @@ export async function cancelSegmentComparison(req: AuthRequest, res: Response) {
     id,
     organization: req.organization.id,
   });
-  res.status(200).json(await cancelRun(comparison, req.organization.id));
+  res.status(200).json(
+    await cancelRun(comparison, req.organization.id, async () => {
+      comparison.set("queries", []);
+      comparison.set("runStarted", null);
+      await comparison.save();
+    })
+  );
 }
 
 function parseApiDate(date: string | Date | null | undefined): Date {
@@ -309,8 +334,11 @@ export async function putSegmentComparison(
 
   // Calculate results and update
   if (recalculate) {
-    const datasource = await getDataSourceById(comparison.datasource);
-    if (!datasource || datasource.organization !== req.organization.id) {
+    const datasource = await getDataSourceById(
+      comparison.datasource,
+      req.organization.id
+    );
+    if (!datasource) {
       return res.status(403).json({
         status: 403,
         message: "You do not have access to that datasource",
@@ -366,7 +394,10 @@ export async function putSegmentComparison(
     promises["users_segment2"] = getUsers(integration, segment2Params);
 
     // Metric values
-    const metrics = await getMetricsByDatasource(comparison.datasource);
+    const metrics = await getMetricsByDatasource(
+      comparison.datasource,
+      comparison.organization
+    );
     const selectedMetrics = metrics.filter((m) =>
       comparison.metrics.includes(m.id)
     );

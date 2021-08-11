@@ -12,6 +12,7 @@ import {
   DataSourceParams,
   DataSourceType,
   DataSourceSettings,
+  DataSourceInterface,
 } from "../../types/datasource";
 import {
   testDataSourceConnection,
@@ -19,7 +20,6 @@ import {
   getSourceIntegrationObject,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
-import mongoose from "mongoose";
 import { getAllTags } from "../services/tag";
 import {
   getAllApiKeysByOrganization,
@@ -50,16 +50,17 @@ import {
   getDataSourcesByOrganization,
   getDataSourceById,
   deleteDatasourceById,
+  updateDataSource,
 } from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
 import { ExperimentInterface } from "../../types/experiment";
 import {
-  findMetricById,
   insertMetric,
   getMetricsByDatasource,
   getMetricsByOrganization,
+  hasSampleMetric,
 } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
@@ -69,6 +70,7 @@ import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
   findOrganizationsByMemberId,
+  updateOrganization,
 } from "../models/OrganizationModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -108,7 +110,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const existingMetric = await findMetricById(/^met_sample/, orgId);
+  const existingMetric = await hasSampleMetric(orgId);
   if (existingMetric) {
     throw new Error("Sample data already exists");
   }
@@ -454,9 +456,10 @@ export async function putMemberRole(
     });
   }
 
-  req.organization.markModified("members");
   try {
-    await req.organization.save();
+    await updateOrganization(req.organization.id, {
+      members: req.organization.members,
+    });
     return res.status(200).json({
       status: 200,
     });
@@ -617,17 +620,16 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
 
   const { id }: { id: string } = req.params;
 
-  const datasource = await getDataSourceById(id);
+  const datasource = await getDataSourceById(id, req.organization.id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
 
-  if (datasource.organization !== req.organization?.id) {
-    throw new Error("You don't have permission to delete this datasource.");
-  }
-
   // Make sure there are no metrics
-  const metrics = await getMetricsByDatasource(datasource.id);
+  const metrics = await getMetricsByDatasource(
+    datasource.id,
+    datasource.organization
+  );
   if (metrics.length > 0) {
     throw new Error(
       "Error: Please delete all metrics tied to this datasource first."
@@ -645,7 +647,10 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
   }
 
   // Make sure there are no dimensions
-  const dimensions = await findDimensionsByDataSource(datasource.id);
+  const dimensions = await findDimensionsByDataSource(
+    datasource.id,
+    datasource.organization
+  );
   if (dimensions.length > 0) {
     throw new Error(
       "Error: Please delete all dimensions tied to this datasource first."
@@ -765,35 +770,17 @@ export async function putOrganization(
   const { name, settings } = req.body;
 
   try {
-    name && req.organization.set("name", name);
-    if (settings) {
-      "implementationTypes" in settings &&
-        req.organization.set(
-          "settings.implementationTypes",
-          settings.implementationTypes
-        );
-      "confidenceLevel" in settings &&
-        req.organization.set(
-          "settings.confidenceLevel",
-          settings.confidenceLevel
-        );
-      "customized" in settings &&
-        req.organization.set("settings.customized", settings.customized);
-      "logoPath" in settings &&
-        req.organization.set("settings.logoPath", settings.logoPath);
-      "primaryColor" in settings &&
-        req.organization.set("settings.primaryColor", settings.primaryColor);
-      "secondaryColor" in settings &&
-        req.organization.set(
-          "settings.secondaryColor",
-          settings.secondaryColor
-        );
-      "datasources" in settings &&
-        req.organization.set("settings.datasources", settings.datasources);
-      "techsources" in settings &&
-        req.organization.set("settings.techsources", settings.techsources);
+    const updates: Partial<OrganizationInterface> = {};
+
+    if (name) {
+      updates.name = name;
     }
-    await req.organization.save();
+    if (settings) {
+      updates.settings = settings;
+    }
+
+    await updateOrganization(req.organization.id, updates);
+
     res.status(200).json({
       status: 200,
     });
@@ -841,19 +828,11 @@ export async function getDataSource(req: AuthRequest, res: Response) {
 
   const { id }: { id: string } = req.params;
 
-  const datasource = await getDataSourceById(id);
+  const datasource = await getDataSourceById(id, req.organization.id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
       message: "Cannot find data source",
-    });
-    return;
-  }
-
-  if (datasource.organization !== req.organization.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You don't have access to that data source",
     });
     return;
   }
@@ -969,19 +948,11 @@ export async function putDataSource(
   const { id }: { id: string } = req.params;
   const { name, type, params, settings } = req.body;
 
-  const datasource = await getDataSourceById(id);
+  const datasource = await getDataSourceById(id, req.organization.id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
       message: "Cannot find data source",
-    });
-    return;
-  }
-
-  if (datasource.organization !== req.organization.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You don't have access to that data source",
     });
     return;
   }
@@ -996,9 +967,11 @@ export async function putDataSource(
   }
 
   try {
-    datasource.set("name", name);
-    datasource.set("dateUpdated", new Date());
-    datasource.set("settings", settings);
+    const updates: Partial<DataSourceInterface> = {
+      name,
+      dateUpdated: new Date(),
+      settings,
+    };
 
     if (
       type === "google_analytics" &&
@@ -1015,11 +988,14 @@ export async function putDataSource(
     if (newParams !== datasource.params) {
       // If the connection params changed, re-validate the connection
       // If the user is just updating the display name, no need to do this
-      datasource.set("params", newParams);
-      await testDataSourceConnection(datasource);
+      updates.params = newParams;
+      await testDataSourceConnection({
+        ...datasource,
+        ...updates,
+      });
     }
 
-    await (datasource as mongoose.Document).save();
+    await updateDataSource(id, updates);
 
     res.status(200).json({
       status: 200,

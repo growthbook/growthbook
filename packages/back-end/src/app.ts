@@ -6,7 +6,7 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
-import { getConfig } from "./init/config";
+import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
 import { APP_ORIGIN, CORS_ORIGIN_REGEX, IS_CLOUD } from "./util/secrets";
@@ -111,7 +111,7 @@ app.get("/", (req, res) => {
     production: process.env.NODE_ENV === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
-    config_source: getConfig().organization ? "yml" : "db",
+    config_source: usingFileConfig() ? "yml" : "db",
     email_enabled: isEmailEnabled(),
   });
 });

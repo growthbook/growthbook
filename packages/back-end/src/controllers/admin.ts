@@ -2,6 +2,7 @@ import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationById,
+  updateOrganization,
 } from "../models/OrganizationModel";
 import { Response } from "express";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
@@ -42,7 +43,7 @@ export async function getOrganizations(req: AuthRequest, res: Response) {
     status: 200,
     organizations: organizations.map((o) => {
       return {
-        ...o.toJSON(),
+        ...o,
         canPopulate: !orgsWithDatasources.includes(o.id),
       };
     }),
@@ -71,7 +72,9 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     "visual",
     "custom",
   ];
-  await org.save();
+  await updateOrganization(id, {
+    settings: org.settings,
+  });
 
   // Add datasource
   const dsParams: PostgresConnectionParams = {

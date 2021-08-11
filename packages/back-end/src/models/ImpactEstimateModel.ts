@@ -86,24 +86,21 @@ export async function getImpactEstimate(
     return existing;
   }
 
-  const metricObj = await getMetricById(metric);
+  const metricObj = await getMetricById(metric, organization);
   if (!metricObj) {
     throw new Error("Metric not found");
-  }
-  if (metricObj.organization !== organization) {
-    throw new Error("You don't have access to that metric");
   }
 
   if (!metricObj.datasource) {
     return null;
   }
 
-  const datasource = await getDataSourceById(metricObj.datasource);
+  const datasource = await getDataSourceById(
+    metricObj.datasource,
+    organization
+  );
   if (!datasource) {
     throw new Error("Datasource not found");
-  }
-  if (datasource.organization !== organization) {
-    throw new Error("You don't have access to that datasource");
   }
 
   let segmentObj: SegmentInterface;

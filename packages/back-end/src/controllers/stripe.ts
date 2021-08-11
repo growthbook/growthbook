@@ -27,15 +27,13 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
       : subscription.customer.id;
 
   await updateOrganizationByStripeId(stripeCustomerId, {
-    $set: {
-      subscription: {
-        id: subscription.id,
-        qty: subscription.items.data[0].quantity,
-        trialEnd: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null,
-        status: subscription.status,
-      },
+    subscription: {
+      id: subscription.id,
+      qty: subscription.items.data[0].quantity,
+      trialEnd: subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
+        : null,
+      status: subscription.status,
     },
   });
 }
@@ -79,9 +77,7 @@ export async function postStartTrial(
       req.organization.stripeCustomerId = resp.id;
 
       await updateOrganization(req.organization.id, {
-        $set: {
-          stripeCustomerId: resp.id,
-        },
+        stripeCustomerId: resp.id,
       });
     }
 

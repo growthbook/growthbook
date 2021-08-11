@@ -1,7 +1,7 @@
 import {
-  OrganizationDocument,
   findOrganizationById,
   findOrganizationByInviteKey,
+  updateOrganization,
 } from "../models/OrganizationModel";
 import { randomBytes } from "crypto";
 import { APP_ORIGIN } from "../util/secrets";
@@ -71,31 +71,32 @@ export async function userHasAccess(
 }
 
 export async function removeMember(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   id: string
 ) {
-  organization.members = organization.members.filter(
-    (member) => member.id !== id
-  );
+  const members = organization.members.filter((member) => member.id !== id);
 
-  if (!organization.members.length) {
+  if (!members.length) {
     throw new Error("Organizations must have at least 1 member");
   }
 
-  organization.markModified("members");
-  await organization.save();
+  await updateOrganization(organization.id, {
+    members,
+  });
+
   return organization;
 }
 
 export async function revokeInvite(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   key: string
 ) {
-  organization.invites = organization.invites.filter(
-    (invite) => invite.key !== key
-  );
-  organization.markModified("invites");
-  await organization.save();
+  const invites = organization.invites.filter((invite) => invite.key !== key);
+
+  await updateOrganization(organization.id, {
+    invites,
+  });
+
   return organization;
 }
 
@@ -112,25 +113,27 @@ export async function acceptInvite(key: string, userId: string) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
 
   // Remove invite
-  organization.invites = organization.invites.filter(
-    (invite) => invite.key !== key
-  );
-  organization.markModified("invites");
+  const invites = organization.invites.filter((invite) => invite.key !== key);
 
   // Add to member list
-  organization.members.push({
-    id: userId,
-    role: invite?.role || "admin",
-  });
-  organization.markModified("members");
+  const members = [
+    ...organization.members,
+    {
+      id: userId,
+      role: invite?.role || "admin",
+    },
+  ];
 
-  await organization.save();
+  await updateOrganization(organization.id, {
+    invites,
+    members,
+  });
 
   return organization;
 }
 
 export async function inviteUser(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   email: string,
   role: MemberRole = "admin"
 ) {
@@ -160,14 +163,19 @@ export async function inviteUser(
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
   // Save invite in Mongo
-  organization.invites.push({
-    email,
-    key,
-    dateCreated: new Date(),
-    role,
+  const invites = [
+    ...organization.invites,
+    {
+      email,
+      key,
+      dateCreated: new Date(),
+      role,
+    },
+  ];
+
+  await updateOrganization(organization.id, {
+    invites,
   });
-  organization.markModified("invites");
-  await organization.save();
 
   let emailSent = false;
   if (isEmailEnabled()) {

@@ -1158,7 +1158,7 @@ export default abstract class SqlIntegration
         } m
         ${join}
       ${
-        metric.conditions.length
+        metric.conditions?.length
           ? `WHERE ${metric.conditions
               .map((c) => `m.${c.column} ${c.operator} '${c.value}'`)
               .join(" AND ")}`

@@ -7,7 +7,6 @@ import {
   ExperimentMetricQueryParams,
 } from "../types/Integration";
 import uniqid from "uniqid";
-import mongoose from "mongoose";
 import {
   Queries,
   QueryInterface,
@@ -24,7 +23,6 @@ export type InterfaceWithQueries = {
   queries: Queries;
   organization: string;
 };
-export type DocumentWithQueries = mongoose.Document & InterfaceWithQueries;
 
 async function getExistingQuery(
   integration: SourceIntegrationInterface,
@@ -342,10 +340,10 @@ export async function startRun<T>(
   };
 }
 
-export async function cancelRun<T extends DocumentWithQueries>(
+export async function cancelRun<T extends InterfaceWithQueries>(
   doc: T,
   organization: string,
-  onDelete?: () => Promise<void>
+  onDelete: () => Promise<void>
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -356,13 +354,7 @@ export async function cancelRun<T extends DocumentWithQueries>(
 
   // Only cancel if it's currently running
   if (doc.queries.filter((q) => q.status === "running").length > 0) {
-    if (onDelete) {
-      await onDelete();
-    } else {
-      doc.set("queries", []);
-      doc.set("runStarted", null);
-      await doc.save();
-    }
+    await onDelete();
   }
 
   return {
@@ -370,11 +362,11 @@ export async function cancelRun<T extends DocumentWithQueries>(
   };
 }
 
-export async function getStatusEndpoint<T extends DocumentWithQueries, R>(
+export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   doc: T,
   organization: string,
-  resultsKey: string,
-  processResults: (data: QueryMap) => Promise<R>
+  processResults: (data: QueryMap) => Promise<R>,
+  onSave: (data: Partial<InterfaceWithQueries>, result?: R) => Promise<void>
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -388,14 +380,11 @@ export async function getStatusEndpoint<T extends DocumentWithQueries, R>(
     doc.queries,
     organization,
     async (queries: Queries) => {
-      doc.set("queries", queries);
-      await doc.save();
+      await onSave({ queries });
     },
     async (queries: Queries, data: QueryMap) => {
-      doc.set("queries", queries);
       const results = await processResults(data);
-      doc.set(resultsKey, results);
-      await doc.save();
+      await onSave({ queries }, results);
     }
   );
 

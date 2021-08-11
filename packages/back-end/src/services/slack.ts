@@ -3,8 +3,8 @@ import { IncomingMessage } from "http";
 import crypto from "crypto";
 import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { WebClient } from "@slack/web-api";
-import { OrganizationDocument } from "../models/OrganizationModel";
 import { UserModel } from "../models/UserModel";
+import { OrganizationInterface } from "../../types/organization";
 
 // Initialize a single instance for the whole app
 const web = new WebClient();
@@ -39,7 +39,7 @@ export function verifySlackRequestSignature(
 
 export async function getUserInfoBySlackId(
   slackUserId: string,
-  organization: OrganizationDocument
+  organization: OrganizationInterface
 ): Promise<{ id: null | string; name: null | string }> {
   try {
     const res = await web.users.info({

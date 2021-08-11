@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DimensionInterface } from "../../types/dimension";
+import { getConfigDimensions, usingFileConfig } from "../init/config";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
@@ -13,24 +14,65 @@ const dimensionSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
 });
-export type DimensionDocument = mongoose.Document & DimensionInterface;
+type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionDocument>(
   "Dimension",
   dimensionSchema
 );
 
-export function createDimension(dimension: Partial<DimensionInterface>) {
-  return DimensionModel.create(dimension);
+function toInterface(doc: DimensionDocument): DimensionInterface {
+  if (!doc) return null;
+  return doc.toJSON();
 }
 
-export function findDimensionsByOrganization(organization: string) {
-  return DimensionModel.find({ organization });
+export async function createDimension(dimension: Partial<DimensionInterface>) {
+  return toInterface(await DimensionModel.create(dimension));
 }
 
-export function findDimensionById(id: string) {
-  return DimensionModel.findOne({ id });
+export async function findDimensionsByOrganization(organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return getConfigDimensions(organization);
+  }
+
+  return (await DimensionModel.find({ organization })).map(toInterface);
 }
 
-export function findDimensionsByDataSource(datasource: string) {
-  return DimensionModel.find({ datasource });
+export async function findDimensionById(id: string, organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return getConfigDimensions(organization).filter((d) => d.id === id)[0];
+  }
+
+  return toInterface(await DimensionModel.findOne({ id, organization }));
+}
+
+export async function findDimensionsByDataSource(
+  datasource: string,
+  organization: string
+) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return getConfigDimensions(organization).filter(
+      (d) => d.datasource === datasource
+    );
+  }
+
+  return (await DimensionModel.find({ datasource, organization })).map(
+    toInterface
+  );
+}
+
+export async function updateDimension(
+  id: string,
+  updates: Partial<DimensionInterface>
+) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    throw new Error(
+      "Cannot update. Dimensions are being managed by config.yml"
+    );
+  }
+
+  await DimensionModel.updateOne({ id }, { $set: updates });
 }

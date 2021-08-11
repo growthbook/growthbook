@@ -48,9 +48,9 @@ import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import {
   deleteMetricById,
-  findMetricById,
   getMetricsByOrganization,
   getMetricById,
+  updateMetric,
 } from "../models/MetricModel";
 import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
@@ -287,21 +287,14 @@ export async function postExperiments(
   data.organization = req.organization.id;
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource);
+    const datasource = await getDataSourceById(
+      data.datasource,
+      req.organization.id
+    );
     if (!datasource) {
       res.status(403).json({
         status: 403,
         message: "Invalid datasource: " + data.datasource,
-      });
-      return;
-    }
-
-    // Make sure the datasource belongs to you
-    if (datasource.organization !== data.organization) {
-      res.status(403).json({
-        status: 403,
-        message:
-          "You do not have permission to access datasource " + datasource.id,
       });
       return;
     }
@@ -310,18 +303,9 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i]);
+      const metric = await getMetricById(data.metrics[i], data.organization);
 
       if (metric) {
-        // make sure it belongs to you:
-        if (metric.organization !== data.organization) {
-          res.status(403).json({
-            status: 403,
-            message:
-              "You do not have permission to access metric " + data.metrics[i],
-          });
-          return;
-        }
         // Make sure it is tied to the same datasource as the experiment
         if (data.datasource && metric.datasource !== data.datasource) {
           res.status(400).json({
@@ -439,7 +423,10 @@ export async function postExperiment(
   }
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource);
+    const datasource = await getDataSourceById(
+      data.datasource,
+      req.organization.id
+    );
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -447,32 +434,13 @@ export async function postExperiment(
       });
       return;
     }
-
-    // Make sure the datasource belongs to you
-    if (datasource.organization !== exp.organization) {
-      res.status(403).json({
-        status: 403,
-        message:
-          "You do not have permission to access datasource " + datasource.id,
-      });
-      return;
-    }
   }
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i]);
+      const metric = await getMetricById(data.metrics[i], req.organization.id);
 
       if (metric) {
-        // make sure it belongs to you:
-        if (metric.organization !== req.organization.id) {
-          res.status(403).json({
-            status: 403,
-            message:
-              "You do not have permission to access metric " + data.metrics[i],
-          });
-          return;
-        }
         // Make sure it is tied to the same datasource as the experiment
         if (exp.datasource && metric.datasource !== exp.datasource) {
           res.status(400).json({
@@ -892,20 +860,12 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
 
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id);
+  const metric = await getMetricById(id, req.organization.id);
 
   if (!metric) {
     res.status(403).json({
       status: 404,
       message: "Metric not found",
-    });
-    return;
-  }
-
-  if (metric.organization !== req.organization.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this metric",
     });
     return;
   }
@@ -1043,25 +1003,46 @@ async function getMetricAnalysis(
 
 export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await findMetricById(id);
+  const metric = await getMetricById(id, req.organization.id, true, true);
   const result = await getStatusEndpoint(
     metric,
     req.organization.id,
-    "analysis",
-    (queryData) => getMetricAnalysis(metric, queryData)
+    (queryData) => getMetricAnalysis(metric, queryData),
+    async (updates, result?: MetricAnalysis) => {
+      await updateMetric(
+        id,
+        result ? { ...updates, analysis: result } : updates,
+        req.organization.id
+      );
+    }
   );
   return res.status(200).json(result);
 }
 export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await findMetricById(id);
-  res.status(200).json(await cancelRun(metric, req.organization.id));
+  const metric = await getMetricById(id, req.organization.id, true, true);
+  res.status(200).json(
+    await cancelRun(metric, req.organization.id, async () => {
+      await updateMetric(
+        id,
+        {
+          queries: [],
+          runStarted: null,
+        },
+        req.organization.id
+      );
+    })
+  );
 }
 
 export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id);
+  console.log(id);
+
+  const metric = await getMetricById(id, req.organization.id, true, true);
+
+  console.log(metric);
 
   if (!metric) {
     return res.status(404).json({
@@ -1070,16 +1051,12 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
     });
   }
 
-  if (metric.organization !== req.organization.id) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to update this metric",
-    });
-  }
-
   try {
     if (metric.datasource) {
-      const datasource = await getDataSourceById(metric.datasource);
+      const datasource = await getDataSourceById(
+        metric.datasource,
+        metric.organization
+      );
       const integration = getSourceIntegrationObject(datasource);
 
       const from = new Date();
@@ -1095,7 +1072,9 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         userIdType: metric.userIdType,
       };
 
-      metric.set("runStarted", new Date());
+      const updates: Partial<MetricInterface> = {};
+
+      updates.runStarted = new Date();
 
       const { queries, result } = await startRun(
         {
@@ -1109,12 +1088,12 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         (queryData) => getMetricAnalysis(metric, queryData)
       );
 
-      metric.set("queries", queries);
+      updates.queries = queries;
       if (result) {
-        metric.set("analysis", result);
+        updates.analysis = result;
       }
 
-      await metric.save();
+      await updateMetric(metric.id, updates, req.organization.id);
     } else {
       throw new Error("Cannot analyze manual metrics");
     }
@@ -1132,7 +1111,7 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
 export async function getMetric(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id);
+  const metric = await getMetricById(id, req.organization.id, false, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -1213,19 +1192,14 @@ export async function postMetrics(
   } = req.body;
 
   if (datasource) {
-    const datasourceObj = await getDataSourceById(datasource);
+    const datasourceObj = await getDataSourceById(
+      datasource,
+      req.organization.id
+    );
     if (!datasourceObj) {
       res.status(403).json({
         status: 403,
         message: "Invalid data source: " + datasource,
-      });
-      return;
-    }
-
-    if (datasourceObj.organization !== req.organization.id) {
-      res.status(403).json({
-        status: 403,
-        message: "You do not have access to this datasource",
       });
       return;
     }
@@ -1270,17 +1244,10 @@ export async function putMetric(
   }
 
   const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id);
+  const metric = await getMetricById(id, req.organization.id);
 
-  if (metric.organization !== req.organization.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this metric",
-    });
-    return;
-  }
+  const updates: Partial<MetricInterface> = {};
 
-  const existing: MetricInterface = metric.toJSON();
   const fields: (keyof MetricInterface)[] = [
     "name",
     "description",
@@ -1302,15 +1269,16 @@ export async function putMetric(
   ];
   fields.forEach((k) => {
     if (k in req.body) {
-      metric.set(k, req.body[k]);
+      // eslint-disable-next-line
+      (updates as any)[k] = req.body[k];
     }
   });
 
-  await metric.save();
+  await updateMetric(metric.id, updates, req.organization.id);
 
   await addTagsDiff(
     req.organization.id,
-    existing.tags || [],
+    metric.tags || [],
     req.body.tags || []
   );
 
@@ -1384,8 +1352,20 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
   const result = await getStatusEndpoint(
     snapshot,
     req.organization.id,
-    "results",
-    (queryData) => processSnapshotData(experiment, phase, queryData)
+    (queryData) => processSnapshotData(experiment, phase, queryData),
+    async (updates, results) => {
+      ExperimentSnapshotModel.updateOne(
+        {
+          id,
+        },
+        {
+          $set: {
+            ...updates,
+            results: results || snapshot.results,
+          },
+        }
+      );
+    }
   );
   return res.status(200).json(result);
 }
@@ -1494,7 +1474,10 @@ export async function postSnapshot(
     return;
   }
 
-  const datasource = await getDataSourceById(exp.datasource);
+  const datasource = await getDataSourceById(
+    exp.datasource,
+    req.organization.id
+  );
   if (!datasource) {
     res.status(400).json({
       status: 404,
@@ -1502,24 +1485,10 @@ export async function postSnapshot(
     });
     return;
   }
-  if (datasource.organization !== req.organization.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this data source",
-    });
-    return;
-  }
 
   let dimensionObj: DimensionInterface;
   if (dimension) {
-    dimensionObj = await findDimensionById(dimension);
-    if (dimensionObj && dimensionObj.organization !== req.organization.id) {
-      res.status(403).json({
-        status: 403,
-        message: "You do not have access to this dimension",
-      });
-      return;
-    }
+    dimensionObj = await findDimensionById(dimension, req.organization.id);
   }
 
   try {
@@ -1697,8 +1666,18 @@ export async function getPastExperimentStatus(req: AuthRequest, res: Response) {
   const result = await getStatusEndpoint(
     model,
     req.organization.id,
-    "experiments",
-    processPastExperiments
+    processPastExperiments,
+    async (updates, experiments) => {
+      await PastExperimentsModel.updateOne(
+        { id },
+        {
+          $set: {
+            ...updates,
+            experiments,
+          },
+        }
+      );
+    }
   );
   return res.status(200).json(result);
 }
@@ -1708,7 +1687,13 @@ export async function cancelPastExperiments(req: AuthRequest, res: Response) {
     id,
     organization: req.organization.id,
   });
-  res.status(200).json(await cancelRun(model, req.organization.id));
+  res.status(200).json(
+    await cancelRun(model, req.organization.id, async () => {
+      model.set("queries", []);
+      model.set("runStarted", null);
+      await model.save();
+    })
+  );
 }
 
 export async function getPastExperimentsList(req: AuthRequest, res: Response) {
@@ -1760,12 +1745,12 @@ export async function postPastExperiments(
 ) {
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource);
+  const datasourceObj = await getDataSourceById(
+    datasource,
+    req.organization.id
+  );
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
-  }
-  if (datasourceObj.organization !== req.organization.id) {
-    throw new Error("You do not have access to that datasource");
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);

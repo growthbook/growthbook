@@ -1,0 +1,45 @@
+datasources:
+  warehouse:
+    type: postgres
+    name: Main Warehouse
+    params:
+      host: localhost
+      port: 5432
+      user: root
+      password: ${POSTGRES_PW} # use env for secrets
+      database: growthbook
+    settings:
+      queries:
+        usersQuery: >
+          SELECT user_id, anonymous_id FROM identifies
+        experimentsQuery: >
+          SELECT
+            user_id,
+            anonymous_id,
+            received_at as timestamp,
+            experiment_id,
+            variation_id,
+            context_page_path as url,
+            context_user_agent as user_agent
+          FROM
+            experiment_viewed
+        pageviewsQuery: >
+          SELECT
+            user_id,
+            anonymous_id,
+            received_at as timestamp,
+            path as url,
+            context_user_agent as user_agent
+          FROM
+            pages
+metrics:
+  signups:
+    type: binomial
+    name: Sign Ups
+    datasource: warehouse
+    sql: SELECT user_id, received_at as timestamp FROM signups
+dimensions:
+  country:
+    name: Country
+    datasource: warehouse
+    sql: SELECT user_id, country as value from users

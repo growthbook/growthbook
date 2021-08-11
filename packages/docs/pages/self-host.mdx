@@ -62,7 +62,7 @@ Then, just run `docker-compose up -d` to start everything and view the app at [h
 
 ## Configuration
 
-The Growth Book App is configured via environment variables. Below are all of the configuration options:
+The Growth Book docker container supports a number of environment variables:
 
 - **NODE_ENV** - Set to "production" to turn on additional optimizations and API request logging
 - **JWT_SECRET** - Auth signing key (use a long random string)
@@ -81,6 +81,32 @@ The Growth Book App is configured via environment variables. Below are all of th
 - Google OAuth Settings (only if using Google Analytics as a data source)
   - **GOOGLE_OAUTH_CLIENT_ID**
   - **GOOGLE_OAUTH_CLIENT_SECRET**
+
+In addition, you can specify your data sources and metrics in a `config/config.yml` file. This is entirely optional and meant for teams that prefer storing these settings in files vs defining them within the Growth Book UI (the defualt behavior).
+
+```yml
+# config/config.yml
+datasources:
+  warehouse:
+    type: postgres
+    name: Main Warehouse
+    params:
+      host: localhost
+      port: 5432
+      user: root
+      password: ${POSTGRES_PW} # use env for secrets
+      database: growthbook
+    settings:
+      queries:
+        usersQuery: SELECT user_id, anonymous_id FROM identifies
+        ...
+metrics:
+  signups:
+    type: binomial
+    name: Sign Ups
+    datasource: warehouse
+    sql: SELECT user_id, received_at as timestamp FROM signups
+```
 
 ### Changing the Ports
 
