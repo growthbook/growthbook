@@ -47,6 +47,7 @@ just reading the above as *"it’s 17% better"*, people tend to factor in the er
 about 17% better, but there’s a lot of uncertainty still"*).
 
 ## Risk
+
 Bayesian statistics gives us another advantage, which is showing the *Bayesian Risk* or 
 expected loss. This Risk can be interpreted as *“If I choose B and it’s actually worse, how 
 many conversions am I expected to lose?”*.  This lets the human decision maker weigh all of 
@@ -58,6 +59,22 @@ In addition to answering the common A/B test questions, Growth Book performs dat
 checks to ensure the statistical inferences are valid and ready for interpretation.  
 We currently run two checks: Sample Ratio Mismatch (SRM) and minimum data thresholds. 
 These checks help ensure that there are no implementation errors with an experiment. 
+
+![SRM check failed](/images/SRM-check-failed.png)
+
+## Dimentional Breakdowns
+
+There is often a desire to drill down into results to see how segments or dimensions 
+of your users were affected by an A/B test variation. There are some caveats in doing this 
+analysis. While Bayesian statistics is largely immune from multiple comparison problems 
+(and as such requires no Bonferroni corrections), sample size often causes issues with the 
+statistics. Growth Book allows dimensional breakdown of the results, but we do not run 
+statistical analysis, instead we show the raw numbers and changes. Care should be taken 
+in putting too much meaning into these dimensional results. The two most common uses of 
+dimensional breakdowns are as an input for further experiments specifically targeted to 
+those dimensions, or in identifying errors, for instance if metrics are down for users of 
+one particular browser. 
+
 
 ## Conclusion
 
