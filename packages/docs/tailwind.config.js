@@ -21,6 +21,9 @@ module.exports = {
         return {
           DEFAULT: {
             css: {
+              h1: {
+                fontWeight: 600,
+              },
               lineHeight: "1.5",
               h2: {
                 marginTop: "1.5em",
