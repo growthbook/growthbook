@@ -3,10 +3,7 @@ import { IncomingMessage } from "http";
 import crypto from "crypto";
 import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { WebClient } from "@slack/web-api";
-import {
-  OrganizationDocument,
-  OrganizationModel,
-} from "../models/OrganizationModel";
+import { OrganizationDocument } from "../models/OrganizationModel";
 import { UserModel } from "../models/UserModel";
 
 // Initialize a single instance for the whole app
@@ -78,19 +75,6 @@ export async function getUserInfoBySlackId(
       name: null,
     };
   }
-}
-
-export async function getOrganizationFromSlackTeam(
-  teamId: string
-): Promise<OrganizationDocument> {
-  const organization = await OrganizationModel.findOne({
-    "connections.slack.team": teamId,
-  });
-  if (!organization) {
-    throw new Error("Unknown slack team id");
-  }
-
-  return organization;
 }
 export function formatTextResponse(markdown: string) {
   return {

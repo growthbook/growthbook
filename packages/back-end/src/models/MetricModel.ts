@@ -60,7 +60,36 @@ const metricSchema = new mongoose.Schema({
 });
 export type MetricDocument = mongoose.Document & MetricInterface;
 
-export const MetricModel = mongoose.model<MetricDocument>(
-  "Metric",
-  metricSchema
-);
+const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
+
+export function findMetricById(id: string | RegExp, organization?: string) {
+  return MetricModel.findOne(organization ? { id, organization } : { id });
+}
+
+export function insertMetric(metric: Partial<MetricInterface>) {
+  return MetricModel.create(metric);
+}
+
+export function deleteMetricById(id: string) {
+  return MetricModel.deleteOne({
+    id,
+  });
+}
+
+export function getMetricsByOrganization(organization: string) {
+  return MetricModel.find({
+    organization,
+  });
+}
+
+export function getMetricsByDatasource(datasource: string) {
+  return MetricModel.find({
+    datasource,
+  });
+}
+
+export function getMetricById(id: string) {
+  return MetricModel.findOne({
+    id,
+  });
+}

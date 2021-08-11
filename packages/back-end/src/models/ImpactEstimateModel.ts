@@ -1,14 +1,12 @@
 import mongoose from "mongoose";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import uniqid from "uniqid";
-import { getMetricById } from "../services/experiments";
-import {
-  getDataSourceById,
-  getSourceIntegrationObject,
-} from "../services/datasource";
+import { getMetricById } from "../models/MetricModel";
+import { getSourceIntegrationObject } from "../services/datasource";
 import { QueryLanguage } from "../../types/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { SegmentModel } from "./SegmentModel";
+import { getDataSourceById } from "./DataSourceModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,

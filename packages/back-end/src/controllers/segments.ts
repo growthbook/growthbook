@@ -6,12 +6,9 @@ import {
 } from "../models/SegmentComparisonModel";
 import { userHasAccess } from "../services/organizations";
 import uniqid from "uniqid";
-import {
-  getSourceIntegrationObject,
-  getDataSourceById,
-} from "../services/datasource";
+import { getSourceIntegrationObject } from "../services/datasource";
 import { ABTestStats, getValueCR, abtest } from "../services/stats";
-import { getMetricsByDatasource } from "../services/experiments";
+import { getMetricsByDatasource } from "../models/MetricModel";
 import {
   QueryMap,
   getUsers,
@@ -33,6 +30,7 @@ import {
   SegmentComparisonResults,
 } from "../../types/segment-comparison";
 import { MetricStats } from "../../types/metric";
+import { getDataSourceById } from "../models/DataSourceModel";
 
 export async function getAllSegments(req: AuthRequest, res: Response) {
   const segments = await SegmentModel.find({

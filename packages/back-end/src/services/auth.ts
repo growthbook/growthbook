@@ -13,7 +13,7 @@ import { MemberRole } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
-import { OrganizationModel } from "../models/OrganizationModel";
+import { hasOrganization } from "../models/OrganizationModel";
 
 // Self-hosted deployments use local auth
 function getLocalJWTCheck() {
@@ -143,7 +143,7 @@ export function validatePasswordFormat(password: string): void {
 }
 
 async function checkNewInstallation() {
-  const doc = await OrganizationModel.findOne();
+  const doc = await hasOrganization();
   if (doc) {
     return false;
   }

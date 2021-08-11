@@ -8,8 +8,11 @@ import {
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
-import { OrganizationModel } from "../models/OrganizationModel";
-import { createOrganization } from "../services/organizations";
+import {
+  updateOrganization,
+  updateOrganizationByStripeId,
+} from "../models/OrganizationModel";
+import { createOrganization } from "../models/OrganizationModel";
 const stripe = new Stripe(STRIPE_SECRET, { apiVersion: "2020-08-27" });
 
 async function updateSubscription(subscription: string | Stripe.Subscription) {
@@ -23,23 +26,18 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
       ? subscription.customer
       : subscription.customer.id;
 
-  await OrganizationModel.updateOne(
-    {
-      stripeCustomerId,
-    },
-    {
-      $set: {
-        subscription: {
-          id: subscription.id,
-          qty: subscription.items.data[0].quantity,
-          trialEnd: subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
-          status: subscription.status,
-        },
+  await updateOrganizationByStripeId(stripeCustomerId, {
+    $set: {
+      subscription: {
+        id: subscription.id,
+        qty: subscription.items.data[0].quantity,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000)
+          : null,
+        status: subscription.status,
       },
-    }
-  );
+    },
+  });
 }
 export async function postStartTrial(
   req: AuthRequest<{ qty: number; name: string }>,
@@ -80,16 +78,11 @@ export async function postStartTrial(
       });
       req.organization.stripeCustomerId = resp.id;
 
-      await OrganizationModel.updateOne(
-        {
-          id: req.organization.id,
+      await updateOrganization(req.organization.id, {
+        $set: {
+          stripeCustomerId: resp.id,
         },
-        {
-          $set: {
-            stripeCustomerId: resp.id,
-          },
-        }
-      );
+      });
     }
 
     // Start subscription trial without payment method

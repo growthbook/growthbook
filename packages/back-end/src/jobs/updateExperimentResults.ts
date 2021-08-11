@@ -1,12 +1,11 @@
 import Agenda, { Job } from "agenda";
 import { ExperimentModel } from "../models/ExperimentModel";
-import { getDataSourceById } from "../services/datasource";
+import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
   getExperimentWatchers,
   getLatestSnapshot,
-  getMetricById,
   processSnapshotData,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
@@ -14,6 +13,7 @@ import pino from "pino";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
+import { getMetricById } from "../models/MetricModel";
 
 // Time between experiment result updates (6 hours)
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;

@@ -10,15 +10,13 @@ import {
   deleteForgotPasswordToken,
   getUserIdFromForgotPasswordToken,
 } from "../models/ForgotPasswordModel";
+import { createOrganization } from "../models/OrganizationModel";
 import {
   isNewInstallation,
   markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
-import {
-  createOrganization,
-  getEmailFromUserId,
-} from "../services/organizations";
+import { getEmailFromUserId } from "../services/organizations";
 import {
   createUser,
   getUserByEmail,

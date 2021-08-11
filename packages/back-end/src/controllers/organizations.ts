@@ -1,13 +1,11 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
-  createOrganization,
   acceptInvite,
   inviteUser,
   removeMember,
   revokeInvite,
   getInviteUrl,
-  getAllOrganizationsByUserId,
   getRole,
 } from "../services/organizations";
 import {
@@ -16,9 +14,6 @@ import {
   DataSourceSettings,
 } from "../../types/datasource";
 import {
-  createDataSource,
-  getDataSourcesByOrganization,
-  getDataSourceById,
   testDataSourceConnection,
   mergeAndEncryptParams,
   getSourceIntegrationObject,
@@ -42,26 +37,39 @@ import {
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
-import {
-  createManualSnapshot,
-  getMetricsByDatasource,
-  getMetricsByOrganization,
-} from "../services/experiments";
+import { createManualSnapshot } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
-import { DimensionModel } from "../models/DimensionModel";
+import {
+  findDimensionsByDataSource,
+  findDimensionsByOrganization,
+} from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
 import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
-import { DataSourceModel } from "../models/DataSourceModel";
+import {
+  createDataSource,
+  getDataSourcesByOrganization,
+  getDataSourceById,
+  deleteDatasourceById,
+} from "../models/DataSourceModel";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
 import { ExperimentInterface } from "../../types/experiment";
-import { MetricModel } from "../models/MetricModel";
+import {
+  findMetricById,
+  insertMetric,
+  getMetricsByDatasource,
+  getMetricsByOrganization,
+} from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
 import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
+import {
+  createOrganization,
+  findOrganizationsByMemberId,
+} from "../models/OrganizationModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -75,7 +83,7 @@ export async function getUser(req: AuthRequest, res: Response) {
   }
 
   // List of all organizations the user belongs to
-  const orgs = await getAllOrganizationsByUserId(req.userId);
+  const orgs = await findOrganizationsByMemberId(req.userId);
 
   return res.status(200).json({
     status: 200,
@@ -100,10 +108,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const existingMetric = await MetricModel.findOne({
-    organization: orgId,
-    id: /^met_sample/,
-  });
+  const existingMetric = await findMetricById(/^met_sample/, orgId);
   if (existingMetric) {
     throw new Error("Sample data already exists");
   }
@@ -118,7 +123,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     organization: orgId,
     userIdType: "anonymous",
   };
-  await MetricModel.create(metric1);
+  await insertMetric(metric1);
 
   const metric2: Partial<MetricInterface> = {
     id: uniqid("met_sample_"),
@@ -130,7 +135,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     organization: orgId,
     userIdType: "anonymous",
   };
-  await MetricModel.create(metric2);
+  await insertMetric(metric2);
 
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
@@ -249,9 +254,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
-    DimensionModel.find({
-      organization: orgId,
-    }),
+    findDimensionsByOrganization(orgId),
     SegmentModel.find({
       organization: orgId,
     }),
@@ -642,18 +645,14 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
   }
 
   // Make sure there are no dimensions
-  const dimensions = await DimensionModel.find({
-    datasource: datasource.id,
-  });
+  const dimensions = await findDimensionsByDataSource(datasource.id);
   if (dimensions.length > 0) {
     throw new Error(
       "Error: Please delete all dimensions tied to this datasource first."
     );
   }
 
-  await DataSourceModel.deleteOne({
-    _id: datasource._id,
-  });
+  await deleteDatasourceById(datasource.id);
 
   res.status(200).json({
     status: 200,

@@ -1,8 +1,8 @@
 import {
-  OrganizationModel,
   OrganizationDocument,
+  findOrganizationById,
+  findOrganizationByInviteKey,
 } from "../models/OrganizationModel";
-import uniqid from "uniqid";
 import { randomBytes } from "crypto";
 import { APP_ORIGIN } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
@@ -17,9 +17,7 @@ import { getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 
 export async function getOrganizationById(id: string) {
-  return OrganizationModel.findOne({
-    id,
-  });
+  return findOrganizationById(id);
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -72,38 +70,6 @@ export async function userHasAccess(
   return false;
 }
 
-export async function getAllOrganizationsByUserId(userId: string) {
-  return OrganizationModel.find({
-    members: {
-      $elemMatch: {
-        id: userId,
-      },
-    },
-  });
-}
-
-export function createOrganization(
-  email: string,
-  userId: string,
-  name: string,
-  url: string
-) {
-  // TODO: sanitize fields
-  return OrganizationModel.create({
-    ownerEmail: email,
-    name,
-    url,
-    invites: [],
-    members: [
-      {
-        id: userId,
-        role: "admin",
-      },
-    ],
-    id: uniqid("org_"),
-  });
-}
-
 export async function removeMember(
   organization: OrganizationDocument,
   id: string
@@ -138,9 +104,7 @@ export function getInviteUrl(key: string) {
 }
 
 export async function acceptInvite(key: string, userId: string) {
-  const organization = await OrganizationModel.findOne({
-    "invites.key": key,
-  });
+  const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
   }

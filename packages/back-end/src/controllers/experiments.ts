@@ -4,13 +4,10 @@ import {
   getExperimentsByOrganization,
   getExperimentById,
   getLatestSnapshot,
-  getMetricsByOrganization,
   createMetric,
-  getMetricById,
   createExperiment,
   createSnapshot,
   deleteExperimentById,
-  deleteMetricById,
   createManualSnapshot,
   getManualSnapshotData,
   ensureWatching,
@@ -25,10 +22,7 @@ import {
 } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
-import {
-  getDataSourceById,
-  getSourceIntegrationObject,
-} from "../services/datasource";
+import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../services/tag";
 import { userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
@@ -48,17 +42,23 @@ import {
   UsersQueryParams,
   MetricValueParams,
 } from "../types/Integration";
-import { DimensionModel } from "../models/DimensionModel";
+import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricModel } from "../models/MetricModel";
+import {
+  deleteMetricById,
+  findMetricById,
+  getMetricsByOrganization,
+  getMetricById,
+} from "../models/MetricModel";
 import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import { getDataSourceById } from "../models/DataSourceModel";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -1043,7 +1043,7 @@ async function getMetricAnalysis(
 
 export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await MetricModel.findOne({ id });
+  const metric = await findMetricById(id);
   const result = await getStatusEndpoint(
     metric,
     req.organization.id,
@@ -1054,7 +1054,7 @@ export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
 }
 export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await MetricModel.findOne({ id });
+  const metric = await findMetricById(id);
   res.status(200).json(await cancelRun(metric, req.organization.id));
 }
 
@@ -1512,9 +1512,7 @@ export async function postSnapshot(
 
   let dimensionObj: DimensionInterface;
   if (dimension) {
-    dimensionObj = await DimensionModel.findOne({
-      id: dimension,
-    });
+    dimensionObj = await findDimensionById(dimension);
     if (dimensionObj && dimensionObj.organization !== req.organization.id) {
       res.status(403).json({
         status: 403,

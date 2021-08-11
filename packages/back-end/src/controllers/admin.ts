@@ -1,7 +1,9 @@
 import { AuthRequest } from "../types/AuthRequest";
-import { OrganizationModel } from "../models/OrganizationModel";
+import {
+  findAllOrganizations,
+  findOrganizationById,
+} from "../models/OrganizationModel";
 import { Response } from "express";
-import { createDataSource } from "../services/datasource";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import {
   createExperiment,
@@ -10,14 +12,17 @@ import {
 } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
 import uniqid from "uniqid";
-import { DimensionModel } from "../models/DimensionModel";
+import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
 import { createIdea } from "../services/ideas";
 import { createImpactEstimate } from "../models/ImpactEstimateModel";
 import { createLearning } from "../services/learnings";
 import { createPresentation } from "../services/presentations";
-import { DataSourceModel } from "../models/DataSourceModel";
+import {
+  getOrganizationsWithDatasources,
+  createDataSource,
+} from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { PresentationSlide } from "../../types/presentation";
 
@@ -29,9 +34,9 @@ export async function getOrganizations(req: AuthRequest, res: Response) {
     });
   }
 
-  const organizations = await OrganizationModel.find();
+  const organizations = await findAllOrganizations();
 
-  const orgsWithDatasources = await DataSourceModel.distinct("organization");
+  const orgsWithDatasources = await getOrganizationsWithDatasources();
 
   return res.status(200).json({
     status: 200,
@@ -54,7 +59,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
 
   const { id }: { id: string } = req.params;
 
-  const org = await OrganizationModel.findOne({ id });
+  const org = await findOrganizationById(id);
   if (!org) {
     throw new Error("Cannot find organization");
   }
@@ -194,7 +199,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   });
 
   // Example dimension
-  await DimensionModel.create({
+  await createDimension({
     datasource: datasource.id,
     name: "Gender",
     sql: "SELECT user_id, gender as value FROM users",
