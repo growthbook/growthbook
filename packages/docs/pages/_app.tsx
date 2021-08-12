@@ -26,6 +26,12 @@ const navLinks = [
   {
     href: "/self-host",
     name: "Self-Host",
+    links: [
+      {
+        href: "/self-host/config",
+        name: "Configuration",
+      },
+    ],
   },
   {
     href: "/app",
