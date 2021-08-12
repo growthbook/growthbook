@@ -10,11 +10,8 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export const UPLOAD_METHOD = ["s3", "local"].includes(process.env.UPLOAD_METHOD)
-  ? (process.env.UPLOAD_METHOD as "s3" | "local")
-  : IS_CLOUD
-  ? "s3"
-  : "local";
+export const UPLOAD_METHOD =
+  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local";
 
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
