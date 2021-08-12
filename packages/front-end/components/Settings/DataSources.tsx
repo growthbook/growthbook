@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
 import { datetime } from "../../services/dates";
+import { hasFileConfig } from "../../services/env";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -46,7 +47,7 @@ const DataSources: FC = () => {
             <tr>
               <th>Display Name</th>
               <th>Type</th>
-              <th>Date Added</th>
+              {!hasFileConfig() && <th>Date Added</th>}
             </tr>
           </thead>
           <tbody>
@@ -63,7 +64,7 @@ const DataSources: FC = () => {
                   <Link href={`/datasources/${d.id}`}>{d.name}</Link>
                 </td>
                 <td>{d.type}</td>
-                <td>{datetime(d.dateCreated)}</td>
+                {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>
             ))}
           </tbody>
@@ -90,15 +91,17 @@ const DataSources: FC = () => {
         </div>
       )}
 
-      <button
-        className="btn btn-success"
-        onClick={(e) => {
-          e.preventDefault();
-          setEdit(DEFAULT_DATA_SOURCE);
-        }}
-      >
-        <FaPlus /> Add Data Source
-      </button>
+      {!hasFileConfig() && (
+        <button
+          className="btn btn-success"
+          onClick={(e) => {
+            e.preventDefault();
+            setEdit(DEFAULT_DATA_SOURCE);
+          }}
+        >
+          <FaPlus /> Add Data Source
+        </button>
+      )}
       {edit && (
         <DataSourceForm
           existing={edit !== DEFAULT_DATA_SOURCE}

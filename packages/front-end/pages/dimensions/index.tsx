@@ -6,6 +6,8 @@ import Button from "../../components/Button";
 import { DimensionInterface } from "back-end/types/dimension";
 import DimensionForm from "../../components/Dimensions/DimensionForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { hasFileConfig } from "../../services/env";
+import clsx from "clsx";
 
 const DimensionsPage: FC = () => {
   const {
@@ -67,16 +69,18 @@ const DimensionsPage: FC = () => {
         <div className="col-auto">
           <h3>Dimensions</h3>
         </div>
-        <div className="col-auto">
-          <Button
-            color="success"
-            onClick={async () => {
-              setDimensionForm({});
-            }}
-          >
-            <FaPlus /> New Dimension
-          </Button>
-        </div>
+        {!hasFileConfig() && (
+          <div className="col-auto">
+            <Button
+              color="success"
+              onClick={async () => {
+                setDimensionForm({});
+              }}
+            >
+              <FaPlus /> New Dimension
+            </Button>
+          </div>
+        )}
       </div>
       {dimensions.length > 0 && (
         <div className="row mb-4">
@@ -87,14 +91,18 @@ const DimensionsPage: FC = () => {
               dimensions to drill down into experiment results and other
               reports.
             </p>
-            <table className="table appbox table-hover">
+            <table
+              className={clsx("table appbox", {
+                "table-hover": !hasFileConfig(),
+              })}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  <th></th>
+                  {!hasFileConfig() && <th>Date Updated</th>}
+                  {!hasFileConfig() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -113,19 +121,21 @@ const DimensionsPage: FC = () => {
                         <code>{s.sql}</code>
                       )}
                     </td>
-                    <td>{ago(s.dateUpdated)}</td>
-                    <td>
-                      <a
-                        href="#"
-                        className="tr-hover text-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setDimensionForm(s);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </td>
+                    {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
+                    {!hasFileConfig() && (
+                      <td>
+                        <a
+                          href="#"
+                          className="tr-hover text-primary"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setDimensionForm(s);
+                          }}
+                        >
+                          <FaPencilAlt />
+                        </a>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -133,7 +143,7 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error && dimensions.length === 0 && (
+      {!error && dimensions.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any dimensions defined yet. Click the green button
           above to create your first one.
