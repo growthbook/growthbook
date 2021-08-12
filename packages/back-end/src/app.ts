@@ -8,7 +8,12 @@ import express, {
 import mongoInit from "./init/mongo";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
-import { APP_ORIGIN, CORS_ORIGIN_REGEX, IS_CLOUD } from "./util/secrets";
+import {
+  APP_ORIGIN,
+  CORS_ORIGIN_REGEX,
+  IS_CLOUD,
+  UPLOAD_METHOD,
+} from "./util/secrets";
 import {
   getExperimentConfig,
   getExperimentsScript,
@@ -223,7 +228,7 @@ if (!IS_CLOUD) {
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
-if (!IS_CLOUD) {
+if (UPLOAD_METHOD === "local") {
   // Create 'uploads' directory if it doesn't exist yet
   const uploadDir = getUploadsDir();
   if (!fs.existsSync(uploadDir)) {

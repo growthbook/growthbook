@@ -81,6 +81,13 @@ The Growth Book App is configured via environment variables. Below are all of th
 - Google OAuth Settings (only if using Google Analytics as a data source)
   - **GOOGLE_OAUTH_CLIENT_ID**
   - **GOOGLE_OAUTH_CLIENT_SECRET**
+- S3 File Uploads (optional, will store uploads locally by default)
+  - **UPLOAD_METHOD** (set to "s3")
+  - **S3_BUCKET**
+  - **S3_REGION** (defaults to `us-east-1`)
+  - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
+  - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
+  - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
 
 ### Changing the Ports
 
@@ -108,7 +115,7 @@ Now your app would be available on [http://localhost:4000](http://localhost:4000
 
 ### Volumes
 
-Images uploaded in the Growth Book app are stored in `/usr/local/src/app/packages/back-end/uploads`. We recommend mounting a volume there so images can be persisted.
+If you are not using S3 for file uploads, they are stored locally in `/usr/local/src/app/packages/back-end/uploads`. We recommend mounting a volume there so images can be persisted.
 
 Also, if you are running MongoDB through Docker, you will need to mount a volume to `/data/db` to persist data between container restarts. In production, we highly suggest just using a hosted solution like [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) instead.
 
