@@ -32,9 +32,13 @@ export default class ClickHouse extends SqlIntegration {
       config: {
         database: this.params.database,
       },
+      reqParams: {
+        headers: {
+          "x-clickhouse-format": "JSON",
+        },
+      },
     });
-
-    return await client.query(sql).toPromise();
+    return Array.from(await client.query(sql).toPromise());
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
@@ -59,5 +63,8 @@ export default class ClickHouse extends SqlIntegration {
   }
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;
+  }
+  stddev(col: string) {
+    return `stddevSamp(${col})`;
   }
 }

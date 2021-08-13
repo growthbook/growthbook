@@ -220,6 +220,9 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return new Date(fromDB);
   }
+  stddev(col: string) {
+    return `STDDEV(${col})`;
+  }
 
   getPastExperimentQuery(from: Date) {
     return format(
@@ -396,7 +399,7 @@ export default abstract class SqlIntegration
         ${params.includeByDate ? "null as date," : ""}
         COUNT(*) as count,
         AVG(value) as mean,
-        STDDEV(value) as stddev
+        ${this.stddev("value")} as stddev
         ${
           params.includePercentiles && params.metric.type !== "binomial"
             ? `,${percentileNumbers
@@ -416,7 +419,7 @@ export default abstract class SqlIntegration
           date,
           COUNT(*) as count,
           AVG(value) as mean,
-          STDDEV(value) as stddev
+          ${this.stddev("value")} as stddev
           ${
             params.includePercentiles && params.metric.type !== "binomial"
               ? `,${percentileNumbers
@@ -942,7 +945,7 @@ export default abstract class SqlIntegration
       dimension,
       COUNT(*) as count,
       AVG(value) as mean,
-      STDDEV(value) as stddev
+      ${this.stddev("value")} as stddev
     FROM
       __userMetric
     GROUP BY
