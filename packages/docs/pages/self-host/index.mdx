@@ -47,6 +47,8 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - mongodata:/data/db
   growthbook:
     image: "growthbook/growthbook:latest"
     ports:
@@ -56,35 +58,26 @@ services:
       - mongo
     environment:
       - MONGODB_URI=mongodb://root:password@mongo:27017/
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+volumes:
+  mongodata:
+  uploads:
 ```
 
 Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
-### Volumes
-
-If you are not using S3 for file uploads, they are stored locally in `/usr/local/src/app/packages/back-end/uploads`. We recommend mounting a volume there so images can be persisted.
-
-Also, if you are running MongoDB through Docker, you will need to mount a volume to `/data/db` to persist data between container restarts. In production, we highly suggest just using a hosted solution like [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) instead.
-
-### Commands
-
-These are the possible commands you can use:
-
-- `["yarn", "start"]` - default, start both front-end and back-end in parallel
-- `["yarn", "workspace", "front-end", "run"]` - run only the front-end
-- `["yarn", "workspace", "back-end", "run"]` - run only the back-end
-
 ## Docker Tags
 
-Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch.
+Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch.  The most recent commit is tagged with `latest`. 
 
-The most recent commit is tagged with `latest`. GitHub Releases are also tagged (e.g. `0.2.1`).
+GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
 
 If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
 
-### Updating to Latest
+## Updating to Latest
 
-If you are using docker-compose, you can update with:
+If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
 
 ```bash
 docker-compose pull growthbook

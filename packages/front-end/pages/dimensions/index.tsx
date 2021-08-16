@@ -149,6 +149,15 @@ const DimensionsPage: FC = () => {
           above to create your first one.
         </div>
       )}
+      {!error && dimensions.length === 0 && hasFileConfig() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Dimensions
+          defined there will show up on this page.{" "}
+          <a href="https://docs.growthbook.io/self-host/config#configyml">
+            View Documentation
+          </a>
+        </div>
+      )}
     </div>
   );
 };

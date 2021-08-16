@@ -88,6 +88,15 @@ const DataSources: FC = () => {
             require minimal read-only permissions, so you can be sure your
             source data remains secure.
           </p>
+          {hasFileConfig() && (
+            <div className="alert alert-info">
+              It looks like you have a <code>config.yml</code> file. Data
+              sources defined there will show up on this page.{" "}
+              <a href="https://docs.growthbook.io/self-host/config#configyml">
+                View Documentation
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -102,6 +111,7 @@ const DataSources: FC = () => {
           <FaPlus /> Add Data Source
         </button>
       )}
+
       {edit && (
         <DataSourceForm
           existing={edit !== DEFAULT_DATA_SOURCE}

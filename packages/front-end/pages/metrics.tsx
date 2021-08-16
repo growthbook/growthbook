@@ -74,6 +74,15 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
+        {hasFileConfig() && (
+          <div className="alert alert-info">
+            It looks like you have a <code>config.yml</code> file. Metrics
+            defined there will show up on this page.{" "}
+            <a href="https://docs.growthbook.io/self-host/config#configyml">
+              View Documentation
+            </a>
+          </div>
+        )}
         {permissions.createMetrics && !hasFileConfig() && (
           <button
             className="btn btn-lg btn-success"

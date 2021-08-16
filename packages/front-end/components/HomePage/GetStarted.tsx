@@ -17,6 +17,8 @@ import { HiCursorClick } from "react-icons/hi";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import track from "../../services/track";
+import { hasFileConfig } from "../../services/env";
+import clsx from "clsx";
 
 const GetStarted = ({
   experiments,
@@ -99,7 +101,16 @@ const GetStarted = ({
                 </p>
               </div>
             </div>
-            {!(hasMetrics || hasExperiments) && (
+            {hasFileConfig() && (
+              <div className="alert alert-info">
+                It looks like you have a <code>config.yml</code> file. Use that
+                to define data sources and metrics.{" "}
+                <a href="https://docs.growthbook.io/self-host/config#configyml">
+                  View Documentation
+                </a>
+              </div>
+            )}
+            {!(hasMetrics || hasExperiments) && !hasFileConfig() && (
               <div className="alert alert-info mb-3">
                 <div className="d-flex align-items-center">
                   <strong className="mr-2">Just here to explore?</strong>
@@ -181,13 +192,12 @@ const GetStarted = ({
                       .
                     </p>
                     <a
-                      className={`action-link mr-3 ${
-                        hasDataSource
-                          ? "btn btn-success"
-                          : currentStep === 1
-                          ? "btn btn-primary"
-                          : "non-active-step"
-                      }`}
+                      className={clsx(`action-link mr-3`, {
+                        "btn btn-success": hasDataSource,
+                        "btn btn-primary": !hasDataSource && currentStep === 1,
+                        "non-active-step": !hasDataSource && currentStep > 1,
+                        "d-none": !hasDataSource && hasFileConfig(),
+                      })}
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
@@ -226,13 +236,12 @@ const GetStarted = ({
                       retroactively to past experiments.
                     </p>
                     <a
-                      className={`action-link ${
-                        hasMetrics
-                          ? "btn btn-success"
-                          : currentStep === 2
-                          ? "btn btn-primary"
-                          : "non-active-step"
-                      }`}
+                      className={clsx(`action-link`, {
+                        "btn btn-success": hasMetrics,
+                        "btn btn-primary": !hasMetrics && currentStep === 2,
+                        "non-active-step": !hasMetrics && currentStep !== 2,
+                        "d-none": !hasMetrics && hasFileConfig(),
+                      })}
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
