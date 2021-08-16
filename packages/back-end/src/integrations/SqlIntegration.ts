@@ -220,6 +220,9 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return new Date(fromDB);
   }
+  stddev(col: string) {
+    return `STDDEV(${col})`;
+  }
 
   getPastExperimentQuery(from: Date) {
     return format(
@@ -268,10 +271,11 @@ export default abstract class SqlIntegration
         FROM
           __experimentDates d
           JOIN __userThresholds u ON (
-            d.users > u.threshold
-            AND d.experiment_id = u.experiment_id
+            d.experiment_id = u.experiment_id
             AND d.variation_id = u.variation_id
           )
+        WHERE
+          d.users > u.threshold
         GROUP BY
           d.experiment_id, d.variation_id
       )
@@ -344,7 +348,7 @@ export default abstract class SqlIntegration
             __users u
             ${
               params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = u.user_id AND s.date <= u.actual_start)"
+                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
                 : ""
             }
           GROUP BY
@@ -358,11 +362,12 @@ export default abstract class SqlIntegration
             __distinctUsers d
             JOIN __metric m ON (
               m.user_id = d.user_id
-              AND m.actual_start >= d.${
+            )
+            WHERE
+              m.actual_start >= d.${
                 params.metric.earlyStart ? "session_start" : "actual_start"
               }
               AND m.actual_start <= d.conversion_end
-            )
           GROUP BY
             d.user_id
         )
@@ -378,11 +383,12 @@ export default abstract class SqlIntegration
               __distinctUsers d
               JOIN __metric m ON (
                 m.user_id = d.user_id
-                AND m.actual_start >= d.${
+              )
+              WHERE
+                m.actual_start >= d.${
                   params.metric.earlyStart ? "session_start" : "actual_start"
                 }
                 AND m.actual_start <= d.conversion_end
-              )
             GROUP BY
               ${this.dateTrunc("d.actual_start")},
               d.user_id
@@ -393,7 +399,7 @@ export default abstract class SqlIntegration
         ${params.includeByDate ? "null as date," : ""}
         COUNT(*) as count,
         AVG(value) as mean,
-        STDDEV(value) as stddev
+        ${this.stddev("value")} as stddev
         ${
           params.includePercentiles && params.metric.type !== "binomial"
             ? `,${percentileNumbers
@@ -413,7 +419,7 @@ export default abstract class SqlIntegration
           date,
           COUNT(*) as count,
           AVG(value) as mean,
-          STDDEV(value) as stddev
+          ${this.stddev("value")} as stddev
           ${
             params.includePercentiles && params.metric.type !== "binomial"
               ? `,${percentileNumbers
@@ -462,7 +468,7 @@ export default abstract class SqlIntegration
         __users u
         ${
           params.segmentQuery
-            ? "JOIN __segment s ON (s.user_id = u.user_id AND s.date <= u.actual_start)"
+            ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
             : ""
         }
 
@@ -476,7 +482,7 @@ export default abstract class SqlIntegration
           __users u
           ${
             params.segmentQuery
-              ? "JOIN __segment s ON (s.user_id = u.user_id AND s.date <= u.actual_start)"
+              ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
               : ""
           }
         GROUP BY
@@ -821,9 +827,9 @@ export default abstract class SqlIntegration
               ? `
           JOIN __activationMetric a ON (
             a.user_id = e.user_id
-            AND a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end
-          )`
+          ) WHERE
+            a.actual_start >= e.actual_start
+            AND a.actual_start <= e.conversion_end`
               : ""
           }
         GROUP BY
@@ -906,9 +912,9 @@ export default abstract class SqlIntegration
               ? `
           JOIN __activationMetric a ON (
             a.user_id = e.user_id
-            AND a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end
-          )`
+          ) WHERE
+            a.actual_start >= e.actual_start
+            AND a.actual_start <= e.conversion_end`
               : ""
           }
         GROUP BY
@@ -924,11 +930,12 @@ export default abstract class SqlIntegration
           __distinctUsers d
           JOIN __metric m ON (
             m.user_id = d.user_id
-            AND m.actual_start >= d.${
+          )
+          WHERE
+            m.actual_start >= d.${
               metric.earlyStart ? "session_start" : "actual_start"
             }
             AND m.actual_start <= d.conversion_end
-          )
         GROUP BY
           variation, dimension, d.user_id
       )
@@ -938,7 +945,7 @@ export default abstract class SqlIntegration
       dimension,
       COUNT(*) as count,
       AVG(value) as mean,
-      STDDEV(value) as stddev
+      ${this.stddev("value")} as stddev
     FROM
       __userMetric
     GROUP BY

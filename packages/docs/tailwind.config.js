@@ -21,6 +21,9 @@ module.exports = {
         return {
           DEFAULT: {
             css: {
+              h1: {
+                fontWeight: 600,
+              },
               lineHeight: "1.5",
               h2: {
                 marginTop: "1.5em",
@@ -34,6 +37,10 @@ module.exports = {
               },
               "> ul > li > *:last-child": {
                 marginBottom: em(12, 16),
+              },
+              img: {
+                borderWidth: "1px",
+                borderColor: theme("colors.gray.100"),
               },
               code: {
                 color: theme("colors.pink.600"),
@@ -93,6 +100,9 @@ module.exports = {
               pre: {
                 color: theme("colors.gray.200"),
                 backgroundColor: theme("colors.gray.800"),
+              },
+              img: {
+                borderColor: theme("colors.gray.800"),
               },
               "pre code": {
                 color: "inherit",

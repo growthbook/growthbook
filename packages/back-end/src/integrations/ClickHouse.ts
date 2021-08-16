@@ -41,9 +41,13 @@ export default class ClickHouse extends SqlIntegration {
       config: {
         database: this.params.database,
       },
+      reqParams: {
+        headers: {
+          "x-clickhouse-format": "JSON",
+        },
+      },
     });
-
-    return await client.query(sql).toPromise();
+    return Array.from(await client.query(sql).toPromise());
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
@@ -52,10 +56,10 @@ export default class ClickHouse extends SqlIntegration {
       .replace("T", " ")}')`;
   }
   addDateInterval(col: string, days: number) {
-    return `date_add(day, ${days}, ${col})`;
+    return `dateAdd(day, ${days}, ${col})`;
   }
   subtractHalfHour(col: string) {
-    return `date_sub(hour, 30, ${col})`;
+    return `dateSub(hour, 30, ${col})`;
   }
   regexMatch(col: string, regex: string) {
     return `match(${col}, '${regex.replace(/\\/g, "\\\\")}')`;
@@ -64,9 +68,12 @@ export default class ClickHouse extends SqlIntegration {
     return `quantile(${percentile})(${col})`;
   }
   dateTrunc(col: string) {
-    return `date_trunc('day', ${col})`;
+    return `dateTrunc('day', ${col})`;
   }
   dateDiff(startCol: string, endCol: string) {
-    return `date_diff('day', ${startCol}, ${endCol})`;
+    return `dateDiff('day', ${startCol}, ${endCol})`;
+  }
+  stddev(col: string) {
+    return `stddevSamp(${col})`;
   }
 }

@@ -25,6 +25,13 @@ The Growth Book docker container supports a number of environment variables:
 - Google OAuth Settings (only if using Google Analytics as a data source):
   - **GOOGLE_OAUTH_CLIENT_ID**
   - **GOOGLE_OAUTH_CLIENT_SECRET**
+- S3 File Uploads (optional, uses local filesystem as a fallback)
+  - **UPLOAD_METHOD** (set to "s3" instead of default value "local")
+  - **S3_BUCKET**
+  - **S3_REGION** (defaults to `us-east-1`)
+  - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
+  - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
+  - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
 
 ### Changing the Ports
 

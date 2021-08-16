@@ -62,7 +62,7 @@ Then, just run `docker-compose up -d` to start everything and view the app at [h
 
 ### Volumes
 
-Images uploaded in the Growth Book app are stored in `/usr/local/src/app/packages/back-end/uploads`. We recommend mounting a volume there so images can be persisted.
+If you are not using S3 for file uploads, they are stored locally in `/usr/local/src/app/packages/back-end/uploads`. We recommend mounting a volume there so images can be persisted.
 
 Also, if you are running MongoDB through Docker, you will need to mount a volume to `/data/db` to persist data between container restarts. In production, we highly suggest just using a hosted solution like [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) instead.
 

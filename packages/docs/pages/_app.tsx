@@ -94,6 +94,10 @@ const navLinks = [
       },
     ],
   },
+  {
+    href: "/statistics",
+    name: "Statistics",
+  },
 ];
 
 const linksInOrder: { name: string; href: string }[] = [];
