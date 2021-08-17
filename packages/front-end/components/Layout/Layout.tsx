@@ -73,7 +73,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/dimensions",
         Icon: FaShapes,
         path: /^dimension/,
-        superAdmin: true,
       },
     ],
   },

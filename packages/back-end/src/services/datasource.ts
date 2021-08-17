@@ -1,9 +1,6 @@
-import uniqid from "uniqid";
 import { AES, enc } from "crypto-js";
 import { ENCRYPTION_KEY } from "../util/secrets";
-import GoogleAnalytics, {
-  getOauth2Client,
-} from "../integrations/GoogleAnalytics";
+import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
 import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
@@ -13,27 +10,9 @@ import { SourceIntegrationInterface } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
-import { DataSourceModel } from "../models/DataSourceModel";
-import {
-  DataSourceInterface,
-  DataSourceParams,
-  DataSourceSettings,
-  DataSourceType,
-} from "../../types/datasource";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
+import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 
-export async function getDataSourcesByOrganization(organization: string) {
-  return await DataSourceModel.find({
-    organization,
-  });
-}
-
-export async function getDataSourceById(id: string) {
-  return await DataSourceModel.findOne({
-    id,
-  });
-}
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
 ): T {
@@ -92,39 +71,4 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(datasource);
   await integration.testConnection();
-}
-
-export async function createDataSource(
-  organization: string,
-  name: string,
-  type: DataSourceType,
-  params: DataSourceParams,
-  settings?: DataSourceSettings
-) {
-  const id = uniqid("ds_");
-
-  if (type === "google_analytics") {
-    const oauth2Client = getOauth2Client();
-    const { tokens } = await oauth2Client.getToken(
-      (params as GoogleAnalyticsParams).refreshToken
-    );
-    (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token;
-  }
-
-  const datasource: DataSourceInterface = {
-    id,
-    name,
-    organization,
-    type,
-    settings,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    params: encryptParams(params),
-  };
-
-  // Test the connection and create in the database
-  await testDataSourceConnection(datasource);
-  const model = await DataSourceModel.create(datasource);
-
-  return model;
 }

@@ -1,7 +1,9 @@
 export interface ClickHouseConnectionParams {
-  url: string;
+  host?: string;
+  url?: string;
   port: number;
-  username: string;
+  user?: string;
+  username?: string;
   password: string;
   database: string;
 }

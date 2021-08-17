@@ -31,6 +31,7 @@ import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Code from "../../components/Code";
+import { hasFileConfig } from "../../services/env";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -57,14 +58,14 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEdit = permissions.createMetrics;
+  const canEdit = permissions.createMetrics && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis;
-  if (!("average" in analysis)) {
+  if (!analysis || !("average" in analysis)) {
     analysis = null;
   }
 

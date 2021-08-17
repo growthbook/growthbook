@@ -1,5 +1,7 @@
 /* eslint-disable */
 const rehypePrism = require("@mapbox/rehype-prism");
+const rehypeSlug = require("rehype-slug");
+const autoLink = require("rehype-autolink-headings");
 
 // eslint-disable-next-line
 const withMDX = require("@next/mdx")({
@@ -8,6 +10,8 @@ const withMDX = require("@next/mdx")({
     remarkPlugins: [],
     rehypePlugins: [
       rehypePrism,
+      rehypeSlug,
+      autoLink
     ],
   },
 });

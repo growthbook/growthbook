@@ -2,10 +2,12 @@ const env: {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
   apiHost: string;
+  config: "file" | "db";
 } = {
   telemetry: "enable",
   cloud: false,
   apiHost: "",
+  config: "db",
 };
 
 export async function initEnv() {
@@ -25,4 +27,7 @@ export function isTelemetryEnabled() {
 }
 export function inTelemetryDebugMode(): boolean {
   return env.telemetry === "debug";
+}
+export function hasFileConfig() {
+  return env.config === "file";
 }

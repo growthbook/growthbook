@@ -1,0 +1,368 @@
+
+# Configuring Growth Book
+
+The default configuration in Growth Book is optimized for trying things out quickly on a local dev machine.
+Beyond that, you can customize behavior with Environment Variables and optionally a config yaml file.
+
+## Environment Variables
+
+The Growth Book docker container supports a number of environment variables:
+
+- **NODE_ENV** - Set to "production" to turn on additional optimizations and API request logging
+- **JWT_SECRET** - Auth signing key (use a long random string)
+- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
+- **MONGODB_URI** - The MongoDB connection string
+- **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
+- **API_HOST** - (default set to http://localhost:3100)
+- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
+- Email SMTP Settings (required for sending experiment alerts and team member invites):
+  - **EMAIL_ENABLED** ("true" or "false")
+  - **EMAIL_HOST**
+  - **EMAIL_PORT**
+  - **EMAIL_HOST_USER**
+  - **EMAIL_HOST_PASSWORD**
+  - **EMAIL_USE_TLS** ("true" or "false")
+- Google OAuth Settings (only if using Google Analytics as a data source):
+  - **GOOGLE_OAUTH_CLIENT_ID**
+  - **GOOGLE_OAUTH_CLIENT_SECRET**
+- S3 File Uploads (optional, uses local filesystem as a fallback)
+  - **UPLOAD_METHOD** (set to "s3" instead of default value "local")
+  - **S3_BUCKET**
+  - **S3_REGION** (defaults to `us-east-1`)
+  - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
+  - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
+  - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
+
+### Changing the Ports
+
+The Docker image exposes 2 ports: `3000` for the front-end and `3100` for the API.
+
+If you need to change these, you can use Docker port mappings. You'll also need to set the environment variables **API_HOST** and **APP_ORIGIN** to include your new ports.
+
+Here's an example of switching to ports `4000` and `4100` in `docker-compose.yml`:
+
+```yml
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "4000:3000"
+      - "4100:3100"
+    environment:
+      - APP_ORIGIN=http://localhost:4000
+      - API_HOST=http://localhost:4100
+```
+
+Now your app would be available on [http://localhost:4000](http://localhost:4000)
+
+## Config.yml
+
+In order to use Growth Book, you need to connect to a data source and define metrics (and optionally dimensions). There are two ways to do this.
+
+The default way to define these is by filling out forms in the Growth Book UI, which persists them to MongoDB.
+
+The other option is to create a `config.yml` file.  In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`.  Below is an example file:
+
+```yml
+datasources:
+  warehouse:
+    type: postgres
+    name: Main Warehouse
+    # Connection params (different for each type of data source)
+    params:
+      host: localhost
+      port: 5432
+      user: root
+      password: ${POSTGRES_PW} # use env for secrets
+      database: growthbook
+    # How to query the data (same for all SQL sources)
+    settings:
+      queries:
+        usersQuery: >
+          SELECT user_id, anonymous_id FROM identifies
+        experimentsQuery: >
+          SELECT
+            user_id,
+            anonymous_id,
+            received_at as timestamp,
+            experiment_id,
+            variation_id,
+            context_page_path as url,
+            context_user_agent as user_agent
+          FROM
+            experiment_viewed
+        pageviewsQuery: >
+          SELECT
+            user_id,
+            anonymous_id,
+            received_at as timestamp,
+            path as url,
+            context_user_agent as user_agent
+          FROM
+            pages
+metrics:
+  signups:
+    type: binomial
+    name: Sign Ups
+    datasource: warehouse
+    sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
+dimensions:
+  country:
+    name: Country
+    datasource: warehouse
+    sql: SELECT user_id, country as value from users
+```
+
+### Data Source Connection Params
+
+The contents of the `params` field for a data source depends on the type.
+
+As seen in the example above, you can use environment variable interpolation for secrets (e.g. `${POSTGRES_PW}`).
+
+#### Redshift, ClickHouse, Postgres, and Mysql (or MariaDB)
+
+```yml
+type: postgres # or "redshift" or "mysql" or "clickhouse"
+params:
+  host: localhost
+  port: 5432
+  user: root
+  password: password
+  database: growthbook
+```
+
+#### Snowflake
+
+```yml
+type: snowflake
+params:
+  account: abc123.us-east-1
+  username: user
+  password: password
+  database: GROWTHBOOK
+  schema: PUBLIC
+  role: SYSADMIN
+  warehouse: COMPUTE_WH
+```
+
+#### BigQuery
+
+BigQuery access requires a service account.
+
+```yml
+type: bigquery
+params:
+  projectId: my-project
+  clientEmail: growthbook@my-project.iam.gserviceaccount.com
+  privateKey: -----BEGIN PRIVATE KEY-----\nABC123\n-----END PRIVATE KEY-----\n
+```
+
+#### Presto and TrinoDB
+
+```yml
+type: presto
+params:
+  engine: presto # or "trino"
+  host: localhost
+  port: 8080
+  username: user
+  password: password
+  catalog: growthbook
+  schema: growthbook
+```
+
+#### AWS Athena
+
+```yml
+type: athena
+params:
+  accessKeyId: AKIA123
+  secretAccessKey: AB+cdef123
+  region: us-east-1
+  database: growthbook
+  bucketUri: aws-athena-query-results-growthbook
+  workGroup: primary
+```
+
+#### Mixpanel
+
+Mixpanel access requires a service account.
+
+```yml
+type: mixpanel
+params:
+  username: growthbook
+  secret: abc123
+  projectId: my-project
+```
+
+#### Google Analytics
+
+Unfortunately at this time there is no way to connect to Google Analytics in `config.yml`. You must connect via the Growth Book UI, where we use OAuth and a browser redirect.
+
+### Data Source Settings
+
+The settings tell Growth Book how to query your data.
+
+#### SQL Data Sources
+
+For data sources that support SQL, there are 3 queries you need to define:
+
+```yml
+type: postgres
+params: ...
+settings:
+  queries:
+    # This query maps between logged-in and logged-out (anonymous) users
+    usersQuery: >
+      SELECT user_id, anonymous_id FROM identifies
+    # This query returns experiment variation assignment info
+    # One row every time a user was put into an experiment
+    experimentsQuery: >
+      SELECT
+        user_id,
+        anonymous_id,
+        received_at as timestamp,
+        experiment_id,
+        variation_id,
+        context_page_path as url,
+        context_user_agent as user_agent
+      FROM
+        experiment_viewed
+    # This query returns one row for every page view on your site
+    # It is used to predict running times before you start an experiment
+    pageviewsQuery: >
+      SELECT
+        user_id,
+        anonymous_id,
+        received_at as timestamp,
+        path as url,
+        context_user_agent as user_agent
+      FROM
+        pages
+```
+
+#### Mixpanel
+
+Mixpanel does not support SQL, so we query the data using JQL instead. In order to do this, we just need to know a few event names and properties:
+
+```yml
+type: mixpanel
+params: ...
+settings:
+  events:
+    experimentEvent: Viewed Experiment
+    experimentIdProperty: experiment_id
+    variationIdProperty: variation_id
+    pageviewEvent: Page View
+    urlProperty: url
+    userAgentProperty: user_agent
+```
+
+### Metrics
+
+Metrics are what your experiments are trying to improve (or at least not hurt).
+
+Below is an example of all the possible settings with comments:
+
+```yml
+name: Revenue per User
+# The data distribution and unit
+type: revenue # or "binomial" or "count" or "duration"
+# Must match one of the datasources defined in config.yml
+datasource: warehouse
+# Description supports full markdown
+description: This metric is **super** important
+# If true, conversions are counted up to 30min before a user is put into an experiment
+earlyStart: false
+# For inverse metrics, the goal is to DECREASE the value (e.g. "page load time")
+inverse: false
+# When ignoring nulls, only users who convert are included in the denominator
+# Setting to true here would change from "Revenue per User" to "Average Order Value"
+ignoreNulls: false
+# Which types of users are support. Logged-in (user), logged-out (anonymous), or both
+userIdType: "user" # or "anonymous" or "either"
+# Any user with a higher metric amount will be capped at this value
+# In this case, if someone bought a $10,000 order, it would only be counted as $100
+cap: 100
+# Arbitrary tags used to group related metrics
+tags:
+  - revenue
+  - core
+```
+
+In addition to all of those settings, you also need to tell Growth Book how to query the metric.
+
+#### SQL Data Sources
+
+For SQL data sources, you just need to specify a single query. Depending on the other settings, the columns you need to select may differ slightly:
+
+-  `timestamp` - always required
+-  `user_id` - required unless userIdType is set to "anonymous"
+-  `anonymous_id` - required unless userIdType is set to "user"
+-  `value` - required unless type is set to "binomial"
+
+A full example:
+
+```yml
+type: duration
+userIdType: either
+sql: >
+  SELECT
+    created_at as timestamp,
+    user_id,
+    anonymous_id,
+    duration as value
+  FROM
+    requests
+```
+
+And a simple binomial metric that only supports logged-in users:
+
+```yml
+type: binomial
+userIdType: user
+sql: SELECT user_id, timestamp FROM orders
+```
+
+#### Mixpanel
+
+For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics), 
+and optional conditions.
+
+A full example:
+
+```yml
+type: count
+# The event name
+table: PDF Downloads
+# The numeric property to count (optional)
+column: num_pages
+# Filter the event by properties
+conditions:
+  - column: language # property
+    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
+    value: en
+```
+
+And a simple binomial metric:
+
+```yml
+type: binomial
+# The event name
+table: Purchased
+```
+
+### Dimensions
+
+Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
+
+Dimensions only have 3 properties: name, datasource, and SQL.  The SQL query must return two columns: `user_id` and `value`.
+
+Example:
+
+```yml
+name: Country
+# Must match one of the datasources defined in config.yml
+datasource: warehouse
+sql: SELECT user_id, country as value FROM users
+```

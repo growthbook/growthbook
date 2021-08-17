@@ -6,6 +6,7 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
+import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -115,6 +116,7 @@ app.get("/", (req, res) => {
     production: process.env.NODE_ENV === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
+    config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
   });
 });

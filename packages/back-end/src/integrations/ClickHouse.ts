@@ -9,6 +9,15 @@ export default class ClickHouse extends SqlIntegration {
     this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
       encryptedParams
     );
+
+    if (this.params.user) {
+      this.params.username = this.params.user;
+      delete this.params.user;
+    }
+    if (this.params.host) {
+      this.params.url = this.params.host;
+      delete this.params.host;
+    }
   }
   getNonSensitiveParams(): Partial<ClickHouseConnectionParams> {
     return {

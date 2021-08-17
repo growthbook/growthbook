@@ -8,6 +8,7 @@ import { UserContext } from "../components/ProtectedPage";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
+import { hasFileConfig } from "../services/env";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -73,7 +74,16 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {permissions.createMetrics && (
+        {hasFileConfig() && (
+          <div className="alert alert-info">
+            It looks like you have a <code>config.yml</code> file. Metrics
+            defined there will show up on this page.{" "}
+            <a href="https://docs.growthbook.io/self-host/config#configyml">
+              View Documentation
+            </a>
+          </div>
+        )}
+        {permissions.createMetrics && !hasFileConfig() && (
           <button
             className="btn btn-lg btn-success"
             onClick={(e) => {
@@ -98,7 +108,7 @@ const MetricsPage = (): React.ReactElement => {
       )}
       <h3 className="mb-3">
         Your Metrics
-        {permissions.createMetrics && (
+        {permissions.createMetrics && !hasFileConfig() && (
           <button
             className="btn btn-sm btn-success ml-3"
             onClick={() =>
@@ -123,7 +133,9 @@ const MetricsPage = (): React.ReactElement => {
             <th>Type</th>
             <th>Tags</th>
             <th className="d-none d-lg-table-cell">Data Source</th>
-            <th className="d-none d-md-table-cell">Last Updated</th>
+            {!hasFileConfig() && (
+              <th className="d-none d-md-table-cell">Last Updated</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -155,12 +167,14 @@ const MetricsPage = (): React.ReactElement => {
                   ? getDatasourceById(metric.datasource)?.name || ""
                   : "Manual"}
               </td>
-              <td
-                title={datetime(metric.dateUpdated)}
-                className="d-none d-md-table-cell"
-              >
-                {ago(metric.dateUpdated)}
-              </td>
+              {!hasFileConfig && (
+                <td
+                  title={datetime(metric.dateUpdated)}
+                  className="d-none d-md-table-cell"
+                >
+                  {ago(metric.dateUpdated)}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

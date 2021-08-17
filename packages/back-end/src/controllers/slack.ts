@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
+import { getOrganizationFromSlackTeam } from "../models/OrganizationModel";
 import { createIdea } from "../services/ideas";
-import {
-  formatTextResponse,
-  getOrganizationFromSlackTeam,
-  getUserInfoBySlackId,
-} from "../services/slack";
+import { formatTextResponse, getUserInfoBySlackId } from "../services/slack";
 import { APP_ORIGIN } from "../util/secrets";
 
 export async function postIdeas(req: Request, res: Response) {
