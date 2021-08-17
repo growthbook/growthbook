@@ -167,7 +167,7 @@ const MetricsPage = (): React.ReactElement => {
                   ? getDatasourceById(metric.datasource)?.name || ""
                   : "Manual"}
               </td>
-              {!hasFileConfig && (
+              {!hasFileConfig() && (
                 <td
                   title={datetime(metric.dateUpdated)}
                   className="d-none d-md-table-cell"
