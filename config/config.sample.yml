@@ -37,7 +37,7 @@ metrics:
     type: binomial
     name: Sign Ups
     datasource: warehouse
-    sql: SELECT user_id, received_at as timestamp FROM signups
+    sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
 dimensions:
   country:
     name: Country

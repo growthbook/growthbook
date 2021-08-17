@@ -1038,11 +1038,7 @@ export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
 export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  console.log(id);
-
   const metric = await getMetricById(id, req.organization.id, true, true);
-
-  console.log(metric);
 
   if (!metric) {
     return res.status(404).json({
