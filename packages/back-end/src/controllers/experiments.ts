@@ -1350,7 +1350,7 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
     req.organization.id,
     (queryData) => processSnapshotData(experiment, phase, queryData),
     async (updates, results) => {
-      ExperimentSnapshotModel.updateOne(
+      await ExperimentSnapshotModel.updateOne(
         {
           id,
         },
