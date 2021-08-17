@@ -1,8 +1,8 @@
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
-import { IS_CLOUD } from "../util/secrets";
+import { ENVIRONMENT, IS_CLOUD } from "../util/secrets";
 import {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
@@ -48,35 +48,56 @@ const CONFIG_FILE = path.join(
   "config.yml"
 );
 
+let configFileTime: number;
 let config: ConfigFile;
 
-if (!IS_CLOUD && existsSync(CONFIG_FILE)) {
-  const contents = env(readFileSync(CONFIG_FILE, "utf-8"));
-  const parsed = yaml.load(contents, {
-    filename: CONFIG_FILE,
-  });
-  if (typeof parsed === "number" || typeof parsed === "string") {
-    throw new Error("Invalid config.yml file");
-  }
+function loadConfig(initial = false) {
+  if (IS_CLOUD) return;
 
-  // TODO: validation
+  if (existsSync(CONFIG_FILE)) {
+    // Only reload if the modified time has changed
+    const newFileTime = statSync(CONFIG_FILE).mtimeMs;
+    if (newFileTime === configFileTime) return;
+    configFileTime = newFileTime;
 
-  config = parsed as ConfigFile;
-} else {
-  if (!IS_CLOUD) {
+    const contents = env(readFileSync(CONFIG_FILE, "utf-8"));
+    const parsed = yaml.load(contents, {
+      filename: CONFIG_FILE,
+    });
+
+    // Validate that the yml file is in the correct format
+    if (typeof parsed === "number" || typeof parsed === "string") {
+      throw new Error("Invalid config.yml file");
+    }
+    // TODO: more validation
+
+    // Store the parsed config
+    config = parsed as ConfigFile;
+  } else if (initial && ENVIRONMENT !== "production") {
     console.log(
-      "No config/config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
+      "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
     );
   }
 }
+loadConfig(true);
+
+function reloadConfigIfNeeded() {
+  // Don't reload config.yml on production at all
+  // Require a server restart to pick up changes instead
+  if (ENVIRONMENT === "production" || IS_CLOUD) return;
+
+  loadConfig();
+}
 
 export function usingFileConfig(): boolean {
+  reloadConfigIfNeeded();
   return !!config;
 }
 
 export function getConfigDatasources(
   organization: string
 ): DataSourceInterface[] {
+  reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
 
   return Object.keys(config.datasources).map((id) => {
@@ -96,6 +117,7 @@ export function getConfigDatasources(
 }
 
 export function getConfigMetrics(organization: string): MetricInterface[] {
+  reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
 
   return Object.keys(config.metrics).map((id) => {
@@ -118,6 +140,7 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
 export function getConfigDimensions(
   organization: string
 ): DimensionInterface[] {
+  reloadConfigIfNeeded();
   if (!config || !config.dimensions) return [];
 
   return Object.keys(config.dimensions).map((id) => {

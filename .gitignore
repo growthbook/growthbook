@@ -12,6 +12,7 @@ yarn-debug.log*
 yarn-error.log*
 uploads
 packages/back-end/globalConfig.json
+packages/back-end/dummy
 config.yml
 
 # Python compiled files
