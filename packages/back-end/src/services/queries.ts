@@ -83,31 +83,6 @@ async function createNewQuery(
   return await QueryModel.create(data);
 }
 
-function runBackgroundQuery<T>(run: Promise<T>, doc: QueryDocument) {
-  // Update heartbeat for the query once every 30 seconds
-  // This lets us detect orphaned queries where the thread died
-  const timer = setInterval(() => {
-    doc.set("heartbeat", new Date());
-    doc.save();
-  }, 30000);
-
-  run.then((res) => {
-    clearInterval(timer);
-    doc.set("finishedAt", new Date());
-    doc.set("status", "succeeded");
-    doc.set("result", res);
-    doc.save();
-  });
-
-  run.catch((e) => {
-    clearInterval(timer);
-    doc.set("finishedAt", new Date());
-    doc.set("status", "failed");
-    doc.set("error", e.message);
-    doc.save();
-  });
-}
-
 async function getQueryDoc<T>(
   integration: SourceIntegrationInterface,
   query: string,
@@ -123,8 +98,29 @@ async function getQueryDoc<T>(
   // Otherwise, create a new query in mongo;
   const doc = await createNewQuery(integration, query);
 
+  // Update heartbeat for the query once every 30 seconds
+  // This lets us detect orphaned queries where the thread died
+  const timer = setInterval(() => {
+    doc.set("heartbeat", new Date());
+    doc.save();
+  }, 30000);
+
   // Run the query in the background
-  runBackgroundQuery<T>(run(query), doc);
+  run(query)
+    .then((res) => {
+      clearInterval(timer);
+      doc.set("finishedAt", new Date());
+      doc.set("status", "succeeded");
+      doc.set("result", res);
+      doc.save();
+    })
+    .catch((e) => {
+      clearInterval(timer);
+      doc.set("finishedAt", new Date());
+      doc.set("status", "failed");
+      doc.set("error", e.message);
+      doc.save();
+    });
 
   return doc;
 }
