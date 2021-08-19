@@ -67,3 +67,7 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
+
+// Update results every X hours
+export const EXPERIMENT_REFRESH_FREQUENCY =
+  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY) || 6;

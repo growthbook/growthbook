@@ -17,9 +17,10 @@ import {
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 
-// Time between experiment result updates (6 hours)
-const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+// Time between experiment result updates (default 6 hours)
+const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 

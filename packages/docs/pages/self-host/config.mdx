@@ -1,4 +1,3 @@
-
 # Configuring Growth Book
 
 The default configuration in Growth Book is optimized for trying things out quickly on a local dev machine.
@@ -14,6 +13,7 @@ The Growth Book docker container supports a number of environment variables:
 - **MONGODB_URI** - The MongoDB connection string
 - **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
 - **API_HOST** - (default set to http://localhost:3100)
+- **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
 - **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
 - Email SMTP Settings (required for sending experiment alerts and team member invites):
   - **EMAIL_ENABLED** ("true" or "false")
@@ -42,14 +42,14 @@ If you need to change these, you can use Docker port mappings. You'll also need 
 Here's an example of switching to ports `4000` and `4100` in `docker-compose.yml`:
 
 ```yml
-  growthbook:
-    image: "growthbook/growthbook:latest"
-    ports:
-      - "4000:3000"
-      - "4100:3100"
-    environment:
-      - APP_ORIGIN=http://localhost:4000
-      - API_HOST=http://localhost:4100
+growthbook:
+  image: "growthbook/growthbook:latest"
+  ports:
+    - "4000:3000"
+    - "4100:3100"
+  environment:
+    - APP_ORIGIN=http://localhost:4000
+    - API_HOST=http://localhost:4100
 ```
 
 Now your app would be available on [http://localhost:4000](http://localhost:4000)
@@ -60,7 +60,7 @@ In order to use Growth Book, you need to connect to a data source and define met
 
 The default way to define these is by filling out forms in the Growth Book UI, which persists them to MongoDB.
 
-The other option is to create a `config.yml` file.  In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`.  Below is an example file:
+The other option is to create a `config.yml` file. In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`. Below is an example file:
 
 ```yml
 datasources:
@@ -296,10 +296,10 @@ In addition to all of those settings, you also need to tell Growth Book how to q
 
 For SQL data sources, you just need to specify a single query. Depending on the other settings, the columns you need to select may differ slightly:
 
--  `timestamp` - always required
--  `user_id` - required unless userIdType is set to "anonymous"
--  `anonymous_id` - required unless userIdType is set to "user"
--  `value` - required unless type is set to "binomial"
+- `timestamp` - always required
+- `user_id` - required unless userIdType is set to "anonymous"
+- `anonymous_id` - required unless userIdType is set to "user"
+- `value` - required unless type is set to "binomial"
 
 A full example:
 
@@ -326,7 +326,7 @@ sql: SELECT user_id, timestamp FROM orders
 
 #### Mixpanel
 
-For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics), 
+For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics),
 and optional conditions.
 
 A full example:
@@ -356,7 +356,7 @@ table: Purchased
 
 Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
 
-Dimensions only have 3 properties: name, datasource, and SQL.  The SQL query must return two columns: `user_id` and `value`.
+Dimensions only have 3 properties: name, datasource, and SQL. The SQL query must return two columns: `user_id` and `value`.
 
 Example:
 
