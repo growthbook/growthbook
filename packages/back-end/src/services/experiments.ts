@@ -68,11 +68,6 @@ export function deleteExperimentById(id: string) {
   });
 }
 
-type OldSnapshotModel = ExperimentSnapshotInterface & {
-  srm: number;
-  variations: SnapshotVariation[];
-};
-
 export async function getLatestSnapshot(
   experiment: string,
   phase: number,
@@ -93,19 +88,6 @@ export async function getLatestSnapshot(
     sort: { dateCreated: -1 },
     limit: 1,
   }).exec();
-
-  // Backwards compatibility with old data format (can remove later)
-  if (all[0] && !all[0].results[0]) {
-    const old = all[0].toJSON() as OldSnapshotModel;
-
-    all[0].results = [
-      {
-        name: "All",
-        srm: old.srm,
-        variations: old.variations,
-      },
-    ];
-  }
 
   return all[0];
 }
