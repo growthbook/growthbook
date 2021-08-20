@@ -302,7 +302,7 @@ const PresentationPage = (): React.ReactElement => {
               />
             </div>
             <small className="text-muted text-center">
-              (Users will need an account on your organizaiton to view)
+              (Users will need an account on your organization to view)
             </small>
           </div>
         </Modal>
