@@ -19,6 +19,7 @@ const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     password: "",
     user: "",
     defaultSchema: "",
+    ssl: "false",
   },
   settings: {},
 };
