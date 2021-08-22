@@ -650,6 +650,7 @@ GROUP BY
               step="1"
               min="1"
               className="form-control"
+              placeholder={getDefaultConversionWindowHours()}
               {...inputs.conversionWindowHours}
             />
             <div className="input-group-append">

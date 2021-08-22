@@ -381,11 +381,11 @@ const MetricPage: FC = () => {
 
               <hr />
               <RightRailSection
-                title="Behavior Tweaks"
+                title="Behavior"
                 open={() => setEditModalOpen(2)}
                 canOpen={canEdit}
               >
-                <RightRailSectionGroup type="badge">
+                <RightRailSectionGroup type="badge" empty="">
                   {[
                     metric.inverse ? "inverse" : null,
                     metric.cap > 0 ? `cap: ${metric.cap}` : null,
@@ -405,11 +405,9 @@ const MetricPage: FC = () => {
                 open={() => setEditModalOpen(0)}
                 canOpen={canEdit}
               >
-                {metric.tags?.length > 0 && (
-                  <RightRailSectionGroup type="badge">
-                    {metric.tags}
-                  </RightRailSectionGroup>
-                )}
+                <RightRailSectionGroup type="badge">
+                  {metric.tags}
+                </RightRailSectionGroup>
               </RightRailSection>
             </div>
           </div>
