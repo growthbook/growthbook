@@ -200,15 +200,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 : ""
             }
   
-            ${this.getConversionWindowCheck(
-              experiment.conversionWindowHours ||
-                DEFAULT_CONVERSION_WINDOW_HOURS,
-              "state.start"
-            )}
             ${metrics
               .map(
                 (metric, i) => `// Metric - ${metric.name}
-              if(${this.getValidMetricCondition(metric)}) {
+              if(${this.getValidMetricCondition(metric, "e", "state.start")}) {
                 ${this.getMetricAggregationCode(
                   metric,
                   this.getMetricValueCode(metric),
@@ -753,11 +748,24 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidMetricCondition(
     metric: MetricInterface,
-    event: string = "e"
+    event: string = "e",
+    conversionWindowStart: string = ""
   ) {
     const checks: string[] = [];
     // Right event name
     checks.push(`${event}.name === "${metric.table}"`);
+
+    // Within conversion window
+    if (conversionWindowStart) {
+      checks.push(
+        `${event}.q - ${conversionWindowStart} > ${
+          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) *
+          60 *
+          60 *
+          1000
+        }`
+      );
+    }
 
     if (metric.conditions) {
       metric.conditions.forEach((cond) => {

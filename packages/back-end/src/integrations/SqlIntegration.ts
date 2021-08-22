@@ -806,7 +806,12 @@ export default abstract class SqlIntegration
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
+      __experiment as (${this.getExperimentCTE(
+        experiment,
+        phase,
+        activationMetric?.conversionWindowHours,
+        userId
+      )})
       ${
         dimension
           ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
@@ -816,7 +821,7 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE(
               activationMetric,
-              experiment.conversionWindowHours,
+              DEFAULT_CONVERSION_WINDOW_HOURS,
               userId
             )})`
           : ""
@@ -883,10 +888,17 @@ export default abstract class SqlIntegration
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
+      __experiment as (${this.getExperimentCTE(
+        experiment,
+        phase,
+        activationMetric
+          ? activationMetric.conversionWindowHours
+          : metric.conversionWindowHours,
+        userId
+      )})
       , __metric as (${this.getMetricCTE(
         metric,
-        experiment.conversionWindowHours,
+        DEFAULT_CONVERSION_WINDOW_HOURS,
         userId
       )})
       ${
@@ -898,7 +910,7 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE(
               activationMetric,
-              experiment.conversionWindowHours,
+              metric.conversionWindowHours,
               userId
             )})`
           : ""
@@ -1181,6 +1193,7 @@ export default abstract class SqlIntegration
   private getExperimentCTE(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
     userId: boolean = true
   ) {
     let userIdCol: string;
@@ -1205,10 +1218,7 @@ export default abstract class SqlIntegration
       ${userIdCol} as user_id,
       e.variation_id as variation,
       e.timestamp as actual_start,
-      ${this.addHours(
-        "e.timestamp",
-        experiment.conversionWindowHours
-      )} as conversion_end,
+      ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
         __rawExperiment e
