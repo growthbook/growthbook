@@ -648,6 +648,7 @@ GROUP BY
             <input
               type="number"
               step="1"
+              min="1"
               className="form-control"
               {...inputs.conversionWindowHours}
             />

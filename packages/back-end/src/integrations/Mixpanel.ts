@@ -758,7 +758,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     // Within conversion window
     if (conversionWindowStart) {
       checks.push(
-        `${event}.q - ${conversionWindowStart} > ${
+        `${event}.time - ${conversionWindowStart} > ${
           (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) *
           60 *
           60 *
