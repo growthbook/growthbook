@@ -1063,7 +1063,7 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         from,
         to,
         name: "Site-Wide",
-        conversionWindow: 3,
+        conversionWindowDays: 3,
         includeByDate: true,
         userIdType: metric.userIdType,
       };

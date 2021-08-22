@@ -335,7 +335,7 @@ export default abstract class SqlIntegration
         }
         , __metric as (${this.getMetricCTE(
           params.metric,
-          params.conversionWindow,
+          params.conversionWindowDays,
           userId
         )})
         , __distinctUsers as (
@@ -675,7 +675,7 @@ export default abstract class SqlIntegration
       to: end,
       includeByDate: false,
       userIdType: metric.userIdType,
-      conversionWindow: 3,
+      conversionWindowDays: 3,
     };
 
     const usersSql = this.getUsersQuery({
@@ -1270,7 +1270,7 @@ export default abstract class SqlIntegration
       MIN(p.timestamp) as actual_start,
       ${this.addDateInterval(
         `MIN(p.timestamp)`,
-        params.conversionWindow
+        params.conversionWindowDays
       )} as conversion_end,
       ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM

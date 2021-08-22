@@ -72,7 +72,7 @@ export type UsersQueryParams = {
   urlRegex?: string;
   from: Date;
   to: Date;
-  conversionWindow: number;
+  conversionWindowDays: number;
   includeByDate?: boolean;
 };
 export type UsersResult = {
@@ -91,7 +91,7 @@ export type MetricValueParams = {
   segmentQuery?: string;
   segmentName?: string;
   urlRegex?: string;
-  conversionWindow?: number;
+  conversionWindowDays?: number;
   includeByDate?: boolean;
   includePercentiles?: boolean;
 };

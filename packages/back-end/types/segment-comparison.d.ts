@@ -24,7 +24,7 @@ export interface SegmentComparisonInterface {
   title: string;
   datasource: string;
   metrics: string[];
-  conversionWindow: number;
+  conversionWindowDays: number;
   segment1: {
     segment: string;
     from: Date;

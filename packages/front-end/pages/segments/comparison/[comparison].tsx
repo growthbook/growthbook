@@ -50,7 +50,7 @@ const SegmentComparisonPage: FC = () => {
       title: string;
       datasource: string;
       metrics: string[];
-      conversionWindow: number;
+      conversionWindowDays: number;
       segment1: {
         segment: string;
       };
@@ -84,7 +84,7 @@ const SegmentComparisonPage: FC = () => {
         title: data.comparison.title || "",
         datasource: data.comparison.datasource || "",
         metrics: data.comparison.metrics || [],
-        conversionWindow: data.comparison.conversionWindow || 3,
+        conversionWindowDays: data.comparison.conversionWindowDays || 3,
         segment1: {
           segment: data.comparison.segment1.segment || "",
         },
@@ -246,7 +246,7 @@ const SegmentComparisonPage: FC = () => {
                       className="form-control"
                       min="0"
                       max="360"
-                      {...inputProps.conversionWindow}
+                      {...inputProps.conversionWindowDays}
                     />
                     <div className="input-group-append">
                       <div className="input-group-text">days</div>

@@ -363,7 +363,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       to: end,
       includeByDate: false,
       userIdType: metric.userIdType,
-      conversionWindow: 3,
+      conversionWindowDays: 3,
     };
 
     const usersQuery = this.getUsersQuery({
@@ -496,7 +496,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               // Process queued values
               state.queuedValues.forEach((q) => {
                 ${this.getConversionWindowCheck(
-                  params.conversionWindow,
+                  params.conversionWindowDays,
                   "state.firstPageView",
                   "q.time",
                   "return"
@@ -518,7 +518,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 continue;
               }
               ${this.getConversionWindowCheck(
-                params.conversionWindow,
+                params.conversionWindowDays,
                 "state.firstPageView"
               )}
               ${this.getMetricAggregationCode(
@@ -708,14 +708,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }(${destVar} || 0) + ${value}${cap ? ")" : ""};`;
   }
   private getConversionWindowCheck(
-    conversionWindow: number,
+    conversionWindowDays: number,
     startVar: string,
     eventTimeVar: string = "events[i].time",
     onFail: string = "continue;"
   ) {
-    return `// Check conversion window (${conversionWindow} days)
+    return `// Check conversion window (${conversionWindowDays} days)
     if(${eventTimeVar} - ${startVar} > ${
-      conversionWindow * 24 * 60 * 60 * 1000
+      conversionWindowDays * 24 * 60 * 60 * 1000
     }) {
       ${onFail}
     }`;
