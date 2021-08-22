@@ -159,6 +159,9 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const ignoreNullsSupported = !["google_analytics"].includes(datasourceType);
 
+  const conversionWindowSupported =
+    !!currentDataSource && !["google_analytics"].includes(datasourceType);
+
   const supportsSQL =
     datasourceSettingsSupport && !["mixpanel"].includes(datasourceType);
 
@@ -642,17 +645,19 @@ GROUP BY
             </small>
           </div>
         )}
-        <div className="form-group">
-          Conversion Window (hours)
-          <input
-            type="number"
-            step="1"
-            min="1"
-            className="form-control"
-            placeholder={getDefaultConversionWindowHours()}
-            {...inputs.conversionWindowHours}
-          />
-        </div>
+        {conversionWindowSupported && (
+          <div className="form-group">
+            Conversion Window (hours)
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="form-control"
+              placeholder={getDefaultConversionWindowHours()}
+              {...inputs.conversionWindowHours}
+            />
+          </div>
+        )}
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only

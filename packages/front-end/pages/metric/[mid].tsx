@@ -393,11 +393,14 @@ const MetricPage: FC = () => {
                     metric.earlyStart ? "start of session" : null,
                   ]}
                 </RightRailSectionGroup>
-                <RightRailSectionGroup type="code" title="Conversion Window">
-                  {metric.conversionWindowHours ||
-                    getDefaultConversionWindowHours()}{" "}
-                  hours
-                </RightRailSectionGroup>
+
+                {!!datasource && datasource.type !== "google_analytics" && (
+                  <RightRailSectionGroup type="code" title="Conversion Window">
+                    {metric.conversionWindowHours ||
+                      getDefaultConversionWindowHours()}{" "}
+                    hours
+                  </RightRailSectionGroup>
+                )}
               </RightRailSection>
               <hr />
               <RightRailSection
