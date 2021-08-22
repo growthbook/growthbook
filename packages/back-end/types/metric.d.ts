@@ -35,6 +35,7 @@ export interface MetricInterface {
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
+  conversionWindowDays?: number;
   tags?: string[];
   dateCreated: Date;
   dateUpdated: Date;

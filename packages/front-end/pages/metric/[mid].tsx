@@ -390,6 +390,9 @@ const MetricPage: FC = () => {
                     metric.earlyStart ? "start of session" : null,
                   ]}
                 </RightRailSectionGroup>
+                <RightRailSectionGroup type="code" title="Conversion Window">
+                  {metric.conversionWindowDays || 3} days
+                </RightRailSectionGroup>
               </RightRailSection>
               <hr />
               <RightRailSection

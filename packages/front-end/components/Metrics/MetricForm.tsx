@@ -130,6 +130,7 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
+      conversionWindowDays: current.conversionWindowDays || 3,
       sql: current.sql || "",
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
@@ -639,6 +640,20 @@ GROUP BY
             </small>
           </div>
         )}
+        <div className="form-group">
+          Conversion Window
+          <div className="input-group">
+            <input
+              type="number"
+              step="1"
+              className="form-control"
+              {...inputs.conversionWindowDays}
+            />
+            <div className="input-group-append">
+              <div className="input-group-text">days</div>
+            </div>
+          </div>
+        </div>
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only
