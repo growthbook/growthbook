@@ -23,6 +23,8 @@ import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
 
+const DEFAULT_CONVERSION_WINDOW = 3;
+
 const percentileNumbers = [
   0.01,
   0.05,
@@ -314,7 +316,6 @@ export default abstract class SqlIntegration
   getMetricValueQuery(params: MetricValueParams): string {
     const userId = params.userIdType === "user";
 
-    // TODO: support by date
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -323,7 +324,11 @@ export default abstract class SqlIntegration
           metrics: [params.metric],
         })}
         __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
-        __users as (${this.getPageUsersCTE(params, userId)})
+        __users as (${this.getPageUsersCTE(
+          params,
+          userId,
+          params.metric.conversionWindowDays
+        )})
         ${
           params.segmentQuery
             ? `, segment as (${this.getSegmentCTE(
@@ -335,7 +340,7 @@ export default abstract class SqlIntegration
         }
         , __metric as (${this.getMetricCTE(
           params.metric,
-          params.conversionWindowDays,
+          DEFAULT_CONVERSION_WINDOW,
           userId
         )})
         , __distinctUsers as (
@@ -675,7 +680,7 @@ export default abstract class SqlIntegration
       to: end,
       includeByDate: false,
       userIdType: metric.userIdType,
-      conversionWindowDays: 3,
+      conversionWindowDays: DEFAULT_CONVERSION_WINDOW,
     };
 
     const usersSql = this.getUsersQuery({
@@ -1112,7 +1117,7 @@ export default abstract class SqlIntegration
 
   private getMetricCTE(
     metric: MetricInterface,
-    conversionWindowDays: number,
+    conversionWindowDays: number = DEFAULT_CONVERSION_WINDOW,
     userId: boolean = true
   ) {
     let userIdCol: string;
@@ -1259,7 +1264,8 @@ export default abstract class SqlIntegration
 
   private getPageUsersCTE(
     params: MetricValueParams | UsersQueryParams,
-    userId: boolean = true
+    userId: boolean = true,
+    conversionWindowDays: number = 3
   ): string {
     // TODO: use identifies if table is missing the requested userId type
     const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
@@ -1270,7 +1276,7 @@ export default abstract class SqlIntegration
       MIN(p.timestamp) as actual_start,
       ${this.addDateInterval(
         `MIN(p.timestamp)`,
-        params.conversionWindowDays
+        conversionWindowDays
       )} as conversion_end,
       ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM

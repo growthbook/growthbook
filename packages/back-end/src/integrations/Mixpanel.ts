@@ -23,6 +23,8 @@ import {
   UsersResult,
 } from "../types/Integration";
 
+const DEFAULT_CONVERSION_WINDOW = 3;
+
 const percentileNumbers = [
   0.01,
   0.05,
@@ -496,7 +498,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               // Process queued values
               state.queuedValues.forEach((q) => {
                 ${this.getConversionWindowCheck(
-                  params.conversionWindowDays,
+                  params.metric.conversionWindowDays,
                   "state.firstPageView",
                   "q.time",
                   "return"
@@ -518,7 +520,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 continue;
               }
               ${this.getConversionWindowCheck(
-                params.conversionWindowDays,
+                params.metric.conversionWindowDays,
                 "state.firstPageView"
               )}
               ${this.getMetricAggregationCode(
@@ -708,7 +710,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }(${destVar} || 0) + ${value}${cap ? ")" : ""};`;
   }
   private getConversionWindowCheck(
-    conversionWindowDays: number,
+    conversionWindowDays: number = DEFAULT_CONVERSION_WINDOW,
     startVar: string,
     eventTimeVar: string = "events[i].time",
     onFail: string = "continue;"

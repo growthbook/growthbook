@@ -327,7 +327,6 @@ export async function putSegmentComparison(
   comparison.set("title", data.title);
   comparison.set("datasource", data.datasource);
   comparison.set("metrics", data.metrics);
-  comparison.set("conversionWindowDays", data.conversionWindowDays);
   comparison.set("segment1", data.segment1);
   comparison.set("segment2", data.segment2);
   comparison.set("dateUpdated", new Date());
@@ -374,7 +373,6 @@ export async function putSegmentComparison(
       segmentQuery: segment1.sql,
       segmentName: segment1.name,
       userIdType: "user",
-      conversionWindowDays: comparison.conversionWindowDays,
       to: data.segment1.to,
     };
     const segment2Params: UsersQueryParams = {
@@ -385,7 +383,6 @@ export async function putSegmentComparison(
       segmentQuery: segment2.sql,
       segmentName: segment2.name,
       userIdType: "user",
-      conversionWindowDays: comparison.conversionWindowDays,
       to: data.segment2.sameDateRange ? data.segment1.to : data.segment2.to,
     };
 
@@ -446,7 +443,6 @@ export async function postSegmentComparisons(req: AuthRequest, res: Response) {
     },
     datasource: null,
     metrics: [],
-    conversionWindowDays: 3,
     queries: [],
     results: null,
     organization: req.organization.id,

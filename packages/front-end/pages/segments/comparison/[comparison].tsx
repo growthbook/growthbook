@@ -50,7 +50,6 @@ const SegmentComparisonPage: FC = () => {
       title: string;
       datasource: string;
       metrics: string[];
-      conversionWindowDays: number;
       segment1: {
         segment: string;
       };
@@ -84,7 +83,6 @@ const SegmentComparisonPage: FC = () => {
         title: data.comparison.title || "",
         datasource: data.comparison.datasource || "",
         metrics: data.comparison.metrics || [],
-        conversionWindowDays: data.comparison.conversionWindowDays || 3,
         segment1: {
           segment: data.comparison.segment1.segment || "",
         },
@@ -237,21 +235,6 @@ const SegmentComparisonPage: FC = () => {
                     }}
                     datasource={value.datasource}
                   />
-                </div>
-                <div className="form-group">
-                  Conversion Window
-                  <div className="input-group">
-                    <input
-                      type="number"
-                      className="form-control"
-                      min="0"
-                      max="360"
-                      {...inputProps.conversionWindowDays}
-                    />
-                    <div className="input-group-append">
-                      <div className="input-group-text">days</div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

@@ -8,7 +8,6 @@ const segmentComparisonSchema = new mongoose.Schema({
   title: String,
   datasource: String,
   metrics: [String],
-  conversionWindowDays: Number,
   segment1: {
     segment: String,
     from: Date,
