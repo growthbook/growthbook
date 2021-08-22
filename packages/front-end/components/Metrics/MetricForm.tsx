@@ -11,6 +11,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEffect } from "react";
 import Code from "../Code";
 import TagsInput from "../TagsInput";
+import { getDefaultConversionWindowHours } from "../../services/env";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -130,7 +131,8 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
-      conversionWindowDays: current.conversionWindowDays || 3,
+      conversionWindowHours:
+        current.conversionWindowHours || getDefaultConversionWindowHours(),
       sql: current.sql || "",
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
@@ -647,10 +649,10 @@ GROUP BY
               type="number"
               step="1"
               className="form-control"
-              {...inputs.conversionWindowDays}
+              {...inputs.conversionWindowHours}
             />
             <div className="input-group-append">
-              <div className="input-group-text">days</div>
+              <div className="input-group-text">hours</div>
             </div>
           </div>
         </div>

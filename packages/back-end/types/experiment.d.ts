@@ -60,7 +60,7 @@ export interface ExperimentInterface {
    */
   observations?: string;
   hypothesis?: string;
-  conversionWindowDays?: number;
+  conversionWindowHours?: number;
   metrics: string[];
   guardrails?: string[];
   activationMetric?: string;

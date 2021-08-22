@@ -55,11 +55,11 @@ export default class ClickHouse extends SqlIntegration {
       .substr(0, 19)
       .replace("T", " ")}')`;
   }
-  addDateInterval(col: string, days: number) {
-    return `dateAdd(day, ${days}, ${col})`;
+  addHours(col: string, hours: number) {
+    return `dateAdd(hour, ${hours}, ${col})`;
   }
   subtractHalfHour(col: string) {
-    return `dateSub(hour, 30, ${col})`;
+    return `dateSub(minute, 30, ${col})`;
   }
   regexMatch(col: string, regex: string) {
     return `match(${col}, '${regex.replace(/\\/g, "\\\\")}')`;

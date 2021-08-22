@@ -19,7 +19,7 @@ const metricSchema = new mongoose.Schema({
   inverse: Boolean,
   ignoreNulls: Boolean,
   cap: Number,
-  conversionWindowDays: Number,
+  conversionWindowHours: Number,
   dateCreated: Date,
   dateUpdated: Date,
   userIdColumn: String,

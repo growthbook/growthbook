@@ -231,7 +231,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     dateUpdated: new Date(),
     organization: org.id,
     results: "inconclusive",
-    conversionWindowDays: 3,
+    conversionWindowHours: 3,
   };
   const experiments: { [key: string]: Partial<ExperimentInterface> } = {};
   pastExperimentsResult.experiments.forEach((imp) => {

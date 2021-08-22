@@ -22,8 +22,7 @@ import {
   UsersQueryParams,
   UsersResult,
 } from "../types/Integration";
-
-const DEFAULT_CONVERSION_WINDOW = 3;
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 const percentileNumbers = [
   0.01,
@@ -202,7 +201,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }
   
             ${this.getConversionWindowCheck(
-              experiment.conversionWindowDays || 3,
+              experiment.conversionWindowHours ||
+                DEFAULT_CONVERSION_WINDOW_HOURS,
               "state.start"
             )}
             ${metrics
@@ -354,18 +354,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<ImpactEstimationResult> {
     const numDays = 30;
 
-    // Ignore last 3 days of data since we need to give people time to convert
+    const conversionWindowHours =
+      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+
+    // Ignore last X hours of data since we need to give people time to convert
     const end = new Date();
-    end.setDate(end.getDate() - 3);
+    end.setHours(end.getHours() - conversionWindowHours);
     const start = new Date();
-    start.setDate(start.getDate() - numDays - 3);
+    start.setDate(start.getDate() - numDays);
+    start.setHours(start.getHours() - conversionWindowHours);
 
     const baseSettings = {
       from: start,
       to: end,
       includeByDate: false,
       userIdType: metric.userIdType,
-      conversionWindowDays: 3,
+      conversionWindowHours,
     };
 
     const usersQuery = this.getUsersQuery({
@@ -498,7 +502,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               // Process queued values
               state.queuedValues.forEach((q) => {
                 ${this.getConversionWindowCheck(
-                  params.metric.conversionWindowDays,
+                  params.metric.conversionWindowHours,
                   "state.firstPageView",
                   "q.time",
                   "return"
@@ -520,7 +524,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 continue;
               }
               ${this.getConversionWindowCheck(
-                params.metric.conversionWindowDays,
+                params.metric.conversionWindowHours,
                 "state.firstPageView"
               )}
               ${this.getMetricAggregationCode(
@@ -710,14 +714,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }(${destVar} || 0) + ${value}${cap ? ")" : ""};`;
   }
   private getConversionWindowCheck(
-    conversionWindowDays: number = DEFAULT_CONVERSION_WINDOW,
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
     startVar: string,
     eventTimeVar: string = "events[i].time",
     onFail: string = "continue;"
   ) {
-    return `// Check conversion window (${conversionWindowDays} days)
+    return `// Check conversion window (${conversionWindowHours} hours)
     if(${eventTimeVar} - ${startVar} > ${
-      conversionWindowDays * 24 * 60 * 60 * 1000
+      conversionWindowHours * 60 * 60 * 1000
     }) {
       ${onFail}
     }`;

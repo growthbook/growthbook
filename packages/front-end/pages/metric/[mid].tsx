@@ -31,7 +31,10 @@ import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Code from "../../components/Code";
-import { hasFileConfig } from "../../services/env";
+import {
+  getDefaultConversionWindowHours,
+  hasFileConfig,
+} from "../../services/env";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -391,7 +394,9 @@ const MetricPage: FC = () => {
                   ]}
                 </RightRailSectionGroup>
                 <RightRailSectionGroup type="code" title="Conversion Window">
-                  {metric.conversionWindowDays || 3} days
+                  {metric.conversionWindowHours ||
+                    getDefaultConversionWindowHours()}{" "}
+                  hours
                 </RightRailSectionGroup>
               </RightRailSection>
               <hr />
