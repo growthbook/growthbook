@@ -643,20 +643,15 @@ GROUP BY
           </div>
         )}
         <div className="form-group">
-          Conversion Window
-          <div className="input-group">
-            <input
-              type="number"
-              step="1"
-              min="1"
-              className="form-control"
-              placeholder={getDefaultConversionWindowHours()}
-              {...inputs.conversionWindowHours}
-            />
-            <div className="input-group-append">
-              <div className="input-group-text">hours</div>
-            </div>
-          </div>
+          Conversion Window (hours)
+          <input
+            type="number"
+            step="1"
+            min="1"
+            className="form-control"
+            placeholder={getDefaultConversionWindowHours()}
+            {...inputs.conversionWindowHours}
+          />
         </div>
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
