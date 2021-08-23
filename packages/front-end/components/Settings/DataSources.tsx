@@ -122,8 +122,9 @@ const DataSources: FC = () => {
               ? "datasource-list"
               : "datasource-detail"
           }
-          onSuccess={() => {
-            mutateDefinitions({});
+          onSuccess={async (id) => {
+            await mutateDefinitions({});
+            await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setEdit(null);
