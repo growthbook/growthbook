@@ -19,6 +19,7 @@ import { UserContext } from "../ProtectedPage";
 import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
+import EditDataSourceSettingsForm from "../Settings/EditDataSourceSettingsForm";
 
 const GetStarted = ({
   experiments,
@@ -38,6 +39,7 @@ const GetStarted = ({
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [experimentsOpen, setExperimentsOpen] = useState(false);
+  const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const router = useRouter();
 
   const hasSampleExperiment = experiments.filter((m) =>
@@ -60,15 +62,43 @@ const GetStarted = ({
   return (
     <>
       <div className="container-fluid mt-3 pagecontents getstarted">
+        {dataSourceQueriesOpen &&
+          datasources?.[0] &&
+          datasources[0].type !== "google_analytics" && (
+            <EditDataSourceSettingsForm
+              firstTime={true}
+              data={datasources[0]}
+              onCancel={() => setDataSourceQueriesOpen(false)}
+              onSuccess={() => {
+                setDataSourceQueriesOpen(false);
+                mutateDefinitions();
+              }}
+              source="onboarding"
+            />
+          )}
         {dataSourceOpen && (
           <DataSourceForm
-            data={{}}
+            data={{
+              type: "redshift",
+              name: "My Datasource",
+              params: {
+                port: 5439,
+                database: "",
+                host: "",
+                password: "",
+                user: "",
+                defaultSchema: "",
+                ssl: "false",
+              },
+              settings: {},
+            }}
             existing={false}
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
-            onSuccess={() => {
+            onSuccess={async () => {
               setDataSourceOpen(false);
-              mutateDefinitions();
+              await mutateDefinitions();
+              setDataSourceQueriesOpen(true);
             }}
           />
         )}

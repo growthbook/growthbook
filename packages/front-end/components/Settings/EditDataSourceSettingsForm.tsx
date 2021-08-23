@@ -13,10 +13,11 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
+  firstTime?: boolean;
   source: string;
   onCancel: () => void;
   onSuccess: () => void;
-}> = ({ data, onSuccess, onCancel, source }) => {
+}> = ({ data, onSuccess, onCancel, firstTime = false, source }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -121,12 +122,25 @@ const EditDataSourceSettingsForm: FC<{
       submit={handleSubmit}
       close={onCancel}
       size="lg"
-      header={"Edit Queries"}
+      header={firstTime ? "Query Settings" : "Edit Queries"}
       cta="Save"
     >
+      {firstTime && (
+        <div className="alert alert-success mb-4">
+          <strong>Connection successful!</strong> Customize the queries that
+          Growth Book uses to pull experiment results. Need help?{" "}
+          <a
+            href="https://docs.growthbook.io/app/datasources#configuration-settings"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Documentation
+          </a>
+        </div>
+      )}
       {datasource.type === "mixpanel" && (
         <div>
-          <h4>Experiments</h4>
+          <h4 className="font-weight-bold">Experiments</h4>
           <div className="form-group">
             <label>View Experiment Event</label>
             <input
@@ -185,7 +199,7 @@ const EditDataSourceSettingsForm: FC<{
             </select>
           </div>
           <hr />
-          <h4>Page Views</h4>
+          <h4 className="font-weight-bold">Page Views</h4>
           <div className="form-group">
             <label>Page Views Event</label>
             <input

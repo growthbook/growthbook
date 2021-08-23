@@ -230,8 +230,8 @@ const DataSourcePage: FC = () => {
           existing={true}
           data={d}
           source={"datasource-detail"}
-          onSuccess={() => {
-            mutateDefinitions({});
+          onSuccess={async () => {
+            await mutateDefinitions({});
           }}
           onCancel={() => {
             setEditConn(false);

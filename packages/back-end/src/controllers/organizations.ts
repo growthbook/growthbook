@@ -907,10 +907,17 @@ FROM
       ...settings?.queries,
     };
 
-    await createDataSource(req.organization.id, name, type, params, settings);
+    const datasource = await createDataSource(
+      req.organization.id,
+      name,
+      type,
+      params,
+      settings
+    );
 
     res.status(200).json({
       status: 200,
+      id: datasource.id,
     });
   } catch (e) {
     res.status(400).json({

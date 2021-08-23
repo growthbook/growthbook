@@ -28,9 +28,9 @@ const Google: FC = () => {
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
-  const redirectToSettings = () => {
-    mutateDefinitions({});
-    router.push("/datasources");
+  const redirectToSettings = async () => {
+    await mutateDefinitions({});
+    await router.push("/datasources");
   };
 
   return (
