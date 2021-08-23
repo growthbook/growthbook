@@ -11,6 +11,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEffect } from "react";
 import Code from "../Code";
 import TagsInput from "../TagsInput";
+import { getDefaultConversionWindowHours } from "../../services/env";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -130,6 +131,8 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
+      conversionWindowHours:
+        current.conversionWindowHours || getDefaultConversionWindowHours(),
       sql: current.sql || "",
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
@@ -155,6 +158,9 @@ const MetricForm: FC<MetricFormProps> = ({
     datasourceType && !["google_analytics"].includes(datasourceType);
 
   const ignoreNullsSupported = !["google_analytics"].includes(datasourceType);
+
+  const conversionWindowSupported =
+    !!currentDataSource && !["google_analytics"].includes(datasourceType);
 
   const supportsSQL =
     datasourceSettingsSupport && !["mixpanel"].includes(datasourceType);
@@ -637,6 +643,19 @@ GROUP BY
               If greater than zero, any user who has more than this count will
               be capped at this value.
             </small>
+          </div>
+        )}
+        {conversionWindowSupported && (
+          <div className="form-group">
+            Conversion Window (hours)
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="form-control"
+              placeholder={getDefaultConversionWindowHours()}
+              {...inputs.conversionWindowHours}
+            />
           </div>
         )}
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (

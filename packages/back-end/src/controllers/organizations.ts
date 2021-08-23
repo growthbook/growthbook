@@ -185,7 +185,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     trackingKey: "sample-experiment",
     userIdType: "anonymous",
     tags: [],
-    conversionWindowDays: 3,
     results: "won",
     winner: 1,
     analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾

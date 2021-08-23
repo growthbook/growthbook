@@ -70,8 +70,8 @@ export default class Presto extends SqlIntegration {
       });
     });
   }
-  addDateInterval(col: string, days: number) {
-    return `${col} + INTERVAL '${days}' day`;
+  addHours(col: string, hours: number) {
+    return `${col} + INTERVAL '${hours}' hour`;
   }
   subtractHalfHour(col: string) {
     return `${col} - INTERVAL '30' minute`;

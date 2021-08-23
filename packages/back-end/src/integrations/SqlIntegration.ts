@@ -22,6 +22,7 @@ import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 const percentileNumbers = [
   0.01,
@@ -201,8 +202,8 @@ export default abstract class SqlIntegration
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
-  addDateInterval(col: string, days: number) {
-    return `${col} + INTERVAL '${days} days'`;
+  addHours(col: string, hours: number) {
+    return `${col} + INTERVAL '${hours} hours'`;
   }
   subtractHalfHour(col: string) {
     return `${col} - INTERVAL '30 minutes'`;
@@ -314,7 +315,6 @@ export default abstract class SqlIntegration
   getMetricValueQuery(params: MetricValueParams): string {
     const userId = params.userIdType === "user";
 
-    // TODO: support by date
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -323,7 +323,11 @@ export default abstract class SqlIntegration
           metrics: [params.metric],
         })}
         __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
-        __users as (${this.getPageUsersCTE(params, userId)})
+        __users as (${this.getPageUsersCTE(
+          params,
+          userId,
+          params.metric.conversionWindowHours
+        )})
         ${
           params.segmentQuery
             ? `, segment as (${this.getSegmentCTE(
@@ -335,7 +339,7 @@ export default abstract class SqlIntegration
         }
         , __metric as (${this.getMetricCTE(
           params.metric,
-          params.conversionWindow,
+          DEFAULT_CONVERSION_WINDOW_HOURS,
           userId
         )})
         , __distinctUsers as (
@@ -664,18 +668,22 @@ export default abstract class SqlIntegration
   ): Promise<ImpactEstimationResult> {
     const numDays = 30;
 
-    // Ignore last 3 days of data since we need to give people time to convert
+    const conversionWindowHours =
+      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+
+    // Ignore last X hours of data since we need to give people time to convert
     const end = new Date();
-    end.setDate(end.getDate() - 3);
+    end.setHours(end.getHours() - conversionWindowHours);
     const start = new Date();
-    start.setDate(start.getDate() - numDays - 3);
+    start.setDate(start.getDate() - numDays);
+    start.setHours(start.getHours() - conversionWindowHours);
 
     const baseSettings = {
       from: start,
       to: end,
       includeByDate: false,
       userIdType: metric.userIdType,
-      conversionWindow: 3,
+      conversionWindowHours,
     };
 
     const usersSql = this.getUsersQuery({
@@ -798,7 +806,12 @@ export default abstract class SqlIntegration
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
+      __experiment as (${this.getExperimentCTE(
+        experiment,
+        phase,
+        activationMetric?.conversionWindowHours,
+        userId
+      )})
       ${
         dimension
           ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
@@ -808,7 +821,7 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE(
               activationMetric,
-              experiment.conversionWindowDays,
+              DEFAULT_CONVERSION_WINDOW_HOURS,
               userId
             )})`
           : ""
@@ -875,10 +888,17 @@ export default abstract class SqlIntegration
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(experiment, phase, userId)})
+      __experiment as (${this.getExperimentCTE(
+        experiment,
+        phase,
+        activationMetric
+          ? activationMetric.conversionWindowHours
+          : metric.conversionWindowHours,
+        userId
+      )})
       , __metric as (${this.getMetricCTE(
         metric,
-        experiment.conversionWindowDays,
+        DEFAULT_CONVERSION_WINDOW_HOURS,
         userId
       )})
       ${
@@ -890,7 +910,7 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE(
               activationMetric,
-              experiment.conversionWindowDays,
+              metric.conversionWindowHours,
               userId
             )})`
           : ""
@@ -1112,7 +1132,7 @@ export default abstract class SqlIntegration
 
   private getMetricCTE(
     metric: MetricInterface,
-    conversionWindowDays: number,
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
     userId: boolean = true
   ) {
     let userIdCol: string;
@@ -1151,10 +1171,7 @@ export default abstract class SqlIntegration
         ${userIdCol} as user_id,
         ${this.getRawMetricSqlValue(metric, "m")} as value,
         ${timestampCol} as actual_start,
-        ${this.addDateInterval(
-          timestampCol,
-          conversionWindowDays
-        )} as conversion_end,
+        ${this.addHours(timestampCol, conversionWindowHours)} as conversion_end,
         ${this.subtractHalfHour(timestampCol)} as session_start
       FROM
         ${
@@ -1176,6 +1193,7 @@ export default abstract class SqlIntegration
   private getExperimentCTE(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
     userId: boolean = true
   ) {
     let userIdCol: string;
@@ -1200,10 +1218,7 @@ export default abstract class SqlIntegration
       ${userIdCol} as user_id,
       e.variation_id as variation,
       e.timestamp as actual_start,
-      ${this.addDateInterval(
-        "e.timestamp",
-        experiment.conversionWindowDays
-      )} as conversion_end,
+      ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
         __rawExperiment e
@@ -1259,7 +1274,8 @@ export default abstract class SqlIntegration
 
   private getPageUsersCTE(
     params: MetricValueParams | UsersQueryParams,
-    userId: boolean = true
+    userId: boolean = true,
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS
   ): string {
     // TODO: use identifies if table is missing the requested userId type
     const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
@@ -1268,9 +1284,9 @@ export default abstract class SqlIntegration
     SELECT
       ${userIdCol} as user_id,
       MIN(p.timestamp) as actual_start,
-      ${this.addDateInterval(
+      ${this.addHours(
         `MIN(p.timestamp)`,
-        params.conversionWindow
+        conversionWindowHours
       )} as conversion_end,
       ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
     FROM

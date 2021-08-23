@@ -35,8 +35,8 @@ export default class Mysql extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  addDateInterval(col: string, days: number) {
-    return `DATE_ADD(${col}, INTERVAL ${days} DAY)`;
+  addHours(col: string, hours: number) {
+    return `DATE_ADD(${col}, INTERVAL ${hours} HOUR)`;
   }
   subtractHalfHour(col: string) {
     return `SUBTIME(${col}, "0:30")`;
