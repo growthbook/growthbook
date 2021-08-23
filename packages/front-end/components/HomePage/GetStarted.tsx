@@ -96,8 +96,8 @@ const GetStarted = ({
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
             onSuccess={async () => {
-              setDataSourceOpen(false);
               await mutateDefinitions();
+              setDataSourceOpen(false);
               setDataSourceQueriesOpen(true);
             }}
           />

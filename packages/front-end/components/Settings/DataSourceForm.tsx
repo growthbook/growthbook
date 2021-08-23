@@ -194,11 +194,7 @@ const DataSourceForm: FC<{
       }
       // Create
       else {
-        const res = await apiCall<{
-          status: number;
-          message: string;
-          id: string;
-        }>(`/datasources`, {
+        const res = await apiCall<{ id: string }>(`/datasources`, {
           method: "POST",
           body: JSON.stringify(datasource),
         });
