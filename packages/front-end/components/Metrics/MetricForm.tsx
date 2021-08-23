@@ -12,6 +12,10 @@ import { useEffect } from "react";
 import Code from "../Code";
 import TagsInput from "../TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
+import {
+  defaultLoseRiskThreshold,
+  defaultWinRiskThreshold,
+} from "../../services/metrics";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -140,8 +144,8 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
-      winRisk: current.winRisk || 0.0025,
-      loseRisk: current.loseRisk || 0.0125,
+      winRisk: current.winRisk || defaultWinRiskThreshold,
+      loseRisk: current.loseRisk || defaultLoseRiskThreshold,
     },
     current.id || "new"
   );
