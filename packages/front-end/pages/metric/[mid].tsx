@@ -409,9 +409,12 @@ const MetricPage: FC = () => {
                 <RightRailSectionGroup type="custom" empty="">
                   <small>
                     <strong>Risk threshold:</strong>
-                    <br /> acceptable &lt;{" "}
+                    <br />
+                    <i>acceptable</i> &lt;{" "}
                     {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}
-                    %, too risky &gt;{" "}
+                    %
+                    <br />
+                    <i>too risky</i> &gt;{" "}
                     {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}%
                   </small>
                 </RightRailSectionGroup>
