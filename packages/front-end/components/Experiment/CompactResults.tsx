@@ -17,9 +17,6 @@ import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 
-// const RISK_THRESHOLD_WIN = 0.0025;
-// const RISK_THRESHOLD_LOSE = 0.0125;
-
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
