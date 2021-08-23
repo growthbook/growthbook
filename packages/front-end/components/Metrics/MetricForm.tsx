@@ -144,8 +144,8 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
-      winRisk: current.winRisk || defaultWinRiskThreshold,
-      loseRisk: current.loseRisk || defaultLoseRiskThreshold,
+      winRisk: current.winRisk || defaultWinRiskThreshold * 100,
+      loseRisk: current.loseRisk || defaultLoseRiskThreshold * 100,
     },
     current.id || "new"
   );
@@ -200,12 +200,17 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = async () => {
-    const body = JSON.stringify({
-      ...value,
-      sql: sqlInput ? value.sql : "",
-    });
+    const sendValue = { ...value };
+    //correct decimal/percent:
+    if (sendValue?.winRisk) sendValue.winRisk = sendValue.winRisk / 100;
+    if (sendValue?.loseRisk) sendValue.loseRisk = sendValue.loseRisk / 100;
 
     if (value.loseRisk < value.winRisk) return;
+
+    const body = JSON.stringify({
+      ...sendValue,
+      sql: sqlInput ? value.sql : "",
+    });
 
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
@@ -715,7 +720,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                winning under {value.winRisk}%
+                acceptable risk under {value.winRisk}%
               </span>
               <div
                 style={{
@@ -793,7 +798,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                losing over {value.loseRisk}%
+                too much risk over {value.loseRisk}%
               </span>
               <div
                 style={{

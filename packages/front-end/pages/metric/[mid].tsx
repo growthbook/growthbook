@@ -405,17 +405,16 @@ const MetricPage: FC = () => {
                     hours
                   </RightRailSectionGroup>
                 )}
-                {metric?.loseRisk && (
-                  <RightRailSectionGroup type="custom" empty="">
-                    <small>
-                      <strong>Risk threshold:</strong>
-                      <br /> win &lt;{" "}
-                      {metric?.winRisk || defaultWinRiskThreshold}
-                      %, lose &gt;{" "}
-                      {metric?.loseRisk || defaultLoseRiskThreshold}%
-                    </small>
-                  </RightRailSectionGroup>
-                )}
+
+                <RightRailSectionGroup type="custom" empty="">
+                  <small>
+                    <strong>Risk threshold:</strong>
+                    <br /> acceptable &lt;{" "}
+                    {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}
+                    %, too risky &gt;{" "}
+                    {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}%
+                  </small>
+                </RightRailSectionGroup>
               </RightRailSection>
               <hr />
               <RightRailSection
