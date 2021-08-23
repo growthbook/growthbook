@@ -208,7 +208,7 @@ const MetricForm: FC<MetricFormProps> = ({
     if (value.loseRisk < value.winRisk) return;
 
     const body = JSON.stringify({
-      ...sendValue,
+      sendValue,
       sql: sqlInput ? value.sql : "",
     });
 
@@ -279,7 +279,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const riskError =
     value.loseRisk < value.winRisk
-      ? "The winning risk percentage cannot be higher than the losing risk number"
+      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
   return (
