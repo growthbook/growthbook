@@ -37,6 +37,8 @@ export interface MetricInterface {
   cap?: number;
   conversionWindowHours?: number;
   tags?: string[];
+  winRisk?: number;
+  loseRisk?: number;
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";

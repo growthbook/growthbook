@@ -10,7 +10,11 @@ import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
 import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
-import { formatConversionRate } from "../../services/metrics";
+import {
+  formatConversionRate,
+  defaultWinRiskThreshold,
+  defaultLoseRiskThreshold,
+} from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -399,6 +403,17 @@ const MetricPage: FC = () => {
                     {metric.conversionWindowHours ||
                       getDefaultConversionWindowHours()}{" "}
                     hours
+                  </RightRailSectionGroup>
+                )}
+                {metric?.loseRisk && (
+                  <RightRailSectionGroup type="custom" empty="">
+                    <small>
+                      <strong>Risk threshold:</strong>
+                      <br /> win &lt;{" "}
+                      {metric?.winRisk || defaultWinRiskThreshold}
+                      %, lose &gt;{" "}
+                      {metric?.loseRisk || defaultLoseRiskThreshold}%
+                    </small>
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>

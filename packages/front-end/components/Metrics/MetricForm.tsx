@@ -140,6 +140,8 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
+      winRisk: current.winRisk || 0.0025,
+      loseRisk: current.loseRisk || 0.0125,
     },
     current.id || "new"
   );
@@ -198,6 +200,8 @@ const MetricForm: FC<MetricFormProps> = ({
       ...value,
       sql: sqlInput ? value.sql : "",
     });
+
+    if (value.loseRisk < value.winRisk) return;
 
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
@@ -263,6 +267,11 @@ const MetricForm: FC<MetricFormProps> = ({
     sqlPreviewData.column =
       ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
   }
+
+  const riskError =
+    value.loseRisk < value.winRisk
+      ? "The winning risk percentage cannot be higher than the losing risk number"
+      : "";
 
   return (
     <PagedModal
@@ -690,6 +699,114 @@ GROUP BY
             </select>
           </div>
         )}
+        <div className="form-group">
+          Risk thresholds
+          <div className="riskbar row align-items-center pt-3">
+            <div className="col green-bar pr-0">
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-20px",
+                  color: "#009a6d",
+                  fontSize: "0.75rem",
+                }}
+              >
+                winning under {value.winRisk}%
+              </span>
+              <div
+                style={{
+                  height: "10px",
+                  backgroundColor: "#009a6d",
+                  borderRadius: "5px 0 0 5px",
+                }}
+              ></div>
+            </div>
+            <div className="col-2 px-0">
+              <span
+                style={{
+                  position: "absolute",
+                  right: "4px",
+                  top: "6px",
+                  color: "#888",
+                }}
+              >
+                %
+              </span>
+              <input
+                className="form-control winrisk text-center"
+                type="number"
+                step="any"
+                min="0"
+                max="100"
+                value={value.winRisk}
+                onChange={(e) => {
+                  let newRisk = parseFloat(e.target.value);
+                  if (isNaN(newRisk)) newRisk = 0;
+                  manualUpdate({ winRisk: newRisk });
+                }}
+              />
+            </div>
+            <div className="col yellow-bar px-0">
+              <div
+                style={{
+                  height: "10px",
+                  backgroundColor: "#dfd700",
+                }}
+              ></div>
+            </div>
+            <div className="col-2 px-0">
+              <span
+                style={{
+                  position: "absolute",
+                  right: "4px",
+                  top: "6px",
+                  color: "#888",
+                }}
+              >
+                %
+              </span>
+              <input
+                className="form-control loserisk text-center"
+                type="number"
+                step="any"
+                min="0"
+                max="100"
+                value={value.loseRisk}
+                onChange={(e) => {
+                  let newRisk = parseFloat(e.target.value);
+                  if (isNaN(newRisk)) newRisk = 0;
+                  manualUpdate({ loseRisk: newRisk });
+                }}
+              />
+            </div>
+            <div className="col red-bar pl-0">
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-20px",
+                  right: "15px",
+                  color: "#c50f0f",
+                  fontSize: "0.75rem",
+                }}
+              >
+                losing over {value.loseRisk}%
+              </span>
+              <div
+                style={{
+                  height: "10px",
+                  backgroundColor: "#c50f0f",
+                  borderRadius: "0 5px 5px 0",
+                }}
+              ></div>
+            </div>
+          </div>
+          {riskError && <div className="text-danger">{riskError}</div>}
+          <small className="text-muted">
+            Set the threasholds for risk for this metric. This is used when
+            determining metric signigicance, highlighting the risk value as
+            green, yellow, or red.
+          </small>
+        </div>
       </Page>
     </PagedModal>
   );

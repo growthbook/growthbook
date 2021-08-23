@@ -1177,6 +1177,8 @@ export async function postMetrics(
     conversionWindowHours,
     sql,
     tags,
+    winRisk,
+    loseRisk,
     conditions,
     datasource,
     timestampColumn,
@@ -1219,6 +1221,8 @@ export async function postMetrics(
     timestampColumn,
     conditions,
     tags,
+    winRisk,
+    loseRisk,
   });
 
   res.status(200).json({
@@ -1254,6 +1258,8 @@ export async function putMetric(
     "conversionWindowHours",
     "sql",
     "tags",
+    "winRisk",
+    "loseRisk",
     "conditions",
     "dateUpdated",
     "table",
