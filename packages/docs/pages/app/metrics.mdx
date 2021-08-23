@@ -23,25 +23,30 @@ For metrics to work, you need to tell Growth Book how to query the data from you
 
 If your data source supports SQL, this is the preferred way to define metrics. You can use joins, subselects, or anything else supported by your SQL dialect.
 
-Your SELECT statement should return one row per "conversion event". This may be a page view, a purchase, a session, or something else.
+Your SELECT statement should return one row per "conversion event". This may be a page view, a purchase, a session, or something else. The end result should look like this:
 
-Example:
+| user_id | anonymous_id | timestamp           | value |
+| ------- | ------------ | ------------------- | ----- |
+| 123     | abcdef       | 2021-08-23 12:45:14 | 10    |
+| 456     | fedcba       | 2021-08-23 12:45:15 | 5.25  |
+
+Binomial metrics don't need a `value` column (the existence of a row means the user converted). For other metric types, the value represents the count, duration, or revenue from that single conversion event. In the case of multiple rows for a single user, the values will be summed together.
+
+If you use Segment to populate your data warehouse, the SQL for a `Revenue per User` metric might look like this:
 
 ```sql
 SELECT
   user_id as user_id,
   anon_id as anonymous_id,
-  amount as value,
-  received_at as timestamp
+  received_at as timestamp,
+  grand_total as value
 FROM
   purchases
 ```
 
-Binomial metrics don't need a `value` column (the existence of a row means the user converted).
+Also, your metric may support only logged-in or only anonymous users, in which case you can omit the other type of id.
 
-Also, your metric may only support logged-in or anonymous users, in which case you can omit the other type of id.
-
-For example, a binomial metric that only supports logged-in users would look like this:
+An example of a binomial metric that only supports logged-in users would look like this: (notice no `value` or `anonymous_id` columns)
 
 ```sql
 SELECT
