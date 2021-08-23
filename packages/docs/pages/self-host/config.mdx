@@ -7,52 +7,64 @@ Beyond that, you can customize behavior with Environment Variables and optionall
 
 The Growth Book docker container supports a number of environment variables:
 
-- **NODE_ENV** - Set to "production" to turn on additional optimizations and API request logging
-- **JWT_SECRET** - Auth signing key (use a long random string)
-- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
-- **MONGODB_URI** - The MongoDB connection string
-- **APP_ORIGIN** - Used for CORS (default set to http://localhost:3000)
-- **API_HOST** - (default set to http://localhost:3100)
-- **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
-- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
-- Email SMTP Settings (required for sending experiment alerts and team member invites):
-  - **EMAIL_ENABLED** ("true" or "false")
-  - **EMAIL_HOST**
-  - **EMAIL_PORT**
-  - **EMAIL_HOST_USER**
-  - **EMAIL_HOST_PASSWORD**
-  - **EMAIL_USE_TLS** ("true" or "false")
-- Google OAuth Settings (only if using Google Analytics as a data source):
-  - **GOOGLE_OAUTH_CLIENT_ID**
-  - **GOOGLE_OAUTH_CLIENT_SECRET**
-- S3 File Uploads (optional, uses local filesystem as a fallback)
-  - **UPLOAD_METHOD** (set to "s3" instead of default value "local")
-  - **S3_BUCKET**
-  - **S3_REGION** (defaults to `us-east-1`)
-  - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
-  - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
-  - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
+### Domains and Ports
 
-### Changing the Ports
+This is used to generate links to Growth Book and enable CORS access to the API.
 
-The Docker image exposes 2 ports: `3000` for the front-end and `3100` for the API.
+- **APP_ORIGIN** - default http://localhost:3000
+- **API_HOST** - default http://localhost:3100
 
-If you need to change these, you can use Docker port mappings. You'll also need to set the environment variables **API_HOST** and **APP_ORIGIN** to include your new ports.
-
-Here's an example of switching to ports `4000` and `4100` in `docker-compose.yml`:
+If you need to change the ports on your local dev environment (e.g. if `3000` is already being used),
+you need to update the above variables AND change the port mapping in `docker-compose.yml`:
 
 ```yml
 growthbook:
-  image: "growthbook/growthbook:latest"
   ports:
-    - "4000:3000"
-    - "4100:3100"
-  environment:
-    - APP_ORIGIN=http://localhost:4000
-    - API_HOST=http://localhost:4100
+    - "4000:3000" # example: use 4000 instead of 3000 for the app
+    - "4100:3100" # example: use 4100 instead of 3100 for the api
 ```
 
-Now your app would be available on [http://localhost:4000](http://localhost:4000)
+### Production Settings
+
+- **NODE_ENV** - Set to "production" to turn on additional optimizations and API request logging
+- **MONGODB_URI** - The MongoDB connection string
+- **JWT_SECRET** - Auth signing key (use a long random string)
+- **ENCRYPTION_KEY** - Data source credential encryption key (use a long random string)
+
+### Email SMTP Settings
+
+This is required in order to send experiment alerts and team member invites.
+
+- **EMAIL_ENABLED** ("true" or "false")
+- **EMAIL_HOST**
+- **EMAIL_PORT**
+- **EMAIL_HOST_USER**
+- **EMAIL_HOST_PASSWORD**
+- **EMAIL_USE_TLS** ("true" or "false")
+
+### Google OAuth Settings
+
+Only required if using Google Analytics as a data source
+
+- **GOOGLE_OAUTH_CLIENT_ID**
+- **GOOGLE_OAUTH_CLIENT_SECRET**
+
+### S3 File Uploads
+
+Optional. If not specified, Growth Book will use the local file system to store uploads.
+
+- **UPLOAD_METHOD** (set to "s3" instead of default value "local")
+- **S3_BUCKET**
+- **S3_REGION** (defaults to `us-east-1`)
+- **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
+- **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
+- **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
+
+### Other Settings
+
+- **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
+- **DEFAULT_CONVERSION_WINDOW_HOURS** - How many hours after being put into an experiment does a user have to convert. Can be overridden on a per-metric basis. (default `72`)
+- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
 
 ## Config.yml
 
@@ -128,6 +140,7 @@ params:
   user: root
   password: password
   database: growthbook
+  ssl: false # ssl setting only works for postgres and redshift currently
 ```
 
 #### Snowflake
@@ -284,6 +297,8 @@ userIdType: "user" # or "anonymous" or "either"
 # Any user with a higher metric amount will be capped at this value
 # In this case, if someone bought a $10,000 order, it would only be counted as $100
 cap: 100
+# Hours the user has to convert on this metric after being put in an experiment
+conversionWindowHours: 72
 # Arbitrary tags used to group related metrics
 tags:
   - revenue

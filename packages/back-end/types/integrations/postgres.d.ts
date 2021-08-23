@@ -4,5 +4,6 @@ export interface PostgresConnectionParams {
   database: string;
   password: string;
   port: number;
+  ssl: string | boolean;
   defaultSchema: string;
 }

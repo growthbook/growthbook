@@ -71,3 +71,6 @@ export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
   parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY) || 6;
+
+export const DEFAULT_CONVERSION_WINDOW_HOURS =
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS) || 72;

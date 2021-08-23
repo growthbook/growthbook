@@ -185,7 +185,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     trackingKey: "sample-experiment",
     userIdType: "anonymous",
     tags: [],
-    conversionWindowDays: 3,
     results: "won",
     winner: 1,
     analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾
@@ -908,10 +907,17 @@ FROM
       ...settings?.queries,
     };
 
-    await createDataSource(req.organization.id, name, type, params, settings);
+    const datasource = await createDataSource(
+      req.organization.id,
+      name,
+      type,
+      params,
+      settings
+    );
 
     res.status(200).json({
       status: 200,
+      id: datasource.id,
     });
   } catch (e) {
     res.status(400).json({

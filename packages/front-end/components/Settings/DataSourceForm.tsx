@@ -140,7 +140,7 @@ const DataSourceForm: FC<{
   existing: boolean;
   source: string;
   onCancel: () => void;
-  onSuccess: () => void;
+  onSuccess: (id: string) => Promise<void>;
 }> = ({ data, onSuccess, onCancel, source, existing }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
@@ -177,6 +177,8 @@ const DataSourceForm: FC<{
         throw new Error("Please select a data source type");
       }
 
+      let id = data.id;
+
       // Update
       if (data.id) {
         const res = await apiCall<{ status: number; message: string }>(
@@ -192,16 +194,11 @@ const DataSourceForm: FC<{
       }
       // Create
       else {
-        const res = await apiCall<{ status: number; message: string }>(
-          `/datasources`,
-          {
-            method: "POST",
-            body: JSON.stringify(datasource),
-          }
-        );
-        if (res.status > 200) {
-          throw new Error(res.message);
-        }
+        const res = await apiCall<{ id: string }>(`/datasources`, {
+          method: "POST",
+          body: JSON.stringify(datasource),
+        });
+        id = res.id;
         track("Submit Datasource Form", {
           source,
           type: datasource.type,
@@ -209,7 +206,7 @@ const DataSourceForm: FC<{
       }
 
       setDirty(false);
-      onSuccess();
+      await onSuccess(id);
     } catch (e) {
       setHasError(true);
       throw e;

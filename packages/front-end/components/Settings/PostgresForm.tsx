@@ -5,7 +5,7 @@ import { isCloud } from "../../services/env";
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
   existing: boolean;
-  onParamChange: ChangeEventHandler<HTMLInputElement>;
+  onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, existing, onParamChange }) => {
   return (
     <>
@@ -75,6 +75,20 @@ const PostgresForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? "(Keep existing)" : ""}
           />
+        </div>
+        <div className="form-group col-md-12">
+          <label>Require SSL</label>
+          <select
+            className="form-control"
+            name="ssl"
+            value={
+              params.ssl === true || params.ssl === "true" ? "true" : "false"
+            }
+            onChange={onParamChange}
+          >
+            <option value="false">Off</option>
+            <option value="true">On</option>
+          </select>
         </div>
         <div className="form-group col-md-12">
           <label>Default Schema</label>

@@ -35,8 +35,8 @@ export default class BigQuery extends SqlIntegration {
   toTimestamp(date: Date) {
     return `DATETIME "${date.toISOString().substr(0, 19).replace("T", " ")}"`;
   }
-  addDateInterval(col: string, days: number) {
-    return `DATETIME_ADD(${col}, INTERVAL ${days} DAY)`;
+  addHours(col: string, hours: number) {
+    return `DATETIME_ADD(${col}, INTERVAL ${hours} HOUR)`;
   }
   subtractHalfHour(col: string) {
     return `DATETIME_SUB(${col}, INTERVAL 30 MINUTE)`;
