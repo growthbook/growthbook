@@ -1722,12 +1722,12 @@ export async function getPastExperimentsList(req: AuthRequest, res: Response) {
   );
 
   const experimentMap = new Map<string, string>();
-  experiments.forEach((e) => {
+  (experiments || []).forEach((e) => {
     experimentMap.set(e.trackingKey, e.id);
   });
 
   const trackingKeyMap: Record<string, string> = {};
-  model.experiments.forEach((e) => {
+  (model.experiments || []).forEach((e) => {
     const id = experimentMap.get(e.trackingKey);
     if (id) {
       trackingKeyMap[e.trackingKey] = id;
