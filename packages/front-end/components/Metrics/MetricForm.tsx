@@ -208,7 +208,7 @@ const MetricForm: FC<MetricFormProps> = ({
     if (value.loseRisk < value.winRisk) return;
 
     const body = JSON.stringify({
-      sendValue,
+      ...sendValue,
       sql: sqlInput ? value.sql : "",
     });
 
