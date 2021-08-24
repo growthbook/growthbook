@@ -286,7 +286,7 @@ export default abstract class SqlIntegration
       __variations
     WHERE
       -- Skip experiments with fewer than 200 users since they don't have enough data
-      users > 200
+      users > 200000000
       -- Skip experiments that are 5 days or shorter (most likely means it was stopped early)
       AND ${this.dateDiff("start_date", "end_date")} > 5
       -- Skip experiments that start of the very first day since we're likely missing data

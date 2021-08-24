@@ -10,6 +10,7 @@ const ideaSchema = new mongoose.Schema({
   userName: String,
   source: String,
   organization: String,
+  project: String,
   tags: [String],
   votes: [
     {

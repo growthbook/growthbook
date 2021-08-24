@@ -10,6 +10,7 @@ export type AuthRequest<T = any> = Request<null, null, T> & {
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;
+  project?: string;
   permissions: Permissions;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 };

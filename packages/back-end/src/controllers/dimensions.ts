@@ -21,7 +21,7 @@ export async function postDimensions(
   req: AuthRequest<Partial<DimensionInterface>>,
   res: Response
 ) {
-  const { datasource, name, sql } = req.body;
+  const { datasource, name, sql, projects } = req.body;
 
   const datasourceDoc = await getDataSourceById(
     datasource,
@@ -35,6 +35,7 @@ export async function postDimensions(
     datasource,
     name,
     sql,
+    projects,
     id: uniqid("dim_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -57,7 +58,7 @@ export async function putDimension(
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql } = req.body;
+  const { datasource, name, sql, projects } = req.body;
 
   const datasourceDoc = await getDataSourceById(
     datasource,
@@ -71,6 +72,7 @@ export async function putDimension(
     datasource,
     name,
     sql,
+    projects,
     dateUpdated: new Date(),
   });
 

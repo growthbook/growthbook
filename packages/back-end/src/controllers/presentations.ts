@@ -177,6 +177,7 @@ export async function postPresentation(
   data.organization = req.organization.id;
 
   data.userId = req.userId;
+  data.project = req.project;
   const presentation = await createPresentation(data);
 
   res.status(200).json({

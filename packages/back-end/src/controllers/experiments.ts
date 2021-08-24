@@ -285,6 +285,7 @@ export async function postExperiments(
 
   const data = req.body;
   data.organization = req.organization.id;
+  data.project = req.project;
 
   if (data.datasource) {
     const datasource = await getDataSourceById(
@@ -329,6 +330,7 @@ export async function postExperiments(
 
   const obj: Partial<ExperimentInterface> = {
     organization: data.organization,
+    project: data.project,
     owner: data.owner || req.userId,
     trackingKey: data.trackingKey || null,
     datasource: data.datasource || "",
@@ -483,6 +485,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "data",
+    "project",
   ];
   const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
     "trackingKey",
@@ -492,6 +495,7 @@ export async function postExperiment(
     "winner",
     "implementation",
     "targetURLRegex",
+    "project",
   ];
   const existing: ExperimentInterface = exp.toJSON();
   let requiresWebhook = false;
@@ -1185,6 +1189,7 @@ export async function postMetrics(
     userIdType,
     userIdColumn,
     anonymousIdColumn,
+    projects,
   } = req.body;
 
   if (datasource) {
@@ -1223,6 +1228,7 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
+    projects,
   });
 
   res.status(200).json({
@@ -1268,6 +1274,7 @@ export async function putMetric(
     "userIdColumn",
     "anonymousIdColumn",
     "timestampColumn",
+    "projects",
   ];
   fields.forEach((k) => {
     if (k in req.body) {
