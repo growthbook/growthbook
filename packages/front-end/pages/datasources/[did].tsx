@@ -16,10 +16,13 @@ import {
   getUsersQuery,
 } from "../../services/datasources";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { hasFileConfig } from "../../services/env";
 
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [editSettings, setEditSettings] = useState(false);
+
+  const canEdit = !hasFileConfig();
 
   const router = useRouter();
 
@@ -69,36 +72,40 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-secondary">{d.type}</span>
         </div>
         <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <DeleteButton
-            displayName={d.name}
-            text="Delete"
-            onClick={async () => {
-              await apiCall(`/datasource/${d.id}`, {
-                method: "DELETE",
-              });
-              mutateDefinitions({});
-              router.push("/datasources");
-            }}
-          />
-        </div>
+        {canEdit && (
+          <div className="col-auto">
+            <DeleteButton
+              displayName={d.name}
+              text="Delete"
+              onClick={async () => {
+                await apiCall(`/datasource/${d.id}`, {
+                  method: "DELETE",
+                });
+                mutateDefinitions({});
+                router.push("/datasources");
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="row">
         <div className="col-md-9">
           <div className="row mb-3">
-            <div className="col-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditConn(true);
-                }}
-              >
-                <FaKey /> Edit Connection Info
-              </a>
-            </div>
-            {(supportsSQL || supportsEvents) && (
+            {canEdit && (
+              <div className="col-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditConn(true);
+                  }}
+                >
+                  <FaKey /> Edit Connection Info
+                </a>
+              </div>
+            )}
+            {(supportsSQL || supportsEvents) && canEdit && (
               <div className="col-auto">
                 <a
                   href="#"
@@ -223,8 +230,8 @@ const DataSourcePage: FC = () => {
           existing={true}
           data={d}
           source={"datasource-detail"}
-          onSuccess={() => {
-            mutateDefinitions({});
+          onSuccess={async () => {
+            await mutateDefinitions({});
           }}
           onCancel={() => {
             setEditConn(false);

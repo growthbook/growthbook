@@ -1,0 +1,83 @@
+# Self Hosting Growth Book
+
+Growth Book consists of a NextJS front-end, an ExpressJS API, and a Python stats engine. Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
+
+In addition to the app itself, you will also need a MongoDB instance to store login credentials, cached experiment results, and metadata.
+
+<div className="bg-blue-200 dark:bg-blue-900 py-2 px-4 rounded flex">
+  <div className="text-yellow-500 pt-1 mr-3">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      style={{ fill: "currentColor" }}
+    >
+      <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z" />
+    </svg>
+  </div>
+  <div>
+    Don't want to install or host the app yourself?{" "}
+    <a href="https://app.growthbook.io">Growth Book Cloud</a> is a fully managed
+    version that's free to get started.
+  </div>
+  <div className="text-yellow-500 pt-1 ml-3">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      style={{ fill: "currentColor" }}
+    >
+      <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z" />
+    </svg>
+  </div>
+</div>
+
+## Installation
+
+You can use **docker-compose** to get started quickly:
+
+```yml
+# docker-compose.yml
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+volumes:
+  uploads:
+```
+
+Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
+
+## Docker Tags
+
+Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
+
+GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
+
+If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
+
+## Updating to Latest
+
+If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
+
+```bash
+docker-compose pull growthbook
+docker-compose stop growthbook
+docker-compose up -d --no-deps growthbook
+```

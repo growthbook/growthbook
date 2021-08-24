@@ -1,14 +1,17 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Response } from "express";
 import uniqid from "uniqid";
-import { getDataSourceById } from "../services/datasource";
-import { DimensionModel } from "../models/DimensionModel";
+import { getDataSourceById } from "../models/DataSourceModel";
+import {
+  createDimension,
+  findDimensionById,
+  findDimensionsByOrganization,
+  updateDimension,
+} from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 
 export async function getAllDimensions(req: AuthRequest, res: Response) {
-  const dimensions = await DimensionModel.find({
-    organization: req.organization.id,
-  });
+  const dimensions = await findDimensionsByOrganization(req.organization.id);
   res.status(200).json({
     status: 200,
     dimensions,
@@ -20,12 +23,15 @@ export async function postDimensions(
 ) {
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource);
-  if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    req.organization.id
+  );
+  if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  const doc = await DimensionModel.create({
+  const doc = await createDimension({
     datasource,
     name,
     sql,
@@ -45,30 +51,28 @@ export async function putDimension(
   res: Response
 ) {
   const { id }: { id: string } = req.params;
-  const dimension = await DimensionModel.findOne({
-    id,
-  });
+  const dimension = await findDimensionById(id, req.organization.id);
 
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
-  if (dimension.organization !== req.organization.id) {
-    throw new Error("You don't have access to that dimension");
-  }
 
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource);
-  if (!datasourceDoc || datasourceDoc.organization !== req.organization.id) {
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    req.organization.id
+  );
+  if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  dimension.set("datasource", datasource);
-  dimension.set("name", name);
-  dimension.set("sql", sql);
-  dimension.set("dateUpdated", new Date());
-
-  await dimension.save();
+  await updateDimension(id, {
+    datasource,
+    name,
+    sql,
+    dateUpdated: new Date(),
+  });
 
   res.status(200).json({
     status: 200,

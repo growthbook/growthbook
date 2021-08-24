@@ -10,6 +10,9 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
+export const UPLOAD_METHOD =
+  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local";
+
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
   (prod ? "" : "mongodb://root:password@localhost:27017/");
@@ -64,3 +67,10 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
+
+// Update results every X hours
+export const EXPERIMENT_REFRESH_FREQUENCY =
+  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY) || 6;
+
+export const DEFAULT_CONVERSION_WINDOW_HOURS =
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS) || 72;

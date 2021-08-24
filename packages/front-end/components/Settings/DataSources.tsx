@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
 import { datetime } from "../../services/dates";
+import { hasFileConfig } from "../../services/env";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -18,6 +19,7 @@ const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     password: "",
     user: "",
     defaultSchema: "",
+    ssl: "false",
   },
   settings: {},
 };
@@ -46,7 +48,7 @@ const DataSources: FC = () => {
             <tr>
               <th>Display Name</th>
               <th>Type</th>
-              <th>Date Added</th>
+              {!hasFileConfig() && <th>Date Added</th>}
             </tr>
           </thead>
           <tbody>
@@ -63,7 +65,7 @@ const DataSources: FC = () => {
                   <Link href={`/datasources/${d.id}`}>{d.name}</Link>
                 </td>
                 <td>{d.type}</td>
-                <td>{datetime(d.dateCreated)}</td>
+                {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>
             ))}
           </tbody>
@@ -75,9 +77,10 @@ const DataSources: FC = () => {
             experiment results and metric values. We currently support{" "}
             <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
             <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
-            <strong>Postgres</strong>, <strong>Athena</strong>,{" "}
-            <strong>PrestoDB</strong>,<strong>Mixpanel</strong>, and{" "}
-            <strong>Google Analytics</strong> with more coming soon.
+            <strong>Postgres</strong>, <strong>MySQL</strong>,{" "}
+            <strong>Athena</strong>, <strong>PrestoDB</strong>,
+            <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
+            with more coming soon.
           </p>
           <p>
             We only ever fetch aggregate data, so none of your user&apos;s
@@ -86,18 +89,30 @@ const DataSources: FC = () => {
             require minimal read-only permissions, so you can be sure your
             source data remains secure.
           </p>
+          {hasFileConfig() && (
+            <div className="alert alert-info">
+              It looks like you have a <code>config.yml</code> file. Data
+              sources defined there will show up on this page.{" "}
+              <a href="https://docs.growthbook.io/self-host/config#configyml">
+                View Documentation
+              </a>
+            </div>
+          )}
         </div>
       )}
 
-      <button
-        className="btn btn-success"
-        onClick={(e) => {
-          e.preventDefault();
-          setEdit(DEFAULT_DATA_SOURCE);
-        }}
-      >
-        <FaPlus /> Add Data Source
-      </button>
+      {!hasFileConfig() && (
+        <button
+          className="btn btn-success"
+          onClick={(e) => {
+            e.preventDefault();
+            setEdit(DEFAULT_DATA_SOURCE);
+          }}
+        >
+          <FaPlus /> Add Data Source
+        </button>
+      )}
+
       {edit && (
         <DataSourceForm
           existing={edit !== DEFAULT_DATA_SOURCE}
@@ -107,8 +122,9 @@ const DataSources: FC = () => {
               ? "datasource-list"
               : "datasource-detail"
           }
-          onSuccess={() => {
-            mutateDefinitions({});
+          onSuccess={async (id) => {
+            await mutateDefinitions({});
+            await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setEdit(null);

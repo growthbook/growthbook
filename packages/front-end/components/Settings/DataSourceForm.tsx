@@ -21,6 +21,7 @@ import MixpanelForm from "./MixpanelForm";
 import track from "../../services/track";
 import Modal from "../Modal";
 import PrestoForm from "./PrestoForm";
+import MysqlForm from "./MysqlForm";
 
 const typeOptions: {
   type: DataSourceType;
@@ -93,6 +94,17 @@ const typeOptions: {
     },
   },
   {
+    type: "mysql",
+    display: "MySQL or MariaDB",
+    default: {
+      host: "",
+      port: 3306,
+      database: "",
+      user: "",
+      password: "",
+    },
+  },
+  {
     type: "bigquery",
     display: "BigQuery",
     default: {
@@ -128,7 +140,7 @@ const DataSourceForm: FC<{
   existing: boolean;
   source: string;
   onCancel: () => void;
-  onSuccess: () => void;
+  onSuccess: (id: string) => Promise<void>;
 }> = ({ data, onSuccess, onCancel, source, existing }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
@@ -165,6 +177,8 @@ const DataSourceForm: FC<{
         throw new Error("Please select a data source type");
       }
 
+      let id = data.id;
+
       // Update
       if (data.id) {
         const res = await apiCall<{ status: number; message: string }>(
@@ -180,16 +194,11 @@ const DataSourceForm: FC<{
       }
       // Create
       else {
-        const res = await apiCall<{ status: number; message: string }>(
-          `/datasources`,
-          {
-            method: "POST",
-            body: JSON.stringify(datasource),
-          }
-        );
-        if (res.status > 200) {
-          throw new Error(res.message);
-        }
+        const res = await apiCall<{ id: string }>(`/datasources`, {
+          method: "POST",
+          body: JSON.stringify(datasource),
+        });
+        id = res.id;
         track("Submit Datasource Form", {
           source,
           type: datasource.type,
@@ -197,7 +206,7 @@ const DataSourceForm: FC<{
       }
 
       setDirty(false);
-      onSuccess();
+      await onSuccess(id);
     } catch (e) {
       setHasError(true);
       throw e;
@@ -254,6 +263,14 @@ const DataSourceForm: FC<{
   } else if (datasource.type === "postgres") {
     connSettings = (
       <PostgresForm
+        existing={existing}
+        onParamChange={onParamChange}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "mysql") {
+    connSettings = (
+      <MysqlForm
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}

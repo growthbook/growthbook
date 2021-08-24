@@ -1,6 +1,10 @@
 import React, { FC, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { formatConversionRate } from "../../services/metrics";
+import {
+  formatConversionRate,
+  defaultWinRiskThreshold,
+  defaultLoseRiskThreshold,
+} from "../../services/metrics";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -12,9 +16,6 @@ import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
-
-const RISK_THRESHOLD_WIN = 0.0025;
-const RISK_THRESHOLD_LOSE = 0.0125;
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -265,6 +266,9 @@ const CompactResults: FC<{
             let riskCR: number;
             let relativeRisk: number;
             let showRisk = false;
+            const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
+            const loseRiskThreshold =
+              metric?.loseRisk || defaultLoseRiskThreshold;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -325,12 +329,12 @@ const CompactResults: FC<{
                 {hasRisk && (
                   <td
                     className={clsx("chance variation", {
-                      won: showRisk && relativeRisk <= RISK_THRESHOLD_WIN,
-                      lost: showRisk && relativeRisk >= RISK_THRESHOLD_LOSE,
+                      won: showRisk && relativeRisk <= winRiskThreshold,
+                      lost: showRisk && relativeRisk >= loseRiskThreshold,
                       warning:
                         showRisk &&
-                        relativeRisk > RISK_THRESHOLD_WIN &&
-                        relativeRisk < RISK_THRESHOLD_LOSE,
+                        relativeRisk > winRiskThreshold &&
+                        relativeRisk < loseRiskThreshold,
                     })}
                   >
                     {showRisk ? (

@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { OrganizationDocument } from "../models/OrganizationModel";
+import { OrganizationInterface } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { Permissions } from "../../types/organization";
 
@@ -9,7 +9,7 @@ export type AuthRequest<T = any> = Request<null, null, T> & {
   userId?: string;
   name?: string;
   admin?: boolean;
-  organization?: OrganizationDocument;
+  organization?: OrganizationInterface;
   permissions: Permissions;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 };

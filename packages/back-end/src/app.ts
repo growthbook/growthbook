@@ -6,9 +6,15 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
+import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
-import { APP_ORIGIN, CORS_ORIGIN_REGEX, IS_CLOUD } from "./util/secrets";
+import {
+  APP_ORIGIN,
+  CORS_ORIGIN_REGEX,
+  IS_CLOUD,
+  UPLOAD_METHOD,
+} from "./util/secrets";
 import {
   getExperimentConfig,
   getExperimentsScript,
@@ -110,6 +116,7 @@ app.get("/", (req, res) => {
     production: process.env.NODE_ENV === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
+    config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
   });
 });
@@ -223,7 +230,7 @@ if (!IS_CLOUD) {
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
-if (!IS_CLOUD) {
+if (UPLOAD_METHOD === "local") {
   // Create 'uploads' directory if it doesn't exist yet
   const uploadDir = getUploadsDir();
   if (!fs.existsSync(uploadDir)) {

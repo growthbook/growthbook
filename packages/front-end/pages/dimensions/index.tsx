@@ -6,6 +6,8 @@ import Button from "../../components/Button";
 import { DimensionInterface } from "back-end/types/dimension";
 import DimensionForm from "../../components/Dimensions/DimensionForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { hasFileConfig } from "../../services/env";
+import clsx from "clsx";
 
 const DimensionsPage: FC = () => {
   const {
@@ -40,8 +42,8 @@ const DimensionsPage: FC = () => {
         <div className="alert alert-info">
           Dimensions are only available if you connect Growth Book to a
           compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
-          Athena, Postgres, Presto, or Mixpanel). Support for other data sources
-          like Google Analytics is coming soon.
+          Athena, Postgres, MySQL, Presto, or Mixpanel). Support for other data
+          sources like Google Analytics is coming soon.
         </div>
       </div>
     );
@@ -67,16 +69,18 @@ const DimensionsPage: FC = () => {
         <div className="col-auto">
           <h3>Dimensions</h3>
         </div>
-        <div className="col-auto">
-          <Button
-            color="success"
-            onClick={async () => {
-              setDimensionForm({});
-            }}
-          >
-            <FaPlus /> New Dimension
-          </Button>
-        </div>
+        {!hasFileConfig() && (
+          <div className="col-auto">
+            <Button
+              color="success"
+              onClick={async () => {
+                setDimensionForm({});
+              }}
+            >
+              <FaPlus /> New Dimension
+            </Button>
+          </div>
+        )}
       </div>
       {dimensions.length > 0 && (
         <div className="row mb-4">
@@ -87,14 +91,18 @@ const DimensionsPage: FC = () => {
               dimensions to drill down into experiment results and other
               reports.
             </p>
-            <table className="table appbox table-hover">
+            <table
+              className={clsx("table appbox", {
+                "table-hover": !hasFileConfig(),
+              })}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  <th></th>
+                  {!hasFileConfig() && <th>Date Updated</th>}
+                  {!hasFileConfig() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -113,19 +121,21 @@ const DimensionsPage: FC = () => {
                         <code>{s.sql}</code>
                       )}
                     </td>
-                    <td>{ago(s.dateUpdated)}</td>
-                    <td>
-                      <a
-                        href="#"
-                        className="tr-hover text-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setDimensionForm(s);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </td>
+                    {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
+                    {!hasFileConfig() && (
+                      <td>
+                        <a
+                          href="#"
+                          className="tr-hover text-primary"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setDimensionForm(s);
+                          }}
+                        >
+                          <FaPencilAlt />
+                        </a>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -133,10 +143,19 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error && dimensions.length === 0 && (
+      {!error && dimensions.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any dimensions defined yet. Click the green button
           above to create your first one.
+        </div>
+      )}
+      {!error && dimensions.length === 0 && hasFileConfig() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Dimensions
+          defined there will show up on this page.{" "}
+          <a href="https://docs.growthbook.io/self-host/config#configyml">
+            View Documentation
+          </a>
         </div>
       )}
     </div>

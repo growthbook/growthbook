@@ -3,6 +3,7 @@ import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
 import { GoogleAnalyticsParams } from "./integrations/googleanalytics";
 import { MixpanelConnectionParams } from "./integrations/mixpanel";
+import { MysqlConnectionParams } from "./integrations/mysql";
 import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
@@ -13,6 +14,7 @@ export type DataSourceType =
   | "google_analytics"
   | "snowflake"
   | "postgres"
+  | "mysql"
   | "bigquery"
   | "clickhouse"
   | "presto"
@@ -20,6 +22,7 @@ export type DataSourceType =
 
 export type DataSourceParams =
   | PostgresConnectionParams
+  | MysqlConnectionParams
   | AthenaConnectionParams
   | PrestoConnectionParams
   | GoogleAnalyticsParams
@@ -117,6 +120,11 @@ interface GoogleAnalyticsDataSource extends DataSourceBase {
 interface SnowflakeDataSource extends DataSourceBase {
   type: "snowflake";
 }
+
+interface MysqlDataSource extends DataSourceBase {
+  type: "mysql";
+}
+
 interface PostgresDataSource extends DataSourceBase {
   type: "postgres";
 }
@@ -157,6 +165,10 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
+export type MysqlDataSourceWithParams = WithParams<
+  MysqlDataSource,
+  MysqlConnectionParams
+>;
 export type BigQueryDataSourceWithParams = WithParams<
   BigQueryDataSource,
   BigQueryConnectionParams
@@ -177,6 +189,7 @@ export type DataSourceInterface =
   | GoogleAnalyticsDataSource
   | SnowflakeDataSource
   | PostgresDataSource
+  | MysqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
   | MixpanelDataSource;
@@ -188,6 +201,7 @@ export type DataSourceInterfaceWithParams =
   | GoogleAnalyticsDataSourceWithParams
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
+  | MysqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
   | MixpanelDataSourceWithParams;

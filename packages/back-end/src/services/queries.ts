@@ -7,7 +7,6 @@ import {
   ExperimentMetricQueryParams,
 } from "../types/Integration";
 import uniqid from "uniqid";
-import mongoose from "mongoose";
 import {
   Queries,
   QueryInterface,
@@ -24,7 +23,6 @@ export type InterfaceWithQueries = {
   queries: Queries;
   organization: string;
 };
-export type DocumentWithQueries = mongoose.Document & InterfaceWithQueries;
 
 async function getExistingQuery(
   integration: SourceIntegrationInterface,
@@ -85,31 +83,6 @@ async function createNewQuery(
   return await QueryModel.create(data);
 }
 
-function runBackgroundQuery<T>(run: Promise<T>, doc: QueryDocument) {
-  // Update heartbeat for the query once every 30 seconds
-  // This lets us detect orphaned queries where the thread died
-  const timer = setInterval(() => {
-    doc.set("heartbeat", new Date());
-    doc.save();
-  }, 30000);
-
-  run.then((res) => {
-    clearInterval(timer);
-    doc.set("finishedAt", new Date());
-    doc.set("status", "succeeded");
-    doc.set("result", res);
-    doc.save();
-  });
-
-  run.catch((e) => {
-    clearInterval(timer);
-    doc.set("finishedAt", new Date());
-    doc.set("status", "failed");
-    doc.set("error", e.message);
-    doc.save();
-  });
-}
-
 async function getQueryDoc<T>(
   integration: SourceIntegrationInterface,
   query: string,
@@ -125,8 +98,29 @@ async function getQueryDoc<T>(
   // Otherwise, create a new query in mongo;
   const doc = await createNewQuery(integration, query);
 
+  // Update heartbeat for the query once every 30 seconds
+  // This lets us detect orphaned queries where the thread died
+  const timer = setInterval(() => {
+    doc.set("heartbeat", new Date());
+    doc.save();
+  }, 30000);
+
   // Run the query in the background
-  runBackgroundQuery<T>(run(query), doc);
+  run(query)
+    .then((res) => {
+      clearInterval(timer);
+      doc.set("finishedAt", new Date());
+      doc.set("status", "succeeded");
+      doc.set("result", res);
+      doc.save();
+    })
+    .catch((e) => {
+      clearInterval(timer);
+      doc.set("finishedAt", new Date());
+      doc.set("status", "failed");
+      doc.set("error", e.message);
+      doc.save();
+    });
 
   return doc;
 }
@@ -342,10 +336,10 @@ export async function startRun<T>(
   };
 }
 
-export async function cancelRun<T extends DocumentWithQueries>(
+export async function cancelRun<T extends InterfaceWithQueries>(
   doc: T,
   organization: string,
-  onDelete?: () => Promise<void>
+  onDelete: () => Promise<void>
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -356,13 +350,7 @@ export async function cancelRun<T extends DocumentWithQueries>(
 
   // Only cancel if it's currently running
   if (doc.queries.filter((q) => q.status === "running").length > 0) {
-    if (onDelete) {
-      await onDelete();
-    } else {
-      doc.set("queries", []);
-      doc.set("runStarted", null);
-      await doc.save();
-    }
+    await onDelete();
   }
 
   return {
@@ -370,11 +358,11 @@ export async function cancelRun<T extends DocumentWithQueries>(
   };
 }
 
-export async function getStatusEndpoint<T extends DocumentWithQueries, R>(
+export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   doc: T,
   organization: string,
-  resultsKey: string,
-  processResults: (data: QueryMap) => Promise<R>
+  processResults: (data: QueryMap) => Promise<R>,
+  onSave: (data: Partial<InterfaceWithQueries>, result?: R) => Promise<void>
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -388,14 +376,11 @@ export async function getStatusEndpoint<T extends DocumentWithQueries, R>(
     doc.queries,
     organization,
     async (queries: Queries) => {
-      doc.set("queries", queries);
-      await doc.save();
+      await onSave({ queries });
     },
     async (queries: Queries, data: QueryMap) => {
-      doc.set("queries", queries);
       const results = await processResults(data);
-      doc.set(resultsKey, results);
-      await doc.save();
+      await onSave({ queries }, results);
     }
   );
 

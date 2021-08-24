@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { OrganizationInterface } from "../../types/organization";
+import uniqid from "uniqid";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -52,9 +53,106 @@ const organizationSchema = new mongoose.Schema({
 
 organizationSchema.index({ "members.id": 1 });
 
-export type OrganizationDocument = mongoose.Document & OrganizationInterface;
+type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
-export const OrganizationModel = mongoose.model<OrganizationDocument>(
+const OrganizationModel = mongoose.model<OrganizationDocument>(
   "Organization",
   organizationSchema
 );
+
+function toInterface(doc: OrganizationDocument): OrganizationInterface {
+  if (!doc) return null;
+  return doc.toJSON();
+}
+
+export async function createOrganization(
+  email: string,
+  userId: string,
+  name: string,
+  url: string
+) {
+  // TODO: sanitize fields
+  const doc = await OrganizationModel.create({
+    ownerEmail: email,
+    name,
+    url,
+    invites: [],
+    members: [
+      {
+        id: userId,
+        role: "admin",
+      },
+    ],
+    id: uniqid("org_"),
+  });
+  return toInterface(doc);
+}
+export async function findAllOrganizations() {
+  const docs = await OrganizationModel.find();
+  return docs.map(toInterface);
+}
+export async function findOrganizationById(id: string) {
+  const doc = await OrganizationModel.findOne({ id });
+  return toInterface(doc);
+}
+export async function updateOrganization(
+  id: string,
+  update: Partial<OrganizationInterface>
+) {
+  await OrganizationModel.updateOne(
+    {
+      id,
+    },
+    {
+      $set: update,
+    }
+  );
+}
+
+export async function updateOrganizationByStripeId(
+  stripeCustomerId: string,
+  update: Partial<OrganizationInterface>
+) {
+  await OrganizationModel.updateOne(
+    {
+      stripeCustomerId,
+    },
+    {
+      $set: update,
+    }
+  );
+}
+
+export async function hasOrganization() {
+  const res = await OrganizationModel.findOne();
+  return !!res;
+}
+
+export async function findOrganizationsByMemberId(userId: string) {
+  const docs = await OrganizationModel.find({
+    members: {
+      $elemMatch: {
+        id: userId,
+      },
+    },
+  });
+  return docs.map(toInterface);
+}
+
+export async function findOrganizationByInviteKey(key: string) {
+  const doc = await OrganizationModel.findOne({
+    "invites.key": key,
+  });
+  return toInterface(doc);
+}
+
+export async function getOrganizationFromSlackTeam(teamId: string) {
+  const organization = await OrganizationModel.findOne({
+    "connections.slack.team": teamId,
+  });
+  if (!organization) {
+    throw new Error("Unknown slack team id");
+  }
+
+  return toInterface(organization);
+}

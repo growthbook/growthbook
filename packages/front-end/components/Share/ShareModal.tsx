@@ -30,6 +30,7 @@ import Tooltip from "../Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import { date } from "../../services/dates";
+import track from "../../services/track";
 
 export const presentationThemes = {
   lblue: {
@@ -239,6 +240,11 @@ const ShareModal = ({
         body: JSON.stringify(l),
       });
 
+      if (existing?.id) {
+        track("Presentation edited");
+      } else {
+        track("Presentation created");
+      }
       if (onSuccess && typeof onSuccess === "function") onSuccess();
       setLoading(false);
       refreshList();
@@ -830,35 +836,54 @@ const ShareModal = ({
                 (use the arrow keys to change pages)
               </small>
             </h4>
-            <div style={{ position: "absolute", left: "49%", top: "52%" }}>
-              <LoadingSpinner />
-            </div>
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                maxHeight: "350px",
-                position: "relative",
-              }}
-            >
-              <Preview
-                expIds={value.slides
-                  .map((o) => {
-                    return o.id;
-                  })
-                  .join(",")}
-                title={value.title}
-                desc={value.description}
-                theme={value.theme}
-                backgroundColor={value.customTheme.backgroundColor.replace(
-                  "#",
-                  ""
-                )}
-                textColor={value.customTheme.textColor.replace("#", "")}
-                headingFont={value.customTheme.headingFont}
-                bodyFont={value.customTheme.bodyFont}
-              />
-            </div>
+            {value.slides.length > 0 ? (
+              <>
+                <div style={{ position: "absolute", left: "49%", top: "52%" }}>
+                  <LoadingSpinner />
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    maxHeight: "350px",
+                    position: "relative",
+                  }}
+                >
+                  <Preview
+                    expIds={value.slides
+                      .map((o) => {
+                        return o.id;
+                      })
+                      .join(",")}
+                    title={value.title}
+                    desc={value.description}
+                    theme={value.theme}
+                    backgroundColor={value.customTheme.backgroundColor.replace(
+                      "#",
+                      ""
+                    )}
+                    textColor={value.customTheme.textColor.replace("#", "")}
+                    headingFont={value.customTheme.headingFont}
+                    bodyFont={value.customTheme.bodyFont}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    maxHeight: "350px",
+                    position: "relative",
+                    lineHeight: "300px",
+                    textAlign: "center",
+                  }}
+                >
+                  Please select experiments from the previous page
+                </div>
+              </>
+            )}
           </div>
         </div>
         {saveError}

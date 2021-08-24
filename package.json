@@ -37,7 +37,7 @@
     }
   },
   "lint-staged": {
-    "./**/*.{json,css,scss,md}": [
+    "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
     "./**/*.{js,ts,jsx,tsx}": [

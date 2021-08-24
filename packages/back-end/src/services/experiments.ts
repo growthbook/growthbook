@@ -3,7 +3,7 @@ import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { MetricModel } from "../models/MetricModel";
+import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
 import uniqid from "uniqid";
 import { srm, ABTestStats, abtest, getValueCR } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
@@ -68,17 +68,6 @@ export function deleteExperimentById(id: string) {
   });
 }
 
-export function deleteMetricById(id: string) {
-  return MetricModel.deleteOne({
-    id,
-  });
-}
-
-type OldSnapshotModel = ExperimentSnapshotInterface & {
-  srm: number;
-  variations: SnapshotVariation[];
-};
-
 export async function getLatestSnapshot(
   experiment: string,
   phase: number,
@@ -100,42 +89,11 @@ export async function getLatestSnapshot(
     limit: 1,
   }).exec();
 
-  // Backwards compatibility with old data format (can remove later)
-  if (all[0] && !all[0].results[0]) {
-    const old = all[0].toJSON() as OldSnapshotModel;
-
-    all[0].results = [
-      {
-        name: "All",
-        srm: old.srm,
-        variations: old.variations,
-      },
-    ];
-  }
-
   return all[0];
 }
 
-export function getMetricsByOrganization(organization: string) {
-  return MetricModel.find({
-    organization,
-  });
-}
-
-export function getMetricsByDatasource(datasource: string) {
-  return MetricModel.find({
-    datasource,
-  });
-}
-
-export function getMetricById(id: string) {
-  return MetricModel.findOne({
-    id,
-  });
-}
-
 export async function createMetric(data: Partial<MetricInterface>) {
-  const metric = MetricModel.create({
+  const metric = insertMetric({
     ...data,
     id: uniqid("met_"),
     dateCreated: new Date(),

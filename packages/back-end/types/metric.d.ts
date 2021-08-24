@@ -35,7 +35,10 @@ export interface MetricInterface {
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
+  conversionWindowHours?: number;
   tags?: string[];
+  winRisk?: number;
+  loseRisk?: number;
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";

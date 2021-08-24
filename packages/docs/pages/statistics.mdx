@@ -1,0 +1,88 @@
+# Growth Book's Statistics
+
+This page is a summary verison of the statistical methods used by Growth Book. If you
+want to read more detail, you can see the [full white paper PDF](https://www.growthbook.io/docs/GrowthBookStatsEngine.pdf).
+
+## Bayesian Statistics
+
+Bayesian methods offers some distinct advantages over the frequentist approach. With
+frequentist methods, you must decide on
+the sample size in advance before running an experiment, which is known as a fixed horizon. This
+means you cannot stop a test early, nor run it for longer. If you do look at the test
+and decide to act upon it, you run into the peeking problem, which drastically increases your
+chances of Type I errors (false positives). Furthermore the results of a frequentist
+experiment are p-values and confidence intervals. These measures are very difficult to
+interpret correctly, and even harder to explain to others.
+
+Bayesian methods help with both of these issues. There are no fixed horizons, and although
+Bayesian methods are not completely immune to the peeking problem, it is much less of a concern.
+You can generally stop an experiment whenever you want without a huge Type I error increase.
+In addition, the results are very easy to explain and interpret. Everything
+has some probability of being true and you adjust the probabilities as you gather data
+and learn more about the world. This matches up with how most people think about
+experiments - _"there’s a 95% chance this new button is better and a 5% chance it’s
+worse."_
+
+## Priors and Posteriors.
+
+At Growth Book, we use an Uninformative Prior. This simply means that before an
+experiment runs, we assume both variations have an equal chance of
+being higher/lower than the other one. As the experiment runs and you gather data, the
+Prior is updated to create a Posterior distribution. For Binomial metrics (simple yes/no conversions event) we
+use a Beta-Binomial Prior. For count, duration, and revenue metrics, we use a Gaussian
+(or Normal) Prior.
+
+## Inferential Statistics
+
+Growth Book uses fast estimation techniques to quickly generate inferential statistics at scale for every metric in an experiment -
+Chance to Beat Control, Relative Uplift, and Risk (or expected loss).
+
+**Chance to Beat Control** is straight forward. It is simply the probability that a variation is better.
+You typically want to wait until this reaches 95% (or 5% if it's worse).
+
+**Relative Uplift** is similar to a frequentist Confidence Interval. Instead of showing a fixed 95% interval, we show the full
+probability distribution using a violin plot:
+
+![Violin plot of a metrics change](/images/violin-plot.png)
+
+We have found this tends to lead to more accurate interpretations. For example, instead of
+just reading the above as _"it’s 17% better"_, people tend to factor in the error bars (_"it’s
+about 17% better, but there’s a lot of uncertainty still"_).
+
+**Risk** (or expected loss) can be interpreted as _“If I stop the test now and choose X and it’s actually worse, how
+much am I expected to lose?”_. This is shown as a relative percent change - so if your baseline metric value is $5/user,
+a 10% risk equates to losing $0.50. Every business has their own risk tolerances, but you typically want to wait until this drops well below 1%.
+
+Growth Book gives the human decision maker everything they need to weigh the results against
+external factors to determine when to stop an experiment and which variation to declare the winner.
+
+## Data Quality Checks
+
+In addition, Growth Book performs automatic data quality
+checks to ensure the statistical inferences are valid and ready for interpretation.  
+We currently run two checks: Sample Ratio Mismatch (SRM) and minimum data thresholds.
+SRM detects a wide variety of implementation errors and the data thresholds ensure
+you aren't drawing conclusions too early on in a test (e.g. when it's 5 conversions vs 2 conversions).
+
+![SRM check failed](/images/SRM-check-failed.png)
+
+## Dimensional Analysis
+
+There is often a desire to drill down into results to see how segments or dimensions
+of your users were affected by an A/B test variation. This is especially useful for finding bugs
+(e.g. if Safari is down, but the other browsers are up) and for identifying ideas for follow-up experiments (e.g.
+"European countries seem to be responding really well to this test, let's try a dedicated variation for them").
+
+However, too much slicing and dicing of data can lead to
+what is known as the Multiple Testing Problem. If you look at the data in enough ways, one of them
+will look significant just by random chance. Instead of trying to correct for this (using Bonferroni etc.),
+Growth Book does not run statistical analysis on the breakdown at all. It simply shows the raw conversion numbers.
+This is enough data to either detect bugs or come up with followup ideas, but not enough to draw conclusions about the data.
+
+## Conclusion
+
+Growth Book utilizes a combination of Bayesian statistics, fast estimation techniques,
+and data quality checks to robustly analyze A/B tests at scale and provide intuitive
+results to decision makers. The implementation is fully open source under an MIT license
+and available on GitHub. You can also read more about the statistics and equations used
+in the [white paper PDF](https://www.growthbook.io/docs/GrowthBookStatsEngine.pdf).

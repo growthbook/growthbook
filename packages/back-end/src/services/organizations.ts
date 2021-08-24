@@ -1,8 +1,8 @@
 import {
-  OrganizationModel,
-  OrganizationDocument,
+  findOrganizationById,
+  findOrganizationByInviteKey,
+  updateOrganization,
 } from "../models/OrganizationModel";
-import uniqid from "uniqid";
 import { randomBytes } from "crypto";
 import { APP_ORIGIN } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
@@ -17,9 +17,7 @@ import { getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 
 export async function getOrganizationById(id: string) {
-  return OrganizationModel.findOne({
-    id,
-  });
+  return findOrganizationById(id);
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -72,64 +70,33 @@ export async function userHasAccess(
   return false;
 }
 
-export async function getAllOrganizationsByUserId(userId: string) {
-  return OrganizationModel.find({
-    members: {
-      $elemMatch: {
-        id: userId,
-      },
-    },
-  });
-}
-
-export function createOrganization(
-  email: string,
-  userId: string,
-  name: string,
-  url: string
-) {
-  // TODO: sanitize fields
-  return OrganizationModel.create({
-    ownerEmail: email,
-    name,
-    url,
-    invites: [],
-    members: [
-      {
-        id: userId,
-        role: "admin",
-      },
-    ],
-    id: uniqid("org_"),
-  });
-}
-
 export async function removeMember(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   id: string
 ) {
-  organization.members = organization.members.filter(
-    (member) => member.id !== id
-  );
+  const members = organization.members.filter((member) => member.id !== id);
 
-  if (!organization.members.length) {
+  if (!members.length) {
     throw new Error("Organizations must have at least 1 member");
   }
 
-  organization.markModified("members");
-  await organization.save();
+  await updateOrganization(organization.id, {
+    members,
+  });
+
   return organization;
 }
 
 export async function revokeInvite(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   key: string
 ) {
-  organization.invites = organization.invites.filter(
-    (invite) => invite.key !== key
-  );
-  organization.markModified("invites");
-  await organization.save();
+  const invites = organization.invites.filter((invite) => invite.key !== key);
+
+  await updateOrganization(organization.id, {
+    invites,
+  });
+
   return organization;
 }
 
@@ -138,9 +105,7 @@ export function getInviteUrl(key: string) {
 }
 
 export async function acceptInvite(key: string, userId: string) {
-  const organization = await OrganizationModel.findOne({
-    "invites.key": key,
-  });
+  const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
   }
@@ -148,25 +113,27 @@ export async function acceptInvite(key: string, userId: string) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
 
   // Remove invite
-  organization.invites = organization.invites.filter(
-    (invite) => invite.key !== key
-  );
-  organization.markModified("invites");
+  const invites = organization.invites.filter((invite) => invite.key !== key);
 
   // Add to member list
-  organization.members.push({
-    id: userId,
-    role: invite?.role || "admin",
-  });
-  organization.markModified("members");
+  const members = [
+    ...organization.members,
+    {
+      id: userId,
+      role: invite?.role || "admin",
+    },
+  ];
 
-  await organization.save();
+  await updateOrganization(organization.id, {
+    invites,
+    members,
+  });
 
   return organization;
 }
 
 export async function inviteUser(
-  organization: OrganizationDocument,
+  organization: OrganizationInterface,
   email: string,
   role: MemberRole = "admin"
 ) {
@@ -196,14 +163,19 @@ export async function inviteUser(
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
   // Save invite in Mongo
-  organization.invites.push({
-    email,
-    key,
-    dateCreated: new Date(),
-    role,
+  const invites = [
+    ...organization.invites,
+    {
+      email,
+      key,
+      dateCreated: new Date(),
+      role,
+    },
+  ];
+
+  await updateOrganization(organization.id, {
+    invites,
   });
-  organization.markModified("invites");
-  await organization.save();
 
   let emailSent = false;
   if (isEmailEnabled()) {

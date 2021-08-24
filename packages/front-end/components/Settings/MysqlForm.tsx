@@ -1,11 +1,11 @@
 import { FC, ChangeEventHandler } from "react";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
 import { isCloud } from "../../services/env";
 
-const PostgresForm: FC<{
-  params: Partial<PostgresConnectionParams>;
+const MysqlForm: FC<{
+  params: Partial<MysqlConnectionParams>;
   existing: boolean;
-  onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  onParamChange: ChangeEventHandler<HTMLInputElement>;
 }> = ({ params, existing, onParamChange }) => {
   return (
     <>
@@ -76,34 +76,9 @@ const PostgresForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
-        <div className="form-group col-md-12">
-          <label>Require SSL</label>
-          <select
-            className="form-control"
-            name="ssl"
-            value={
-              params.ssl === true || params.ssl === "true" ? "true" : "false"
-            }
-            onChange={onParamChange}
-          >
-            <option value="false">Off</option>
-            <option value="true">On</option>
-          </select>
-        </div>
-        <div className="form-group col-md-12">
-          <label>Default Schema</label>
-          <input
-            type="text"
-            className="form-control"
-            name="defaultSchema"
-            value={params.defaultSchema || ""}
-            onChange={onParamChange}
-            placeholder="(optional)"
-          />
-        </div>
       </div>
     </>
   );
 };
 
-export default PostgresForm;
+export default MysqlForm;

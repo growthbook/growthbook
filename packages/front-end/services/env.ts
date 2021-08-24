@@ -2,10 +2,14 @@ const env: {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
   apiHost: string;
+  config: "file" | "db";
+  defaultConversionWindowHours: number;
 } = {
   telemetry: "enable",
   cloud: false,
   apiHost: "",
+  config: "db",
+  defaultConversionWindowHours: 72,
 };
 
 export async function initEnv() {
@@ -25,4 +29,10 @@ export function isTelemetryEnabled() {
 }
 export function inTelemetryDebugMode(): boolean {
   return env.telemetry === "debug";
+}
+export function hasFileConfig() {
+  return env.config === "file";
+}
+export function getDefaultConversionWindowHours() {
+  return env.defaultConversionWindowHours;
 }

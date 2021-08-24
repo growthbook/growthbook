@@ -1,4 +1,4 @@
-import { Client } from "pg";
+import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 
 export function runPostgresQuery<T>(
@@ -7,7 +7,17 @@ export function runPostgresQuery<T>(
   values: string[] = []
 ): Promise<T[]> {
   return new Promise<T[]>((resolve, reject) => {
-    const client = new Client(conn);
+    const settings: ClientConfig = {
+      ...conn,
+      ssl:
+        conn.ssl === true || conn.ssl === "true"
+          ? {
+              rejectUnauthorized: false,
+            }
+          : false,
+    };
+
+    const client = new Client(settings);
     client
       .on("error", (err) => {
         reject(err);

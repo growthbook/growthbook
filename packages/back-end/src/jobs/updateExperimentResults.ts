@@ -1,22 +1,26 @@
 import Agenda, { Job } from "agenda";
 import { ExperimentModel } from "../models/ExperimentModel";
-import { getDataSourceById } from "../services/datasource";
+import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
   getExperimentWatchers,
   getLatestSnapshot,
-  getMetricById,
   processSnapshotData,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import pino from "pino";
-import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
+import {
+  ExperimentSnapshotDocument,
+  ExperimentSnapshotModel,
+} from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
+import { getMetricById } from "../models/MetricModel";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 
-// Time between experiment result updates (6 hours)
-const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+// Time between experiment result updates (default 6 hours)
+const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
@@ -107,7 +111,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   try {
     logger.info("Start Refreshing Results");
-    const datasource = await getDataSourceById(experiment.datasource);
+    const datasource = await getDataSourceById(
+      experiment.datasource,
+      experiment.organization
+    );
     lastSnapshot = await getLatestSnapshot(
       experiment.id,
       experiment.phases.length - 1
@@ -123,13 +130,24 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         const res = await getStatusEndpoint(
           currentSnapshot,
           currentSnapshot.organization,
-          "results",
-          (queryData) =>
-            processSnapshotData(
+          (queryData) => {
+            return processSnapshotData(
               experiment,
               experiment.phases[experiment.phases.length - 1],
               queryData
-            )
+            );
+          },
+          async (updates, results) => {
+            await ExperimentSnapshotModel.updateOne(
+              { id: currentSnapshot.id },
+              {
+                $set: {
+                  ...updates,
+                  results,
+                },
+              }
+            );
+          }
         );
         if (res.queryStatus === "succeeded") {
           resolve();
@@ -205,7 +223,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                getMetricById(m) +
+                getMetricById(m, experiment.organization) +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -219,7 +237,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                getMetricById(m) +
+                getMetricById(m, experiment.organization) +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

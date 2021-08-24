@@ -4,11 +4,11 @@ import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import {
-  IS_CLOUD,
   JWT_SECRET,
   S3_BUCKET,
   S3_DOMAIN,
   S3_REGION,
+  UPLOAD_METHOD,
 } from "../util/secrets";
 
 let s3: AWS.S3;
@@ -65,8 +65,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const filename = uniqid("img_");
   const filePath = `${pathPrefix}${filename}.${ext}`;
 
-  // Cloud deployments use S3 to store files
-  if (IS_CLOUD) {
+  if (UPLOAD_METHOD === "s3") {
     const s3Params = {
       Bucket: S3_BUCKET,
       Key: filePath,
@@ -81,7 +80,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
       fileURL: S3_DOMAIN + "/" + filePath,
     };
   }
-  // Self-hosted deployments use the file system
+  // Otherwise, use the local file system
   else {
     const fileURL = `/upload/${filePath}`;
     const uploadURL = `/upload?path=${filePath}&signature=${getFileSignature(

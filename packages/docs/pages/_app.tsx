@@ -26,6 +26,12 @@ const navLinks = [
   {
     href: "/self-host",
     name: "Self-Host",
+    links: [
+      {
+        href: "/self-host/config",
+        name: "Configuration",
+      },
+    ],
   },
   {
     href: "/app",
@@ -87,6 +93,10 @@ const navLinks = [
         name: "Build Your Own",
       },
     ],
+  },
+  {
+    href: "/statistics",
+    name: "Statistics",
   },
 ];
 

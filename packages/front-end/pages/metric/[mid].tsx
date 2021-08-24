@@ -10,7 +10,11 @@ import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
 import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
-import { formatConversionRate } from "../../services/metrics";
+import {
+  formatConversionRate,
+  defaultWinRiskThreshold,
+  defaultLoseRiskThreshold,
+} from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -31,6 +35,10 @@ import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Code from "../../components/Code";
+import {
+  getDefaultConversionWindowHours,
+  hasFileConfig,
+} from "../../services/env";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -57,14 +65,14 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEdit = permissions.createMetrics;
+  const canEdit = permissions.createMetrics && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis;
-  if (!("average" in analysis)) {
+  if (!analysis || !("average" in analysis)) {
     analysis = null;
   }
 
@@ -377,17 +385,38 @@ const MetricPage: FC = () => {
 
               <hr />
               <RightRailSection
-                title="Behavior Tweaks"
+                title="Behavior"
                 open={() => setEditModalOpen(2)}
                 canOpen={canEdit}
               >
-                <RightRailSectionGroup type="badge">
+                <RightRailSectionGroup type="badge" empty="">
                   {[
                     metric.inverse ? "inverse" : null,
                     metric.cap > 0 ? `cap: ${metric.cap}` : null,
                     metric.ignoreNulls ? "converted users only" : null,
                     metric.earlyStart ? "start of session" : null,
                   ]}
+                </RightRailSectionGroup>
+
+                {!!datasource && datasource.type !== "google_analytics" && (
+                  <RightRailSectionGroup type="code" title="Conversion Window">
+                    {metric.conversionWindowHours ||
+                      getDefaultConversionWindowHours()}{" "}
+                    hours
+                  </RightRailSectionGroup>
+                )}
+
+                <RightRailSectionGroup type="custom" empty="">
+                  <small>
+                    <strong>Risk threshold:</strong>
+                    <br />
+                    <i>acceptable</i> &lt;{" "}
+                    {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}
+                    %
+                    <br />
+                    <i>too risky</i> &gt;{" "}
+                    {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}%
+                  </small>
                 </RightRailSectionGroup>
               </RightRailSection>
               <hr />
@@ -396,11 +425,9 @@ const MetricPage: FC = () => {
                 open={() => setEditModalOpen(0)}
                 canOpen={canEdit}
               >
-                {metric.tags?.length > 0 && (
-                  <RightRailSectionGroup type="badge">
-                    {metric.tags}
-                  </RightRailSectionGroup>
-                )}
+                <RightRailSectionGroup type="badge">
+                  {metric.tags}
+                </RightRailSectionGroup>
               </RightRailSection>
             </div>
           </div>
