@@ -10,8 +10,12 @@ import {
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
+import { OrganizationSettings } from "../../types/organization";
 
 type ConfigFile = {
+  organization?: {
+    settings: OrganizationSettings;
+  };
   datasources?: {
     [key: string]: Omit<
       DataSourceInterfaceWithParams,
@@ -154,4 +158,9 @@ export function getConfigDimensions(
       dateUpdated: null,
     };
   });
+}
+
+export function getConfigOrganizationSettings(): OrganizationSettings {
+  reloadConfigIfNeeded();
+  return config?.organization?.settings || {};
 }

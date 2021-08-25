@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { MemberRole, OrganizationSettings, useAuth } from "../../services/auth";
+import { MemberRole, useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import useForm from "../../hooks/useForm";
@@ -12,6 +12,12 @@ import track from "../../services/track";
 import ConfigYamlButton from "../../components/Settings/ConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { OrganizationSettings } from "back-end/types/organization";
+import isEqual from "lodash/isEqual";
+
+type OrgSettingsValue = OrganizationSettings & {
+  types: { visual: boolean; code: boolean };
+};
 
 export type SettingsApiResponse = {
   status: number;
@@ -50,40 +56,27 @@ export type SettingsApiResponse = {
   };
 };
 
-function hasTypeChanges(
-  value: {
-    visual: boolean;
-    code: boolean;
-  },
-  types: ImplementationType[]
-) {
-  const current = Object.keys(value).filter((k) => value[k]);
-  if (current.length !== types.length) return true;
+function hasChanges(value: OrgSettingsValue, existing: OrganizationSettings) {
+  if (!existing) return true;
 
-  const existing = [...types];
-  existing.sort();
-  current.sort();
+  const { types, ...newValues } = value;
+  const newTypes = Object.keys(types).filter((k) => types[k]);
+  const { implementationTypes, ...existingValues } = existing;
+  const existingTypes = [...implementationTypes];
 
-  return JSON.stringify(existing) !== JSON.stringify(current);
-}
+  newTypes.sort();
+  existingTypes.sort();
+  if (!isEqual(newTypes, existingTypes)) {
+    console.log("types not equal", newTypes, existingTypes);
+    return true;
+  }
 
-function hasCustomizationChanges(
-  value: {
-    customized: boolean;
-    logoPath: string;
-    primaryColor: string;
-    secondaryColor: string;
-  },
-  existing: OrganizationSettings
-) {
-  if (
-    value.customized === existing.customized &&
-    value.logoPath === existing.logoPath &&
-    value.primaryColor === existing.primaryColor &&
-    value.secondaryColor === existing.secondaryColor
-  )
-    return false;
-  return true;
+  if (!isEqual(newValues, existingValues)) {
+    console.log("other props not equal", newValues, existingValues);
+    return true;
+  }
+
+  return false;
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
@@ -91,11 +84,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
 
   // eslint-disable-next-line
-  const [value, inputProps, manualUpdate] = useForm({
+  const [value, inputProps, manualUpdate] = useForm<OrgSettingsValue>({
     types: {
       visual: false,
       code: false,
     },
+    pastExperimentsMinLength: 6,
     // customization:
     customized: false,
     logoPath: "",
@@ -110,21 +104,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   useEffect(() => {
     if (data?.organization?.settings) {
-      const updated = { ...value };
-      const freshValues = data.organization.settings;
-      if (data?.organization?.settings?.implementationTypes) {
-        const typeArr = data.organization.settings.implementationTypes;
-        const types = {
-          visual: typeArr.includes("visual"),
-          code: typeArr.includes("code"),
+      const { implementationTypes, ...freshValues } =
+        data.organization.settings || {};
+      let types = value.types;
+      if (implementationTypes) {
+        types = {
+          visual: implementationTypes.includes("visual"),
+          code: implementationTypes.includes("code"),
         };
-        updated.types = types;
       }
-      updated.customized = freshValues.customized || false;
-      updated.logoPath = freshValues.logoPath || "";
-      updated.primaryColor = freshValues.primaryColor || "";
-      updated.secondaryColor = freshValues.secondaryColor || "";
-      manualUpdate(updated);
+
+      manualUpdate({
+        ...value,
+        ...freshValues,
+        types,
+      });
     }
   }, [data?.organization?.settings]);
 
@@ -139,44 +133,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const typeChanges = hasTypeChanges(
-    value.types,
-    data?.organization?.settings?.implementationTypes || []
-  );
-
-  const customizationChanges = hasCustomizationChanges(
-    value,
-    data?.organization?.settings
-  );
-
-  const ctaEnabled = typeChanges || customizationChanges;
+  const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {
-    const types: ImplementationType[] = value.types.visual
+    const { types, ...otherSettings } = value;
+
+    const implementationTypes: ImplementationType[] = types.visual
       ? ["code", "visual"]
       : ["code"];
+
+    const newSettings: OrganizationSettings = {
+      ...otherSettings,
+      implementationTypes,
+    };
 
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: {
-          implementationTypes: types,
-          customized: value.customized,
-          logoPath: value.logoPath,
-          primaryColor: value.primaryColor,
-          secondaryColor: value.secondaryColor,
-        },
+        settings: newSettings,
       }),
     });
     await mutate();
     organizations.forEach((org) => {
       if (org.id === orgId) {
-        org.settings = org.settings || {};
-        org.settings.implementationTypes = types;
-        org.settings.customized = value.customized;
-        org.settings.logoPath = value.logoPath;
-        org.settings.primaryColor = value.primaryColor;
-        org.settings.secondaryColor = value.secondaryColor;
+        org.settings = newSettings;
       }
     });
     setOrganizations(organizations);
@@ -292,11 +272,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 )}
             </div>
           </div>
+          {/*}
           <div className="divider border-bottom mb-3 mt-2"></div>
           <div className="row">
             <div className="col-sm-3">
               <h4>
-                Customization <span className="badge badge-warning">beta</span>
+                Custom Branding{" "}
+                <span className="badge badge-warning">beta</span>
               </h4>
             </div>
             <div className="col-sm-9">
@@ -319,7 +301,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       htmlFor="checkbox-customized"
                       className="form-check-label"
                     >
-                      Enable customization
+                      Enable custom branding
                     </label>
                   </div>
                 </div>
@@ -382,6 +364,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               )}
             </div>
           </div>
+              */}
           {hasDefinitions && !hasFileConfig() && !isCloud() && (
             <>
               <div className="divider border-bottom mb-3 mt-2"></div>
@@ -422,23 +405,60 @@ const GeneralSettingsPage = (): React.ReactElement => {
           )}
           <div className="divider border-bottom mb-3 mt-3"></div>
           <div className="row">
-            <div className="col-12">
-              <div className=" d-flex flex-row-reverse">
-                <button
-                  className={`btn btn-${ctaEnabled ? "primary" : "secondary"}`}
-                  type="submit"
-                  disabled={!ctaEnabled}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    if (!ctaEnabled) return;
-                    saveSettings();
-                  }}
-                >
-                  Save
-                </button>
+            <div className="col-sm-3">
+              <h4>Other Settings</h4>
+            </div>
+            <div className="col-sm-9 form-inline">
+              {hasFileConfig() && (
+                <div className="alert alert-info">
+                  The below settings are controlled through your{" "}
+                  <code>config.yml</code> file and cannot be changed through the
+                  web UI.{" "}
+                  <a href="https://docs.growthbook.io/self-host/config#configyml">
+                    View Documentation
+                  </a>
+                </div>
+              )}
+              <div className="form-group">
+                Minimum experiment length (in days) when importing past
+                experiments:
+                <input
+                  type="number"
+                  className="form-control ml-2"
+                  step="1"
+                  min="0"
+                  max="31"
+                  disabled={hasFileConfig()}
+                  {...inputProps.pastExperimentsMinLength}
+                />
               </div>
             </div>
           </div>
+          {!hasFileConfig() && (
+            <>
+              <div className="divider border-bottom mb-3 mt-3"></div>
+              <div className="row">
+                <div className="col-12">
+                  <div className=" d-flex flex-row-reverse">
+                    <button
+                      className={`btn btn-${
+                        ctaEnabled ? "primary" : "secondary"
+                      }`}
+                      type="submit"
+                      disabled={!ctaEnabled}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        if (!ctaEnabled) return;
+                        saveSettings();
+                      }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

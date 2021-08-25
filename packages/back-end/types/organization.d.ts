@@ -21,6 +21,18 @@ export interface Member {
   role: MemberRole;
 }
 
+export interface OrganizationSettings {
+  implementationTypes?: ImplementationType[];
+  confidenceLevel?: number;
+  customized?: boolean;
+  logoPath?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  datasources?: string[];
+  techsources?: string[];
+  pastExperimentsMinLength?: number;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -49,14 +61,5 @@ export interface OrganizationInterface {
       token: string;
     };
   };
-  settings?: {
-    implementationTypes?: ImplementationType[];
-    confidenceLevel?: number;
-    customized?: boolean;
-    logoPath?: string;
-    primaryColor?: string;
-    secondaryColor?: string;
-    datasources?: string[];
-    techsources?: string[];
-  };
+  settings?: OrganizationSettings;
 }

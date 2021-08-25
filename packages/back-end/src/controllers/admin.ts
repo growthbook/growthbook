@@ -216,7 +216,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   const yearago = new Date();
   yearago.setDate(yearago.getDate() - 365);
   const pastExperimentsResult = await integration.runPastExperimentQuery(
-    integration.getPastExperimentQuery(yearago)
+    integration.getPastExperimentQuery({ from: yearago })
   );
   const sharedFields: Partial<ExperimentInterface> = {
     description: "",

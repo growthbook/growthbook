@@ -1766,7 +1766,13 @@ export async function postPastExperiments(
   });
   if (!model) {
     const { queries, result } = await startRun(
-      { experiments: getPastExperiments(integration, start) },
+      {
+        experiments: getPastExperiments(
+          integration,
+          start,
+          req.organization?.settings?.pastExperimentsMinLength
+        ),
+      },
       processPastExperiments
     );
     model = await PastExperimentsModel.create({
@@ -1781,7 +1787,13 @@ export async function postPastExperiments(
     });
   } else if (force) {
     const { queries, result } = await startRun(
-      { experiments: getPastExperiments(integration, start) },
+      {
+        experiments: getPastExperiments(
+          integration,
+          start,
+          req.organization?.settings?.pastExperimentsMinLength
+        ),
+      },
       processPastExperiments
     );
     model.set("runStarted", now);

@@ -4,13 +4,13 @@ import {
   UserOrganizations,
   MemberRole,
   SubscriptionStatus,
-  OrganizationSettings,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import md5 from "md5";
 import track from "../services/track";
+import { OrganizationSettings } from "back-end/types/organization";
 
 type User = { id: string; email: string; name: string };
 
