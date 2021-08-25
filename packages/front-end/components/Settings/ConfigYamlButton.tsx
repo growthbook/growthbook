@@ -1,9 +1,9 @@
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { dump } from "js-yaml";
 import { useMemo } from "react";
-import { DataSourceInterfaceWithParams } from "../../../back-end/types/datasource";
-import { DimensionInterface } from "../../../back-end/types/dimension";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
 
 export default function ConfigYamlButton() {
   const { datasources, metrics, dimensions } = useDefinitions();
