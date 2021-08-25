@@ -9,6 +9,9 @@ import { ImplementationType } from "back-end/types/experiment";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
+import ConfigYamlButton from "../../components/Settings/ConfigYamlButton";
+import { hasFileConfig, isCloud } from "../../services/env";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export type SettingsApiResponse = {
   status: number;
@@ -100,6 +103,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secondaryColor: "#50279a",
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
+
+  const { dimensions, metrics, datasources } = useDefinitions();
+  const hasDefinitions =
+    dimensions.length > 0 || metrics.length > 0 || datasources.length > 0;
 
   useEffect(() => {
     if (data?.organization?.settings) {
@@ -375,6 +382,44 @@ const GeneralSettingsPage = (): React.ReactElement => {
               )}
             </div>
           </div>
+          {hasDefinitions && !hasFileConfig() && !isCloud() && (
+            <>
+              <div className="divider border-bottom mb-3 mt-2"></div>
+              <div className="row">
+                <div className="col-sm-3">
+                  <h4>
+                    Export Config{" "}
+                    <span className="badge badge-warning">beta</span>
+                  </h4>
+                </div>
+                <div className="col-sm-9">
+                  <p>
+                    You can now define data sources, metrics, and dimensions
+                    using a <code>config.yml</code> file. This allows you to
+                    version control your definitions and easily move them
+                    between environments.{" "}
+                    <a
+                      href="https://docs.growthbook.io/self-host/config#configyml"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Learn More
+                    </a>
+                    .
+                  </p>
+                  <p>
+                    You can export your existing definitions here:{" "}
+                    <ConfigYamlButton />
+                  </p>
+                  <p className="text-muted">
+                    <strong>Note:</strong> Downloaded file does not include data
+                    source connection secrets such as passwords. You must edit
+                    the file and add these yourselves.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
           <div className="divider border-bottom mb-3 mt-3"></div>
           <div className="row">
             <div className="col-12">

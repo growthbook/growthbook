@@ -13,6 +13,7 @@ export type Language =
   | "php"
   | "python"
   | "go"
+  | "yml"
   | "java";
 
 export default function Code({
