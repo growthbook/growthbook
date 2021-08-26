@@ -176,9 +176,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
             The below settings are controlled through your{" "}
             <code>config.yml</code> file and cannot be changed through the web
             UI.{" "}
-            <a href="https://docs.growthbook.io/self-host/config#organization-settings">
+            <a
+              href="https://docs.growthbook.io/self-host/config#organization-settings"
+              target="_blank"
+              rel="noreferrer"
+              className="font-weight-bold"
+            >
               View Documentation
             </a>
+            .
           </div>
         )}
         {!hasFileConfig() && !isCloud() && (

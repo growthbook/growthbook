@@ -25,7 +25,7 @@ export default function ConfigYamlButton({
 
     config.organization = {
       settings: {
-        pastExperimentsMinLength: settings.pastExperimentsMinLength || 6,
+        pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
         visualEditorEnabled: !!settings.visualEditorEnabled,
       },
     };
