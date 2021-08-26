@@ -77,10 +77,13 @@ function loadConfig(initial = false) {
 
     // Store the parsed config
     config = parsed as ConfigFile;
-  } else if (initial && ENVIRONMENT !== "production") {
-    console.log(
-      "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
-    );
+  } else if (ENVIRONMENT !== "production") {
+    config = null;
+    if (initial) {
+      console.log(
+        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
+      );
+    }
   }
 }
 loadConfig(true);
