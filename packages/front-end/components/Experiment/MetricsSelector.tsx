@@ -27,7 +27,7 @@ const MetricsSelector: FC<{
     if (m.tags) {
       m.tags.forEach((t) => {
         if (metricTags.has(t)) {
-          metricTags.set(t, [...metricTags.get(t), m]);
+          metricTags.set(t, [...metricTags.get(t), m.id]);
         } else {
           metricTags.set(t, [m.id]);
         }
