@@ -68,7 +68,7 @@ const EditInfoForm: FC<{
   );
   const { apiCall } = useAuth();
 
-  const datasource = getDatasourceById(value.datasource);
+  const datasource = getDatasourceById(experiment.datasource);
   const variationKeys =
     (datasource?.settings?.variationIdFormat ||
       datasource?.settings?.experiments?.variationFormat) === "key";
