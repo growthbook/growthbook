@@ -18,7 +18,7 @@ const MetricsSelector: FC<{
   const toMetricValue = (id: string) => {
     return {
       id,
-      name: getMetricById(id)?.name,
+      name: getMetricById(id)?.name || id,
     };
   };
 
