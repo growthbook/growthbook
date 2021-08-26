@@ -56,6 +56,16 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
   if (!doc) return null;
   const json = doc.toJSON();
 
+  // Change old `implementationTypes` field to new `visualEditorEnabled` field
+  if (json.settings?.implementationTypes) {
+    if (!("visualEditorEnabled" in json.settings)) {
+      json.settings.visualEditorEnabled = json.settings.implementationTypes.includes(
+        "visual"
+      );
+    }
+    delete json.settings.implementationTypes;
+  }
+
   // Add settings from config.json
   const configSettings = getConfigOrganizationSettings();
   json.settings = Object.assign({}, json.settings || {}, configSettings);

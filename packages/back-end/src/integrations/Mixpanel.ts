@@ -17,7 +17,6 @@ import {
   ImpactEstimationResult,
   MetricValueParams,
   MetricValueResult,
-  PastExperimentParams,
   PastExperimentResult,
   SourceIntegrationInterface,
   UsersQueryParams,
@@ -676,8 +675,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return result;
   }
-  getPastExperimentQuery(params: PastExperimentParams): string {
-    console.log(params);
+  getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {

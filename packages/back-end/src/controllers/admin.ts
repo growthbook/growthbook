@@ -66,12 +66,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   }
 
   // Change organization settings (allow all kinds of experiments)
-  org.settings.implementationTypes = [
-    "code",
-    "configuration",
-    "visual",
-    "custom",
-  ];
+  org.settings.visualEditorEnabled = true;
   await updateOrganization(id, {
     settings: org.settings,
   });

@@ -4,16 +4,31 @@ import { dump } from "js-yaml";
 import { useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
+import { OrganizationSettings } from "back-end/types/organization";
 
-export default function ConfigYamlButton() {
+export default function ConfigYamlButton({
+  settings = {},
+}: {
+  settings?: OrganizationSettings;
+}) {
   const { datasources, metrics, dimensions } = useDefinitions();
 
   const href = useMemo(() => {
     const config: {
+      organization?: {
+        settings?: OrganizationSettings;
+      };
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
       dimensions?: Record<string, Partial<DimensionInterface>>;
     } = {};
+
+    config.organization = {
+      settings: {
+        pastExperimentsMinLength: settings.pastExperimentsMinLength || 6,
+        visualEditorEnabled: !!settings.visualEditorEnabled,
+      },
+    };
 
     if (datasources.length) config.datasources = {};
     datasources.forEach((d) => {
@@ -107,11 +122,7 @@ export default function ConfigYamlButton() {
   if (!href) return null;
 
   return (
-    <a
-      href={href}
-      download="config.yml"
-      className="btn btn-outline-primary btn-sm"
-    >
+    <a href={href} download="config.yml" className="btn btn-primary btn-sm">
       Download config.yml
     </a>
   );

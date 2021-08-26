@@ -22,7 +22,7 @@ export interface Member {
 }
 
 export interface OrganizationSettings {
-  implementationTypes?: ImplementationType[];
+  visualEditorEnabled?: boolean;
   confidenceLevel?: number;
   customized?: boolean;
   logoPath?: string;
@@ -31,6 +31,8 @@ export interface OrganizationSettings {
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
+  /** @deprecated */
+  implementationTypes?: ImplementationType[];
 }
 
 export interface OrganizationInterface {
