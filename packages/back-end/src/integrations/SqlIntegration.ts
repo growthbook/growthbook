@@ -17,6 +17,7 @@ import {
   ExperimentMetricResult,
   ExperimentUsersQueryParams,
   ExperimentUsersResult,
+  PastExperimentParams,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
@@ -225,7 +226,9 @@ export default abstract class SqlIntegration
     return `STDDEV(${col})`;
   }
 
-  getPastExperimentQuery(from: Date) {
+  getPastExperimentQuery(params: PastExperimentParams) {
+    const minLength = params.minLength ?? 6;
+
     return format(
       `-- Past Experiments
     WITH
@@ -241,7 +244,7 @@ export default abstract class SqlIntegration
         FROM
           __experiments
         WHERE
-          timestamp > ${this.toTimestamp(from)}
+          timestamp > ${this.toTimestamp(params.from)}
         GROUP BY
           experiment_id,
           variation_id,
@@ -286,11 +289,11 @@ export default abstract class SqlIntegration
       __variations
     WHERE
       -- Skip experiments with fewer than 200 users since they don't have enough data
-      users > 200
-      -- Skip experiments that are 5 days or shorter (most likely means it was stopped early)
-      AND ${this.dateDiff("start_date", "end_date")} > 5
-      -- Skip experiments that start of the very first day since we're likely missing data
-      AND ${this.dateDiff(this.toTimestamp(from), "start_date")} > 2
+      users > 200 AND
+      -- Skip experiments that are shorter than ${minLength} days (most likely means it was stopped early)
+      ${this.dateDiff("start_date", "end_date")} >= ${minLength} AND
+      -- Skip experiments that start on the very first day since we're likely missing data
+      ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
     ORDER BY
       experiment_id ASC, variation_id ASC`,
       this.getFormatOptions()

@@ -64,6 +64,11 @@ export type ExperimentMetricQueryParams = {
   dimension: DimensionInterface | null;
 };
 
+export type PastExperimentParams = {
+  from: Date;
+  minLength?: number;
+};
+
 export type UsersQueryParams = {
   name: string;
   userIdType: "anonymous" | "user" | "either";
@@ -168,6 +173,6 @@ export interface SourceIntegrationInterface {
     experiment: ExperimentInterface,
     query: string
   ): Promise<ExperimentMetricResult>;
-  getPastExperimentQuery(from: Date): string;
+  getPastExperimentQuery(params: PastExperimentParams): string;
   runPastExperimentQuery(query: string): Promise<PastExperimentResult>;
 }

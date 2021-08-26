@@ -32,9 +32,8 @@ const GetStarted = ({
   const { apiCall } = useAuth();
 
   const {
-    settings: { implementationTypes },
+    settings: { visualEditorEnabled },
   } = useContext(UserContext);
-  const visualEditorEnabled = (implementationTypes || []).includes("visual");
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);

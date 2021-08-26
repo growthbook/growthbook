@@ -20,10 +20,8 @@ const EditInfoForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const {
-    settings: { implementationTypes },
+    settings: { visualEditorEnabled },
   } = useContext(UserContext);
-
-  const visualAllowed = implementationTypes.includes("visual");
 
   const { getDatasourceById } = useDefinitions();
   const [value, inputProps, manualUpdate] = useForm<
@@ -135,7 +133,7 @@ const EditInfoForm: FC<{
         <label>Name</label>
         <input type="text" {...inputProps.name} />
       </div>
-      {visualAllowed && (
+      {visualEditorEnabled && (
         <div className="form-group">
           <label>Type</label>
           <RadioSelector
