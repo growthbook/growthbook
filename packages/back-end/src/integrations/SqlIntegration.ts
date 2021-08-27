@@ -511,6 +511,7 @@ export default abstract class SqlIntegration
     const rows: ExperimentUsersQueryResponse = await this.runQuery(query);
     const ret: ExperimentUsersResult = {
       dimensions: [],
+      unknownVariations: [],
     };
 
     const variationKeyMap = new Map<string, number>();
@@ -537,8 +538,12 @@ export default abstract class SqlIntegration
           this.settings?.experiments?.variationFormat) === "key"
           ? variationKeyMap.get(variation)
           : parseInt(variation);
-      if (varIndex < 0 || varIndex >= experiment.variations.length) {
-        console.log("Unexpected variation", variation);
+      if (
+        typeof varIndex === "undefined" ||
+        varIndex < 0 ||
+        varIndex >= experiment.variations.length
+      ) {
+        ret.unknownVariations.push(variation);
         return;
       }
 

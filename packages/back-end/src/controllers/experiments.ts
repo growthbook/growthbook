@@ -1363,7 +1363,9 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
         {
           $set: {
             ...updates,
-            results: results || snapshot.results,
+            unknownVariations:
+              results?.unknownVariations || snapshot.unknownVariations || [],
+            results: results?.dimensions || snapshot.results,
           },
         }
       );

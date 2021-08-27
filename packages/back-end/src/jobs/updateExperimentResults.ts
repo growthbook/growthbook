@@ -143,7 +143,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               {
                 $set: {
                   ...updates,
-                  results,
+                  unknownVariations: results?.unknownVariations || [],
+                  results: results?.dimensions,
                 },
               }
             );

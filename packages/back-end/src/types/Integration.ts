@@ -31,6 +31,7 @@ export interface ExperimentUsersResult {
       users: number;
     }[];
   }[];
+  unknownVariations?: string[];
 }
 export interface ExperimentMetricResult {
   dimensions: {
