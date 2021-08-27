@@ -489,7 +489,15 @@ const ExperimentPage = (): ReactElement => {
                       style={{ maxWidth: 600 }}
                     >
                       <div>
-                        <strong>{v.name}</strong>
+                        <strong>{v.name}</strong>{" "}
+                      </div>
+                      <div className="mb-1">
+                        <small className="text-muted">
+                          id:{" "}
+                          {(datasource?.settings?.variationIdFormat === "key" &&
+                            v.key) ||
+                            i}
+                        </small>
                       </div>
                       {v.description && <p>{v.description}</p>}
                       {v.value && experiment.implementation !== "visual" && (

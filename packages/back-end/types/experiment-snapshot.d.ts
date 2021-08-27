@@ -41,6 +41,7 @@ export interface ExperimentSnapshotInterface {
   queryLanguage?: QueryLanguage;
   queries: Queries;
   dimension?: string;
+  unknownVariations?: string[];
   results?: {
     name: string;
     srm: number;
