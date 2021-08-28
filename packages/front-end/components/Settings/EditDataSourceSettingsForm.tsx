@@ -308,7 +308,9 @@ FROM
             </div>
             <div className="col-md-5 col-lg-4">
               <div className="pt-md-4">
-                One row per user/experiment/variation. Minimum required columns:
+                One row per variation assignment event. <br />
+                <br />
+                Minimum required columns:
               </div>
               <ul>
                 <li>
@@ -327,6 +329,7 @@ FROM
                   <code>variation_id</code>
                 </li>
               </ul>
+              <div>Add additional columns to use as dimensions (see below)</div>
             </div>
           </div>
 
@@ -348,16 +351,15 @@ FROM
                   }}
                 />
                 <small className="form-text text-muted">
-                  separate multiple columns by commas
+                  Separate multiple columns by commas
                 </small>
               </div>
             </div>
             <div className="col-md-5 col-lg-4">
               <div className="pt-md-3">
                 <p>
-                  Any extra columns you added to the above query that you want
-                  to use as a dimension to drill down into experiment results
-                  (e.g. <code>browser</code>)
+                  List any columns from the above query here that you want to
+                  use as dimensions to drill down into experiment results.
                 </p>
               </div>
             </div>
@@ -391,19 +393,18 @@ FROM
             <div className="col-md-5 col-lg-4">
               <div className="pt-md-3">
                 <p>
-                  <strong>Array Index</strong> means the ids are numeric
-                  (control is <code>0</code>, the 1st variation is{" "}
-                  <code>1</code>, etc.).
+                  <strong>Array Index</strong> (<code>0</code>, <code>1</code>,{" "}
+                  <code>2</code>, etc.)
                 </p>
                 <p>
-                  <strong>String Keys</strong> means the ids are custom strings
-                  (e.g. <code>control</code> or <code>blue-buttons</code>).
+                  <strong>String Keys</strong> (<code>blue-buttons</code>,{" "}
+                  <code>control</code>, etc.)
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="row">
+          <div className="row mb-3">
             <div className="col">
               <div className="form-group">
                 <label className="font-weight-bold">Pageviews SQL</label>
@@ -442,7 +443,7 @@ FROM
             </div>
           </div>
 
-          <div className="row mb-3">
+          <div className="row">
             <div className="col">
               <div className="form-group">
                 <label className="font-weight-bold">Users SQL</label>
