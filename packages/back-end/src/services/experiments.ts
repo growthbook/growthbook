@@ -469,7 +469,8 @@ export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   datasource: DataSourceInterface,
-  dimension?: DimensionInterface
+  userDimension?: DimensionInterface,
+  experimentDimension?: string
 ) {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -516,14 +517,15 @@ export async function createSnapshot(
       phase,
       selectedMetrics,
       activationMetric,
-      dimension
+      userDimension
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     queryDocs["users"] = getExperimentUsers(integration, {
       experiment,
-      dimension,
+      userDimension,
+      experimentDimension,
       activationMetric,
       phase,
     });
@@ -531,7 +533,8 @@ export async function createSnapshot(
       queryDocs[m.id] = getExperimentMetric(integration, {
         metric: m,
         experiment,
-        dimension,
+        userDimension,
+        experimentDimension,
         activationMetric,
         phase,
       });
@@ -543,6 +546,10 @@ export async function createSnapshot(
     async (queryData) => processSnapshotData(experiment, phase, queryData)
   );
 
+  const dimensionId =
+    userDimension?.id ||
+    (experimentDimension ? "exp:" + experimentDimension : null);
+
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
     organization: experiment.organization,
@@ -553,7 +560,7 @@ export async function createSnapshot(
     manual: false,
     queries,
     queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimension?.id || null,
+    dimension: dimensionId,
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
   };

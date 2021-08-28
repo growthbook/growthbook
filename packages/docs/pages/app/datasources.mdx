@@ -33,12 +33,12 @@ In the spirit of transparency, any time a query is run, you should see a `View Q
 
 #### 1. Experiments Query
 
-This is the most important query for Growth Book. It needs to return which user was part of which experiment, what variation they saw, when they saw it, and what page/browser they were using. The end result of the query should return data like this:
+This is the most important query for Growth Book. It needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
 
-| user_id | anonymous_id | timestamp           | experiment_id  | variation_id | url     | user_agent      |
-| ------- | ------------ | ------------------- | -------------- | ------------ | ------- | --------------- |
-| 123     | abcdef       | 2021-08-23-10:53:04 | my-button-test | 0            | /search | Mozilla 5.0 ... |
-| 456     | fedcba       | 2021-08-23 10:53:06 | my-button-test | 1            | /       | Mozilla 5.0 ... |
+| user_id | anonymous_id | timestamp           | experiment_id  | variation_id |
+| ------- | ------------ | ------------------- | -------------- | ------------ |
+| 123     | abcdef       | 2021-08-23-10:53:04 | my-button-test | 0            |
+| 456     | fedcba       | 2021-08-23 10:53:06 | my-button-test | 1            |
 
 If you use Segment to populate your data warehouse, the SQL will look something like this:
 
@@ -48,9 +48,7 @@ SELECT
   anonymous_id,
   received_at as timestamp,
   experiment_id,
-  variation_id,
-  context_page_path as url,
-  context_user_agent as user_agent
+  variation_id
 FROM
   experiment_viewed
 ```
@@ -59,16 +57,20 @@ If you have all of your events in a single denormalized table, the query will be
 
 Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names shown above. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
 
+##### Experiment Dimensions
+
+In addition to the standard 5 columns above, you can return additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
+
 #### 2. Page Views Query
 
 This needs to return one row for every page view (or similar event) in your app. This is used to analyze historical user behavior. For example, we can use this data to predict how long an experiment will take before you start. As another example, we can use this to plot your overall metric conversion rates over time.
 
 The end result should be almost the same as the experiment query above, but without `experiment_id` and `variation_id` columns:
 
-| user_id | anonymous_id | timestamp           | url     | user_agent      |
-| ------- | ------------ | ------------------- | ------- | --------------- |
-| 123     | abcdef       | 2021-08-23-10:53:04 | /search | Mozilla 5.0 ... |
-| 456     | fedcba       | 2021-08-23 10:53:06 | /       | Mozilla 5.0 ... |
+| user_id | anonymous_id | timestamp           | url     |
+| ------- | ------------ | ------------------- | ------- |
+| 123     | abcdef       | 2021-08-23-10:53:04 | /search |
+| 456     | fedcba       | 2021-08-23 10:53:06 | /       |
 
 If you use Segment to populate your data warehouse, you can use the default `pages` table and your query will look like this:
 
@@ -77,8 +79,7 @@ SELECT
   user_id,
   anonymous_id,
   received_at as timestamp,
-  path as url,
-  context_user_agent as user_agent
+  path as url
 FROM
   pages
 ```

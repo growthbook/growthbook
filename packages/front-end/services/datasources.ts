@@ -27,9 +27,7 @@ export function getExperimentQuery(
   ${
     settings?.experiments?.experimentIdColumn || "experiment_id"
   } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id,
-  '' as url,
-  '' as user_agent
+  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
 FROM 
   ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
     settings?.experiments?.table || "experiment_viewed"
@@ -84,8 +82,7 @@ export function getPageviewsQuery(
     settings?.default?.timestampColumn ||
     "received_at"
   } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url,
-  '' as user_agent
+  ${settings?.pageviews?.urlColumn || "path"} as url
 FROM 
   ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
     settings?.pageviews?.table || "pages"

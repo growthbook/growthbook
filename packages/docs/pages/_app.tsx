@@ -50,6 +50,10 @@ const navLinks = [
         name: "Experiments",
       },
       {
+        href: "/app/dimensions",
+        name: "Dimensions",
+      },
+      {
         href: "/app/visual",
         name: "Visual Editor",
         beta: true,

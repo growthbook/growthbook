@@ -160,6 +160,24 @@ const DataSourcePage: FC = () => {
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
                 />
+                <div className="mt-2">
+                  <div>
+                    <strong>Variation Id Format:</strong>{" "}
+                    {d.settings?.variationIdFormat === "key"
+                      ? "String Keys"
+                      : "Array Index"}
+                  </div>
+                  {d.settings?.experimentDimensions?.length > 0 && (
+                    <div>
+                      <strong>Dimension Columns:</strong>{" "}
+                      {d.settings.experimentDimensions.map((d) => (
+                        <code key={d} className="mx-2">
+                          {d}
+                        </code>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="mb-4">
                 <h3>Users Query</h3>

@@ -10,8 +10,6 @@ datasources:
       database: growthbook
     settings:
       queries:
-        usersQuery: >
-          SELECT user_id, anonymous_id FROM identifies
         experimentsQuery: >
           SELECT
             user_id,
@@ -19,8 +17,7 @@ datasources:
             received_at as timestamp,
             experiment_id,
             variation_id,
-            context_page_path as url,
-            context_user_agent as user_agent
+            context_location_country as country
           FROM
             experiment_viewed
         pageviewsQuery: >
@@ -28,10 +25,14 @@ datasources:
             user_id,
             anonymous_id,
             received_at as timestamp,
-            path as url,
-            context_user_agent as user_agent
+            path as url
           FROM
             pages
+        usersQuery: >
+          SELECT user_id, anonymous_id FROM identifies
+      variationIdFormat: index
+      experimentDimensions:
+        - country
 metrics:
   signups:
     type: binomial
@@ -39,7 +40,7 @@ metrics:
     datasource: warehouse
     sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
 dimensions:
-  country:
-    name: Country
+  subscription_plan:
+    name: Subscription Plan
     datasource: warehouse
-    sql: SELECT user_id, country as value from users
+    sql: SELECT user_id, plan as value from subscriptions

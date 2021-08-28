@@ -874,7 +874,6 @@ export async function postDataSources(
       variationIdProperty: "Variant name",
       pageviewEvent: "Page view",
       urlProperty: "$current_url",
-      userAgentProperty: "",
       ...settings?.events,
     };
 
@@ -886,17 +885,14 @@ export async function postDataSources(
   anonymous_id,
   received_at as timestamp,
   experiment_id,
-  variation_id,
-  context_page_path as url,
-  context_user_agent as user_agent
+  variation_id
 FROM
   ${schema ? schema + "." : ""}experiment_viewed`,
       pageviewsQuery: `SELECT
   user_id,
   anonymous_id,
   received_at as timestamp,
-  path as url,
-  context_user_agent as user_agent
+  path as url
 FROM
   ${schema ? schema + "." : ""}pages`,
       usersQuery: `SELECT

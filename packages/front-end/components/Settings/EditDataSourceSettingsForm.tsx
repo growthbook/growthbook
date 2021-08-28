@@ -11,6 +11,10 @@ import TextareaAutosize from "react-textarea-autosize";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
+type FormValue = Partial<DataSourceInterfaceWithParams> & {
+  dimensions: string;
+};
+
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   firstTime?: boolean;
@@ -19,9 +23,7 @@ const EditDataSourceSettingsForm: FC<{
   onSuccess: () => void;
 }> = ({ data, onSuccess, onCancel, firstTime = false, source }) => {
   const [dirty, setDirty] = useState(false);
-  const [datasource, setDatasource] = useState<
-    Partial<DataSourceInterfaceWithParams>
-  >(null);
+  const [datasource, setDatasource] = useState<FormValue>(null);
 
   useEffect(() => {
     track("View Datasource Settings Form", {
@@ -32,8 +34,9 @@ const EditDataSourceSettingsForm: FC<{
   const { apiCall } = useAuth();
   useEffect(() => {
     if (data && !dirty) {
-      const newValue: Partial<DataSourceInterfaceWithParams> = {
+      const newValue: FormValue = {
         ...data,
+        dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
           queries: {
             usersQuery: getUsersQuery(
@@ -55,7 +58,6 @@ const EditDataSourceSettingsForm: FC<{
             variationIdProperty: "",
             pageviewEvent: "",
             urlProperty: "",
-            userAgentProperty: "",
             ...data?.settings?.events,
           },
           variationIdFormat:
@@ -75,10 +77,23 @@ const EditDataSourceSettingsForm: FC<{
   const handleSubmit = async () => {
     if (!dirty) return;
 
+    const { dimensions, ...fields } = datasource;
+
+    const datasourceValue: Partial<DataSourceInterfaceWithParams> = {
+      ...fields,
+      settings: {
+        ...fields.settings,
+        experimentDimensions: dimensions
+          .split(",")
+          .map((v) => v.trim())
+          .filter((v) => !!v),
+      },
+    };
+
     // Update
     await apiCall(`/datasource/${data.id}`, {
       method: "PUT",
-      body: JSON.stringify(datasource),
+      body: JSON.stringify(datasourceValue),
     });
 
     track("Edit Data Source Queries", {
@@ -104,7 +119,7 @@ const EditDataSourceSettingsForm: FC<{
       },
     };
 
-    setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
+    setDatasource(newVal as FormValue);
     setDirty(true);
   };
   const onSettingsChange: (
@@ -222,17 +237,6 @@ const EditDataSourceSettingsForm: FC<{
               value={datasource.settings?.events?.urlProperty || ""}
             />
           </div>
-          <div className="form-group">
-            <label>User Agent Property</label>
-            <input
-              type="text"
-              className="form-control"
-              name="userAgentProperty"
-              placeholder="user_agent"
-              onChange={onSettingsChange("events")}
-              value={datasource.settings?.events?.userAgentProperty || ""}
-            />
-          </div>
         </div>
       )}
       {settingsSupported && datasource.type !== "mixpanel" && (
@@ -249,6 +253,7 @@ const EditDataSourceSettingsForm: FC<{
                   e.preventDefault();
                   setDatasource({
                     ...datasource,
+                    dimensions: "country",
                     settings: {
                       ...datasource.settings,
                       queries: {
@@ -258,16 +263,14 @@ const EditDataSourceSettingsForm: FC<{
   received_at as timestamp,
   experiment_id,
   variation_id,
-  context_page_path as url,
-  context_user_agent as user_agent
+  context_location_country as country
 FROM
   experiment_viewed`,
                         pageviewsQuery: `SELECT
   user_id,
   anonymous_id,
   received_at as timestamp,
-  path as url,
-  context_user_agent as user_agent
+  path as url
 FROM
   pages`,
                         usersQuery: `SELECT
@@ -305,7 +308,7 @@ FROM
             </div>
             <div className="col-md-5 col-lg-4">
               <div className="pt-md-4">
-                One row per user/experiment/variation. Required column names:
+                One row per user/experiment/variation. Minimum required columns:
               </div>
               <ul>
                 <li>
@@ -323,13 +326,40 @@ FROM
                 <li>
                   <code>variation_id</code>
                 </li>
-                <li>
-                  <code>url</code>
-                </li>
-                <li>
-                  <code>user_agent</code>
-                </li>
               </ul>
+            </div>
+          </div>
+
+          <div className="row mb-3">
+            <div className="col">
+              <div className="form-group">
+                <label className="font-weight-bold">Dimension Columns</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  name="dimensions"
+                  value={datasource.dimensions}
+                  onChange={(e) => {
+                    setDatasource({
+                      ...datasource,
+                      dimensions: e.target.value,
+                    });
+                    setDirty(true);
+                  }}
+                />
+                <small className="form-text text-muted">
+                  separate multiple columns by commas
+                </small>
+              </div>
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-3">
+                <p>
+                  Any extra columns you added to the above query that you want
+                  to use as a dimension to drill down into experiment results
+                  (e.g. <code>browser</code>)
+                </p>
+              </div>
             </div>
           </div>
 
@@ -373,40 +403,6 @@ FROM
             </div>
           </div>
 
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Users SQL</label>
-                <TextareaAutosize
-                  required
-                  className="form-control"
-                  name="usersQuery"
-                  onChange={onSettingsChange("queries")}
-                  value={datasource.settings?.queries?.usersQuery}
-                  minRows={5}
-                  maxRows={20}
-                />
-                <small className="form-text text-muted">
-                  Used to join users to anonymous sessions before they logged
-                  in.
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">
-                One row per user/anonymous_id. Required column names:
-              </div>
-              <ul>
-                <li>
-                  <code>user_id</code>
-                </li>
-                <li>
-                  <code>anonymous_id</code>
-                </li>
-              </ul>
-            </div>
-          </div>
-
           <div className="row">
             <div className="col">
               <div className="form-group">
@@ -442,8 +438,39 @@ FROM
                 <li>
                   <code>url</code>
                 </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="row mb-3">
+            <div className="col">
+              <div className="form-group">
+                <label className="font-weight-bold">Users SQL</label>
+                <TextareaAutosize
+                  required
+                  className="form-control"
+                  name="usersQuery"
+                  onChange={onSettingsChange("queries")}
+                  value={datasource.settings?.queries?.usersQuery}
+                  minRows={5}
+                  maxRows={20}
+                />
+                <small className="form-text text-muted">
+                  Used to join users to anonymous sessions before they logged
+                  in.
+                </small>
+              </div>
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-4">
+                One row per user/anonymous_id. Required column names:
+              </div>
+              <ul>
                 <li>
-                  <code>user_agent</code>
+                  <code>user_id</code>
+                </li>
+                <li>
+                  <code>anonymous_id</code>
                 </li>
               </ul>
             </div>

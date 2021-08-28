@@ -54,7 +54,8 @@ export type ExperimentUsersQueryParams = {
   experiment: ExperimentInterface;
   phase: ExperimentPhase;
   activationMetric: MetricInterface | null;
-  dimension: DimensionInterface | null;
+  userDimension?: DimensionInterface | null;
+  experimentDimension?: string | null;
 };
 
 export type ExperimentMetricQueryParams = {
@@ -62,7 +63,8 @@ export type ExperimentMetricQueryParams = {
   phase: ExperimentPhase;
   metric: MetricInterface;
   activationMetric: MetricInterface | null;
-  dimension: DimensionInterface | null;
+  userDimension?: DimensionInterface | null;
+  experimentDimension?: string | null;
 };
 
 export type PastExperimentParams = {
