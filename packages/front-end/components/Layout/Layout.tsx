@@ -35,14 +35,6 @@ const navlinks: SidebarLinkProps[] = [
     icon: "experiments.svg",
     path: /^experiment/,
   },
-  /*
-  {
-    name: "Insights",
-    href: "/insights",
-    icon: "learnings.svg",
-    path: /^insight/,
-  },
-  */
   {
     name: "Presentations",
     href: "/presentations",

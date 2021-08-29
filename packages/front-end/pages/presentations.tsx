@@ -35,7 +35,6 @@ const PresentationPage = (): React.ReactElement => {
 
   const { data: p, error: error, mutate } = useApi<{
     presentations: PresentationInterface[];
-    //learnings: LearningInterface[];
     numExperiments: number;
   }>("/presentations");
 
@@ -53,9 +52,7 @@ const PresentationPage = (): React.ReactElement => {
     return (
       <div className="container p-4">
         <h1>Presentations</h1>
-        <p>
-          Auto-generate slide decks to present experiment results and insights.
-        </p>
+        <p>Auto-generate slide decks to present experiment results.</p>
         <p>
           Present these at all-hands meetings to get the entire company excited
           about experimentation.
@@ -151,10 +148,6 @@ const PresentationPage = (): React.ReactElement => {
                     <p className="mb-0">on: {date(pres.dateCreated)}</p>
                   </small>
                 </div>
-                {/* <p className="mt-1 mb-0">
-                  Insights:{" "}
-                  {p.learnings[pres.id] ? p.learnings[pres.id].length : 0}
-                </p> */}
               </div>
               <div className="">
                 <div
