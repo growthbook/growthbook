@@ -7,7 +7,7 @@ import { Group } from "@visx/group";
 import { ParentSizeModern } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { GridRows } from "@visx/grid";
-import { format } from "date-fns/esm";
+import format from "date-fns/format";
 
 export default function ExperimentGraph({
   resolution = "month",
