@@ -66,12 +66,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   }
 
   // Change organization settings (allow all kinds of experiments)
-  org.settings.implementationTypes = [
-    "code",
-    "configuration",
-    "visual",
-    "custom",
-  ];
+  org.settings.visualEditorEnabled = true;
   await updateOrganization(id, {
     settings: org.settings,
   });
@@ -216,7 +211,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   const yearago = new Date();
   yearago.setDate(yearago.getDate() - 365);
   const pastExperimentsResult = await integration.runPastExperimentQuery(
-    integration.getPastExperimentQuery(yearago)
+    integration.getPastExperimentQuery({ from: yearago })
   );
   const sharedFields: Partial<ExperimentInterface> = {
     description: "",

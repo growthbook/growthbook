@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { MemberRole, OrganizationSettings, useAuth } from "../../services/auth";
+import { MemberRole, useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import useForm from "../../hooks/useForm";
-import { ImplementationType } from "back-end/types/experiment";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
+import ConfigYamlButton from "../../components/Settings/ConfigYamlButton";
+import { hasFileConfig, isCloud } from "../../services/env";
+import { OrganizationSettings } from "back-end/types/organization";
+import isEqual from "lodash/isEqual";
 
 export type SettingsApiResponse = {
   status: number;
@@ -47,40 +50,13 @@ export type SettingsApiResponse = {
   };
 };
 
-function hasTypeChanges(
-  value: {
-    visual: boolean;
-    code: boolean;
-  },
-  types: ImplementationType[]
-) {
-  const current = Object.keys(value).filter((k) => value[k]);
-  if (current.length !== types.length) return true;
-
-  const existing = [...types];
-  existing.sort();
-  current.sort();
-
-  return JSON.stringify(existing) !== JSON.stringify(current);
-}
-
-function hasCustomizationChanges(
-  value: {
-    customized: boolean;
-    logoPath: string;
-    primaryColor: string;
-    secondaryColor: string;
-  },
+function hasChanges(
+  value: OrganizationSettings,
   existing: OrganizationSettings
 ) {
-  if (
-    value.customized === existing.customized &&
-    value.logoPath === existing.logoPath &&
-    value.primaryColor === existing.primaryColor &&
-    value.secondaryColor === existing.secondaryColor
-  )
-    return false;
-  return true;
+  if (!existing) return true;
+
+  return !isEqual(value, existing);
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
@@ -88,11 +64,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
 
   // eslint-disable-next-line
-  const [value, inputProps, manualUpdate] = useForm({
-    types: {
-      visual: false,
-      code: false,
-    },
+  const [value, inputProps, manualUpdate] = useForm<OrganizationSettings>({
+    visualEditorEnabled: false,
+    pastExperimentsMinLength: 6,
     // customization:
     customized: false,
     logoPath: "",
@@ -103,21 +77,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   useEffect(() => {
     if (data?.organization?.settings) {
-      const updated = { ...value };
-      const freshValues = data.organization.settings;
-      if (data?.organization?.settings?.implementationTypes) {
-        const typeArr = data.organization.settings.implementationTypes;
-        const types = {
-          visual: typeArr.includes("visual"),
-          code: typeArr.includes("code"),
-        };
-        updated.types = types;
-      }
-      updated.customized = freshValues.customized || false;
-      updated.logoPath = freshValues.logoPath || "";
-      updated.primaryColor = freshValues.primaryColor || "";
-      updated.secondaryColor = freshValues.secondaryColor || "";
-      manualUpdate(updated);
+      manualUpdate({
+        ...data.organization.settings,
+      });
     }
   }, [data?.organization?.settings]);
 
@@ -132,55 +94,29 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const typeChanges = hasTypeChanges(
-    value.types,
-    data?.organization?.settings?.implementationTypes || []
-  );
-
-  const customizationChanges = hasCustomizationChanges(
-    value,
-    data?.organization?.settings
-  );
-
-  const ctaEnabled = typeChanges || customizationChanges;
+  const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {
-    const types: ImplementationType[] = value.types.visual
-      ? ["code", "visual"]
-      : ["code"];
+    const enabledVisualEditor =
+      !data?.organization?.settings?.visualEditorEnabled &&
+      value.visualEditorEnabled;
 
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: {
-          implementationTypes: types,
-          customized: value.customized,
-          logoPath: value.logoPath,
-          primaryColor: value.primaryColor,
-          secondaryColor: value.secondaryColor,
-        },
+        settings: value,
       }),
     });
     await mutate();
     organizations.forEach((org) => {
       if (org.id === orgId) {
-        org.settings = org.settings || {};
-        org.settings.implementationTypes = types;
-        org.settings.customized = value.customized;
-        org.settings.logoPath = value.logoPath;
-        org.settings.primaryColor = value.primaryColor;
-        org.settings.secondaryColor = value.secondaryColor;
+        org.settings = value;
       }
     });
     setOrganizations(organizations);
 
     // Track usage of the Visual Editor
-    if (
-      value.types.visual &&
-      !(data?.organization?.settings?.implementationTypes || []).includes(
-        "visual"
-      )
-    ) {
+    if (enabledVisualEditor) {
       track("Enable Visual Editor");
     }
   };
@@ -195,7 +131,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         />
       )}
       <h1>General Settings</h1>
-      <div className=" mb-1">
+      <div className="mb-1">
         <div className=" bg-white p-3 border">
           <div className="row">
             <div className="col-sm-3">
@@ -234,7 +170,53 @@ const GeneralSettingsPage = (): React.ReactElement => {
               )}
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-2"></div>
+        </div>
+        {hasFileConfig() && (
+          <div className="alert alert-info my-3">
+            The below settings are controlled through your{" "}
+            <code>config.yml</code> file and cannot be changed through the web
+            UI.{" "}
+            <a
+              href="https://docs.growthbook.io/self-host/config#organization-settings"
+              target="_blank"
+              rel="noreferrer"
+              className="font-weight-bold"
+            >
+              View Documentation
+            </a>
+            .
+          </div>
+        )}
+        {!hasFileConfig() && !isCloud() && (
+          <div className="alert alert-info my-3">
+            <h3>New Feature: config.yml support</h3>
+            <p>
+              You can now control the below settings as well as define data
+              sources, metrics, and dimensions using a <code>config.yml</code>{" "}
+              file. This file can be version controlled and easily moved between
+              environments.{" "}
+              <a
+                href="https://docs.growthbook.io/self-host/config#configyml"
+                target="_blank"
+                rel="noreferrer"
+                className="font-weight-bold"
+              >
+                Learn More
+              </a>
+              .
+            </p>
+            <p>
+              Export existing settings:{" "}
+              <ConfigYamlButton settings={data?.organization?.settings} />
+            </p>
+            <div className="text-muted">
+              <strong>Note:</strong> Downloaded file does not include data
+              source connection secrets such as passwords. You must edit the
+              file and add these yourselves.
+            </div>
+          </div>
+        )}
+        <div className="bg-white p-3 border">
           <div className="row">
             <div className="col-sm-3">
               <h4>
@@ -250,14 +232,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 <div className="form-check">
                   <input
                     type="checkbox"
+                    disabled={hasFileConfig()}
                     className="form-check-input "
-                    checked={value.types.visual}
+                    checked={value.visualEditorEnabled}
                     onChange={(e) => {
                       manualUpdate({
-                        types: {
-                          code: true,
-                          visual: e.target.checked,
-                        },
+                        visualEditorEnabled: e.target.checked,
                       });
                     }}
                     id="checkbox-visualeditor"
@@ -271,10 +251,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </label>
                 </div>
               </div>
-              {value.types.visual &&
-                data.organization.settings?.implementationTypes?.includes(
-                  "visual"
-                ) && (
+              {value.visualEditorEnabled &&
+                data.organization.settings?.visualEditorEnabled && (
                   <div className="bg-light p-3 my-3 border rounded">
                     <h5 className="font-weight-bold">Setup Instructions</h5>
                     <VisualEditorInstructions
@@ -285,115 +263,52 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 )}
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-2"></div>
-          <div className="row">
-            <div className="col-sm-3">
-              <h4>
-                Customization <span className="badge badge-warning">beta</span>
-              </h4>
-            </div>
-            <div className="col-sm-9">
-              <div className="form-group row">
-                <div className="col-auto ">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      className="form-check-input "
-                      checked={value.customized}
-                      onChange={(e) => {
-                        manualUpdate({
-                          customized: e.target.checked,
-                        });
-                      }}
-                      id="checkbox-customized"
-                    />
-
-                    <label
-                      htmlFor="checkbox-customized"
-                      className="form-check-label"
-                    >
-                      Enable customization
-                    </label>
-                  </div>
-                </div>
-                <div className="col-sm-9"></div>
-              </div>
-              {value.customized && (
-                <>
-                  <div className="form-group row">
-                    <div className="col-sm-3 col-form-label">
-                      <label htmlFor="customlogo">Custom logo</label>
-                    </div>
-                    <div className="col-sm-9">
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="customlogo"
-                        placeholder="/path/to/logo.png"
-                        {...inputProps.logoPath}
-                      />
-                      <p>
-                        <small className="text-muted">
-                          Logo will be scaled to fit 225 x 46
-                        </small>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="form-group row">
-                    <div className="col-sm-3 col-form-label">
-                      <label htmlFor="formGroupExampleInput">
-                        Primary Color
-                      </label>
-                    </div>
-                    <div className="col-sm-9">
-                      <input
-                        className="form-control"
-                        type="color"
-                        id="primarycolor"
-                        name="primarycolor"
-                        {...inputProps.primaryColor}
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group row">
-                    <div className="col-sm-3 col-form-label">
-                      <label htmlFor="formGroupExampleInput">
-                        Secondary Color
-                      </label>
-                    </div>
-                    <div className="col-sm-9">
-                      <input
-                        className="form-control"
-                        type="color"
-                        id="secondarycolor"
-                        name="secondarycolor"
-                        {...inputProps.secondaryColor}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
           <div className="divider border-bottom mb-3 mt-3"></div>
           <div className="row">
-            <div className="col-12">
-              <div className=" d-flex flex-row-reverse">
-                <button
-                  className={`btn btn-${ctaEnabled ? "primary" : "secondary"}`}
-                  type="submit"
-                  disabled={!ctaEnabled}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    if (!ctaEnabled) return;
-                    saveSettings();
-                  }}
-                >
-                  Save
-                </button>
+            <div className="col-sm-3">
+              <h4>Other Settings</h4>
+            </div>
+            <div className="col-sm-9 form-inline">
+              <div className="form-group">
+                Minimum experiment length (in days) when importing past
+                experiments:
+                <input
+                  type="number"
+                  className="form-control ml-2"
+                  step="1"
+                  min="0"
+                  max="31"
+                  disabled={hasFileConfig()}
+                  {...inputProps.pastExperimentsMinLength}
+                />
               </div>
             </div>
           </div>
+          {!hasFileConfig() && (
+            <>
+              <div className="divider border-bottom mb-3 mt-3"></div>
+              <div className="row">
+                <div className="col-12">
+                  <div className=" d-flex flex-row-reverse">
+                    <button
+                      className={`btn btn-${
+                        ctaEnabled ? "primary" : "secondary"
+                      }`}
+                      type="submit"
+                      disabled={!ctaEnabled}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        if (!ctaEnabled) return;
+                        saveSettings();
+                      }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

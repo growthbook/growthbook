@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { OrganizationInterface } from "../../types/organization";
 import uniqid from "uniqid";
+import { getConfigOrganizationSettings } from "../init/config";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -39,16 +40,7 @@ const organizationSchema = new mongoose.Schema({
       token: String,
     },
   },
-  settings: {
-    implementationTypes: [String],
-    confidenceLevel: Number,
-    customized: Boolean,
-    logoPath: String,
-    primaryColor: String,
-    secondaryColor: String,
-    datasources: [String],
-    techsources: [String],
-  },
+  settings: {},
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -62,7 +54,23 @@ const OrganizationModel = mongoose.model<OrganizationDocument>(
 
 function toInterface(doc: OrganizationDocument): OrganizationInterface {
   if (!doc) return null;
-  return doc.toJSON();
+  const json = doc.toJSON();
+
+  // Change old `implementationTypes` field to new `visualEditorEnabled` field
+  if (json.settings?.implementationTypes) {
+    if (!("visualEditorEnabled" in json.settings)) {
+      json.settings.visualEditorEnabled = json.settings.implementationTypes.includes(
+        "visual"
+      );
+    }
+    delete json.settings.implementationTypes;
+  }
+
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  json.settings = Object.assign({}, json.settings || {}, configSettings);
+
+  return json;
 }
 
 export async function createOrganization(

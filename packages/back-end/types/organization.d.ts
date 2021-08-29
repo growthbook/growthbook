@@ -21,6 +21,20 @@ export interface Member {
   role: MemberRole;
 }
 
+export interface OrganizationSettings {
+  visualEditorEnabled?: boolean;
+  confidenceLevel?: number;
+  customized?: boolean;
+  logoPath?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  datasources?: string[];
+  techsources?: string[];
+  pastExperimentsMinLength?: number;
+  /** @deprecated */
+  implementationTypes?: ImplementationType[];
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -49,14 +63,5 @@ export interface OrganizationInterface {
       token: string;
     };
   };
-  settings?: {
-    implementationTypes?: ImplementationType[];
-    confidenceLevel?: number;
-    customized?: boolean;
-    logoPath?: string;
-    primaryColor?: string;
-    secondaryColor?: string;
-    datasources?: string[];
-    techsources?: string[];
-  };
+  settings?: OrganizationSettings;
 }

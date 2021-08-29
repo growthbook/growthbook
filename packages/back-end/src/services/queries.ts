@@ -127,11 +127,15 @@ async function getQueryDoc<T>(
 
 export async function getPastExperiments(
   integration: SourceIntegrationInterface,
-  from: Date
+  from: Date,
+  minLength?: number
 ): Promise<QueryDocument> {
   return getQueryDoc(
     integration,
-    integration.getPastExperimentQuery(from),
+    integration.getPastExperimentQuery({
+      from,
+      minLength,
+    }),
     (query: string) => integration.runPastExperimentQuery(query)
   );
 }

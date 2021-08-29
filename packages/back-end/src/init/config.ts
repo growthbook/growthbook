@@ -10,8 +10,12 @@ import {
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
+import { OrganizationSettings } from "../../types/organization";
 
 type ConfigFile = {
+  organization?: {
+    settings: OrganizationSettings;
+  };
   datasources?: {
     [key: string]: Omit<
       DataSourceInterfaceWithParams,
@@ -73,10 +77,13 @@ function loadConfig(initial = false) {
 
     // Store the parsed config
     config = parsed as ConfigFile;
-  } else if (initial && ENVIRONMENT !== "production") {
-    console.log(
-      "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
-    );
+  } else if (ENVIRONMENT !== "production") {
+    config = null;
+    if (initial) {
+      console.log(
+        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
+      );
+    }
   }
 }
 loadConfig(true);
@@ -154,4 +161,9 @@ export function getConfigDimensions(
       dateUpdated: null,
     };
   });
+}
+
+export function getConfigOrganizationSettings(): OrganizationSettings {
+  reloadConfigIfNeeded();
+  return config?.organization?.settings || {};
 }

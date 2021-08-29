@@ -18,7 +18,7 @@ const MetricsSelector: FC<{
   const toMetricValue = (id: string) => {
     return {
       id,
-      name: getMetricById(id)?.name,
+      name: getMetricById(id)?.name || id,
     };
   };
 
@@ -27,7 +27,7 @@ const MetricsSelector: FC<{
     if (m.tags) {
       m.tags.forEach((t) => {
         if (metricTags.has(t)) {
-          metricTags.set(t, [...metricTags.get(t), m]);
+          metricTags.set(t, [...metricTags.get(t), m.id]);
         } else {
           metricTags.set(t, [m.id]);
         }

@@ -8,7 +8,7 @@ import {
   FaExclamationTriangle,
   FaQuestionCircle,
 } from "react-icons/fa";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { formatConversionRate } from "../../services/metrics";
 
 const WARNING_CUTOFF = 0.65;

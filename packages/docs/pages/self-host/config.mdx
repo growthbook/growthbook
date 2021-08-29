@@ -279,9 +279,9 @@ Below is an example of all the possible settings with comments:
 
 ```yml
 name: Revenue per User
-# The data distribution and unit
+# Required. The data distribution and unit
 type: revenue # or "binomial" or "count" or "duration"
-# Must match one of the datasources defined in config.yml
+# Required. Must match one of the datasources defined in config.yml
 datasource: warehouse
 # Description supports full markdown
 description: This metric is **super** important
@@ -299,6 +299,12 @@ userIdType: "user" # or "anonymous" or "either"
 cap: 100
 # Hours the user has to convert on this metric after being put in an experiment
 conversionWindowHours: 72
+# The risk thresholds for the metric.
+# If risk < $winRisk, it is highlighted green.
+# If risk > $loseRisk, it is highlighted red.
+# Otherwise, it's highlighted yellow.
+winRisk: 0.0025
+loseRisk: 0.0125
 # Arbitrary tags used to group related metrics
 tags:
   - revenue
@@ -380,4 +386,19 @@ name: Country
 # Must match one of the datasources defined in config.yml
 datasource: warehouse
 sql: SELECT user_id, country as value FROM users
+```
+
+### Organization Settings
+
+In addition to data sources, metrics, and dimensions, you can also control some organization settings from `config.yml`.
+
+Below are all of the currently supported settings:
+
+```yml
+organization:
+  settings:
+    # Enable creating experiments using the Visual Editor (beta).  Default `false`
+    visualEditorEnabled: true
+    # Minimum experiment length (in days) when importing past experiments. Default `6`
+    pastExperimentsMinLength: 3
 ```

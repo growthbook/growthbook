@@ -1,6 +1,10 @@
 import React, { FC, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { formatConversionRate } from "../../services/metrics";
+import {
+  formatConversionRate,
+  defaultWinRiskThreshold,
+  defaultLoseRiskThreshold,
+} from "../../services/metrics";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -12,9 +16,7 @@ import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
-
-const RISK_THRESHOLD_WIN = 0.0025;
-const RISK_THRESHOLD_LOSE = 0.0125;
+import isEqual from "lodash/isEqual";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -102,9 +104,59 @@ const CompactResults: FC<{
       (x) => x.risk?.length > 0
     ).length > 0;
 
+  // Variations defined for the experiment
+  const definedVariations: string[] = experiment.variations
+    .map((v, i) => v.key || i + "")
+    .sort();
+  // Variation ids returned from the query
+  const returnedVariations: string[] = variations
+    .map((v, i) => {
+      return {
+        variation: experiment.variations[i]?.key || i + "",
+        hasData: v.users > 0,
+      };
+    })
+    .filter((v) => v.hasData)
+    .map((v) => v.variation)
+    .concat(snapshot?.unknownVariations || [])
+    .sort();
+
+  const unequalVariations = !isEqual(returnedVariations, definedVariations);
+  const variationMismatch =
+    (experiment.datasource && snapshot?.unknownVariations?.length > 0) ||
+    unequalVariations;
+
   return (
     <div className="mb-4 experiment-compact-holder">
-      <SRMWarning srm={results.srm} />
+      {variationMismatch && (
+        <div className="alert alert-danger">
+          <h4 className="font-weight-bold">Variation Id Mismatch</h4>
+          {unequalVariations ? (
+            <div>
+              <div className="mb-1">
+                Returned from data source:
+                {returnedVariations.map((v) => (
+                  <code className="mx-2" key={v}>
+                    {v}
+                  </code>
+                ))}
+              </div>
+              <div>
+                Defined in Growth Book:
+                {definedVariations.map((v) => (
+                  <code className="mx-2" key={v}>
+                    {v}
+                  </code>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>All problems fixed. Update Data to refresh the results.</div>
+          )}
+        </div>
+      )}
+
+      {!variationMismatch && <SRMWarning srm={results.srm} />}
 
       <table className={`table experiment-compact aligned-graph`}>
         <thead>
@@ -265,6 +317,9 @@ const CompactResults: FC<{
             let riskCR: number;
             let relativeRisk: number;
             let showRisk = false;
+            const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
+            const loseRiskThreshold =
+              metric?.loseRisk || defaultLoseRiskThreshold;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -325,12 +380,12 @@ const CompactResults: FC<{
                 {hasRisk && (
                   <td
                     className={clsx("chance variation", {
-                      won: showRisk && relativeRisk <= RISK_THRESHOLD_WIN,
-                      lost: showRisk && relativeRisk >= RISK_THRESHOLD_LOSE,
+                      won: showRisk && relativeRisk <= winRiskThreshold,
+                      lost: showRisk && relativeRisk >= loseRiskThreshold,
                       warning:
                         showRisk &&
-                        relativeRisk > RISK_THRESHOLD_WIN &&
-                        relativeRisk < RISK_THRESHOLD_LOSE,
+                        relativeRisk > winRiskThreshold &&
+                        relativeRisk < loseRiskThreshold,
                     })}
                   >
                     {showRisk ? (
