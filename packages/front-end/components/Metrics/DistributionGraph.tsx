@@ -4,7 +4,7 @@ import { formatConversionRate } from "../../services/metrics";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
-import { scaleLinear, scaleTime } from "@visx/scale";
+import { scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
@@ -31,7 +31,7 @@ const DistributionGraph: FC<{
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
 
-        const xScale = scaleTime({
+        const xScale = scaleLinear({
           domain: [0, max],
           range: [0, xMax],
           round: true,
