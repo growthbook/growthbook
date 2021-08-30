@@ -1,6 +1,5 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
-import "react-rangeslider/lib/index.css";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import Layout from "../components/Layout/Layout";

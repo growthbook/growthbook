@@ -18,7 +18,6 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
 import { createIdea } from "../services/ideas";
 import { createImpactEstimate } from "../models/ImpactEstimateModel";
-import { createLearning } from "../services/learnings";
 import { createPresentation } from "../services/presentations";
 import {
   getOrganizationsWithDatasources,
@@ -355,7 +354,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       // Create experiment document
       const exp = await createExperiment(data);
 
-      // Add a few experiments to evidence for an insight
+      // Add a few experiments to evidence
       if (["simple_registration", "green_buttons"].includes(data.trackingKey)) {
         evidence.push(exp.id);
       }
@@ -393,19 +392,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     organization: org.id,
     userId: "growthbook",
     userName: "Example User",
-  });
-
-  // Example insight
-  await createLearning({
-    text: "Our users hate long forms",
-    details:
-      "Whenever we try shortening forms or providing shortcuts to users, they respond really well.",
-    evidence: evidence.map((id) => ({ experimentId: id })),
-    organization: org.id,
-    status: "accepted",
-    tags: [],
-    votes: [],
-    userId: "growthbook",
   });
 
   // Example presentation

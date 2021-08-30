@@ -306,14 +306,6 @@ const ShareModal = ({
   });
 
   const setSelectedExperiments = (exp: ExperimentInterfaceStringDates) => {
-    // const defaultOptions = {
-    //   showScreenShots: true,
-    //   showGraphs: true,
-    //   showInsights: false,
-    //   graphType: "violin",
-    //   hideMetric: [],
-    //   hideRisk: false,
-    // };
     if (selectedExperiments.has(exp.id)) {
       selectedExperiments.delete(exp.id);
     } else {

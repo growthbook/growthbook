@@ -28,7 +28,6 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "../../services/dates";
-import InsightForm from "../../components/Insights/InsightForm";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
 import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
@@ -60,9 +59,6 @@ import { IdeaInterface } from "back-end/types/idea";
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
   const { eid } = router.query;
-  const [openNewLearningModal, setOpenNewLearningModal] = useState<boolean>(
-    false
-  );
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
@@ -761,15 +757,6 @@ const ExperimentPage = (): ReactElement => {
           <HistoryTable type="experiment" id={experiment.id} />
         </Tab>
       </Tabs>
-      {openNewLearningModal && (
-        <InsightForm
-          insight={{ evidence: [{ experimentId: experiment.id }] }}
-          mutate={() => {
-            // Do we need to update anything here?
-          }}
-          close={() => setOpenNewLearningModal(false)}
-        />
-      )}
     </div>
   );
 };

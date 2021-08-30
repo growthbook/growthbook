@@ -95,7 +95,7 @@ const CompactResults: FC<{
       }
     });
   });
-  // store domaine for rechart
+  // calculate domain
   domain[0] = lowerBound;
   domain[1] = upperBound;
 
