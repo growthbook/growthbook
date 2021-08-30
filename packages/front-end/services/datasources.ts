@@ -33,30 +33,6 @@ FROM
     settings?.experiments?.table || "experiment_viewed"
   }`;
 }
-export function getUsersQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.usersQuery) {
-    return settings.queries.usersQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.identifies?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.identifies?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id
-FROM 
-  ${schema && !settings?.identifies?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.identifies?.table || "identifies"
-  }`;
-}
 
 export function getPageviewsQuery(
   settings: DataSourceSettings,

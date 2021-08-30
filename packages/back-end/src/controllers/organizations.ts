@@ -895,11 +895,6 @@ FROM
   path as url
 FROM
   ${schema ? schema + "." : ""}pages`,
-      usersQuery: `SELECT
-  user_id,
-  anonymous_id
-FROM
-  ${schema ? schema + "." : ""}identifies`,
       ...settings?.queries,
     };
 

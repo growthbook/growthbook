@@ -104,30 +104,6 @@ FROM
     settings?.experiments?.table || "experiment_viewed"
   }`;
 }
-export function getUsersQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.usersQuery) {
-    return settings.queries.usersQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.identifies?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.identifies?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id
-FROM 
-  ${schema && !settings?.identifies?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.identifies?.table || "identifies"
-  }`;
-}
 
 export function getPageviewsQuery(
   settings: DataSourceSettings,
@@ -319,6 +295,8 @@ export default abstract class SqlIntegration
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
         ${this.getIdentifiesCTE(userId, {
+          from: params.from,
+          to: params.to,
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
@@ -452,6 +430,8 @@ export default abstract class SqlIntegration
       `-- ${params.name} - Number of Users
       WITH
         ${this.getIdentifiesCTE(userId, {
+          from: params.from,
+          to: params.to,
           segment: !!params.segmentQuery,
         })}
         __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
@@ -759,19 +739,32 @@ export default abstract class SqlIntegration
   private getIdentifiesCTE(
     userId: boolean,
     {
+      from,
+      to,
       metrics,
       dimension,
       segment,
     }: {
+      from: Date;
+      to?: Date;
       metrics?: MetricInterface[];
       dimension?: boolean;
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (${getUsersQuery(
-      this.settings,
-      this.getSchema()
-    )}),`;
+    const select = `__identities as (
+      SELECT
+        user_id,
+        anonymous_id
+      FROM
+        (${getPageviewsQuery(this.settings, this.getSchema())}) i
+      WHERE
+        i.timestamp >= ${this.toTimestamp(from)}
+        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+      GROUP BY
+        user_id, 
+        anonymous_id
+    ),`;
 
     if (metrics) {
       for (let i = 0; i < metrics.length; i++) {
@@ -810,6 +803,8 @@ export default abstract class SqlIntegration
       `-- Number of users in experiment
     WITH
       ${this.getIdentifiesCTE(userId, {
+        from: phase.dateStarted,
+        to: phase.dateEnded,
         dimension: !!userDimension,
         metrics: [activationMetric],
       })}
@@ -898,6 +893,8 @@ export default abstract class SqlIntegration
       `-- ${metric.name} (${metric.type})
     WITH
       ${this.getIdentifiesCTE(userId, {
+        from: phase.dateStarted,
+        to: phase.dateEnded,
         dimension: !!userDimension,
         metrics: [metric, activationMetric],
       })}
@@ -1216,6 +1213,7 @@ export default abstract class SqlIntegration
       }
     `;
   }
+
   private getExperimentCTE(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,

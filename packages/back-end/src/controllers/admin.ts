@@ -97,11 +97,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     '' as url
   FROM
     pages`,
-        usersQuery: `SELECT
-    user_id,
-    user_id as anonymous_id
-  FROM
-    identifies`,
       },
       variationIdFormat: "index",
     }

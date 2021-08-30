@@ -48,7 +48,6 @@ export type DataSourceSettings = {
   variationIdFormat?: "key" | "index";
   experimentDimensions?: string[];
   queries?: {
-    usersQuery: string;
     experimentsQuery: string;
     pageviewsQuery: string;
   };

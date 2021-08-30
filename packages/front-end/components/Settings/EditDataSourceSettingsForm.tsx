@@ -3,7 +3,6 @@ import { useAuth } from "../../services/auth";
 import {
   getExperimentQuery,
   getPageviewsQuery,
-  getUsersQuery,
 } from "../../services/datasources";
 import track from "../../services/track";
 import Modal from "../Modal";
@@ -39,10 +38,6 @@ const EditDataSourceSettingsForm: FC<{
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
           queries: {
-            usersQuery: getUsersQuery(
-              data.settings,
-              (data.params as PostgresConnectionParams)?.defaultSchema
-            ),
             experimentsQuery: getExperimentQuery(
               data.settings,
               (data.params as PostgresConnectionParams)?.defaultSchema
@@ -273,11 +268,6 @@ FROM
   path as url
 FROM
   pages`,
-                        usersQuery: `SELECT
-  user_id,
-  anonymous_id
-FROM
-  identifies`,
                       },
                     },
                   });
@@ -438,40 +428,6 @@ FROM
                 </li>
                 <li>
                   <code>url</code>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="row">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Users SQL</label>
-                <TextareaAutosize
-                  required
-                  className="form-control"
-                  name="usersQuery"
-                  onChange={onSettingsChange("queries")}
-                  value={datasource.settings?.queries?.usersQuery}
-                  minRows={5}
-                  maxRows={20}
-                />
-                <small className="form-text text-muted">
-                  Used to join users to anonymous sessions before they logged
-                  in.
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">
-                One row per user/anonymous_id. Required column names:
-              </div>
-              <ul>
-                <li>
-                  <code>user_id</code>
-                </li>
-                <li>
-                  <code>anonymous_id</code>
                 </li>
               </ul>
             </div>

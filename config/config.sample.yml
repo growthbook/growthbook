@@ -28,8 +28,6 @@ datasources:
             path as url
           FROM
             pages
-        usersQuery: >
-          SELECT user_id, anonymous_id FROM identifies
       variationIdFormat: index
       experimentDimensions:
         - country

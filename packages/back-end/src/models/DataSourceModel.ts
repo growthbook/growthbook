@@ -30,7 +30,6 @@ const dataSourceSchema = new mongoose.Schema({
   params: String,
   settings: {
     queries: {
-      usersQuery: String,
       experimentsQuery: String,
       pageviewsQuery: String,
     },

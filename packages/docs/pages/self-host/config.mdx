@@ -89,8 +89,6 @@ datasources:
     # How to query the data (same for all SQL sources)
     settings:
       queries:
-        usersQuery: >
-          SELECT user_id, anonymous_id FROM identifies
         experimentsQuery: >
           SELECT
             user_id,
@@ -215,16 +213,13 @@ The settings tell Growth Book how to query your data.
 
 #### SQL Data Sources
 
-For data sources that support SQL, there are 3 queries you need to define:
+For data sources that support SQL, there are 2 queries you need to define:
 
 ```yml
 type: postgres
 params: ...
 settings:
   queries:
-    # This query maps between logged-in and logged-out (anonymous) users
-    usersQuery: >
-      SELECT user_id, anonymous_id FROM identifies
     # This query returns experiment variation assignment info
     # One row every time a user was put into an experiment
     experimentsQuery: >
