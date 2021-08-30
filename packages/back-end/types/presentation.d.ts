@@ -5,7 +5,6 @@ export type GraphTypes = "pill" | "violin";
 export interface PresentationOptions {
   showScreenShots: boolean;
   showGraphs: boolean;
-  showInsights: boolean;
   graphType: GraphTypes;
   hideMetric: string[];
   hideRisk: boolean;

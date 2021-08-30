@@ -3,7 +3,7 @@ import { FC } from "react";
 import clsx from "clsx";
 
 const roles: [MemberRole, string][] = [
-  ["collaborator", "Add ideas, comments, insights, and presentations"],
+  ["collaborator", "Add ideas, comments, and presentations"],
   ["designer", "Create and edit draft experiments"],
   ["developer", "Start and stop experiments and create metrics"],
   ["admin", "Invite team members, add API keys, and configure data sources"],

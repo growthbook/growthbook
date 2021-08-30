@@ -30,7 +30,6 @@ import fs from "fs";
 import * as authController from "./controllers/auth";
 import * as organizationsController from "./controllers/organizations";
 import * as experimentsController from "./controllers/experiments";
-import * as learningsController from "./controllers/learnings";
 import * as ideasController from "./controllers/ideas";
 import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
@@ -54,7 +53,6 @@ function wrapController(controller: Record<string, RequestHandler>): void {
 wrapController(authController);
 wrapController(organizationsController);
 wrapController(experimentsController);
-wrapController(learningsController);
 wrapController(ideasController);
 wrapController(presentationController);
 wrapController(discussionsController);
@@ -311,14 +309,6 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", organizationsController.getQueries);
 app.post("/organization/sample-data", organizationsController.postSampleData);
 
-// Learnings
-app.get("/learnings", learningsController.getLearnings);
-app.post("/learnings", learningsController.postLearnings);
-app.get("/learning/:id", learningsController.getLearning);
-app.post("/learning/:id", learningsController.postLearning);
-app.delete("/learning/:id", learningsController.deleteLearning);
-app.post("/learning/:id/vote", learningsController.postVote);
-
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -402,22 +392,10 @@ app.post(
   experimentsController.cancelPastExperiments
 );
 
-// Segments and Segment Comparisons
+// Segments
 app.get("/segments", segmentsController.getAllSegments);
 app.post("/segments", segmentsController.postSegments);
 app.put("/segments/:id", segmentsController.putSegment);
-app.get("/segments/comparisons", segmentsController.getAllSegmentComparisons);
-app.post("/segments/comparisons", segmentsController.postSegmentComparisons);
-app.get("/segments/comparison/:id", segmentsController.getSegmentComparison);
-app.put("/segments/comparison/:id", segmentsController.putSegmentComparison);
-app.get(
-  "/segments/comparison/:id/status",
-  segmentsController.getSegmentComparisonStatus
-);
-app.post(
-  "/segments/comparison/:id/cancel",
-  segmentsController.cancelSegmentComparison
-);
 
 // Dimensions
 app.get("/dimensions", dimensionsController.getAllDimensions);

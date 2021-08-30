@@ -149,7 +149,7 @@ const MetricPage: FC = () => {
                   setEditing(false);
                 }}
                 initialValue={{
-                  name: metric.name,
+                  name: metric.name || metric.id,
                 }}
               >
                 {({ inputProps, cancel, save, onMarkdownChange }) => (

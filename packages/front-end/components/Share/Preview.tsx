@@ -5,7 +5,6 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
 import useSwitchOrg from "../../services/useSwitchOrg";
-//import { LearningInterface } from "back-end/types/insight";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 const DynamicPresentation = dynamic(
   () => import("../../components/Share/Presentation"),
