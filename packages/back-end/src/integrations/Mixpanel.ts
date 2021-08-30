@@ -57,7 +57,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
         variationIdProperty: "Variant name",
         pageviewEvent: "Page view",
         urlProperty: "$current_url",
-        userAgentProperty: "",
         ...settings.events,
       },
     };

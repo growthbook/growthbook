@@ -89,17 +89,13 @@ datasources:
     # How to query the data (same for all SQL sources)
     settings:
       queries:
-        usersQuery: >
-          SELECT user_id, anonymous_id FROM identifies
         experimentsQuery: >
           SELECT
             user_id,
             anonymous_id,
             received_at as timestamp,
             experiment_id,
-            variation_id,
-            context_page_path as url,
-            context_user_agent as user_agent
+            variation_id
           FROM
             experiment_viewed
         pageviewsQuery: >
@@ -107,8 +103,7 @@ datasources:
             user_id,
             anonymous_id,
             received_at as timestamp,
-            path as url,
-            context_user_agent as user_agent
+            path as url
           FROM
             pages
 metrics:
@@ -218,16 +213,13 @@ The settings tell Growth Book how to query your data.
 
 #### SQL Data Sources
 
-For data sources that support SQL, there are 3 queries you need to define:
+For data sources that support SQL, there are 2 queries you need to define:
 
 ```yml
 type: postgres
 params: ...
 settings:
   queries:
-    # This query maps between logged-in and logged-out (anonymous) users
-    usersQuery: >
-      SELECT user_id, anonymous_id FROM identifies
     # This query returns experiment variation assignment info
     # One row every time a user was put into an experiment
     experimentsQuery: >
@@ -236,9 +228,7 @@ settings:
         anonymous_id,
         received_at as timestamp,
         experiment_id,
-        variation_id,
-        context_page_path as url,
-        context_user_agent as user_agent
+        variation_id
       FROM
         experiment_viewed
     # This query returns one row for every page view on your site
@@ -248,8 +238,7 @@ settings:
         user_id,
         anonymous_id,
         received_at as timestamp,
-        path as url,
-        context_user_agent as user_agent
+        path as url
       FROM
         pages
 ```
@@ -268,7 +257,6 @@ settings:
     variationIdProperty: variation_id
     pageviewEvent: Page View
     urlProperty: url
-    userAgentProperty: user_agent
 ```
 
 ### Metrics

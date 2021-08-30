@@ -30,7 +30,6 @@ const dataSourceSchema = new mongoose.Schema({
   params: String,
   settings: {
     queries: {
-      usersQuery: String,
       experimentsQuery: String,
       pageviewsQuery: String,
     },
@@ -40,9 +39,9 @@ const dataSourceSchema = new mongoose.Schema({
       variationIdProperty: String,
       pageviewEvent: String,
       urlProperty: String,
-      userAgentProperty: String,
     },
     variationIdFormat: String,
+    experimentDimensions: [String],
 
     // Deprecated
     default: {

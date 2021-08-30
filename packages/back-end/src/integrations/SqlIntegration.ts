@@ -98,36 +98,10 @@ export function getExperimentQuery(
   ${
     settings?.experiments?.experimentIdColumn || "experiment_id"
   } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id,
-  '' as url,
-  '' as user_agent
+  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
 FROM 
   ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
     settings?.experiments?.table || "experiment_viewed"
-  }`;
-}
-export function getUsersQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.usersQuery) {
-    return settings.queries.usersQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.identifies?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.identifies?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id
-FROM 
-  ${schema && !settings?.identifies?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.identifies?.table || "identifies"
   }`;
 }
 
@@ -155,8 +129,7 @@ export function getPageviewsQuery(
     settings?.default?.timestampColumn ||
     "received_at"
   } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url,
-  '' as user_agent
+  ${settings?.pageviews?.urlColumn || "path"} as url
 FROM 
   ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
     settings?.pageviews?.table || "pages"
@@ -322,6 +295,8 @@ export default abstract class SqlIntegration
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
         ${this.getIdentifiesCTE(userId, {
+          from: params.from,
+          to: params.to,
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
@@ -455,6 +430,8 @@ export default abstract class SqlIntegration
       `-- ${params.name} - Number of Users
       WITH
         ${this.getIdentifiesCTE(userId, {
+          from: params.from,
+          to: params.to,
           segment: !!params.segmentQuery,
         })}
         __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
@@ -762,19 +739,32 @@ export default abstract class SqlIntegration
   private getIdentifiesCTE(
     userId: boolean,
     {
+      from,
+      to,
       metrics,
       dimension,
       segment,
     }: {
+      from: Date;
+      to?: Date;
       metrics?: MetricInterface[];
       dimension?: boolean;
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (${getUsersQuery(
-      this.settings,
-      this.getSchema()
-    )}),`;
+    const select = `__identities as (
+      SELECT
+        user_id,
+        anonymous_id
+      FROM
+        (${getPageviewsQuery(this.settings, this.getSchema())}) i
+      WHERE
+        i.timestamp >= ${this.toTimestamp(from)}
+        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+      GROUP BY
+        user_id, 
+        anonymous_id
+    ),`;
 
     if (metrics) {
       for (let i = 0; i < metrics.length; i++) {
@@ -799,7 +789,13 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUsersQuery(params: ExperimentUsersQueryParams): string {
-    const { experiment, phase, dimension, activationMetric } = params;
+    const {
+      experiment,
+      phase,
+      experimentDimension,
+      userDimension,
+      activationMetric,
+    } = params;
 
     const userId = experiment.userIdType === "user";
 
@@ -807,7 +803,9 @@ export default abstract class SqlIntegration
       `-- Number of users in experiment
     WITH
       ${this.getIdentifiesCTE(userId, {
-        dimension: !!dimension,
+        from: phase.dateStarted,
+        to: phase.dateEnded,
+        dimension: !!userDimension,
         metrics: [activationMetric],
       })}
       __rawExperiment as (${getExperimentQuery(
@@ -818,11 +816,12 @@ export default abstract class SqlIntegration
         experiment,
         phase,
         activationMetric?.conversionWindowHours,
-        userId
+        userId,
+        experimentDimension
       )})
       ${
-        dimension
-          ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
+        userDimension
+          ? `, __dimension as (${this.getDimensionCTE(userDimension, userId)})`
           : ""
       }
       ${
@@ -839,10 +838,18 @@ export default abstract class SqlIntegration
         SELECT
           e.user_id,
           e.variation,
-          ${dimension ? "d.value" : "'All'"} as dimension
+          ${
+            userDimension
+              ? "d.value"
+              : experimentDimension
+              ? "e.dimension"
+              : "'All'"
+          } as dimension
         FROM
           __experiment e
-          ${dimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""}
+          ${
+            userDimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""
+          }
           ${
             activationMetric
               ? `
@@ -871,17 +878,14 @@ export default abstract class SqlIntegration
     );
   }
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { metric, experiment, phase, dimension, activationMetric } = params;
-    if (experiment.sqlOverride && experiment.sqlOverride.has(metric.id)) {
-      return experiment.sqlOverride
-        .get(metric.id)
-        .replace(/{{\s*dateStart\s*}}/g, this.toTimestamp(phase.dateStarted))
-        .replace(
-          /{{\s*dateEnd\s*}}/g,
-          this.toTimestamp(phase.dateEnded || new Date())
-        )
-        .replace(/{{\s*experimentKey\s*}}/g, `'${experiment.trackingKey}'`);
-    }
+    const {
+      metric,
+      experiment,
+      phase,
+      experimentDimension,
+      userDimension,
+      activationMetric,
+    } = params;
 
     const userId = experiment.userIdType === "user";
 
@@ -889,7 +893,9 @@ export default abstract class SqlIntegration
       `-- ${metric.name} (${metric.type})
     WITH
       ${this.getIdentifiesCTE(userId, {
-        dimension: !!dimension,
+        from: phase.dateStarted,
+        to: phase.dateEnded,
+        dimension: !!userDimension,
         metrics: [metric, activationMetric],
       })}
       __rawExperiment as (${getExperimentQuery(
@@ -902,7 +908,8 @@ export default abstract class SqlIntegration
         activationMetric
           ? activationMetric.conversionWindowHours
           : metric.conversionWindowHours,
-        userId
+        userId,
+        experimentDimension
       )})
       , __metric as (${this.getMetricCTE(
         metric,
@@ -910,8 +917,8 @@ export default abstract class SqlIntegration
         userId
       )})
       ${
-        dimension
-          ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
+        userDimension
+          ? `, __dimension as (${this.getDimensionCTE(userDimension, userId)})`
           : ""
       }
       ${
@@ -928,13 +935,21 @@ export default abstract class SqlIntegration
         SELECT
           e.user_id,
           e.variation,
-          ${dimension ? "d.value" : "'All'"} as dimension,
+          ${
+            userDimension
+              ? "d.value"
+              : experimentDimension
+              ? "e.dimension"
+              : "'All'"
+          } as dimension,
           MIN(${activationMetric ? "a" : "e"}.actual_start) as actual_start,
           MIN(${activationMetric ? "a" : "e"}.session_start) as session_start,
           MIN(${activationMetric ? "a" : "e"}.conversion_end) as conversion_end
         FROM
           __experiment e
-          ${dimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""}
+          ${
+            userDimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""
+          }
           ${
             activationMetric
               ? `
@@ -988,7 +1003,7 @@ export default abstract class SqlIntegration
     phase: ExperimentPhase,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
+    userDimension: DimensionInterface | null
   ): string {
     const query: string[] = [];
 
@@ -998,7 +1013,7 @@ export default abstract class SqlIntegration
         experiment,
         phase,
         activationMetric,
-        dimension,
+        userDimension,
       })
     );
     metrics.forEach((m) => {
@@ -1007,7 +1022,7 @@ export default abstract class SqlIntegration
         experiment,
         phase,
         activationMetric,
-        dimension,
+        userDimension,
       });
       query.push(sql);
     });
@@ -1022,7 +1037,7 @@ export default abstract class SqlIntegration
     phase: ExperimentPhase,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
+    userDimension: DimensionInterface | null
   ): Promise<ExperimentResults> {
     const variationKeyMap = new Map<string, number>();
     experiment.variations.forEach((v, i) => {
@@ -1060,7 +1075,7 @@ export default abstract class SqlIntegration
         experiment,
         phase,
         activationMetric,
-        dimension,
+        userDimension,
       });
       query.push(sql);
       const rows: {
@@ -1100,7 +1115,7 @@ export default abstract class SqlIntegration
           experiment,
           phase,
           activationMetric,
-          dimension,
+          userDimension,
         });
         query.push(sql);
         const rows: {
@@ -1198,11 +1213,13 @@ export default abstract class SqlIntegration
       }
     `;
   }
+
   private getExperimentCTE(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    userId: boolean = true
+    userId: boolean = true,
+    experimentDimension: string | null = null
   ) {
     let userIdCol: string;
     let join = "";
@@ -1226,6 +1243,7 @@ export default abstract class SqlIntegration
       ${userIdCol} as user_id,
       e.variation_id as variation,
       e.timestamp as actual_start,
+      ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
       ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM

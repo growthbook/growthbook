@@ -87,24 +87,16 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     user_id as anonymous_id,
     received_at as timestamp,
     experiment_id,
-    variation_id,
-    '' as url,
-    '' as user_agent
+    variation_id
   FROM
     experiment_viewed`,
         pageviewsQuery: `SELECT
     user_id,
     user_id as anonymous_id,
     received_at as timestamp,
-    '' as url,
-    '' as user_agent
+    '' as url
   FROM
     pages`,
-        usersQuery: `SELECT
-    user_id,
-    user_id as anonymous_id
-  FROM
-    identifies`,
       },
       variationIdFormat: "index",
     }

@@ -1490,13 +1490,24 @@ export async function postSnapshot(
     return;
   }
 
-  let dimensionObj: DimensionInterface;
+  let userDimension: DimensionInterface;
+  let experimentDimension: string;
   if (dimension) {
-    dimensionObj = await findDimensionById(dimension, req.organization.id);
+    if (dimension.match(/^exp:/)) {
+      experimentDimension = dimension.substr(4);
+    } else {
+      userDimension = await findDimensionById(dimension, req.organization.id);
+    }
   }
 
   try {
-    const snapshot = await createSnapshot(exp, phase, datasource, dimensionObj);
+    const snapshot = await createSnapshot(
+      exp,
+      phase,
+      datasource,
+      userDimension,
+      experimentDimension
+    );
     await req.audit({
       event: "snapshot.create.auto",
       entity: {
