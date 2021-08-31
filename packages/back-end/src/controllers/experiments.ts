@@ -57,8 +57,11 @@ import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { queueWebhook } from "../jobs/webhooks";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { IS_CLOUD } from "../util/secrets";
+import { getAllApiKeysByOrganization } from "../services/apiKey";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -531,6 +534,17 @@ export async function postExperiment(
 
   if (requiresWebhook) {
     await queueWebhook(req.organization.id);
+
+    const apiKeys = await getAllApiKeysByOrganization(req.organization.id);
+
+    // if they have API key & cloud:
+    if (IS_CLOUD && apiKeys) {
+      const urls: string[] = [];
+      if (exp.implementation === "visual") {
+        // get the API js source
+      }
+      await queueCDNInvalidate(urls);
+    }
   }
 
   res.status(200).json({
