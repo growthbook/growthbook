@@ -852,6 +852,9 @@ GROUP BY
             show as significant. (default 150)
           </small>
         </div>
+        {thresholdNumError && (
+          <div className="text-danger">{thresholdNumError}</div>
+        )}
       </Page>
     </PagedModal>
   );
