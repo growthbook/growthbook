@@ -198,6 +198,9 @@ export default abstract class SqlIntegration
   stddev(col: string) {
     return `STDDEV(${col})`;
   }
+  avg(col: string) {
+    return `AVG(${col})`;
+  }
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
@@ -380,7 +383,7 @@ export default abstract class SqlIntegration
       SELECT
         ${params.includeByDate ? "null as date," : ""}
         COUNT(*) as count,
-        AVG(value) as mean,
+        ${this.avg("value")} as mean,
         ${this.stddev("value")} as stddev
         ${
           params.includePercentiles && params.metric.type !== "binomial"
@@ -400,7 +403,7 @@ export default abstract class SqlIntegration
         UNION ALL SELECT
           date,
           COUNT(*) as count,
-          AVG(value) as mean,
+          ${this.avg("value")} as mean,
           ${this.stddev("value")} as stddev
           ${
             params.includePercentiles && params.metric.type !== "binomial"
@@ -987,7 +990,7 @@ export default abstract class SqlIntegration
       variation,
       dimension,
       COUNT(*) as count,
-      AVG(value) as mean,
+      ${this.avg("value")} as mean,
       ${this.stddev("value")} as stddev
     FROM
       __userMetric
