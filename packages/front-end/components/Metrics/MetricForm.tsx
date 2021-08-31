@@ -15,6 +15,8 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
+  defaultMinConversionThresholdDisplay,
+  defaultMinConversionThresholdSignificance,
 } from "../../services/metrics";
 
 const weekAgo = new Date();
@@ -144,8 +146,13 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
-      winRisk: current.winRisk || defaultWinRiskThreshold * 100,
-      loseRisk: current.loseRisk || defaultLoseRiskThreshold * 100,
+      winRisk: current.winRisk * 100 || defaultWinRiskThreshold * 100,
+      loseRisk: current.loseRisk * 100 || defaultLoseRiskThreshold * 100,
+      minThresholdDisplay:
+        current.minThresholdDisplay || defaultMinConversionThresholdDisplay,
+      minThresholdSignificance:
+        current.minThresholdSignificance ||
+        defaultMinConversionThresholdSignificance,
     },
     current.id || "new"
   );
@@ -280,6 +287,11 @@ const MetricForm: FC<MetricFormProps> = ({
   const riskError =
     value.loseRisk < value.winRisk
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
+      : "";
+
+  const thresholdNumError =
+    value.minThresholdDisplay > value.minThresholdSignificance
+      ? "The min number for display cannot be higher than the number for significance"
       : "";
 
   return (
@@ -814,6 +826,30 @@ GROUP BY
             Set the threasholds for risk for this metric. This is used when
             determining metric signigicance, highlighting the risk value as
             green, yellow, or red.
+          </small>
+        </div>
+        <div className="form-group">
+          Minimum threshold for display
+          <input
+            type="number"
+            className="form-control"
+            {...inputs.minThresholdDisplay}
+          />
+          <small className="text-muted">
+            The number of events this metric requires before results will show.
+            This prevents premiture peaking at results. (default 25)
+          </small>
+        </div>
+        <div className="form-group">
+          Minimum threshold for significance
+          <input
+            type="number"
+            className="form-control"
+            {...inputs.minThresholdSignificance}
+          />
+          <small className="text-muted">
+            The number of events this metric requires before this metric will
+            show as significant. (default 150)
           </small>
         </div>
       </Page>

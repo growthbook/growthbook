@@ -1179,6 +1179,8 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
+    minThresholdDisplay,
+    minThresholdSignificance,
     conditions,
     datasource,
     timestampColumn,
@@ -1223,6 +1225,8 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
+    minThresholdDisplay,
+    minThresholdSignificance,
   });
 
   res.status(200).json({
@@ -1260,6 +1264,8 @@ export async function putMetric(
     "tags",
     "winRisk",
     "loseRisk",
+    "minThresholdDisplay",
+    "minThresholdSignificance",
     "conditions",
     "dateUpdated",
     "table",

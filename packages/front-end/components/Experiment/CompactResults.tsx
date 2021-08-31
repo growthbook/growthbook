@@ -4,6 +4,8 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
+  defaultMinConversionThresholdDisplay,
+  defaultMinConversionThresholdSignificance,
 } from "../../services/metrics";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
@@ -24,8 +26,16 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-function hasEnoughData(value1: number, value2: number): boolean {
-  return Math.max(value1, value2) >= 150 && Math.min(value1, value2) >= 25;
+function hasEnoughData(
+  value1: number,
+  value2: number,
+  displayThreshold: number = defaultMinConversionThresholdDisplay,
+  sigThreshold: number = defaultMinConversionThresholdSignificance
+): boolean {
+  return (
+    Math.max(value1, value2) >= sigThreshold &&
+    Math.min(value1, value2) >= displayThreshold
+  );
 }
 
 const CompactResults: FC<{
@@ -52,13 +62,23 @@ const CompactResults: FC<{
       const metric = getMetricById(m);
       if (!metric) return;
 
+      const minThresholdDisplay =
+        metric?.minThresholdDisplay ?? defaultMinConversionThresholdDisplay;
+      const minThresholdSignificance =
+        metric?.minThresholdDisplay ??
+        defaultMinConversionThresholdSignificance;
       let controlMax = 0;
       const controlCR = variations[0].metrics[m]?.cr;
       if (!controlCR) return;
       variations.forEach((v, i) => {
         if (!i) return;
         if (
-          !hasEnoughData(v.metrics[m]?.value, variations[0].metrics[m]?.value)
+          !hasEnoughData(
+            v.metrics[m]?.value,
+            variations[0].metrics[m]?.value,
+            minThresholdDisplay,
+            minThresholdSignificance
+          )
         ) {
           return;
         }
@@ -81,12 +101,23 @@ const CompactResults: FC<{
   let lowerBound: number, upperBound: number;
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
+    const metric = getMetricById(m);
+    const minThresholdDisplay =
+      metric?.minThresholdDisplay ?? defaultMinConversionThresholdDisplay;
+    const minThresholdSignificance =
+      metric?.minThresholdDisplay ?? defaultMinConversionThresholdSignificance;
+
     experiment.variations?.map((v, i) => {
       if (variations[i]?.metrics?.[m]) {
         const stats = { ...variations[i].metrics[m] };
         if (
           i > 0 &&
-          hasEnoughData(stats.value, variations[0].metrics[m]?.value || 0)
+          hasEnoughData(
+            stats.value,
+            variations[0].metrics[m]?.value || 0,
+            minThresholdDisplay,
+            minThresholdSignificance
+          )
         ) {
           const ci = stats.ci || [];
           if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
@@ -320,6 +351,12 @@ const CompactResults: FC<{
             const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
             const loseRiskThreshold =
               metric?.loseRisk || defaultLoseRiskThreshold;
+            const minThresholdDisplay =
+              metric?.minThresholdDisplay ??
+              defaultMinConversionThresholdDisplay;
+            const minThresholdSignificance =
+              metric?.minThresholdDisplay ??
+              defaultMinConversionThresholdSignificance;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -332,7 +369,9 @@ const CompactResults: FC<{
                   riskCR > 0 &&
                   hasEnoughData(
                     variations[riskVariation]?.metrics?.[m]?.value,
-                    variations[0]?.metrics?.[m]?.value
+                    variations[0]?.metrics?.[m]?.value,
+                    minThresholdDisplay,
+                    minThresholdSignificance
                   );
               } else {
                 risk = -1;
@@ -341,7 +380,9 @@ const CompactResults: FC<{
                   if (
                     !hasEnoughData(
                       v.metrics[m]?.value,
-                      variations[0].metrics[m]?.value
+                      variations[0].metrics[m]?.value,
+                      minThresholdDisplay,
+                      minThresholdSignificance
                     )
                   ) {
                     return;
@@ -419,14 +460,16 @@ const CompactResults: FC<{
                   if (
                     !hasEnoughData(
                       stats.value,
-                      variations[0].metrics[m]?.value || 0
+                      variations[0].metrics[m]?.value || 0,
+                      minThresholdDisplay,
+                      minThresholdSignificance
                     )
                   ) {
                     const percentComplete = Math.min(
                       Math.max(stats.value, variations[0].metrics[m]?.value) /
-                        150,
+                        minThresholdSignificance,
                       Math.min(stats.value, variations[0].metrics[m]?.value) /
-                        25
+                        minThresholdDisplay
                     );
                     const phaseStart = new Date(
                       experiment.phases[snapshot.phase]?.dateStarted

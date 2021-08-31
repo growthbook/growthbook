@@ -71,6 +71,8 @@ export default function ConfigYamlButton({
         "conversionWindowHours",
         "loseRisk",
         "winRisk",
+        "minThresholdDisplay",
+        "minThresholdSignificance",
         "userIdType",
         "tags",
       ];
