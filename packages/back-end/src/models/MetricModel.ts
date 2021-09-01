@@ -22,7 +22,7 @@ const metricSchema = new mongoose.Schema({
   conversionWindowHours: Number,
   winRisk: Number,
   loseRisk: Number,
-  minThresholdDisplay: Number,
+  varianceThreshold: Number,
   minThresholdSignificance: Number,
   dateCreated: Date,
   dateUpdated: Date,

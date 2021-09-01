@@ -15,7 +15,7 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  defaultMinConversionThresholdDisplay,
+  defaultVarianceThreshold,
   defaultMinConversionThresholdSignificance,
 } from "../../services/metrics";
 
@@ -148,8 +148,8 @@ const MetricForm: FC<MetricFormProps> = ({
       tags: current.tags || [],
       winRisk: current.winRisk * 100 || defaultWinRiskThreshold * 100,
       loseRisk: current.loseRisk * 100 || defaultLoseRiskThreshold * 100,
-      minThresholdDisplay:
-        current.minThresholdDisplay || defaultMinConversionThresholdDisplay,
+      varianceThreshold:
+        current.varianceThreshold * 100 || defaultVarianceThreshold * 100,
       minThresholdSignificance:
         current.minThresholdSignificance ||
         defaultMinConversionThresholdSignificance,
@@ -211,6 +211,8 @@ const MetricForm: FC<MetricFormProps> = ({
     //correct decimal/percent:
     if (sendValue?.winRisk) sendValue.winRisk = sendValue.winRisk / 100;
     if (sendValue?.loseRisk) sendValue.loseRisk = sendValue.loseRisk / 100;
+    if (sendValue?.varianceThreshold)
+      sendValue.varianceThreshold = sendValue.varianceThreshold / 100;
 
     if (value.loseRisk < value.winRisk) return;
 
@@ -287,11 +289,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const riskError =
     value.loseRisk < value.winRisk
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-      : "";
-
-  const thresholdNumError =
-    value.minThresholdDisplay > value.minThresholdSignificance
-      ? "The min number for display cannot be higher than the number for significance"
       : "";
 
   return (
@@ -829,18 +826,6 @@ GROUP BY
           </small>
         </div>
         <div className="form-group">
-          Minimum threshold for display
-          <input
-            type="number"
-            className="form-control"
-            {...inputs.minThresholdDisplay}
-          />
-          <small className="text-muted">
-            The number of events this metric requires before results will show.
-            This prevents premiture peaking at results. (default 25)
-          </small>
-        </div>
-        <div className="form-group">
           Minimum threshold for significance
           <input
             type="number"
@@ -849,12 +834,34 @@ GROUP BY
           />
           <small className="text-muted">
             The number of events this metric requires before this metric will
-            show as significant. (default 150)
+            show as significant. (default{" "}
+            {defaultMinConversionThresholdSignificance})
           </small>
         </div>
-        {thresholdNumError && (
-          <div className="text-danger">{thresholdNumError}</div>
-        )}
+        <div className="form-group">
+          Max variance percent
+          <div className="col px-0">
+            <span
+              style={{
+                position: "absolute",
+                right: "4px",
+                top: "6px",
+                color: "#888",
+              }}
+            >
+              %
+            </span>
+            <input
+              type="number"
+              className="form-control"
+              {...inputs.varianceThreshold}
+            />
+          </div>
+          <small className="text-muted">
+            Results with variance above this percentage will be flagged as
+            suspicious. (default {defaultVarianceThreshold * 100})
+          </small>
+        </div>
       </Page>
     </PagedModal>
   );

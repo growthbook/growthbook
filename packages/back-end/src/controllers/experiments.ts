@@ -1179,7 +1179,7 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
-    minThresholdDisplay,
+    varianceThreshold,
     minThresholdSignificance,
     conditions,
     datasource,
@@ -1225,7 +1225,7 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
-    minThresholdDisplay,
+    varianceThreshold,
     minThresholdSignificance,
   });
 
@@ -1264,7 +1264,7 @@ export async function putMetric(
     "tags",
     "winRisk",
     "loseRisk",
-    "minThresholdDisplay",
+    "varianceThreshold",
     "minThresholdSignificance",
     "conditions",
     "dateUpdated",

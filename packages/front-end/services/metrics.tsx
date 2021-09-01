@@ -11,7 +11,7 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
-export const defaultMinConversionThresholdDisplay = 25;
+export const defaultVarianceThreshold = 0.50;
 export const defaultMinConversionThresholdSignificance = 150;
 
 export function getMetricConversionTitle(type: MetricType): string {

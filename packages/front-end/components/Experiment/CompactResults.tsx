@@ -4,7 +4,7 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  defaultMinConversionThresholdDisplay,
+  defaultVarianceThreshold,
   defaultMinConversionThresholdSignificance,
 } from "../../services/metrics";
 import clsx from "clsx";
@@ -29,12 +29,18 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 function hasEnoughData(
   value1: number,
   value2: number,
-  displayThreshold: number = defaultMinConversionThresholdDisplay,
   sigThreshold: number = defaultMinConversionThresholdSignificance
 ): boolean {
+  return Math.max(value1, value2) >= sigThreshold;
+}
+
+function hasVarianceWarning(
+  value1: number,
+  value2: number,
+  varianceThreshold: number = defaultVarianceThreshold
+): boolean {
   return (
-    Math.max(value1, value2) >= sigThreshold &&
-    Math.min(value1, value2) >= displayThreshold
+    Math.abs(value1 - value2) / Math.max(value1, value2) >= varianceThreshold
   );
 }
 
@@ -62,10 +68,10 @@ const CompactResults: FC<{
       const metric = getMetricById(m);
       if (!metric) return;
 
-      const minThresholdDisplay =
-        metric?.minThresholdDisplay ?? defaultMinConversionThresholdDisplay;
+      const varianceThreshold =
+        metric?.varianceThreshold ?? defaultVarianceThreshold;
       const minThresholdSignificance =
-        metric?.minThresholdDisplay ??
+        metric?.minThresholdSignificance ??
         defaultMinConversionThresholdSignificance;
       let controlMax = 0;
       const controlCR = variations[0].metrics[m]?.cr;
@@ -76,7 +82,6 @@ const CompactResults: FC<{
           !hasEnoughData(
             v.metrics[m]?.value,
             variations[0].metrics[m]?.value,
-            minThresholdDisplay,
             minThresholdSignificance
           )
         ) {
@@ -102,10 +107,11 @@ const CompactResults: FC<{
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
     const metric = getMetricById(m);
-    const minThresholdDisplay =
-      metric?.minThresholdDisplay ?? defaultMinConversionThresholdDisplay;
+    const varianceThreshold =
+      metric?.varianceThreshold ?? defaultVarianceThreshold;
     const minThresholdSignificance =
-      metric?.minThresholdDisplay ?? defaultMinConversionThresholdSignificance;
+      metric?.minThresholdSignificance ??
+      defaultMinConversionThresholdSignificance;
 
     experiment.variations?.map((v, i) => {
       if (variations[i]?.metrics?.[m]) {
@@ -115,7 +121,6 @@ const CompactResults: FC<{
           hasEnoughData(
             stats.value,
             variations[0].metrics[m]?.value || 0,
-            minThresholdDisplay,
             minThresholdSignificance
           )
         ) {
@@ -351,11 +356,10 @@ const CompactResults: FC<{
             const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
             const loseRiskThreshold =
               metric?.loseRisk || defaultLoseRiskThreshold;
-            const minThresholdDisplay =
-              metric?.minThresholdDisplay ??
-              defaultMinConversionThresholdDisplay;
+            const varianceThreshold =
+              metric?.varianceThreshold ?? defaultVarianceThreshold;
             const minThresholdSignificance =
-              metric?.minThresholdDisplay ??
+              metric?.minThresholdSignificance ??
               defaultMinConversionThresholdSignificance;
             if (hasRisk) {
               if (riskVariation > 0) {
@@ -370,7 +374,6 @@ const CompactResults: FC<{
                   hasEnoughData(
                     variations[riskVariation]?.metrics?.[m]?.value,
                     variations[0]?.metrics?.[m]?.value,
-                    minThresholdDisplay,
                     minThresholdSignificance
                   );
               } else {
@@ -381,7 +384,6 @@ const CompactResults: FC<{
                     !hasEnoughData(
                       v.metrics[m]?.value,
                       variations[0].metrics[m]?.value,
-                      minThresholdDisplay,
                       minThresholdSignificance
                     )
                   ) {
@@ -457,19 +459,22 @@ const CompactResults: FC<{
                   const ci = stats.ci || [];
                   const expected = stats.expected;
 
+                  const highVariance = hasVarianceWarning(
+                    stats.value,
+                    variations[0].metrics[m]?.value || 0,
+                    varianceThreshold
+                  );
+
                   if (
                     !hasEnoughData(
                       stats.value,
                       variations[0].metrics[m]?.value || 0,
-                      minThresholdDisplay,
                       minThresholdSignificance
                     )
                   ) {
                     const percentComplete = Math.min(
                       Math.max(stats.value, variations[0].metrics[m]?.value) /
-                        minThresholdSignificance,
-                      Math.min(stats.value, variations[0].metrics[m]?.value) /
-                        minThresholdDisplay
+                        minThresholdSignificance
                     );
                     const phaseStart = new Date(
                       experiment.phases[snapshot.phase]?.dateStarted
@@ -578,6 +583,11 @@ const CompactResults: FC<{
                             </em>
                           </small>
                         </div>
+                        {highVariance && (
+                          <div className="badge badge-pill badge-warning">
+                            Suspiciously high variance
+                          </div>
+                        )}
                       </td>
                       {i > 0 && (
                         <td

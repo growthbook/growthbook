@@ -14,7 +14,7 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  defaultMinConversionThresholdDisplay,
+  defaultVarianceThreshold,
   defaultMinConversionThresholdSignificance,
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
@@ -419,13 +419,14 @@ const MetricPage: FC = () => {
                     <i>unacceptable risk</i> &gt;{" "}
                     {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}%
                     <br />
-                    <i>min events for display</i> :{" "}
-                    {metric?.minThresholdDisplay ||
-                      defaultMinConversionThresholdDisplay}
-                    <br />
                     <i>min events for significance</i> :{" "}
-                    {metric?.minThresholdSignificance ||
+                    {metric?.minThresholdSignificance ??
                       defaultMinConversionThresholdSignificance}
+                    <br />
+                    <i>max variance percent</i> :{" "}
+                    {metric?.varianceThreshold * 100 ||
+                      defaultVarianceThreshold * 100}
+                    %
                   </small>
                 </RightRailSectionGroup>
               </RightRailSection>

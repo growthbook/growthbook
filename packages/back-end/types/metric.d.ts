@@ -39,7 +39,7 @@ export interface MetricInterface {
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;
-  minThresholdDisplay?: number;
+  varianceThreshold?: number;
   minThresholdSignificance?: number;
   dateCreated: Date;
   dateUpdated: Date;
