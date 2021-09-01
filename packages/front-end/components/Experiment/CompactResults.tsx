@@ -68,8 +68,6 @@ const CompactResults: FC<{
       const metric = getMetricById(m);
       if (!metric) return;
 
-      const varianceThreshold =
-        metric?.varianceThreshold ?? defaultVarianceThreshold;
       const minThresholdSignificance =
         metric?.minThresholdSignificance ??
         defaultMinConversionThresholdSignificance;
@@ -107,8 +105,6 @@ const CompactResults: FC<{
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
     const metric = getMetricById(m);
-    const varianceThreshold =
-      metric?.varianceThreshold ?? defaultVarianceThreshold;
     const minThresholdSignificance =
       metric?.minThresholdSignificance ??
       defaultMinConversionThresholdSignificance;
