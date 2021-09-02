@@ -2,13 +2,13 @@
 
 The API is one way to keep cached experiment configuration up-to-date on your servers.
 
-With the **API**, your servers pull experiment overrides from Growth Book in a cronjob (or similar).
+With the **API**, your servers pull experiment overrides from GrowthBook in a cronjob (or similar).
 
-With [Webhooks](/app/webhooks), Growth Book pushes experiment overrides to your servers as soon as they change.
+With [Webhooks](/app/webhooks), GrowthBook pushes experiment overrides to your servers as soon as they change.
 
 ## Creating an API Key
 
-When logged into Growth Book as an admin, navigate to **Settings -> API Keys**.
+When logged into GrowthBook as an admin, navigate to **Settings -> API Keys**.
 
 There you can generate an API key and give it an optional description.
 
@@ -18,7 +18,7 @@ As of right now, there is only a single public API endpoint that returns experim
 
 For **self-hosted** deployments, the endpoint is at [http://localhost:3100/config/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the API)
 
-For **Growth Book Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/config/{myKey}
+For **GrowthBook Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/config/{myKey}
 
 Here is an example API response:
 

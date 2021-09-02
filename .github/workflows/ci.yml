@@ -113,7 +113,7 @@ jobs:
 
           docker push -a growthbook/growthbook
 
-  # Deploy the back-end for Growth Book Cloud
+  # Deploy the back-end for GrowthBook Cloud
   # Runs on pushes to the main branch
   # Only runs if there are back-end code changes
   prod:
@@ -121,13 +121,13 @@ jobs:
     needs: [changes, ci, docker]
     if: ${{ github.ref == 'refs/heads/main' && github.repository == 'growthbook/growthbook' && needs.changes.outputs.backend == 'true' }}
     steps:
-      - name: Configure AWS credentials for Growth Book Cloud
+      - name: Configure AWS credentials for GrowthBook Cloud
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       
-      - name: Deploy docker image to ECS for Growth Book Cloud API
+      - name: Deploy docker image to ECS for GrowthBook Cloud API
         run:
           aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

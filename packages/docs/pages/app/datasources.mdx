@@ -1,8 +1,8 @@
 # Data Sources
 
-Data Sources are how Growth Book connects to your analytics tool or data warehouse to automatically pull metrics and experiment results.
+Data Sources are how GrowthBook connects to your analytics tool or data warehouse to automatically pull metrics and experiment results.
 
-You can use Growth Book without a Data Source, but the user experience is not as smooth since you must enter all data manually.
+You can use GrowthBook without a Data Source, but the user experience is not as smooth since you must enter all data manually.
 
 Below are the currently supported Data Sources:
 
@@ -19,21 +19,21 @@ Below are the currently supported Data Sources:
 
 ## Configuration Settings
 
-To effectively use Growth Book, you'll need to tell us a little about the shape of your data.
+To effectively use GrowthBook, you'll need to tell us a little about the shape of your data.
 
 ### SQL Sources
 
-Growth Book can work with your existing SQL data, no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
+GrowthBook can work with your existing SQL data, no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
 
-Growth Book just needs two base SQL queries plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After defining these base queries and metrics, they can be reused across many experiments.
+GrowthBook just needs two base SQL queries plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After defining these base queries and metrics, they can be reused across many experiments.
 
-Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by Growth Book result in fewer than 10 rows returned.
+Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by GrowthBook result in fewer than 10 rows returned.
 
 In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
 
 #### 1. Experiments Query
 
-This is the most important query for Growth Book. It needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
+This is the most important query for GrowthBook. It needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
 
 | user_id | anonymous_id | timestamp           | experiment_id  | variation_id |
 | ------- | ------------ | ------------------- | -------------- | ------------ |
@@ -106,9 +106,9 @@ We query Mixpanel using JQL. We have sensible defaults for the event and propert
 
 Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
 
-Growth Book only runs `SELECT` queries (or the equivalent for non-SQL data sources). We still always recommend creating read-only users with as few permissions as possible.
+GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources). We still always recommend creating read-only users with as few permissions as possible.
 
-If you are using Growth Book Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
 
 Most data sources have straight forward connection parameters like host, port, username, password. A few of the data sources, documented below, require some extra work to connect.
 
@@ -116,20 +116,20 @@ Most data sources have straight forward connection parameters like host, port, u
 
 Unlike other database engines with their own user management system, Athena uses IAM for authentication.
 
-We recommend creating a new IAM user with readonly permissions for Growth Book. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+We recommend creating a new IAM user with readonly permissions for GrowthBook. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
 
 For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
 
 ### BigQuery
 
-You must first create a Service Account in Google with the proper permissions. To connect Growth Book, we just need the JSON key file for that account.
+You must first create a Service Account in Google with the proper permissions. To connect GrowthBook, we just need the JSON key file for that account.
 It should contain the project_id, client_email, and private_key.
 
 ### Mixpanel
 
 You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
 
-To add the datasource in Growth Book, you will need:
+To add the datasource in GrowthBook, you will need:
 
 1.  The service account username
 2.  The service account secret

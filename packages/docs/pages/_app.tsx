@@ -158,7 +158,7 @@ function App({
   return (
     <div className="h-screen dark:bg-gray-800">
       <Head>
-        <title>Growth Book Docs</title>
+        <title>GrowthBook Docs</title>
         <meta name="robots" content="noindex, nofollow" />
         <link
           rel="preload"

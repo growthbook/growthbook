@@ -142,7 +142,7 @@ const CompactResults: FC<{
                 ))}
               </div>
               <div>
-                Defined in Growth Book:
+                Defined in GrowthBook:
                 {definedVariations.map((v) => (
                   <code className="mx-2" key={v}>
                     {v}

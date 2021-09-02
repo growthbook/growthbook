@@ -89,7 +89,7 @@ export async function getExperimentsScript(
     if (!organization) {
       return res
         .status(400)
-        .send(`console.error("Invalid Growth Book API key");`);
+        .send(`console.error("Invalid GrowthBook API key");`);
     }
     const experiments = await getExperimentsByOrganization(organization);
 

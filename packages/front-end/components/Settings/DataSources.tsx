@@ -73,7 +73,7 @@ const DataSources: FC = () => {
       ) : (
         <div>
           <p>
-            Connect Growth Book to your data so we can automatically fetch
+            Connect GrowthBook to your data so we can automatically fetch
             experiment results and metric values. We currently support{" "}
             <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
             <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
