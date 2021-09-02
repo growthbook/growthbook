@@ -15,8 +15,8 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  defaultVarianceThreshold,
-  defaultMinConversionThresholdSignificance,
+  defaultMaxPercentChange,
+  defaultMinSampleSize,
 } from "../../services/metrics";
 
 const weekAgo = new Date();
@@ -148,11 +148,9 @@ const MetricForm: FC<MetricFormProps> = ({
       tags: current.tags || [],
       winRisk: current.winRisk * 100 || defaultWinRiskThreshold * 100,
       loseRisk: current.loseRisk * 100 || defaultLoseRiskThreshold * 100,
-      varianceThreshold:
-        current.varianceThreshold * 100 || defaultVarianceThreshold * 100,
-      minThresholdSignificance:
-        current.minThresholdSignificance ||
-        defaultMinConversionThresholdSignificance,
+      maxPercentChange:
+        current.maxPercentChange * 100 || defaultMaxPercentChange * 100,
+      minSampleSize: current.minSampleSize || defaultMinSampleSize,
     },
     current.id || "new"
   );
@@ -211,8 +209,8 @@ const MetricForm: FC<MetricFormProps> = ({
     //correct decimal/percent:
     if (sendValue?.winRisk) sendValue.winRisk = sendValue.winRisk / 100;
     if (sendValue?.loseRisk) sendValue.loseRisk = sendValue.loseRisk / 100;
-    if (sendValue?.varianceThreshold)
-      sendValue.varianceThreshold = sendValue.varianceThreshold / 100;
+    if (sendValue?.maxPercentChange)
+      sendValue.maxPercentChange = sendValue.maxPercentChange / 100;
 
     if (value.loseRisk < value.winRisk) return;
 
@@ -826,20 +824,19 @@ GROUP BY
           </small>
         </div>
         <div className="form-group">
-          Minimum threshold for significance
+          Minimum Sample Size
           <input
             type="number"
             className="form-control"
-            {...inputs.minThresholdSignificance}
+            {...inputs.minSampleSize}
           />
           <small className="text-muted">
-            The number of events this metric requires before this metric will
-            show as significant. (default{" "}
-            {defaultMinConversionThresholdSignificance})
+            The number of conversions required before doing a statistical
+            analysis (default {defaultMinSampleSize})
           </small>
         </div>
         <div className="form-group">
-          Max variance percent
+          Max Percent Change
           <div className="col px-0">
             <span
               style={{
@@ -854,12 +851,12 @@ GROUP BY
             <input
               type="number"
               className="form-control"
-              {...inputs.varianceThreshold}
+              {...inputs.maxPercentChange}
             />
           </div>
           <small className="text-muted">
-            Results with variance above this percentage will be flagged as
-            suspicious. (default {defaultVarianceThreshold * 100})
+            An experiment that changes the metric by more than this percent will
+            be flagged as suspicious (default {defaultMaxPercentChange * 100})
           </small>
         </div>
       </Page>

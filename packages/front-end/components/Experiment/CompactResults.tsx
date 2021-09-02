@@ -4,8 +4,8 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  defaultVarianceThreshold,
-  defaultMinConversionThresholdSignificance,
+  defaultMaxPercentChange,
+  defaultMinSampleSize,
 } from "../../services/metrics";
 import clsx from "clsx";
 import SRMWarning from "./SRMWarning";
@@ -29,19 +29,17 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 function hasEnoughData(
   value1: number,
   value2: number,
-  sigThreshold: number = defaultMinConversionThresholdSignificance
+  sigThreshold: number = defaultMinSampleSize
 ): boolean {
   return Math.max(value1, value2) >= sigThreshold;
 }
 
-function hasVarianceWarning(
-  value1: number,
-  value2: number,
-  varianceThreshold: number = defaultVarianceThreshold
+function hasOverMaxChange(
+  control: number,
+  varValue: number,
+  maxPercentChange: number = defaultMaxPercentChange
 ): boolean {
-  return (
-    Math.abs(value1 - value2) / Math.max(value1, value2) >= varianceThreshold
-  );
+  return Math.abs(control - varValue) / control >= maxPercentChange;
 }
 
 const CompactResults: FC<{
@@ -68,9 +66,7 @@ const CompactResults: FC<{
       const metric = getMetricById(m);
       if (!metric) return;
 
-      const minThresholdSignificance =
-        metric?.minThresholdSignificance ??
-        defaultMinConversionThresholdSignificance;
+      const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
       let controlMax = 0;
       const controlCR = variations[0].metrics[m]?.cr;
       if (!controlCR) return;
@@ -80,7 +76,7 @@ const CompactResults: FC<{
           !hasEnoughData(
             v.metrics[m]?.value,
             variations[0].metrics[m]?.value,
-            minThresholdSignificance
+            minSampleSize
           )
         ) {
           return;
@@ -105,9 +101,7 @@ const CompactResults: FC<{
   const domain: [number, number] = [0, 0];
   experiment.metrics?.map((m) => {
     const metric = getMetricById(m);
-    const minThresholdSignificance =
-      metric?.minThresholdSignificance ??
-      defaultMinConversionThresholdSignificance;
+    const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
 
     experiment.variations?.map((v, i) => {
       if (variations[i]?.metrics?.[m]) {
@@ -117,7 +111,7 @@ const CompactResults: FC<{
           hasEnoughData(
             stats.value,
             variations[0].metrics[m]?.value || 0,
-            minThresholdSignificance
+            minSampleSize
           )
         ) {
           const ci = stats.ci || [];
@@ -352,11 +346,9 @@ const CompactResults: FC<{
             const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
             const loseRiskThreshold =
               metric?.loseRisk || defaultLoseRiskThreshold;
-            const varianceThreshold =
-              metric?.varianceThreshold ?? defaultVarianceThreshold;
-            const minThresholdSignificance =
-              metric?.minThresholdSignificance ??
-              defaultMinConversionThresholdSignificance;
+            const maxPercentChange =
+              metric?.maxPercentChange ?? defaultMaxPercentChange;
+            const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
             if (hasRisk) {
               if (riskVariation > 0) {
                 risk =
@@ -370,7 +362,7 @@ const CompactResults: FC<{
                   hasEnoughData(
                     variations[riskVariation]?.metrics?.[m]?.value,
                     variations[0]?.metrics?.[m]?.value,
-                    minThresholdSignificance
+                    minSampleSize
                   );
               } else {
                 risk = -1;
@@ -380,7 +372,7 @@ const CompactResults: FC<{
                     !hasEnoughData(
                       v.metrics[m]?.value,
                       variations[0].metrics[m]?.value,
-                      minThresholdSignificance
+                      minSampleSize
                     )
                   ) {
                     return;
@@ -455,22 +447,16 @@ const CompactResults: FC<{
                   const ci = stats.ci || [];
                   const expected = stats.expected;
 
-                  const highVariance = hasVarianceWarning(
-                    stats.value,
-                    variations[0].metrics[m]?.value || 0,
-                    varianceThreshold
-                  );
-
                   if (
                     !hasEnoughData(
                       stats.value,
                       variations[0].metrics[m]?.value || 0,
-                      minThresholdSignificance
+                      minSampleSize
                     )
                   ) {
                     const percentComplete = Math.min(
                       Math.max(stats.value, variations[0].metrics[m]?.value) /
-                        minThresholdSignificance
+                        minSampleSize
                     );
                     const phaseStart = new Date(
                       experiment.phases[snapshot.phase]?.dateStarted
@@ -553,6 +539,61 @@ const CompactResults: FC<{
                       </Fragment>
                     );
                   }
+                  if (
+                    hasOverMaxChange(
+                      variations[0].metrics[m]?.value || 0,
+                      stats.value,
+                      maxPercentChange
+                    )
+                  ) {
+                    return (
+                      <Fragment key={i}>
+                        <td className="value variation">
+                          <div className="result-number">
+                            {formatConversionRate(metric.type, stats.cr)}
+                          </div>
+                          <div>
+                            <small className="text-muted">
+                              <em>
+                                {numberFormatter.format(stats.value)}
+                                &nbsp;/&nbsp;
+                                {numberFormatter.format(
+                                  stats.users || variations[i].users
+                                )}
+                              </em>
+                            </small>
+                          </div>
+                        </td>
+                        {i > 0 && (
+                          <>
+                            <td
+                              className="variation text-center text-muted"
+                              colSpan={1}
+                            >
+                              <div>
+                                <div className="badge badge-pill badge-warning">
+                                  over max change precent
+                                </div>
+                              </div>
+                            </td>
+                            <td className="variation compact-graph pb-0 align-middle">
+                              <AlignedGraph
+                                id={experiment.id + "_" + i + "_" + m}
+                                domain={domain}
+                                axisOnly={true}
+                                ci={[0, 0]}
+                                significant={false}
+                                showAxis={false}
+                                height={62}
+                                inverse={!!metric.inverse}
+                              />
+                            </td>
+                          </>
+                        )}
+                      </Fragment>
+                    );
+                  }
+
                   return (
                     <Fragment key={i}>
                       <td
@@ -572,18 +613,14 @@ const CompactResults: FC<{
                         <div>
                           <small className="text-muted">
                             <em>
-                              {numberFormatter.format(stats.value)}&nbsp;/&nbsp;
+                              {numberFormatter.format(stats.value)}
+                              &nbsp;/&nbsp;
                               {numberFormatter.format(
                                 stats.users || variations[i].users
                               )}
                             </em>
                           </small>
                         </div>
-                        {highVariance && (
-                          <div className="badge badge-pill badge-warning">
-                            Suspiciously high variance
-                          </div>
-                        )}
                       </td>
                       {i > 0 && (
                         <td
