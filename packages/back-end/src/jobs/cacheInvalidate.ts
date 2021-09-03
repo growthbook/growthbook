@@ -19,28 +19,32 @@ export default function (ag: Agenda) {
 
     if (!urls) return;
 
-    const cloudfront = new AWS.CloudFront();
-    const params: CreateInvalidationRequest = {
-      DistributionId: AWS_CLOUDFRONT_DISTRIBUTION_ID,
-      InvalidationBatch: {
-        CallerReference: "" + Date.now(),
-        Paths: {
-          Quantity: urls.length,
-          Items: urls,
+    if (AWS_CLOUDFRONT_DISTRIBUTION_ID) {
+      const cloudfront = new AWS.CloudFront();
+      const params: CreateInvalidationRequest = {
+        DistributionId: AWS_CLOUDFRONT_DISTRIBUTION_ID,
+        InvalidationBatch: {
+          CallerReference: "" + Date.now(),
+          Paths: {
+            Quantity: urls.length,
+            Items: urls,
+          },
         },
-      },
-    };
-    cloudfront.createInvalidation(params, function (err, data) {
-      if (err) {
-        console.log("Cache invalidate: Error invalidating CDN");
-        console.log(err, err.stack);
-        throw new Error("Cache invalidate: Error: " + err);
-      } else {
-        // successful response
-        console.log("Cache invalidate: suceeded");
-        console.log(data);
-      }
-    });
+      };
+
+      cloudfront.createInvalidation(params, function (err, data) {
+        if (err) {
+          console.log("Cache invalidate: Error invalidating CDN");
+          console.log(err, err.stack);
+          throw new Error("Cache invalidate: Error: " + err);
+        } else {
+          // successful response
+          console.log("Cache invalidate: suceeded");
+          console.log(data);
+        }
+      });
+    }
+    // add other invalidations here.
   });
   agenda.on(
     "fail:" + INVALIDATE_JOB_NAME,
