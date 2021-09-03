@@ -289,17 +289,21 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
+type ProcessedSnapshotDimension = {
+  name: string;
+  srm: number;
+  variations: SnapshotVariation[];
+};
+type ProcessedSnapshotData = {
+  dimensions: ProcessedSnapshotDimension[];
+  unknownVariations: string[];
+};
+
 export async function processSnapshotData(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
   queryData: QueryMap
-): Promise<
-  {
-    name: string;
-    srm: number;
-    variations: SnapshotVariation[];
-  }[]
-> {
+): Promise<ProcessedSnapshotData> {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {
@@ -315,6 +319,8 @@ export async function processSnapshotData(
       };
     };
   } = {};
+
+  let unknownVariations: string[] = [];
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   if (queryData.has("results")) {
@@ -339,13 +345,15 @@ export async function processSnapshotData(
     // User counts
     const usersResult: ExperimentUsersResult = queryData.get("users")
       ?.result as ExperimentUsersResult;
-    if (!usersResult) return [];
+    if (!usersResult) return { dimensions: [], unknownVariations: [] };
     usersResult.dimensions.forEach((d) => {
       combined[d.dimension] = { users: [], metrics: {} };
       d.variations.forEach((v) => {
         combined[d.dimension].users[v.variation] = v.users;
       });
     });
+
+    unknownVariations = usersResult.unknownVariations || [];
 
     // Raw metric numbers
     queryData.forEach((obj, key) => {
@@ -361,11 +369,7 @@ export async function processSnapshotData(
     });
   }
 
-  const results: {
-    name: string;
-    srm: number;
-    variations: SnapshotVariation[];
-  }[] = [];
+  const dimensions: ProcessedSnapshotDimension[] = [];
 
   await Promise.all(
     Object.keys(combined).map(async (dimension) => {
@@ -439,7 +443,7 @@ export async function processSnapshotData(
         phase.variationWeights
       );
 
-      results.push({
+      dimensions.push({
         name: dimension,
         srm: sampleRatioMismatch,
         variations,
@@ -447,22 +451,26 @@ export async function processSnapshotData(
     })
   );
 
-  if (!results.length) {
-    results.push({
+  if (!dimensions.length) {
+    dimensions.push({
       name: "All",
       srm: 1,
       variations: [],
     });
   }
 
-  return results;
+  return {
+    unknownVariations,
+    dimensions,
+  };
 }
 
 export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   datasource: DataSourceInterface,
-  dimension?: DimensionInterface
+  userDimension?: DimensionInterface,
+  experimentDimension?: string
 ) {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -509,14 +517,15 @@ export async function createSnapshot(
       phase,
       selectedMetrics,
       activationMetric,
-      dimension
+      userDimension
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     queryDocs["users"] = getExperimentUsers(integration, {
       experiment,
-      dimension,
+      userDimension,
+      experimentDimension,
       activationMetric,
       phase,
     });
@@ -524,7 +533,8 @@ export async function createSnapshot(
       queryDocs[m.id] = getExperimentMetric(integration, {
         metric: m,
         experiment,
-        dimension,
+        userDimension,
+        experimentDimension,
         activationMetric,
         phase,
       });
@@ -536,6 +546,10 @@ export async function createSnapshot(
     async (queryData) => processSnapshotData(experiment, phase, queryData)
   );
 
+  const dimensionId =
+    userDimension?.id ||
+    (experimentDimension ? "exp:" + experimentDimension : null);
+
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
     organization: experiment.organization,
@@ -546,8 +560,9 @@ export async function createSnapshot(
     manual: false,
     queries,
     queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimension?.id || null,
-    results,
+    dimension: dimensionId,
+    results: results?.dimensions,
+    unknownVariations: results?.unknownVariations || [],
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);

@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useContext, useState } from "react";
 import { FaPlus, FaPencilAlt } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
@@ -8,6 +8,8 @@ import DimensionForm from "../../components/Dimensions/DimensionForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
+import Link from "next/link";
+import { UserContext } from "../../components/ProtectedPage";
 
 const DimensionsPage: FC = () => {
   const {
@@ -17,6 +19,8 @@ const DimensionsPage: FC = () => {
     ready,
     error,
   } = useDefinitions();
+
+  const { permissions } = useContext(UserContext);
 
   const [
     dimensionForm,
@@ -36,7 +40,7 @@ const DimensionsPage: FC = () => {
       <div className="p-3 container-fluid pagecontents">
         <div className="row mb-3">
           <div className="col">
-            <h3>Dimensions</h3>
+            <h3>User Dimensions</h3>
           </div>
         </div>
         <div className="alert alert-info">
@@ -67,9 +71,9 @@ const DimensionsPage: FC = () => {
       )}
       <div className="row mb-3">
         <div className="col-auto">
-          <h3>Dimensions</h3>
+          <h3>User Dimensions</h3>
         </div>
-        {!hasFileConfig() && (
+        {!hasFileConfig() && permissions.createMetrics && (
           <div className="col-auto">
             <Button
               color="success"
@@ -77,7 +81,7 @@ const DimensionsPage: FC = () => {
                 setDimensionForm({});
               }}
             >
-              <FaPlus /> New Dimension
+              <FaPlus /> New User Dimension
             </Button>
           </div>
         )}
@@ -86,10 +90,9 @@ const DimensionsPage: FC = () => {
         <div className="row mb-4">
           <div className="col-auto">
             <p>
-              Dimensions are user attributes - for example, &quot;subscription
-              plan&quot; or &quot;browser.&quot; In Growth Book, you can use
-              dimensions to drill down into experiment results and other
-              reports.
+              User Dimensions are attributes of your users - for example,
+              &quot;subscription plan&quot; or &quot;age group&quot;. In Growth
+              Book, you can use these to drill down into experiment results.
             </p>
             <table
               className={clsx("table appbox", {
@@ -143,12 +146,15 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error && dimensions.length === 0 && !hasFileConfig() && (
-        <div className="alert alert-info">
-          You don&apos;t have any dimensions defined yet. Click the green button
-          above to create your first one.
-        </div>
-      )}
+      {!error &&
+        dimensions.length === 0 &&
+        !hasFileConfig() &&
+        permissions.createMetrics && (
+          <div className="alert alert-info">
+            You don&apos;t have any user dimensions defined yet. Click the green
+            button above to create your first one.
+          </div>
+        )}
       {!error && dimensions.length === 0 && hasFileConfig() && (
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
@@ -158,6 +164,22 @@ const DimensionsPage: FC = () => {
           </a>
         </div>
       )}
+
+      <div>
+        <h3>Experiment Dimensions</h3>
+        <p>
+          Experiment Dimensions are specific to the point-in-time that a user is
+          put into an experiment - for example, &quot;browser&quot; or
+          &quot;referrer&quot;. These are defined as part of your data source
+          settings.
+        </p>
+
+        {permissions.organizationSettings && (
+          <Link href="/settings/datasources">
+            <a className="btn btn-outline-primary">View Data Sources</a>
+          </Link>
+        )}
+      </div>
     </div>
   );
 };

@@ -3,7 +3,6 @@ export type EntityType =
   | "metric"
   | "datasource"
   | "comment"
-  | "insight"
   | "user"
   | "organization"
   | "snapshot";
@@ -28,9 +27,6 @@ export type EventType =
   | "commet.create"
   | "comment.update"
   | "comment.delete"
-  | "insight.create"
-  | "insight.update"
-  | "insight.delete"
   | "user.create"
   | "user.update"
   | "user.delete"

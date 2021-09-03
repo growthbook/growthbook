@@ -13,7 +13,6 @@ import Code from "../../components/Code";
 import {
   getExperimentQuery,
   getPageviewsQuery,
-  getUsersQuery,
 } from "../../services/datasources";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
@@ -151,8 +150,14 @@ const DataSourcePage: FC = () => {
           {supportsSQL && (
             <>
               <div className="mb-4">
-                <h3>Experiments SQL</h3>
-                <div>Used to pull experiment results.</div>
+                <h3>Experiments Query</h3>
+                <div>
+                  Returns variation assignment data for all experiments -{" "}
+                  <em className="text-muted">
+                    which users were in which experiments, what variation did
+                    they see, and when?
+                  </em>
+                </div>
                 <Code
                   language="sql"
                   code={getExperimentQuery(
@@ -160,25 +165,42 @@ const DataSourcePage: FC = () => {
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
                 />
-              </div>
-              <div className="mb-4">
-                <h3>Users Query</h3>
-                <div>
-                  Used to join users to anonymous sessions before they logged
-                  in.
-                </div>
-                <Code
-                  language="sql"
-                  code={getUsersQuery(
-                    d.settings,
-                    (d.params as PostgresConnectionParams)?.defaultSchema
+                <div className="mt-2">
+                  <div>
+                    <strong>Variation Id Format:</strong>{" "}
+                    {d.settings?.variationIdFormat === "key" ? (
+                      "String Keys"
+                    ) : (
+                      <>
+                        Array Index (<code>0</code> = control, <code>1</code> =
+                        1st variation, etc.)
+                      </>
+                    )}
+                  </div>
+                  {d.settings?.experimentDimensions?.length > 0 && (
+                    <div>
+                      <strong>Dimension Columns:</strong>{" "}
+                      {d.settings.experimentDimensions.map((d) => (
+                        <code key={d} className="mx-2">
+                          {d}
+                        </code>
+                      ))}
+                    </div>
                   )}
-                />
+                </div>
               </div>
               <div className="mb-4">
                 <h3>Pageviews Query</h3>
                 <div>
-                  Used to predict running time before an experiment starts.
+                  Returns all historical browsing activity on your website or
+                  app -{" "}
+                  <em className="text-muted">
+                    which pages/screens did each user view and when
+                  </em>
+                </div>
+                <div className="mt-2">
+                  This is used to predict ahead of time how much traffic an
+                  experiment will get and how long it will take to finish.
                 </div>
                 <Code
                   language="sql"

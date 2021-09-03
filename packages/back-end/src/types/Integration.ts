@@ -31,6 +31,7 @@ export interface ExperimentUsersResult {
       users: number;
     }[];
   }[];
+  unknownVariations?: string[];
 }
 export interface ExperimentMetricResult {
   dimensions: {
@@ -53,7 +54,8 @@ export type ExperimentUsersQueryParams = {
   experiment: ExperimentInterface;
   phase: ExperimentPhase;
   activationMetric: MetricInterface | null;
-  dimension: DimensionInterface | null;
+  userDimension?: DimensionInterface | null;
+  experimentDimension?: string | null;
 };
 
 export type ExperimentMetricQueryParams = {
@@ -61,7 +63,13 @@ export type ExperimentMetricQueryParams = {
   phase: ExperimentPhase;
   metric: MetricInterface;
   activationMetric: MetricInterface | null;
-  dimension: DimensionInterface | null;
+  userDimension?: DimensionInterface | null;
+  experimentDimension?: string | null;
+};
+
+export type PastExperimentParams = {
+  from: Date;
+  minLength?: number;
 };
 
 export type UsersQueryParams = {
@@ -168,6 +176,6 @@ export interface SourceIntegrationInterface {
     experiment: ExperimentInterface,
     query: string
   ): Promise<ExperimentMetricResult>;
-  getPastExperimentQuery(from: Date): string;
+  getPastExperimentQuery(params: PastExperimentParams): string;
   runPastExperimentQuery(query: string): Promise<PastExperimentResult>;
 }

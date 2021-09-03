@@ -1,7 +1,6 @@
 export type DiscussionParentType =
   | "experiment"
   | "idea"
-  | "insight"
   | "metric"
   | "presentation";
 

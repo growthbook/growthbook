@@ -18,7 +18,6 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
 import { createIdea } from "../services/ideas";
 import { createImpactEstimate } from "../models/ImpactEstimateModel";
-import { createLearning } from "../services/learnings";
 import { createPresentation } from "../services/presentations";
 import {
   getOrganizationsWithDatasources,
@@ -66,12 +65,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   }
 
   // Change organization settings (allow all kinds of experiments)
-  org.settings.implementationTypes = [
-    "code",
-    "configuration",
-    "visual",
-    "custom",
-  ];
+  org.settings.visualEditorEnabled = true;
   await updateOrganization(id, {
     settings: org.settings,
   });
@@ -93,24 +87,16 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     user_id as anonymous_id,
     received_at as timestamp,
     experiment_id,
-    variation_id,
-    '' as url,
-    '' as user_agent
+    variation_id
   FROM
     experiment_viewed`,
         pageviewsQuery: `SELECT
     user_id,
     user_id as anonymous_id,
     received_at as timestamp,
-    '' as url,
-    '' as user_agent
+    '' as url
   FROM
     pages`,
-        usersQuery: `SELECT
-    user_id,
-    user_id as anonymous_id
-  FROM
-    identifies`,
       },
       variationIdFormat: "index",
     }
@@ -216,7 +202,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   const yearago = new Date();
   yearago.setDate(yearago.getDate() - 365);
   const pastExperimentsResult = await integration.runPastExperimentQuery(
-    integration.getPastExperimentQuery(yearago)
+    integration.getPastExperimentQuery({ from: yearago })
   );
   const sharedFields: Partial<ExperimentInterface> = {
     description: "",
@@ -363,7 +349,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       // Create experiment document
       const exp = await createExperiment(data);
 
-      // Add a few experiments to evidence for an insight
+      // Add a few experiments to evidence
       if (["simple_registration", "green_buttons"].includes(data.trackingKey)) {
         evidence.push(exp.id);
       }
@@ -401,19 +387,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     organization: org.id,
     userId: "growthbook",
     userName: "Example User",
-  });
-
-  // Example insight
-  await createLearning({
-    text: "Our users hate long forms",
-    details:
-      "Whenever we try shortening forms or providing shortcuts to users, they respond really well.",
-    evidence: evidence.map((id) => ({ experimentId: id })),
-    organization: org.id,
-    status: "accepted",
-    tags: [],
-    votes: [],
-    userId: "growthbook",
   });
 
   // Example presentation

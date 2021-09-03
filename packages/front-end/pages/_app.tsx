@@ -1,6 +1,5 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
-import "react-rangeslider/lib/index.css";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import Layout from "../components/Layout/Layout";
@@ -8,7 +7,7 @@ import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
 import { useEffect } from "react";
 import track from "../services/track";
-import { initEnv } from "../services/env";
+import { hasFileConfig, initEnv } from "../services/env";
 import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 type ModAppProps = AppProps & {
@@ -41,7 +40,9 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
-    track("App Load");
+    track("App Load", {
+      configFile: hasFileConfig(),
+    });
   }, [ready]);
 
   return (

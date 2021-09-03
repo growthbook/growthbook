@@ -46,8 +46,8 @@ type WithParams<B, P> = Omit<B, "params"> & { params: P };
 
 export type DataSourceSettings = {
   variationIdFormat?: "key" | "index";
+  experimentDimensions?: string[];
   queries?: {
-    usersQuery: string;
     experimentsQuery: string;
     pageviewsQuery: string;
   };
@@ -57,7 +57,6 @@ export type DataSourceSettings = {
     variationIdProperty: string;
     pageviewEvent: string;
     urlProperty: string;
-    userAgentProperty: string;
   };
   default?: {
     timestampColumn?: string;

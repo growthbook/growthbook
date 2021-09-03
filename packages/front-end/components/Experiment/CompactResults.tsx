@@ -16,6 +16,7 @@ import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
+import isEqual from "lodash/isEqual";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -94,7 +95,7 @@ const CompactResults: FC<{
       }
     });
   });
-  // store domaine for rechart
+  // calculate domain
   domain[0] = lowerBound;
   domain[1] = upperBound;
 
@@ -103,9 +104,59 @@ const CompactResults: FC<{
       (x) => x.risk?.length > 0
     ).length > 0;
 
+  // Variations defined for the experiment
+  const definedVariations: string[] = experiment.variations
+    .map((v, i) => v.key || i + "")
+    .sort();
+  // Variation ids returned from the query
+  const returnedVariations: string[] = variations
+    .map((v, i) => {
+      return {
+        variation: experiment.variations[i]?.key || i + "",
+        hasData: v.users > 0,
+      };
+    })
+    .filter((v) => v.hasData)
+    .map((v) => v.variation)
+    .concat(snapshot?.unknownVariations || [])
+    .sort();
+
+  const unequalVariations = !isEqual(returnedVariations, definedVariations);
+  const variationMismatch =
+    (experiment.datasource && snapshot?.unknownVariations?.length > 0) ||
+    unequalVariations;
+
   return (
     <div className="mb-4 experiment-compact-holder">
-      <SRMWarning srm={results.srm} />
+      {variationMismatch && (
+        <div className="alert alert-danger">
+          <h4 className="font-weight-bold">Variation Id Mismatch</h4>
+          {unequalVariations ? (
+            <div>
+              <div className="mb-1">
+                Returned from data source:
+                {returnedVariations.map((v) => (
+                  <code className="mx-2" key={v}>
+                    {v}
+                  </code>
+                ))}
+              </div>
+              <div>
+                Defined in Growth Book:
+                {definedVariations.map((v) => (
+                  <code className="mx-2" key={v}>
+                    {v}
+                  </code>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>All problems fixed. Update Data to refresh the results.</div>
+          )}
+        </div>
+      )}
+
+      {!variationMismatch && <SRMWarning srm={results.srm} />}
 
       <table className={`table experiment-compact aligned-graph`}>
         <thead>

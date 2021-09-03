@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useContext, FC } from "react";
-import { ImplementationType } from "back-end/types/experiment";
 import { NextRouter, useRouter } from "next/router";
 import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
-import { OrganizationInterface } from "back-end/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, isCloud } from "./env";
 
@@ -17,15 +19,6 @@ export type SubscriptionStatus =
   | "past_due"
   | "canceled"
   | "unpaid";
-
-export type OrganizationSettings = {
-  implementationTypes?: ImplementationType[];
-  confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-};
 
 export type OrganizationMember = {
   id: string;

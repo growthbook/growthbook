@@ -1370,7 +1370,9 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
         {
           $set: {
             ...updates,
-            results: results || snapshot.results,
+            unknownVariations:
+              results?.unknownVariations || snapshot.unknownVariations || [],
+            results: results?.dimensions || snapshot.results,
           },
         }
       );
@@ -1495,13 +1497,24 @@ export async function postSnapshot(
     return;
   }
 
-  let dimensionObj: DimensionInterface;
+  let userDimension: DimensionInterface;
+  let experimentDimension: string;
   if (dimension) {
-    dimensionObj = await findDimensionById(dimension, req.organization.id);
+    if (dimension.match(/^exp:/)) {
+      experimentDimension = dimension.substr(4);
+    } else {
+      userDimension = await findDimensionById(dimension, req.organization.id);
+    }
   }
 
   try {
-    const snapshot = await createSnapshot(exp, phase, datasource, dimensionObj);
+    const snapshot = await createSnapshot(
+      exp,
+      phase,
+      datasource,
+      userDimension,
+      experimentDimension
+    );
     await req.audit({
       event: "snapshot.create.auto",
       entity: {
@@ -1729,12 +1742,12 @@ export async function getPastExperimentsList(req: AuthRequest, res: Response) {
   );
 
   const experimentMap = new Map<string, string>();
-  experiments.forEach((e) => {
+  (experiments || []).forEach((e) => {
     experimentMap.set(e.trackingKey, e.id);
   });
 
   const trackingKeyMap: Record<string, string> = {};
-  model.experiments.forEach((e) => {
+  (model.experiments || []).forEach((e) => {
     const id = experimentMap.get(e.trackingKey);
     if (id) {
       trackingKeyMap[e.trackingKey] = id;
@@ -1773,7 +1786,13 @@ export async function postPastExperiments(
   });
   if (!model) {
     const { queries, result } = await startRun(
-      { experiments: getPastExperiments(integration, start) },
+      {
+        experiments: getPastExperiments(
+          integration,
+          start,
+          req.organization?.settings?.pastExperimentsMinLength
+        ),
+      },
       processPastExperiments
     );
     model = await PastExperimentsModel.create({
@@ -1788,7 +1807,13 @@ export async function postPastExperiments(
     });
   } else if (force) {
     const { queries, result } = await startRun(
-      { experiments: getPastExperiments(integration, start) },
+      {
+        experiments: getPastExperiments(
+          integration,
+          start,
+          req.organization?.settings?.pastExperimentsMinLength
+        ),
+      },
       processPastExperiments
     );
     model.set("runStarted", now);

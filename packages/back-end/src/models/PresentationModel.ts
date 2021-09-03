@@ -11,7 +11,6 @@ const presentationSchema = new mongoose.Schema({
   options: {
     showScreenShots: Boolean,
     showGraphs: Boolean,
-    showInsights: Boolean,
     graphType: String,
     hideMetric: [String],
     hideRisk: Boolean,
@@ -24,7 +23,6 @@ const presentationSchema = new mongoose.Schema({
       options: {
         showScreenShots: Boolean,
         showGraphs: Boolean,
-        showInsights: Boolean,
         graphType: String,
         hideMetric: [String],
         hideRisk: Boolean,

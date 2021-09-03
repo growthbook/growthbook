@@ -57,7 +57,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
         variationIdProperty: "Variant name",
         pageviewEvent: "Page view",
         urlProperty: "$current_url",
-        userAgentProperty: "",
         ...settings.events,
       },
     };
@@ -675,8 +674,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return result;
   }
-  getPastExperimentQuery(from: Date): string {
-    console.log(from);
+  getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {

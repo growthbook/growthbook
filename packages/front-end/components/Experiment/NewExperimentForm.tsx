@@ -163,9 +163,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { apiCall } = useAuth();
 
   const {
-    settings: { implementationTypes },
+    settings: { visualEditorEnabled },
   } = useContext(UserContext);
-  const visualAllowed = implementationTypes.includes("visual");
 
   const onSubmit = async () => {
     // Make sure there's an experiment name
@@ -229,7 +228,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {...inputProps.name}
           />
         </div>
-        {visualAllowed && !isImport && (
+        {visualEditorEnabled && !isImport && (
           <div className="form-group">
             <label>Type</label>
             <RadioSelector
