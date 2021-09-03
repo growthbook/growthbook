@@ -37,6 +37,7 @@ import * as adminController from "./controllers/admin";
 import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
+import * as projectsController from "./controllers/projects";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
@@ -60,6 +61,7 @@ wrapController(adminController);
 wrapController(stripeController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
+wrapController(projectsController);
 wrapController(slackController);
 
 const app = express();
@@ -401,6 +403,11 @@ app.put("/segments/:id", segmentsController.putSegment);
 app.get("/dimensions", dimensionsController.getAllDimensions);
 app.post("/dimensions", dimensionsController.postDimensions);
 app.put("/dimensions/:id", dimensionsController.putDimension);
+
+// Projects
+app.post("/projects", projectsController.postProjects);
+app.put("/projects/:id", projectsController.putProject);
+app.delete("/projects/:id", projectsController.deleteProject);
 
 // Reports
 /*

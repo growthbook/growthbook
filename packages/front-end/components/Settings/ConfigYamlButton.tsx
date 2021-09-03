@@ -5,16 +5,18 @@ import { useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { OrganizationSettings } from "back-end/types/organization";
+import { ProjectInterface } from "back-end/types/project";
 
 export default function ConfigYamlButton({
   settings = {},
 }: {
   settings?: OrganizationSettings;
 }) {
-  const { datasources, metrics, dimensions } = useDefinitions();
+  const { datasources, metrics, dimensions, projects } = useDefinitions();
 
   const href = useMemo(() => {
     const config: {
+      projects?: Record<string, Partial<ProjectInterface>>;
       organization?: {
         settings?: OrganizationSettings;
       };
@@ -106,6 +108,13 @@ export default function ConfigYamlButton({
       };
     });
 
+    if (projects.length) config.projects = {};
+    projects.forEach((p) => {
+      config.projects[p.id] = {
+        name: p.name,
+      };
+    });
+
     try {
       const yml =
         dump(config, {
@@ -117,7 +126,7 @@ export default function ConfigYamlButton({
       console.error(e);
       return "";
     }
-  }, [dimensions, metrics, datasources]);
+  }, [dimensions, metrics, datasources, projects]);
 
   if (!href) return null;
 

@@ -2,7 +2,8 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
-import { useContext } from "react";
+import { ProjectInterface } from "back-end/types/project";
+import { useContext, useState } from "react";
 import { createContext, FC } from "react";
 import useApi from "../hooks/useApi";
 
@@ -11,6 +12,7 @@ type Definitions = {
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
+  projects: ProjectInterface[];
   groups: string[];
   tags: string[];
 };
@@ -18,6 +20,8 @@ type Definitions = {
 type DefinitionContextValue = Definitions & {
   ready: boolean;
   error?: string;
+  project: string;
+  setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
   refreshGroups: (newGroups: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
@@ -25,6 +29,7 @@ type DefinitionContextValue = Definitions & {
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
+  getProjectById: (id: string) => null | ProjectInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -38,16 +43,22 @@ const defaultValue: DefinitionContextValue = {
   refreshGroups: async () => {
     /* do nothing */
   },
+  setProject: () => {
+    /* do nothing */
+  },
+  project: "",
   metrics: [],
   datasources: [],
   dimensions: [],
   segments: [],
   tags: [],
   groups: [],
+  projects: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
   getSegmentById: () => null,
+  getProjectById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -67,6 +78,8 @@ export const DefinitionsProvider: FC = ({ children }) => {
     "/organization/definitions"
   );
 
+  const [project, setProject] = useState("");
+
   let value: DefinitionContextValue;
   if (error) {
     value = { ...defaultValue, error: error?.message || "" };
@@ -81,10 +94,14 @@ export const DefinitionsProvider: FC = ({ children }) => {
       segments: data.segments,
       tags: data.tags,
       groups: data.groups,
+      projects: data.projects,
+      project,
+      setProject,
       getMetricById: getByIdFunction(data.metrics),
       getDatasourceById: getByIdFunction(data.datasources),
       getDimensionById: getByIdFunction(data.dimensions),
       getSegmentById: getByIdFunction(data.segments),
+      getProjectById: getByIdFunction(data.projects),
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {

@@ -16,11 +16,13 @@ import {
   FaBookOpen,
   FaArrowRight,
   FaBolt,
+  FaFolder,
 } from "react-icons/fa";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -90,6 +92,12 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/team/,
       },
       {
+        name: "Projects",
+        href: "/settings/projects",
+        Icon: FaFolder,
+        path: /^settings\/projects/,
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         Icon: FaCreditCard,
@@ -156,6 +164,7 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const { settings } = useContext(UserContext);
+  const { project, projects, setProject } = useDefinitions();
 
   // hacky:
   const router = useRouter();
@@ -260,7 +269,11 @@ const Layout = (): React.ReactElement => {
                 }}
               >
                 <li>
-                  <a href="#" className={`${styles.closebutton} closebutton`}>
+                  <a
+                    href="#"
+                    className={`${styles.closebutton} closebutton`}
+                    onClick={(e) => e.preventDefault()}
+                  >
                     <svg
                       className="bi bi-x"
                       width="1.9em"
@@ -280,6 +293,24 @@ const Layout = (): React.ReactElement => {
                     </svg>
                   </a>
                 </li>
+                {projects.length > 0 && (
+                  <li className="px-3">
+                    <select
+                      className="form-control"
+                      value={project}
+                      onChange={(e) => {
+                        setProject(e.target.value);
+                      }}
+                    >
+                      <option value="">All Projects</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                )}
                 {navlinks.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}

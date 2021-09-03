@@ -1,26 +1,21 @@
 import mongoose from "mongoose";
 import { ProjectInterface } from "../../types/project";
 import uniqid from "uniqid";
+import { getConfigProjects, usingFileConfig } from "../init/config";
 
 const projectSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
   },
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   name: String,
-  members: [
-    {
-      _id: false,
-      id: String,
-      role: String,
-    },
-  ],
   dateCreated: Date,
   dateUpdated: Date,
 });
-
-projectSchema.index({ "members.id": 1 });
 
 type ProjectDocument = mongoose.Document & ProjectInterface;
 
@@ -31,21 +26,17 @@ function toInterface(doc: ProjectDocument): ProjectInterface {
   return doc.toJSON();
 }
 
-export async function createProject(
-  organization: string,
-  userId: string,
-  name: string
-) {
+export async function createProject(organization: string, name: string) {
+  if (usingFileConfig()) {
+    throw new Error(
+      "Using config.yml to manage projects, cannot create one in the UI"
+    );
+  }
+
   // TODO: sanitize fields
   const doc = await ProjectModel.create({
     organization,
     name,
-    members: [
-      {
-        id: userId,
-        role: "admin",
-      },
-    ],
     id: uniqid("prj_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -53,20 +44,46 @@ export async function createProject(
   return toInterface(doc);
 }
 export async function findAllProjectsByOrganization(organization: string) {
+  if (usingFileConfig()) {
+    return getConfigProjects(organization);
+  }
+
   const docs = await ProjectModel.find({
     organization,
   });
   return docs.map(toInterface);
 }
 export async function findProjectById(id: string, organization: string) {
+  if (usingFileConfig()) {
+    return getConfigProjects(organization).filter((p) => p.id === id)[0];
+  }
+
   const doc = await ProjectModel.findOne({ id, organization });
   return toInterface(doc);
+}
+export async function deleteProjectById(id: string, organization: string) {
+  if (usingFileConfig()) {
+    throw new Error(
+      "Using config.yml to manage projects, cannot delete from the UI"
+    );
+  }
+
+  await ProjectModel.deleteOne({
+    id,
+    organization,
+  });
 }
 export async function updateProject(
   id: string,
   organization: string,
   update: Partial<ProjectInterface>
 ) {
+  if (usingFileConfig()) {
+    throw new Error(
+      "Using config.yml to manage projects, cannot update from the UI"
+    );
+  }
+
   await ProjectModel.updateOne(
     {
       id,
