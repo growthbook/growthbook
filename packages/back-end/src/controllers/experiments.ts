@@ -538,11 +538,15 @@ export async function postExperiment(
     const apiKeys = await getAllApiKeysByOrganization(req.organization.id);
 
     // if they have API key & cloud:
-    if (IS_CLOUD && apiKeys) {
+    if (IS_CLOUD && apiKeys && apiKeys.length) {
       const urls: string[] = [];
-      if (exp.implementation === "visual") {
-        // get the API js source
-      }
+      // Queue up a job to invalidate paths in the CDN
+      apiKeys.forEach((k) => {
+        if (exp.implementation === "visual") {
+          urls.push("/js/" + k.key + ".js");
+        }
+        urls.push("/config/" + k.key);
+      });
       await queueCDNInvalidate(urls);
     }
   }

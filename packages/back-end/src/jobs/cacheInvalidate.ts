@@ -3,7 +3,7 @@ import { AWS_CLOUDFRONT_DISTRIBUTION_ID } from "../util/secrets";
 import AWS from "aws-sdk";
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
 
-const INVALIDATE_JOB_NAME = "fireWebhook";
+const INVALIDATE_JOB_NAME = "fireInvalidate";
 type InvalidateJob = Job<{
   urls: string[];
   retryCount: number;
