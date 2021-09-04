@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Fragment } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -7,6 +7,9 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import SRMWarning from "./SRMWarning";
 import isEqual from "lodash/isEqual";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useContext } from "react";
+import { UserContext } from "../ProtectedPage";
+import Link from "next/link";
 
 const DataQualityWarning: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -14,6 +17,8 @@ const DataQualityWarning: FC<{
   phase?: ExperimentPhaseStringDates;
 }> = ({ experiment, snapshot, phase }) => {
   const { getDatasourceById } = useDefinitions();
+
+  const { permissions } = useContext(UserContext);
 
   if (!snapshot || !phase) return null;
   const results = snapshot.results[0];
@@ -43,13 +48,14 @@ const DataQualityWarning: FC<{
 
   // Variations defined for the experiment
   const definedVariations: string[] = experiment.variations
-    .map((v, i) => v.key || i + "")
+    .map((v, i) => (hasStringKeys ? v.key : null) || i + "")
     .sort();
   // Variation ids returned from the query
   const returnedVariations: string[] = variations
     .map((v, i) => {
       return {
-        variation: experiment.variations[i]?.key || i + "",
+        variation:
+          (hasStringKeys ? experiment.variations[i]?.key : null) || i + "",
         hasData: v.users > 0,
       };
     })
@@ -74,64 +80,46 @@ const DataQualityWarning: FC<{
   if (snapshot.unknownVariations?.length > 0) {
     // Data source is expecting numeric variation ids, but received string ids
     if (
+      datasource &&
       !hasStringKeys &&
       snapshot.unknownVariations.filter((x) => isNaN(parseInt(x))).length > 0
     ) {
       return (
-        <div className="alert alert-danger">
-          <div className="mb-2">
-            Your data source is configured to expect variation ids as numeric
-            indexes (e.g. <code>0</code>, <code>1</code>, etc.), but we received
-            strings instead (
-            {snapshot.unknownVariations.map((v) => (
-              <code key={v} className="mx-2">
-                {v}
-              </code>
-            ))}
-            ).
-          </div>
-          Please check your data source settings.
-        </div>
-      );
-    }
-
-    // Data source returned incorrect set of numeric ids
-    if (!hasStringKeys) {
-      return (
         <div className="alert alert-warning">
-          <strong>Warning:</strong> Expected {experiment.variations.length}{" "}
-          variation ids (<code>{definedVariations.join(",")}</code>), but
-          database returned{" "}
-          {returnedVariations.length === definedVariations.length
-            ? "a different set"
-            : returnedVariations.length}{" "}
-          (<code>{returnedVariations.join(",")}</code>).
+          <strong>Warning:</strong> Your data source is configured to expect
+          numeric Variation Ids (
+          {definedVariations.map((v, i) => (
+            <Fragment key={v}>
+              {i > 0 && ", "}
+              <code>{v}</code>
+            </Fragment>
+          ))}
+          ), but it returned strings instead (
+          {returnedVariations.map((v, i) => (
+            <Fragment key={v}>
+              {i > 0 && ", "}
+              <code>{v}</code>
+            </Fragment>
+          ))}
+          ).{" "}
+          {permissions.organizationSettings && (
+            <Link href={`/datasources/${datasource.id}`}>
+              <a>View settings</a>
+            </Link>
+          )}
         </div>
       );
     }
 
-    // Data source using string keys and has unexpected variations returned
     return (
-      <div className="alert alert-danger">
-        <h4 className="font-weight-bold">Unexpected Variation Ids</h4>
-        <div>
-          <div className="mb-1">
-            Ids returned from data source:
-            {returnedVariations.map((v) => (
-              <code className="mx-2" key={v}>
-                {v}
-              </code>
-            ))}
-          </div>
-          <div>
-            Ids defined in GrowthBook:
-            {definedVariations.map((v) => (
-              <code className="mx-2" key={v}>
-                {v}
-              </code>
-            ))}
-          </div>
-        </div>
+      <div className="alert alert-warning">
+        <strong>Warning:</strong> Expected {experiment.variations.length}{" "}
+        variation ids (<code>{definedVariations.join(",")}</code>), but database
+        returned{" "}
+        {returnedVariations.length === definedVariations.length
+          ? "a different set"
+          : returnedVariations.length}{" "}
+        (<code>{returnedVariations.join(",")}</code>).
       </div>
     );
   }
