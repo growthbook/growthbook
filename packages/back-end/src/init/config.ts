@@ -11,16 +11,10 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
-import { ProjectInterface } from "../../types/project";
 
 type ConfigFile = {
   organization?: {
     settings: OrganizationSettings;
-  };
-  projects?: {
-    [key: string]: {
-      name: string;
-    };
   };
   datasources?: {
     [key: string]: Omit<
@@ -146,21 +140,6 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
       dateUpdated: null,
       queries: [],
       runStarted: null,
-    };
-  });
-}
-
-export function getConfigProjects(organization: string): ProjectInterface[] {
-  reloadConfigIfNeeded();
-  if (!config || !config.projects) return [];
-
-  return Object.keys(config.projects).map((id) => {
-    return {
-      id,
-      ...config.projects[id],
-      organization,
-      dateCreated: null,
-      dateUpdated: null,
     };
   });
 }

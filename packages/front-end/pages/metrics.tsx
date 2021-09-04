@@ -18,10 +18,12 @@ const MetricsPage = (): React.ReactElement => {
 
   const {
     ready,
-    metrics,
+    metrics: rawMetrics,
     error,
     mutateDefinitions,
     getDatasourceById,
+    getProjectById,
+    project,
   } = useDefinitions();
   const router = useRouter();
 
@@ -40,6 +42,15 @@ const MetricsPage = (): React.ReactElement => {
     }
     setModalData(null);
   };
+
+  const currentProject = project ? getProjectById(project) : null;
+
+  const metrics = rawMetrics.filter((m) => {
+    if (currentProject) {
+      return currentProject.metrics?.includes(m.id);
+    }
+    return true;
+  });
 
   if (!metrics.length) {
     return (
