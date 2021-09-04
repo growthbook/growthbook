@@ -144,13 +144,21 @@ const GetStarted = ({
                 <div className="d-flex align-items-center">
                   <strong className="mr-2">Just here to explore?</strong>
                   <div style={{ flex: 1 }}>
-                    Quick start with some{" "}
+                    Add some{" "}
                     <Tooltip
                       text="Includes a sample experiment with results. Don't worry, it's easy to remove later."
                       style={{ borderBottom: "1px dotted #666" }}
                     >
                       sample data
                     </Tooltip>
+                    , or watch a{" "}
+                    <a
+                      href="https://youtu.be/0-gugX_dICM"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      video tour
+                    </a>
                   </div>
                   {hasSampleExperiment ? (
                     <Link href={`/experiment/${hasSampleExperiment.id}`}>
