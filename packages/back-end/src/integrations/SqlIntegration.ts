@@ -499,6 +499,9 @@ export default abstract class SqlIntegration
       variationKeyMap.set(v.key, i);
     });
 
+    const unknownVariations: Map<string, number> = new Map();
+    let totalUsers = 0;
+
     const dimensionMap = new Map<string, number>();
     rows.forEach(({ variation, dimension, users }) => {
       let i = 0;
@@ -513,6 +516,9 @@ export default abstract class SqlIntegration
         dimensionMap.set(dimension, i);
       }
 
+      const numUsers = parseInt(users) || 0;
+      totalUsers += numUsers;
+
       const varIndex =
         (this.settings?.variationIdFormat ||
           this.settings?.experiments?.variationFormat) === "key"
@@ -523,14 +529,22 @@ export default abstract class SqlIntegration
         varIndex < 0 ||
         varIndex >= experiment.variations.length
       ) {
-        ret.unknownVariations.push(variation);
+        unknownVariations.set(variation, numUsers);
         return;
       }
 
       ret.dimensions[i].variations.push({
         variation: varIndex,
-        users: parseInt(users) || 0,
+        users: numUsers,
       });
+    });
+
+    unknownVariations.forEach((users, variation) => {
+      // Ignore unknown variations with an insignificant number of users
+      // This protects against random typos causing false positives
+      if (totalUsers > 0 && users / totalUsers >= 0.02) {
+        ret.unknownVariations.push(variation);
+      }
     });
 
     return ret;
