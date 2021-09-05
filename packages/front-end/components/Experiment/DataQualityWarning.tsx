@@ -11,6 +11,23 @@ import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import Link from "next/link";
 
+const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
+  if (!vals.length) {
+    return <em>empty</em>;
+  }
+
+  return (
+    <>
+      {vals.map((v, i) => (
+        <Fragment key={v}>
+          {i > 0 && ", "}
+          <code>{v}</code>
+        </Fragment>
+      ))}
+    </>
+  );
+};
+
 const DataQualityWarning: FC<{
   experiment: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
@@ -28,7 +45,7 @@ const DataQualityWarning: FC<{
   // Skip checks if experiment phase has extremely uneven weights
   // This causes too many false positives with the current data quality checks
   if (phase.variationWeights.filter((x) => x < 0.02).length > 0) {
-    return;
+    return null;
   }
 
   const datasource = getDatasourceById(experiment.datasource);
@@ -87,20 +104,9 @@ const DataQualityWarning: FC<{
       return (
         <div className="alert alert-warning">
           <strong>Warning:</strong> Your data source is configured to expect
-          numeric Variation Ids (
-          {definedVariations.map((v, i) => (
-            <Fragment key={v}>
-              {i > 0 && ", "}
-              <code>{v}</code>
-            </Fragment>
-          ))}
+          numeric Variation Ids (<CommaList vals={definedVariations} />
           ), but it returned strings instead (
-          {returnedVariations.map((v, i) => (
-            <Fragment key={v}>
-              {i > 0 && ", "}
-              <code>{v}</code>
-            </Fragment>
-          ))}
+          <CommaList vals={returnedVariations} />
           ).{" "}
           {permissions.organizationSettings && (
             <Link href={`/datasources/${datasource.id}`}>
@@ -114,12 +120,13 @@ const DataQualityWarning: FC<{
     return (
       <div className="alert alert-warning">
         <strong>Warning:</strong> Expected {experiment.variations.length}{" "}
-        variation ids (<code>{definedVariations.join(",")}</code>), but database
-        returned{" "}
+        variation ids (<CommaList vals={definedVariations} />
+        ), but database returned{" "}
         {returnedVariations.length === definedVariations.length
           ? "a different set"
           : returnedVariations.length}{" "}
-        (<code>{returnedVariations.join(",")}</code>).
+        (<CommaList vals={returnedVariations} />
+        ).
       </div>
     );
   }
