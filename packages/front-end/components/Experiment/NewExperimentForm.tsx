@@ -1,13 +1,12 @@
 import { FC, useEffect, useState } from "react";
 import { useAuth } from "../../services/auth";
-import useForm from "../../hooks/useForm";
+import { useFieldArray, useForm } from "react-hook-form";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import TagsInput from "../TagsInput";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { FaPlus, FaTrash } from "react-icons/fa";
@@ -116,49 +115,36 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const [value, inputProps, manualUpdate] = useForm<
-    Partial<ExperimentInterfaceStringDates>
-  >({
-    implementation: initialValue?.implementation || "code",
-    trackingKey: initialValue?.trackingKey || "",
-    datasource: initialValue?.datasource || datasources?.[0]?.id || "",
-    userIdType: initialValue?.userIdType || "anonymous",
-    name: initialValue?.name || "",
-    hypothesis: initialValue?.hypothesis || "",
-    activationMetric: initialValue?.activationMetric || "",
-    metrics: initialValue?.metrics || [],
-    tags: initialValue?.tags || [],
-    targetURLRegex: initialValue?.targetURLRegex || "",
-    description: initialValue?.description || "",
-    guardrails: initialValue?.guardrails || [],
-    variations:
-      initialValue?.variations || getDefaultVariations(initialNumVariations),
-    phases: initialPhases,
-    ideaSource: idea || "",
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+    defaultValues: {
+      implementation: initialValue?.implementation || "code",
+      trackingKey: initialValue?.trackingKey || "",
+      datasource: initialValue?.datasource || datasources?.[0]?.id || "",
+      userIdType: initialValue?.userIdType || "anonymous",
+      name: initialValue?.name || "",
+      hypothesis: initialValue?.hypothesis || "",
+      activationMetric: initialValue?.activationMetric || "",
+      metrics: initialValue?.metrics || [],
+      tags: initialValue?.tags || [],
+      targetURLRegex: initialValue?.targetURLRegex || "",
+      description: initialValue?.description || "",
+      guardrails: initialValue?.guardrails || [],
+      variations:
+        initialValue?.variations || getDefaultVariations(initialNumVariations),
+      phases: initialPhases,
+      ideaSource: idea || "",
+    },
   });
 
-  const datasource = getDatasourceById(value.datasource);
+  const variations = useFieldArray({
+    name: "variations",
+    control: form.control,
+  });
+
+  const datasource = getDatasourceById(form.watch("datasource"));
   const variationKeys =
     (datasource?.settings?.variationIdFormat ||
       datasource?.settings?.experiments?.variationFormat) === "key";
-
-  const deleteVariation = (i: number) => {
-    const variations = [...value.variations];
-    variations.splice(i, 1);
-    manualUpdate({ variations });
-  };
-  const addVariation = () => {
-    const variations = [
-      ...value.variations,
-      {
-        name: `Variation ${value.variations.length}`,
-        description: "",
-        key: "",
-        screenshots: [],
-      },
-    ];
-    manualUpdate({ variations });
-  };
 
   const { apiCall } = useAuth();
 
@@ -166,7 +152,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     settings: { visualEditorEnabled },
   } = useContext(UserContext);
 
-  const onSubmit = async () => {
+  const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
     if (value.name.length < 1) {
       setStep(0);
@@ -204,7 +190,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     } else {
       router.push(`/experiment/${res.experiment.id}`);
     }
-  };
+  });
 
   return (
     <PagedModal
@@ -225,18 +211,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             required
             minLength={2}
             className="form-control"
-            {...inputProps.name}
+            {...form.register("name")}
           />
         </div>
         {visualEditorEnabled && !isImport && (
           <div className="form-group">
             <label>Type</label>
             <RadioSelector
-              name="implementationType"
-              value={value.implementation}
-              setValue={(implementation: ImplementationType) =>
-                manualUpdate({ implementation })
-              }
+              name="implementation"
+              form={form}
               options={[
                 {
                   key: "code",
@@ -255,12 +238,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         )}
         <div className="form-group">
           <label>Tags</label>
-          <TagsInput
-            value={value.tags}
-            onChange={(tags) => {
-              manualUpdate({ tags });
-            }}
-          />
+          <TagsInput name="tags" form={form} />
         </div>
         {!isImport && (
           <div className="form-group">
@@ -270,23 +248,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               minRows={2}
               maxRows={6}
               placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-              {...inputProps.hypothesis}
+              {...form.register("hypothesis")}
             />
           </div>
         )}
         {includeDescription && (
           <div className="form-group">
             <label>Description</label>
-            <MarkdownInput
-              value={value.description}
-              setValue={(description) => manualUpdate({ description })}
-            />
+            <MarkdownInput name="description" form={form} />
           </div>
         )}
         {!isImport && (
           <div className="form-group">
             <label>Data Source</label>
-            <select className="form-control" {...inputProps.datasource}>
+            <select className="form-control" {...form.register("datasource")}>
               <option value="">Manual</option>
               {datasources.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -303,7 +278,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <input
                 type="datetime-local"
                 className="form-control"
-                {...inputProps.phases[0].dateStarted}
+                {...form.register("phases.0.dateStarted")}
               />
             </div>
             <div className="form-group">
@@ -311,7 +286,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <input
                 type="datetime-local"
                 className="form-control"
-                {...inputProps.phases[0].dateEnded}
+                {...form.register("phases.0.dateEnded")}
               />
             </div>
           </>
@@ -321,7 +296,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <div className="mb-3">
           <label>Variations</label>
           <div className="row align-items-center">
-            {value.variations.map((v, i) => (
+            {variations.fields.map((v, i) => (
               <div
                 className="col-lg-4 col-md-6 mb-2"
                 key={i}
@@ -329,12 +304,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               >
                 <div className="border p-2 bg-white">
                   <div>
-                    {!isImport && value.variations.length > 2 ? (
+                    {!isImport && variations.fields.length > 2 ? (
                       <button
                         className="btn btn-outline-danger btn-sm float-right"
                         onClick={(e) => {
                           e.preventDefault();
-                          deleteVariation(i);
+                          variations.remove(i);
                         }}
                       >
                         <FaTrash />
@@ -348,7 +323,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <input
                       className="form-control"
                       type="text"
-                      {...inputProps.variations[i].name}
+                      {...form.register(`variations.${i}.name`)}
                     />
                   </div>
                   {variationKeys && (
@@ -357,7 +332,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       <input
                         className="form-control"
                         type="text"
-                        {...inputProps.variations[i].key}
+                        {...form.register(`variations.${i}.key`)}
                       />
                     </div>
                   )}
@@ -365,7 +340,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <label>Description</label>
                     <textarea
                       className="form-control"
-                      {...inputProps.variations[i].description}
+                      {...form.register(`variations.${i}.description`)}
                     />
                   </div>
                 </div>
@@ -381,7 +356,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     className="btn btn-outline-success"
                     onClick={(e) => {
                       e.preventDefault();
-                      addVariation();
+                      variations.append({
+                        name: `Variation ${variations.fields.length}`,
+                        description: "",
+                        key: "",
+                        screenshots: [],
+                      });
                     }}
                   >
                     <FaPlus /> Variation
@@ -395,7 +375,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <div className="form-group">
             <label>Traffic Split</label>
             <div className="row">
-              {value.variations.map((v, i) => (
+              {variations.fields.map((v, i) => (
                 <div className="col-auto mb-2" key={i}>
                   <div className="input-group">
                     <div className="input-group-prepend">
@@ -407,7 +387,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       max="1"
                       step="0.01"
                       className="form-control"
-                      {...inputProps.phases[0].variationWeights[i]}
+                      {...form.register(`phases.0.variationWeights.${i}`)}
                     />
                   </div>
                 </div>
@@ -417,16 +397,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   className="btn btn-outline-secondary"
                   onClick={(e) => {
                     e.preventDefault();
-                    manualUpdate({
-                      phases: [
-                        {
-                          ...value.phases[0],
-                          variationWeights: getEvenSplit(
-                            value.variations.length
-                          ),
-                        },
-                      ],
-                    });
+                    form.setValue(
+                      "phases.0.variationWeights",
+                      getEvenSplit(variations.fields.length)
+                    );
                   }}
                 >
                   Even Split
@@ -444,11 +418,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               Metrics you are trying to improve with this experiment.
             </div>
             <MetricsSelector
-              selected={value.metrics}
-              onChange={(metrics) => {
-                manualUpdate({ metrics });
-              }}
-              datasource={value.datasource}
+              form={form}
+              name="metrics"
+              datasource={datasource.id}
             />
           </div>
           <div className="form-group">
@@ -458,11 +430,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               improve.
             </div>
             <MetricsSelector
-              selected={value.guardrails}
-              onChange={(guardrails) => {
-                manualUpdate({ guardrails });
-              }}
-              datasource={value.datasource}
+              form={form}
+              name="guardrails"
+              datasource={datasource.id}
             />
           </div>
           <div className="form-group">
@@ -471,10 +441,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               Users must complete this metric before being included in the
               analysis.
             </div>
-            <select {...inputProps.activationMetric} className="form-control">
+            <select
+              {...form.register("activationMetric")}
+              className="form-control"
+            >
               <option value="">None</option>
               {metrics
-                .filter((m) => m.datasource === value.datasource)
+                .filter((m) => m.datasource === datasource.id)
                 .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -486,10 +459,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </small>
           </div>
 
-          {getDatasourceById(value.datasource)?.type !== "mixpanel" && (
+          {datasource?.type !== "mixpanel" && (
             <div className="form-group">
               <label className="font-weight-bold">Login State</label>
-              <select className="form-control" {...inputProps.userIdType}>
+              <select className="form-control" {...form.register("userIdType")}>
                 <option value="user">User</option>
                 <option value="anonymous">Anonymous</option>
               </select>
@@ -501,7 +474,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <input
                 type="text"
                 className="form-control"
-                {...inputProps.targetURLRegex}
+                {...form.register("targetURLRegex")}
               />
               <small className="form-text text-muted">
                 e.g. <code>https://example.com/pricing</code> or{" "}

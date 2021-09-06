@@ -20,20 +20,19 @@ const ChangePasswordModal: FC<{
       header="Change Password"
       open={true}
       autoCloseOnSubmit={false}
-      form={form}
       close={close}
       cta="Change Password"
       closeCta={success ? "Close" : "Cancel"}
       submit={
         success
           ? null
-          : async (data) => {
+          : form.handleSubmit(async (data) => {
               await apiCall("/auth/change-password", {
                 method: "POST",
                 body: JSON.stringify(data),
               });
               setSuccess(true);
-            }
+            })
       }
     >
       {success ? (

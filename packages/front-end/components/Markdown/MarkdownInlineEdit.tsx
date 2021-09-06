@@ -1,4 +1,5 @@
 import { FC, useState } from "react";
+import { useForm } from "react-hook-form";
 import LoadingOverlay from "../LoadingOverlay";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
@@ -19,32 +20,36 @@ const MarkdownInlineEdit: FC<{
   className = "",
 }) => {
   const [edit, setEdit] = useState(false);
-  const [val, setVal] = useState("");
   const [error, setError] = useState<string>(null);
   const [loading, setLoading] = useState(false);
+
+  const form = useForm({
+    defaultValues: {
+      value: "",
+    },
+  });
 
   if (edit) {
     return (
       <form
         className={"position-relative" + " " + className}
-        onSubmit={async (e) => {
-          e.preventDefault();
+        onSubmit={form.handleSubmit(async (data) => {
           if (loading) return;
           setError(null);
           setLoading(true);
           try {
-            await save(val);
+            await save(data.value);
             setEdit(false);
           } catch (e) {
             setError(e.message);
           }
           setLoading(false);
-        }}
+        })}
       >
         {loading && <LoadingOverlay />}
         <MarkdownInput
-          value={val}
-          setValue={setVal}
+          form={form}
+          name="value"
           cta={"Save"}
           error={error}
           autofocus={true}
@@ -65,7 +70,7 @@ const MarkdownInlineEdit: FC<{
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                setVal(value || "");
+                form.setValue("value", value || "");
                 setEdit(true);
               }}
             >
@@ -83,7 +88,7 @@ const MarkdownInlineEdit: FC<{
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setVal(value || "");
+              form.setValue("value", value || "");
               setEdit(true);
             }}
           >

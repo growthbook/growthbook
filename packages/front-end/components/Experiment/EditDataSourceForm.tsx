@@ -1,5 +1,5 @@
 import { FC } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
@@ -10,9 +10,11 @@ const EditDataSourceForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const [value, inputProps] = useForm({
-    datasource: experiment.datasource || "",
-    trackingKey: experiment.trackingKey || "",
+  const form = useForm({
+    defaultValues: {
+      datasource: experiment.datasource || "",
+      trackingKey: experiment.trackingKey || "",
+    },
   });
   const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
@@ -22,20 +24,20 @@ const EditDataSourceForm: FC<{
       header={"Edit Data Source"}
       open={true}
       close={cancel}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(value),
         });
         mutate();
-      }}
+      })}
       cta="Save"
     >
       <div className="form-group">
         <label>Data Source</label>
         <select
           className="form-control"
-          {...inputProps.datasource}
+          {...form.register("datasource")}
           disabled={experiment.status !== "draft"}
         >
           <option value="">Manual</option>
@@ -51,7 +53,7 @@ const EditDataSourceForm: FC<{
         <input
           type="text"
           className="form-control"
-          {...inputProps.trackingKey}
+          {...form.register("trackingKey")}
         />
       </div>
     </Modal>

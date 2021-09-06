@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { FC } from "react";
+import { UseFormReturn } from "react-hook-form";
 import { FaInfoCircle } from "react-icons/fa";
 
 const RadioSelector: FC<{
@@ -12,10 +13,12 @@ const RadioSelector: FC<{
     tooltip?: string;
     enabled?: boolean;
   }[];
-  value: string;
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
   labelWidth?: number;
-  setValue: (value: string) => void;
-}> = ({ name, options, value, labelWidth = 100, setValue }) => {
+}> = ({ name, options, form, labelWidth = 100 }) => {
+  const value = form.watch(name);
+
   return (
     <div>
       {options.map(({ key, display, description, sub, tooltip, enabled }) => (
@@ -39,12 +42,7 @@ const RadioSelector: FC<{
                 name={name}
                 value={key}
                 className="m-1"
-                checked={value === key}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setValue(key);
-                  }
-                }}
+                {...form.register(name)}
               />
               <strong style={{ width: labelWidth, paddingRight: 5 }}>
                 {display || key}

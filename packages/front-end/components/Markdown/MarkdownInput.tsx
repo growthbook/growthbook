@@ -15,27 +15,26 @@ import { useAuth } from "../../services/auth";
 import { useDropzone } from "react-dropzone";
 import LoadingOverlay from "../LoadingOverlay";
 import { uploadFile } from "../../services/files";
+import { UseFormReturn } from "react-hook-form";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
 const MarkdownInput: FC<{
-  value: string;
-  setValue: (value: string) => void;
+  name: string;
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
   autofocus?: boolean;
   error?: string;
   cta?: string;
   placeholder?: string;
   onCancel?: () => void;
-}> = ({
-  value,
-  setValue,
-  autofocus = false,
-  error,
-  cta,
-  onCancel,
-  placeholder,
-}) => {
+}> = ({ name, form, autofocus = false, error, cta, onCancel, placeholder }) => {
+  const value = form.watch(name);
+  useEffect(() => {
+    form.register(name);
+  }, [form.register]);
+
   const [preview, setPreview] = useState(false);
   const { apiCall } = useAuth();
   const textareaRef = useRef<null | HTMLTextAreaElement>(null);
@@ -62,7 +61,7 @@ const MarkdownInput: FC<{
 
     promises
       .then(() => {
-        setValue(value + toAdd.join("\n") + "\n");
+        form.setValue(name, value + toAdd.join("\n") + "\n");
         setUploading(false);
       })
       .catch((e) => {
@@ -145,7 +144,7 @@ const MarkdownInput: FC<{
               }}
               value={value}
               onChange={(e) => {
-                setValue(e.target.value);
+                form.setValue(name, e.target.value);
               }}
               placeholder={placeholder}
               trigger={{

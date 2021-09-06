@@ -889,9 +889,7 @@ const EditorPage: FC = () => {
                       // @ts-ignore
                     const captureStream = await navigator.mediaDevices.getDisplayMedia(
                       {
-                        video: {
-                          cursor: "never",
-                        },
+                        video: {},
                         audio: false,
                       }
                     );
@@ -899,16 +897,8 @@ const EditorPage: FC = () => {
                       .getVideoTracks()[0]
                       .getSettings();
 
-                    if (settings.displaySurface === "window") {
-                      captureStream
-                        .getTracks()
-                        .forEach((track: MediaStreamTrack) => track.stop());
-                      throw new Error(
-                        "Please choose to share either your entire screen or a specific tab."
-                      );
-                    }
-
                     setStream({
+                      ...stream,
                       stream: captureStream,
                       ...settings,
                     });

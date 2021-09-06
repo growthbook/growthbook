@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -13,23 +13,19 @@ const StopExperimentForm: FC<{
 }> = ({ experiment, close, mutate }) => {
   const isStopped = experiment.status === "stopped";
 
-  const [value, inputProps, manualUpdate] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       reason: "",
       winner: experiment.winner || 0,
       analysis: experiment.analysis || "",
       results: experiment.results || "dnf",
       dateEnded: new Date().toISOString().substr(0, 16),
     },
-    experiment.id,
-    {
-      className: "form-control",
-    }
-  );
+  });
 
   const { apiCall } = useAuth();
 
-  const submit = async () => {
+  const submit = form.handleSubmit(async (value) => {
     let winner = -1;
     if (value.results === "lost") {
       winner = 0;
@@ -63,7 +59,7 @@ const StopExperimentForm: FC<{
     }
 
     mutate();
-  };
+  });
 
   return (
     <Modal
@@ -79,28 +75,36 @@ const StopExperimentForm: FC<{
         <>
           <div className="form-group">
             <label>Reason for stopping the test</label>
-            <textarea {...inputProps.reason} placeholder="(optional)" />
+            <textarea
+              className="form-control"
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
           </div>
           <div className="form-group">
             <label>Stop Time (UTC)</label>
-            <input type="datetime-local" {...inputProps.dateEnded} />
+            <input
+              type="datetime-local"
+              className="form-control"
+              {...form.register("dateEnded")}
+            />
           </div>
         </>
       )}
       <div className="row">
         <div className={`form-group col-lg`}>
           <label>Conclusion</label>
-          <select {...inputProps.results}>
+          <select className="form-control" {...form.register("results")}>
             <option value="dnf">Did Not Finish</option>
             <option value="won">Won</option>
             <option value="lost">Lost</option>
             <option value="inconclusive">Inconclusive</option>
           </select>
         </div>
-        {value.results === "won" && experiment.variations.length > 2 && (
+        {form.watch("results") === "won" && experiment.variations.length > 2 && (
           <div className={`form-group col-lg`}>
             <label>Winner</label>
-            <select {...inputProps.winner}>
+            <select className="form-control" {...form.register("winner")}>
               {experiment.variations.map((v, i) => {
                 if (!i) return null;
                 return (
@@ -116,10 +120,7 @@ const StopExperimentForm: FC<{
       <div className="row">
         <div className="form-group col-lg">
           <label>Additional Analysis or Details</label>{" "}
-          <MarkdownInput
-            value={value.analysis}
-            setValue={(analysis) => manualUpdate({ analysis })}
-          />
+          <MarkdownInput form={form} name="analysis" />
         </div>
       </div>
     </Modal>

@@ -31,6 +31,8 @@ import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
+import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -61,6 +63,15 @@ const IdeaPage = (): ReactElement => {
   }>(`/idea/${iid}`);
 
   useSwitchOrg(data?.idea?.organization);
+
+  const form = useForm<{ text: string; tags: string[]; details: string }>();
+  useEffect(() => {
+    if (data?.idea) {
+      form.setValue("text", data.idea.text || "");
+      form.setValue("tags", data.idea.tags || []);
+      form.setValue("details", data.idea.details || "");
+    }
+  }, [data]);
 
   if (dataError) {
     return (
@@ -179,42 +190,32 @@ const IdeaPage = (): ReactElement => {
           <InlineForm
             className="mb-4"
             editing={edit}
-            initialValue={{
-              text: idea.text,
-              tags: idea.tags,
-            }}
-            onSave={async (value, markdownValue) => {
-              const body: Partial<IdeaInterface> = {
-                ...value,
-                details: markdownValue,
-              };
+            onSave={form.handleSubmit(async (value) => {
               await apiCall<{ status: number; message?: string }>(
                 `/idea/${idea.id}`,
                 {
                   method: "POST",
-                  body: JSON.stringify(body),
+                  body: JSON.stringify(value),
                 }
               );
               await mutate({
                 ...data,
                 idea: {
                   ...data.idea,
-                  ...body,
+                  ...value,
                 },
               });
               refreshTags(value.tags);
               setEdit(false);
+            })}
+            onStartEdit={() => {
+              form.setValue("text", idea.text || "");
+              form.setValue("tags", idea.tags || []);
+              form.setValue("details", idea.details || "");
             }}
             setEdit={setEdit}
           >
-            {({
-              inputProps,
-              value,
-              manualUpdate,
-              save,
-              cancel,
-              onMarkdownChange,
-            }) => (
+            {({ save, cancel }) => (
               <div className="bg-white p-3 border idea-wrap">
                 <div className="d-flex">
                   <EditableH1
@@ -223,7 +224,8 @@ const IdeaPage = (): ReactElement => {
                     autoFocus
                     save={save}
                     cancel={cancel}
-                    {...inputProps.text}
+                    form={form}
+                    name="text"
                   />
                   {!edit && (
                     <button
@@ -239,14 +241,7 @@ const IdeaPage = (): ReactElement => {
 
                 {edit ? (
                   <div className="py-2">
-                    <TagsInput
-                      value={value.tags}
-                      onChange={(tags) =>
-                        manualUpdate({
-                          tags,
-                        })
-                      }
-                    />
+                    <TagsInput form={form} name="tags" />
                   </div>
                 ) : (
                   <div className="d-flex">
@@ -283,7 +278,8 @@ const IdeaPage = (): ReactElement => {
                 <MarkdownEditor
                   defaultValue={idea.details || ""}
                   editing={edit}
-                  onChange={onMarkdownChange}
+                  form={form}
+                  name="details"
                   save={save}
                   cancel={cancel}
                 />

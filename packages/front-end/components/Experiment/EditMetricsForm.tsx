@@ -1,5 +1,5 @@
 import { FC } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
@@ -11,10 +11,12 @@ const EditMetricsForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const [value, inputProps, manualUpdate] = useForm({
-    metrics: experiment.metrics || [],
-    guardrails: experiment.guardrails || [],
-    activationMetric: experiment.activationMetric || "",
+  const form = useForm({
+    defaultValues: {
+      metrics: experiment.metrics || [],
+      guardrails: experiment.guardrails || [],
+      activationMetric: experiment.activationMetric || "",
+    },
   });
   const { apiCall } = useAuth();
   const { metrics } = useDefinitions();
@@ -24,13 +26,13 @@ const EditMetricsForm: FC<{
       header={"Edit Metrics"}
       open={true}
       close={cancel}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(value),
         });
         mutate();
-      }}
+      })}
       cta="Save"
     >
       <div className="form-group">
@@ -39,10 +41,8 @@ const EditMetricsForm: FC<{
           Metrics you are trying to improve with this experiment.
         </div>
         <MetricsSelector
-          selected={value.metrics}
-          onChange={(metrics) => {
-            manualUpdate({ metrics });
-          }}
+          form={form}
+          name="metrics"
           datasource={experiment.datasource}
         />
       </div>
@@ -53,10 +53,8 @@ const EditMetricsForm: FC<{
           improve.
         </div>
         <MetricsSelector
-          selected={value.guardrails}
-          onChange={(guardrails) => {
-            manualUpdate({ guardrails });
-          }}
+          form={form}
+          name="guardrails"
           datasource={experiment.datasource}
         />
       </div>
@@ -65,7 +63,7 @@ const EditMetricsForm: FC<{
         <div className="mb-1 font-italic">
           Users must complete this metric before being included in the analysis.
         </div>
-        <select {...inputProps.activationMetric} className="form-control">
+        <select {...form.register("activationMetric")} className="form-control">
           <option value="">None</option>
           {metrics
             .filter((m) => m.datasource === experiment.datasource)

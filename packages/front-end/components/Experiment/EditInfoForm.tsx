@@ -1,11 +1,8 @@
 import { FC, useContext } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
-import useForm from "../../hooks/useForm";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
-import {
-  ExperimentInterfaceStringDates,
-  ImplementationType,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
@@ -24,10 +21,8 @@ const EditInfoForm: FC<{
   } = useContext(UserContext);
 
   const { getDatasourceById } = useDefinitions();
-  const [value, inputProps, manualUpdate] = useForm<
-    Partial<ExperimentInterfaceStringDates>
-  >(
-    {
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+    defaultValues: {
       name: experiment.name || "",
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
@@ -59,42 +54,20 @@ const EditInfoForm: FC<{
             },
           ],
     },
-    experiment.id,
-    {
-      className: "form-control",
-    }
-  );
+  });
   const { apiCall } = useAuth();
+
+  const variations = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
+
+  const implementation = form.watch("implementation");
 
   const datasource = getDatasourceById(experiment.datasource);
   const variationKeys =
     (datasource?.settings?.variationIdFormat ||
       datasource?.settings?.experiments?.variationFormat) === "key";
-
-  const deleteVariation = (i: number) => {
-    const variations = [...value.variations];
-    variations.splice(i, 1);
-
-    const updates: Partial<ExperimentInterfaceStringDates> = { variations };
-
-    manualUpdate(updates);
-  };
-  const addVariation = () => {
-    const variations = [
-      ...value.variations,
-      {
-        name: `Variation ${value.variations.length}`,
-        description: "",
-        key: "",
-        value: "",
-        screenshots: [],
-      },
-    ];
-
-    const updates: Partial<ExperimentInterfaceStringDates> = { variations };
-
-    manualUpdate(updates);
-  };
 
   return (
     <Modal
@@ -102,7 +75,7 @@ const EditInfoForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
 
@@ -126,22 +99,23 @@ const EditInfoForm: FC<{
           body: JSON.stringify(data),
         });
         mutate();
-      }}
+      })}
       cta="Save"
     >
       <div className="form-group">
         <label>Name</label>
-        <input type="text" {...inputProps.name} />
+        <input
+          type="text"
+          className="form-control"
+          {...form.register("name")}
+        />
       </div>
       {visualEditorEnabled && (
         <div className="form-group">
           <label>Type</label>
           <RadioSelector
-            name="implementationType"
-            value={value.implementation}
-            setValue={(implementation: ImplementationType) =>
-              manualUpdate({ implementation })
-            }
+            name="implementation"
+            form={form}
             options={[
               {
                 key: "code",
@@ -161,8 +135,8 @@ const EditInfoForm: FC<{
       <div className="form-group">
         <label>Description</label>
         <MarkdownInput
-          value={value.description}
-          setValue={(description) => manualUpdate({ description })}
+          name="description"
+          form={form}
           placeholder="Background info, what's changing, etc."
         />
       </div>
@@ -171,13 +145,14 @@ const EditInfoForm: FC<{
         <textarea
           rows={3}
           placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-          {...inputProps.hypothesis}
+          className="form-control"
+          {...form.register("hypothesis")}
         />
       </div>
       <div className="mb-3">
         <label>Variations</label>
         <div className="row align-items-top">
-          {value.variations.map((v, i) => (
+          {variations.fields.map((v, i) => (
             <div
               className="col-lg-4 col-md-6 mb-2"
               key={i}
@@ -186,12 +161,12 @@ const EditInfoForm: FC<{
               <div className="border p-2 bg-white">
                 <div>
                   {experiment.status === "draft" &&
-                  value.variations.length > 2 ? (
+                  variations.fields.length > 2 ? (
                     <button
                       className="btn btn-outline-danger btn-sm float-right"
                       onClick={(e) => {
                         e.preventDefault();
-                        deleteVariation(i);
+                        variations.remove(i);
                       }}
                     >
                       <FaTrash />
@@ -202,23 +177,35 @@ const EditInfoForm: FC<{
                 </div>
                 <div className="form-group">
                   <label>{i === 0 ? "Control" : `Variation ${i}`} Name</label>
-                  <input type="text" {...inputProps.variations[i].name} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    {...form.register(`variations.${i}.name`)}
+                  />
                 </div>
                 {variationKeys && (
                   <div className="form-group">
                     <label>Id</label>
-                    <input type="text" {...inputProps.variations[i].key} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      {...form.register(`variations.${i}.key`)}
+                    />
                   </div>
                 )}
                 <div className="form-group">
                   <label>Description</label>
-                  <textarea {...inputProps.variations[i].description} />
+                  <textarea
+                    className="form-control"
+                    {...form.register(`variations.${i}.description`)}
+                  />
                 </div>
-                {value.implementation !== "visual" && (
+                {implementation !== "visual" && (
                   <div className="form-group">
                     <label>JSON Value</label>
                     <TextareaAutosize
-                      {...inputProps.variations[i].value}
+                      className="form-control"
+                      {...form.register(`variations.${i}.value`)}
                       minRows={1}
                       maxRows={10}
                       placeholder='e.g. {"color": "red"}'
@@ -241,7 +228,13 @@ const EditInfoForm: FC<{
                   className="btn btn-outline-success"
                   onClick={(e) => {
                     e.preventDefault();
-                    addVariation();
+                    variations.append({
+                      name: `Variation ${variations.fields.length}`,
+                      description: "",
+                      key: "",
+                      value: "",
+                      screenshots: [],
+                    });
                   }}
                 >
                   <FaPlus /> Variation

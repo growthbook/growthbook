@@ -1,5 +1,5 @@
 import { ReactElement, useState } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import WelcomeFrame from "./WelcomeFrame";
@@ -14,19 +14,21 @@ export default function Welcome({
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
   >(firstTime ? "firsttime" : "login");
-  const [value, inputProps] = useForm({
-    companyname: "",
-    name: "",
-    email: "",
-    password: "",
+  const form = useForm({
+    defaultValues: {
+      companyname: "",
+      name: "",
+      email: "",
+      password: "",
+    },
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
 
   const welcomeMsg = [
-    <>Welcome to Growth&nbsp;Book!</>,
-    <>Hello! Welcome to Growth&nbsp;Book</>,
+    <>Welcome to GrowthBook!</>,
+    <>Hello! Welcome to GrowthBook</>,
     "Hello there, Welcome!",
     "Hey there!",
   ];
@@ -44,19 +46,14 @@ export default function Welcome({
   const submit =
     state === "forgotSuccess"
       ? undefined
-      : async () => {
+      : form.handleSubmit(async (data) => {
           const res = await fetch(getApiHost() + "/auth/" + state, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             credentials: "include",
-            body: JSON.stringify({
-              companyname: value.companyname,
-              email: value.email,
-              name: value.name,
-              password: value.password,
-            }),
+            body: JSON.stringify(data),
           });
           const json: {
             status: number;
@@ -80,7 +77,7 @@ export default function Welcome({
           } else {
             onSuccess(json.token);
           }
-        };
+        });
 
   const welcomeContent =
     state === "login" ? (
@@ -109,6 +106,9 @@ export default function Welcome({
       {welcomeContent}
     </>
   );
+
+  const email = form.watch("email");
+
   return (
     <>
       <WelcomeFrame leftside={leftside} loading={loading}>
@@ -191,7 +191,7 @@ export default function Welcome({
             <div>
               <h3 className="h2">Forgot Password</h3>
               <div className="alert alert-success">
-                Password reset link sent to <strong>{value.email}</strong>.
+                Password reset link sent to <strong>{email}</strong>.
               </div>
               <p>Click the link in the email to reset your password.</p>
               <p>
@@ -214,11 +214,9 @@ export default function Welcome({
               <input
                 required
                 type="text"
-                name="companyname"
                 autoFocus
-                autoComplete="companyname"
                 minLength={2}
-                {...inputProps.companyname}
+                {...form.register("companyname")}
                 className="form-control"
               />
             </div>
@@ -229,11 +227,10 @@ export default function Welcome({
               <input
                 required
                 type="text"
-                name="name"
+                {...form.register("name")}
                 autoFocus={state === "register"}
                 autoComplete="name"
                 minLength={2}
-                {...inputProps.name}
                 className="form-control"
               />
             </div>
@@ -247,10 +244,9 @@ export default function Welcome({
               <input
                 required
                 type="email"
-                name="email"
+                {...form.register("email")}
                 autoFocus={state === "login" || state === "forgot"}
                 autoComplete="username"
-                {...inputProps.email}
                 className="form-control"
               />
             </div>
@@ -263,12 +259,11 @@ export default function Welcome({
               <input
                 required
                 type="password"
-                name="password"
+                {...form.register("password")}
                 autoComplete={
                   state === "login" ? "current-password" : "new-password"
                 }
                 minLength={8}
-                {...inputProps.password}
                 className="form-control"
               />
               {state === "login" && (

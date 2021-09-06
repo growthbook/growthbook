@@ -1,6 +1,6 @@
 import { FC } from "react";
 import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import TextareaAutosize from "react-textarea-autosize";
 import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
@@ -16,23 +16,24 @@ const DimensionForm: FC<{
     datasources,
     mutateDefinitions,
   } = useDefinitions();
-  const [value, inputProps] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
     },
-    current.id
-  );
+  });
 
-  const dsType = getDatasourceById(value.datasource)?.type || null;
+  const datasource = form.watch("datasource");
+
+  const dsType = getDatasourceById(datasource)?.type || null;
 
   return (
     <Modal
       close={close}
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(
           current.id ? `/dimensions/${current.id}` : `/dimensions`,
           {
@@ -41,7 +42,7 @@ const DimensionForm: FC<{
           }
         );
         mutateDefinitions();
-      }}
+      })}
     >
       <div className="form-group">
         Name
@@ -49,12 +50,16 @@ const DimensionForm: FC<{
           type="text"
           required
           className="form-control"
-          {...inputProps.name}
+          {...form.register("name")}
         />
       </div>
       <div className="form-group">
         Data Source
-        <select className="form-control" required {...inputProps.datasource}>
+        <select
+          className="form-control"
+          required
+          {...form.register("datasource")}
+        >
           <option value="">Choose one...</option>
           {datasources.map((d) => (
             <option key={d.id} value={d.id}>
@@ -68,7 +73,7 @@ const DimensionForm: FC<{
         <TextareaAutosize
           className="form-control"
           required
-          {...inputProps.sql}
+          {...form.register("sql")}
           minRows={3}
           placeholder={
             dsType === "mixpanel"

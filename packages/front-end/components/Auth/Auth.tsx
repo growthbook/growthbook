@@ -25,11 +25,10 @@ export default function Auth({
     <Modal
       solidOverlay={true}
       open={true}
-      form={form}
       submit={
         state === "forgotSuccess"
           ? undefined
-          : async (data) => {
+          : form.handleSubmit(async (data) => {
               const res = await fetch(getApiHost() + "/auth/" + state, {
                 method: "POST",
                 headers: {
@@ -58,7 +57,7 @@ export default function Auth({
               } else {
                 onSuccess(json.token);
               }
-            }
+            })
       }
       cta={"Submit"}
     >

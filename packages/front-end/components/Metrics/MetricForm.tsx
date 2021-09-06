@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
-import useForm from "../../hooks/useForm";
+import { useFieldArray, useForm } from "react-hook-form";
 import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
@@ -16,6 +16,7 @@ import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
 } from "../../services/metrics";
+import BooleanSelect from "../Forms/BooleanSelect";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -83,7 +84,7 @@ const MetricForm: FC<MetricFormProps> = ({
   source,
   initialStep = 0,
 }) => {
-  const { datasources, getDatasourceById, refreshTags } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [sqlInput, setSqlInput] = useState(
     current?.sql || !current?.table ? true : false
@@ -122,8 +123,8 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
-  const [value, inputs, manualUpdate] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       datasource:
         ("datasource" in current ? current.datasource : datasources[0]?.id) ||
         "",
@@ -144,15 +145,14 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
-      winRisk: current.winRisk || defaultWinRiskThreshold * 100,
-      loseRisk: current.loseRisk || defaultLoseRiskThreshold * 100,
+      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
+      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
     },
-    current.id || "new"
-  );
+  });
 
   const { apiCall } = useAuth();
 
-  const currentDataSource = getDatasourceById(value.datasource);
+  const currentDataSource = getDatasourceById(form.watch("datasource"));
 
   const datasourceType = currentDataSource?.type;
 
@@ -181,36 +181,24 @@ const MetricForm: FC<MetricFormProps> = ({
     column = "Property";
   }
 
-  const addCondition = () => {
-    manualUpdate({
-      conditions: [
-        ...value.conditions,
-        {
-          column: "",
-          operator: "=",
-          value: "",
-        },
-      ],
-    });
-  };
-  const deleteCondition = (i: number) => {
-    const clone = [...value.conditions];
-    clone.splice(i, 1);
-    manualUpdate({ conditions: clone });
-  };
+  const conditions = useFieldArray({
+    control: form.control,
+    name: "conditions",
+  });
 
-  const onSubmit = async () => {
-    const sendValue = { ...value };
-    //correct decimal/percent:
-    if (sendValue?.winRisk) sendValue.winRisk = sendValue.winRisk / 100;
-    if (sendValue?.loseRisk) sendValue.loseRisk = sendValue.loseRisk / 100;
+  const onSubmit = form.handleSubmit(async (value) => {
+    const { winRisk, loseRisk, sql, ...otherValues } = value;
+
+    const sendValue: Partial<MetricInterface> = {
+      ...otherValues,
+      winRisk: winRisk / 100,
+      loseRisk: loseRisk / 100,
+      sql: sqlInput ? sql : "",
+    };
 
     if (value.loseRisk < value.winRisk) return;
 
-    const body = JSON.stringify({
-      ...sendValue,
-      sql: sqlInput ? value.sql : "",
-    });
+    const body = JSON.stringify(sendValue);
 
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
@@ -231,54 +219,71 @@ const MetricForm: FC<MetricFormProps> = ({
     });
 
     onClose(true);
-  };
+  });
 
-  const sqlPreviewData = {
-    userIdCol: "",
-    timestampCol: value.timestampColumn || "received_at",
-    weekAgo: weekAgo.toISOString().substr(0, 10),
-    column: "",
-    where: value.conditions
-      .map((c: Condition) => {
-        return (
-          "  AND " + (c.column || "?") + " " + c.operator + " '" + c.value + "'"
-        );
-      })
-      .join("\n"),
-  };
-  if (value.userIdType === "user") {
-    sqlPreviewData.userIdCol = value.userIdColumn || "user_id";
-  } else if (value.userIdType === "anonymous") {
-    sqlPreviewData.userIdCol = value.anonymousIdColumn || "anonymous_id";
-  } else {
-    sqlPreviewData.userIdCol =
-      (value.userIdColumn || "user_id") +
-      " /*or " +
-      (value.anonymousIdColumn || "anonymous_id") +
-      "*/";
-  }
+  const type = form.watch("type");
+  const userIdType = form.watch("userIdType");
 
-  if (value.type === "count") {
-    if (!value.column || value.column === "*") {
-      sqlPreviewData.column = "COUNT(*) as count";
+  const getSqlPreviewData = () => {
+    const timestampColumn = form.watch("timestampColumn");
+    const userIdColumn = form.watch("userIdColumn");
+    const anonymousIdColumn = form.watch("anonymousIdColumn");
+    const column = form.watch("column");
+
+    const sqlPreviewData = {
+      userIdCol: "",
+      timestampCol: timestampColumn || "received_at",
+      weekAgo: weekAgo.toISOString().substr(0, 10),
+      column: "",
+      where: conditions.fields
+        .map((c: Condition) => {
+          return (
+            "  AND " +
+            (c.column || "?") +
+            " " +
+            c.operator +
+            " '" +
+            c.value +
+            "'"
+          );
+        })
+        .join("\n"),
+    };
+    if (userIdType === "user") {
+      sqlPreviewData.userIdCol = userIdColumn || "user_id";
+    } else if (userIdType === "anonymous") {
+      sqlPreviewData.userIdCol = anonymousIdColumn || "anonymous_id";
     } else {
-      sqlPreviewData.column =
-        "COUNT(\n    DISTINCT " + (value.column || "?") + "\n  ) as count";
+      sqlPreviewData.userIdCol =
+        (userIdColumn || "user_id") +
+        " /*or " +
+        (anonymousIdColumn || "anonymous_id") +
+        "*/";
     }
-  } else if (value.type === "duration") {
-    sqlPreviewData.column =
-      "MAX(\n    " + (value.column || "?") + "\n  ) as duration";
-  } else if (value.type === "revenue") {
-    sqlPreviewData.column =
-      "MAX(\n    " + (value.column || "?") + "\n  ) as revenue";
-  }
-  if (sqlPreviewData.column) {
-    sqlPreviewData.column =
-      ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
-  }
+
+    if (type === "count") {
+      if (!column || column === "*") {
+        sqlPreviewData.column = "COUNT(*) as count";
+      } else {
+        sqlPreviewData.column =
+          "COUNT(\n    DISTINCT " + (column || "?") + "\n  ) as count";
+      }
+    } else if (type === "duration") {
+      sqlPreviewData.column =
+        "MAX(\n    " + (column || "?") + "\n  ) as duration";
+    } else if (type === "revenue") {
+      sqlPreviewData.column =
+        "MAX(\n    " + (column || "?") + "\n  ) as revenue";
+    }
+    if (sqlPreviewData.column) {
+      sqlPreviewData.column =
+        ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
+    }
+    return sqlPreviewData;
+  };
 
   const riskError =
-    value.loseRisk < value.winRisk
+    form.watch("loseRisk") < form.watch("winRisk")
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
@@ -295,7 +300,7 @@ const MetricForm: FC<MetricFormProps> = ({
     >
       <Page
         display="Basic Info"
-        validate={async () => validateBasicInfo(value)}
+        validate={async () => validateBasicInfo(form.getValues())}
       >
         <div className="form-group">
           Metric Name
@@ -303,23 +308,17 @@ const MetricForm: FC<MetricFormProps> = ({
             type="text"
             required
             className="form-control"
-            {...inputs.name}
+            {...form.register("name")}
           />
         </div>
         <div className="form-group">
           Tags
-          <TagsInput
-            value={value.tags}
-            onChange={(tags) => {
-              refreshTags(tags);
-              manualUpdate({ tags });
-            }}
-          />
+          <TagsInput form={form} name="tags" />
         </div>
         <div className="form-group">
           Data Source
           <select
-            {...inputs.datasource}
+            {...form.register("datasource")}
             name="datasource"
             className="form-control"
             disabled={!!current.id}
@@ -334,19 +333,13 @@ const MetricForm: FC<MetricFormProps> = ({
         </div>
         <div className="form-group">
           Metric Type
-          <RadioSelector
-            name="metricType"
-            value={value.type}
-            setValue={(type) => {
-              manualUpdate({
-                type: type as MetricType,
-              });
-            }}
-            options={metricTypeOptions}
-          />
+          <RadioSelector name="type" form={form} options={metricTypeOptions} />
         </div>
-        {value.datasource && datasourceType === "google_analytics" && (
-          <GoogleAnalyticsMetrics inputProps={inputs.table} type={value.type} />
+        {datasourceType === "google_analytics" && (
+          <GoogleAnalyticsMetrics
+            inputProps={form.register("table")}
+            type={type}
+          />
         )}
       </Page>
       <Page
@@ -356,7 +349,7 @@ const MetricForm: FC<MetricFormProps> = ({
           validateQuerySettings(
             datasourceSettingsSupport,
             supportsSQL && sqlInput,
-            value
+            form.getValues()
           );
         }}
       >
@@ -402,7 +395,10 @@ const MetricForm: FC<MetricFormProps> = ({
                 <div className="form-group">
                   <div className="form-group">
                     <label>User Types Supported</label>
-                    <select className="form-control" {...inputs.userIdType}>
+                    <select
+                      className="form-control"
+                      {...form.register("userIdType")}
+                    >
                       <option value="anonymous">Anonymous Only</option>
                       <option value="user">Users Only</option>
                       <option value="either">Both Anonymous and Users</option>
@@ -412,7 +408,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 <div className="form-group">
                   <label>SQL</label>
                   <textarea
-                    {...inputs.sql}
+                    {...form.register("sql")}
                     className="form-control"
                     rows={15}
                     placeholder="SELECT ..."
@@ -424,16 +420,16 @@ const MetricForm: FC<MetricFormProps> = ({
               </div>
             ) : (
               <>
-                {["count", "duration", "revenue"].includes(value.type) && (
+                {["count", "duration", "revenue"].includes(type) && (
                   <div className="form-group ">
-                    {value.type === "count"
+                    {type === "count"
                       ? `Distinct ${column} for Counting`
                       : column}
                     <input
                       type="text"
-                      required={value.type !== "count"}
+                      required={type !== "count"}
                       className="form-control"
-                      {...inputs.column}
+                      {...form.register("column")}
                     />
                   </div>
                 )}
@@ -443,13 +439,13 @@ const MetricForm: FC<MetricFormProps> = ({
                     type="text"
                     required
                     className="form-control"
-                    {...inputs.table}
+                    {...form.register("table")}
                   />
                 </div>
                 {conditionsSupported && (
                   <div className="mb-3">
-                    {value.conditions.length > 0 && <h6>Conditions</h6>}
-                    {value.conditions.map((cond: Condition, i) => (
+                    {conditions.fields.length > 0 && <h6>Conditions</h6>}
+                    {conditions.fields.map((cond: Condition, i) => (
                       <div
                         className="form-row border py-2 mb-2 align-items-center"
                         key={i}
@@ -460,13 +456,13 @@ const MetricForm: FC<MetricFormProps> = ({
                             required
                             className="form-control mb-1"
                             placeholder={column}
-                            {...inputs.conditions[i].column}
+                            {...form.register(`conditions.${i}.column`)}
                           />
                         </div>
                         <div className="col-auto">
                           <select
                             className="form-control"
-                            {...inputs.conditions[i].operator}
+                            {...form.register(`conditions.${i}.operator`)}
                           >
                             <option value="=">=</option>
                             <option value="!=">!=</option>
@@ -483,7 +479,7 @@ const MetricForm: FC<MetricFormProps> = ({
                             required
                             className="form-control"
                             placeholder="Value"
-                            {...inputs.conditions[i].value}
+                            {...form.register(`conditions.${i}.value`)}
                           />
                         </div>
                         <div className="col-auto">
@@ -491,7 +487,7 @@ const MetricForm: FC<MetricFormProps> = ({
                             className="btn btn-danger"
                             onClick={(e) => {
                               e.preventDefault();
-                              deleteCondition(i);
+                              conditions.remove(i);
                             }}
                           >
                             &times;
@@ -503,7 +499,12 @@ const MetricForm: FC<MetricFormProps> = ({
                       className="btn btn-outline-success"
                       onClick={(e) => {
                         e.preventDefault();
-                        addCondition();
+
+                        conditions.append({
+                          column: "",
+                          operator: "=",
+                          value: "",
+                        });
                       }}
                     >
                       Add Condition
@@ -517,39 +518,42 @@ const MetricForm: FC<MetricFormProps> = ({
                       type="text"
                       placeholder={"received_at"}
                       className="form-control"
-                      {...inputs.timestampColumn}
+                      {...form.register("timestampColumn")}
                     />
                   </div>
                 )}
                 {customizeUserIds && (
                   <div className="form-group">
                     User Types Supported
-                    <select className="form-control" {...inputs.userIdType}>
+                    <select
+                      className="form-control"
+                      {...form.register("userIdType")}
+                    >
                       <option value="anonymous">Anonymous Only</option>
                       <option value="user">Users Only</option>
                       <option value="either">Both Anonymous and Users</option>
                     </select>
                   </div>
                 )}
-                {value.userIdType !== "anonymous" && customizeUserIds && (
+                {userIdType !== "anonymous" && customizeUserIds && (
                   <div className="form-group ">
                     User Id Column
                     <input
                       type="text"
                       placeholder={"user_id"}
                       className="form-control"
-                      {...inputs.userIdColumn}
+                      {...form.register("userIdColumn")}
                     />
                   </div>
                 )}
-                {value.userIdType !== "user" && customizeUserIds && (
+                {userIdType !== "user" && customizeUserIds && (
                   <div className="form-group ">
                     Anonymous Id Column
                     <input
                       type="text"
                       placeholder={"anonymous_id"}
                       className="form-control"
-                      {...inputs.anonymousIdColumn}
+                      {...form.register("anonymousIdColumn")}
                     />
                   </div>
                 )}
@@ -564,24 +568,24 @@ const MetricForm: FC<MetricFormProps> = ({
                   <Code
                     language="sql"
                     code={`SELECT
-${value.userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
-                      value.userIdType !== "user"
+${userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
+                      userIdType !== "user"
                         ? `  ${"anonymous_id"} as anonymous_id,\n`
                         : ""
                     }${
-                      value.type === "binomial"
+                      type === "binomial"
                         ? ""
-                        : value.type === "count"
+                        : type === "count"
                         ? "  1 as value,\n"
-                        : value.type === "revenue"
+                        : type === "revenue"
                         ? "  amount as value,\n"
                         : "  duration as value,\n"
                     }  ${"received_at"} as timestamp
 FROM
   ${
-    value.type === "binomial" || value.type === "count"
+    type === "binomial" || type === "count"
       ? "downloads"
-      : value.type === "revenue"
+      : type === "revenue"
       ? "purchases"
       : "sessions"
   }`}
@@ -590,25 +594,25 @@ FROM
                     Your SELECT statement must return the following columns:
                   </p>
                   <ol>
-                    {value.userIdType !== "anonymous" && (
+                    {userIdType !== "anonymous" && (
                       <li>
                         <strong>user_id</strong> - The logged-in user id of the
                         person converting
                       </li>
                     )}
-                    {value.userIdType !== "user" && (
+                    {userIdType !== "user" && (
                       <li>
                         <strong>anonymous_id</strong> - The anonymous id of the
                         person converting
                       </li>
                     )}
-                    {value.type !== "binomial" && (
+                    {type !== "binomial" && (
                       <li>
                         <strong>value</strong> -{" "}
-                        {value.type === "count"
+                        {type === "count"
                           ? "The number of conversions (multiple rows for a user will be summed)"
                           : "The " +
-                            value.type +
+                            type +
                             " amount (multiple rows for a user will be summed)"}
                       </li>
                     )}
@@ -622,16 +626,19 @@ FROM
                   Query Preview:
                   <Code
                     language="sql"
-                    code={`SELECT
+                    code={(() => {
+                      const sqlPreviewData = getSqlPreviewData();
+                      return `SELECT
   ${sqlPreviewData.userIdCol}${sqlPreviewData.column}
 FROM
-  ${value.table || "?"}
+  ${form.watch("table") || "?"}
 WHERE
   ${sqlPreviewData.timestampCol} > '${sqlPreviewData.weekAgo}'${
-                      sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
-                    }
+                        sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
+                      }
 GROUP BY
-  ${sqlPreviewData.userIdCol}`}
+  ${sqlPreviewData.userIdCol}`;
+                    })()}
                   />
                 </>
               )}
@@ -642,21 +649,26 @@ GROUP BY
       <Page display="Behavior">
         <div className="form-group ">
           What is the Goal?
-          <select required className="form-control" {...inputs.inverse}>
-            <option value="false">
-              Increase the{" "}
-              {value.type === "binomial" ? "conversion rate" : value.type}
-            </option>
-            <option value="true">
-              Decrease the{" "}
-              {value.type === "binomial" ? "conversion rate" : value.type}
-            </option>
-          </select>
+          <BooleanSelect
+            required
+            control={form.control}
+            name="inverse"
+            falseLabel={`Increase the ${
+              type === "binomial" ? "conversion rate" : type
+            }`}
+            trueLabel={`Decrease the ${
+              type === "binomial" ? "conversion rate" : type
+            }`}
+          />
         </div>
-        {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
+        {capSupported && ["count", "duration", "revenue"].includes(type) && (
           <div className="form-group">
             Capped Value
-            <input type="number" className="form-control" {...inputs.cap} />
+            <input
+              type="number"
+              className="form-control"
+              {...form.register("cap")}
+            />
             <small className="text-muted">
               If greater than zero, any user who has more than this count will
               be capped at this value.
@@ -671,18 +683,23 @@ GROUP BY
               step="1"
               min="1"
               className="form-control"
-              placeholder={getDefaultConversionWindowHours()}
-              {...inputs.conversionWindowHours}
+              placeholder={getDefaultConversionWindowHours() + ""}
+              {...form.register("conversionWindowHours", {
+                valueAsNumber: true,
+              })}
             />
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && ["duration", "revenue"].includes(type) && (
           <div className="form-group">
             Converted Users Only
-            <select className="form-control" {...inputs.ignoreNulls}>
-              <option value="false">No</option>
-              <option value="true">Yes</option>
-            </select>
+            <BooleanSelect
+              required
+              control={form.control}
+              name="ignoreNulls"
+              falseLabel="No"
+              trueLabel="Yes"
+            />
             <small className="text-muted">
               If yes, exclude anyone with a metric value less than or equal to
               zero from analysis.
@@ -692,20 +709,20 @@ GROUP BY
         {capSupported && (
           <div className="form-group">
             In an Experiment,{" "}
-            {value.type === "binomial"
+            {type === "binomial"
               ? "only count if a conversion happens"
               : "start counting"}
-            <select required className="form-control" {...inputs.earlyStart}>
-              <option value="false">
-                After the user is assigned a variation
-              </option>
-              <option value="true">
-                {value.type === "binomial"
+            <BooleanSelect
+              control={form.control}
+              required
+              name="earlyStart"
+              falseLabel="After the user is assigned a variation"
+              trueLabel={
+                (type === "binomial"
                   ? "Any time during the"
-                  : "At the start of the"}{" "}
-                user&apos;s session
-              </option>
-            </select>
+                  : "At the start of the") + " user's session"
+              }
+            />
           </div>
         )}
         <div className="form-group">
@@ -720,7 +737,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                acceptable risk under {value.winRisk}%
+                acceptable risk under {form.watch("winRisk")}%
               </span>
               <div
                 style={{
@@ -747,12 +764,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                value={value.winRisk}
-                onChange={(e) => {
-                  let newRisk = parseFloat(e.target.value);
-                  if (isNaN(newRisk)) newRisk = 0;
-                  manualUpdate({ winRisk: newRisk });
-                }}
+                {...form.register("winRisk")}
               />
             </div>
             <div className="col yellow-bar px-0">
@@ -780,12 +792,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                value={value.loseRisk}
-                onChange={(e) => {
-                  let newRisk = parseFloat(e.target.value);
-                  if (isNaN(newRisk)) newRisk = 0;
-                  manualUpdate({ loseRisk: newRisk });
-                }}
+                {...form.register("loseRisk")}
               />
             </div>
             <div className="col red-bar pl-0">
@@ -798,7 +805,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                too much risk over {value.loseRisk}%
+                too much risk over {form.watch("loseRisk")}%
               </span>
               <div
                 style={{
