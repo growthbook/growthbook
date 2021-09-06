@@ -1,6 +1,6 @@
 # Experiments
 
-Experiments are the core of Growth Book. This page covers several topics:
+Experiments are the core of GrowthBook. This page covers several topics:
 
 1.  Creating
 2.  Targeting
@@ -47,11 +47,11 @@ When stopping an experiment, you'll be prompted to enter which variation (if any
 
 If you are using the Client Libraries to implement experiments, there are some additional steps you must take.
 
-The Client Libraries never communicate with the Growth Book servers. That means as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately and the experiment will continue until you remove the code and do another deploy.
+The Client Libraries never communicate with the GrowthBook servers. That means as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately and the experiment will continue until you remove the code and do another deploy.
 
-This separation has huge performance and reliability benefits (if Growth Book goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
+This separation has huge performance and reliability benefits (if GrowthBook goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
 
-To get the best of both worlds, you can store a cached copy of experiments in Redis (or similar) and keep it up-to-date either by periodically hitting the [Growth Book API](/app/api) or setting up a [Webhook Endpoint](/app/webhooks). Then your app can query the cache at runtime to get the latest experiment statuses.
+To get the best of both worlds, you can store a cached copy of experiments in Redis (or similar) and keep it up-to-date either by periodically hitting the [GrowthBook API](/app/api) or setting up a [Webhook Endpoint](/app/webhooks). Then your app can query the cache at runtime to get the latest experiment statuses.
 
 ## Results
 

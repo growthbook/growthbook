@@ -95,7 +95,7 @@ export default function Welcome({
     ) : state === "firsttime" ? (
       <>
         <p>
-          Getting started with Growth Book only takes a few minutes. <br />
+          Getting started with GrowthBook only takes a few minutes. <br />
           To start, we&apos;ll need a bit of information about you.
         </p>
       </>

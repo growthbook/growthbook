@@ -14,7 +14,7 @@ const ClickHouseForm: FC<{
           <div className="col-auto">
             <div className="alert alert-info">
               Make sure to whitelist the IP Address <code>52.70.79.40</code> so
-              Growth Book can reach your database.
+              GrowthBook can reach your database.
             </div>
           </div>
         </div>

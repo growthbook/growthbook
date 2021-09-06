@@ -654,7 +654,7 @@ const EditorPage: FC = () => {
             </Link>
           </div>
           <div className="col-auto text-left pl-0">
-            <img alt="Growth Book" src="/logo/growth-book-name-white.svg" />
+            <img alt="GrowthBook" src="/logo/growth-book-name-white.svg" />
             <div className="pl-1">
               <small>Visual Designer</small>
             </div>
