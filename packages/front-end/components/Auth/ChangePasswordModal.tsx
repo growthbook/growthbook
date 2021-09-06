@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 
@@ -7,9 +7,11 @@ const ChangePasswordModal: FC<{
   close: () => void;
 }> = ({ close }) => {
   const [success, setSuccess] = useState(false);
-  const [value, inputProps] = useForm({
-    currentPassword: "",
-    newPassword: "",
+  const form = useForm({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+    },
   });
   const { apiCall } = useAuth();
 
@@ -18,16 +20,17 @@ const ChangePasswordModal: FC<{
       header="Change Password"
       open={true}
       autoCloseOnSubmit={false}
+      form={form}
       close={close}
       cta="Change Password"
       closeCta={success ? "Close" : "Cancel"}
       submit={
         success
           ? null
-          : async () => {
+          : async (data) => {
               await apiCall("/auth/change-password", {
                 method: "POST",
-                body: JSON.stringify(value),
+                body: JSON.stringify(data),
               });
               setSuccess(true);
             }
@@ -49,7 +52,7 @@ const ChangePasswordModal: FC<{
               minLength={8}
               className="form-control"
               autoComplete="current-password"
-              {...inputProps.currentPassword}
+              {...form.register("currentPassword")}
             />
             <small className="form-text text-muted">
               Can&apos;t remember your current password? Log out and click on{" "}
@@ -65,7 +68,7 @@ const ChangePasswordModal: FC<{
               minLength={8}
               className="form-control"
               autoComplete="new-password"
-              {...inputProps.newPassword}
+              {...form.register("newPassword")}
             />
           </div>
         </>

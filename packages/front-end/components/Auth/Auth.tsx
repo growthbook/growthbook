@@ -1,8 +1,8 @@
 import { ReactElement, useState } from "react";
-import useForm from "../../hooks/useForm";
 import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import Modal from "../Modal";
+import { useForm } from "react-hook-form";
 
 export default function Auth({
   onSuccess,
@@ -12,31 +12,31 @@ export default function Auth({
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess"
   >("login");
-  const [value, inputProps] = useForm({
-    name: "",
-    email: "",
-    password: "",
+
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+    },
   });
 
   return (
     <Modal
       solidOverlay={true}
       open={true}
+      form={form}
       submit={
         state === "forgotSuccess"
           ? undefined
-          : async () => {
+          : async (data) => {
               const res = await fetch(getApiHost() + "/auth/" + state, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                 },
                 credentials: "include",
-                body: JSON.stringify({
-                  email: value.email,
-                  name: value.name,
-                  password: value.password,
-                }),
+                body: JSON.stringify(data),
               });
               const json: {
                 status: number;
@@ -116,7 +116,8 @@ export default function Auth({
         <div>
           <h3>Forgot Password</h3>
           <div className="alert alert-success">
-            Password reset link sent to <strong>{value.email}</strong>.
+            Password reset link sent to{" "}
+            <strong>{form.getValues().email}</strong>.
           </div>
           <p>Click the link in the email to reset your password.</p>
           <p>
@@ -142,7 +143,7 @@ export default function Auth({
             name="name"
             autoComplete="name"
             minLength={2}
-            {...inputProps.name}
+            {...form.register("name")}
             className="form-control"
           />
         </div>
@@ -155,7 +156,7 @@ export default function Auth({
             type="email"
             name="email"
             autoComplete="username"
-            {...inputProps.email}
+            {...form.register("email")}
             className="form-control"
           />
         </div>
@@ -171,7 +172,7 @@ export default function Auth({
               state === "login" ? "current-password" : "new-password"
             }
             minLength={8}
-            {...inputProps.password}
+            {...form.register("password")}
             className="form-control"
           />
           {state === "login" && (

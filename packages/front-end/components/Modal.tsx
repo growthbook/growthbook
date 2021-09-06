@@ -1,10 +1,19 @@
-import { FC, useRef, useEffect, useState, ReactElement } from "react";
+import {
+  useRef,
+  useEffect,
+  useState,
+  ReactElement,
+  FormEventHandler,
+  ReactNode,
+} from "react";
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
+import { UseFormReturn } from "react-hook-form";
 
-type ModalProps = {
+type ModalProps<T> = {
   header?: "logo" | string | ReactElement | boolean;
+  form?: UseFormReturn<T>;
   open: boolean;
   className?: string;
   submitColor?: string;
@@ -17,13 +26,15 @@ type ModalProps = {
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
-  submit?: () => Promise<void>;
+  children: ReactNode;
+  submit?: (data?: T) => Promise<void>;
 };
-const Modal: FC<ModalProps> = ({
+const Modal = <T extends unknown>({
   header = "logo",
   children,
   close,
   submit,
+  form,
   submitColor = "primary",
   open = true,
   cta = "Submit",
@@ -35,7 +46,7 @@ const Modal: FC<ModalProps> = ({
   inline = false,
   solidOverlay = false,
   error: externalError,
-}) => {
+}: ModalProps<T>): ReactElement | null => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -55,6 +66,23 @@ const Modal: FC<ModalProps> = ({
       }
     }
   }, [open]);
+
+  const onSubmit = async (data?: T) => {
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await submit(data);
+      if (close && autoCloseOnSubmit) {
+        close();
+      } else {
+        setLoading(false);
+      }
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
 
   const contents = (
     <div className={`modal-content ${className}`} style={{ maxHeight: "93vh" }}>
@@ -174,23 +202,21 @@ const Modal: FC<ModalProps> = ({
         >
           {submit ? (
             <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (loading) return;
-                setError(null);
-                setLoading(true);
-                try {
-                  await submit();
-                  if (close && autoCloseOnSubmit) {
-                    close();
-                  } else {
-                    setLoading(false);
-                  }
-                } catch (e) {
-                  setError(e.message);
-                  setLoading(false);
-                }
-              }}
+              onSubmit={
+                form
+                  ? form.handleSubmit(async (data) => {
+                      await onSubmit(data as T);
+                    })
+                  : async (e) => {
+                      e.preventDefault();
+                      await onSubmit();
+                    }
+              }
+              onReset={
+                form
+                  ? (form.reset as FormEventHandler<HTMLFormElement>)
+                  : undefined
+              }
             >
               {contents}
             </form>
