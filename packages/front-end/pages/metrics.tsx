@@ -124,7 +124,7 @@ const MetricsPage = (): React.ReactElement => {
       </h3>
       <p>
         Metrics define success and failure for your business. Create metrics
-        here to use throughout the Growth Book app.
+        here to use throughout the GrowthBook app.
       </p>
       <table className="table appbox table-hover">
         <thead>

@@ -110,7 +110,7 @@ const TopNav: FC<{
         ) : (
           <div>
             <img
-              alt="Growth Book"
+              alt="GrowthBook"
               src="/logo/growthbook-logo.png"
               style={{ height: 40 }}
             />

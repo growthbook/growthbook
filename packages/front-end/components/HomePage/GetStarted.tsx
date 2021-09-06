@@ -126,7 +126,7 @@ const GetStarted = ({
               <div className="col-auto">
                 <h1>Let&apos;s get started!</h1>
                 <p className="mb-0">
-                  Follow the steps below to start using Growth Book
+                  Follow the steps below to start using GrowthBook
                 </p>
               </div>
             </div>
@@ -206,7 +206,7 @@ const GetStarted = ({
                         className="float-right mx-4"
                         src="/images/database.png"
                       />
-                      Growth Book needs read access to where your experiment and
+                      GrowthBook needs read access to where your experiment and
                       metric data lives. We support Mixpanel, Snowflake,
                       Redshift, BigQuery, Google Analytics, and more. If you
                       don&apos;t see yours,{" "}
@@ -358,7 +358,7 @@ const GetStarted = ({
                           <BiTimeFive /> 2 minutes
                         </span>
                         <br />
-                        Watch a quick overview video of how Growth Book works.
+                        Watch a quick overview video of how GrowthBook works.
                       </p>
                     </div>
                   </div>
@@ -434,7 +434,7 @@ const GetStarted = ({
                   <h3>Sample data</h3>
                   <p>
                     If you&apos;re not ready to connect up your data, you can
-                    still explore the features of Growth Book with some sample
+                    still explore the features of GrowthBook with some sample
                     data.
                   </p>
                   <a className="btn btn-primary">Load sample data</a>

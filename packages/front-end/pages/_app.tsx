@@ -48,7 +48,7 @@ function App({
   return (
     <>
       <Head>
-        <title>Growth Book</title>
+        <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
@@ -72,7 +72,7 @@ function App({
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">
-            Error Initializing Growth Book: {error}
+            Error Initializing GrowthBook: {error}
           </div>
         </div>
       ) : (

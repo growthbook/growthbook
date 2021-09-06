@@ -92,7 +92,7 @@ const Modal = <T extends unknown>({
           <h5 className="modal-title">
             {header === "logo" ? (
               <img
-                alt="Growth Book"
+                alt="GrowthBook"
                 src="/logo/growthbook-logo.png"
                 style={{ height: 40 }}
               />

@@ -138,7 +138,7 @@ const EditDataSourceSettingsForm: FC<{
       {firstTime && (
         <div className="alert alert-success mb-4">
           <strong>Connection successful!</strong> Customize the queries that
-          Growth Book uses to pull experiment results. Need help?{" "}
+          GrowthBook uses to pull experiment results. Need help?{" "}
           <a
             href="https://docs.growthbook.io/app/datasources#configuration-settings"
             target="_blank"

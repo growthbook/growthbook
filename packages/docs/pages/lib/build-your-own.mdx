@@ -1,8 +1,8 @@
 # Build Your Own Client Library
 
-This guide is meant for library authors looking to build a Growth Book client library in a currently unsupported language.
+This guide is meant for library authors looking to build a GrowthBook client library in a currently unsupported language.
 
-Growth Book client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
+GrowthBook client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
 
 All libraries should follow this specification as closely as the language permits to maintain consistency.
 
@@ -103,37 +103,35 @@ There are a bunch of ordered steps to run an experiment:
 13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
 14. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
 
-
     ```js
-    n = (fnv32_1a(id + experiment.key) % 1000) / 1000
+    n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
     ```
 
 15. Apply coverage to weights:
 
-
     ```js
     // Default weights to an even split
-    weights = experiment.weights
-    if(!weights) {
-      weights = Array(experiment.variations.length)
-        .fill(1/experiment.variations.length)
+    weights = experiment.weights;
+    if (!weights) {
+      weights = Array(experiment.variations.length).fill(
+        1 / experiment.variations.length
+      );
     }
 
     // Multiple each weight by the coverage (or 1 if not set)
-    weights = weights.map(w => w*(experiment.coverage || 1));
+    weights = weights.map((w) => w * (experiment.coverage || 1));
     ```
 
 16. Loop through `weights` until you reach the hash value
 
-
     ```js
-    cumulative = 0
-    assigned = -1
-    for (i=0; i<weights.length; i++) {
-      cumulative += weights[i]
+    cumulative = 0;
+    assigned = -1;
+    for (i = 0; i < weights.length; i++) {
+      cumulative += weights[i];
       if (n < cumulative) {
-        assigned = i
-        break
+        assigned = i;
+        break;
       }
     }
     ```
