@@ -1,12 +1,14 @@
 import React, { FC, Fragment } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "back-end/types/experiment";
 import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
 } from "../../services/metrics";
 import clsx from "clsx";
-import SRMWarning from "./SRMWarning";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
@@ -16,7 +18,7 @@ import Tooltip from "../Tooltip";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
-import isEqual from "lodash/isEqual";
+import DataQualityWarning from "./DataQualityWarning";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -33,11 +35,13 @@ const CompactResults: FC<{
   experiment: ExperimentInterfaceStringDates;
   barFillType?: "gradient" | "significant";
   barType?: "pill" | "violin";
+  phase?: ExperimentPhaseStringDates;
 }> = ({
   snapshot,
   experiment,
   barFillType = "gradient",
   barType = "violin",
+  phase,
 }) => {
   const { getMetricById } = useDefinitions();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -104,60 +108,13 @@ const CompactResults: FC<{
       (x) => x.risk?.length > 0
     ).length > 0;
 
-  // Variations defined for the experiment
-  const definedVariations: string[] = experiment.variations
-    .map((v, i) => v.key || i + "")
-    .sort();
-  // Variation ids returned from the query
-  const returnedVariations: string[] = variations
-    .map((v, i) => {
-      return {
-        variation: experiment.variations[i]?.key || i + "",
-        hasData: v.users > 0,
-      };
-    })
-    .filter((v) => v.hasData)
-    .map((v) => v.variation)
-    .concat(snapshot?.unknownVariations || [])
-    .sort();
-
-  const unequalVariations = !isEqual(returnedVariations, definedVariations);
-  const variationMismatch =
-    (experiment.datasource && snapshot?.unknownVariations?.length > 0) ||
-    unequalVariations;
-
   return (
     <div className="mb-4 experiment-compact-holder">
-      {variationMismatch && (
-        <div className="alert alert-danger">
-          <h4 className="font-weight-bold">Variation Id Mismatch</h4>
-          {unequalVariations ? (
-            <div>
-              <div className="mb-1">
-                Returned from data source:
-                {returnedVariations.map((v) => (
-                  <code className="mx-2" key={v}>
-                    {v}
-                  </code>
-                ))}
-              </div>
-              <div>
-                Defined in GrowthBook:
-                {definedVariations.map((v) => (
-                  <code className="mx-2" key={v}>
-                    {v}
-                  </code>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div>All problems fixed. Update Data to refresh the results.</div>
-          )}
-        </div>
-      )}
-
-      {!variationMismatch && <SRMWarning srm={results.srm} />}
-
+      <DataQualityWarning
+        experiment={experiment}
+        snapshot={snapshot}
+        phase={phase}
+      />
       <table className={`table experiment-compact aligned-graph`}>
         <thead>
           <tr>
