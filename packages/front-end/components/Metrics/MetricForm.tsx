@@ -313,7 +313,10 @@ const MetricForm: FC<MetricFormProps> = ({
         </div>
         <div className="form-group">
           Tags
-          <TagsInput form={form} name="tags" />
+          <TagsInput
+            value={form.watch("tags")}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
         </div>
         <div className="form-group">
           Data Source
@@ -333,7 +336,12 @@ const MetricForm: FC<MetricFormProps> = ({
         </div>
         <div className="form-group">
           Metric Type
-          <RadioSelector name="type" form={form} options={metricTypeOptions} />
+          <RadioSelector
+            name="type"
+            value={form.watch("type")}
+            setValue={(val: MetricType) => form.setValue("type", val)}
+            options={metricTypeOptions}
+          />
         </div>
         {datasourceType === "google_analytics" && (
           <GoogleAnalyticsMetrics

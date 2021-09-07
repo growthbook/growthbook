@@ -2,7 +2,10 @@ import { FC, useContext } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ImplementationType,
+} from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
@@ -108,8 +111,11 @@ const EditInfoForm: FC<{
           label="Type"
           render={() => (
             <RadioSelector
+              value={form.watch("implementation")}
+              setValue={(val: ImplementationType) =>
+                form.setValue("implementation", val)
+              }
               name="implementation"
-              form={form}
               options={[
                 {
                   key: "code",
@@ -131,9 +137,9 @@ const EditInfoForm: FC<{
         label="Description"
         render={(id) => (
           <MarkdownInput
+            value={form.watch("description")}
+            setValue={(val) => form.setValue("description", val)}
             id={id}
-            name="description"
-            form={form}
             placeholder="Background info, what's changing, etc."
           />
         )}

@@ -48,8 +48,8 @@ const MarkdownInlineEdit: FC<{
       >
         {loading && <LoadingOverlay />}
         <MarkdownInput
-          form={form}
-          name="value"
+          value={form.watch("value")}
+          setValue={(val) => form.setValue("value", val)}
           cta={"Save"}
           error={error}
           autofocus={true}

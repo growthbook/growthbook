@@ -1,6 +1,7 @@
 import { FC } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
+import Field from "../Forms/Field";
 import Modal from "../Modal";
 
 const EditOrganizationForm: FC<{
@@ -10,8 +11,10 @@ const EditOrganizationForm: FC<{
 }> = ({ close, mutate, name }) => {
   const { apiCall, setOrgName } = useAuth();
 
-  const [value, inputProps] = useForm({
-    name,
+  const form = useForm({
+    defaultValues: {
+      name,
+    },
   });
 
   return (
@@ -19,7 +22,7 @@ const EditOrganizationForm: FC<{
       header="Edit Organization Name"
       open={true}
       close={close}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall("/organization", {
           method: "PUT",
           body: JSON.stringify(value),
@@ -28,18 +31,10 @@ const EditOrganizationForm: FC<{
         setOrgName(value.name);
         // Update org name on settings page
         await mutate();
-      }}
+      })}
       cta="Save"
     >
-      <div className="form-group">
-        <label>Organization Name</label>
-        <input
-          type="text"
-          className="form-control"
-          required
-          {...inputProps.name}
-        />
-      </div>
+      <Field label="Organization Name" required {...form.register("name")} />
     </Modal>
   );
 };

@@ -62,7 +62,10 @@ const IdeaForm: FC<{
       </div>
       <div className="form-group">
         <label>Tags</label>
-        <TagsInput form={form} name="tags" />
+        <TagsInput
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
       </div>
     </Modal>
   );

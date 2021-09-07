@@ -41,8 +41,8 @@ const EditMetricsForm: FC<{
           Metrics you are trying to improve with this experiment.
         </div>
         <MetricsSelector
-          form={form}
-          name="metrics"
+          selected={form.watch("metrics")}
+          onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
         />
       </div>
@@ -53,8 +53,8 @@ const EditMetricsForm: FC<{
           improve.
         </div>
         <MetricsSelector
-          form={form}
-          name="guardrails"
+          selected={form.watch("guardrails")}
+          onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
         />
       </div>

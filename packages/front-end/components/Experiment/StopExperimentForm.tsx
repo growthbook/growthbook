@@ -114,7 +114,10 @@ const StopExperimentForm: FC<{
       <div className="row">
         <div className="form-group col-lg">
           <label>Additional Analysis or Details</label>{" "}
-          <MarkdownInput form={form} name="analysis" />
+          <MarkdownInput
+            value={form.watch("analysis")}
+            setValue={(val) => form.setValue("analysis", val)}
+          />
         </div>
       </div>
     </Modal>

@@ -3,17 +3,13 @@ import { Typeahead } from "react-bootstrap-typeahead";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip";
-import { UseFormReturn } from "react-hook-form";
 
 const MetricsSelector: FC<{
   datasource?: string;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
-  name: string;
-}> = ({ datasource, form, name }) => {
+  selected: string[];
+  onChange: (metrics: string[]) => void;
+}> = ({ datasource, selected, onChange }) => {
   const { metrics, getMetricById } = useDefinitions();
-
-  const selected = form.watch(name);
 
   const validMetrics = metrics.filter(
     (m) => !datasource || m.datasource === datasource
@@ -70,7 +66,7 @@ const MetricsSelector: FC<{
                 tmp.push(m);
               }
             });
-            form.setValue(name, tmp);
+            onChange(tmp);
           }}
         >
           {tagName} <span className="badge badge-light">{mArr.length}</span>
@@ -102,7 +98,7 @@ const MetricsSelector: FC<{
               }
             });
           }
-          form.setValue(name, tmp);
+          onChange(tmp);
         }}
       >
         {options.map((o, i) => {
@@ -125,10 +121,7 @@ const MetricsSelector: FC<{
           };
         })}
         onChange={(selected: { id: string; name: string }[]) => {
-          form.setValue(
-            name,
-            selected.map((s) => s.id)
-          );
+          onChange(selected.map((s) => s.id));
         }}
         selected={selected.map(toMetricValue)}
         placeholder="Select metrics..."

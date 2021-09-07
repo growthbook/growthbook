@@ -20,7 +20,8 @@ export type BaseFieldProps = {
   helpText?: ReactNode;
   containerClassName?: string;
   labelClassName?: string;
-  render?: (id: string) => ReactElement;
+  // eslint-disable-next-line
+  render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
   initialOption?: string;
   minRows?: number;
@@ -68,7 +69,7 @@ const Field = forwardRef(
 
     let component: ReactElement;
     if (render) {
-      component = render(fieldId);
+      component = render(fieldId, ref);
     } else if (textarea) {
       component = (
         <TextareaAutosize

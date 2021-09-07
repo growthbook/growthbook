@@ -166,8 +166,10 @@ const MetricPage: FC = () => {
                     <div className="row mb-3">
                       <div className="col">
                         <EditableH1
-                          name="name"
-                          form={form}
+                          value={form.watch("name")}
+                          onChange={(e) =>
+                            form.setValue("name", e.target.value)
+                          }
                           editing={editing}
                           save={save}
                           cancel={cancel}

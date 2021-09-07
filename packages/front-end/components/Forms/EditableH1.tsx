@@ -1,19 +1,15 @@
 import clsx from "clsx";
-import { FC } from "react";
-import { UseFormReturn } from "react-hook-form";
+import { ChangeEvent, FC } from "react";
 
 const EditableH1: FC<{
   editing: boolean;
+  value: string;
   className?: string;
   autoFocus?: boolean;
   cancel?: () => void;
   save?: () => Promise<void>;
-  name: string;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
-}> = ({ editing, className, save, cancel, autoFocus, name, form }) => {
-  const value = form.watch(name);
-
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}> = ({ editing, value, className, save, cancel, autoFocus, onChange }) => {
   if (!editing) {
     return <h1 className={className}>{value}</h1>;
   }
@@ -21,7 +17,8 @@ const EditableH1: FC<{
     <input
       type="text"
       className={clsx(className, "form-control form-control-lg")}
-      {...form.register(name)}
+      value={value}
+      onChange={onChange}
       autoFocus={autoFocus}
       onKeyDown={(e) => {
         if (e.key === "Escape" && e.ctrlKey) {

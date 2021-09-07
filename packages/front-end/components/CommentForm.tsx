@@ -55,8 +55,8 @@ const CommentForm: FC<{
     >
       {loading && <LoadingOverlay />}
       <MarkdownInput
-        name="comment"
-        form={form}
+        value={form.watch("comment")}
+        setValue={(comment) => form.setValue("comment", comment)}
         autofocus={autofocus}
         cta={cta}
         onCancel={onCancel}

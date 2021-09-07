@@ -1,8 +1,9 @@
 import { FC } from "react";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import track from "../../services/track";
+import Field from "../Forms/Field";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -10,18 +11,20 @@ const ApiKeysModal: FC<{
   defaultDescription?: string;
 }> = ({ close, onCreate, defaultDescription = "" }) => {
   const { apiCall } = useAuth();
-  const [value, inputProps] = useForm({
-    description: defaultDescription,
+  const form = useForm({
+    defaultValues: {
+      description: defaultDescription,
+    },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = form.handleSubmit(async (value) => {
     await apiCall("/keys", {
       method: "POST",
       body: JSON.stringify(value),
     });
     track("Create API Key");
     onCreate();
-  };
+  });
 
   return (
     <Modal
@@ -31,10 +34,7 @@ const ApiKeysModal: FC<{
       submit={onSubmit}
       cta="Create"
     >
-      <div className="form-group">
-        <label>Description (optional)</label>
-        <textarea {...inputProps.description} className="form-control" />
-      </div>
+      <Field label="Description (optional)" {...form.register("description")} />
     </Modal>
   );
 };

@@ -224,8 +224,8 @@ const IdeaPage = (): ReactElement => {
                     autoFocus
                     save={save}
                     cancel={cancel}
-                    form={form}
-                    name="text"
+                    value={form.watch("text")}
+                    onChange={(e) => form.setValue("text", e.target.value)}
                   />
                   {!edit && (
                     <button
@@ -241,7 +241,10 @@ const IdeaPage = (): ReactElement => {
 
                 {edit ? (
                   <div className="py-2">
-                    <TagsInput form={form} name="tags" />
+                    <TagsInput
+                      value={form.watch("tags")}
+                      onChange={(tags) => form.setValue("tags", tags)}
+                    />
                   </div>
                 ) : (
                   <div className="d-flex">

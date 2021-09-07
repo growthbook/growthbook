@@ -15,36 +15,29 @@ import { useAuth } from "../../services/auth";
 import { useDropzone } from "react-dropzone";
 import LoadingOverlay from "../LoadingOverlay";
 import { uploadFile } from "../../services/files";
-import { UseFormReturn } from "react-hook-form";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
 const MarkdownInput: FC<{
-  name: string;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  value: string;
+  setValue: (value: string) => void;
   autofocus?: boolean;
   error?: string;
   cta?: string;
+  id?: string;
   placeholder?: string;
   onCancel?: () => void;
-  id?: string;
 }> = ({
-  id,
-  name,
-  form,
+  value,
+  setValue,
   autofocus = false,
   error,
   cta,
+  id,
   onCancel,
   placeholder,
 }) => {
-  const value = form.watch(name);
-  useEffect(() => {
-    form.register(name);
-  }, [form.register]);
-
   const [preview, setPreview] = useState(false);
   const { apiCall } = useAuth();
   const textareaRef = useRef<null | HTMLTextAreaElement>(null);
@@ -71,7 +64,7 @@ const MarkdownInput: FC<{
 
     promises
       .then(() => {
-        form.setValue(name, value + toAdd.join("\n") + "\n");
+        setValue(value + toAdd.join("\n") + "\n");
         setUploading(false);
       })
       .catch((e) => {
@@ -136,7 +129,6 @@ const MarkdownInput: FC<{
         >
           <div className="position-relative" {...typedRootProps}>
             <ReactTextareaAutocomplete
-              id={id}
               className="form-control border-bottom-0"
               rows={6}
               loadingComponent={Loading}
@@ -146,6 +138,7 @@ const MarkdownInput: FC<{
                 maxHeight: 100,
                 overflowY: "auto",
               }}
+              id={id}
               innerRef={(textarea) => {
                 textareaRef.current = textarea;
               }}
@@ -155,7 +148,7 @@ const MarkdownInput: FC<{
               }}
               value={value}
               onChange={(e) => {
-                form.setValue(name, e.target.value);
+                setValue(e.target.value);
               }}
               placeholder={placeholder}
               trigger={{

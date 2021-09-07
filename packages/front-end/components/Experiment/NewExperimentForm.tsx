@@ -7,6 +7,7 @@ import TagsInput from "../TagsInput";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { FaPlus, FaTrash } from "react-icons/fa";
@@ -210,7 +211,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <label>Type</label>
             <RadioSelector
               name="implementation"
-              form={form}
+              value={form.watch("implementation")}
+              setValue={(val: ImplementationType) =>
+                form.setValue("implementation", val)
+              }
               options={[
                 {
                   key: "code",
@@ -229,7 +233,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         )}
         <div className="form-group">
           <label>Tags</label>
-          <TagsInput name="tags" form={form} />
+          <TagsInput
+            value={form.watch("tags")}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
         </div>
         {!isImport && (
           <Field
@@ -244,7 +251,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         {includeDescription && (
           <div className="form-group">
             <label>Description</label>
-            <MarkdownInput name="description" form={form} />
+            <MarkdownInput
+              value={form.watch("description")}
+              setValue={(val) => form.setValue("description", val)}
+            />
           </div>
         )}
         {!isImport && (
@@ -383,8 +393,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               Metrics you are trying to improve with this experiment.
             </div>
             <MetricsSelector
-              form={form}
-              name="metrics"
+              selected={form.watch("metrics")}
+              onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={datasource.id}
             />
           </div>
@@ -395,8 +405,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               improve.
             </div>
             <MetricsSelector
-              form={form}
-              name="guardrails"
+              selected={form.watch("guardrails")}
+              onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={datasource.id}
             />
           </div>
