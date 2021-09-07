@@ -11,7 +11,6 @@ import {
 } from "back-end/types/experiment";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import MetricsSelector from "./MetricsSelector";
-import TextareaAutosize from "react-textarea-autosize";
 import { useWatching } from "../../services/WatchProvider";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
@@ -20,6 +19,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
+import Field from "../Forms/Field";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -204,16 +204,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
     >
       <Page display="Basic Info">
-        <div className="form-group">
-          <label>Name</label>
-          <input
-            type="text"
-            required
-            minLength={2}
-            className="form-control"
-            {...form.register("name")}
-          />
-        </div>
+        <Field label="Name" required minLength={2} {...form.register("name")} />
         {visualEditorEnabled && !isImport && (
           <div className="form-group">
             <label>Type</label>
@@ -241,16 +232,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <TagsInput name="tags" form={form} />
         </div>
         {!isImport && (
-          <div className="form-group">
-            <label>Hypothesis</label>
-            <TextareaAutosize
-              className="form-control"
-              minRows={2}
-              maxRows={6}
-              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-              {...form.register("hypothesis")}
-            />
-          </div>
+          <Field
+            label="Hypothesis"
+            textarea
+            minRows={2}
+            maxRows={6}
+            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+            {...form.register("hypothesis")}
+          />
         )}
         {includeDescription && (
           <div className="form-group">
@@ -259,36 +248,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         )}
         {!isImport && (
-          <div className="form-group">
-            <label>Data Source</label>
-            <select className="form-control" {...form.register("datasource")}>
-              <option value="">Manual</option>
-              {datasources.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Field
+            label="Data Source"
+            {...form.register("datasource")}
+            initialOption="Manual"
+            options={datasources.map((d) => ({
+              value: d.id,
+              display: d.name,
+            }))}
+          />
         )}
         {isImport && (
           <>
-            <div className="form-group">
-              <label>Start Date (UTC)</label>
-              <input
-                type="datetime-local"
-                className="form-control"
-                {...form.register("phases.0.dateStarted")}
-              />
-            </div>
-            <div className="form-group">
-              <label>End Date (UTC)</label>
-              <input
-                type="datetime-local"
-                className="form-control"
-                {...form.register("phases.0.dateEnded")}
-              />
-            </div>
+            <Field
+              label="Start Date (UTC)"
+              type="datetime-local"
+              {...form.register("phases.0.dateStarted")}
+            />
+            <Field
+              label="End Date (UTC)"
+              type="datetime-local"
+              {...form.register("phases.0.dateEnded")}
+            />
           </>
         )}
       </Page>
@@ -318,31 +299,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       ""
                     )}
                   </div>
-                  <div className="form-group">
-                    <label>{i === 0 ? "Control" : `Variation ${i}`} Name</label>
-                    <input
-                      className="form-control"
-                      type="text"
-                      {...form.register(`variations.${i}.name`)}
-                    />
-                  </div>
+                  <Field
+                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                    {...form.register(`variations.${i}.name`)}
+                  />
                   {variationKeys && (
-                    <div className="form-group">
-                      <label>Id</label>
-                      <input
-                        className="form-control"
-                        type="text"
-                        {...form.register(`variations.${i}.key`)}
-                      />
-                    </div>
-                  )}
-                  <div className="form-group">
-                    <label>Description</label>
-                    <textarea
-                      className="form-control"
-                      {...form.register(`variations.${i}.description`)}
+                    <Field
+                      label="Id"
+                      {...form.register(`variations.${i}.key`)}
                     />
-                  </div>
+                  )}
+                  <Field
+                    label="Description"
+                    {...form.register(`variations.${i}.description`)}
+                  />
                 </div>
               </div>
             ))}
@@ -377,19 +347,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div className="row">
               {variations.fields.map((v, i) => (
                 <div className="col-auto mb-2" key={i}>
-                  <div className="input-group">
-                    <div className="input-group-prepend">
-                      <div className="input-group-text">{v.name}</div>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      className="form-control"
-                      {...form.register(`phases.0.variationWeights.${i}`)}
-                    />
-                  </div>
+                  <Field
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    {...form.register(`phases.0.variationWeights.${i}`)}
+                    prepend={v.name}
+                  />
                 </div>
               ))}
               <div className="col-auto">
@@ -460,27 +425,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
 
           {datasource?.type !== "mixpanel" && (
-            <div className="form-group">
-              <label className="font-weight-bold">Login State</label>
-              <select className="form-control" {...form.register("userIdType")}>
-                <option value="user">User</option>
-                <option value="anonymous">Anonymous</option>
-              </select>
-            </div>
+            <Field
+              label="Login State"
+              className="form-control"
+              {...form.register("userIdType")}
+              options={["user", "anonymous"]}
+            />
           )}
           {!isImport && (
-            <div className="form-group">
-              <label className="font-weight-bold">URL Targeting</label>
-              <input
-                type="text"
-                className="form-control"
-                {...form.register("targetURLRegex")}
-              />
-              <small className="form-text text-muted">
-                e.g. <code>https://example.com/pricing</code> or{" "}
-                <code>^/post/[0-9]+</code>
-              </small>
-            </div>
+            <Field
+              label="URL Targeting"
+              {...form.register("targetURLRegex")}
+              helpText={
+                <>
+                  e.g. <code>https://example.com/pricing</code> or{" "}
+                  <code>^/post/[0-9]+</code>
+                </>
+              }
+            />
           )}
         </div>
       </Page>

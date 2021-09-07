@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import WelcomeFrame from "./WelcomeFrame";
+import Field from "../Forms/Field";
 
 export default function Welcome({
   onSuccess,
@@ -209,65 +210,53 @@ export default function Welcome({
             </div>
           )}
           {state === "firsttime" && (
-            <div className="form-group">
-              Company name
-              <input
-                required
-                type="text"
-                autoFocus
-                minLength={2}
-                {...form.register("companyname")}
-                className="form-control"
-              />
-            </div>
+            <Field
+              label="Company name"
+              required
+              type="text"
+              autoFocus
+              minLength={2}
+              {...form.register("companyname")}
+            />
           )}
           {(state === "register" || state === "firsttime") && (
-            <div className="form-group">
-              Name
-              <input
-                required
-                type="text"
-                {...form.register("name")}
-                autoFocus={state === "register"}
-                autoComplete="name"
-                minLength={2}
-                className="form-control"
-              />
-            </div>
+            <Field
+              label="Name"
+              required
+              type="text"
+              {...form.register("name")}
+              autoFocus={state === "register"}
+              autoComplete="name"
+              minLength={2}
+            />
           )}
           {(state === "login" ||
             state === "register" ||
             state === "forgot" ||
             state === "firsttime") && (
-            <div className="form-group">
-              Email Address
-              <input
-                required
-                type="email"
-                {...form.register("email")}
-                autoFocus={state === "login" || state === "forgot"}
-                autoComplete="username"
-                className="form-control"
-              />
-            </div>
+            <Field
+              label="Email Address"
+              required
+              type="email"
+              {...form.register("email")}
+              autoFocus={state === "login" || state === "forgot"}
+              autoComplete="username"
+            />
           )}
           {(state === "login" ||
             state === "register" ||
             state === "firsttime") && (
-            <div className="form-group">
-              Password
-              <input
-                required
-                type="password"
-                {...form.register("password")}
-                autoComplete={
-                  state === "login" ? "current-password" : "new-password"
-                }
-                minLength={8}
-                className="form-control"
-              />
-              {state === "login" && (
-                <small className="form-text text-muted">
+            <Field
+              label="Password"
+              required
+              type="password"
+              {...form.register("password")}
+              autoComplete={
+                state === "login" ? "current-password" : "new-password"
+              }
+              minLength={8}
+              helpText={
+                state === "login" ? (
                   <a
                     href="#"
                     onClick={(e) => {
@@ -277,9 +266,9 @@ export default function Welcome({
                   >
                     Forgot Password?
                   </a>
-                </small>
-              )}
-            </div>
+                ) : null
+              }
+            />
           )}
           {error && <div className="alert alert-danger mr-auto">{error}</div>}
           <button className={`btn btn-primary btn-block btn-lg`} type="submit">

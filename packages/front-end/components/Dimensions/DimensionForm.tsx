@@ -1,10 +1,10 @@
 import { FC } from "react";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import TextareaAutosize from "react-textarea-autosize";
 import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -44,49 +44,34 @@ const DimensionForm: FC<{
         mutateDefinitions();
       })}
     >
-      <div className="form-group">
-        Name
-        <input
-          type="text"
-          required
-          className="form-control"
-          {...form.register("name")}
-        />
-      </div>
-      <div className="form-group">
-        Data Source
-        <select
-          className="form-control"
-          required
-          {...form.register("datasource")}
-        >
-          <option value="">Choose one...</option>
-          {datasources.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        {dsType === "mixpanel" ? "Event Property" : "SQL"}
-        <TextareaAutosize
-          className="form-control"
-          required
-          {...form.register("sql")}
-          minRows={3}
-          placeholder={
-            dsType === "mixpanel"
-              ? "$browser"
-              : "SELECT user_id, browser as value FROM users"
-          }
-        />
-        {dsType !== "mixpanel" && (
-          <small className="form-text text-muted">
-            Select two columns named <code>user_id</code> and <code>value</code>
-          </small>
-        )}
-      </div>
+      <Field label="Name" required {...form.register("name")} />
+      <Field
+        label="Data Source"
+        required
+        {...form.register("datasource")}
+        initialOption="Choose one..."
+        options={datasources.map((d) => ({ value: d.id, display: d.name }))}
+      />
+      <Field
+        label={dsType === "mixpanel" ? "Event Property" : "SQL"}
+        required
+        {...form.register("sql")}
+        textarea
+        minRows={3}
+        placeholder={
+          dsType === "mixpanel"
+            ? "$browser"
+            : "SELECT user_id, browser as value FROM users"
+        }
+        helpText={
+          dsType !== "mixpanel" ? (
+            <>
+              Select two columns named <code>user_id</code> and{" "}
+              <code>value</code>
+            </>
+          ) : null
+        }
+      />
       <p>
         <strong>Important:</strong> Please limit dimensions to at most 50 unique
         values.

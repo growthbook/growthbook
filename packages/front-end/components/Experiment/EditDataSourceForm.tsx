@@ -4,6 +4,7 @@ import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -33,29 +34,14 @@ const EditDataSourceForm: FC<{
       })}
       cta="Save"
     >
-      <div className="form-group">
-        <label>Data Source</label>
-        <select
-          className="form-control"
-          {...form.register("datasource")}
-          disabled={experiment.status !== "draft"}
-        >
-          <option value="">Manual</option>
-          {datasources.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Tracking Key</label>
-        <input
-          type="text"
-          className="form-control"
-          {...form.register("trackingKey")}
-        />
-      </div>
+      <Field
+        label="Data Source"
+        {...form.register("datasource")}
+        disabled={experiment.status !== "draft"}
+        initialOption="Manual"
+        options={datasources.map((d) => ({ value: d.id, display: d.name }))}
+      />
+      <Field label="Tracking Key" {...form.register("trackingKey")} />
     </Modal>
   );
 };

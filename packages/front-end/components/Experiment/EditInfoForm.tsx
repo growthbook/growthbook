@@ -6,10 +6,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
-import TextareaAutosize from "react-textarea-autosize";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
+import Field from "../Forms/Field";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -102,53 +102,48 @@ const EditInfoForm: FC<{
       })}
       cta="Save"
     >
-      <div className="form-group">
-        <label>Name</label>
-        <input
-          type="text"
-          className="form-control"
-          {...form.register("name")}
-        />
-      </div>
+      <Field label="Name" {...form.register("name")} />
       {visualEditorEnabled && (
-        <div className="form-group">
-          <label>Type</label>
-          <RadioSelector
-            name="implementation"
-            form={form}
-            options={[
-              {
-                key: "code",
-                display: "Code",
-                description:
-                  "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
-              },
-              {
-                key: "visual",
-                display: "Visual",
-                description: "Using our point & click Visual Editor",
-              },
-            ]}
-          />
-        </div>
+        <Field
+          label="Type"
+          render={() => (
+            <RadioSelector
+              name="implementation"
+              form={form}
+              options={[
+                {
+                  key: "code",
+                  display: "Code",
+                  description:
+                    "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
+                },
+                {
+                  key: "visual",
+                  display: "Visual",
+                  description: "Using our point & click Visual Editor",
+                },
+              ]}
+            />
+          )}
+        />
       )}
-      <div className="form-group">
-        <label>Description</label>
-        <MarkdownInput
-          name="description"
-          form={form}
-          placeholder="Background info, what's changing, etc."
-        />
-      </div>
-      <div className="form-group">
-        <label>Hypothesis</label>
-        <textarea
-          rows={3}
-          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-          className="form-control"
-          {...form.register("hypothesis")}
-        />
-      </div>
+      <Field
+        label="Description"
+        render={(id) => (
+          <MarkdownInput
+            id={id}
+            name="description"
+            form={form}
+            placeholder="Background info, what's changing, etc."
+          />
+        )}
+      />
+      <Field
+        label="Hypothesis"
+        {...form.register("hypothesis")}
+        placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+        textarea
+      />
       <div className="mb-3">
         <label>Variations</label>
         <div className="row align-items-top">
@@ -175,45 +170,28 @@ const EditInfoForm: FC<{
                     ""
                   )}
                 </div>
-                <div className="form-group">
-                  <label>{i === 0 ? "Control" : `Variation ${i}`} Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    {...form.register(`variations.${i}.name`)}
-                  />
-                </div>
+                <Field
+                  label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                  {...form.register(`variations.${i}.name`)}
+                />
                 {variationKeys && (
-                  <div className="form-group">
-                    <label>Id</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      {...form.register(`variations.${i}.key`)}
-                    />
-                  </div>
+                  <Field label="Id" {...form.register(`variations.${i}.key`)} />
                 )}
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    className="form-control"
-                    {...form.register(`variations.${i}.description`)}
-                  />
-                </div>
+                <Field
+                  label="Description"
+                  textarea
+                  {...form.register(`variations.${i}.description`)}
+                />
                 {implementation !== "visual" && (
-                  <div className="form-group">
-                    <label>JSON Value</label>
-                    <TextareaAutosize
-                      className="form-control"
-                      {...form.register(`variations.${i}.value`)}
-                      minRows={1}
-                      maxRows={10}
-                      placeholder='e.g. {"color": "red"}'
-                    />
-                    <small className="form-text text-muted">
-                      Optional, use to parameterize experiment data.
-                    </small>
-                  </div>
+                  <Field
+                    label="JSON Value"
+                    textarea
+                    minRows={1}
+                    maxRows={10}
+                    placeholder='e.g. {"color": "red"}'
+                    {...form.register(`variations.${i}.value`)}
+                    helpText="Optional, use to parameterize experiment data."
+                  />
                 )}
               </div>
             </div>

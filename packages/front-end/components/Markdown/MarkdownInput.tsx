@@ -29,7 +29,17 @@ const MarkdownInput: FC<{
   cta?: string;
   placeholder?: string;
   onCancel?: () => void;
-}> = ({ name, form, autofocus = false, error, cta, onCancel, placeholder }) => {
+  id?: string;
+}> = ({
+  id,
+  name,
+  form,
+  autofocus = false,
+  error,
+  cta,
+  onCancel,
+  placeholder,
+}) => {
   const value = form.watch(name);
   useEffect(() => {
     form.register(name);
@@ -126,6 +136,7 @@ const MarkdownInput: FC<{
         >
           <div className="position-relative" {...typedRootProps}>
             <ReactTextareaAutocomplete
+              id={id}
               className="form-control border-bottom-0"
               rows={6}
               loadingComponent={Loading}

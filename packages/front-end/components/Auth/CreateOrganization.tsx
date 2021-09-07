@@ -5,6 +5,7 @@ import WelcomeFrame from "./WelcomeFrame";
 import { UserContext } from "../ProtectedPage";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
+import Field from "../Forms/Field";
 
 export default function CreateOrganization(): ReactElement {
   const form = useForm({
@@ -65,22 +66,16 @@ export default function CreateOrganization(): ReactElement {
             <h3 className="h2">Create organization</h3>
             <p className="text-muted">You can edit this at any time.</p>
           </div>
-
-          <div className="form-group">
-            Company name
-            <input
-              required
-              type="text"
-              name="companyname"
-              autoFocus
-              autoComplete="companyname"
-              minLength={3}
-              {...form.register("company")}
-              className="form-control"
-            />
-          </div>
-
-          {error && <div className="alert alert-danger mr-auto">{error}</div>}
+          <Field
+            label="Company name"
+            required
+            type="text"
+            autoFocus
+            autoComplete="company"
+            minLength={3}
+            {...form.register("company")}
+            error={error}
+          />
           <button className={`btn btn-primary btn-block btn-lg`} type="submit">
             Create organization
           </button>

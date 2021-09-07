@@ -3,6 +3,7 @@ import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
+import Field from "../Forms/Field";
 
 export default function Auth({
   onSuccess,
@@ -134,48 +135,33 @@ export default function Auth({
         </div>
       )}
       {state === "register" && (
-        <div className="form-group">
-          Name
-          <input
-            required
-            type="text"
-            name="name"
-            autoComplete="name"
-            minLength={2}
-            {...form.register("name")}
-            className="form-control"
-          />
-        </div>
+        <Field
+          required
+          label="Name"
+          autoComplete="name"
+          minLength={2}
+          {...form.register("name")}
+        />
       )}
       {(state === "login" || state === "register" || state === "forgot") && (
-        <div className="form-group">
-          Email Address
-          <input
-            required
-            type="email"
-            name="email"
-            autoComplete="username"
-            {...form.register("email")}
-            className="form-control"
-          />
-        </div>
+        <Field
+          required
+          label="Email Address"
+          type="email"
+          autoComplete="username"
+          {...form.register("email")}
+        />
       )}
       {(state === "login" || state === "register") && (
-        <div className="form-group">
-          Password
-          <input
-            required
-            type="password"
-            name="password"
-            autoComplete={
-              state === "login" ? "current-password" : "new-password"
-            }
-            minLength={8}
-            {...form.register("password")}
-            className="form-control"
-          />
-          {state === "login" && (
-            <small className="form-text text-muted">
+        <Field
+          required
+          label="Password"
+          type="password"
+          autoComplete={state === "login" ? "current-password" : "new-password"}
+          minLength={8}
+          {...form.register("password")}
+          helpText={
+            state === "login" ? (
               <a
                 href="#"
                 onClick={(e) => {
@@ -185,9 +171,9 @@ export default function Auth({
               >
                 Forgot Password?
               </a>
-            </small>
-          )}
-        </div>
+            ) : null
+          }
+        />
       )}
     </Modal>
   );
