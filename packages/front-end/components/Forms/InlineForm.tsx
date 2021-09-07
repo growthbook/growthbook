@@ -4,7 +4,7 @@ import LoadingOverlay from "../LoadingOverlay";
 import LoadingSpinner from "../LoadingSpinner";
 
 // eslint-disable-next-line
-export default function InlineForm<T extends object>({
+export default function InlineForm({
   editing,
   setEdit,
   className,

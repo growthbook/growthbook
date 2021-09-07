@@ -34,7 +34,11 @@ const ApiKeysModal: FC<{
       submit={onSubmit}
       cta="Create"
     >
-      <Field label="Description (optional)" {...form.register("description")} />
+      <Field
+        label="Description (optional)"
+        textarea
+        {...form.register("description")}
+      />
     </Modal>
   );
 };

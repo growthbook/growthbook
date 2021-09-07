@@ -152,7 +152,9 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const currentDataSource = getDatasourceById(form.watch("datasource"));
+  const value = form.getValues();
+
+  const currentDataSource = getDatasourceById(value.datasource);
 
   const datasourceType = currentDataSource?.type;
 
@@ -221,69 +223,52 @@ const MetricForm: FC<MetricFormProps> = ({
     onClose(true);
   });
 
-  const type = form.watch("type");
-  const userIdType = form.watch("userIdType");
-
-  const getSqlPreviewData = () => {
-    const timestampColumn = form.watch("timestampColumn");
-    const userIdColumn = form.watch("userIdColumn");
-    const anonymousIdColumn = form.watch("anonymousIdColumn");
-    const column = form.watch("column");
-
-    const sqlPreviewData = {
-      userIdCol: "",
-      timestampCol: timestampColumn || "received_at",
-      weekAgo: weekAgo.toISOString().substr(0, 10),
-      column: "",
-      where: conditions.fields
-        .map((c: Condition) => {
-          return (
-            "  AND " +
-            (c.column || "?") +
-            " " +
-            c.operator +
-            " '" +
-            c.value +
-            "'"
-          );
-        })
-        .join("\n"),
-    };
-    if (userIdType === "user") {
-      sqlPreviewData.userIdCol = userIdColumn || "user_id";
-    } else if (userIdType === "anonymous") {
-      sqlPreviewData.userIdCol = anonymousIdColumn || "anonymous_id";
-    } else {
-      sqlPreviewData.userIdCol =
-        (userIdColumn || "user_id") +
-        " /*or " +
-        (anonymousIdColumn || "anonymous_id") +
-        "*/";
-    }
-
-    if (type === "count") {
-      if (!column || column === "*") {
-        sqlPreviewData.column = "COUNT(*) as count";
-      } else {
-        sqlPreviewData.column =
-          "COUNT(\n    DISTINCT " + (column || "?") + "\n  ) as count";
-      }
-    } else if (type === "duration") {
-      sqlPreviewData.column =
-        "MAX(\n    " + (column || "?") + "\n  ) as duration";
-    } else if (type === "revenue") {
-      sqlPreviewData.column =
-        "MAX(\n    " + (column || "?") + "\n  ) as revenue";
-    }
-    if (sqlPreviewData.column) {
-      sqlPreviewData.column =
-        ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
-    }
-    return sqlPreviewData;
+  const sqlPreviewData = {
+    userIdCol: "",
+    timestampCol: value.timestampColumn || "received_at",
+    weekAgo: weekAgo.toISOString().substr(0, 10),
+    column: "",
+    where: conditions.fields
+      .map((c: Condition) => {
+        return (
+          "  AND " + (c.column || "?") + " " + c.operator + " '" + c.value + "'"
+        );
+      })
+      .join("\n"),
   };
+  if (value.userIdType === "user") {
+    sqlPreviewData.userIdCol = value.userIdColumn || "user_id";
+  } else if (value.userIdType === "anonymous") {
+    sqlPreviewData.userIdCol = value.anonymousIdColumn || "anonymous_id";
+  } else {
+    sqlPreviewData.userIdCol =
+      (value.userIdColumn || "user_id") +
+      " /*or " +
+      (value.anonymousIdColumn || "anonymous_id") +
+      "*/";
+  }
+
+  if (value.type === "count") {
+    if (!value.column || value.column === "*") {
+      sqlPreviewData.column = "COUNT(*) as count";
+    } else {
+      sqlPreviewData.column =
+        "COUNT(\n    DISTINCT " + (value.column || "?") + "\n  ) as count";
+    }
+  } else if (value.type === "duration") {
+    sqlPreviewData.column =
+      "MAX(\n    " + (value.column || "?") + "\n  ) as duration";
+  } else if (value.type === "revenue") {
+    sqlPreviewData.column =
+      "MAX(\n    " + (value.column || "?") + "\n  ) as revenue";
+  }
+  if (sqlPreviewData.column) {
+    sqlPreviewData.column =
+      ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
+  }
 
   const riskError =
-    form.watch("loseRisk") < form.watch("winRisk")
+    value.loseRisk < value.winRisk
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
@@ -300,7 +285,7 @@ const MetricForm: FC<MetricFormProps> = ({
     >
       <Page
         display="Basic Info"
-        validate={async () => validateBasicInfo(form.getValues())}
+        validate={async () => validateBasicInfo(value)}
       >
         <div className="form-group">
           Metric Name
@@ -314,7 +299,7 @@ const MetricForm: FC<MetricFormProps> = ({
         <div className="form-group">
           Tags
           <TagsInput
-            value={form.watch("tags")}
+            value={value.tags}
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
@@ -338,7 +323,7 @@ const MetricForm: FC<MetricFormProps> = ({
           Metric Type
           <RadioSelector
             name="type"
-            value={form.watch("type")}
+            value={value.type}
             setValue={(val: MetricType) => form.setValue("type", val)}
             options={metricTypeOptions}
           />
@@ -346,7 +331,7 @@ const MetricForm: FC<MetricFormProps> = ({
         {datasourceType === "google_analytics" && (
           <GoogleAnalyticsMetrics
             inputProps={form.register("table")}
-            type={type}
+            type={value.type}
           />
         )}
       </Page>
@@ -357,7 +342,7 @@ const MetricForm: FC<MetricFormProps> = ({
           validateQuerySettings(
             datasourceSettingsSupport,
             supportsSQL && sqlInput,
-            form.getValues()
+            value
           );
         }}
       >
@@ -428,14 +413,14 @@ const MetricForm: FC<MetricFormProps> = ({
               </div>
             ) : (
               <>
-                {["count", "duration", "revenue"].includes(type) && (
+                {["count", "duration", "revenue"].includes(value.type) && (
                   <div className="form-group ">
-                    {type === "count"
+                    {value.type === "count"
                       ? `Distinct ${column} for Counting`
                       : column}
                     <input
                       type="text"
-                      required={type !== "count"}
+                      required={value.type !== "count"}
                       className="form-control"
                       {...form.register("column")}
                     />
@@ -543,7 +528,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     </select>
                   </div>
                 )}
-                {userIdType !== "anonymous" && customizeUserIds && (
+                {value.userIdType !== "anonymous" && customizeUserIds && (
                   <div className="form-group ">
                     User Id Column
                     <input
@@ -554,7 +539,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                   </div>
                 )}
-                {userIdType !== "user" && customizeUserIds && (
+                {value.userIdType !== "user" && customizeUserIds && (
                   <div className="form-group ">
                     Anonymous Id Column
                     <input
@@ -576,24 +561,24 @@ const MetricForm: FC<MetricFormProps> = ({
                   <Code
                     language="sql"
                     code={`SELECT
-${userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
-                      userIdType !== "user"
+${value.userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
+                      value.userIdType !== "user"
                         ? `  ${"anonymous_id"} as anonymous_id,\n`
                         : ""
                     }${
-                      type === "binomial"
+                      value.type === "binomial"
                         ? ""
-                        : type === "count"
+                        : value.type === "count"
                         ? "  1 as value,\n"
-                        : type === "revenue"
+                        : value.type === "revenue"
                         ? "  amount as value,\n"
                         : "  duration as value,\n"
                     }  ${"received_at"} as timestamp
 FROM
   ${
-    type === "binomial" || type === "count"
+    value.type === "binomial" || value.type === "count"
       ? "downloads"
-      : type === "revenue"
+      : value.type === "revenue"
       ? "purchases"
       : "sessions"
   }`}
@@ -602,25 +587,25 @@ FROM
                     Your SELECT statement must return the following columns:
                   </p>
                   <ol>
-                    {userIdType !== "anonymous" && (
+                    {value.userIdType !== "anonymous" && (
                       <li>
                         <strong>user_id</strong> - The logged-in user id of the
                         person converting
                       </li>
                     )}
-                    {userIdType !== "user" && (
+                    {value.userIdType !== "user" && (
                       <li>
                         <strong>anonymous_id</strong> - The anonymous id of the
                         person converting
                       </li>
                     )}
-                    {type !== "binomial" && (
+                    {value.type !== "binomial" && (
                       <li>
                         <strong>value</strong> -{" "}
-                        {type === "count"
+                        {value.type === "count"
                           ? "The number of conversions (multiple rows for a user will be summed)"
                           : "The " +
-                            type +
+                            value.type +
                             " amount (multiple rows for a user will be summed)"}
                       </li>
                     )}
@@ -634,19 +619,16 @@ FROM
                   Query Preview:
                   <Code
                     language="sql"
-                    code={(() => {
-                      const sqlPreviewData = getSqlPreviewData();
-                      return `SELECT
+                    code={`SELECT
   ${sqlPreviewData.userIdCol}${sqlPreviewData.column}
 FROM
-  ${form.watch("table") || "?"}
+  ${value.table || "?"}
 WHERE
   ${sqlPreviewData.timestampCol} > '${sqlPreviewData.weekAgo}'${
-                        sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
-                      }
+                      sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
+                    }
 GROUP BY
-  ${sqlPreviewData.userIdCol}`;
-                    })()}
+  ${sqlPreviewData.userIdCol}`}
                   />
                 </>
               )}
@@ -662,20 +644,20 @@ GROUP BY
             control={form.control}
             name="inverse"
             falseLabel={`Increase the ${
-              type === "binomial" ? "conversion rate" : type
+              value.type === "binomial" ? "conversion rate" : value.type
             }`}
             trueLabel={`Decrease the ${
-              type === "binomial" ? "conversion rate" : type
+              value.type === "binomial" ? "conversion rate" : value.type
             }`}
           />
         </div>
-        {capSupported && ["count", "duration", "revenue"].includes(type) && (
+        {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Capped Value
             <input
               type="number"
               className="form-control"
-              {...form.register("cap")}
+              {...form.register("cap", { valueAsNumber: true })}
             />
             <small className="text-muted">
               If greater than zero, any user who has more than this count will
@@ -698,7 +680,7 @@ GROUP BY
             />
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(type) && (
+        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only
             <BooleanSelect
@@ -717,7 +699,7 @@ GROUP BY
         {capSupported && (
           <div className="form-group">
             In an Experiment,{" "}
-            {type === "binomial"
+            {value.type === "binomial"
               ? "only count if a conversion happens"
               : "start counting"}
             <BooleanSelect
@@ -726,7 +708,7 @@ GROUP BY
               name="earlyStart"
               falseLabel="After the user is assigned a variation"
               trueLabel={
-                (type === "binomial"
+                (value.type === "binomial"
                   ? "Any time during the"
                   : "At the start of the") + " user's session"
               }
@@ -745,7 +727,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                acceptable risk under {form.watch("winRisk")}%
+                acceptable risk under {value.winRisk}%
               </span>
               <div
                 style={{
@@ -813,7 +795,7 @@ GROUP BY
                   fontSize: "0.75rem",
                 }}
               >
-                too much risk over {form.watch("loseRisk")}%
+                too much risk over {value.loseRisk}%
               </span>
               <div
                 style={{

@@ -5,6 +5,7 @@ import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import TagsInput from "../TagsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const IdeaForm: FC<{
   idea: Partial<IdeaInterface>;
@@ -48,18 +49,11 @@ const IdeaForm: FC<{
       cta={edit ? "Save" : "Create"}
       closeCta="Cancel"
     >
-      <div className={`form-group`}>
-        <label>Short Description</label>
-        <input
-          type="text"
-          required
-          className="form-control"
-          {...form.register("text")}
-        />
-        <small className="form-text text-muted">
-          You&apos;ll be able to add more details later
-        </small>
-      </div>
+      <Field
+        required
+        {...form.register("text")}
+        helpText="You'll be able to add more details later"
+      />
       <div className="form-group">
         <label>Tags</label>
         <TagsInput
