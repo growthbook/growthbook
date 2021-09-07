@@ -343,7 +343,7 @@ const InstructionsModal: FC<{
                   <Field
                     label="GA Custom Dimension"
                     type="number"
-                    {...form.register("gaDimension")}
+                    {...form.register("gaDimension", { valueAsNumber: true })}
                     min={1}
                     max={100}
                   />
@@ -367,6 +367,7 @@ const InstructionsModal: FC<{
                   </>
                 }
                 placeholder={`console.log("${v.name}")`}
+                textarea
                 minRows={1}
                 maxRows={6}
                 {...form.register(`funcs.${i}`)}

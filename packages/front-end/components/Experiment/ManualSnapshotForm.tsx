@@ -74,9 +74,9 @@ const ManualSnapshotForm: FC<{
   });
   const [preview, setPreview] = useState<SnapshotPreview>(null);
 
-  function getStats() {
-    const values = form.getValues();
+  const values = form.getValues();
 
+  function getStats() {
     const ret: { [key: string]: MetricStats[] } = {};
     Object.keys(values.metrics).forEach((key) => {
       const m = getMetricById(key);
@@ -115,10 +115,8 @@ const ManualSnapshotForm: FC<{
   useEffect(() => {
     if (!hash) return;
 
-    const users = form.watch("users");
-
     // Only preview when all variations have number of users set
-    if (users.filter((n) => n <= 0).length > 0) {
+    if (values.users.filter((n) => n <= 0).length > 0) {
       setPreview(null);
       return;
     }
@@ -146,7 +144,7 @@ const ManualSnapshotForm: FC<{
             {
               method: "POST",
               body: JSON.stringify({
-                users: users,
+                users: values.users,
                 metrics: metricsToTest,
               }),
             }
@@ -180,8 +178,6 @@ const ManualSnapshotForm: FC<{
 
     success();
   });
-
-  const values = form.getValues();
 
   return (
     <Modal

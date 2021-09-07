@@ -116,8 +116,7 @@ export default function Auth({
         <div>
           <h3>Forgot Password</h3>
           <div className="alert alert-success">
-            Password reset link sent to{" "}
-            <strong>{form.getValues().email}</strong>.
+            Password reset link sent to <strong>{form.watch("email")}</strong>.
           </div>
           <p>Click the link in the email to reset your password.</p>
           <p>

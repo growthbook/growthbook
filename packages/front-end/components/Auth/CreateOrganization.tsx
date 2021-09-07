@@ -69,7 +69,6 @@ export default function CreateOrganization(): ReactElement {
           <Field
             label="Company name"
             required
-            type="text"
             autoFocus
             autoComplete="company"
             minLength={3}

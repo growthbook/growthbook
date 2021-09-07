@@ -213,7 +213,6 @@ export default function Welcome({
             <Field
               label="Company name"
               required
-              type="text"
               autoFocus
               minLength={2}
               {...form.register("companyname")}
@@ -223,7 +222,6 @@ export default function Welcome({
             <Field
               label="Name"
               required
-              type="text"
               {...form.register("name")}
               autoFocus={state === "register"}
               autoComplete="name"

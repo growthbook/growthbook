@@ -168,7 +168,12 @@ const NewPhaseForm: FC<{
       <div className="row">
         <div className="col">
           <label>User Groups (optional)</label>
-          <GroupsInput form={form} name="groups" />
+          <GroupsInput
+            value={form.watch("groups")}
+            onChange={(groups) => {
+              form.setValue("groups", groups);
+            }}
+          />
           <small className="form-text text-muted">
             Use this to limit your experiment to specific groups of users (e.g.
             &quot;internal&quot;, &quot;beta-testers&quot;, &quot;qa&quot;).
