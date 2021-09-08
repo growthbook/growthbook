@@ -4,7 +4,7 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import { MemberRole, useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
@@ -64,20 +64,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
 
   // eslint-disable-next-line
-  const [value, inputProps, manualUpdate] = useForm<OrganizationSettings>({
-    visualEditorEnabled: false,
-    pastExperimentsMinLength: 6,
-    // customization:
-    customized: false,
-    logoPath: "",
-    primaryColor: "#391c6d",
-    secondaryColor: "#50279a",
+  const form = useForm<OrganizationSettings>({
+    defaultValues: {
+      visualEditorEnabled: false,
+      pastExperimentsMinLength: 6,
+      // customization:
+      customized: false,
+      logoPath: "",
+      primaryColor: "#391c6d",
+      secondaryColor: "#50279a",
+    },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
 
   useEffect(() => {
     if (data?.organization?.settings) {
-      manualUpdate({
+      form.reset({
         ...data.organization.settings,
       });
     }
@@ -94,6 +96,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
+  const value = {
+    visualEditorEnabled: form.watch("visualEditorEnabled"),
+    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
+    // customization:
+    customized: form.watch("customized"),
+    logoPath: form.watch("logoPath"),
+    primaryColor: form.watch("primaryColor"),
+    secondaryColor: form.watch("secondaryColor"),
+  };
   const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {
@@ -234,12 +245,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     type="checkbox"
                     disabled={hasFileConfig()}
                     className="form-check-input "
-                    checked={value.visualEditorEnabled}
-                    onChange={(e) => {
-                      manualUpdate({
-                        visualEditorEnabled: e.target.checked,
-                      });
-                    }}
+                    {...form.register("visualEditorEnabled")}
                     id="checkbox-visualeditor"
                   />
 
@@ -279,7 +285,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   min="0"
                   max="31"
                   disabled={hasFileConfig()}
-                  {...inputProps.pastExperimentsMinLength}
+                  {...form.register("pastExperimentsMinLength", {
+                    valueAsNumber: true,
+                  })}
                 />
               </div>
             </div>

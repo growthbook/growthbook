@@ -139,8 +139,7 @@ export const AuthProvider: React.FC = ({ children }) => {
         }}
       >
         <p>
-          Error connecting to the Growth Book API at <code>{getApiHost()}</code>
-          .
+          Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
         <div className="alert alert-danger">{error}</div>

@@ -42,7 +42,7 @@ const Admin: FC = () => {
       >
         <FaPlus /> New Organization
       </button>
-      <h1>Growth Book Admin</h1>
+      <h1>GrowthBook Admin</h1>
       <p>Click an organization below to switch to it.</p>
       <table className="table appbox">
         <thead>

@@ -20,6 +20,31 @@ export interface ABTestStats {
   }[];
 }
 
+/**
+ * This takes a mean/stddev from only converted users and
+ * adjusts them to include non-converted users
+ */
+function getAdjustedStats(stats: MetricStats, users: number) {
+  const x = stats.mean;
+  const sX = stats.stddev;
+  const c = stats.count;
+  const n = users;
+
+  const mean = (x * c) / n;
+
+  const varX = Math.pow(sX, 2);
+
+  // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+  const stddev = Math.sqrt(
+    ((c - 1) * varX) / (n - 1) + (c * (n - c) * Math.pow(x, 2)) / (n * (n - 1))
+  );
+
+  return {
+    mean,
+    stddev,
+  };
+}
+
 export async function abtest(
   metric: MetricInterface,
   aUsers: number,
@@ -33,13 +58,12 @@ export async function abtest(
   } else {
     aStats = {
       ...aStats,
-      mean: (aStats.mean * aStats.count) / aUsers,
-      stddev: (aStats.stddev * Math.sqrt(aStats.count)) / Math.sqrt(aUsers),
+      ...getAdjustedStats(aStats, aUsers),
     };
+
     bStats = {
       ...bStats,
-      mean: (bStats.mean * bStats.count) / bUsers,
-      stddev: (bStats.stddev * Math.sqrt(bStats.count)) / Math.sqrt(bUsers),
+      ...getAdjustedStats(bStats, bUsers),
     };
   }
 

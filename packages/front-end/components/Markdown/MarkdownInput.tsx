@@ -25,6 +25,7 @@ const MarkdownInput: FC<{
   autofocus?: boolean;
   error?: string;
   cta?: string;
+  id?: string;
   placeholder?: string;
   onCancel?: () => void;
 }> = ({
@@ -33,6 +34,7 @@ const MarkdownInput: FC<{
   autofocus = false,
   error,
   cta,
+  id,
   onCancel,
   placeholder,
 }) => {
@@ -136,6 +138,7 @@ const MarkdownInput: FC<{
                 maxHeight: 100,
                 overflowY: "auto",
               }}
+              id={id}
               innerRef={(textarea) => {
                 textareaRef.current = textarea;
               }}

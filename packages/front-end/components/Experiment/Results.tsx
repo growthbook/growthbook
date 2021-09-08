@@ -281,7 +281,11 @@ const Results: FC<{
       )}
       {hasData && !snapshot.dimension && (
         <>
-          <CompactResults snapshot={snapshot} experiment={experiment} />
+          <CompactResults
+            snapshot={snapshot}
+            experiment={experiment}
+            phase={experiment.phases?.[phase]}
+          />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3">
               <hr />

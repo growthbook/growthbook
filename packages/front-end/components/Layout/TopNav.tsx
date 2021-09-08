@@ -1,7 +1,7 @@
 import { FC, useState, useContext } from "react";
 import { useWatching } from "../../services/WatchProvider";
 import useGlobalMenu from "../../services/useGlobalMenu";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { UserContext } from "../ProtectedPage";
 import { useAuth } from "../../services/auth";
 import { daysLeft } from "../../services/dates";
@@ -19,6 +19,7 @@ import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
 import { isCloud } from "../../services/env";
+import Field from "../Forms/Field";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -46,18 +47,20 @@ const TopNav: FC<{
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
-  const [editUserValue, inputProps] = useForm({ name: name || "" });
+  const form = useForm({
+    defaultValues: { name: name || "" },
+  });
 
   const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
 
-  const onSubmitEditName = async () => {
+  const onSubmitEditName = form.handleSubmit(async (value) => {
     await apiCall(`/user/name`, {
       method: "PUT",
-      body: JSON.stringify(editUserValue),
+      body: JSON.stringify(value),
     });
     update();
     setUserDropdownOpen(false);
-  };
+  });
 
   let orgName = orgId || "";
 
@@ -78,10 +81,7 @@ const TopNav: FC<{
           header="Edit Profile"
           open={true}
         >
-          <div className="form-group">
-            <label>Name</label>
-            <input type="text" className="form-control" {...inputProps.name} />
-          </div>
+          <Field label="Name" {...form.register("name")} />
         </Modal>
       )}
       {changePasswordOpen && (
@@ -110,7 +110,7 @@ const TopNav: FC<{
         ) : (
           <div>
             <img
-              alt="Growth Book"
+              alt="GrowthBook"
               src="/logo/growthbook-logo.png"
               style={{ height: 40 }}
             />

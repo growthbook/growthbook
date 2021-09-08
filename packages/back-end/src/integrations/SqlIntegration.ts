@@ -198,6 +198,9 @@ export default abstract class SqlIntegration
   stddev(col: string) {
     return `STDDEV(${col})`;
   }
+  avg(col: string) {
+    return `AVG(${col})`;
+  }
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
@@ -380,7 +383,7 @@ export default abstract class SqlIntegration
       SELECT
         ${params.includeByDate ? "null as date," : ""}
         COUNT(*) as count,
-        AVG(value) as mean,
+        ${this.avg("value")} as mean,
         ${this.stddev("value")} as stddev
         ${
           params.includePercentiles && params.metric.type !== "binomial"
@@ -400,7 +403,7 @@ export default abstract class SqlIntegration
         UNION ALL SELECT
           date,
           COUNT(*) as count,
-          AVG(value) as mean,
+          ${this.avg("value")} as mean,
           ${this.stddev("value")} as stddev
           ${
             params.includePercentiles && params.metric.type !== "binomial"
@@ -496,6 +499,9 @@ export default abstract class SqlIntegration
       variationKeyMap.set(v.key, i);
     });
 
+    const unknownVariations: Map<string, number> = new Map();
+    let totalUsers = 0;
+
     const dimensionMap = new Map<string, number>();
     rows.forEach(({ variation, dimension, users }) => {
       let i = 0;
@@ -510,6 +516,9 @@ export default abstract class SqlIntegration
         dimensionMap.set(dimension, i);
       }
 
+      const numUsers = parseInt(users) || 0;
+      totalUsers += numUsers;
+
       const varIndex =
         (this.settings?.variationIdFormat ||
           this.settings?.experiments?.variationFormat) === "key"
@@ -520,14 +529,22 @@ export default abstract class SqlIntegration
         varIndex < 0 ||
         varIndex >= experiment.variations.length
       ) {
-        ret.unknownVariations.push(variation);
+        unknownVariations.set(variation, numUsers);
         return;
       }
 
       ret.dimensions[i].variations.push({
         variation: varIndex,
-        users: parseInt(users) || 0,
+        users: numUsers,
       });
+    });
+
+    unknownVariations.forEach((users, variation) => {
+      // Ignore unknown variations with an insignificant number of users
+      // This protects against random typos causing false positives
+      if (totalUsers > 0 && users / totalUsers >= 0.02) {
+        ret.unknownVariations.push(variation);
+      }
     });
 
     return ret;
@@ -987,7 +1004,7 @@ export default abstract class SqlIntegration
       variation,
       dimension,
       COUNT(*) as count,
-      AVG(value) as mean,
+      ${this.avg("value")} as mean,
       ${this.stddev("value")} as stddev
     FROM
       __userMetric

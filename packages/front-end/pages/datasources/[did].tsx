@@ -220,7 +220,7 @@ const DataSourcePage: FC = () => {
                 <h2>Import Past Experiments</h2>
                 <p>
                   If you have past experiments already in your data source, you
-                  can import them to Growth Book.
+                  can import them to GrowthBook.
                 </p>
                 <Button
                   color="outline-primary"

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { FC } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { IdeaInterface } from "back-end/types/idea";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const ImpactModal: FC<{
   idea?: IdeaInterface;
@@ -17,13 +18,15 @@ const ImpactModal: FC<{
 
   const { apiCall } = useAuth();
 
-  const [value, inputProps] = useForm({
-    metric: estimate?.metric || metrics[0]?.id || "",
-    segment: estimate?.segment || "",
-    page: estimate?.regex || ".*",
-    userAdjustment: idea.estimateParams?.userAdjustment || 100,
-    numVariations: idea.estimateParams?.numVariations || 2,
-    improvement: idea.estimateParams?.improvement || 10,
+  const form = useForm({
+    defaultValues: {
+      metric: estimate?.metric || metrics[0]?.id || "",
+      segment: estimate?.segment || "",
+      page: estimate?.regex || ".*",
+      userAdjustment: idea.estimateParams?.userAdjustment || 100,
+      numVariations: idea.estimateParams?.numVariations || 2,
+      improvement: idea.estimateParams?.improvement || 10,
+    },
   });
 
   const possibleMetrics = metrics.filter(
@@ -31,14 +34,16 @@ const ImpactModal: FC<{
     (m) => m.type === "binomial" && m.datasource
   );
 
-  const datasource = getMetricById(value.metric)?.datasource;
+  const metric = getMetricById(form.watch("metric"));
+
+  const datasource = metric?.datasource;
   const possibleSegments = segments.filter((s) => s.datasource == datasource);
 
   return (
     <Modal
       header="Impact Score Paramters"
       open={true}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         // Need an API call to get an updated estimate
         let est = estimate;
         if (
@@ -98,80 +103,66 @@ const ImpactModal: FC<{
           body: JSON.stringify(data),
         });
         mutate();
-      }}
+      })}
       cta="Save"
       close={close}
     >
-      <div className="form-group">
-        Primary Metric
-        <select className="form-control" {...inputProps.metric}>
-          {possibleMetrics.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-        <small className="form-text text-muted">
-          Only binomial metrics are supported at this time
-        </small>
-      </div>
-      <div className="form-group">
-        Effect Size
-        <select className="form-control" {...inputProps.improvement}>
-          <option value="1">Tiny (&lt;1%)</option>
-          <option value="5">Small (5%)</option>
-          <option value="10">Medium (10%)</option>
-          <option value="20">Large (20%)</option>
-          <option value="50">Huge (50%)</option>
-        </select>
-        <small className="form-text text-muted">
-          How much do you think this will improve the metric?
-        </small>
-      </div>
-      <div className="form-group">
-        Number of Vaiations
-        <input
-          type="number"
-          className="form-control"
-          min="2"
-          max="20"
-          step="1"
-          {...inputProps.numVariations}
-        />
-        <small className="form-text text-muted">Including the baseline</small>
-      </div>
-      <div className="form-group">
-        Experiment URLs
-        <input type="text" className="form-control" {...inputProps.page} />
-        <small className="form-text text-muted">
-          URLs where this experiment will run (regular expression)
-        </small>
-      </div>
-      <div className="form-group">
-        User Segment
-        <select
-          className="form-control"
-          disabled={!possibleSegments?.length}
-          {...inputProps.segment}
-        >
-          <option value="">Everyone</option>
-          {possibleSegments &&
-            possibleSegments.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-        </select>
-        {!possibleSegments?.length && (
-          <small className="form-text text-muted">
-            No segments defined for the selected metric&apos;s datasource.{" "}
-            <Link href="/segments">
-              <a>Add Segments</a>
-            </Link>
-            .
-          </small>
-        )}
-      </div>
+      <Field
+        label="Primary Metric"
+        {...form.register("metric")}
+        options={possibleMetrics.map((m) => ({
+          value: m.id,
+          display: m.name,
+        }))}
+        helpText="Only binomial metrics are supported at this time"
+      />
+      <Field
+        label="Effect Size"
+        {...form.register("improvement", { valueAsNumber: true })}
+        options={[
+          { display: "Tiny (<1%)", value: "1" },
+          { display: "Small (5%)", value: "5" },
+          { display: "Medium (10%)", value: "10" },
+          { display: "Large (20%)", value: "20" },
+          { display: "Huge (50%)", value: "50" },
+        ]}
+        helpText="How much do you think this will improve the metric?"
+      />
+      <Field
+        label="Number of Variations"
+        type="number"
+        min="2"
+        max="20"
+        step="1"
+        {...form.register("numVariations", { valueAsNumber: true })}
+        helpText="Including the baseline"
+      />
+      <Field
+        label="Experiment URLs"
+        {...form.register("page")}
+        helpText="URLs where this experiment will run (regular expression)"
+      />
+      <Field
+        label="User Segment"
+        disabled={!possibleSegments?.length}
+        {...form.register("segment")}
+        initialOption="Everyone"
+        options={possibleSegments.map((s) => ({
+          value: s.id,
+          display: s.name,
+        }))}
+        helpText={
+          !possibleSegments?.length ? (
+            <>
+              No segments defined for the selected metric&apos;s datasource.{" "}
+              <Link href="/segments">
+                <a>Add Segments</a>
+              </Link>
+              .
+            </>
+          ) : null
+        }
+      />
     </Modal>
   );
 };

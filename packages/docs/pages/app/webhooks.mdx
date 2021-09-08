@@ -2,13 +2,13 @@
 
 Webhooks are one way to keep cached experiment configuration up-to-date on your servers.
 
-With the [API](/app/api), your servers pull experiment overrides from Growth Book in a cronjob (or similar).
+With the [API](/app/api), your servers pull experiment overrides from GrowthBook in a cronjob (or similar).
 
-With **Webhooks**, Growth Book pushes experiment overrides to your servers as soon as they change.
+With **Webhooks**, GrowthBook pushes experiment overrides to your servers as soon as they change.
 
 ## Adding a Webhook Endpoint
 
-When logged into Growth Book as an admin, navigate to **Settings -> Webhooks**.
+When logged into GrowthBook as an admin, navigate to **Settings -> Webhooks**.
 
 There you can add a webhook endpoint.
 
@@ -50,11 +50,11 @@ The `overrides` field has one entry per experiment with overrides that should ta
 
 ## VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using Growth Book Cloud, make sure to whitelist the ip address `52.70.79.40`.
+If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
 
 ## Verify Signatures
 
-Webhook payloads are signed with a shared secret so you can verify they actually came from Growth Book. The signature is passed in a `X-GrowthBook-Signature` header.
+Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `X-GrowthBook-Signature` header.
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
@@ -63,7 +63,7 @@ const crypto = require("crypto");
 const express = require("express");
 const bodyParser = require("body-parser");
 
-// Retrieve from Growth Book settings
+// Retrieve from GrowthBook settings
 const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
 
 const app = express();
@@ -95,4 +95,4 @@ If your endpoint returns any HTTP status besides `200`, the webhook will be cons
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 
-You can view the status of your webhooks in the Growth Book app under **Settings -> Webhooks**.
+You can view the status of your webhooks in the GrowthBook app under **Settings -> Webhooks**.
