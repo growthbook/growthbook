@@ -362,7 +362,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     min="0"
                     max="1"
                     step="0.01"
-                    {...form.register(`phases.0.variationWeights.${i}`)}
+                    {...form.register(`phases.0.variationWeights.${i}`, {
+                      valueAsNumber: true,
+                    })}
                     prepend={v.name}
                   />
                 </div>

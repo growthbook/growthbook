@@ -170,6 +170,7 @@ const MetricForm: FC<MetricFormProps> = ({
     loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
     sql: form.watch("sql"),
+    conditions: form.watch("conditions"),
   };
 
   const currentDataSource = getDatasourceById(value.datasource);
@@ -246,7 +247,7 @@ const MetricForm: FC<MetricFormProps> = ({
     timestampCol: value.timestampColumn || "received_at",
     weekAgo: weekAgo.toISOString().substr(0, 10),
     column: "",
-    where: conditions.fields
+    where: value.conditions
       .map((c: Condition) => {
         return (
           "  AND " + (c.column || "?") + " " + c.operator + " '" + c.value + "'"
@@ -772,7 +773,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                {...form.register("winRisk")}
+                {...form.register("winRisk", { valueAsNumber: true })}
               />
             </div>
             <div className="col yellow-bar px-0">
@@ -800,7 +801,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                {...form.register("loseRisk")}
+                {...form.register("loseRisk", { valueAsNumber: true })}
               />
             </div>
             <div className="col red-bar pl-0">

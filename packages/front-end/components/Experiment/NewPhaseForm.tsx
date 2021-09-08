@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import { useWatching } from "../../services/WatchProvider";
@@ -41,13 +41,10 @@ const NewPhaseForm: FC<{
 
   const { apiCall } = useAuth();
 
-  const variationWeights = useFieldArray({
-    control: form.control,
-    name: "variationWeights",
-  });
+  const variationWeights = form.watch("variationWeights");
 
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
-  const totalWeights = variationWeights.fields.reduce(
+  const totalWeights = variationWeights.reduce(
     (total: number, weight: number) => total + weight,
     0
   );
@@ -139,7 +136,9 @@ const NewPhaseForm: FC<{
                   max="1"
                   step="0.01"
                   prepend={v.name}
-                  {...form.register(`variationWeights.${i}`)}
+                  {...form.register(`variationWeights.${i}`, {
+                    valueAsNumber: true,
+                  })}
                 />
               </div>
             ))}
