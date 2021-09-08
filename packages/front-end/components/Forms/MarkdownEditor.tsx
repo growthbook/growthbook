@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ReactElement, useEffect, useState } from "react";
+import { UseFormReturn } from "react-hook-form";
 import RichMarkdownEditor from "rich-markdown-editor";
 import { useAuth } from "../../services/auth";
 import { ago } from "../../services/dates";
@@ -8,24 +9,28 @@ import styles from "./markdown-editor.module.scss";
 
 export default function MarkdownEditor({
   editing,
+  form,
+  name,
   defaultValue,
-  onChange,
   save,
   cancel,
   placeholder = "No details yet.",
   editPlaceholder = "Add some details...",
 }: {
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
+  name: string;
   editing: boolean;
   defaultValue: string;
-  onChange: (getter: () => string) => void;
-  save?: (markdownValue?: string) => Promise<void>;
+  save?: () => Promise<void>;
   cancel?: () => void;
   placeholder?: string | ReactElement;
   editPlaceholder?: string;
 }): ReactElement {
   useEffect(() => {
-    onChange(() => defaultValue);
-  }, []);
+    form.register(name);
+    form.setValue(name, defaultValue);
+  }, [defaultValue, form.register]);
 
   const { apiCall } = useAuth();
 
@@ -107,11 +112,10 @@ export default function MarkdownEditor({
           "d-none": !editing && isEmpty,
         })}
         defaultValue={defaultValue}
-        value={defaultValue}
         onChange={(getter) => {
-          onChange(getter);
+          form.setValue(name, getter());
           if (!editing) {
-            save(getter());
+            save();
           }
         }}
         onSave={() => save()}

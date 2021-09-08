@@ -1,5 +1,5 @@
 import { FC, useEffect, useRef, useState, MouseEvent } from "react";
-import useForm from "../../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { GiClick } from "react-icons/gi";
 import clsx from "clsx";
 import {
@@ -76,12 +76,14 @@ const EditorPage: FC = () => {
   const [iframeError, setIframeError] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
-  const [value, inputProps, manualUpdate] = useForm({
-    editing: false,
-    field: "",
-    name: "",
-    attribute: "",
-    value: "",
+  const form = useForm({
+    defaultValues: {
+      editing: false,
+      field: "",
+      name: "",
+      attribute: "",
+      value: "",
+    },
   });
   const [currentEl, setCurrentEl] = useState<{
     selected: boolean;
@@ -380,6 +382,14 @@ const EditorPage: FC = () => {
   ): [number, number] {
     return [e.clientX, e.clientY];
   }
+
+  const value = {
+    editing: form.watch("editing"),
+    value: form.watch("value"),
+    field: form.watch("field"),
+    name: form.watch("name"),
+    attribute: form.watch("attribute"),
+  };
 
   return (
     <div className={styles.designer}>
@@ -864,7 +874,7 @@ const EditorPage: FC = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   setMode("code");
-                  manualUpdate({
+                  form.reset({
                     field: "",
                     name: "addClass",
                     value: "",
@@ -889,9 +899,7 @@ const EditorPage: FC = () => {
                       // @ts-ignore
                     const captureStream = await navigator.mediaDevices.getDisplayMedia(
                       {
-                        video: {
-                          cursor: "never",
-                        },
+                        video: {},
                         audio: false,
                       }
                     );
@@ -899,16 +907,8 @@ const EditorPage: FC = () => {
                       .getVideoTracks()[0]
                       .getSettings();
 
-                    if (settings.displaySurface === "window") {
-                      captureStream
-                        .getTracks()
-                        .forEach((track: MediaStreamTrack) => track.stop());
-                      throw new Error(
-                        "Please choose to share either your entire screen or a specific tab."
-                      );
-                    }
-
                     setStream({
+                      ...stream,
                       stream: captureStream,
                       ...settings,
                     });
@@ -1079,7 +1079,9 @@ const EditorPage: FC = () => {
                   setIframeReady(false);
                   setIframeLoaded(false);
                   setIframeError(false);
-                  iframe.current.src = iframe.current.src + "";
+                  if (iframe.current) {
+                    iframe.current.src = iframe.current.src + "";
+                  }
                 } else {
                   setUrl(variationData.url);
                 }
@@ -1129,7 +1131,7 @@ const EditorPage: FC = () => {
                       className="text-light pr-3"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
+                        form.reset({
                           editing: true,
                           field: "html",
                           name: "set",
@@ -1144,7 +1146,7 @@ const EditorPage: FC = () => {
                       className="text-light"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
+                        form.reset({
                           editing: true,
                           field: "html",
                           name: "append",
@@ -1169,9 +1171,7 @@ const EditorPage: FC = () => {
                       : currentEl.innerHTML
                   }
                   onChange={(e) => {
-                    manualUpdate({
-                      value: e.target.value,
-                    });
+                    form.setValue("value", e.target.value);
                   }}
                 />
                 {value.editing && value.field === "html" && (
@@ -1193,9 +1193,7 @@ const EditorPage: FC = () => {
                               ? currentEl.innerHTML + value.value
                               : value.value,
                         });
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       Save
@@ -1204,9 +1202,7 @@ const EditorPage: FC = () => {
                       className="btn btn-link text-light mt-1"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       cancel
@@ -1223,10 +1219,12 @@ const EditorPage: FC = () => {
                       className="text-light float-right"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
+                        form.reset({
                           editing: true,
                           field: "class",
                           value: "",
+                          attribute: "",
+                          name: "",
                         });
                       }}
                     >
@@ -1240,7 +1238,7 @@ const EditorPage: FC = () => {
                       type="text"
                       autoFocus
                       className="form-control"
-                      {...inputProps.value}
+                      {...form.register("value")}
                     />
                     <button
                       className="btn btn-primary mt-1"
@@ -1258,9 +1256,7 @@ const EditorPage: FC = () => {
                             classes: [...currentEl.classes, value.value],
                           });
                         }
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       Add
@@ -1269,9 +1265,7 @@ const EditorPage: FC = () => {
                       className="btn btn-link text-light mt-1"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       cancel
@@ -1326,7 +1320,7 @@ const EditorPage: FC = () => {
                       className="text-light float-right"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
+                        form.reset({
                           editing: true,
                           field: "attribute",
                           name: "",
@@ -1345,13 +1339,13 @@ const EditorPage: FC = () => {
                       autoFocus
                       className="form-control"
                       placeholder="attributeName"
-                      {...inputProps.name}
+                      {...form.register("name")}
                     />
                     <input
                       type="text"
                       className="form-control"
                       placeholder="value"
-                      {...inputProps.value}
+                      {...form.register("value")}
                     />
                     <button
                       className="btn btn-primary mt-1"
@@ -1375,9 +1369,7 @@ const EditorPage: FC = () => {
                             },
                           ],
                         });
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       Save
@@ -1386,9 +1378,7 @@ const EditorPage: FC = () => {
                       className="btn btn-link text-light mt-1"
                       onClick={(e) => {
                         e.preventDefault();
-                        manualUpdate({
-                          editing: false,
-                        });
+                        form.setValue("editing", false);
                       }}
                     >
                       cancel
@@ -1410,7 +1400,7 @@ const EditorPage: FC = () => {
                               className="mr-2"
                               onClick={(e) => {
                                 e.preventDefault();
-                                manualUpdate({
+                                form.reset({
                                   editing: true,
                                   field: "attribute",
                                   name: attr.name,
@@ -1478,7 +1468,7 @@ const EditorPage: FC = () => {
                 <input
                   type="text"
                   className="form-control"
-                  {...inputProps.field}
+                  {...form.register("field")}
                   onBlur={() => {
                     sendCommand({
                       command: "selectElement",
@@ -1490,7 +1480,7 @@ const EditorPage: FC = () => {
               </div>
               <div className="form-group">
                 Action
-                <select className="form-control" {...inputProps.name}>
+                <select className="form-control" {...form.register("name")}>
                   <option value="set">set</option>
                   <option value="append">append</option>
                   <option value="remove">remove</option>
@@ -1501,7 +1491,7 @@ const EditorPage: FC = () => {
                 <input
                   type="text"
                   className="form-control"
-                  {...inputProps.attribute}
+                  {...form.register("attribute")}
                 />
               </div>
               <div className="form-group">
@@ -1509,7 +1499,7 @@ const EditorPage: FC = () => {
                 <input
                   type="text"
                   className="form-control"
-                  {...inputProps.value}
+                  {...form.register("value")}
                 />
                 {value.name === "setAttribute" && (
                   <small className="form-text">
@@ -1532,7 +1522,7 @@ const EditorPage: FC = () => {
                     attribute: value.attribute,
                     value: value.value,
                   });
-                  manualUpdate({
+                  form.reset({
                     field: "",
                     name: "addClass",
                     value: "",

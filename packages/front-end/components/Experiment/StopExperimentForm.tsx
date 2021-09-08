@@ -1,10 +1,11 @@
 import { FC } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import track from "../../services/track";
+import Field from "../Forms/Field";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -13,23 +14,19 @@ const StopExperimentForm: FC<{
 }> = ({ experiment, close, mutate }) => {
   const isStopped = experiment.status === "stopped";
 
-  const [value, inputProps, manualUpdate] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       reason: "",
       winner: experiment.winner || 0,
       analysis: experiment.analysis || "",
       results: experiment.results || "dnf",
       dateEnded: new Date().toISOString().substr(0, 16),
     },
-    experiment.id,
-    {
-      className: "form-control",
-    }
-  );
+  });
 
   const { apiCall } = useAuth();
 
-  const submit = async () => {
+  const submit = form.handleSubmit(async (value) => {
     let winner = -1;
     if (value.results === "lost") {
       winner = 0;
@@ -63,7 +60,7 @@ const StopExperimentForm: FC<{
     }
 
     mutate();
-  };
+  });
 
   return (
     <Modal
@@ -77,48 +74,49 @@ const StopExperimentForm: FC<{
     >
       {!isStopped && (
         <>
-          <div className="form-group">
-            <label>Reason for stopping the test</label>
-            <textarea {...inputProps.reason} placeholder="(optional)" />
-          </div>
-          <div className="form-group">
-            <label>Stop Time (UTC)</label>
-            <input type="datetime-local" {...inputProps.dateEnded} />
-          </div>
+          <Field
+            label="Reason for stopping the test"
+            textarea
+            {...form.register("reason")}
+            placeholder="(optional)"
+          />
+          <Field
+            label="Stop Time (UTC)"
+            type="datetime-local"
+            {...form.register("dateEnded")}
+          />
         </>
       )}
       <div className="row">
-        <div className={`form-group col-lg`}>
-          <label>Conclusion</label>
-          <select {...inputProps.results}>
-            <option value="dnf">Did Not Finish</option>
-            <option value="won">Won</option>
-            <option value="lost">Lost</option>
-            <option value="inconclusive">Inconclusive</option>
-          </select>
-        </div>
-        {value.results === "won" && experiment.variations.length > 2 && (
-          <div className={`form-group col-lg`}>
-            <label>Winner</label>
-            <select {...inputProps.winner}>
-              {experiment.variations.map((v, i) => {
-                if (!i) return null;
-                return (
-                  <option value={i} key={i}>
-                    {v.name}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+        <Field
+          label="Conclusion"
+          className="col-lg"
+          {...form.register("results")}
+          options={[
+            { display: "Did Not Finish", value: "dnf" },
+            { display: "Won", value: "won" },
+            { display: "Lost", value: "lost" },
+            { display: "Inconclusive", value: "inconclusive" },
+          ]}
+        />
+        {form.watch("results") === "won" && experiment.variations.length > 2 && (
+          <Field
+            label="Winner"
+            className="col-lg"
+            {...form.register("winner")}
+            options={experiment.variations.map((v, i) => {
+              if (!i) return null;
+              return { value: i, display: v.name };
+            })}
+          />
         )}
       </div>
       <div className="row">
         <div className="form-group col-lg">
           <label>Additional Analysis or Details</label>{" "}
           <MarkdownInput
-            value={value.analysis}
-            setValue={(analysis) => manualUpdate({ analysis })}
+            value={form.watch("analysis")}
+            setValue={(val) => form.setValue("analysis", val)}
           />
         </div>
       </div>

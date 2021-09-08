@@ -1,10 +1,10 @@
 import { FC } from "react";
 import Modal from "../Modal";
 import { SegmentInterface } from "back-end/types/segment";
-import useForm from "../../hooks/useForm";
-import TextareaAutosize from "react-textarea-autosize";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -16,68 +16,55 @@ const SegmentForm: FC<{
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
-  const [value, inputProps] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
     },
-    current.id
-  );
+  });
   const filteredDatasources = datasources.filter(
     (d) => d.type !== "google_analytics"
   );
 
-  const datasource = getDatasourceById(value.datasource);
+  const datasource = getDatasourceById(form.watch("datasource"));
 
   return (
     <Modal
       close={close}
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
           method: current.id ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
         mutateDefinitions({});
-      }}
+      })}
     >
-      <div className="form-group">
-        Name
-        <input
-          type="text"
-          required
-          className="form-control"
-          {...inputProps.name}
-        />
-      </div>
-      <div className="form-group">
-        Data Source
-        <select className="form-control" required {...inputProps.datasource}>
-          <option value="">Choose one...</option>
-          {filteredDatasources.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        {datasource?.type === "mixpanel" ? "Event Condition" : "SQL"}
-        <TextareaAutosize
-          className="form-control"
-          required
-          {...inputProps.sql}
-          minRows={3}
-          placeholder={
-            datasource?.type === "mixpanel"
-              ? "event.properties.$browser === 'Chrome'"
-              : "SELECT user_id, date FROM mytable"
-          }
-        />
-        <small className="form-text text-muted">
-          {datasource?.type === "mixpanel" ? (
+      <Field label="Name" required {...form.register("name")} />
+      <Field
+        label="Data Source"
+        required
+        {...form.register("datasource")}
+        initialOption="Choose one..."
+        options={filteredDatasources.map((d) => ({
+          value: d.id,
+          display: d.name,
+        }))}
+      />
+      <Field
+        label={datasource?.type === "mixpanel" ? "Event Condition" : "SQL"}
+        required
+        textarea
+        {...form.register("sql")}
+        placeholder={
+          datasource?.type === "mixpanel"
+            ? "event.properties.$browser === 'Chrome'"
+            : "SELECT user_id, date FROM mytable"
+        }
+        helpText={
+          datasource?.type === "mixpanel" ? (
             <>
               Javascript condition used to filter events. Has access to an{" "}
               <code>event</code> variable.
@@ -87,9 +74,9 @@ const SegmentForm: FC<{
               Select two columns named <code>user_id</code> and{" "}
               <code>date</code>
             </>
-          )}
-        </small>
-      </div>
+          )
+        }
+      />
     </Modal>
   );
 };

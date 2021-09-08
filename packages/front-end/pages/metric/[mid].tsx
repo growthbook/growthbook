@@ -39,6 +39,8 @@ import {
   getDefaultConversionWindowHours,
   hasFileConfig,
 } from "../../services/env";
+import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -56,6 +58,15 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   useSwitchOrg(data?.metric?.organization);
+
+  const form = useForm<{ name: string; description: string }>();
+
+  useEffect(() => {
+    if (data?.metric) {
+      form.setValue("name", data.metric.name || "");
+      form.setValue("description", data.metric.description || "");
+    }
+  }, [data]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -137,26 +148,32 @@ const MetricPage: FC = () => {
               <InlineForm
                 editing={canEdit && editing}
                 setEdit={setEditing}
-                onSave={async (value, description) => {
+                onSave={form.handleSubmit(async (value) => {
                   await apiCall(`/metric/${metric.id}`, {
                     method: "PUT",
-                    body: JSON.stringify({
-                      name: value.name,
-                      description: description,
-                    }),
+                    body: JSON.stringify(value),
                   });
                   await mutate();
                   setEditing(false);
-                }}
-                initialValue={{
-                  name: metric.name || metric.id,
+                })}
+                onStartEdit={() => {
+                  form.setValue("name", metric.name || "");
+                  form.setValue("description", metric.description || "");
                 }}
               >
-                {({ inputProps, cancel, save, onMarkdownChange }) => (
+                {({ cancel, save }) => (
                   <div className="mb-4">
                     <div className="row mb-3">
                       <div className="col">
-                        <EditableH1 {...inputProps.name} editing={editing} />
+                        <EditableH1
+                          value={form.watch("name")}
+                          onChange={(e) =>
+                            form.setValue("name", e.target.value)
+                          }
+                          editing={editing}
+                          save={save}
+                          cancel={cancel}
+                        />
                       </div>
                       {canEdit && !editing && (
                         <div className="col-auto">
@@ -177,7 +194,8 @@ const MetricPage: FC = () => {
                       cancel={cancel}
                       save={save}
                       defaultValue={metric.description}
-                      onChange={onMarkdownChange}
+                      form={form}
+                      name="description"
                       placeholder={
                         <>
                           No description yet.{" "}

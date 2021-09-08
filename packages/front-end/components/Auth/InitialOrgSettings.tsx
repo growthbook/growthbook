@@ -1,5 +1,5 @@
 import { ReactElement, useContext, useState } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
@@ -33,15 +33,17 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "ClickHouse", value: "clickhouse" },
   ];
 
-  const [value, inputProps, manualUpdate] = useForm({
-    types: {
-      visual: false,
-      code: false,
+  const form = useForm({
+    defaultValues: {
+      types: {
+        visual: false,
+        code: true,
+      },
+      datasource: [],
+      dataother: "",
+      techstack: [],
+      techother: "",
     },
-    datasource: [],
-    dataother: "",
-    techstack: [],
-    techother: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,7 @@ export default function InitialOrgSettings(): ReactElement {
   const { apiCall, logout } = useAuth();
   const { update } = useContext(UserContext);
 
-  const submit = async () => {
+  const submit = form.handleSubmit(async (value) => {
     // add the other to the array:
     const datas = [...value.datasource];
     const techs = [...value.techstack];
@@ -72,7 +74,7 @@ export default function InitialOrgSettings(): ReactElement {
 
     track("onboarding questions");
     update();
-  };
+  });
 
   const leftside = (
     <>
@@ -119,15 +121,7 @@ export default function InitialOrgSettings(): ReactElement {
               <input
                 type="checkbox"
                 className="form-check-input "
-                checked={value.types.visual}
-                onChange={(e) => {
-                  manualUpdate({
-                    types: {
-                      code: true,
-                      visual: e.target.checked,
-                    },
-                  });
-                }}
+                {...form.register("types.visual")}
                 id="checkbox-visualeditor"
               />
 
@@ -148,32 +142,15 @@ export default function InitialOrgSettings(): ReactElement {
               <div className="form-group">
                 <h4>Data sources</h4>
                 {dataSources.map((d) => {
-                  const checked = value.datasource.indexOf(d.value) > -1;
                   return (
                     <div className="form-check" key={d.value}>
                       <label className="form-check-label">
                         <input
                           type="checkbox"
                           className="form-check-input "
-                          checked={checked}
-                          onChange={() => {
-                            const newd = [...value.datasource];
-                            if (checked) {
-                              // uncheck
-                              const index: number = newd.indexOf(d.value, 0);
-                              if (index > -1) {
-                                newd.splice(index, 1);
-                              }
-                            } else {
-                              newd.push(d.value);
-                            }
-                            manualUpdate({
-                              datasource: newd,
-                            });
-                          }}
-                          id="checkbox-visualeditor"
+                          value={d.value}
+                          {...form.register("datasource")}
                         />
-
                         {d.display}
                       </label>
                     </div>
@@ -181,11 +158,8 @@ export default function InitialOrgSettings(): ReactElement {
                 })}
                 Other:
                 <input
-                  required
                   type="text"
-                  name="dataother"
-                  autoComplete="dataother"
-                  {...inputProps.dataother}
+                  {...form.register("dataother")}
                   className="form-control"
                 />
               </div>
@@ -194,33 +168,15 @@ export default function InitialOrgSettings(): ReactElement {
               <div className="form-group">
                 <h4>Tech stacks</h4>
                 {techStacks.map((t) => {
-                  const checked = value.techstack.indexOf(t.value) > -1;
                   return (
                     <div className="form-check" key={t.value}>
                       <label className="form-check-label">
                         <input
                           type="checkbox"
                           className="form-check-input "
-                          checked={checked}
-                          onChange={() => {
-                            const newt = [...value.techstack];
-                            if (checked) {
-                              // uncheck
-                              const index: number = newt.indexOf(t.value, 0);
-                              if (index > -1) {
-                                newt.splice(index, 1);
-                              }
-                            } else {
-                              // check
-                              newt.push(t.value);
-                            }
-                            manualUpdate({
-                              techstack: newt,
-                            });
-                          }}
-                          id="checkbox-visualeditor"
+                          value={t.value}
+                          {...form.register("techstack")}
                         />
-
                         {t.display}
                       </label>
                     </div>
@@ -228,11 +184,8 @@ export default function InitialOrgSettings(): ReactElement {
                 })}
                 Other:
                 <input
-                  required
                   type="text"
-                  name="techother"
-                  autoComplete="techother"
-                  {...inputProps.techother}
+                  {...form.register("techother")}
                   className="form-control"
                 />
               </div>
