@@ -980,6 +980,11 @@ li.reports a span img {
   }
 }
 
+#modal {
+  position: relative;
+  z-index: 999999;
+}
+
 .moremenucontents {
   position: absolute;
   background-color: #fff;

@@ -108,7 +108,12 @@ const InstructionsModal: FC<{
     },
   });
   const [codegen, setCodegen] = useState("");
-  const value = form.getValues();
+  const value = {
+    tracking: form.watch("tracking"),
+    funcs: variations.slice(1).map((v, i) => form.watch(`funcs.${i}`)),
+    gaDimension: form.watch("gaDimension"),
+    mixpanelProjectId: form.watch("mixpanelProjectId"),
+  };
   useEffect(() => {
     setCodegen(
       generateJavascriptSnippet(

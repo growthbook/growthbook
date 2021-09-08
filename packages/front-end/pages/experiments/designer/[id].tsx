@@ -383,7 +383,13 @@ const EditorPage: FC = () => {
     return [e.clientX, e.clientY];
   }
 
-  const value = form.getValues();
+  const value = {
+    editing: form.watch("editing"),
+    value: form.watch("value"),
+    field: form.watch("field"),
+    name: form.watch("name"),
+    attribute: form.watch("attribute"),
+  };
 
   return (
     <div className={styles.designer}>
@@ -1073,7 +1079,9 @@ const EditorPage: FC = () => {
                   setIframeReady(false);
                   setIframeLoaded(false);
                   setIframeError(false);
-                  iframe.current.src = iframe.current.src + "";
+                  if (iframe.current) {
+                    iframe.current.src = iframe.current.src + "";
+                  }
                 } else {
                   setUrl(variationData.url);
                 }

@@ -395,7 +395,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
-              datasource={datasource.id}
+              datasource={datasource?.id}
             />
           </div>
           <div className="form-group">
@@ -407,7 +407,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <MetricsSelector
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
-              datasource={datasource.id}
+              datasource={datasource?.id}
             />
           </div>
           <div className="form-group">
@@ -422,7 +422,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             >
               <option value="">None</option>
               {metrics
-                .filter((m) => m.datasource === datasource.id)
+                .filter((m) => m.datasource === datasource?.id)
                 .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}

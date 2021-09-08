@@ -74,7 +74,10 @@ const ManualSnapshotForm: FC<{
   });
   const [preview, setPreview] = useState<SnapshotPreview>(null);
 
-  const values = form.getValues();
+  const values = {
+    metrics: form.watch("metrics"),
+    users: form.watch("users"),
+  };
 
   function getStats() {
     const ret: { [key: string]: MetricStats[] } = {};

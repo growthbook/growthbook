@@ -96,7 +96,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const value = form.getValues();
+  const value = {
+    visualEditorEnabled: form.watch("visualEditorEnabled"),
+    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
+    // customization:
+    customized: form.watch("customized"),
+    logoPath: form.watch("logoPath"),
+    primaryColor: form.watch("primaryColor"),
+    secondaryColor: form.watch("secondaryColor"),
+  };
   const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {

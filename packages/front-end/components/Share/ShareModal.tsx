@@ -298,7 +298,13 @@ const ShareModal = ({
   });
 
   const selectedExperiments = new Map();
-  const value = form.getValues();
+  const value = {
+    slides: form.watch("slides"),
+    theme: form.watch("theme"),
+    customTheme: form.watch("customTheme"),
+    title: form.watch("title"),
+    description: form.watch("description"),
+  };
   value.slides.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });

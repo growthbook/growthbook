@@ -55,7 +55,7 @@ function validateSQL(
     throw new Error("Must select a `user_id` column.");
   }
 }
-function validateBasicInfo(value: Partial<MetricInterface>) {
+function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
@@ -63,7 +63,12 @@ function validateBasicInfo(value: Partial<MetricInterface>) {
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,
-  value: Partial<MetricInterface>
+  value: {
+    sql: string;
+    type: MetricType;
+    userIdType: "user" | "anonymous" | "either";
+    table: string;
+  }
 ) {
   if (!datasourceSettingsSupport) {
     return;
@@ -152,7 +157,20 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const value = form.getValues();
+  const value = {
+    datasource: form.watch("datasource"),
+    timestampColumn: form.watch("timestampColumn"),
+    userIdColumn: form.watch("userIdColumn"),
+    anonymousIdColumn: form.watch("anonymousIdColumn"),
+    userIdType: form.watch("userIdType"),
+    column: form.watch("column"),
+    table: form.watch("table"),
+    type: form.watch("type"),
+    winRisk: form.watch("winRisk"),
+    loseRisk: form.watch("loseRisk"),
+    tags: form.watch("tags"),
+    sql: form.watch("sql"),
+  };
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -285,7 +303,7 @@ const MetricForm: FC<MetricFormProps> = ({
     >
       <Page
         display="Basic Info"
-        validate={async () => validateBasicInfo(value)}
+        validate={async () => validateBasicInfo(form.getValues())}
       >
         <div className="form-group">
           Metric Name
