@@ -28,7 +28,7 @@ worse."_
 At GrowthBook, we use an Uninformative Prior. This simply means that before an
 experiment runs, we assume both variations have an equal chance of
 being higher/lower than the other one. As the experiment runs and you gather data, the
-Prior is updated to create a Posterior distribution. For Binomial metrics (simple yes/no conversions event) we
+Prior is updated to create a Posterior distribution. For Binomial metrics (simple yes/no conversion events) we
 use a Beta-Binomial Prior. For count, duration, and revenue metrics, we use a Gaussian
 (or Normal) Prior.
 
@@ -51,7 +51,7 @@ about 17% better, but there’s a lot of uncertainty still"_).
 
 **Risk** (or expected loss) can be interpreted as _“If I stop the test now and choose X and it’s actually worse, how
 much am I expected to lose?”_. This is shown as a relative percent change - so if your baseline metric value is $5/user,
-a 10% risk equates to losing $0.50. Every business has their own risk tolerances, but you typically want to wait until this drops well below 1%.
+a 10% risk equates to losing $0.50.  You can specify your risk tolerance thresholds on a per-metric basis within GrowthBook.
 
 GrowthBook gives the human decision maker everything they need to weigh the results against
 external factors to determine when to stop an experiment and which variation to declare the winner.
@@ -59,12 +59,17 @@ external factors to determine when to stop an experiment and which variation to 
 ## Data Quality Checks
 
 In addition, GrowthBook performs automatic data quality
-checks to ensure the statistical inferences are valid and ready for interpretation.  
-We currently run two checks: Sample Ratio Mismatch (SRM) and minimum data thresholds.
-SRM detects a wide variety of implementation errors and the data thresholds ensure
-you aren't drawing conclusions too early on in a test (e.g. when it's 5 conversions vs 2 conversions).
+checks to ensure the statistical inferences are valid and ready for interpretation.
+We currently run a number of checks and plan to add even more in the future.
 
-![SRM check failed](/images/SRM-check-failed.png)
+1.  **Sample Ratio Mismatch** (SRM) detects when the traffic split doesn't match what you are expecting (e.g. a 48/52 split when you expect it to be 50/50)
+2.  **Guardrail Metrics** help ensure an experiment isn't inadvertently hurting core metrics like error rate or page load time
+3.  **Minimum Data Thresholds** so you aren't drawing conclusions too early (e.g. when it's 5 vs 2 conversions)
+4.  **Variation Id Mismatch** which can detect missing or improperly-tagged rows in your data warehouse
+5.  **Suspicious Uplift Detection** which alerts you when a metric changes by too much in a single experiment, indicating a likely bug
+
+Many of these checks are customizeable at a per-metric level.
+So you can, for example, have stricter quality checks for revenue than you have for less important metrics.
 
 ## Dimensional Analysis
 
