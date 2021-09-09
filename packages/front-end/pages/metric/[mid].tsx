@@ -14,6 +14,8 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
+  defaultMaxPercentChange,
+  defaultMinSampleSize,
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
@@ -426,14 +428,22 @@ const MetricPage: FC = () => {
 
                 <RightRailSectionGroup type="custom" empty="">
                   <small>
-                    <strong>Risk threshold:</strong>
+                    <strong>Thresholds:</strong>
                     <br />
-                    <i>acceptable</i> &lt;{" "}
+                    <i>Acceptable risk</i> &lt;{" "}
                     {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}
                     %
                     <br />
-                    <i>too risky</i> &gt;{" "}
+                    <i>Unacceptable risk</i> &gt;{" "}
                     {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}%
+                    <br />
+                    <i>Minimum sample size</i> :{" "}
+                    {metric?.minSampleSize ?? defaultMinSampleSize}
+                    <br />
+                    <i>Max percent change</i> :{" "}
+                    {metric?.maxPercentChange * 100 ||
+                      defaultMaxPercentChange * 100}
+                    %
                   </small>
                 </RightRailSectionGroup>
               </RightRailSection>

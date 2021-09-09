@@ -15,8 +15,12 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
+  defaultMaxPercentChange,
+  defaultMinSampleSize,
+  formatConversionRate,
 } from "../../services/metrics";
 import BooleanSelect from "../Forms/BooleanSelect";
+import Field from "../Forms/Field";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -152,6 +156,9 @@ const MetricForm: FC<MetricFormProps> = ({
       tags: current.tags || [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      maxPercentChange:
+        (current.maxPercentChange || defaultMaxPercentChange) * 100,
+      minSampleSize: current.minSampleSize || defaultMinSampleSize,
     },
   });
 
@@ -208,12 +215,13 @@ const MetricForm: FC<MetricFormProps> = ({
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const { winRisk, loseRisk, sql, ...otherValues } = value;
+    const { winRisk, loseRisk, maxPercentChange, sql, ...otherValues } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
+      maxPercentChange: maxPercentChange / 100,
       sql: sqlInput ? sql : "",
     };
 
@@ -832,6 +840,36 @@ GROUP BY
             green, yellow, or red.
           </small>
         </div>
+        <div className="form-group">
+          Minimum Sample Size
+          <input
+            type="number"
+            className="form-control"
+            {...form.register("minSampleSize", { valueAsNumber: true })}
+          />
+          <small className="text-muted">
+            The{" "}
+            {value.type === "binomial"
+              ? "number of conversions"
+              : `total ${value.type}`}{" "}
+            required in an experiment variation before showing results (default{" "}
+            {value.type === "binomial"
+              ? defaultMinSampleSize
+              : formatConversionRate(value.type, defaultMinSampleSize)}
+            )
+          </small>
+        </div>
+        <Field
+          label="Max Percent Change"
+          type="number"
+          step="any"
+          append="%"
+          {...form.register("maxPercentChange", { valueAsNumber: true })}
+          helpText={`An experiment that changes the metric by more than this percent will
+            be flagged as suspicious (default ${
+              defaultMaxPercentChange * 100
+            })`}
+        />
       </Page>
     </PagedModal>
   );

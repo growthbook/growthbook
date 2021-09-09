@@ -39,6 +39,8 @@ export interface MetricInterface {
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;
+  maxPercentChange?: number;
+  minSampleSize?: number;
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";
