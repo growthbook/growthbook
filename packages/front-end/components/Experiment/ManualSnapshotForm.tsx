@@ -206,6 +206,7 @@ const ManualSnapshotForm: FC<{
               <div className="col-auto" key={i}>
                 <Field
                   type="number"
+                  step="1"
                   required
                   prepend={v.name}
                   {...form.register(`users.${i}`, { valueAsNumber: true })}
@@ -258,6 +259,7 @@ const ManualSnapshotForm: FC<{
                       <td>
                         <Field
                           type="number"
+                          step="1"
                           required
                           {...form.register(`metrics.${m.id}.${i}.count`, {
                             valueAsNumber: true,
@@ -268,6 +270,7 @@ const ManualSnapshotForm: FC<{
                       <td>
                         <Field
                           type="number"
+                          step="any"
                           required
                           {...form.register(`metrics.${m.id}.${i}.mean`, {
                             valueAsNumber: true,
@@ -280,6 +283,7 @@ const ManualSnapshotForm: FC<{
                           <td>
                             <Field
                               type="number"
+                              step="1"
                               required
                               {...form.register(`metrics.${m.id}.${i}.count`, {
                                 valueAsNumber: true,
@@ -290,6 +294,7 @@ const ManualSnapshotForm: FC<{
                         <td>
                           <Field
                             type="number"
+                            step="any"
                             required
                             {...form.register(`metrics.${m.id}.${i}.mean`, {
                               valueAsNumber: true,
@@ -299,6 +304,7 @@ const ManualSnapshotForm: FC<{
                         <td>
                           <Field
                             type="number"
+                            step="any"
                             required
                             {...form.register(`metrics.${m.id}.${i}.stddev`, {
                               valueAsNumber: true,

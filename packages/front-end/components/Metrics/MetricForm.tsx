@@ -20,6 +20,7 @@ import {
   formatConversionRate,
 } from "../../services/metrics";
 import BooleanSelect from "../Forms/BooleanSelect";
+import Field from "../Forms/Field";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -858,30 +859,17 @@ GROUP BY
             )
           </small>
         </div>
-        <div className="form-group">
-          Max Percent Change
-          <div className="col px-0">
-            <span
-              style={{
-                position: "absolute",
-                right: "4px",
-                top: "6px",
-                color: "#888",
-              }}
-            >
-              %
-            </span>
-            <input
-              type="number"
-              className="form-control"
-              {...form.register("maxPercentChange", { valueAsNumber: true })}
-            />
-          </div>
-          <small className="text-muted">
-            An experiment that changes the metric by more than this percent will
-            be flagged as suspicious (default {defaultMaxPercentChange * 100})
-          </small>
-        </div>
+        <Field
+          label="Max Percent Change"
+          type="number"
+          step="any"
+          append="%"
+          {...form.register("maxPercentChange", { valueAsNumber: true })}
+          helpText={`An experiment that changes the metric by more than this percent will
+            be flagged as suspicious (default ${
+              defaultMaxPercentChange * 100
+            })`}
+        />
       </Page>
     </PagedModal>
   );

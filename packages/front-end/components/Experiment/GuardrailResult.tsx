@@ -94,7 +94,7 @@ const GuardrailResults: FC<{
                 );
               }
 
-              const chance = 1 - (stats.chanceToWin || 1);
+              const chance = 1 - (stats.chanceToWin ?? 1);
               return (
                 <tr key={i}>
                   <td>{v.name}</td>

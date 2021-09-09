@@ -1,4 +1,4 @@
-import React, { FC, Fragment } from "react";
+import React, { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -11,7 +11,11 @@ import {
   defaultMinSampleSize,
 } from "../../services/metrics";
 import clsx from "clsx";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  SnapshotMetric,
+  SnapshotVariation,
+} from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import AlignedGraph from "./AlignedGraph";
 import { formatDistance } from "date-fns";
@@ -21,6 +25,7 @@ import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 import DataQualityWarning from "./DataQualityWarning";
+import { MetricInterface } from "../../../back-end/types/metric";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -44,25 +49,329 @@ function hasOverMaxChange(
   return Math.abs(control - varValue) / control >= maxPercentChange;
 }
 
-const CompactResults: FC<{
-  snapshot: ExperimentSnapshotInterface;
-  experiment: ExperimentInterfaceStringDates;
-  barFillType?: "gradient" | "significant";
-  barType?: "pill" | "violin";
-  phase?: ExperimentPhaseStringDates;
-}> = ({
-  snapshot,
+function getRisk(
+  riskVariation: number,
+  metric: MetricInterface,
+  variations: SnapshotVariation[]
+) {
+  const m = metric?.id;
+  let risk: number;
+  let riskCR: number;
+  let relativeRisk: number;
+  let showRisk = false;
+  const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
+  const maxPercentChange = metric?.maxPercentChange ?? defaultMaxPercentChange;
+
+  const baselineValue = variations[0]?.metrics?.[m]?.value;
+
+  if (riskVariation > 0) {
+    const stats = variations[riskVariation]?.metrics?.[m];
+    risk = stats?.risk?.[metric?.inverse ? 0 : 1];
+    riskCR = stats?.cr;
+    showRisk =
+      risk !== null &&
+      riskCR > 0 &&
+      hasEnoughData(baselineValue, stats?.value, minSampleSize) &&
+      !hasOverMaxChange(baselineValue, stats?.value, maxPercentChange);
+  } else {
+    risk = -1;
+    variations.forEach((v, i) => {
+      if (!i) return;
+      const stats = v.metrics[m];
+      if (!hasEnoughData(baselineValue, stats?.value, minSampleSize)) {
+        return;
+      }
+      if (hasOverMaxChange(baselineValue, stats?.value, maxPercentChange)) {
+        return;
+      }
+
+      const vRisk = stats?.risk?.[metric?.inverse ? 1 : 0];
+      if (vRisk > risk) {
+        risk = vRisk;
+        riskCR = stats?.cr;
+      }
+    });
+    showRisk = risk >= 0 && riskCR > 0;
+  }
+  if (showRisk) {
+    relativeRisk = risk / riskCR;
+  }
+
+  return {
+    risk,
+    relativeRisk,
+    showRisk,
+  };
+}
+
+function NotEnoughData({
+  phaseStart,
+  snapshotCreated,
+  experimentStatus,
+  isLatestPhase,
+  minSampleSize,
+  variationValue,
+  baselineValue,
+}: {
+  snapshotCreated: Date;
+  phaseStart: string;
+  experimentStatus: "draft" | "running" | "stopped";
+  isLatestPhase: boolean;
+  minSampleSize: number;
+  variationValue: number;
+  baselineValue: number;
+}) {
+  const percentComplete = Math.min(
+    Math.max(variationValue, baselineValue) / minSampleSize
+  );
+
+  const snapshotCreatedTime = new Date(snapshotCreated).getTime();
+
+  const msRemaining =
+    percentComplete > 0.1
+      ? ((snapshotCreatedTime - new Date(phaseStart).getTime()) *
+          (1 - percentComplete)) /
+          percentComplete -
+        (Date.now() - snapshotCreatedTime)
+      : null;
+
+  const showTimeRemaining =
+    msRemaining !== null && isLatestPhase && experimentStatus === "running";
+
+  return (
+    <div>
+      <div className="mb-1">
+        <div className="badge badge-pill badge-secondary">not enough data</div>
+      </div>
+      {showTimeRemaining && (
+        <small className="text-muted">
+          {msRemaining > 0 ? (
+            <>
+              <span className="nowrap">{formatDistance(0, msRemaining)}</span>{" "}
+              left
+            </>
+          ) : (
+            "try updating now"
+          )}
+        </small>
+      )}
+    </div>
+  );
+}
+
+function ChanceToWinColumn({
+  metric,
   experiment,
-  barFillType = "gradient",
-  barType = "violin",
   phase,
-}) => {
-  const { getMetricById } = useDefinitions();
+  snapshotDate,
+  baselineValue,
+  variationValue,
+  chanceToWin,
+}: {
+  metric: MetricInterface;
+  experiment: ExperimentInterfaceStringDates;
+  phase: number;
+  snapshotDate: Date;
+  baselineValue: number;
+  variationValue: number;
+  chanceToWin: number;
+}) {
+  const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
+  const maxPercentChange = metric?.maxPercentChange || defaultMaxPercentChange;
+  const enoughData = hasEnoughData(
+    baselineValue,
+    variationValue,
+    minSampleSize
+  );
+  const suspiciousChange = hasOverMaxChange(
+    baselineValue,
+    variationValue,
+    maxPercentChange
+  );
   const { ciUpper, ciLower } = useConfidenceLevels();
 
-  const results = snapshot.results[0];
-  const variations = results?.variations || [];
+  const shouldHighlight =
+    metric &&
+    baselineValue &&
+    variationValue &&
+    enoughData &&
+    !suspiciousChange;
 
+  return (
+    <td
+      className={clsx("variation chance result-number align-middle", {
+        won: shouldHighlight && chanceToWin > ciUpper,
+        lost: shouldHighlight && chanceToWin < ciLower,
+      })}
+    >
+      {!baselineValue || !variationValue ? (
+        <em>no data</em>
+      ) : !enoughData ? (
+        <NotEnoughData
+          experimentStatus={experiment.status}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          baselineValue={baselineValue}
+          variationValue={variationValue}
+          minSampleSize={minSampleSize}
+          snapshotCreated={snapshotDate}
+          phaseStart={experiment.phases[phase]?.dateStarted}
+        />
+      ) : suspiciousChange ? (
+        <div>
+          <div className="mb-1">
+            <span className="badge badge-pill badge-warning">
+              suspicious result
+            </span>
+          </div>
+          <small className="text-muted">value changed too much</small>
+        </div>
+      ) : (
+        percentFormatter.format(chanceToWin)
+      )}
+    </td>
+  );
+}
+
+function PercentGraphColumn({
+  metric,
+  experiment,
+  variation,
+  baselineValue,
+  stats,
+  domain,
+}: {
+  metric: MetricInterface;
+  experiment: ExperimentInterfaceStringDates;
+  variation: number;
+  baselineValue: number;
+  stats: SnapshotMetric;
+  domain: [number, number];
+}) {
+  const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
+  const maxPercentChange = metric?.maxPercentChange || defaultMaxPercentChange;
+  const enoughData = hasEnoughData(baselineValue, stats.value, minSampleSize);
+  const suspiciousChange = hasOverMaxChange(
+    baselineValue,
+    stats.value,
+    maxPercentChange
+  );
+  const { ciUpper, ciLower } = useConfidenceLevels();
+  const barType = stats.uplift?.dist ? "violin" : "pill";
+
+  const showGraph = metric && enoughData && !suspiciousChange;
+  return (
+    <td className="compact-graph pb-0 align-middle">
+      <AlignedGraph
+        ci={showGraph ? stats.ci || [] : [0, 0]}
+        id={experiment.id + "_" + variation + "_" + metric?.id}
+        domain={domain}
+        uplift={showGraph ? stats.uplift : null}
+        expected={showGraph ? stats.expected : null}
+        barType={barType}
+        barFillType="gradient"
+        axisOnly={showGraph ? false : true}
+        showAxis={false}
+        significant={
+          showGraph
+            ? stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
+            : false
+        }
+        height={62}
+        inverse={!!metric?.inverse}
+      />
+    </td>
+  );
+}
+
+function MetricValueColumn({
+  metric,
+  stats,
+  users,
+}: {
+  metric: MetricInterface;
+  stats: SnapshotMetric;
+  users: number;
+}) {
+  return (
+    <td className="value variation">
+      {metric && stats.value ? (
+        <>
+          <div className="result-number">
+            {formatConversionRate(metric?.type, stats.cr)}
+          </div>
+          <div>
+            <small className="text-muted">
+              <em>
+                {numberFormatter.format(stats.value)} /{" "}
+                {numberFormatter.format(stats.users || users)}
+              </em>
+            </small>
+          </div>
+        </>
+      ) : (
+        <em>no data</em>
+      )}
+    </td>
+  );
+}
+
+function RiskColumn({
+  metric,
+  baselineValue,
+  variations,
+  riskVariation,
+}: {
+  metric: MetricInterface;
+  baselineValue: number;
+  variations: SnapshotVariation[];
+  riskVariation: number;
+}) {
+  const { relativeRisk, risk, showRisk } = getRisk(
+    riskVariation,
+    metric,
+    variations
+  );
+
+  const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
+  const loseRiskThreshold = metric?.loseRisk || defaultLoseRiskThreshold;
+
+  if (!baselineValue || !showRisk) {
+    return <td className="empty-td"></td>;
+  }
+
+  return (
+    <td
+      className={clsx("chance variation", {
+        won: showRisk && relativeRisk <= winRiskThreshold,
+        lost: showRisk && relativeRisk >= loseRiskThreshold,
+        warning:
+          showRisk &&
+          relativeRisk > winRiskThreshold &&
+          relativeRisk < loseRiskThreshold,
+      })}
+    >
+      <div className="result-number">
+        {percentFormatter.format(relativeRisk)}
+      </div>
+      {metric?.type !== "binomial" && (
+        <div>
+          <small className="text-muted">
+            <em>
+              {formatConversionRate(metric?.type, risk)}
+              &nbsp;/&nbsp;user
+            </em>
+          </small>
+        </div>
+      )}
+    </td>
+  );
+}
+
+function useRiskVariation(
+  experiment: ExperimentInterfaceStringDates,
+  variations: SnapshotVariation[]
+) {
+  const { getMetricById } = useDefinitions();
   const [riskVariation, setRiskVariation] = useState(() => {
     // Calculate the total risk for each variation across all metrics
     const sums: number[] = Array(variations.length).fill(0);
@@ -70,29 +379,33 @@ const CompactResults: FC<{
       const metric = getMetricById(m);
       if (!metric) return;
 
+      const baseline = variations[0].metrics[m];
+      if (!baseline || !baseline.cr) return;
+
       const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
+      const maxPercentChange =
+        metric?.maxPercentChange ?? defaultMaxPercentChange;
+
       let controlMax = 0;
-      const controlCR = variations[0].metrics[m]?.cr;
-      if (!controlCR) return;
       variations.forEach((v, i) => {
         if (!i) return;
-        if (
-          !hasEnoughData(
-            v.metrics[m]?.value,
-            variations[0].metrics[m]?.value,
-            minSampleSize
-          )
-        ) {
+        const stats = variations[i].metrics[m];
+
+        if (!stats || !stats.risk || !stats.cr) {
           return;
         }
-        const risk = v.metrics[m]?.risk;
-        const cr = v.metrics[m]?.cr;
-        if (!risk) return;
+        if (!hasEnoughData(baseline?.value, stats.value, minSampleSize)) {
+          return;
+        }
+        if (hasOverMaxChange(baseline?.value, stats.value, maxPercentChange)) {
+          return;
+        }
 
-        const controlRisk = (metric.inverse ? risk[1] : risk[0]) / controlCR;
+        const controlRisk =
+          (metric?.inverse ? stats.risk[1] : stats.risk[0]) / baseline.cr;
+
         controlMax = Math.max(controlMax, controlRisk);
-
-        sums[i] += (metric.inverse ? risk[0] : risk[1]) / cr;
+        sums[i] += (metric?.inverse ? stats.risk[0] : stats.risk[1]) / stats.cr;
       });
       sums[0] += controlMax;
     });
@@ -101,38 +414,65 @@ const CompactResults: FC<{
     return sums.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0])[0][1];
   });
 
-  let lowerBound: number, upperBound: number;
-  const domain: [number, number] = [0, 0];
-  experiment.metrics?.map((m) => {
-    const metric = getMetricById(m);
-    const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
-
-    experiment.variations?.map((v, i) => {
-      if (variations[i]?.metrics?.[m]) {
-        const stats = { ...variations[i].metrics[m] };
-        if (
-          i > 0 &&
-          hasEnoughData(
-            stats.value,
-            variations[0].metrics[m]?.value || 0,
-            minSampleSize
-          )
-        ) {
-          const ci = stats.ci || [];
-          if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
-          if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
-        }
-      }
-    });
-  });
-  // calculate domain
-  domain[0] = lowerBound;
-  domain[1] = upperBound;
-
   const hasRisk =
     Object.values(variations[1]?.metrics || {}).filter(
       (x) => x.risk?.length > 0
     ).length > 0;
+
+  return [hasRisk, riskVariation, setRiskVariation] as const;
+}
+
+function useDomain(
+  experiment: ExperimentInterfaceStringDates,
+  variations: SnapshotVariation[]
+): [number, number] {
+  const { getMetricById } = useDefinitions();
+
+  let lowerBound: number, upperBound: number;
+  experiment.metrics?.forEach((m) => {
+    const metric = getMetricById(m);
+    if (!metric) return;
+
+    const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
+    const maxPercentChange =
+      metric?.maxPercentChange ?? defaultMaxPercentChange;
+
+    const baselineValue = variations[0].metrics[m]?.value || 0;
+
+    experiment.variations?.forEach((v, i) => {
+      if (!variations[i]?.metrics?.[m]) return;
+      const stats = { ...variations[i].metrics[m] };
+
+      // Skip baseline
+      if (!i) return;
+      if (!hasEnoughData(stats.value, baselineValue, minSampleSize)) return;
+      if (hasOverMaxChange(baselineValue, stats.value, maxPercentChange))
+        return;
+
+      const ci = stats.ci || [];
+      if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
+      if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
+    });
+  });
+  return [lowerBound, upperBound];
+}
+
+const CompactResults: FC<{
+  snapshot: ExperimentSnapshotInterface;
+  experiment: ExperimentInterfaceStringDates;
+  phase?: ExperimentPhaseStringDates;
+}> = ({ snapshot, experiment, phase }) => {
+  const { getMetricById } = useDefinitions();
+
+  const results = snapshot.results[0];
+  const variations = results?.variations || [];
+
+  const [hasRisk, riskVariation, setRiskVariation] = useRiskVariation(
+    experiment,
+    variations
+  );
+
+  const domain = useDomain(experiment, variations);
 
   return (
     <div className="mb-4 experiment-compact-holder">
@@ -198,7 +538,7 @@ const CompactResults: FC<{
                 {i > 0 && (
                   <th className={`variation${i} text-center`}>
                     Percent Change{" "}
-                    {barType === "violin" && hasRisk && (
+                    {hasRisk && (
                       <Tooltip text="The true value is more likely to be in the thicker parts of the graph">
                         <FaQuestionCircle />
                       </Tooltip>
@@ -241,120 +581,20 @@ const CompactResults: FC<{
           </tr>
           {experiment.metrics?.map((m) => {
             const metric = getMetricById(m);
-            if (!metric || !variations[0]?.metrics?.[m]) {
-              return (
-                <tr
-                  key={m + "nodata"}
-                  className={`metricrow nodata ${
-                    metric?.inverse ? "inverse" : ""
-                  }`}
-                >
-                  <th className="metricname">
-                    {metric?.name}{" "}
-                    {metric?.inverse ? (
-                      <Tooltip
-                        text="metric is inverse, lower is better"
-                        className="inverse-indicator"
-                      >
-                        <MdSwapCalls />
-                      </Tooltip>
-                    ) : (
-                      ""
-                    )}
-                  </th>
-                  {hasRisk && <th className="empty-td"></th>}
-                  {experiment.variations.map((v, i) => {
-                    const stats = { ...variations[i]?.metrics?.[m] };
-                    return (
-                      <React.Fragment key={i}>
-                        <td className="value variation">
-                          {stats.value ? (
-                            <>
-                              <div className="result-number">
-                                {formatConversionRate(metric?.type, stats.cr)}
-                              </div>
-                              <div>
-                                <small className="text-muted">
-                                  <em>
-                                    {numberFormatter.format(stats.value)} /{" "}
-                                    {numberFormatter.format(
-                                      stats.users || variations[i].users
-                                    )}
-                                  </em>
-                                </small>
-                              </div>
-                            </>
-                          ) : (
-                            <em>no data</em>
-                          )}
-                        </td>
-                        {i > 0 && <td colSpan={2} className="variation"></td>}
-                      </React.Fragment>
-                    );
-                  })}
-                </tr>
-              );
-            }
-
-            let risk: number;
-            let riskCR: number;
-            let relativeRisk: number;
-            let showRisk = false;
-            const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
-            const loseRiskThreshold =
-              metric?.loseRisk || defaultLoseRiskThreshold;
-            const maxPercentChange =
-              metric?.maxPercentChange ?? defaultMaxPercentChange;
-            const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
-            if (hasRisk) {
-              if (riskVariation > 0) {
-                risk =
-                  variations[riskVariation]?.metrics?.[m]?.risk?.[
-                    metric.inverse ? 0 : 1
-                  ];
-                riskCR = variations[riskVariation]?.metrics?.[m]?.cr;
-                showRisk =
-                  risk !== null &&
-                  riskCR > 0 &&
-                  hasEnoughData(
-                    variations[riskVariation]?.metrics?.[m]?.value,
-                    variations[0]?.metrics?.[m]?.value,
-                    minSampleSize
-                  );
-              } else {
-                risk = -1;
-                variations.forEach((v, i) => {
-                  if (!i) return;
-                  if (
-                    !hasEnoughData(
-                      v.metrics[m]?.value,
-                      variations[0].metrics[m]?.value,
-                      minSampleSize
-                    )
-                  ) {
-                    return;
-                  }
-                  const vRisk = v.metrics?.[m]?.risk?.[metric.inverse ? 1 : 0];
-                  if (vRisk > risk) {
-                    risk = vRisk;
-                    riskCR = v.metrics?.[m]?.cr;
-                  }
-                });
-                showRisk = risk >= 0 && riskCR > 0;
-              }
-              if (showRisk) {
-                relativeRisk = risk / riskCR;
-              }
-            }
+            if (!metric) return null;
+            const baseline = variations[0]?.metrics?.[m];
 
             return (
               <tr
                 key={m}
-                className={`metricrow ${metric.inverse ? "inverse" : ""}`}
+                className={clsx("metricrow", {
+                  nodata: !baseline?.value,
+                  inverse: metric?.inverse,
+                })}
               >
                 <th className="metricname">
-                  {metric.name}{" "}
-                  {metric.inverse ? (
+                  {metric?.name}{" "}
+                  {metric?.inverse ? (
                     <Tooltip
                       text="metric is inverse, lower is better"
                       className="inverse-indicator"
@@ -366,265 +606,44 @@ const CompactResults: FC<{
                   )}
                 </th>
                 {hasRisk && (
-                  <td
-                    className={clsx("chance variation", {
-                      won: showRisk && relativeRisk <= winRiskThreshold,
-                      lost: showRisk && relativeRisk >= loseRiskThreshold,
-                      warning:
-                        showRisk &&
-                        relativeRisk > winRiskThreshold &&
-                        relativeRisk < loseRiskThreshold,
-                    })}
-                  >
-                    {showRisk ? (
-                      <>
-                        <div className="result-number">
-                          {percentFormatter.format(relativeRisk)}
-                        </div>
-                        {metric.type !== "binomial" && (
-                          <div>
-                            <small className="text-muted">
-                              <em>
-                                {formatConversionRate(metric.type, risk)}
-                                &nbsp;/&nbsp;user
-                              </em>
-                            </small>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="badge badge-pill badge-warning">
-                        not enough data
-                      </div>
-                    )}
-                  </td>
+                  <RiskColumn
+                    baselineValue={baseline?.value}
+                    metric={metric}
+                    riskVariation={riskVariation}
+                    variations={variations}
+                  />
                 )}
                 {experiment.variations.map((v, i) => {
-                  const stats = { ...variations[i].metrics[m] };
-                  const ci = stats.ci || [];
-                  const expected = stats.expected;
-
-                  if (
-                    !hasEnoughData(
-                      stats.value,
-                      variations[0].metrics[m]?.value || 0,
-                      minSampleSize
-                    )
-                  ) {
-                    const percentComplete = Math.min(
-                      Math.max(stats.value, variations[0].metrics[m]?.value) /
-                        minSampleSize
-                    );
-                    const phaseStart = new Date(
-                      experiment.phases[snapshot.phase]?.dateStarted
-                    ).getTime();
-                    const snapshotCreated = new Date(
-                      snapshot.dateCreated
-                    ).getTime();
-
-                    const msRemaining =
-                      percentComplete > 0.1
-                        ? ((snapshotCreated - phaseStart) *
-                            (1 - percentComplete)) /
-                            percentComplete -
-                          (Date.now() - snapshotCreated)
-                        : null;
-
-                    const showTimeRemaining =
-                      msRemaining !== null &&
-                      snapshot.phase === experiment.phases.length - 1 &&
-                      experiment.status === "running";
-
-                    return (
-                      <Fragment key={i}>
-                        <td className="value variation">
-                          <div className="result-number">
-                            {formatConversionRate(metric.type, stats.cr)}
-                          </div>
-                          <div>
-                            <small className="text-muted">
-                              <em>
-                                {numberFormatter.format(stats.value)}
-                                &nbsp;/&nbsp;
-                                {numberFormatter.format(
-                                  stats.users || variations[i].users
-                                )}
-                              </em>
-                            </small>
-                          </div>
-                        </td>
-                        {i > 0 && (
-                          <>
-                            <td
-                              className="variation text-center text-muted"
-                              colSpan={1}
-                            >
-                              <div>
-                                <div className="badge badge-pill badge-warning">
-                                  not enough data
-                                </div>
-                                {showTimeRemaining && (
-                                  <div className="font-italic mt-1">
-                                    {msRemaining > 0 ? (
-                                      <>
-                                        <span className="nowrap">
-                                          {formatDistance(0, msRemaining)}
-                                        </span>{" "}
-                                        left
-                                      </>
-                                    ) : (
-                                      "try updating now"
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="variation compact-graph pb-0 align-middle">
-                              <AlignedGraph
-                                id={experiment.id + "_" + i + "_" + m}
-                                domain={domain}
-                                axisOnly={true}
-                                ci={[0, 0]}
-                                significant={false}
-                                showAxis={false}
-                                height={62}
-                                inverse={!!metric.inverse}
-                              />
-                            </td>
-                          </>
-                        )}
-                      </Fragment>
-                    );
-                  }
-                  if (
-                    hasOverMaxChange(
-                      variations[0].metrics[m]?.value || 0,
-                      stats.value,
-                      maxPercentChange
-                    )
-                  ) {
-                    return (
-                      <Fragment key={i}>
-                        <td className="value variation">
-                          <div className="result-number">
-                            {formatConversionRate(metric.type, stats.cr)}
-                          </div>
-                          <div>
-                            <small className="text-muted">
-                              <em>
-                                {numberFormatter.format(stats.value)}
-                                &nbsp;/&nbsp;
-                                {numberFormatter.format(
-                                  stats.users || variations[i].users
-                                )}
-                              </em>
-                            </small>
-                          </div>
-                        </td>
-                        {i > 0 && (
-                          <>
-                            <td
-                              className="variation text-center text-muted"
-                              colSpan={1}
-                            >
-                              <div>
-                                <div className="badge badge-pill badge-warning">
-                                  over max change precent
-                                </div>
-                              </div>
-                            </td>
-                            <td className="variation compact-graph pb-0 align-middle">
-                              <AlignedGraph
-                                id={experiment.id + "_" + i + "_" + m}
-                                domain={domain}
-                                axisOnly={true}
-                                ci={[0, 0]}
-                                significant={false}
-                                showAxis={false}
-                                height={62}
-                                inverse={!!metric.inverse}
-                              />
-                            </td>
-                          </>
-                        )}
-                      </Fragment>
-                    );
-                  }
-
+                  const stats = { ...variations[i]?.metrics?.[m] };
                   return (
-                    <Fragment key={i}>
-                      <td
-                        className={clsx("value align-middle", {
-                          variation: i > 0,
-                          won:
-                            barFillType === "significant" &&
-                            stats.chanceToWin > ciUpper,
-                          lost:
-                            barFillType === "significant" &&
-                            stats.chanceToWin < ciLower,
-                        })}
-                      >
-                        <div className="result-number">
-                          {formatConversionRate(metric.type, stats.cr)}
-                        </div>
-                        <div>
-                          <small className="text-muted">
-                            <em>
-                              {numberFormatter.format(stats.value)}
-                              &nbsp;/&nbsp;
-                              {numberFormatter.format(
-                                stats.users || variations[i].users
-                              )}
-                            </em>
-                          </small>
-                        </div>
-                      </td>
+                    <React.Fragment key={i}>
+                      <MetricValueColumn
+                        metric={metric}
+                        stats={stats}
+                        users={variations[i].users}
+                      />
                       {i > 0 && (
-                        <td
-                          className={clsx(
-                            "chance variation result-number align-middle",
-                            {
-                              won: stats.chanceToWin > ciUpper,
-                              lost: stats.chanceToWin < ciLower,
-                            }
-                          )}
-                        >
-                          {percentFormatter.format(stats.chanceToWin)}
-                        </td>
+                        <ChanceToWinColumn
+                          baselineValue={baseline?.value}
+                          chanceToWin={stats.chanceToWin}
+                          experiment={experiment}
+                          metric={metric}
+                          phase={snapshot.phase}
+                          snapshotDate={snapshot.dateCreated}
+                          variationValue={stats?.value}
+                        />
                       )}
                       {i > 0 && (
-                        <td
-                          className={clsx("compact-graph pb-0 align-middle", {
-                            variation: barFillType === "significant",
-                            won:
-                              barFillType === "significant" &&
-                              stats.chanceToWin > ciUpper,
-                            lost:
-                              barFillType === "significant" &&
-                              stats.chanceToWin < ciLower,
-                          })}
-                        >
-                          <div>
-                            <AlignedGraph
-                              ci={ci}
-                              uplift={stats.uplift}
-                              id={experiment.id + "_" + i + "_" + m}
-                              domain={domain}
-                              expected={expected}
-                              barType={barType}
-                              barFillType={barFillType}
-                              significant={
-                                stats.chanceToWin > ciUpper ||
-                                stats.chanceToWin < ciLower
-                              }
-                              showAxis={false}
-                              height={62}
-                              inverse={!!metric.inverse}
-                            />
-                          </div>
-                        </td>
+                        <PercentGraphColumn
+                          baselineValue={baseline?.value}
+                          domain={domain}
+                          experiment={experiment}
+                          metric={metric}
+                          stats={stats}
+                          variation={i}
+                        />
                       )}
-                    </Fragment>
+                    </React.Fragment>
                   );
                 })}
               </tr>
