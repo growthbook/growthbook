@@ -9,12 +9,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import { formatConversionRate } from "../../services/metrics";
+import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
 
-const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -98,22 +97,11 @@ const GuardrailResults: FC<{
               return (
                 <tr key={i}>
                   <td>{v.name}</td>
-                  <td>
-                    <div className="result-number">
-                      {formatConversionRate(metric.type, stats.cr)}
-                    </div>
-                    <div>
-                      <small className="text-muted">
-                        <em>
-                          {numberFormatter.format(stats.value)}
-                          &nbsp;/&nbsp;
-                          {numberFormatter.format(
-                            stats.users || variations[i].users
-                          )}
-                        </em>
-                      </small>
-                    </div>
-                  </td>
+                  <MetricValueColumn
+                    metric={metric}
+                    stats={stats}
+                    users={variations[i].users}
+                  />
                   {!i ? (
                     <td></td>
                   ) : hasEnoughData(

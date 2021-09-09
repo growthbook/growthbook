@@ -26,6 +26,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 import DataQualityWarning from "./DataQualityWarning";
 import { MetricInterface } from "../../../back-end/types/metric";
+import MetricValueColumn from "./MetricValueColumn";
 
 const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -276,41 +277,9 @@ function PercentGraphColumn({
             ? stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
             : false
         }
-        height={62}
+        height={75}
         inverse={!!metric?.inverse}
       />
-    </td>
-  );
-}
-
-function MetricValueColumn({
-  metric,
-  stats,
-  users,
-}: {
-  metric: MetricInterface;
-  stats: SnapshotMetric;
-  users: number;
-}) {
-  return (
-    <td className="value variation">
-      {metric && stats.value ? (
-        <>
-          <div className="result-number">
-            {formatConversionRate(metric?.type, stats.cr)}
-          </div>
-          <div>
-            <small className="text-muted">
-              <em>
-                {numberFormatter.format(stats.value)} /{" "}
-                {numberFormatter.format(stats.users || users)}
-              </em>
-            </small>
-          </div>
-        </>
-      ) : (
-        <em>no data</em>
-      )}
     </td>
   );
 }
@@ -570,8 +539,7 @@ const CompactResults: FC<{
                           significant={true}
                           showAxis={true}
                           axisOnly={true}
-                          //width="100%"
-                          height={50}
+                          height={45}
                         />
                       </div>
                     </td>
@@ -622,6 +590,7 @@ const CompactResults: FC<{
                         metric={metric}
                         stats={stats}
                         users={variations[i].users}
+                        className="value variation"
                       />
                       {i > 0 && (
                         <ChanceToWinColumn
