@@ -508,7 +508,7 @@ const CompactResults: FC<{
                   >
                     {experiment.variations.map((v, i) => (
                       <option key={v.name} value={i}>
-                        {v.name}
+                        {i}: {v.name}
                       </option>
                     ))}
                   </select>
@@ -517,7 +517,8 @@ const CompactResults: FC<{
             )}
             {experiment.variations.map((v, i) => (
               <th colSpan={i ? 3 : 1} className="value" key={i}>
-                {v.name}
+                <span className="text-muted font-weight-normal">{i}:</span>
+                &nbsp;{v.name}
               </th>
             ))}
           </tr>
