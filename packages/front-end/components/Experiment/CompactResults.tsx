@@ -35,19 +35,27 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 function hasEnoughData(
-  value1: number,
-  value2: number,
-  sigThreshold: number = defaultMinSampleSize
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: MetricInterface
 ): boolean {
-  return Math.max(value1, value2) >= sigThreshold;
+  if (!baseline?.value || !stats?.value) return false;
+
+  const minSampleSize = metric.minSampleSize || defaultMinSampleSize;
+
+  return Math.max(baseline.value, stats.value) >= minSampleSize;
 }
 
-function hasOverMaxChange(
-  control: number,
-  varValue: number,
-  maxPercentChange: number = defaultMaxPercentChange
+function isSuspiciousUplift(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: MetricInterface
 ): boolean {
-  return Math.abs(control - varValue) / control >= maxPercentChange;
+  if (!baseline?.cr || !stats?.cr) return false;
+
+  const maxPercentChange = metric.maxPercentChange || defaultMaxPercentChange;
+
+  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
 
 function getRisk(
@@ -60,10 +68,7 @@ function getRisk(
   let riskCR: number;
   let relativeRisk: number;
   let showRisk = false;
-  const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
-  const maxPercentChange = metric?.maxPercentChange ?? defaultMaxPercentChange;
-
-  const baselineValue = variations[0]?.metrics?.[m]?.value;
+  const baseline = variations[0]?.metrics?.[m];
 
   if (riskVariation > 0) {
     const stats = variations[riskVariation]?.metrics?.[m];
@@ -72,17 +77,17 @@ function getRisk(
     showRisk =
       risk !== null &&
       riskCR > 0 &&
-      hasEnoughData(baselineValue, stats?.value, minSampleSize) &&
-      !hasOverMaxChange(baselineValue, stats?.value, maxPercentChange);
+      hasEnoughData(baseline, stats, metric) &&
+      !isSuspiciousUplift(baseline, stats, metric);
   } else {
     risk = -1;
     variations.forEach((v, i) => {
       if (!i) return;
       const stats = v.metrics[m];
-      if (!hasEnoughData(baselineValue, stats?.value, minSampleSize)) {
+      if (!hasEnoughData(baseline, stats, metric)) {
         return;
       }
-      if (hasOverMaxChange(baselineValue, stats?.value, maxPercentChange)) {
+      if (isSuspiciousUplift(baseline, stats, metric)) {
         return;
       }
 
@@ -165,38 +170,29 @@ function ChanceToWinColumn({
   experiment,
   phase,
   snapshotDate,
-  baselineValue,
-  variationValue,
-  chanceToWin,
+  baseline,
+  stats,
 }: {
   metric: MetricInterface;
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   snapshotDate: Date;
-  baselineValue: number;
-  variationValue: number;
-  chanceToWin: number;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
 }) {
   const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
-  const maxPercentChange = metric?.maxPercentChange || defaultMaxPercentChange;
-  const enoughData = hasEnoughData(
-    baselineValue,
-    variationValue,
-    minSampleSize
-  );
-  const suspiciousChange = hasOverMaxChange(
-    baselineValue,
-    variationValue,
-    maxPercentChange
-  );
+  const enoughData = hasEnoughData(baseline, stats, metric);
+  const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =
     metric &&
-    baselineValue &&
-    variationValue &&
+    baseline?.value &&
+    stats?.value &&
     enoughData &&
     !suspiciousChange;
+
+  const chanceToWin = stats?.chanceToWin ?? 0;
 
   return (
     <td
@@ -205,14 +201,14 @@ function ChanceToWinColumn({
         lost: shouldHighlight && chanceToWin < ciLower,
       })}
     >
-      {!baselineValue || !variationValue ? (
+      {!baseline?.value || !stats?.value ? (
         <em>no data</em>
       ) : !enoughData ? (
         <NotEnoughData
           experimentStatus={experiment.status}
           isLatestPhase={phase === experiment.phases.length - 1}
-          baselineValue={baselineValue}
-          variationValue={variationValue}
+          baselineValue={baseline?.value}
+          variationValue={stats?.value}
           minSampleSize={minSampleSize}
           snapshotCreated={snapshotDate}
           phaseStart={experiment.phases[phase]?.dateStarted}
@@ -237,25 +233,19 @@ function PercentGraphColumn({
   metric,
   experiment,
   variation,
-  baselineValue,
+  baseline,
   stats,
   domain,
 }: {
   metric: MetricInterface;
   experiment: ExperimentInterfaceStringDates;
   variation: number;
-  baselineValue: number;
+  baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
 }) {
-  const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
-  const maxPercentChange = metric?.maxPercentChange || defaultMaxPercentChange;
-  const enoughData = hasEnoughData(baselineValue, stats.value, minSampleSize);
-  const suspiciousChange = hasOverMaxChange(
-    baselineValue,
-    stats.value,
-    maxPercentChange
-  );
+  const enoughData = hasEnoughData(baseline, stats, metric);
+  const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
   const barType = stats.uplift?.dist ? "violin" : "pill";
 
@@ -351,10 +341,6 @@ function useRiskVariation(
       const baseline = variations[0].metrics[m];
       if (!baseline || !baseline.cr) return;
 
-      const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
-      const maxPercentChange =
-        metric?.maxPercentChange ?? defaultMaxPercentChange;
-
       let controlMax = 0;
       variations.forEach((v, i) => {
         if (!i) return;
@@ -363,10 +349,10 @@ function useRiskVariation(
         if (!stats || !stats.risk || !stats.cr) {
           return;
         }
-        if (!hasEnoughData(baseline?.value, stats.value, minSampleSize)) {
+        if (!hasEnoughData(baseline, stats, metric)) {
           return;
         }
-        if (hasOverMaxChange(baseline?.value, stats.value, maxPercentChange)) {
+        if (isSuspiciousUplift(baseline, stats, metric)) {
           return;
         }
 
@@ -402,11 +388,7 @@ function useDomain(
     const metric = getMetricById(m);
     if (!metric) return;
 
-    const minSampleSize = metric?.minSampleSize ?? defaultMinSampleSize;
-    const maxPercentChange =
-      metric?.maxPercentChange ?? defaultMaxPercentChange;
-
-    const baselineValue = variations[0].metrics[m]?.value || 0;
+    const baseline = variations[0].metrics[m];
 
     experiment.variations?.forEach((v, i) => {
       if (!variations[i]?.metrics?.[m]) return;
@@ -414,9 +396,8 @@ function useDomain(
 
       // Skip baseline
       if (!i) return;
-      if (!hasEnoughData(stats.value, baselineValue, minSampleSize)) return;
-      if (hasOverMaxChange(baselineValue, stats.value, maxPercentChange))
-        return;
+      if (!hasEnoughData(baseline, stats, metric)) return;
+      if (isSuspiciousUplift(baseline, stats, metric)) return;
 
       const ci = stats.ci || [];
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
@@ -594,18 +575,17 @@ const CompactResults: FC<{
                       />
                       {i > 0 && (
                         <ChanceToWinColumn
-                          baselineValue={baseline?.value}
-                          chanceToWin={stats.chanceToWin}
+                          baseline={baseline}
+                          stats={stats}
                           experiment={experiment}
                           metric={metric}
                           phase={snapshot.phase}
                           snapshotDate={snapshot.dateCreated}
-                          variationValue={stats?.value}
                         />
                       )}
                       {i > 0 && (
                         <PercentGraphColumn
-                          baselineValue={baseline?.value}
+                          baseline={baseline}
                           domain={domain}
                           experiment={experiment}
                           metric={metric}
