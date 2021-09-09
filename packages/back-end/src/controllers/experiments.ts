@@ -1265,6 +1265,8 @@ export async function getMetric(req: AuthRequest, res: Response) {
       id: true,
       name: true,
       status: true,
+      phases: true,
+      results: true,
     }
   )
     .sort({

@@ -9,6 +9,7 @@ import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
 import { UserContext } from "../ProtectedPage";
+import NorthStar from "./NorthStar";
 
 const Dashboard: FC = () => {
   const { data, error } = useApi<{
@@ -34,6 +35,11 @@ const Dashboard: FC = () => {
     <>
       <div className={"container-fluid dashboard p-3 " + styles.container}>
         <h1>Hello {name}</h1>
+        <div className="row">
+          <div className="col-md-12">
+            <NorthStar />
+          </div>
+        </div>
         <div className="row">
           <div className="col-md-12">
             <h4>Experiments by month</h4>
