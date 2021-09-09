@@ -310,7 +310,7 @@ function RiskColumn({
 
   return (
     <td
-      className={clsx("chance variation", {
+      className={clsx("chance variation align-middle", {
         won: showRisk && relativeRisk <= winRiskThreshold,
         lost: showRisk && relativeRisk >= loseRiskThreshold,
         warning:

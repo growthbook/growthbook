@@ -11,6 +11,7 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 const bigCurrencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
   currency: "USD",
+  minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
 
@@ -35,10 +36,11 @@ export function getMetricConversionTitle(type: MetricType): string {
 export function formatConversionRate(type: MetricType, value: number): string {
   value = value || 0;
   if (type === "count") {
+    const digits = value > 1000 ? 0 : value > 100 ? 1 : value > 10 ? 2 : 3;
     // Show fewer fractional digits for bigger numbers
     const formatter = new Intl.NumberFormat(undefined, {
-      maximumFractionDigits:
-        value > 1000 ? 0 : value > 100 ? 1 : value > 10 ? 2 : 3,
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
     });
     return formatter.format(value);
   }
@@ -54,8 +56,10 @@ export function formatConversionRate(type: MetricType, value: number): string {
     // > 1 day
     if (value >= 3600 * 24) {
       const d = value / (3600 * 24);
+      const digits = d > 1000 ? 0 : d > 100 ? 1 : d > 10 ? 2 : 3;
       const formatter = new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: d > 1000 ? 0 : d > 100 ? 1 : d > 10 ? 2 : 3,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       });
       return formatter.format(d) + " days";
     }
