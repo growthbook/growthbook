@@ -293,6 +293,12 @@ conversionWindowHours: 72
 # Otherwise, it's highlighted yellow.
 winRisk: 0.0025
 loseRisk: 0.0125
+# Min number of conversions for an experiment variation before we reveal results
+minSampleSize: 150
+# The "suspicious" threshold. If the percent change for a variation is above this, 
+#   we hide the result and label it as suspicious.
+# Default 0.5 = 50% change
+maxPercentChange: 0.50
 # Arbitrary tags used to group related metrics
 tags:
   - revenue
