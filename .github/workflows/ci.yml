@@ -49,6 +49,11 @@ jobs:
         run: |
           yarn lint
 
+      - name: build sdk packages
+        run: |
+          yarn workspace @growthbook/js build
+          yarn workspace @growthbook/react build
+
       - name: type-check
         run: |
           yarn type-check

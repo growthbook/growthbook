@@ -1,8 +1,8 @@
-# Growth Book JS
+# Growth Book Javascript SDK
 
-Powerful A/B testing for JavaScript.
+Powerful A/B testing for Javascript.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.98KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.71KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/js)
 
 -  **No external dependencies**
 -  **Lightweight and fast**
@@ -18,17 +18,17 @@ Powerful A/B testing for JavaScript.
 
 ## Installation
 
-`yarn add @growthbook/growthbook` 
+`yarn add @growthbook/js` 
 
 or 
 
-`npm install --save @growthbook/growthbook`
+`npm install --save @growthbook/js`
 
 or use directly in your HTML without installing first:
 
 ```html
 <script type="module">
-import {GrowthBook} from 'https://unpkg.com/@growthbook/growthbook/dist/growthbook.esm.js';
+import {GrowthBook} from 'https://unpkg.com/@growthbook/js/dist/bundles/esm.min.js';
 //...
 </script>
 ```
@@ -36,7 +36,7 @@ import {GrowthBook} from 'https://unpkg.com/@growthbook/growthbook/dist/growthbo
 ## Quick Usage
 
 ```ts
-import {GrowthBook} from '@growthbook/growthbook';
+import {GrowthBook} from '@growthbook/js';
 
 // Define the experimental context
 const growthbook = new GrowthBook({
@@ -232,7 +232,7 @@ import type {
   Experiment, 
   Result, 
   ExperimentOverride
-} from "@growthbook/growthbook"
+} from "@growthbook/js"
 
 // The "number" part refers to the variation type
 const exp: Experiment<number> = {

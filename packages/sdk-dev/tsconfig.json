@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "outDir": "dist/types",
+    "declaration": true,
+    "declarationMap": true,
+    "jsx": "react",
+    "strict": true,
+    "esModuleInterop": true
+  },
+  "include": ["./src/"]
+}

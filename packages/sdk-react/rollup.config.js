@@ -7,7 +7,9 @@ const extensions = [".js", ".ts", ".tsx", ".jsx"];
 
 export default {
   input: "src/index.tsx",
-  external: /node_modules/,
+  external: (id) => {
+    return !id.match(/sdk-react/);
+  },
   output: [
     {
       file: "dist/esm/index.js",

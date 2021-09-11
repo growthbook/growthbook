@@ -1,8 +1,8 @@
-const sharedPresets = ["@babel/typescript"];
+const sharedPresets = ["@babel/preset-typescript"];
 const shared = {
   presets: [
     [
-      "@babel/env",
+      "@babel/preset-env",
       {
         modules: false,
         targets: "defaults, not IE 11, maintained node versions",
@@ -21,7 +21,7 @@ module.exports = {
       ...shared,
       presets: [
         [
-          "@babel/env",
+          "@babel/preset-env",
           {
             modules: "commonjs",
           },
