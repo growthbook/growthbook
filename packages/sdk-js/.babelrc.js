@@ -4,6 +4,7 @@ const shared = {
     [
       "@babel/env",
       {
+        modules: false,
         targets: "defaults, not IE 11, maintained node versions",
       },
     ],
