@@ -1,6 +1,4 @@
-# React
-
-View the full documentation on [GitHub](https://github.com/growthbook/growthbook-react).
+# GrowthBook React Client Library
 
 ## Installation
 
@@ -66,7 +64,7 @@ export default function OtherComponent() {
 ```tsx
 import { withRunExperiment } from "@growthbook/growthbook-react";
 
-class MyComponent extends Component {
+class OtherComponent extends Component {
   render() {
     // The `runExperiment` prop is identical to the `useExperiment` hook
     const { value } = this.props.runExperiment({
@@ -77,24 +75,37 @@ class MyComponent extends Component {
   }
 }
 // Wrap your component in `withRunExperiment`
-export default withRunExperiment(MyComponent);
+export default withRunExperiment(OtherComponent);
 ```
 
-### Step 3: Analyze results
+## Configuration and Usage
 
-Query your raw data, calculate significance, decide on a winner, and document your findings.
-
-The easiest way to accomplish this is with the GrowthBook App (https://github.com/growthbook/growthbook), but it's not required. You can use an online A/B test calculator or a Jupyter notebook if you prefer.
+This package is a small React wrapper around the [Javascript client library](/lib/js). Check those docs for configuration options and more experiment usage examples.
 
 ## Dev Mode
 
-If `process.env.NODE_ENV !== "production"` AND you are in a browser environment, dev mode is enabled by default. You can override this behavior by explicitly passing in the `disableDevMode` prop to `GrowthBookProvider`.
+You can add the GrowthBook Dev Mode widget to make development and testing easier.
 
-Dev Mode adds a variation switcher UI that floats on the bottom left of pages. Use this to easily test out all the experiment combinations. It also includes a screenshot tool to download images of all your variations.
+Install the dev mode widget with `npm install --save-dev @growthbook/dev` or `yarn install --dev @growthbook/dev`.
 
-[View Live Demo](https://growthbook.github.io/growthbook-react/)
+Then render the `GrowthBookDev` component inside of the GrowthBookProvider
 
-![Dev Mode Variation Switcher](variation-switcher.png)
+```tsx
+import { GrowthBookDev } from "@growthbook/dev";
+
+function MyApp() {
+  return (
+    <GrowthBookProvider growthbook={...}>
+      <OtherComponent />
+      <GrowthBookDev/>
+    </GrowthBookProvider>
+  )
+}
+```
+
+and you should see the Dev Mode widget on the bottom-left of your screen
+
+![Dev Mode Variation Switcher](/images/variation-switcher.png)
 
 ## Configuration and Usage
 

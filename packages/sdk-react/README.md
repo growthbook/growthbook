@@ -2,7 +2,7 @@
 
 Powerful A/B testing for React.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.65KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.3KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -85,7 +85,7 @@ export default function OtherComponent() {
 ```tsx
 import { withRunExperiment } from "@growthbook/growthbook-react";
 
-class OtherComponent extends Component {
+class OtherComponent extends React.Component {
   render() {
     // The `runExperiment` prop is identical to the `useExperiment` hook
     const { value } = this.props.runExperiment({
@@ -99,14 +99,6 @@ class OtherComponent extends Component {
 export default withRunExperiment(OtherComponent);
 ```
 
-### Step 3: Analyze results
+## Documentation
 
-Query your raw data, calculate significance, decide on a winner, and document your findings.
-
-The easiest way to accomplish this is with the Growth Book App (https://github.com/growthbook/growthbook), but it's not required. You can use an online A/B test calculator or a Jupyter notebook if you prefer.
-
-## Configuration and Usage
-
-This package is a small React wrapper around the Growth Book javascript library.
-
-Refer to the [@growthbook/growthbook](https://github.com/growthbook/growthbook/packages/sdk-js) package for full documentation on how to configure the GrowthBook instance and define Experiments.
+See the full documentation and more usage examples at https://docs.growthbook.io/lib/react

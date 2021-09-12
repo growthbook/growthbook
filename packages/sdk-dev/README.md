@@ -31,14 +31,10 @@ const growthbook = new GrowthBook({
 
 export default function MyApp() {
   return (
-    <>
-      <GrowthBookProvider growthbook={growthbook}>
-        <App />
-      </GrowthBookProvider>
-      {process.env.NODE_ENV !== "production" && (
-        <GrowthBookDev growthbook={growthbook} />
-      )}
-    </>
+    <GrowthBookProvider growthbook={growthbook}>
+      <App />
+      {process.env.NODE_ENV !== "production" && <GrowthBookDev />}
+    </GrowthBookProvider>
   );
 }
 ```
