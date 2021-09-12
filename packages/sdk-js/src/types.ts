@@ -2,9 +2,7 @@ import type { GrowthBook } from ".";
 
 declare global {
   interface Window {
-    growthbookDev?: {
-      init: (gb: GrowthBook) => void;
-    };
+    _growthbook?: GrowthBook;
   }
 }
 
@@ -49,7 +47,6 @@ export interface Context {
   overrides?: Record<string, ExperimentOverride>;
   forcedVariations?: Record<string, number>;
   qaMode?: boolean;
-  disableDevMode?: boolean;
   // eslint-disable-next-line
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
 }

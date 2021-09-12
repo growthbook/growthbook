@@ -5,9 +5,7 @@ import VariationSwitcher, { VariationData } from "./VariationSwitcher";
 
 declare global {
   interface Window {
-    growthbookDev?: {
-      init: (gb: GrowthBook) => void;
-    };
+    _growthbook?: GrowthBook;
   }
 }
 
@@ -28,18 +26,21 @@ function getVariations(growthbook: GrowthBook) {
 const GrowthBookAutoLoad = () => {
   const [growthbook, setGrowthbook] = React.useState<GrowthBook>();
 
-  // Get reference to GrowthBook instance
+  // Poll for global window._growthbook to exist
   React.useEffect(() => {
-    // Add growthbookDev init object to window
-    window.growthbookDev = {
-      init: (gb) => {
-        setGrowthbook(gb);
-      },
+    let cancel = false;
+    const cb = () => {
+      if (cancel) return;
+      if (window._growthbook) {
+        setGrowthbook(window._growthbook);
+      } else {
+        window.setTimeout(cb, 200);
+      }
     };
-    document.body.dispatchEvent(new Event("GROWTHBOOK_DEV_LOADED"));
+    cb();
 
     return () => {
-      delete window.growthbookDev;
+      cancel = true;
     };
   }, []);
 

@@ -34,18 +34,15 @@ describe("GrowthBookProvider", () => {
         </>,
         div
       );
-      await sleep();
+      await sleep(250);
       expect(div.innerHTML).toEqual("<h1>foo</h1>");
       ReactDOM.unmountComponentAtNode(div);
     });
   });
 
-  it("does not render the variation switcher when disableDevMode is set to true", async () => {
+  it("renders the variation switcher when useExperiment hook is used", async () => {
     await act(async () => {
-      const growthbook = new GrowthBook({
-        user: { id: "1" },
-        disableDevMode: true,
-      });
+      const growthbook = new GrowthBook({ user: { id: "1" } });
       const div = document.createElement("div");
 
       ReactDOM.render(
@@ -57,29 +54,7 @@ describe("GrowthBookProvider", () => {
         </>,
         div
       );
-      await sleep();
-      const switcher = div.querySelector(".growthbook_dev");
-      expect(switcher).toBeNull();
-      ReactDOM.unmountComponentAtNode(div);
-    });
-  });
-
-  /*
-  it("renders the variation switcher when useExperiment hook is used", async () => {
-    await act(async () => {
-      const growthbook = new GrowthBook({ user: { id: "1" } });
-      const div = document.createElement("div");
-
-      ReactDOM.render(
-        <>
-          <GrowthBookProvider growthbook={growthbook}>
-            <TestedComponent />
-          </GrowthBookProvider>
-          <GrowthBookDev />
-        </>,
-        div
-      );
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await sleep(250);
       const switcher = div.querySelector(".growthbook_dev");
       expect(switcher).toBeTruthy();
       ReactDOM.unmountComponentAtNode(div);
@@ -87,32 +62,31 @@ describe("GrowthBookProvider", () => {
   });
 
   it("re-renders when switching variations", async () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
-
-    act(() => {
+    await act(async () => {
+      const growthbook = new GrowthBook({ user: { id: "1" } });
+      const div = document.createElement("div");
       ReactDOM.render(
-        <GrowthBookProvider growthbook={growthbook}>
-          <TestedComponent />
-        </GrowthBookProvider>,
+        <>
+          <GrowthBookProvider growthbook={growthbook}>
+            <TestedComponent />
+          </GrowthBookProvider>
+          <GrowthBookDev growthbook={growthbook} />
+        </>,
         div
       );
-    });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep(250);
+      expect(div.querySelector("h1")?.innerHTML).toEqual("1");
 
-    expect(div.querySelector("h1")?.innerHTML).toEqual("1");
-
-    await act(async () => {
       // Click to switch to the first variation
       (div.querySelector(
         ".growthbook_dev tr:first-child"
       ) as HTMLElement)?.click();
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await sleep();
+
+      expect(div.querySelector("h1")?.innerHTML).toEqual("0");
+
+      ReactDOM.unmountComponentAtNode(div);
     });
-
-    expect(div.querySelector("h1")?.innerHTML).toEqual("0");
-
-    ReactDOM.unmountComponentAtNode(div);
   });
 
   it("starts variation switcher collapsed and expands when clicked", async () => {
@@ -122,27 +96,27 @@ describe("GrowthBookProvider", () => {
 
       act(() => {
         ReactDOM.render(
-          <GrowthBookProvider growthbook={growthbook}>
-            <TestedComponent />
-          </GrowthBookProvider>,
+          <>
+            <GrowthBookProvider growthbook={growthbook}>
+              <TestedComponent />
+            </GrowthBookProvider>
+            <GrowthBookDev growthbook={growthbook} />
+          </>,
           div
         );
       });
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep(250);
 
       expect(div.querySelector(".growthbook_dev")?.className).not.toMatch(
         /open/
       );
 
       // Click to expand the variation switcher
-      await act(async () => {
-        (div.querySelector(".growthbook_dev .toggle") as HTMLElement)?.click();
-      });
+      (div.querySelector(".growthbook_dev .toggle") as HTMLElement)?.click();
 
       expect(div.querySelector(".growthbook_dev")?.className).toMatch(/open/);
 
       ReactDOM.unmountComponentAtNode(div);
     });
   });
-  */
 });

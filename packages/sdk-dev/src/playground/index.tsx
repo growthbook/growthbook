@@ -3,8 +3,6 @@ import * as ReactDOM from "react-dom";
 import {
   GrowthBookProvider,
   GrowthBook,
-  Experiment,
-  Result,
   useExperiment,
 } from "@growthbook/react";
 import { GrowthBookDev } from "..";
@@ -13,7 +11,7 @@ const gb = new GrowthBook({
   user: {
     id: "123",
   },
-  trackingCallback: (exp: Experiment, res: Result) => {
+  trackingCallback: (exp, res) => {
     console.log("track", exp, res);
   },
 });

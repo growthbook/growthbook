@@ -8,8 +8,6 @@ import {
   getQueryStringOverride,
 } from "./util";
 
-const EVENT_NAME = "GBDEV_LOADED";
-
 export type { Context, Experiment, Result, ExperimentOverride } from "./types";
 
 const isBrowser = typeof window !== "undefined";
@@ -17,7 +15,6 @@ const isBrowser = typeof window !== "undefined";
 class GrowthBook {
   context: Context;
 
-  private devcb: null | (() => void) = null;
   private _renderer: null | (() => void) = null;
   private _trackedExperiments = new Set();
   public debug = false;
@@ -35,10 +32,8 @@ class GrowthBook {
   constructor(context: Context) {
     this.context = context || {};
 
-    if (!this.context.disableDevMode && isBrowser) {
-      this.devcb = () => this.onDevLoaded();
-      document.body.addEventListener(EVENT_NAME, this.devcb, false);
-      this.onDevLoaded();
+    if (isBrowser) {
+      window._growthbook = this;
     }
   }
 
@@ -60,15 +55,8 @@ class GrowthBook {
     this.assigned.clear();
     this._trackedExperiments.clear();
 
-    if (isBrowser && this.devcb) {
-      document.body.removeEventListener(EVENT_NAME, this.devcb, false);
-    }
-  }
-
-  private onDevLoaded() {
-    if (!isBrowser) return;
-    if (window.growthbookDev && window.growthbookDev.init) {
-      window.growthbookDev.init(this);
+    if (isBrowser && window._growthbook === this) {
+      delete window._growthbook;
     }
   }
 

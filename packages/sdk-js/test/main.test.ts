@@ -26,7 +26,6 @@ const mockCallback = (growthbook: GrowthBook) => {
 describe("experiments", () => {
   beforeEach(() => {
     window.location.href = "";
-    delete window.growthbookDev;
   });
 
   it("defaultWeights", () => {
@@ -925,47 +924,13 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("inits existing devmode", () => {
-    let called = false;
-    window.growthbookDev = {
-      init: () => {
-        called = true;
-      },
-    };
-
-    const growthbook = new GrowthBook({});
-    expect(called).toEqual(true);
-
-    growthbook.destroy();
-  });
-
-  it("inits devmode from event", () => {
+  it("stores growthbook instance in window", () => {
     const growthbook = new GrowthBook({});
 
-    let called = false;
-    window.growthbookDev = {
-      init: () => {
-        called = true;
-      },
-    };
-
-    document.body.dispatchEvent(new Event("GBDEV_LOADED"));
-    expect(called).toEqual(true);
+    expect(window._growthbook).toEqual(growthbook);
 
     growthbook.destroy();
-  });
 
-  it("stops listening for devmode event after destroy", () => {
-    const growthbook = new GrowthBook({});
-    growthbook.destroy();
-
-    let called = false;
-    window.growthbookDev = {
-      init: () => {
-        called = true;
-      },
-    };
-    document.body.dispatchEvent(new Event("GBDEV_LOADED"));
-    expect(called).toEqual(false);
+    expect(window._growthbook).toBeUndefined();
   });
 });
