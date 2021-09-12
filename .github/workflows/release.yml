@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Add tag to latest image
         run: |
           # Pull the latest image
           docker pull growthbook/growthbook:latest
@@ -28,21 +28,3 @@ jobs:
 
           # Push the new tag
           docker push growthbook/growthbook:$TAG
-
-  # Deploy the back-end for GrowthBook Cloud
-  # Runs only on pushes to the main branch (not on new tags)
-  prod:
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: ${{ github.repository == 'growthbook/growthbook' }}
-    steps:
-      - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run:
-          aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

@@ -195,7 +195,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.com/growthbook/growthbook-js"
+              href="https://docs.growthbook.io/lib/js"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -220,7 +220,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.com/growthbook/growthbook-react"
+              href="https://docs.growthbook.io/lib/react"
               target="_blank"
               rel="noopener noreferrer"
             >
