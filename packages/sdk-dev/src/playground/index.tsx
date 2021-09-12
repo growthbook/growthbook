@@ -7,7 +7,7 @@ import {
   Result,
   useExperiment,
 } from "@growthbook/react";
-import "..";
+import { GrowthBookDev } from "..";
 
 const gb = new GrowthBook({
   user: {
@@ -65,11 +65,14 @@ const NewFeature = () => {
 
 const Playground = () => {
   return (
-    <GrowthBookProvider growthbook={gb}>
-      <Headline />
-      <NewFeature />
-      <Button />
-    </GrowthBookProvider>
+    <>
+      <GrowthBookProvider growthbook={gb}>
+        <Headline />
+        <NewFeature />
+        <Button />
+      </GrowthBookProvider>
+      <GrowthBookDev growthbook={gb} />
+    </>
   );
 };
 

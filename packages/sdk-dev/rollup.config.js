@@ -19,19 +19,23 @@ const plugins = [
   }),
 ];
 
+const outro = `autoload()`;
+
 export default {
   input: "src/index.tsx",
   output: [
     {
-      file: "dist/index.js",
+      file: "dist/bundles/index.js",
       format: "iife",
       name: "growthbook",
+      outro,
       sourcemap: true,
     },
     {
-      file: "dist/index.min.js",
+      file: "dist/bundles/index.min.js",
       format: "iife",
       name: "growthbook",
+      outro,
       sourcemap: true,
       plugins: [
         terser({

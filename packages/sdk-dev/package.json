@@ -2,7 +2,14 @@
   "name": "@growthbook/dev",
   "version": "0.1.0",
   "license": "MIT",
-  "main": "dist/index.js",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "typings": "dist/types/index.d.ts",
+  "exports": {
+    "require": "./dist/cjs/index.js",
+    "import": "./dist/esm/index.js"
+  },
   "files": [
     "dist",
     "src"
@@ -12,12 +19,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/growthbook/growthbook"
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-dev"
   },
   "scripts": {
+    "build:esm": "cross-env BABEL_ENV=esmUnbundled babel src --extensions '.ts,.tsx' --out-dir 'dist/esm' --source-maps",
+    "build:cjs": "cross-env BABEL_ENV=cjs babel src --extensions '.ts,.tsx' --out-dir 'dist/cjs' --source-maps",
     "build:bundles": "rollup -c",
+    "build:types": "tsc --emitDeclarationOnly",
     "build:clean": "rm -rf dist",
-    "build": "yarn build:clean && yarn build:bundles",
+    "build": "yarn build:clean && npm-run-all --parallel build:types build:esm build:cjs build:bundles",
     "test": "jest",
     "type-check": "tsc --pretty --noEmit"
   },
@@ -26,7 +37,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0"
   },
   "dependencies": {
-    "@growthbook/js": "^0.12.0"
+    "@growthbook/js": "^0.13.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",

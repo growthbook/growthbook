@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/js",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -19,7 +19,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/growthbook/growthbook"
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-js"
   },
   "scripts": {
     "build:clean": "rm -rf dist",

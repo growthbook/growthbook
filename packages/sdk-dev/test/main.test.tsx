@@ -5,7 +5,7 @@ import {
   GrowthBookProvider,
   useExperiment,
 } from "@growthbook/react";
-import { GrowthBookDev } from "../src/GrowthBookDev";
+import { GrowthBookDev } from "../src";
 import { act } from "@testing-library/react";
 
 const TestedComponent = () => {
@@ -16,22 +16,25 @@ const TestedComponent = () => {
   return <h1>{value}</h1>;
 };
 
+function sleep(ms = 50) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe("GrowthBookProvider", () => {
-  it("does not render variation switcher until the useExperiment hook is used", () => {
-    act(() => {
+  it("does not render variation switcher until the useExperiment hook is used", async () => {
+    await act(async () => {
       const growthbook = new GrowthBook({ user: { id: "1" } });
       const div = document.createElement("div");
-      act(() => {
-        ReactDOM.render(
-          <>
-            <GrowthBookProvider growthbook={growthbook}>
-              <h1>foo</h1>
-            </GrowthBookProvider>
-            <GrowthBookDev />
-          </>,
-          div
-        );
-      });
+      ReactDOM.render(
+        <>
+          <GrowthBookProvider growthbook={growthbook}>
+            <h1>foo</h1>
+          </GrowthBookProvider>
+          <GrowthBookDev growthbook={growthbook} />
+        </>,
+        div
+      );
+      await sleep();
       expect(div.innerHTML).toEqual("<h1>foo</h1>");
       ReactDOM.unmountComponentAtNode(div);
     });
@@ -50,11 +53,11 @@ describe("GrowthBookProvider", () => {
           <GrowthBookProvider growthbook={growthbook}>
             <TestedComponent />
           </GrowthBookProvider>
-          <GrowthBookDev />
+          <GrowthBookDev growthbook={growthbook} />
         </>,
         div
       );
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep();
       const switcher = div.querySelector(".growthbook_dev");
       expect(switcher).toBeNull();
       ReactDOM.unmountComponentAtNode(div);

@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/react",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -19,7 +19,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/growthbook/growthbook"
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-react"
   },
   "scripts": {
     "build:bundles": "rollup -c",
@@ -35,7 +36,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0"
   },
   "dependencies": {
-    "@growthbook/js": "^0.12.0"
+    "@growthbook/js": "^0.13.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",

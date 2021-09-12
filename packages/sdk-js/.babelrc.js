@@ -1,5 +1,4 @@
-const sharedPresets = ["@babel/preset-typescript"];
-const shared = {
+const esm = {
   presets: [
     [
       "@babel/preset-env",
@@ -8,26 +7,25 @@ const shared = {
         targets: "defaults, not IE 11, maintained node versions",
       },
     ],
-    ...sharedPresets,
+    ["@babel/preset-typescript"],
+  ],
+};
+const cjs = {
+  presets: [
+    [
+      "@babel/preset-env",
+      {
+        modules: "commonjs",
+      },
+    ],
+    ["@babel/preset-typescript"],
   ],
 };
 
 module.exports = {
-  ...shared,
+  ...esm,
   env: {
-    esmUnbundled: shared,
-    esmBundled: shared,
-    cjs: {
-      ...shared,
-      presets: [
-        [
-          "@babel/preset-env",
-          {
-            modules: "commonjs",
-          },
-        ],
-        ...sharedPresets,
-      ],
-    },
+    esmUnbundled: esm,
+    cjs: cjs,
   },
 };
