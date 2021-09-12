@@ -2,7 +2,7 @@
 
 Powerful A/B testing for Javascript.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.65KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/js)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.65KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -18,17 +18,17 @@ Powerful A/B testing for Javascript.
 
 ## Installation
 
-`yarn add @growthbook/js`
+`yarn add @growthbook/growthbook`
 
 or
 
-`npm install --save @growthbook/js`
+`npm install --save @growthbook/growthbook`
 
 or use directly in your HTML without installing first:
 
 ```html
 <script type="module">
-  import { GrowthBook } from "https://unpkg.com/@growthbook/js/dist/bundles/esm.min.js";
+  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
   //...
 </script>
 ```
@@ -36,7 +36,7 @@ or use directly in your HTML without installing first:
 ## Quick Usage
 
 ```ts
-import { GrowthBook } from "@growthbook/js";
+import { GrowthBook } from "@growthbook/growthbook";
 
 // Define the experimental context
 const growthbook = new GrowthBook({
@@ -237,7 +237,7 @@ import type {
   Experiment,
   Result,
   ExperimentOverride,
-} from "@growthbook/js";
+} from "@growthbook/growthbook";
 
 // The "number" part refers to the variation type
 const exp: Experiment<number> = {

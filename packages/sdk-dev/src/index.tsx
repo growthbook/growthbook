@@ -1,4 +1,5 @@
-import type { GrowthBook } from "@growthbook/js";
+import type { GrowthBook } from "@growthbook/growthbook-react";
+import { GrowthBookContext } from "@growthbook/growthbook-react";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import VariationSwitcher, { VariationData } from "./VariationSwitcher";
@@ -23,24 +24,26 @@ function getVariations(growthbook: GrowthBook) {
   return newValue;
 }
 
-const GrowthBookAutoLoad = () => {
+export const GrowthBookAutoLoad = () => {
   const [growthbook, setGrowthbook] = React.useState<GrowthBook>();
 
   // Poll for global window._growthbook to exist
   React.useEffect(() => {
     let cancel = false;
+    let timer: number;
     const cb = () => {
       if (cancel) return;
       if (window._growthbook) {
         setGrowthbook(window._growthbook);
       } else {
-        window.setTimeout(cb, 200);
+        timer = window.setTimeout(cb, 200);
       }
     };
     cb();
 
     return () => {
       cancel = true;
+      clearTimeout(timer);
     };
   }, []);
 
@@ -48,28 +51,32 @@ const GrowthBookAutoLoad = () => {
   return <GrowthBookDev growthbook={growthbook} />;
 };
 
-export const GrowthBookDev = ({ growthbook }: { growthbook: GrowthBook }) => {
+export const GrowthBookDev = ({ growthbook }: { growthbook?: GrowthBook }) => {
+  const ctx = React.useContext(GrowthBookContext);
+
+  const instance = growthbook || ctx?.growthbook;
+
   const [variations, setVariations] = React.useState<VariationData>();
 
   // Subscribe to experiment changes
   React.useEffect(() => {
-    if (!growthbook) return;
-    const cb = growthbook.subscribe(() => {
+    if (!instance) return;
+    const cb = instance.subscribe(() => {
       window.requestAnimationFrame(() => {
-        setVariations(() => getVariations(growthbook));
+        setVariations(() => getVariations(instance));
       });
     });
-    setVariations(() => getVariations(growthbook));
+    setVariations(() => getVariations(instance));
     return cb;
-  }, [growthbook]);
+  }, [instance]);
 
-  if (!growthbook || !variations) return null;
+  if (!instance || !variations) return null;
 
   return (
     <VariationSwitcher
       forceVariation={(key, variation) => {
-        if (!growthbook?.forceVariation) return;
-        growthbook.forceVariation(key, variation);
+        if (!instance?.forceVariation) return;
+        instance.forceVariation(key, variation);
       }}
       variations={variations}
     />

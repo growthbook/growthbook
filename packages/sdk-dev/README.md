@@ -19,10 +19,10 @@ To use, simply add a script tag to your development HTML:
 ></script>
 ```
 
-OR if you are using the `@growthbook/react` SDK, you can render the dev mode component directly if you prefer:
+OR if you are using the GrowthBook React SDK, you can render the dev mode component directly if you prefer:
 
 ```jsx
-import { GrowthBook, GrowthBookProvider } from "@growthbook/react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { GrowthBookDev } from "@growthbook/dev";
 
 const growthbook = new GrowthBook({

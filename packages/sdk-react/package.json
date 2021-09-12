@@ -1,5 +1,5 @@
 {
-  "name": "@growthbook/react",
+  "name": "@growthbook/growthbook-react",
   "version": "0.5.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
@@ -36,7 +36,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0"
   },
   "dependencies": {
-    "@growthbook/js": "^0.13.0"
+    "@growthbook/growthbook": "^0.13.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",

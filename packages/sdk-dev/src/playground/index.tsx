@@ -4,7 +4,7 @@ import {
   GrowthBookProvider,
   GrowthBook,
   useExperiment,
-} from "@growthbook/react";
+} from "@growthbook/growthbook-react";
 import { GrowthBookDev } from "..";
 
 const gb = new GrowthBook({
@@ -68,8 +68,8 @@ const Playground = () => {
         <Headline />
         <NewFeature />
         <Button />
+        <GrowthBookDev />
       </GrowthBookProvider>
-      <GrowthBookDev growthbook={gb} />
     </>
   );
 };

@@ -51,8 +51,8 @@ jobs:
 
       - name: build sdk packages
         run: |
-          yarn workspace @growthbook/js build
-          yarn workspace @growthbook/react build
+          yarn workspace @growthbook/growthbook build
+          yarn workspace @growthbook/growthbook-react build
 
       - name: type-check
         run: |

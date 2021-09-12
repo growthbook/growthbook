@@ -1,30 +1,43 @@
 import * as React from "react";
-import type { Experiment, Result } from "@growthbook/js";
-import { GrowthBook } from "@growthbook/js";
+import type { Experiment, Result } from "@growthbook/growthbook";
+import { GrowthBook } from "@growthbook/growthbook";
 
-export { GrowthBook } from "@growthbook/js";
+export { GrowthBook } from "@growthbook/growthbook";
 
 export type {
   Context,
   Experiment,
   Result,
   ExperimentOverride,
-} from "@growthbook/js";
+} from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
-  growthbook: GrowthBook;
+  growthbook?: GrowthBook;
 };
 export interface WithRunExperimentProps {
   runExperiment: <T>(exp: Experiment<T>) => Result<T>;
 }
 
-export const GrowthBookContext = React.createContext<GrowthBookContextValue>({
-  growthbook: new GrowthBook({}),
-});
+export const GrowthBookContext = React.createContext<GrowthBookContextValue>(
+  {}
+);
+
+function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
+  if (!growthbook) {
+    return {
+      value: exp.variations[0],
+      variationId: 0,
+      inExperiment: false,
+      hashAttribute: exp.hashAttribute || "id",
+      hashValue: "",
+    };
+  }
+  return growthbook.run(exp);
+}
 
 export function useExperiment<T>(exp: Experiment<T>): Result<T> {
   const { growthbook } = React.useContext(GrowthBookContext);
-  return growthbook.run(exp);
+  return run(exp, growthbook);
 }
 
 export const withRunExperiment = <P extends WithRunExperimentProps>(
@@ -37,7 +50,7 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
         return (
           <Component
             {...(props as P)}
-            runExperiment={(exp) => growthbook.run(exp)}
+            runExperiment={(exp) => run(exp, growthbook)}
           />
         );
       }}

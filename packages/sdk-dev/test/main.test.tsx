@@ -4,8 +4,8 @@ import {
   GrowthBook,
   GrowthBookProvider,
   useExperiment,
-} from "@growthbook/react";
-import { GrowthBookDev } from "../src";
+} from "@growthbook/growthbook-react";
+import { GrowthBookDev, GrowthBookAutoLoad } from "../src";
 import { act } from "@testing-library/react";
 
 const TestedComponent = () => {
@@ -26,17 +26,16 @@ describe("GrowthBookProvider", () => {
       const growthbook = new GrowthBook({ user: { id: "1" } });
       const div = document.createElement("div");
       ReactDOM.render(
-        <>
-          <GrowthBookProvider growthbook={growthbook}>
-            <h1>foo</h1>
-          </GrowthBookProvider>
-          <GrowthBookDev growthbook={growthbook} />
-        </>,
+        <GrowthBookProvider growthbook={growthbook}>
+          <h1>foo</h1>
+          <GrowthBookDev />
+        </GrowthBookProvider>,
         div
       );
       await sleep(250);
       expect(div.innerHTML).toEqual("<h1>foo</h1>");
       ReactDOM.unmountComponentAtNode(div);
+      growthbook.destroy();
     });
   });
 
@@ -45,6 +44,26 @@ describe("GrowthBookProvider", () => {
       const growthbook = new GrowthBook({ user: { id: "1" } });
       const div = document.createElement("div");
 
+      ReactDOM.render(
+        <GrowthBookProvider growthbook={growthbook}>
+          <TestedComponent />
+          <GrowthBookDev />
+        </GrowthBookProvider>,
+        div
+      );
+      await sleep(250);
+      const switcher = div.querySelector(".growthbook_dev");
+      expect(switcher).toBeTruthy();
+      ReactDOM.unmountComponentAtNode(div);
+
+      growthbook.destroy();
+    });
+  });
+
+  it("renders outside of a GrowthBookProvider context", async () => {
+    await act(async () => {
+      const growthbook = new GrowthBook({ user: { id: "1" } });
+      const div = document.createElement("div");
       ReactDOM.render(
         <>
           <GrowthBookProvider growthbook={growthbook}>
@@ -58,10 +77,12 @@ describe("GrowthBookProvider", () => {
       const switcher = div.querySelector(".growthbook_dev");
       expect(switcher).toBeTruthy();
       ReactDOM.unmountComponentAtNode(div);
+
+      growthbook.destroy();
     });
   });
 
-  it("re-renders when switching variations", async () => {
+  it("does not render if no GrowthBook object exists", async () => {
     await act(async () => {
       const growthbook = new GrowthBook({ user: { id: "1" } });
       const div = document.createElement("div");
@@ -70,8 +91,50 @@ describe("GrowthBookProvider", () => {
           <GrowthBookProvider growthbook={growthbook}>
             <TestedComponent />
           </GrowthBookProvider>
-          <GrowthBookDev growthbook={growthbook} />
+          <GrowthBookDev />
         </>,
+        div
+      );
+      await sleep(250);
+      const switcher = div.querySelector(".growthbook_dev");
+      expect(switcher).toBeFalsy();
+      ReactDOM.unmountComponentAtNode(div);
+
+      growthbook.destroy();
+    });
+  });
+
+  it("detects global growthbook object via autoloading", async () => {
+    await act(async () => {
+      const growthbook = new GrowthBook({ user: { id: "1" } });
+      const div = document.createElement("div");
+      ReactDOM.render(
+        <>
+          <GrowthBookProvider growthbook={growthbook}>
+            <TestedComponent />
+          </GrowthBookProvider>
+          <GrowthBookAutoLoad />
+        </>,
+        div
+      );
+      await sleep(250);
+      const switcher = div.querySelector(".growthbook_dev");
+      expect(switcher).toBeTruthy();
+      ReactDOM.unmountComponentAtNode(div);
+
+      growthbook.destroy();
+    });
+  });
+
+  it("re-renders when switching variations", async () => {
+    await act(async () => {
+      const growthbook = new GrowthBook({ user: { id: "1" } });
+      const div = document.createElement("div");
+      ReactDOM.render(
+        <GrowthBookProvider growthbook={growthbook}>
+          <TestedComponent />
+          <GrowthBookDev />
+        </GrowthBookProvider>,
         div
       );
       await sleep(250);
@@ -86,6 +149,7 @@ describe("GrowthBookProvider", () => {
       expect(div.querySelector("h1")?.innerHTML).toEqual("0");
 
       ReactDOM.unmountComponentAtNode(div);
+      growthbook.destroy();
     });
   });
 
@@ -96,12 +160,10 @@ describe("GrowthBookProvider", () => {
 
       act(() => {
         ReactDOM.render(
-          <>
-            <GrowthBookProvider growthbook={growthbook}>
-              <TestedComponent />
-            </GrowthBookProvider>
-            <GrowthBookDev growthbook={growthbook} />
-          </>,
+          <GrowthBookProvider growthbook={growthbook}>
+            <TestedComponent />
+            <GrowthBookDev />
+          </GrowthBookProvider>,
           div
         );
       });
@@ -117,6 +179,7 @@ describe("GrowthBookProvider", () => {
       expect(div.querySelector(".growthbook_dev")?.className).toMatch(/open/);
 
       ReactDOM.unmountComponentAtNode(div);
+      growthbook.destroy();
     });
   });
 });
