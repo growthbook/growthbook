@@ -23,11 +23,12 @@
     "directory": "packages/sdk-dev"
   },
   "scripts": {
-    "build:esm": "cross-env BABEL_ENV=esmUnbundled babel src --extensions '.ts,.tsx' --out-dir 'dist/esm' --source-maps",
-    "build:cjs": "cross-env BABEL_ENV=cjs babel src --extensions '.ts,.tsx' --out-dir 'dist/cjs' --source-maps",
+    "build:esm": "cross-env BABEL_ENV=esmUnbundled babel src --extensions '.ts,.tsx' --out-dir 'dist/esm' --source-maps --ignore '**/playground/**'",
+    "build:cjs": "cross-env BABEL_ENV=cjs babel src --extensions '.ts,.tsx' --out-dir 'dist/cjs' --source-maps --ignore '**/playground/**'",
     "build:bundles": "rollup -c",
     "build:types": "tsc --emitDeclarationOnly",
     "build:clean": "rm -rf dist",
+    "dev": "rollup -c rollup.config.playground.js --watch",
     "build": "yarn build:clean && npm-run-all --parallel build:types build:esm build:cjs build:bundles",
     "test": "jest",
     "type-check": "tsc --pretty --noEmit"
@@ -37,7 +38,10 @@
     "react": "^16.8.0-0 || ^17.0.0-0"
   },
   "dependencies": {
-    "@growthbook/js": "^0.13.0"
+    "@growthbook/js": "^0.13.0",
+    "rollup-plugin-copy": "^3.4.0",
+    "rollup-plugin-livereload": "^2.0.5",
+    "rollup-plugin-serve": "^1.1.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",
