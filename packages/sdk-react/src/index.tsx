@@ -61,7 +61,7 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
 withRunExperiment.displayName = "WithRunExperiment";
 
 export const GrowthBookProvider: React.FC<{
-  growthbook: GrowthBook;
+  growthbook?: GrowthBook;
 }> = ({ children, growthbook }) => {
   // Tell growthbook how to re-render our app (for dev mode integration)
   // eslint-disable-next-line
