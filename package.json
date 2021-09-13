@@ -9,7 +9,8 @@
     "test": "wsrun -m test",
     "dev": "wsrun -p '*-end' -m dev",
     "build": "wsrun -p '*-end' -m build",
-    "start": "wsrun -p '*-end' -m start"
+    "start": "wsrun -p '*-end' -m start",
+    "prepare": "husky install"
   },
   "workspaces": [
     "packages/*"
@@ -26,10 +27,10 @@
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-prettier": "^3.1.3",
     "eslint-plugin-react": "^7.20.0",
-    "husky": "^4.2.5",
     "lint-staged": "^10.2.7",
     "prettier": "^2.2.1",
-    "typescript": "^4.4.2"
+    "typescript": "^4.4.2",
+    "husky": "^7.0.0"
   },
   "husky": {
     "hooks": {
@@ -40,7 +41,7 @@
     "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
-    "./**/*.{js,ts,jsx,tsx}": [
+    "./**/*.{ts,tsx}": [
       "yarn lint"
     ]
   },

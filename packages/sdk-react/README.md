@@ -1,4 +1,25 @@
-# GrowthBook React Client Library
+# GrowthBook React SDK
+
+Powerful A/B testing for React.
+
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.3KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+
+- **No external dependencies**
+- **Lightweight and fast**
+- **No HTTP requests** everything is defined and evaluated locally
+- Works for both **client and server-side** rendering
+- **Dev Mode** for testing variations and taking screenshots
+- **No flickering or blocking calls**
+- Written in **Typescript** with an extensive test suite
+- Flexible experiment **targeting**
+- **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
+- **Adjust variation weights and targeting** without deploying new code
+
+**Note**: This library is just for running A/B tests in React. To analyze results, use the GrowthBook App (https://github.com/growthbook/growthbook).
+
+## Community
+
+Join [our GrowthBook Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make GrowthBook even better.
 
 ## Installation
 
@@ -64,7 +85,7 @@ export default function OtherComponent() {
 ```tsx
 import { withRunExperiment } from "@growthbook/growthbook-react";
 
-class OtherComponent extends Component {
+class OtherComponent extends React.Component {
   render() {
     // The `runExperiment` prop is identical to the `useExperiment` hook
     const { value } = this.props.runExperiment({
@@ -78,35 +99,6 @@ class OtherComponent extends Component {
 export default withRunExperiment(OtherComponent);
 ```
 
-## Configuration and Usage
+## Documentation
 
-This package is a small React wrapper around the [Javascript client library](/lib/js). Check those docs for configuration options and more experiment usage examples.
-
-## Dev Mode
-
-You can add the GrowthBook Dev Mode widget to make development and testing easier.
-
-Install the dev mode widget with `npm install --save-dev @growthbook/dev` or `yarn install --dev @growthbook/dev`.
-
-Then render the `GrowthBookDev` component inside of the GrowthBookProvider
-
-```tsx
-import { GrowthBookDev } from "@growthbook/dev";
-
-function MyApp() {
-  return (
-    <GrowthBookProvider growthbook={...}>
-      <OtherComponent />
-      <GrowthBookDev/>
-    </GrowthBookProvider>
-  )
-}
-```
-
-and you should see the Dev Mode widget on the bottom-left of your screen
-
-![Dev Mode Variation Switcher](/images/variation-switcher.png)
-
-## Configuration and Usage
-
-This package is a small React wrapper around the [javascript client library](/lib/js). Look at those docs for more info on how to configure your GrowthBook instance and define Experiments.
+See the full documentation and more usage examples at https://docs.growthbook.io/lib/react

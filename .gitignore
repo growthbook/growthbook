@@ -14,6 +14,7 @@ uploads
 packages/back-end/globalConfig.json
 packages/back-end/dummy
 config.yml
+.vscode
 
 # Python compiled files
 __pycache__/

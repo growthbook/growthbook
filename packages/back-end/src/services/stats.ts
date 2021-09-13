@@ -24,7 +24,7 @@ export interface ABTestStats {
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */
-function getAdjustedStats(stats: MetricStats, users: number) {
+export function getAdjustedStats(stats: MetricStats, users: number) {
   const x = stats.mean;
   const sX = stats.stddev;
   const c = stats.count;

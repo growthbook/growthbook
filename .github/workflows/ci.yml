@@ -1,47 +1,18 @@
 name: CI
 
-on: [push]
+# Runs on every push to every branch
+on:
+  push:
+    branches:
+      - "**"
 
 jobs:
-  # See which files have changed
-  # Used to skip future jobs and steps
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      any: ${{ steps.changes.outputs.any }}
-      app: ${{ steps.changes.outputs.app }}
-      backend: ${{ steps.changes.outputs.backend }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
-
-      - name: check for file changes
-        id: changes
-        run: |
-          # List of all changes in this push
-          FILE_CHANGES=$(git diff --name-only HEAD^ HEAD)
-
-          # See if any changes were made to any of the packages)
-          HAS_ANY_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'ci.yml|yarn.lock|package.json|Dockerfile|back-end|front-end|docs' && echo "true" || echo "false")
-          echo "::set-output name=any::${HAS_ANY_CHANGES}"
-
-          # See if any changes were made to the app (front-end or back-end)
-          HAS_APP_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'ci.yml|yarn.lock|package.json|Dockerfile|back-end|front-end' && echo "true" || echo "false")
-          echo "::set-output name=app::${HAS_APP_CHANGES}"
-
-          # See if any changes were made to the back-end
-          HAS_BACKEND_CHANGES=$(echo "$FILE_CHANGES" | grep -qP 'ci.yml|yarn.lock|package.json|Dockerfile|back-end' && echo "true" || echo "false")
-          echo "::set-output name=backend::${HAS_BACKEND_CHANGES}"
   # Linting, type-checking, and tests
-  # Runs on every push to every branch (plus on all new tags)
-  # Only run if code has changed (i.e. skip if only the README was modified)
   ci:
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.any == 'true' }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Use Node.js 12.x
         uses: actions/setup-node@v1
@@ -58,7 +29,8 @@ jobs:
         run: |
           echo "::set-output name=dir::$(yarn cache dir)"
 
-      - uses: actions/cache@v1
+      - name: Cache yarn packages
+        uses: actions/cache@v1
         with:
           path: ${{ steps.yarn-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
@@ -70,64 +42,22 @@ jobs:
           yarn
           python -m pip install --upgrade pip
           pip install numpy scipy pandas
-
         env:
           CI: true
 
       - name: lint
         run: |
           yarn lint
+
+      - name: build sdk packages
+        run: |
+          yarn workspace @growthbook/growthbook build
+          yarn workspace @growthbook/growthbook-react build
+
+      - name: type-check
+        run: |
           yarn type-check
 
       - name: test
         run: |
-          # Run the test suite
           yarn test
-
-  # Build and publish the commit to docker
-  # Runs on pushes to the main branch or when a release is made
-  # Only runs if code changed on the front-end or back-end (e.g. skip if only docs changed)
-  docker:
-    runs-on: ubuntu-latest
-    needs: [changes, ci]
-    if: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.repository == 'growthbook/growthbook' && needs.changes.outputs.app == 'true' }}
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Build, tag, and push image to Docker Hub
-        run: |
-          # Build and push the docker image
-          docker build -t growthbook/growthbook:latest -t growthbook/growthbook:git-${GITHUB_SHA::7} .
-
-          # If this is a release, add the version tag as well
-          if [[ $GITHUB_REF = refs\/tags\/v* ]]; then
-            TAG=${GITHUB_REF#refs/tags/v}
-            docker image tag growthbook/growthbook:latest growthbook/growthbook:$TAG
-          fi
-
-          docker push -a growthbook/growthbook
-
-  # Deploy the back-end for GrowthBook Cloud
-  # Runs on pushes to the main branch
-  # Only runs if there are back-end code changes
-  prod:
-    runs-on: ubuntu-latest
-    needs: [changes, ci, docker]
-    if: ${{ github.ref == 'refs/heads/main' && github.repository == 'growthbook/growthbook' && needs.changes.outputs.backend == 'true' }}
-    steps:
-      - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run:
-          aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
