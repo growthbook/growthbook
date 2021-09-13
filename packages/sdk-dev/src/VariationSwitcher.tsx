@@ -179,7 +179,7 @@ export default function VariationSwitcher({
       `,
         }}
       />
-      <h3>Growth Book Dev</h3>
+      <h3>GrowthBook Dev</h3>
       <button
         className="toggle"
         onClick={(e) => {

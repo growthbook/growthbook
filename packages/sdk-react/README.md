@@ -1,4 +1,4 @@
-# Growth Book React SDK
+# GrowthBook React SDK
 
 Powerful A/B testing for React.
 
@@ -15,11 +15,11 @@ Powerful A/B testing for React.
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - **Adjust variation weights and targeting** without deploying new code
 
-**Note**: This library is just for running A/B tests in React. To analyze results, use the Growth Book App (https://github.com/growthbook/growthbook).
+**Note**: This library is just for running A/B tests in React. To analyze results, use the GrowthBook App (https://github.com/growthbook/growthbook).
 
 ## Community
 
-Join [our Growth Book Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make Growth Book even better.
+Join [our GrowthBook Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make GrowthBook even better.
 
 ## Installation
 
