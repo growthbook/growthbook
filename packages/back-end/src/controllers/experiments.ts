@@ -1191,7 +1191,6 @@ export async function postMetrics(
     userIdType,
     userIdColumn,
     anonymousIdColumn,
-    projects,
   } = req.body;
 
   if (datasource) {
@@ -1230,7 +1229,6 @@ export async function postMetrics(
     tags,
     winRisk,
     loseRisk,
-    projects,
     maxPercentChange,
     minSampleSize,
   });
@@ -1280,7 +1278,6 @@ export async function putMetric(
     "userIdColumn",
     "anonymousIdColumn",
     "timestampColumn",
-    "projects",
   ];
   fields.forEach((k) => {
     if (k in req.body) {

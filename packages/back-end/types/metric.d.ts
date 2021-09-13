@@ -27,7 +27,6 @@ export interface Condition {
 export interface MetricInterface {
   id: string;
   organization: string;
-  projects: string[];
   datasource: string;
   name: string;
   description: string;

@@ -7,7 +7,6 @@ const segmentSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
-  projects: [String],
   datasource: String,
   name: String,
   sql: String,

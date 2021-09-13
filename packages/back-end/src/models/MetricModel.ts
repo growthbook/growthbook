@@ -9,7 +9,6 @@ const metricSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
-  projects: [String],
   datasource: String,
   name: String,
   description: String,
