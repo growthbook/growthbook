@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
-import useForm from "../../hooks/useForm";
+import { useFieldArray, useForm } from "react-hook-form";
 import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
@@ -15,7 +15,12 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
+  defaultMaxPercentChange,
+  defaultMinSampleSize,
+  formatConversionRate,
 } from "../../services/metrics";
+import BooleanSelect from "../Forms/BooleanSelect";
+import Field from "../Forms/Field";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -54,7 +59,7 @@ function validateSQL(
     throw new Error("Must select a `user_id` column.");
   }
 }
-function validateBasicInfo(value: Partial<MetricInterface>) {
+function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
@@ -62,7 +67,12 @@ function validateBasicInfo(value: Partial<MetricInterface>) {
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,
-  value: Partial<MetricInterface>
+  value: {
+    sql: string;
+    type: MetricType;
+    userIdType: "user" | "anonymous" | "either";
+    table: string;
+  }
 ) {
   if (!datasourceSettingsSupport) {
     return;
@@ -83,7 +93,7 @@ const MetricForm: FC<MetricFormProps> = ({
   source,
   initialStep = 0,
 }) => {
-  const { datasources, getDatasourceById, refreshTags } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [sqlInput, setSqlInput] = useState(
     current?.sql || !current?.table ? true : false
@@ -122,8 +132,8 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
-  const [value, inputs, manualUpdate] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       datasource:
         ("datasource" in current ? current.datasource : datasources[0]?.id) ||
         "",
@@ -144,13 +154,31 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: current.userIdType || "either",
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
-      winRisk: current.winRisk || defaultWinRiskThreshold * 100,
-      loseRisk: current.loseRisk || defaultLoseRiskThreshold * 100,
+      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
+      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      maxPercentChange:
+        (current.maxPercentChange || defaultMaxPercentChange) * 100,
+      minSampleSize: current.minSampleSize || defaultMinSampleSize,
     },
-    current.id || "new"
-  );
+  });
 
   const { apiCall } = useAuth();
+
+  const value = {
+    datasource: form.watch("datasource"),
+    timestampColumn: form.watch("timestampColumn"),
+    userIdColumn: form.watch("userIdColumn"),
+    anonymousIdColumn: form.watch("anonymousIdColumn"),
+    userIdType: form.watch("userIdType"),
+    column: form.watch("column"),
+    table: form.watch("table"),
+    type: form.watch("type"),
+    winRisk: form.watch("winRisk"),
+    loseRisk: form.watch("loseRisk"),
+    tags: form.watch("tags"),
+    sql: form.watch("sql"),
+    conditions: form.watch("conditions"),
+  };
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -181,36 +209,25 @@ const MetricForm: FC<MetricFormProps> = ({
     column = "Property";
   }
 
-  const addCondition = () => {
-    manualUpdate({
-      conditions: [
-        ...value.conditions,
-        {
-          column: "",
-          operator: "=",
-          value: "",
-        },
-      ],
-    });
-  };
-  const deleteCondition = (i: number) => {
-    const clone = [...value.conditions];
-    clone.splice(i, 1);
-    manualUpdate({ conditions: clone });
-  };
+  const conditions = useFieldArray({
+    control: form.control,
+    name: "conditions",
+  });
 
-  const onSubmit = async () => {
-    const sendValue = { ...value };
-    //correct decimal/percent:
-    if (sendValue?.winRisk) sendValue.winRisk = sendValue.winRisk / 100;
-    if (sendValue?.loseRisk) sendValue.loseRisk = sendValue.loseRisk / 100;
+  const onSubmit = form.handleSubmit(async (value) => {
+    const { winRisk, loseRisk, maxPercentChange, sql, ...otherValues } = value;
+
+    const sendValue: Partial<MetricInterface> = {
+      ...otherValues,
+      winRisk: winRisk / 100,
+      loseRisk: loseRisk / 100,
+      maxPercentChange: maxPercentChange / 100,
+      sql: sqlInput ? sql : "",
+    };
 
     if (value.loseRisk < value.winRisk) return;
 
-    const body = JSON.stringify({
-      ...sendValue,
-      sql: sqlInput ? value.sql : "",
-    });
+    const body = JSON.stringify(sendValue);
 
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
@@ -231,7 +248,7 @@ const MetricForm: FC<MetricFormProps> = ({
     });
 
     onClose(true);
-  };
+  });
 
   const sqlPreviewData = {
     userIdCol: "",
@@ -295,7 +312,7 @@ const MetricForm: FC<MetricFormProps> = ({
     >
       <Page
         display="Basic Info"
-        validate={async () => validateBasicInfo(value)}
+        validate={async () => validateBasicInfo(form.getValues())}
       >
         <div className="form-group">
           Metric Name
@@ -303,23 +320,20 @@ const MetricForm: FC<MetricFormProps> = ({
             type="text"
             required
             className="form-control"
-            {...inputs.name}
+            {...form.register("name")}
           />
         </div>
         <div className="form-group">
           Tags
           <TagsInput
             value={value.tags}
-            onChange={(tags) => {
-              refreshTags(tags);
-              manualUpdate({ tags });
-            }}
+            onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
         <div className="form-group">
           Data Source
           <select
-            {...inputs.datasource}
+            {...form.register("datasource")}
             name="datasource"
             className="form-control"
             disabled={!!current.id}
@@ -335,18 +349,17 @@ const MetricForm: FC<MetricFormProps> = ({
         <div className="form-group">
           Metric Type
           <RadioSelector
-            name="metricType"
+            name="type"
             value={value.type}
-            setValue={(type) => {
-              manualUpdate({
-                type: type as MetricType,
-              });
-            }}
+            setValue={(val: MetricType) => form.setValue("type", val)}
             options={metricTypeOptions}
           />
         </div>
-        {value.datasource && datasourceType === "google_analytics" && (
-          <GoogleAnalyticsMetrics inputProps={inputs.table} type={value.type} />
+        {datasourceType === "google_analytics" && (
+          <GoogleAnalyticsMetrics
+            inputProps={form.register("table")}
+            type={value.type}
+          />
         )}
       </Page>
       <Page
@@ -402,7 +415,10 @@ const MetricForm: FC<MetricFormProps> = ({
                 <div className="form-group">
                   <div className="form-group">
                     <label>User Types Supported</label>
-                    <select className="form-control" {...inputs.userIdType}>
+                    <select
+                      className="form-control"
+                      {...form.register("userIdType")}
+                    >
                       <option value="anonymous">Anonymous Only</option>
                       <option value="user">Users Only</option>
                       <option value="either">Both Anonymous and Users</option>
@@ -412,7 +428,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 <div className="form-group">
                   <label>SQL</label>
                   <textarea
-                    {...inputs.sql}
+                    {...form.register("sql")}
                     className="form-control"
                     rows={15}
                     placeholder="SELECT ..."
@@ -433,7 +449,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       type="text"
                       required={value.type !== "count"}
                       className="form-control"
-                      {...inputs.column}
+                      {...form.register("column")}
                     />
                   </div>
                 )}
@@ -443,13 +459,13 @@ const MetricForm: FC<MetricFormProps> = ({
                     type="text"
                     required
                     className="form-control"
-                    {...inputs.table}
+                    {...form.register("table")}
                   />
                 </div>
                 {conditionsSupported && (
                   <div className="mb-3">
-                    {value.conditions.length > 0 && <h6>Conditions</h6>}
-                    {value.conditions.map((cond: Condition, i) => (
+                    {conditions.fields.length > 0 && <h6>Conditions</h6>}
+                    {conditions.fields.map((cond: Condition, i) => (
                       <div
                         className="form-row border py-2 mb-2 align-items-center"
                         key={i}
@@ -460,13 +476,13 @@ const MetricForm: FC<MetricFormProps> = ({
                             required
                             className="form-control mb-1"
                             placeholder={column}
-                            {...inputs.conditions[i].column}
+                            {...form.register(`conditions.${i}.column`)}
                           />
                         </div>
                         <div className="col-auto">
                           <select
                             className="form-control"
-                            {...inputs.conditions[i].operator}
+                            {...form.register(`conditions.${i}.operator`)}
                           >
                             <option value="=">=</option>
                             <option value="!=">!=</option>
@@ -483,7 +499,7 @@ const MetricForm: FC<MetricFormProps> = ({
                             required
                             className="form-control"
                             placeholder="Value"
-                            {...inputs.conditions[i].value}
+                            {...form.register(`conditions.${i}.value`)}
                           />
                         </div>
                         <div className="col-auto">
@@ -491,7 +507,7 @@ const MetricForm: FC<MetricFormProps> = ({
                             className="btn btn-danger"
                             onClick={(e) => {
                               e.preventDefault();
-                              deleteCondition(i);
+                              conditions.remove(i);
                             }}
                           >
                             &times;
@@ -503,7 +519,12 @@ const MetricForm: FC<MetricFormProps> = ({
                       className="btn btn-outline-success"
                       onClick={(e) => {
                         e.preventDefault();
-                        addCondition();
+
+                        conditions.append({
+                          column: "",
+                          operator: "=",
+                          value: "",
+                        });
                       }}
                     >
                       Add Condition
@@ -517,14 +538,17 @@ const MetricForm: FC<MetricFormProps> = ({
                       type="text"
                       placeholder={"received_at"}
                       className="form-control"
-                      {...inputs.timestampColumn}
+                      {...form.register("timestampColumn")}
                     />
                   </div>
                 )}
                 {customizeUserIds && (
                   <div className="form-group">
                     User Types Supported
-                    <select className="form-control" {...inputs.userIdType}>
+                    <select
+                      className="form-control"
+                      {...form.register("userIdType")}
+                    >
                       <option value="anonymous">Anonymous Only</option>
                       <option value="user">Users Only</option>
                       <option value="either">Both Anonymous and Users</option>
@@ -538,7 +562,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       type="text"
                       placeholder={"user_id"}
                       className="form-control"
-                      {...inputs.userIdColumn}
+                      {...form.register("userIdColumn")}
                     />
                   </div>
                 )}
@@ -549,7 +573,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       type="text"
                       placeholder={"anonymous_id"}
                       className="form-control"
-                      {...inputs.anonymousIdColumn}
+                      {...form.register("anonymousIdColumn")}
                     />
                   </div>
                 )}
@@ -642,21 +666,26 @@ GROUP BY
       <Page display="Behavior">
         <div className="form-group ">
           What is the Goal?
-          <select required className="form-control" {...inputs.inverse}>
-            <option value="false">
-              Increase the{" "}
-              {value.type === "binomial" ? "conversion rate" : value.type}
-            </option>
-            <option value="true">
-              Decrease the{" "}
-              {value.type === "binomial" ? "conversion rate" : value.type}
-            </option>
-          </select>
+          <BooleanSelect
+            required
+            control={form.control}
+            name="inverse"
+            falseLabel={`Increase the ${
+              value.type === "binomial" ? "conversion rate" : value.type
+            }`}
+            trueLabel={`Decrease the ${
+              value.type === "binomial" ? "conversion rate" : value.type
+            }`}
+          />
         </div>
         {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Capped Value
-            <input type="number" className="form-control" {...inputs.cap} />
+            <input
+              type="number"
+              className="form-control"
+              {...form.register("cap", { valueAsNumber: true })}
+            />
             <small className="text-muted">
               If greater than zero, any user who has more than this count will
               be capped at this value.
@@ -671,18 +700,23 @@ GROUP BY
               step="1"
               min="1"
               className="form-control"
-              placeholder={getDefaultConversionWindowHours()}
-              {...inputs.conversionWindowHours}
+              placeholder={getDefaultConversionWindowHours() + ""}
+              {...form.register("conversionWindowHours", {
+                valueAsNumber: true,
+              })}
             />
           </div>
         )}
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
           <div className="form-group">
             Converted Users Only
-            <select className="form-control" {...inputs.ignoreNulls}>
-              <option value="false">No</option>
-              <option value="true">Yes</option>
-            </select>
+            <BooleanSelect
+              required
+              control={form.control}
+              name="ignoreNulls"
+              falseLabel="No"
+              trueLabel="Yes"
+            />
             <small className="text-muted">
               If yes, exclude anyone with a metric value less than or equal to
               zero from analysis.
@@ -695,17 +729,17 @@ GROUP BY
             {value.type === "binomial"
               ? "only count if a conversion happens"
               : "start counting"}
-            <select required className="form-control" {...inputs.earlyStart}>
-              <option value="false">
-                After the user is assigned a variation
-              </option>
-              <option value="true">
-                {value.type === "binomial"
+            <BooleanSelect
+              control={form.control}
+              required
+              name="earlyStart"
+              falseLabel="After the user is assigned a variation"
+              trueLabel={
+                (value.type === "binomial"
                   ? "Any time during the"
-                  : "At the start of the"}{" "}
-                user&apos;s session
-              </option>
-            </select>
+                  : "At the start of the") + " user's session"
+              }
+            />
           </div>
         )}
         <div className="form-group">
@@ -747,12 +781,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                value={value.winRisk}
-                onChange={(e) => {
-                  let newRisk = parseFloat(e.target.value);
-                  if (isNaN(newRisk)) newRisk = 0;
-                  manualUpdate({ winRisk: newRisk });
-                }}
+                {...form.register("winRisk", { valueAsNumber: true })}
               />
             </div>
             <div className="col yellow-bar px-0">
@@ -780,12 +809,7 @@ GROUP BY
                 step="any"
                 min="0"
                 max="100"
-                value={value.loseRisk}
-                onChange={(e) => {
-                  let newRisk = parseFloat(e.target.value);
-                  if (isNaN(newRisk)) newRisk = 0;
-                  manualUpdate({ loseRisk: newRisk });
-                }}
+                {...form.register("loseRisk", { valueAsNumber: true })}
               />
             </div>
             <div className="col red-bar pl-0">
@@ -816,6 +840,36 @@ GROUP BY
             green, yellow, or red.
           </small>
         </div>
+        <div className="form-group">
+          Minimum Sample Size
+          <input
+            type="number"
+            className="form-control"
+            {...form.register("minSampleSize", { valueAsNumber: true })}
+          />
+          <small className="text-muted">
+            The{" "}
+            {value.type === "binomial"
+              ? "number of conversions"
+              : `total ${value.type}`}{" "}
+            required in an experiment variation before showing results (default{" "}
+            {value.type === "binomial"
+              ? defaultMinSampleSize
+              : formatConversionRate(value.type, defaultMinSampleSize)}
+            )
+          </small>
+        </div>
+        <Field
+          label="Max Percent Change"
+          type="number"
+          step="any"
+          append="%"
+          {...form.register("maxPercentChange", { valueAsNumber: true })}
+          helpText={`An experiment that changes the metric by more than this percent will
+            be flagged as suspicious (default ${
+              defaultMaxPercentChange * 100
+            })`}
+        />
       </Page>
     </PagedModal>
   );

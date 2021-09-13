@@ -40,7 +40,7 @@ export default function Home(): React.ReactElement {
   return (
     <>
       <Head>
-        <title>Growth Book</title>
+        <title>GrowthBook</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 

@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.4.1",
-    "@types/react": "^16.9.55",
+    "@types/react": "^17.0.19",
     "autoprefixer": "^10.2.6",
     "postcss": "^8.3.0",
     "tailwindcss": "^2.1.2"

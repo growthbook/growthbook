@@ -76,7 +76,7 @@ const ExperimentsPage = (): React.ReactElement => {
           and data to pick a winner.
         </p>
         <p>
-          Growth Book lets you add context to experiments (hypotheses,
+          GrowthBook lets you add context to experiments (hypotheses,
           screenshots, discussion threads) and makes them easily searchable. Our
           Bayesian statistics engine produces intuitive graphs that make it easy
           to interpret results and choose a winner.

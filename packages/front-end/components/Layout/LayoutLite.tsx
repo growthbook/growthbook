@@ -15,17 +15,17 @@ const LayoutLite = (): React.ReactElement => {
               <div
                 aria-current="page"
                 className="app-sidebar-logo active"
-                title="Growth Book Home"
+                title="GrowthBook Home"
               >
                 <div className={styles.sidebarlogo}>
                   <img
                     className={styles.logo}
-                    alt="Growth Book"
+                    alt="GrowthBook"
                     src="/logo/growth-book-logomark-white.svg"
                   />
                   <img
                     className={styles.logotext}
-                    alt="Growth Book"
+                    alt="GrowthBook"
                     src="/logo/growth-book-name-white.svg"
                   />
                 </div>

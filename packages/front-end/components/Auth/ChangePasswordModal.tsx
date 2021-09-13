@@ -1,15 +1,18 @@
 import { FC, useState } from "react";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
+import Field from "../Forms/Field";
 import Modal from "../Modal";
 
 const ChangePasswordModal: FC<{
   close: () => void;
 }> = ({ close }) => {
   const [success, setSuccess] = useState(false);
-  const [value, inputProps] = useForm({
-    currentPassword: "",
-    newPassword: "",
+  const form = useForm({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+    },
   });
   const { apiCall } = useAuth();
 
@@ -24,13 +27,13 @@ const ChangePasswordModal: FC<{
       submit={
         success
           ? null
-          : async () => {
+          : form.handleSubmit(async (data) => {
               await apiCall("/auth/change-password", {
                 method: "POST",
-                body: JSON.stringify(value),
+                body: JSON.stringify(data),
               });
               setSuccess(true);
-            }
+            })
       }
     >
       {success ? (
@@ -40,34 +43,28 @@ const ChangePasswordModal: FC<{
         </div>
       ) : (
         <>
-          <div className="form-group">
-            Current Password
-            <input
-              type="password"
-              name="current"
-              required
-              minLength={8}
-              className="form-control"
-              autoComplete="current-password"
-              {...inputProps.currentPassword}
-            />
-            <small className="form-text text-muted">
-              Can&apos;t remember your current password? Log out and click on{" "}
-              <strong>Forgot&nbsp;Password</strong> to reset it.
-            </small>
-          </div>
-          <div className="form-group">
-            New Password
-            <input
-              type="password"
-              name="new"
-              required
-              minLength={8}
-              className="form-control"
-              autoComplete="new-password"
-              {...inputProps.newPassword}
-            />
-          </div>
+          <Field
+            label="Current Password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="current-password"
+            {...form.register("currentPassword")}
+            helpText={
+              <>
+                Can&apos;t remember your current password? Log out and click on{" "}
+                <strong>Forgot&nbsp;Password</strong> to reset it.
+              </>
+            }
+          />
+          <Field
+            label="New Password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            {...form.register("newPassword")}
+          />
         </>
       )}
     </Modal>

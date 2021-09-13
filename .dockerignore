@@ -9,7 +9,9 @@ packages/back-end/coverage
 
 # Docs package
 packages/docs
+packages/sdk-**
 
 # Secrets / private data
 **/*.env.local
+**/config.yml
 packages/back-end/uploads

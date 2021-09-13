@@ -229,7 +229,7 @@ const Layout = (): React.ReactElement => {
                 <a
                   aria-current="page"
                   className="app-sidebar-logo active"
-                  title="Growth Book Home"
+                  title="GrowthBook Home"
                   onClick={() => setOpen(false)}
                 >
                   <div className={styles.sidebarlogo}>
@@ -237,7 +237,7 @@ const Layout = (): React.ReactElement => {
                       <>
                         <img
                           className={styles.userlogo}
-                          alt="Growth Book"
+                          alt="GrowthBook"
                           src={settings.logoPath}
                         />
                       </>
@@ -245,12 +245,12 @@ const Layout = (): React.ReactElement => {
                       <>
                         <img
                           className={styles.logo}
-                          alt="Growth Book"
+                          alt="GrowthBook"
                           src="/logo/growth-book-logomark-white.svg"
                         />
                         <img
                           className={styles.logotext}
-                          alt="Growth Book"
+                          alt="GrowthBook"
                           src="/logo/growth-book-name-white.svg"
                         />
                       </>

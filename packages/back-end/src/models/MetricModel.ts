@@ -23,6 +23,8 @@ const metricSchema = new mongoose.Schema({
   conversionWindowHours: Number,
   winRisk: Number,
   loseRisk: Number,
+  maxPercentChange: Number,
+  minSampleSize: Number,
   dateCreated: Date,
   dateUpdated: Date,
   userIdColumn: String,

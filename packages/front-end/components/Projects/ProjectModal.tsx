@@ -1,8 +1,9 @@
 import { ProjectInterface } from "back-end/types/project";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Modal from "../Modal";
+import Field from "../Forms/Field";
 
 export default function ProjectModal({
   existing,
@@ -13,11 +14,13 @@ export default function ProjectModal({
   close: () => void;
   onSuccess: () => Promise<void>;
 }) {
-  const [value, inputProps, manualUpdate] = useForm<Partial<ProjectInterface>>({
-    name: existing.name || "",
-    metrics: existing.metrics || [],
-    dimensions: existing.dimensions || [],
-    segments: existing.segments || [],
+  const form = useForm<Partial<ProjectInterface>>({
+    defaultValues: {
+      name: existing.name || "",
+      metrics: existing.metrics || [],
+      dimensions: existing.dimensions || [],
+      segments: existing.segments || [],
+    },
   });
 
   const { apiCall } = useAuth();
@@ -27,32 +30,21 @@ export default function ProjectModal({
       open={true}
       close={close}
       header="Create Project"
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(existing.id ? `/projects/${existing.id}` : `/projects`, {
           method: existing.id ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
         await onSuccess();
-      }}
+      })}
     >
-      <div className="form-group">
-        Name
-        <input
-          type="text"
-          maxLength={30}
-          required
-          {...inputProps.name}
-          className="form-control"
-        />
-      </div>
+      <Field name="Name" maxLength={30} required {...form.register("name")} />
       <div className="form-group">
         Metrics
         <MetricsSelector
-          selected={value.metrics}
+          selected={form.watch("metrics")}
           onChange={(metrics) => {
-            manualUpdate({
-              metrics,
-            });
+            form.setValue("metrics", metrics);
           }}
         />
       </div>
