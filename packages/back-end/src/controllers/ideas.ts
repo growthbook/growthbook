@@ -78,7 +78,6 @@ export async function postIdeas(
 ) {
   const data = req.body;
   data.organization = req.organization.id;
-  data.project = req.project;
   data.source = "web";
   data.userId = req.userId;
   const idea = await createIdea(data);

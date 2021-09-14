@@ -55,6 +55,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
 import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
+import EditProjectForm from "../../components/Experiment/EditProjectForm";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -65,6 +66,7 @@ const ExperimentPage = (): ReactElement => {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
@@ -79,7 +81,12 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization);
 
-  const { getMetricById, getDatasourceById } = useDefinitions();
+  const {
+    getMetricById,
+    getDatasourceById,
+    projects,
+    getProjectById,
+  } = useDefinitions();
   const { permissions } = useContext(UserContext);
 
   if (error) {
@@ -164,6 +171,14 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
+        />
+      )}
+      {projectModalOpen && (
+        <EditProjectForm
+          cancel={() => setProjectModalOpen(false)}
+          mutate={mutate}
+          current={experiment.project}
+          apiEndpoint={`/experiment/${experiment.id}`}
         />
       )}
       {dataSourceModalOpen && (
@@ -569,6 +584,20 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
+              {projects.length > 0 && (
+                <>
+                  <RightRailSection
+                    title="Project"
+                    open={() => setProjectModalOpen(true)}
+                    canOpen={canEdit}
+                  >
+                    <RightRailSectionGroup empty="None" type="badge">
+                      {getProjectById(experiment.project)?.name}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                  <hr />
+                </>
+              )}
               {!experiment.archived &&
                 experiment.status !== "stopped" &&
                 experiment.implementation !== "visual" && (

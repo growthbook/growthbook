@@ -294,7 +294,10 @@ const Layout = (): React.ReactElement => {
                   </a>
                 </li>
                 {projects.length > 0 && (
-                  <li className="px-3">
+                  <li
+                    className="px-3"
+                    style={{ marginTop: -10, marginBottom: 10 }}
+                  >
                     <select
                       className="form-control"
                       value={project}

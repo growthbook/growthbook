@@ -4,6 +4,9 @@ import { useAuth } from "../../services/auth";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
+import MultiSelect from "../Forms/MultiSelect";
+import { useMemo } from "react";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export default function ProjectModal({
   existing,
@@ -23,6 +26,15 @@ export default function ProjectModal({
     },
   });
 
+  const { dimensions, segments, metrics } = useDefinitions();
+
+  const dimensionOptions = useMemo(() => {
+    return dimensions.map((d) => ({ display: d.name, value: d.id }));
+  }, [dimensions]);
+  const segmentOptions = useMemo(() => {
+    return segments.map((s) => ({ display: s.name, value: s.id }));
+  }, [segments]);
+
   const { apiCall } = useAuth();
 
   return (
@@ -39,6 +51,30 @@ export default function ProjectModal({
       })}
     >
       <Field name="Name" maxLength={30} required {...form.register("name")} />
+      <p>
+        Select which metrics, dimensions, and segments you want available to
+        this project.{" "}
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            form.setValue(
+              "dimensions",
+              dimensions.map((d) => d.id)
+            );
+            form.setValue(
+              "segments",
+              segments.map((s) => s.id)
+            );
+            form.setValue(
+              "metrics",
+              metrics.map((m) => m.id)
+            );
+          }}
+        >
+          Select All
+        </a>
+      </p>
       <div className="form-group">
         Metrics
         <MetricsSelector
@@ -48,6 +84,23 @@ export default function ProjectModal({
           }}
         />
       </div>
+      <MultiSelect
+        label="Dimensions"
+        value={form.watch("dimensions")}
+        onChange={(dimensions) => {
+          form.setValue("dimensions", dimensions);
+        }}
+        options={dimensionOptions}
+      />
+      <MultiSelect
+        label="Segments"
+        value={form.watch("segments")}
+        onChange={(segments) => {
+          form.setValue("segments", segments);
+        }}
+        options={segmentOptions}
+      />
+      <div style={{ height: 200 }} />
     </Modal>
   );
 }

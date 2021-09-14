@@ -285,7 +285,6 @@ export async function postExperiments(
 
   const data = req.body;
   data.organization = req.organization.id;
-  data.project = req.project;
 
   if (data.datasource) {
     const datasource = await getDataSourceById(

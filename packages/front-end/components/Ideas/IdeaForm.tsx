@@ -12,18 +12,19 @@ const IdeaForm: FC<{
   mutate: () => void;
   close: () => void;
 }> = ({ idea, close, mutate }) => {
+  const { refreshTags, project } = useDefinitions();
+
   const form = useForm({
     defaultValues: {
       text: idea.text || "",
       tags: idea.tags || [],
+      project: idea.project || project || "",
     },
   });
 
   const edit = !!idea.id;
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useDefinitions();
-
   const submit = form.handleSubmit(async (value) => {
     const body = {
       ...value,
