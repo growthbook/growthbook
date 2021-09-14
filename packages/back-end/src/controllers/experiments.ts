@@ -13,6 +13,7 @@ import {
   ensureWatching,
   processPastExperiments,
   processSnapshotData,
+  experimentUpdated,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -56,12 +57,9 @@ import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { queueWebhook } from "../jobs/webhooks";
-import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
+
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { IS_CLOUD } from "../util/secrets";
-import { getAllApiKeysByOrganization } from "../services/apiKey";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -369,7 +367,7 @@ export async function postExperiments(
 
     await ensureWatching(req.userId, req.organization.id, experiment.id);
 
-    await queueWebhook(req.organization.id);
+    await experimentUpdated(req.organization.id, experiment);
 
     res.status(200).json({
       status: 200,
@@ -533,22 +531,7 @@ export async function postExperiment(
   await ensureWatching(req.userId, req.organization.id, exp.id);
 
   if (requiresWebhook) {
-    await queueWebhook(req.organization.id);
-
-    const apiKeys = await getAllApiKeysByOrganization(req.organization.id);
-
-    // if they have API key & cloud:
-    if (IS_CLOUD && apiKeys && apiKeys.length) {
-      const urls: string[] = [];
-      // Queue up a job to invalidate paths in the CDN
-      apiKeys.forEach((k) => {
-        if (exp.implementation === "visual") {
-          urls.push("/js/" + k.key + ".js");
-        }
-        urls.push("/config/" + k.key);
-      });
-      await queueCDNInvalidate(urls);
-    }
+    await experimentUpdated(req.organization.id, exp);
   }
 
   res.status(200).json({
@@ -583,7 +566,7 @@ export async function postExperimentArchive(req: AuthRequest, res: Response) {
   try {
     await exp.save();
 
-    await queueWebhook(req.organization.id);
+    await experimentUpdated(req.organization.id, exp);
 
     // TODO: audit
     res.status(200).json({
@@ -623,7 +606,7 @@ export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
   try {
     await exp.save();
 
-    await queueWebhook(req.organization.id);
+    await experimentUpdated(req.organization.id, exp);
 
     // TODO: audit
     res.status(200).json({
@@ -711,7 +694,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await queueWebhook(req.organization.id);
+    await experimentUpdated(req.organization.id, exp);
 
     res.status(200).json({
       status: 200,
@@ -800,7 +783,7 @@ export async function postExperimentPhase(
 
     await ensureWatching(req.userId, req.organization.id, exp.id);
 
-    await queueWebhook(req.organization.id);
+    await experimentUpdated(req.organization.id, exp);
 
     res.status(200).json({
       status: 200,
@@ -946,7 +929,7 @@ export async function deleteExperiment(
     },
   });
 
-  await queueWebhook(req.organization.id);
+  await experimentUpdated(req.organization.id, exp);
 
   res.status(200).json({
     status: 200,

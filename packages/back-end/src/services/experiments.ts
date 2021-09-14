@@ -33,6 +33,8 @@ import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
+import { queueWebhook } from "../jobs/webhooks";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 
 export function getExperimentsByOrganization(organization: string) {
   return ExperimentModel.find({
@@ -680,4 +682,16 @@ export async function processPastExperiments(
   return Array.from(experimentMap.values()).filter(
     (e) => e.numVariations > 1 && e.numVariations < 10
   );
+}
+
+//
+export async function experimentUpdated(
+  organizationId: string,
+  experiment: ExperimentInterface
+) {
+  // fire the webhook:
+  await queueWebhook(organizationId);
+
+  // invalidate the CDN
+  await queueCDNInvalidate(organizationId, experiment);
 }
