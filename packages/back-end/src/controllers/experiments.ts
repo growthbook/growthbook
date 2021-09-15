@@ -59,6 +59,7 @@ import { IdeaInterface } from "../../types/idea";
 import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { generateExperimentNotebook } from "../services/notebook";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -239,6 +240,17 @@ export async function getSnapshot(req: AuthRequest, res: Response) {
     status: 200,
     snapshot,
     latest,
+  });
+}
+
+export async function postSnapshotNotebook(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const notebook = await generateExperimentNotebook(id, req.organization.id);
+
+  res.status(200).json({
+    status: 200,
+    notebook: JSON.stringify(notebook, null, 2),
   });
 }
 

@@ -63,7 +63,7 @@ const ExpandableQuery: FC<{
           })}
           onClick={() => !resultsOpen && setResultsOpen(true)}
         >
-          <pre>{JSON.stringify(query.result, null, 2)}</pre>
+          <pre>{JSON.stringify(query.rawResult || query.result, null, 2)}</pre>
           <div
             className="fader"
             style={{

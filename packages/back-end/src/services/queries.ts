@@ -26,6 +26,7 @@ import {
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
+import { DataSourceSettings } from "../../types/datasource";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -148,7 +149,7 @@ export async function getPastExperiments(
       from,
       minLength,
     }),
-    integration.runPastExperimentQuery,
+    (query) => integration.runPastExperimentQuery(query),
     processPastExperimentQueryResponse
   );
 }
@@ -160,7 +161,7 @@ export async function getUsers(
   return getQueryDoc(
     integration,
     integration.getUsersQuery(params),
-    integration.runUsersQuery,
+    (query) => integration.runUsersQuery(query),
     processUsersQueryResponse
   );
 }
@@ -171,7 +172,7 @@ export async function getMetricValue(
   return getQueryDoc(
     integration,
     integration.getMetricValueQuery(params),
-    integration.runMetricValueQuery,
+    (query) => integration.runMetricValueQuery(query),
     processMetricValueQueryResponse
   );
 }
@@ -215,8 +216,13 @@ export async function getExperimentUsers(
   return getQueryDoc(
     integration,
     integration.getExperimentUsersQuery(params),
-    integration.runExperimentUsersQuery,
-    (rows) => processExperimentUsersResponse(params.experiment, rows),
+    (query) => integration.runExperimentUsersQuery(query),
+    (rows) =>
+      processExperimentUsersResponse(
+        params.experiment,
+        rows,
+        integration.settings
+      ),
     false
   );
 }
@@ -228,8 +234,13 @@ export async function getExperimentMetric(
   return getQueryDoc(
     integration,
     integration.getExperimentMetricQuery(params),
-    integration.runExperimentMetricQuery,
-    (rows) => processExperimentMetricQueryResponse(params.experiment, rows),
+    (query) => integration.runExperimentMetricQuery(query),
+    (rows) =>
+      processExperimentMetricQueryResponse(
+        params.experiment,
+        rows,
+        integration.settings
+      ),
     false
   );
 }
@@ -252,7 +263,8 @@ export function processPastExperimentQueryResponse(
 
 export function processExperimentMetricQueryResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentMetricQueryResponse
+  rows: ExperimentMetricQueryResponse,
+  settings?: DataSourceSettings
 ): ExperimentMetricResult {
   const ret: ExperimentMetricResult = {
     dimensions: [],
@@ -278,8 +290,8 @@ export function processExperimentMetricQueryResponse(
     }
 
     const varIndex =
-      (this.settings?.variationIdFormat ||
-        this.settings?.experiments?.variationFormat) === "key"
+      (settings?.variationIdFormat ||
+        settings?.experiments?.variationFormat) === "key"
         ? variationKeyMap.get(variation)
         : parseInt(variation);
     if (varIndex < 0 || varIndex >= experiment.variations.length) {
@@ -302,7 +314,8 @@ export function processExperimentMetricQueryResponse(
 
 export function processExperimentUsersResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentUsersQueryResponse
+  rows: ExperimentUsersQueryResponse,
+  settings?: DataSourceSettings
 ): ExperimentUsersResult {
   const ret: ExperimentUsersResult = {
     dimensions: [],
@@ -335,8 +348,8 @@ export function processExperimentUsersResponse(
     totalUsers += numUsers;
 
     const varIndex =
-      (this.settings?.variationIdFormat ||
-        this.settings?.experiments?.variationFormat) === "key"
+      (settings?.variationIdFormat ||
+        settings?.experiments?.variationFormat) === "key"
         ? variationKeyMap.get(variation)
         : parseInt(variation);
     if (
@@ -399,7 +412,7 @@ export function processMetricValueQueryResponse(
     if (date) {
       ret.dates = ret.dates || [];
       ret.dates.push({
-        date: this.convertDate(date).toISOString(),
+        date,
         count,
         mean,
         stddev,

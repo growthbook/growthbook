@@ -122,6 +122,7 @@ export default abstract class SqlIntegration
   abstract percentile(col: string, percentile: number): string;
   // eslint-disable-next-line
   abstract getNonSensitiveParams(): any;
+
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     this.setParams(encryptedParams);
     this.settings = {
@@ -256,7 +257,7 @@ export default abstract class SqlIntegration
     return rows.map((row) => {
       return {
         experiment_id: row.experiment_id,
-        variation_id: row.variation_id || "",
+        variation_id: row.variation_id ?? "",
         users: parseInt(row.users) || 0,
         end_date: this.convertDate(row.end_date).toISOString(),
         start_date: this.convertDate(row.start_date).toISOString(),
@@ -464,7 +465,7 @@ export default abstract class SqlIntegration
     return rows.map((row) => {
       return {
         dimension: row.dimension || "",
-        variation: row.variation || "",
+        variation: row.variation ?? "",
         users: parseInt(row.users),
       };
     });
@@ -476,7 +477,7 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
     return rows.map((row) => {
       return {
-        variation: row.variation || "",
+        variation: row.variation ?? "",
         dimension: row.dimension || "",
         count: parseFloat(row.count) || 0,
         mean: parseFloat(row.mean) || 0,

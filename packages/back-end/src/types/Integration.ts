@@ -172,6 +172,7 @@ export interface SourceIntegrationConstructor {
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
+  settings: DataSourceSettings;
   // eslint-disable-next-line
   getNonSensitiveParams(): any;
   getExperimentResultsQuery(

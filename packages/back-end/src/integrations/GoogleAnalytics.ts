@@ -20,7 +20,10 @@ import {
   GOOGLE_OAUTH_CLIENT_SECRET,
   APP_ORIGIN,
 } from "../util/secrets";
-import { DataSourceProperties } from "../../types/datasource";
+import {
+  DataSourceProperties,
+  DataSourceSettings,
+} from "../../types/datasource";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 
@@ -37,11 +40,13 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   params: GoogleAnalyticsParams;
   datasource: string;
   organization: string;
+  settings: DataSourceSettings;
 
   constructor(encryptedParams: string) {
     this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
       encryptedParams
     );
+    this.settings = {};
   }
   getExperimentUsersQuery(): string {
     throw new Error("Method not implemented.");

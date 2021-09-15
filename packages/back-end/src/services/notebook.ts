@@ -1,5 +1,8 @@
 import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  SnapshotMetric,
+} from "../../types/experiment-snapshot";
 import {
   CodeCell,
   CodeOutput,
@@ -126,10 +129,10 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
 }
 
 // eslint-disable-next-line
-function getPlainTextOutput(e: number, value: string): CodeOutputDisplayData {
+function getPlainTextOutput(value: string): CodeOutputDisplayData {
   return {
     output_type: "execute_result",
-    execution_count: e,
+    execution_count: 0,
     data: {
       "text/plain": value,
     },
@@ -137,10 +140,10 @@ function getPlainTextOutput(e: number, value: string): CodeOutputDisplayData {
   };
 }
 
-function getHTMLOutput(e: number, html: string): CodeOutputDisplayData {
+function getHTMLOutput(html: string): CodeOutputDisplayData {
   return {
     output_type: "execute_result",
-    execution_count: e,
+    execution_count: 0,
     data: {
       "text/html": html,
     },
@@ -149,12 +152,11 @@ function getHTMLOutput(e: number, html: string): CodeOutputDisplayData {
 }
 
 function getDataFrameOutput(
-  e: number,
   rows: Record<string, string | number | boolean>[],
   cols?: string[]
 ): CodeOutputDisplayData {
   if (!rows[0]) {
-    return getHTMLOutput(e, "<em>empty</em>");
+    return getHTMLOutput("<em>empty</em>");
   }
 
   if (!cols) {
@@ -171,31 +173,37 @@ function getDataFrameOutput(
 <thead>
 <tr style="text-align: right;">
   <th></th>
-  ${cols.map((k) => {
-    return `<th>${k}</th>`;
-  })}
+  ${cols
+    .map((k) => {
+      return `<th>${k}</th>`;
+    })
+    .join("")}
 </tr>
 </thead>
 <tbody>
-${rows.map((row, i) => {
-  return `<tr>
+${rows
+  .map((row, i) => {
+    return `<tr>
   <th>${i}</th>
-  ${cols.map((k) => {
-    return `<td>${row[k]}</td>`;
-  })}
+  ${cols
+    .map((k) => {
+      return `<td>${row[k]}</td>`;
+    })
+    .join("")}
 </tr>`;
-})}
+  })
+  .join("")}
 </tbody>
 </table>`;
 
-  return getHTMLOutput(e, html);
+  return getHTMLOutput(html);
 }
 
 // eslint-disable-next-line
-function getJSONOutput(e: number, data: any): CodeOutputDisplayData {
+function getJSONOutput(data: any): CodeOutputDisplayData {
   return {
     output_type: "execute_result",
-    execution_count: e,
+    execution_count: 0,
     data: {
       "application/json": data,
     },
@@ -211,18 +219,32 @@ function getMarkdown(source: string): MarkdownCell {
   };
 }
 
-function getCodeCell(
-  e: number,
-  source: string,
-  output: CodeOutput = null
-): CodeCell {
+function getCodeCell(source: string, output: CodeOutput = null): CodeCell {
   return {
     source,
     cell_type: "code",
-    execution_count: e,
+    execution_count: 0,
     outputs: output ? [output] : [],
     metadata: {},
   };
+}
+
+function addExecutionCounts(notebook: Notebook) {
+  let e = 1;
+  notebook.cells.forEach((cell) => {
+    if (cell.cell_type === "code") {
+      const i = e++;
+      cell.execution_count = i;
+
+      cell.outputs.forEach((output) => {
+        if (
+          (output as CodeOutputDisplayData).output_type === "execute_result"
+        ) {
+          (output as CodeOutputDisplayData).execution_count = i;
+        }
+      });
+    }
+  });
 }
 
 export async function generateExperimentNotebook(
@@ -240,9 +262,6 @@ export async function generateExperimentNotebook(
   // Create the notebook
   const nb = getEmptyNotebook();
 
-  // Execution count
-  let e = 1;
-
   // Markdown field with the experiment name, hypothesis, link to GrowthBook results
   // TODO: more info like date range, goals/guardrail/activation metric, phase, screenshots
   nb.cells.push(
@@ -256,28 +275,34 @@ export async function generateExperimentNotebook(
   // TODO: import GrowthBook stats engine as a library
   nb.cells.push(
     getCodeCell(
-      e++,
       `import numpy as np
 import pandas`
     )
   );
 
+  nb.cells.push(getMarkdown(`## Queries`));
+
   // The runQuery definition for the datasource
-  nb.cells.push(getCodeCell(e++, datasource.settings.notebookRunQuery));
+  nb.cells.push(getCodeCell(datasource.settings.notebookRunQuery));
 
   // Run SQL queries (number of users plus one for each metric)
   snapshot.queries.forEach((q) => {
-    const data = queries.get(q.query);
+    const data = queries.get(q.name);
+
+    if (q.name === "users") {
+      nb.cells.push(getMarkdown(`### Number of Users in Experiment`));
+    } else {
+      nb.cells.push(
+        getMarkdown(`### Metric Values: ${metrics.get(q.name)?.name || q.name}`)
+      );
+    }
 
     nb.cells.push(
       getCodeCell(
-        e++,
         `sql_${q.name} = """${data.query}"""
   rows_${q.name} = runQuery(sql_${q.name})
   rows_${q.name}.head()`,
-        data.rawResult
-          ? getDataFrameOutput(e++, data.rawResult.slice(0, 5))
-          : null
+        data.rawResult ? getDataFrameOutput(data.rawResult.slice(0, 5)) : null
       )
     );
   });
@@ -285,16 +310,19 @@ import pandas`
   // Clean up the raw SQL rows and get the data ready for the stats engine
   nb.cells.push(
     getCodeCell(
-      e++,
       `# TODO: clean up the raw SQL and get data ready for the stats engine`
     )
   );
 
+  nb.cells.push(getMarkdown(`## Analysis`));
+
+  nb.cells.push(getCodeCell("# TODO: prep the data for the stats engine"));
+
   // Call the stats engine for each metric/variation
-  nb.cells.push(getCodeCell(e++, `# TODO: call the stats engine`));
+  nb.cells.push(getCodeCell(`# TODO: call the stats engine`));
 
   // Post-process the stats results
-  nb.cells.push(getCodeCell(e++, `# TODO: post-process the stats results`));
+  nb.cells.push(getCodeCell(`# TODO: post-process the stats results`));
 
   // Experiment results
   nb.cells.push(getMarkdown(`## Results`));
@@ -302,11 +330,9 @@ import pandas`
   // Display any warnings (e.g. SRM)
   nb.cells.push(
     getCodeCell(
-      e++,
       `# TODO: SRM check`,
       snapshot.results[0].srm < 0.001
         ? getHTMLOutput(
-            e++,
             `<div style="color:red;">Sample Ratio Mismatch (SRM) detected with p-value of <code>${snapshot.results[0].srm}</code></div>`
           )
         : null
@@ -343,7 +369,9 @@ import pandas`
             "uplift_mean",
           ];
     snapshot.results[0].variations.forEach((variation, i) => {
-      const metricValue = variation.metrics[m];
+      const metrics: unknown = variation.metrics;
+      const metricValue = (metrics as Map<string, SnapshotMetric>).get(m);
+
       if (metric.type === "binomial") {
         results.push({
           variation: experiment.variations[i]?.name || i + "",
@@ -366,14 +394,16 @@ import pandas`
         });
       }
     });
+
     nb.cells.push(
       getCodeCell(
-        e++,
         `result_${m}.head(${experiment.variations.length})`,
-        results?.length ? getDataFrameOutput(e++, results, cols) : null
+        results?.length ? getDataFrameOutput(results, cols) : null
       )
     );
   });
+
+  addExecutionCounts(nb);
 
   return nb;
 }

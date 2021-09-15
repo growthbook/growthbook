@@ -391,6 +391,10 @@ app.post(
   "/experiments/import/:id/cancel",
   experimentsController.cancelPastExperiments
 );
+app.post(
+  "/experiments/notebook/:id",
+  experimentsController.postSnapshotNotebook
+);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);

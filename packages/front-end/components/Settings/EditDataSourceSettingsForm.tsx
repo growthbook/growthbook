@@ -134,7 +134,7 @@ const EditDataSourceSettingsForm: FC<{
       submit={handleSubmit}
       close={onCancel}
       size="lg"
-      header={firstTime ? "Query Settings" : "Edit Queries"}
+      header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
       {firstTime && (
