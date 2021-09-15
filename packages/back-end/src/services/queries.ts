@@ -5,6 +5,16 @@ import {
   SourceIntegrationInterface,
   ExperimentUsersQueryParams,
   ExperimentMetricQueryParams,
+  ExperimentUsersQueryResponse,
+  ExperimentUsersResult,
+  ExperimentMetricQueryResponse,
+  ExperimentMetricResult,
+  UsersQueryResponse,
+  UsersResult,
+  MetricValueQueryResponse,
+  MetricValueResult,
+  PastExperimentResponse,
+  PastExperimentResult,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import {
@@ -83,10 +93,11 @@ async function createNewQuery(
   return await QueryModel.create(data);
 }
 
-async function getQueryDoc<T>(
+async function getQueryDoc<T, P>(
   integration: SourceIntegrationInterface,
   query: string,
   run: (query: string) => Promise<T>,
+  process: (rows: T) => P,
   useExisting: boolean = true
 ): Promise<QueryDocument> {
   // Re-use recent identical query
@@ -107,11 +118,12 @@ async function getQueryDoc<T>(
 
   // Run the query in the background
   run(query)
-    .then((res) => {
+    .then((rows) => {
       clearInterval(timer);
       doc.set("finishedAt", new Date());
       doc.set("status", "succeeded");
-      doc.set("result", res);
+      doc.set("rawResult", rows);
+      doc.set("result", process(rows));
       doc.save();
     })
     .catch((e) => {
@@ -136,7 +148,8 @@ export async function getPastExperiments(
       from,
       minLength,
     }),
-    (query: string) => integration.runPastExperimentQuery(query)
+    integration.runPastExperimentQuery,
+    processPastExperimentQueryResponse
   );
 }
 
@@ -147,7 +160,8 @@ export async function getUsers(
   return getQueryDoc(
     integration,
     integration.getUsersQuery(params),
-    (query: string) => integration.runUsersQuery(query)
+    integration.runUsersQuery,
+    processUsersQueryResponse
   );
 }
 export async function getMetricValue(
@@ -157,7 +171,8 @@ export async function getMetricValue(
   return getQueryDoc(
     integration,
     integration.getMetricValueQuery(params),
-    (query: string) => integration.runMetricValueQuery(query)
+    integration.runMetricValueQuery,
+    processMetricValueQueryResponse
   );
 }
 
@@ -188,6 +203,7 @@ export async function getExperimentResults(
         activationMetric,
         dimension
       ),
+    (rows) => rows,
     false
   );
 }
@@ -199,8 +215,8 @@ export async function getExperimentUsers(
   return getQueryDoc(
     integration,
     integration.getExperimentUsersQuery(params),
-    (query: string) =>
-      integration.runExperimentUsersQuery(params.experiment, query),
+    integration.runExperimentUsersQuery,
+    (rows) => processExperimentUsersResponse(params.experiment, rows),
     false
   );
 }
@@ -212,10 +228,199 @@ export async function getExperimentMetric(
   return getQueryDoc(
     integration,
     integration.getExperimentMetricQuery(params),
-    (query: string) =>
-      integration.runExperimentMetricQuery(params.experiment, query),
+    integration.runExperimentMetricQuery,
+    (rows) => processExperimentMetricQueryResponse(params.experiment, rows),
     false
   );
+}
+
+export function processPastExperimentQueryResponse(
+  rows: PastExperimentResponse
+): PastExperimentResult {
+  return {
+    experiments: rows.map((row) => {
+      return {
+        users: row.users,
+        experiment_id: row.experiment_id,
+        variation_id: row.variation_id,
+        end_date: new Date(row.end_date),
+        start_date: new Date(row.start_date),
+      };
+    }),
+  };
+}
+
+export function processExperimentMetricQueryResponse(
+  experiment: ExperimentInterface,
+  rows: ExperimentMetricQueryResponse
+): ExperimentMetricResult {
+  const ret: ExperimentMetricResult = {
+    dimensions: [],
+  };
+
+  const variationKeyMap = new Map<string, number>();
+  experiment.variations.forEach((v, i) => {
+    variationKeyMap.set(v.key, i);
+  });
+
+  const dimensionMap = new Map<string, number>();
+  rows.forEach(({ variation, dimension, count, mean, stddev }) => {
+    let i = 0;
+    if (dimensionMap.has(dimension)) {
+      i = dimensionMap.get(dimension);
+    } else {
+      i = ret.dimensions.length;
+      ret.dimensions.push({
+        dimension,
+        variations: [],
+      });
+      dimensionMap.set(dimension, i);
+    }
+
+    const varIndex =
+      (this.settings?.variationIdFormat ||
+        this.settings?.experiments?.variationFormat) === "key"
+        ? variationKeyMap.get(variation)
+        : parseInt(variation);
+    if (varIndex < 0 || varIndex >= experiment.variations.length) {
+      console.log("Unexpected variation", variation);
+      return;
+    }
+
+    ret.dimensions[i].variations.push({
+      variation: varIndex,
+      stats: {
+        mean,
+        count,
+        stddev,
+      },
+    });
+  });
+
+  return ret;
+}
+
+export function processExperimentUsersResponse(
+  experiment: ExperimentInterface,
+  rows: ExperimentUsersQueryResponse
+): ExperimentUsersResult {
+  const ret: ExperimentUsersResult = {
+    dimensions: [],
+    unknownVariations: [],
+  };
+
+  const variationKeyMap = new Map<string, number>();
+  experiment.variations.forEach((v, i) => {
+    variationKeyMap.set(v.key, i);
+  });
+
+  const unknownVariations: Map<string, number> = new Map();
+  let totalUsers = 0;
+
+  const dimensionMap = new Map<string, number>();
+  rows.forEach(({ variation, dimension, users }) => {
+    let i = 0;
+    if (dimensionMap.has(dimension)) {
+      i = dimensionMap.get(dimension);
+    } else {
+      i = ret.dimensions.length;
+      ret.dimensions.push({
+        dimension,
+        variations: [],
+      });
+      dimensionMap.set(dimension, i);
+    }
+
+    const numUsers = users || 0;
+    totalUsers += numUsers;
+
+    const varIndex =
+      (this.settings?.variationIdFormat ||
+        this.settings?.experiments?.variationFormat) === "key"
+        ? variationKeyMap.get(variation)
+        : parseInt(variation);
+    if (
+      typeof varIndex === "undefined" ||
+      varIndex < 0 ||
+      varIndex >= experiment.variations.length
+    ) {
+      unknownVariations.set(variation, numUsers);
+      return;
+    }
+
+    ret.dimensions[i].variations.push({
+      variation: varIndex,
+      users: numUsers,
+    });
+  });
+
+  unknownVariations.forEach((users, variation) => {
+    // Ignore unknown variations with an insignificant number of users
+    // This protects against random typos causing false positives
+    if (totalUsers > 0 && users / totalUsers >= 0.02) {
+      ret.unknownVariations.push(variation);
+    }
+  });
+
+  return ret;
+}
+
+export function processUsersQueryResponse(
+  rows: UsersQueryResponse
+): UsersResult {
+  const ret: UsersResult = {
+    users: 0,
+  };
+  rows.forEach((row) => {
+    const { users, date } = row;
+    if (date) {
+      ret.dates = ret.dates || [];
+      ret.dates.push({
+        date,
+        users,
+      });
+    } else {
+      ret.users = users || 0;
+    }
+  });
+
+  return ret;
+}
+
+export function processMetricValueQueryResponse(
+  rows: MetricValueQueryResponse
+): MetricValueResult {
+  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
+
+  rows.forEach((row) => {
+    const { date, count, mean, stddev, ...percentiles } = row;
+
+    // Row for each date
+    if (date) {
+      ret.dates = ret.dates || [];
+      ret.dates.push({
+        date: this.convertDate(date).toISOString(),
+        count,
+        mean,
+        stddev,
+      });
+    }
+    // Overall numbers
+    else {
+      ret.count = count;
+      ret.mean = mean;
+      ret.stddev = stddev;
+
+      if (percentiles) {
+        Object.keys(percentiles).forEach((p) => {
+          ret.percentiles = ret.percentiles || {};
+          ret.percentiles[p.replace(/^p/, "")] = percentiles[p];
+        });
+      }
+    }
+  });
+
+  return ret;
 }
 
 export async function getQueryData(

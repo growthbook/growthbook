@@ -22,5 +22,6 @@ export interface QueryInterface {
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
+  rawResult?: Record<string, number | string | boolean>[];
   error?: string;
 }

@@ -28,7 +28,8 @@ export type CodeOutputStream = {
   text: MultilineString;
 };
 export type CodeOutputDisplayData = {
-  output_type: "display_data";
+  output_type: "execute_result";
+  execution_count: number;
   data: {
     // eslint-disable-next-line
     [mimetype: string]: any;

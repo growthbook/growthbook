@@ -1,6 +1,8 @@
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import {
+  CodeCell,
+  CodeOutput,
   CodeOutputDisplayData,
   MarkdownCell,
   Notebook,
@@ -13,6 +15,25 @@ import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
 import { getQueryData } from "./queries";
+
+type BinomialResult = {
+  variation: string;
+  users: number;
+  conversions: number;
+  conversion_rate: number;
+  chance_to_beat_control: number;
+  risk_of_choosing: number;
+  uplift_mean: number;
+};
+type GaussianResult = {
+  variation: string;
+  users: number;
+  total_value: number;
+  per_user: number;
+  chance_to_beat_control: number;
+  risk_of_choosing: number;
+  uplift_mean: number;
+};
 
 function getEmptyNotebook(): Notebook {
   return {
@@ -55,6 +76,9 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
+  if (!snapshot.results?.[0]?.variations?.[0]) {
+    throw new Error("Snapshot does not have data");
+  }
 
   // Get experiment
   const experiment: ExperimentInterface = await ExperimentModel.findOne({
@@ -96,18 +120,86 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
     experiment,
     snapshot,
     datasource,
-    metrics,
+    metrics: metricMap,
     queries,
   };
 }
 
 // eslint-disable-next-line
-function getJSONOutput(data: any): CodeOutputDisplayData {
+function getPlainTextOutput(e: number, value: string): CodeOutputDisplayData {
   return {
-    output_type: "display_data",
+    output_type: "execute_result",
+    execution_count: e,
+    data: {
+      "text/plain": value,
+    },
+    metadata: {},
+  };
+}
+
+function getHTMLOutput(e: number, html: string): CodeOutputDisplayData {
+  return {
+    output_type: "execute_result",
+    execution_count: e,
+    data: {
+      "text/html": html,
+    },
+    metadata: {},
+  };
+}
+
+function getDataFrameOutput(
+  e: number,
+  rows: Record<string, string | number | boolean>[],
+  cols?: string[]
+): CodeOutputDisplayData {
+  if (!rows[0]) {
+    return getHTMLOutput(e, "<em>empty</em>");
+  }
+
+  if (!cols) {
+    cols = Object.keys(rows[0]);
+  }
+
+  const html = `<div>
+<style>
+.dataframe tbody tr th {
+  vertical-align: top;
+}
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+  <th></th>
+  ${cols.map((k) => {
+    return `<th>${k}</th>`;
+  })}
+</tr>
+</thead>
+<tbody>
+${rows.map((row, i) => {
+  return `<tr>
+  <th>${i}</th>
+  ${cols.map((k) => {
+    return `<td>${row[k]}</td>`;
+  })}
+</tr>`;
+})}
+</tbody>
+</table>`;
+
+  return getHTMLOutput(e, html);
+}
+
+// eslint-disable-next-line
+function getJSONOutput(e: number, data: any): CodeOutputDisplayData {
+  return {
+    output_type: "execute_result",
+    execution_count: e,
     data: {
       "application/json": data,
     },
+    metadata: {},
   };
 }
 
@@ -115,6 +207,20 @@ function getMarkdown(source: string): MarkdownCell {
   return {
     cell_type: "markdown",
     source,
+    metadata: {},
+  };
+}
+
+function getCodeCell(
+  e: number,
+  source: string,
+  output: CodeOutput = null
+): CodeCell {
+  return {
+    source,
+    cell_type: "code",
+    execution_count: e,
+    outputs: output ? [output] : [],
     metadata: {},
   };
 }
@@ -127,7 +233,7 @@ export async function generateExperimentNotebook(
     experiment,
     snapshot,
     datasource,
-    //metrics,
+    metrics,
     queries,
   } = await getNotebookObjects(snapshotId, organization);
 
@@ -148,86 +254,125 @@ export async function generateExperimentNotebook(
 
   // Python imports
   // TODO: import GrowthBook stats engine as a library
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `import numpy as np
-import scipy as sp`,
-    outputs: [],
-  });
+  nb.cells.push(
+    getCodeCell(
+      e++,
+      `import numpy as np
+import pandas`
+    )
+  );
 
   // The runQuery definition for the datasource
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: datasource.settings.notebookRunQuery,
-    outputs: [],
-  });
+  nb.cells.push(getCodeCell(e++, datasource.settings.notebookRunQuery));
 
   // Run SQL queries (number of users plus one for each metric)
   snapshot.queries.forEach((q) => {
     const data = queries.get(q.query);
 
-    nb.cells.push({
-      cell_type: "code",
-      execution_count: e++,
-      metadata: {},
-      source: `sql_${q.name} = """${data.query}"""
-  rows_${q.name} = runQuery(sql_${q.name})`,
-      outputs: [
-        // TODO: actual raw db result
-        getJSONOutput(data.result),
-      ],
-    });
+    nb.cells.push(
+      getCodeCell(
+        e++,
+        `sql_${q.name} = """${data.query}"""
+  rows_${q.name} = runQuery(sql_${q.name})
+  rows_${q.name}.head()`,
+        data.rawResult
+          ? getDataFrameOutput(e++, data.rawResult.slice(0, 5))
+          : null
+      )
+    );
   });
 
   // Clean up the raw SQL rows and get the data ready for the stats engine
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `# TODO: clean up the raw SQL and get data ready for the stats engine`,
-    outputs: [],
-  });
+  nb.cells.push(
+    getCodeCell(
+      e++,
+      `# TODO: clean up the raw SQL and get data ready for the stats engine`
+    )
+  );
 
   // Call the stats engine for each metric/variation
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `# TODO: call the stats engine`,
-    outputs: [],
-  });
+  nb.cells.push(getCodeCell(e++, `# TODO: call the stats engine`));
 
   // Post-process the stats results
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `# TODO: post-process the stats results`,
-    outputs: [],
-  });
+  nb.cells.push(getCodeCell(e++, `# TODO: post-process the stats results`));
 
+  // Experiment results
   nb.cells.push(getMarkdown(`## Results`));
 
   // Display any warnings (e.g. SRM)
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `# TODO: data quality checks like SRM`,
-    outputs: [],
-  });
+  nb.cells.push(
+    getCodeCell(
+      e++,
+      `# TODO: SRM check`,
+      snapshot.results[0].srm < 0.001
+        ? getHTMLOutput(
+            e++,
+            `<div style="color:red;">Sample Ratio Mismatch (SRM) detected with p-value of <code>${snapshot.results[0].srm}</code></div>`
+          )
+        : null
+    )
+  );
 
-  // Render the results output as a table
-  nb.cells.push({
-    cell_type: "code",
-    execution_count: e++,
-    metadata: {},
-    source: `# TODO: print results in a table`,
-    outputs: [],
+  // Render results for each metric
+  experiment.metrics.forEach((m) => {
+    const metric = metrics.get(m);
+    if (!metric) return;
+
+    nb.cells.push(getMarkdown(`### Metric: ${metric.name}`));
+
+    // Render results as a table
+    const results: (BinomialResult | GaussianResult)[] = [];
+    const cols =
+      metric.type === "binomial"
+        ? [
+            "variation",
+            "users",
+            "conversions",
+            "conversion_rate",
+            "chance_to_beat_control",
+            "risk_of_choosing",
+            "uplift_mean",
+          ]
+        : [
+            "variation",
+            "users",
+            "total_value",
+            "per_user",
+            "chance_to_beat_control",
+            "risk_of_choosing",
+            "uplift_mean",
+          ];
+    snapshot.results[0].variations.forEach((variation, i) => {
+      const metricValue = variation.metrics[m];
+      if (metric.type === "binomial") {
+        results.push({
+          variation: experiment.variations[i]?.name || i + "",
+          users: metricValue?.users || 0,
+          conversions: metricValue?.value || 0,
+          conversion_rate: metricValue?.cr || 0,
+          chance_to_beat_control: metricValue?.chanceToWin || 0,
+          risk_of_choosing: metricValue?.risk?.[1] || 0,
+          uplift_mean: metricValue?.uplift?.mean || 0,
+        });
+      } else {
+        results.push({
+          variation: experiment.variations[i]?.name || i + "",
+          users: metricValue?.users || 0,
+          total_value: metricValue?.value || 0,
+          per_user: metricValue?.cr || 0,
+          chance_to_beat_control: metricValue?.chanceToWin || 0,
+          risk_of_choosing: metricValue?.risk?.[1] || 0,
+          uplift_mean: metricValue?.uplift?.mean || 0,
+        });
+      }
+    });
+    nb.cells.push(
+      getCodeCell(
+        e++,
+        `result_${m}.head(${experiment.variations.length})`,
+        results?.length ? getDataFrameOutput(e++, results, cols) : null
+      )
+    );
   });
 
   return nb;

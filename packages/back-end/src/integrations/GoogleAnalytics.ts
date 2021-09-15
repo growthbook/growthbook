@@ -5,17 +5,15 @@ import {
   ImpactEstimationResult,
   UsersQueryParams,
   MetricValueParams,
-  UsersResult,
-  MetricValueResult,
   VariationResult,
-  MetricValueResultDate,
-  PastExperimentResult,
-  ExperimentUsersResult,
-  ExperimentMetricResult,
+  ExperimentUsersQueryResponse,
+  ExperimentMetricQueryResponse,
+  PastExperimentResponse,
+  UsersQueryResponse,
+  MetricValueQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
-import { EventInterface } from "../models/TrackTableModel";
 import { google } from "googleapis";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
@@ -51,16 +49,16 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   getExperimentMetricQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
+  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+  runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runPastExperimentQuery(): Promise<PastExperimentResult> {
+  runPastExperimentQuery(): Promise<PastExperimentResponse> {
     throw new Error("Method not implemented.");
   }
   getUsersQuery(params: UsersQueryParams): string {
@@ -118,29 +116,24 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       2
     );
   }
-  async runUsersQuery(query: string): Promise<UsersResult> {
+  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
     const { rows } = await this.runQuery(query);
-    const dates: { date: string; users: number }[] = [];
+
     let totalUsers = 0;
-    if (rows) {
-      rows.forEach((row) => {
-        const date = row.dimensions[0] + "T12:00:00Z";
-        const users = parseFloat(row.metrics[0].values[0]);
-        totalUsers += users;
-        dates.push({
-          date,
-          users,
-        });
-      });
-    }
-    return {
-      users: totalUsers,
-      dates,
-    };
+    const correctedRows = rows.map((row) => {
+      const users = parseFloat(row.metrics[0].values[0]);
+      totalUsers += users;
+      return {
+        date: row.dimensions[0] + "T12:00:00Z",
+        users,
+      };
+    });
+
+    return [{ date: "", users: totalUsers }, ...correctedRows];
   }
-  async runMetricValueQuery(query: string): Promise<MetricValueResult> {
+  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
-    const dates: MetricValueResultDate[] = [];
+    const dates: MetricValueQueryResponse = [];
     if (rows) {
       const metric = metrics[0];
       const isTotal =
@@ -157,11 +150,10 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       rows.forEach((row) => {
         const date = row.dimensions[0] + "T12:00:00Z";
         const value = parseFloat(row.metrics[0].values[0]);
-
         const users = parseInt(row.metrics[1].values[0]);
 
-        let count = 0;
-        let mean = 0;
+        let count;
+        let mean;
         let stddev = 0;
 
         if (metric === "ga:bounceRate") {
@@ -191,9 +183,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       });
     }
 
-    return {
-      dates,
-    };
+    return dates;
   }
 
   async runQuery(query: string) {
@@ -224,10 +214,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     };
   }
 
-  async getLatestEvents(): Promise<EventInterface[]> {
-    throw new Error("Not implemented");
-  }
-
   async testConnection(): Promise<boolean> {
     this.getAuth();
     return true;
@@ -244,7 +230,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     const client = getOauth2Client();
     client.setCredentials({
       // eslint-disable-next-line
-      refresh_token: this.params.refreshToken
+      refresh_token: this.params.refreshToken,
     });
     return client;
   }

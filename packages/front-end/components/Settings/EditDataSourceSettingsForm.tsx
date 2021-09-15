@@ -9,6 +9,7 @@ import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import Field from "../Forms/Field";
 
 type FormValue = Partial<DataSourceInterfaceWithParams> & {
   dimensions: string;
@@ -37,6 +38,7 @@ const EditDataSourceSettingsForm: FC<{
         ...data,
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
+          notebookRunQuery: data?.settings?.notebookRunQuery || "",
           queries: {
             experimentsQuery: getExperimentQuery(
               data.settings,
@@ -430,6 +432,44 @@ FROM
                   <code>url</code>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          <div className="row mb-3">
+            <div className="col">
+              <Field
+                label="Jupyter Notebook Query Runner"
+                placeholder="def runQuery(sql):"
+                labelClassName="font-weight-bold"
+                value={datasource.settings?.notebookRunQuery}
+                onChange={(e) => {
+                  setDatasource({
+                    ...datasource,
+                    settings: {
+                      ...datasource.settings,
+                      notebookRunQuery: e.target.value,
+                    },
+                  });
+                  setDirty(true);
+                }}
+                textarea
+                minRows={5}
+                maxRows={20}
+                helpText="Used when exporting experiment results to a Jupyter notebook"
+              />
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-4">
+                <p>
+                  Define a <code>runQuery</code> Python function for this data
+                  source that takes a SQL string argument and returns a pandas
+                  data frame.
+                </p>
+                <p>
+                  Note: <code>pandas</code> and <code>NumPy (np)</code> are
+                  already available so you don&apos;t need to import them.
+                </p>
+              </div>
             </div>
           </div>
         </div>

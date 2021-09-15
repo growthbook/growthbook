@@ -25,6 +25,7 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { PresentationSlide } from "../../types/presentation";
+import { processPastExperimentQueryResponse } from "../services/queries";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -201,8 +202,11 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   // Import experiments
   const yearago = new Date();
   yearago.setDate(yearago.getDate() - 365);
-  const pastExperimentsResult = await integration.runPastExperimentQuery(
+  const pastExperimentsResponse = await integration.runPastExperimentQuery(
     integration.getPastExperimentQuery({ from: yearago })
+  );
+  const pastExperimentsResult = processPastExperimentQueryResponse(
+    pastExperimentsResponse
   );
   const sharedFields: Partial<ExperimentInterface> = {
     description: "",
