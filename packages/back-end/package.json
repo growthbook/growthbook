@@ -90,7 +90,7 @@
     "objects-to-csv": "^1.3.6",
     "ts-jest": "^27.0.5",
     "ts-node": "^10.0.0",
-    "typescript": "^4.4.2"
+    "typescript": "4.3.5"
   },
   "license": "MIT"
 }

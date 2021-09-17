@@ -19,19 +19,10 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
 import { getQueryData } from "./queries";
 
-type BinomialResult = {
+type Result = {
   variation: string;
   users: number;
-  conversions: number;
-  conversion_rate: number;
-  chance_to_beat_control: number;
-  risk_of_choosing: number;
-  uplift_mean: number;
-};
-type GaussianResult = {
-  variation: string;
-  users: number;
-  total_value: number;
+  total: number;
   per_user: number;
   chance_to_beat_control: number;
   risk_of_choosing: number;
@@ -265,139 +256,136 @@ export async function generateExperimentNotebook(
   // Markdown field with the experiment name, hypothesis, link to GrowthBook results
   // TODO: more info like date range, goals/guardrail/activation metric, phase, screenshots
   nb.cells.push(
-    getMarkdown(`## ${experiment.name}
+    getMarkdown(`# ${experiment.name}
 [View on GrowthBook](${APP_ORIGIN}/experiment/${experiment.id})
 
 **Hypothesis:** ${experiment.hypothesis}`)
   );
 
+  // Map of variation key to index
+  const vars: { [key: string]: number } = {};
+  experiment.variations.forEach((v, i) => {
+    if (datasource.settings?.variationIdFormat === "key") {
+      vars[v.key || i + ""] = i;
+    } else {
+      vars[i + ""] = i;
+    }
+  });
+
   // Python imports
-  // TODO: import GrowthBook stats engine as a library
   nb.cells.push(
     getCodeCell(
-      `import numpy as np
-import pandas`
+      `from gbstats.gbstats import process_user_rows, process_metric_rows, run_analysis
+
+# Mapping of variation key to index
+vars = ${JSON.stringify(vars)}
+
+# Display names of variations
+var_names = ${JSON.stringify(experiment.variations.map((v) => v.name))}`
     )
   );
-
-  nb.cells.push(getMarkdown(`## Queries`));
 
   // The runQuery definition for the datasource
   nb.cells.push(getCodeCell(datasource.settings.notebookRunQuery));
 
-  // Run SQL queries (number of users plus one for each metric)
-  snapshot.queries.forEach((q) => {
+  // Users
+  nb.cells.push(getMarkdown(`## Users in Experiment`));
+  const users = queries.get("users");
+  nb.cells.push(
+    getCodeCell(
+      `users_sql = """${users.query}"""
+
+users_df = runQuery(users_sql)
+display(users_df)`,
+      users.rawResult ? getDataFrameOutput(users.rawResult.slice(0, 5)) : null
+    )
+  );
+  nb.cells.push(
+    getCodeCell(`# Process raw user rows
+users, unknown_vars = process_user_rows(users_df, vars)
+
+# Users in each variation
+print("Users in each variation:", users)
+
+# Any variation keys returned from the query that we weren't expecting
+print("Unknown variation ids:", unknown_vars)`)
+    // TODO: output for this cell
+  );
+  nb.cells.push(getCodeCell(`# TODO: SRM check`));
+
+  // Each Metric
+  snapshot.queries.forEach((q, i) => {
+    if (q.name === "users") return;
+
+    const metric = metrics.get(q.name);
+    if (!metric) return;
+
     const data = queries.get(q.name);
 
-    if (q.name === "users") {
-      nb.cells.push(getMarkdown(`### Number of Users in Experiment`));
-    } else {
-      nb.cells.push(
-        getMarkdown(`### Metric Values: ${metrics.get(q.name)?.name || q.name}`)
-      );
-    }
+    nb.cells.push(
+      getMarkdown(`## Metric - ${metrics.get(q.name)?.name || q.name}`)
+    );
 
     nb.cells.push(
       getCodeCell(
-        `sql_${q.name} = """${data.query}"""
-  rows_${q.name} = runQuery(sql_${q.name})
-  rows_${q.name}.head()`,
+        `# Get aggregate metric values per variation
+met_sql_${i} = """${data.query}"""
+  
+met_rows_${i} = runQuery(met_sql_${i})
+display(met_rows_${i})`,
         data.rawResult ? getDataFrameOutput(data.rawResult.slice(0, 5)) : null
       )
     );
-  });
 
-  // Clean up the raw SQL rows and get the data ready for the stats engine
-  nb.cells.push(
-    getCodeCell(
-      `# TODO: clean up the raw SQL and get data ready for the stats engine`
-    )
-  );
+    nb.cells.push(
+      getCodeCell(
+        `# Prepare SQL rows for analysis
+met_${i} = process_metric_rows(met_rows_${i}, vars, users, ${
+          metric?.ignoreNulls ? "True" : "False"
+        })
+display(met_${i})`
+        // TODO: output for this cell
+      )
+    );
 
-  nb.cells.push(getMarkdown(`## Analysis`));
-
-  nb.cells.push(getCodeCell("# TODO: prep the data for the stats engine"));
-
-  // Call the stats engine for each metric/variation
-  nb.cells.push(getCodeCell(`# TODO: call the stats engine`));
-
-  // Post-process the stats results
-  nb.cells.push(getCodeCell(`# TODO: post-process the stats results`));
-
-  // Experiment results
-  nb.cells.push(getMarkdown(`## Results`));
-
-  // Display any warnings (e.g. SRM)
-  nb.cells.push(
-    getCodeCell(
-      `# TODO: SRM check`,
-      snapshot.results[0].srm < 0.001
-        ? getHTMLOutput(
-            `<div style="color:red;">Sample Ratio Mismatch (SRM) detected with p-value of <code>${snapshot.results[0].srm}</code></div>`
-          )
-        : null
-    )
-  );
-
-  // Render results for each metric
-  experiment.metrics.forEach((m) => {
-    const metric = metrics.get(m);
-    if (!metric) return;
-
-    nb.cells.push(getMarkdown(`### Metric: ${metric.name}`));
+    nb.cells.push(getMarkdown(`### Result`));
 
     // Render results as a table
-    const results: (BinomialResult | GaussianResult)[] = [];
-    const cols =
-      metric.type === "binomial"
-        ? [
-            "variation",
-            "users",
-            "conversions",
-            "conversion_rate",
-            "chance_to_beat_control",
-            "risk_of_choosing",
-            "uplift_mean",
-          ]
-        : [
-            "variation",
-            "users",
-            "total_value",
-            "per_user",
-            "chance_to_beat_control",
-            "risk_of_choosing",
-            "uplift_mean",
-          ];
+    const results: Result[] = [];
+    const cols = [
+      "variation",
+      "users",
+      "total",
+      "per_user",
+      "chance_to_beat_control",
+      "risk_of_choosing",
+      "uplift_mean",
+    ];
     snapshot.results[0].variations.forEach((variation, i) => {
       const metrics: unknown = variation.metrics;
-      const metricValue = (metrics as Map<string, SnapshotMetric>).get(m);
-
-      if (metric.type === "binomial") {
-        results.push({
-          variation: experiment.variations[i]?.name || i + "",
-          users: metricValue?.users || 0,
-          conversions: metricValue?.value || 0,
-          conversion_rate: metricValue?.cr || 0,
-          chance_to_beat_control: metricValue?.chanceToWin || 0,
-          risk_of_choosing: metricValue?.risk?.[1] || 0,
-          uplift_mean: metricValue?.uplift?.mean || 0,
-        });
-      } else {
-        results.push({
-          variation: experiment.variations[i]?.name || i + "",
-          users: metricValue?.users || 0,
-          total_value: metricValue?.value || 0,
-          per_user: metricValue?.cr || 0,
-          chance_to_beat_control: metricValue?.chanceToWin || 0,
-          risk_of_choosing: metricValue?.risk?.[1] || 0,
-          uplift_mean: metricValue?.uplift?.mean || 0,
-        });
-      }
+      const metricValue = (metrics as Map<string, SnapshotMetric>).get(
+        metric.id
+      );
+      results.push({
+        variation: experiment.variations[i]?.name || i + "",
+        users: metricValue?.users || 0,
+        total: metricValue?.value || 0,
+        per_user: metricValue?.cr || 0,
+        chance_to_beat_control: metricValue?.chanceToWin || 0,
+        risk_of_choosing: metricValue?.risk?.[1] || 0,
+        uplift_mean: metricValue?.uplift?.mean || 0,
+      });
     });
 
     nb.cells.push(
       getCodeCell(
-        `result_${m}.head(${experiment.variations.length})`,
+        `res = run_analysis(
+  df=met_${i}, 
+  var_names=var_names, 
+  type=${JSON.stringify(metric.type)}, 
+  inverse=${metric.inverse ? "True" : "False"}
+)
+display(res)`,
         results?.length ? getDataFrameOutput(results, cols) : null
       )
     );

@@ -1,0 +1,73 @@
+[tool]
+[tool.poetry]
+name = "gbstats"
+version = "0.1.0"
+homepage = "https://github.com/growthbook/growthbook/packages/stats"
+description = "Stats engine for GwthBook, the open source A/B testing platform."
+authors = ["Jeremy Dorn <jeremy@growthbook.io>"]
+readme = "README.md"
+license =  "MIT"
+classifiers=[
+    'Development Status :: 2 - Pre-Alpha',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+]
+packages = [
+    { include = "gbstats" },
+    { include = "tests", format = "sdist" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.6.1,<4.0"
+
+black  = { version = "20.8b1", optional = true}
+isort  = { version = "5.6.4", optional = true}
+flake8  = { version = "3.8.4", optional = true}
+flake8-docstrings = { version = "^1.6.0", optional = true }
+pytest  = { version = "6.1.2", optional = true}
+pytest-cov  = { version = "2.10.1", optional = true}
+tox  = { version = "^3.20.1", optional = true}
+virtualenv  = { version = "^20.2.2", optional = true}
+pip  = { version = "^20.3.1", optional = true}
+twine  = { version = "^3.3.0", optional = true}
+toml = {version = "^0.10.2", optional = true}
+
+[tool.poetry.extras]
+test = [
+    "pytest",
+    "black",
+    "isort",
+    "flake8",
+    "flake8-docstrings",
+    "pytest-cov"
+    ]
+
+dev = ["tox", "virtualenv", "pip", "twine", "toml"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
