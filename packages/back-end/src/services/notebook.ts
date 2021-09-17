@@ -119,18 +119,6 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
   };
 }
 
-// eslint-disable-next-line
-function getPlainTextOutput(value: string): CodeOutputDisplayData {
-  return {
-    output_type: "execute_result",
-    execution_count: 0,
-    data: {
-      "text/plain": value,
-    },
-    metadata: {},
-  };
-}
-
 function getHTMLOutput(html: string): CodeOutputDisplayData {
   return {
     output_type: "execute_result",
@@ -190,18 +178,6 @@ ${rows
   return getHTMLOutput(html);
 }
 
-// eslint-disable-next-line
-function getJSONOutput(data: any): CodeOutputDisplayData {
-  return {
-    output_type: "execute_result",
-    execution_count: 0,
-    data: {
-      "application/json": data,
-    },
-    metadata: {},
-  };
-}
-
 function getMarkdown(source: string): MarkdownCell {
   return {
     cell_type: "markdown",
@@ -212,7 +188,7 @@ function getMarkdown(source: string): MarkdownCell {
 
 function getCodeCell(source: string, output: CodeOutput = null): CodeCell {
   return {
-    source,
+    source: source.trim(),
     cell_type: "code",
     execution_count: 0,
     outputs: output ? [output] : [],
@@ -272,46 +248,93 @@ export async function generateExperimentNotebook(
     }
   });
 
+  // Variation weights
+  const weights =
+    experiment.phases[snapshot.phase]?.variationWeights ||
+    Array(experiment.variations.length).fill(1 / experiment.variations.length);
+
+  nb.cells.push(getMarkdown(`## Notebook Setup`));
+
   // Python imports
   nb.cells.push(
     getCodeCell(
-      `from gbstats.gbstats import process_user_rows, process_metric_rows, run_analysis
+      `
+from gbstats.gbstats import process_user_rows, check_srm, process_metric_rows, run_analysis
 
 # Mapping of variation key to index
 vars = ${JSON.stringify(vars)}
 
 # Display names of variations
-var_names = ${JSON.stringify(experiment.variations.map((v) => v.name))}`
+var_names = ${JSON.stringify(experiment.variations.map((v) => v.name))}
+
+# Expected traffic split between variations
+weights = ${JSON.stringify(weights)}
+`
     )
   );
 
   // The runQuery definition for the datasource
-  nb.cells.push(getCodeCell(datasource.settings.notebookRunQuery));
+  nb.cells.push(
+    getCodeCell(
+      `# User defined runQuery function\n` +
+        datasource.settings.notebookRunQuery
+    )
+  );
 
   // Users
   nb.cells.push(getMarkdown(`## Users in Experiment`));
   const users = queries.get("users");
   nb.cells.push(
     getCodeCell(
-      `users_sql = """${users.query}"""
-
-users_df = runQuery(users_sql)
-display(users_df)`,
+      `
+users_sql = """${users.query}"""
+user_rows = runQuery(users_sql)
+display(user_rows)`,
       users.rawResult ? getDataFrameOutput(users.rawResult.slice(0, 5)) : null
     )
   );
   nb.cells.push(
-    getCodeCell(`# Process raw user rows
-users, unknown_vars = process_user_rows(users_df, vars)
+    getCodeCell(
+      `
+# Process raw user rows
+users, unknown_vars = process_user_rows(
+  rows=user_rows, 
+  vars=vars
+)
 
 # Users in each variation
 print("Users in each variation:", users)
 
 # Any variation keys returned from the query that we weren't expecting
-print("Unknown variation ids:", unknown_vars)`)
-    // TODO: output for this cell
+print("Unknown variation ids:", unknown_vars)`,
+      getHTMLOutput(
+        `<div>Users in each variation: ${JSON.stringify(
+          snapshot.results[0].variations.map((v) => v.users)
+        )}</div>\n<div>Unknown variation ids: ${JSON.stringify(
+          snapshot.unknownVariations || []
+        )}</div>`
+      )
+    )
   );
-  nb.cells.push(getCodeCell(`# TODO: SRM check`));
+  nb.cells.push(
+    getCodeCell(
+      `
+# Sample Ratio Mismatch Check
+srm_p = check_srm(users, weights)
+
+print("SRM P-value:", srm_p)
+
+if srm_p < 0.001:
+  print("***WARNING: Sample Ratio Mismatch Detected***")`,
+      getHTMLOutput(
+        `<div>SRM P-value: ${snapshot.results[0]?.srm}</div>${
+          snapshot.results[0]?.srm < 0.001
+            ? "\n<div>***WARNING: Sample Ratio Mismatch Detected***</div>"
+            : ""
+        }`
+      )
+    )
+  );
 
   // Each Metric
   snapshot.queries.forEach((q, i) => {
@@ -328,23 +351,41 @@ print("Unknown variation ids:", unknown_vars)`)
 
     nb.cells.push(
       getCodeCell(
-        `# Get aggregate metric values per variation
-met_sql_${i} = """${data.query}"""
+        `
+# Get aggregate metric values per variation
+m${i}_sql = """${data.query}"""
   
-met_rows_${i} = runQuery(met_sql_${i})
-display(met_rows_${i})`,
+m${i}_rows = runQuery(m${i}_sql)
+display(m${i}_rows)`,
         data.rawResult ? getDataFrameOutput(data.rawResult.slice(0, 5)) : null
       )
     );
 
+    const processed_rows = experiment.variations.map((v, i) => {
+      const metrics: unknown = snapshot.results[0].variations[i].metrics;
+      const metricValue = (metrics as Map<string, SnapshotMetric>).get(
+        metric.id
+      );
+      return {
+        users: metricValue?.users || 0,
+        count: metricValue?.stats?.count,
+        mean: metricValue?.stats?.mean,
+        stddev: metricValue?.stats?.stddev,
+      };
+    });
+
     nb.cells.push(
       getCodeCell(
-        `# Prepare SQL rows for analysis
-met_${i} = process_metric_rows(met_rows_${i}, vars, users, ${
-          metric?.ignoreNulls ? "True" : "False"
-        })
-display(met_${i})`
-        // TODO: output for this cell
+        `
+# Prepare SQL rows for analysis
+m${i} = process_metric_rows(
+  rows=m${i}_rows, 
+  vars=vars, 
+  users=users, 
+  ignore_nulls=${metric?.ignoreNulls ? "True" : "False"}
+)
+display(m${i})`,
+        getDataFrameOutput(processed_rows, ["users", "count", "mean", "stddev"])
       )
     );
 
@@ -379,8 +420,9 @@ display(met_${i})`
 
     nb.cells.push(
       getCodeCell(
-        `res = run_analysis(
-  df=met_${i}, 
+        `
+res = run_analysis(
+  metric=m${i}, 
   var_names=var_names, 
   type=${JSON.stringify(metric.type)}, 
   inverse=${metric.inverse ? "True" : "False"}
@@ -388,6 +430,10 @@ display(met_${i})`
 display(res)`,
         results?.length ? getDataFrameOutput(results, cols) : null
       )
+    );
+
+    nb.cells.push(
+      getCodeCell(`# TODO: check for min sample size and suspicious uplifts`)
     );
   });
 

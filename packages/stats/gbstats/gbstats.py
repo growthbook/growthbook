@@ -1,6 +1,7 @@
 import pandas as pd
 import math
 from .bayesian.main import binomial_ab_test, gaussian_ab_test
+from scipy.stats.distributions import chi2
 
 
 # Adjust metric stats to account for unconverted users
@@ -21,9 +22,9 @@ def get_adjusted_stats(x, sx, c, n, ignore_nulls=False):
 
 
 # Transform raw SQL result for metrics into a list of stats per variation
-def process_metric_rows(df, vars, users, ignore_nulls=False):
+def process_metric_rows(rows, vars, users, ignore_nulls=False):
     stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0}] * len(vars.keys())
-    for row in df.itertuples(index=False):
+    for row in rows.itertuples(index=False):
         key = str(row.variation)
         if key in vars:
             variation = vars[key]
@@ -38,10 +39,10 @@ def process_metric_rows(df, vars, users, ignore_nulls=False):
 
 
 # Transform raw SQL result for users into a list of num_users per variation
-def process_user_rows(df, vars):
+def process_user_rows(rows, vars):
     users = [0] * len(vars.keys())
     unknown_vars = []
-    for row in df.itertuples(index=False):
+    for row in rows.itertuples(index=False):
         key = str(row.variation)
         if key in vars:
             variation = vars[key]
@@ -52,8 +53,8 @@ def process_user_rows(df, vars):
 
 
 # Run A/B test analysis for a metric
-def run_analysis(df, var_names, type="binomial", inverse=False):
-    vars = iter(df.itertuples(index=False))
+def run_analysis(metric, var_names, type="binomial", inverse=False):
+    vars = iter(metric.itertuples(index=False))
     baseline = next(vars)
 
     # baseline users, mean, count, stddev, and value
@@ -91,20 +92,22 @@ def run_analysis(df, var_names, type="binomial", inverse=False):
         else:
             res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
 
-        if res['risk'][0] > baseline_risk:
-            baseline_risk = res['risk'][0] if not inverse else res['risk'][1]
+        if res["risk"][0] > baseline_risk:
+            baseline_risk = res["risk"][0] if not inverse else res["risk"][1]
 
-        s = pd.Series({
-            "variation": var_names[i+1],
-            "users": n_b,
-            "total": v_b,
-            "per_user": v_b / n_b,
-            "chance_to_beat_control": res['chance_to_win']
-            if not inverse
-            else 1 - res['chance_to_win'],
-            "risk_of_choosing": res['risk'][1] if not inverse else res['risk'][0],
-            "uplift_mean": res['expected'],
-        })
+        s = pd.Series(
+            {
+                "variation": var_names[i + 1],
+                "users": n_b,
+                "total": v_b,
+                "per_user": v_b / n_b,
+                "chance_to_beat_control": res["chance_to_win"]
+                if not inverse
+                else 1 - res["chance_to_win"],
+                "risk_of_choosing": res["risk"][1] if not inverse else res["risk"][0],
+                "uplift_mean": res["expected"],
+            }
+        )
 
         ret = ret.append(s, ignore_index=True)
 
@@ -118,3 +121,17 @@ def run_analysis(df, var_names, type="binomial", inverse=False):
         )
 
     return ret
+
+
+def check_srm(users, weights):
+    # Convert count of users into ratios
+    total_observed = sum(users)
+    if not total_observed:
+        return 1
+
+    x = 0
+    for i, o in enumerate(users):
+        e = weights[i] * total_observed
+        x = x + ((o - e) ** 2) / e
+
+    return chi2.sf(x, len(users) - 1)

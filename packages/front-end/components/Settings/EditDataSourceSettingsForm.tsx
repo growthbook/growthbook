@@ -10,6 +10,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Field from "../Forms/Field";
+import Code from "../Code";
 
 type FormValue = Partial<DataSourceInterfaceWithParams> & {
   dimensions: string;
@@ -133,7 +134,7 @@ const EditDataSourceSettingsForm: FC<{
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="lg"
+      size="max"
       header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
@@ -463,12 +464,20 @@ FROM
                 <p>
                   Define a <code>runQuery</code> Python function for this data
                   source that takes a SQL string argument and returns a pandas
-                  data frame.
+                  data frame. For example:
                 </p>
-                <p>
-                  Note: <code>pandas</code> and <code>NumPy (np)</code> are
-                  already available so you don&apos;t need to import them.
-                </p>
+                <Code
+                  language="python"
+                  code={`import psycopg2
+import pandas as pd
+from sqlalchemy import create_engine, text
+
+connStr = 'postgresql+psycopg2://user:pass@localhost'
+dbConnection = create_engine(connStr).connect();
+
+def runQuery(sql):
+  return pd.read_sql(text(sql), dbConnection)`}
+                />
               </div>
             </div>
           </div>
