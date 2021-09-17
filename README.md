@@ -31,6 +31,7 @@ GrowthBook gives you the flexibility and power of a fully-featured in-house A/B 
 - ❄️ Pull data from Snowflake, Redshift, BigQuery, Mixpanel, Google Analytics, [and more](https://docs.growthbook.io/app/datasources)
 - 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
+- 🪐 Export results as a Jupyter Notebook!
 - 💻 Client libraries for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
 - 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
 - 📝 Document experiments with screenshots and GitHub Flavored Markdown

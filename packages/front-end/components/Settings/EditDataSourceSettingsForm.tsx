@@ -468,11 +468,14 @@ FROM
                 </p>
                 <Code
                   language="python"
-                  code={`import psycopg2
+                  code={`import os
+import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine, text
 
-connStr = 'postgresql+psycopg2://user:pass@localhost'
+# Use environment variables or similar for passwords!
+password = os.getenv('POSTGRES_PW')
+connStr = f'postgresql+psycopg2://user:{password}@localhost'
 dbConnection = create_engine(connStr).connect();
 
 def runQuery(sql):

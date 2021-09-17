@@ -349,6 +349,8 @@ if srm_p < 0.001:
       getMarkdown(`## Metric - ${metrics.get(q.name)?.name || q.name}`)
     );
 
+    nb.cells.push(getMarkdown(`### Query`));
+
     nb.cells.push(
       getCodeCell(
         `
@@ -360,6 +362,8 @@ display(m${i}_rows)`,
         data.rawResult ? getDataFrameOutput(data.rawResult.slice(0, 5)) : null
       )
     );
+
+    nb.cells.push(getMarkdown(`### Preparation`));
 
     const processed_rows = experiment.variations.map((v, i) => {
       const metrics: unknown = snapshot.results[0].variations[i].metrics;
