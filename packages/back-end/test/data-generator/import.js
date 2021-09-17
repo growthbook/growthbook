@@ -84,10 +84,10 @@ async function run() {
     "DROP TABLE IF EXISTS viewed_signup",
   ];
   const createQueries = [
-    "CREATE TABLE users (user_id VARCHAR(8) PRIMARY KEY, received_at TIMESTAMP, gender VARCHAR(10))",
+    "CREATE TABLE users (user_id VARCHAR(8) PRIMARY KEY, received_at TIMESTAMP, gender VARCHAR(10), geo VARCHAR(10))",
     "CREATE TABLE pages (user_id VARCHAR(8), received_at TIMESTAMP, path VARCHAR(256))",
     "CREATE TABLE purchase (user_id VARCHAR(8), received_at TIMESTAMP, amount INT)",
-    "CREATE TABLE experiment_viewed (user_id VARCHAR(8), received_at TIMESTAMP, experiment_id VARCHAR(64), variation_id INT)",
+    "CREATE TABLE experiment_viewed (user_id VARCHAR(8), received_at TIMESTAMP, experiment_id VARCHAR(64), variation_id INT, browser VARCHAR(20), device VARCHAR(20))",
     "CREATE TABLE sessions (session_id VARCHAR(8) PRIMARY KEY, user_id VARCHAR(8), date_start TIMESTAMP, date_end TIMESTAMP, duration_seconds INT, num_pages INT)",
     "CREATE TABLE signup (user_id VARCHAR(8), received_at TIMESTAMP)",
     "CREATE TABLE viewed_signup (user_id VARCHAR(8), received_at TIMESTAMP)",

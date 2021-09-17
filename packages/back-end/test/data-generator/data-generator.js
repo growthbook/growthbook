@@ -35,6 +35,16 @@ const smallTimeEvent = 20; // twenty seconds
 const largeTimeEvent = 24 * 60 * 60; // sessions, 1 day
 
 const genders = ["male", "female", ""];
+const browsers = ["Chrome", "Safari", "Firefox", "Edge"];
+const devices = ["mobile", "desktop"];
+const geos = [
+  "North America",
+  "Europe",
+  "Asia",
+  "Africa",
+  "South America",
+  "Australasia",
+];
 
 // ---
 
@@ -90,6 +100,7 @@ for (let i = 1; i < numUsers; i++) {
     user_id: userId,
     received_at: format_time(userTime),
     gender: genders[Math.floor(Math.random() * genders.length)],
+    geo: geos[Math.floor(Math.random() * geos.length)],
   });
 
   // add a page view
@@ -108,6 +119,8 @@ for (let i = 1; i < numUsers; i++) {
       received_at: format_time(userTime),
       experiment_id: exp.id,
       variation_id: varIndex,
+      browser: browsers[Math.floor(Math.random() * browsers.length)],
+      device: devices[Math.floor(Math.random() * devices.length)],
     });
     // does this experiment effect the outcome of anything?
     if (varIndex > 0) {
