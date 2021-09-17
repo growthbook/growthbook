@@ -133,6 +133,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       variations:
         initialValue?.variations || getDefaultVariations(initialNumVariations),
       phases: initialPhases,
+      status: initialValue?.status || "running",
       ideaSource: idea || "",
     },
   });
@@ -163,8 +164,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // TODO: more validation?
 
     const data = { ...value };
-    if (isImport) {
-      data.status = "stopped";
+    if (!isImport) {
+      data.status = "draft";
+    }
+
+    if (data.status === "running") {
+      data.phases[0].dateEnded = "";
     }
 
     const body = JSON.stringify(data);
@@ -271,15 +276,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         {isImport && (
           <>
             <Field
+              label="Status"
+              options={["running", "stopped"]}
+              {...form.register("status")}
+            />
+            <Field
               label="Start Date (UTC)"
               type="datetime-local"
               {...form.register("phases.0.dateStarted")}
             />
-            <Field
-              label="End Date (UTC)"
-              type="datetime-local"
-              {...form.register("phases.0.dateEnded")}
-            />
+            {form.watch("status") === "stopped" && (
+              <Field
+                label="End Date (UTC)"
+                type="datetime-local"
+                {...form.register("phases.0.dateEnded")}
+              />
+            )}
           </>
         )}
       </Page>
@@ -439,7 +451,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           {datasource?.type !== "mixpanel" && (
             <Field
               label="Login State"
-              className="form-control"
               {...form.register("userIdType")}
               options={["user", "anonymous"]}
             />
