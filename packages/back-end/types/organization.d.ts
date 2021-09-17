@@ -21,13 +21,6 @@ export interface Member {
   role: MemberRole;
 }
 
-export interface northStarMetric {
-  metricIds: string[];
-  target?: number | number[];
-  resolution: string;
-  startDate: Date;
-}
-
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -35,7 +28,6 @@ export interface OrganizationSettings {
   logoPath?: string;
   primaryColor?: string;
   secondaryColor?: string;
-  northStar?: northStarMetric;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
