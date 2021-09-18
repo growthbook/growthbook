@@ -18,12 +18,15 @@ import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
 import { getQueryData } from "./queries";
+import { getAdjustedStats } from "./stats";
 
 type Result = {
   variation: string;
   users: number;
-  total: number;
-  per_user: number;
+  total?: number;
+  conversions?: number;
+  per_user?: number;
+  conversion_rate?: number;
   chance_to_beat_control: number;
   risk_of_choosing: number;
   uplift_mean: number;
@@ -166,7 +169,19 @@ ${rows
   <th>${i}</th>
   ${cols
     .map((k) => {
-      return `<td>${row[k]}</td>`;
+      let v: string | number | boolean | null = row[k];
+
+      if (v === null) {
+        v = "None";
+      } else if (v === true) {
+        v = "True";
+      } else if (v === false) {
+        v = "False";
+      } else if (typeof v === "number") {
+        v = parseFloat(v.toFixed(6));
+      }
+
+      return `<td>${v}</td>`;
     })
     .join("")}
 </tr>`;
@@ -261,8 +276,8 @@ export async function generateExperimentNotebook(
       `
 from gbstats.gbstats import process_user_rows, check_srm, process_metric_rows, run_analysis
 
-# Mapping of variation key to index
-vars = ${JSON.stringify(vars)}
+# Mapping of variation id to index
+var_id_map = ${JSON.stringify(vars)}
 
 # Display names of variations
 var_names = ${JSON.stringify(experiment.variations.map((v) => v.name))}
@@ -283,6 +298,7 @@ weights = ${JSON.stringify(weights)}
 
   // Users
   nb.cells.push(getMarkdown(`## Users in Experiment`));
+  nb.cells.push(getMarkdown(`### Query`));
   const users = queries.get("users");
   nb.cells.push(
     getCodeCell(
@@ -293,26 +309,24 @@ display(user_rows)`,
       users.rawResult ? getDataFrameOutput(users.rawResult.slice(0, 5)) : null
     )
   );
+  nb.cells.push(getMarkdown(`### Data Quality Checks`));
   nb.cells.push(
     getCodeCell(
       `
 # Process raw user rows
-users, unknown_vars = process_user_rows(
-  rows=user_rows, 
-  vars=vars
-)
+users, unknown_var_ids = process_user_rows(user_rows, var_id_map)
 
 # Users in each variation
 print("Users in each variation:", users)
 
-# Any variation keys returned from the query that we weren't expecting
-print("Unknown variation ids:", unknown_vars)`,
+# Any variation ids returned from the query that we weren't expecting
+print("Unknown variation ids:", unknown_var_ids)`,
       getHTMLOutput(
-        `<div>Users in each variation: ${JSON.stringify(
+        `<Pre>Users in each variation: ${JSON.stringify(
           snapshot.results[0].variations.map((v) => v.users)
-        )}</div>\n<div>Unknown variation ids: ${JSON.stringify(
+        )}\nUnknown variation ids: ${JSON.stringify(
           snapshot.unknownVariations || []
-        )}</div>`
+        )}</pre>`
       )
     )
   );
@@ -325,13 +339,16 @@ srm_p = check_srm(users, weights)
 print("SRM P-value:", srm_p)
 
 if srm_p < 0.001:
-  print("***WARNING: Sample Ratio Mismatch Detected***")`,
+  print("***WARNING: Sample Ratio Mismatch Detected***")
+else:
+  print("Ok, no SRM detected")`,
       getHTMLOutput(
-        `<div>SRM P-value: ${snapshot.results[0]?.srm}</div>${
-          snapshot.results[0]?.srm < 0.001
-            ? "\n<div>***WARNING: Sample Ratio Mismatch Detected***</div>"
-            : ""
-        }`
+        `<pre>SRM P-value: ${snapshot.results[0]?.srm}
+${
+  snapshot.results[0]?.srm < 0.001
+    ? "***WARNING: Sample Ratio Mismatch Detected***"
+    : "Ok, no SRM detected"
+}</pre>`
       )
     )
   );
@@ -370,11 +387,42 @@ display(m${i}_rows)`,
       const metricValue = (metrics as Map<string, SnapshotMetric>).get(
         metric.id
       );
+      if (!metricValue) {
+        return {
+          users: 0,
+          count: 0,
+          mean: 0,
+          stddev: 0,
+          total: 0,
+        };
+      }
+
+      const adjusted = getAdjustedStats(
+        metricValue.stats,
+        metricValue.users || 0
+      );
+
+      const mean =
+        metric.type !== "binomial" && !metric.ignoreNulls
+          ? adjusted.mean
+          : metricValue.stats.mean;
+
+      const stddev =
+        metric.type !== "binomial" && !metric.ignoreNulls
+          ? adjusted.stddev
+          : metricValue.stats.stddev;
+
+      const users =
+        metric.type !== "binomial" && metric.ignoreNulls
+          ? metricValue.stats.count
+          : metricValue.users;
+
       return {
-        users: metricValue?.users || 0,
-        count: metricValue?.stats?.count,
-        mean: metricValue?.stats?.mean,
-        stddev: metricValue?.stats?.stddev,
+        users: users || 0,
+        count: metricValue.stats.count,
+        mean,
+        stddev,
+        total: metricValue.value,
       };
     });
 
@@ -384,43 +432,105 @@ display(m${i}_rows)`,
 # Prepare SQL rows for analysis
 m${i} = process_metric_rows(
   rows=m${i}_rows, 
-  vars=vars, 
+  var_id_map=var_id_map, 
   users=users, 
-  ignore_nulls=${metric?.ignoreNulls ? "True" : "False"}
+  ignore_nulls=${metric?.ignoreNulls ? "True" : "False"},
+  type=${JSON.stringify(metric.type)}
 )
 display(m${i})`,
-        getDataFrameOutput(processed_rows, ["users", "count", "mean", "stddev"])
+        getDataFrameOutput(processed_rows, [
+          "users",
+          "count",
+          "mean",
+          "stddev",
+          "total",
+        ])
       )
     );
 
     nb.cells.push(getMarkdown(`### Result`));
 
     // Render results as a table
-    const results: Result[] = [];
+    let results: Result[] = [];
     const cols = [
       "variation",
       "users",
-      "total",
-      "per_user",
+      metric.type === "binomial" ? "conversions" : "total",
+      metric.type === "binomial" ? "conversion_rate" : "per_user",
       "chance_to_beat_control",
       "risk_of_choosing",
       "uplift_mean",
     ];
+    let baseline_risk = 0;
     snapshot.results[0].variations.forEach((variation, i) => {
       const metrics: unknown = variation.metrics;
       const metricValue = (metrics as Map<string, SnapshotMetric>).get(
         metric.id
       );
+
+      if (i === 0) {
+        results.push({
+          variation: experiment.variations[i]?.name || i + "",
+          users: metricValue?.users || 0,
+          total: metricValue?.value || 0,
+          per_user: metricValue?.cr || 0,
+          chance_to_beat_control: null,
+          risk_of_choosing: 0,
+          uplift_mean: null,
+        });
+        return;
+      }
+
+      // Flip risk and chance to win for inverse metrics
+      let risk0 = metricValue?.risk?.[metric.inverse ? 1 : 0];
+      let risk1 = metricValue?.risk?.[metric.inverse ? 0 : 1];
+      const ctw = metric.inverse
+        ? 1 - metricValue?.chanceToWin
+        : metricValue?.chanceToWin;
+
+      // Turn risk into relative risk
+      risk0 = risk0 / metricValue?.cr || 0;
+      risk1 = risk1 / metricValue?.cr || 0;
+
+      if (risk0 > baseline_risk) {
+        baseline_risk = risk0;
+      }
+
       results.push({
         variation: experiment.variations[i]?.name || i + "",
         users: metricValue?.users || 0,
         total: metricValue?.value || 0,
         per_user: metricValue?.cr || 0,
-        chance_to_beat_control: metricValue?.chanceToWin || 0,
-        risk_of_choosing: metricValue?.risk?.[1] || 0,
-        uplift_mean: metricValue?.uplift?.mean || 0,
+        chance_to_beat_control: ctw || 0,
+        risk_of_choosing: risk1 || 0,
+        uplift_mean: metricValue?.expected || 0,
       });
     });
+    results[0].risk_of_choosing = baseline_risk;
+
+    if (metric.type === "binomial") {
+      results = results.map(
+        ({
+          variation,
+          users,
+          total,
+          per_user,
+          chance_to_beat_control,
+          risk_of_choosing,
+          uplift_mean,
+        }) => {
+          return {
+            variation,
+            users,
+            conversions: total,
+            conversion_rate: per_user,
+            chance_to_beat_control,
+            risk_of_choosing,
+            uplift_mean,
+          };
+        }
+      );
+    }
 
     nb.cells.push(
       getCodeCell(

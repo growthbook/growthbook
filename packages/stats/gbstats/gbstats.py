@@ -5,9 +5,11 @@ from scipy.stats.distributions import chi2
 
 
 # Adjust metric stats to account for unconverted users
-def get_adjusted_stats(x, sx, c, n, ignore_nulls=False):
+def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
+    if type == "binomial":
+        return {"users": n, "count": c, "mean": x, "stddev": sx, "total": c}
     # Ignore unconverted users
-    if ignore_nulls:
+    elif ignore_nulls:
         return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
     # Add in unconverted users and correct the mean/stddev
     else:
@@ -22,36 +24,37 @@ def get_adjusted_stats(x, sx, c, n, ignore_nulls=False):
 
 
 # Transform raw SQL result for metrics into a list of stats per variation
-def process_metric_rows(rows, vars, users, ignore_nulls=False):
+def process_metric_rows(rows, var_id_map, users, ignore_nulls=False, type="binomial"):
     stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0, "total": 0}] * len(
-        vars.keys()
+        var_id_map.keys()
     )
     for row in rows.itertuples(index=False):
-        key = str(row.variation)
-        if key in vars:
-            variation = vars[key]
+        id = str(row.variation)
+        if id in var_id_map:
+            variation = var_id_map[id]
             stats[variation] = get_adjusted_stats(
                 x=row.mean,
                 sx=row.stddev,
                 c=row.count,
                 n=users[variation],
                 ignore_nulls=ignore_nulls,
+                type=type,
             )
     return pd.DataFrame(stats)
 
 
 # Transform raw SQL result for users into a list of num_users per variation
-def process_user_rows(rows, vars):
-    users = [0] * len(vars.keys())
-    unknown_vars = []
+def process_user_rows(rows, var_id_map):
+    users = [0] * len(var_id_map.keys())
+    unknown_var_ids = []
     for row in rows.itertuples(index=False):
-        key = str(row.variation)
-        if key in vars:
-            variation = vars[key]
+        id = str(row.variation)
+        if id in var_id_map:
+            variation = var_id_map[id]
             users[variation] = row.users
         else:
-            unknown_vars.append(key)
-    return users, unknown_vars
+            unknown_var_ids.append(id)
+    return users, unknown_var_ids
 
 
 # Run A/B test analysis for a metric
@@ -66,13 +69,15 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
     s_a = baseline.stddev
     v_a = baseline.total
 
+    cr_a = v_a / n_a
+
     ret = pd.DataFrame(
         [
             {
                 "variation": var_names[0],
                 "users": n_a,
                 "total": v_a,
-                "per_user": v_a / n_a,
+                "per_user": cr_a,
                 "chance_to_beat_control": None,
                 "risk_of_choosing": None,
                 "uplift_mean": None,
@@ -88,6 +93,7 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
         x_b = row.count
         s_b = row.stddev
         v_b = row.total
+        cr_b = v_b / n_b
 
         if type == "binomial":
             res = binomial_ab_test(x_a, n_a, x_b, n_b)
@@ -99,6 +105,10 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
         risk1 = res["risk"][1] if not inverse else res["risk"][0]
         ctw = res["chance_to_win"] if not inverse else 1 - res["chance_to_win"]
 
+        # Turn risk into relative risk
+        risk0 = risk0 / cr_b
+        risk1 = risk1 / cr_b
+
         if risk0 > baseline_risk:
             baseline_risk = risk0
 
@@ -107,7 +117,7 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
                 "variation": var_names[i + 1],
                 "users": n_b,
                 "total": v_b,
-                "per_user": v_b / n_b,
+                "per_user": cr_b,
                 "chance_to_beat_control": ctw,
                 "risk_of_choosing": risk1,
                 "uplift_mean": res["expected"],
