@@ -8,7 +8,7 @@ from scipy.stats.distributions import chi2
 def get_adjusted_stats(x, sx, c, n, ignore_nulls=False):
     # Ignore unconverted users
     if ignore_nulls:
-        return {"users": c, "count": c, "mean": x, "stddev": sx}
+        return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
     # Add in unconverted users and correct the mean/stddev
     else:
         mean = (x * c) / n
@@ -18,12 +18,14 @@ def get_adjusted_stats(x, sx, c, n, ignore_nulls=False):
             ((c - 1) * varx) / (n - 1) + (c * (n - c) * (x ** 2)) / (n * (n - 1))
         )
 
-        return {"users": n, "count": c, "mean": mean, "stddev": stddev}
+        return {"users": n, "count": c, "mean": mean, "stddev": stddev, "total": x * c}
 
 
 # Transform raw SQL result for metrics into a list of stats per variation
 def process_metric_rows(rows, vars, users, ignore_nulls=False):
-    stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0}] * len(vars.keys())
+    stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0, "total": 0}] * len(
+        vars.keys()
+    )
     for row in rows.itertuples(index=False):
         key = str(row.variation)
         if key in vars:
@@ -62,7 +64,7 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
     m_a = baseline.mean
     x_a = baseline.count
     s_a = baseline.stddev
-    v_a = m_a * x_a
+    v_a = baseline.total
 
     ret = pd.DataFrame(
         [
@@ -85,15 +87,20 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
         m_b = row.mean
         x_b = row.count
         s_b = row.stddev
-        v_b = m_b * x_b
+        v_b = row.total
 
         if type == "binomial":
             res = binomial_ab_test(x_a, n_a, x_b, n_b)
         else:
             res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
 
-        if res["risk"][0] > baseline_risk:
-            baseline_risk = res["risk"][0] if not inverse else res["risk"][1]
+        # Flip risk and chance to win for inverse metrics
+        risk0 = res["risk"][0] if not inverse else res["risk"][1]
+        risk1 = res["risk"][1] if not inverse else res["risk"][0]
+        ctw = res["chance_to_win"] if not inverse else 1 - res["chance_to_win"]
+
+        if risk0 > baseline_risk:
+            baseline_risk = risk0
 
         s = pd.Series(
             {
@@ -101,10 +108,8 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
                 "users": n_b,
                 "total": v_b,
                 "per_user": v_b / n_b,
-                "chance_to_beat_control": res["chance_to_win"]
-                if not inverse
-                else 1 - res["chance_to_win"],
-                "risk_of_choosing": res["risk"][1] if not inverse else res["risk"][0],
+                "chance_to_beat_control": ctw,
+                "risk_of_choosing": risk1,
                 "uplift_mean": res["expected"],
             }
         )

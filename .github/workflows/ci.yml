@@ -41,13 +41,14 @@ jobs:
         run: |
           yarn
           python -m pip install --upgrade pip
-          pip install numpy scipy pandas
+          pip install numpy scipy pandas pytest black flake8
         env:
           CI: true
 
       - name: lint
         run: |
           yarn lint
+          yarn workspace stats lint
 
       - name: build sdk packages
         run: |
