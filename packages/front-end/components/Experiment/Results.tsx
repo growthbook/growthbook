@@ -7,7 +7,7 @@ import { phaseSummary } from "../../services/utils";
 import clsx from "clsx";
 import { UserContext } from "../ProtectedPage";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt, FaPlus } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -325,32 +325,16 @@ const Results: FC<{
                   editMetrics();
                 }}
               >
-                Add/Remove Metrics
+                <FaPlus /> Add/Remove Metrics
               </button>
             </div>
           )}
-
-          <div className="col-auto">
-            {snapshot.queries?.length > 0 ? (
-              <ViewAsyncQueriesButton
-                queries={snapshot.queries.map((q) => q.query)}
-              />
-            ) : (
-              // From old query engine
-              snapshot.query && (
-                <ViewQueryButton
-                  queries={[snapshot.query]}
-                  language={snapshot.queryLanguage}
-                />
-              )
-            )}
-          </div>
           {!snapshot.dimension &&
             snapshot.hasRawQueries &&
             datasource?.settings?.notebookRunQuery && (
               <div className="col-auto">
                 <Button
-                  color="outline-primary"
+                  color="outline-info"
                   onClick={async () => {
                     const res = await apiCall<{ notebook: string }>(
                       `/experiments/notebook/${snapshot.id}`,
@@ -381,10 +365,26 @@ const Results: FC<{
                     el.click();
                   }}
                 >
-                  Download Notebook
+                  <FaFileDownload /> Download Notebook
                 </Button>
               </div>
             )}
+
+          <div className="col-auto">
+            {snapshot.queries?.length > 0 ? (
+              <ViewAsyncQueriesButton
+                queries={snapshot.queries.map((q) => q.query)}
+              />
+            ) : (
+              // From old query engine
+              snapshot.query && (
+                <ViewQueryButton
+                  queries={[snapshot.query]}
+                  language={snapshot.queryLanguage}
+                />
+              )
+            )}
+          </div>
         </div>
       )}
     </>

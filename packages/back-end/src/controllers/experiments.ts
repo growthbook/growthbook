@@ -250,7 +250,7 @@ export async function postSnapshotNotebook(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-    notebook: JSON.stringify(notebook, null, 2),
+    notebook,
   });
 }
 

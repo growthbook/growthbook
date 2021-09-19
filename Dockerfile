@@ -1,10 +1,21 @@
-FROM node:14-alpine
+FROM python:slim
 
-# Install python for stats models
-RUN apk add --no-cache \
-  python3 \
-  py3-numpy \
-  py3-scipy
+RUN apt-get update && \
+  apt-get install -y wget gnupg2 && \
+  echo "deb https://deb.nodesource.com/node_14.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get update && \
+  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  pip3 install \
+    # gbstats \
+    nbformat \
+    numpy \
+    pandas \
+    scipy
 
 WORKDIR /usr/local/src/app
 
@@ -18,6 +29,9 @@ RUN \
   && yarn build \
   # Then do a clean install with only production dependencies
   && rm -rf node_modules \
+  && rm -rf packages/back-end/node_modules \
+  && rm -rf packages/front-end/node_modules \
+  && rm -rf packages/front-end/.next/cache \
   && yarn install --frozen-lockfile --production=true --ignore-optional \
   # Clear the yarn cache
   && yarn cache clean
