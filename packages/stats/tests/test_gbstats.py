@@ -122,16 +122,19 @@ def test_binomial_analysis():
     assert baseline.at["conversion_rate"] == 0.12
     assert baseline.at["chance_to_beat_control"] == None
     assert round_(baseline.at["risk_of_choosing"]) == 0.069118343
+    assert baseline.at["percent_change"] == None
 
     assert var1.at["variation"] == "Variation 1"
     assert var1.at["conversion_rate"] == 0.125
     assert round_(var1.at["chance_to_beat_control"]) == 0.633751254
     assert round_(var1.at["risk_of_choosing"]) == 0.029338254
+    assert round_(var1.at["percent_change"]) == 0.041432724
 
     assert var2.at["variation"] == "Variation 2"
     assert var2.at["conversion_rate"] == 0.102
     assert round_(var2.at["chance_to_beat_control"]) == 0.100849049
     assert round_(var2.at["risk_of_choosing"]) == 0.182688464
+    assert round_(var2.at["percent_change"]) == -0.149376661
 
 
 def test_gaussian_analysis():
@@ -153,13 +156,16 @@ def test_gaussian_analysis():
     assert baseline.at["per_user"] == 0.156
     assert baseline.at["chance_to_beat_control"] == None
     assert round_(baseline.at["risk_of_choosing"]) == 0.138620458
+    assert baseline.at["percent_change"] == None
 
     assert var1.at["variation"] == "Variation 1"
     assert var1.at["per_user"] == 0.16125
     assert round_(var1.at["chance_to_beat_control"]) == 0.593436958
     assert round_(var1.at["risk_of_choosing"]) == 0.076604954
+    assert round_(var1.at["percent_change"]) == -0.007692308
 
     assert var2.at["variation"] == "Variation 2"
     assert round_(var2.at["per_user"]) == 0.1428
     assert round_(var2.at["chance_to_beat_control"]) == 0.016533047
     assert round_(var2.at["risk_of_choosing"]) == 0.702254931
+    assert round_(var2.at["percent_change"]) == 0.076923077

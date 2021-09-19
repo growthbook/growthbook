@@ -11,7 +11,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   pip3 install \
-    # gbstats \
+    gbstats \
     nbformat \
     numpy \
     pandas \
@@ -33,6 +33,8 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && yarn install --frozen-lockfile --production=true --ignore-optional \
+  && wget -qO- https://gobinaries.com/tj/node-prune | sh \
+  && node-prune \
   # Clear the yarn cache
   && yarn cache clean
 

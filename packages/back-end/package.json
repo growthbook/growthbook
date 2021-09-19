@@ -4,15 +4,12 @@
   "private": true,
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "build:python": "rm -rf dist/python && mkdir -p dist/python && cp -r src/python/* dist/python",
     "build:clean": "rm -rf dist",
     "build:typescript": "tsc",
     "dev": "node-dev src/server.ts",
-    "build": "yarn build:clean && yarn build:typescript && yarn build:python && yarn build:emails",
+    "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
-    "test:node": "jest --forceExit --verbose --detectOpenHandles",
-    "test:python": "cd src/python && python3 -m unittest discover",
-    "test": "yarn test:python && yarn test:node",
+    "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
     "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"

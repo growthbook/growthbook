@@ -439,7 +439,7 @@ FROM
           <div className="row mb-3">
             <div className="col">
               <Field
-                label="Jupyter Notebook Query Runner"
+                label="Jupyter Notebook Query Runner (optional)"
                 placeholder="def runQuery(sql):"
                 labelClassName="font-weight-bold"
                 value={datasource.settings?.notebookRunQuery}

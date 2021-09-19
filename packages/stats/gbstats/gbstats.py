@@ -80,7 +80,10 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
                 "per_user": cr_a,
                 "chance_to_beat_control": None,
                 "risk_of_choosing": None,
+                "percent_change": None,
+                "uplift_dist": None,
                 "uplift_mean": None,
+                "uplift_stddev": None,
             }
         ]
     )
@@ -120,7 +123,10 @@ def run_analysis(metric, var_names, type="binomial", inverse=False):
                 "per_user": cr_b,
                 "chance_to_beat_control": ctw,
                 "risk_of_choosing": risk1,
-                "uplift_mean": res["expected"],
+                "percent_change": res["expected"],
+                "uplift_dist": res["uplift"]["dist"],
+                "uplift_mean": res["uplift"]["mean"],
+                "uplift_stddev": res["uplift"]["stddev"],
             }
         )
 

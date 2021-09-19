@@ -63,7 +63,7 @@ def create_notebook(
         # runQuery definition
         nbf.new_code_cell("# User defined runQuery function\n" f"{run_query}"),
         # Users in Experiment
-        nbf.new_markdown_cell("## Users in Experiment" "### Query"),
+        nbf.new_markdown_cell("## Users in Experiment\n" "### Query"),
         # Users Query
         code_cell_df(
             user_rows,

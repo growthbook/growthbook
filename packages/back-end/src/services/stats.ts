@@ -1,7 +1,6 @@
 import { jStat } from "jstat";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
-import path from "path";
 import { promisify } from "util";
 
 export interface ABTestStats {
@@ -67,21 +66,35 @@ export async function abtest(
     };
   }
 
-  const args = [
-    metric.type,
-    JSON.stringify({
+  const func =
+    metric.type === "binomial" ? "binomial_ab_test" : "gaussian_ab_test";
+
+  const args =
+    metric.type === "binomial"
+      ? "x_a=xa, n_a=na, x_b=xb, n_b=nb"
+      : "m_a=ma, s_a=sa, n_a=na, m_b=mb, s_b=sb, n_b=nb";
+
+  const result = await promisify(PythonShell.runString)(
+    `
+from gbstats.bayesian.main import ${func}
+import json
+
+data = json.loads("""${JSON.stringify({
       users: [aUsers, bUsers],
       count: [aStats.count, bStats.count],
       mean: [aStats.mean, bStats.mean],
       stddev: [aStats.stddev, bStats.stddev],
-    }),
-  ];
+    })}""", strict=False)
 
-  const result = await promisify(PythonShell.run)("bayesian.main", {
-    cwd: path.join(__dirname, "..", "python"),
-    pythonOptions: ["-m"],
-    args,
-  });
+xa, xb = data['count']
+na, nb = data['users']
+ma, mb = data['mean']
+sa, sb = data['stddev']
+
+print(json.dumps(${func}(${args})))`,
+    {}
+  );
+
   let parsed: {
     chance_to_win: number;
     expected: number;
@@ -96,7 +109,7 @@ export async function abtest(
   try {
     parsed = JSON.parse(result[0]);
   } catch (e) {
-    console.error("Failed to run stats model", args, result);
+    console.error("Failed to run stats model", result);
     throw e;
   }
 
