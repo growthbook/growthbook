@@ -105,8 +105,8 @@ export async function generateExperimentNotebook(
           rows: q.rawResult,
           name: metric.name,
           sql: q.query,
-          inverse: metric.inverse,
-          ignore_nulls: metric.ignoreNulls,
+          inverse: !!metric.inverse,
+          ignore_nulls: !!metric.ignoreNulls,
           type: metric.type,
         };
       })
