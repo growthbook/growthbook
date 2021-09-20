@@ -51,6 +51,7 @@
     "pino-pretty": "^5.1.0",
     "presto-client": "^0.11.2",
     "python-shell": "^3.0.0",
+    "saslprep": "^1.0.0",
     "snowflake-promise": "^4.5.0",
     "sql-formatter": "^4.0.2",
     "string-env-interpolation": "^1.0.1",
