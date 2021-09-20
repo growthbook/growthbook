@@ -47,4 +47,5 @@ export interface ExperimentSnapshotInterface {
     srm: number;
     variations: SnapshotVariation[];
   }[];
+  hasRawQueries?: boolean;
 }

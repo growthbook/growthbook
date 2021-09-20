@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import AsyncQueriesModal from "./AsyncQueriesModal";
 import clsx from "clsx";
+import { FaDatabase } from "react-icons/fa";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
@@ -24,7 +25,8 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(true);
         }}
       >
-        {display} {queries.length > 0 ? `(${queries.length})` : ""}
+        <FaDatabase /> {display}{" "}
+        {queries.length > 0 ? `(${queries.length})` : ""}
       </button>
     </>
   );

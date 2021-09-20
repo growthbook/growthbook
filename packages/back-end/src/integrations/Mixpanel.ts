@@ -11,18 +11,23 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   DimensionResult,
-  ExperimentMetricResult,
+  ExperimentMetricQueryResponse,
   ExperimentResults,
-  ExperimentUsersResult,
+  ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
-  MetricValueResult,
-  PastExperimentResult,
+  MetricValueQueryResponse,
+  MetricValueQueryResponseRow,
+  PastExperimentResponse,
   SourceIntegrationInterface,
   UsersQueryParams,
-  UsersResult,
+  UsersQueryResponse,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import {
+  processMetricValueQueryResponse,
+  processUsersQueryResponse,
+} from "../services/queries";
 
 const percentileNumbers = [
   0.01,
@@ -67,10 +72,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getExperimentMetricQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
+  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+  runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getExperimentResultsQuery(
@@ -389,11 +394,19 @@ export default class Mixpanel implements SourceIntegrationInterface {
       segmentName: segment?.name,
     });
 
-    const [users, metricTotal, value] = await Promise.all([
+    const [
+      usersResponse,
+      metricTotalResponse,
+      valueResponse,
+    ] = await Promise.all([
       this.runUsersQuery(usersQuery),
       this.runMetricValueQuery(metricQuery),
       this.runMetricValueQuery(valueQuery),
     ]);
+
+    const users = processUsersQueryResponse(usersResponse);
+    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
+    const value = processMetricValueQueryResponse(valueResponse);
 
     const formatted =
       [usersQuery, metricQuery, valueQuery]
@@ -583,7 +596,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         }));
     `);
   }
-  async runUsersQuery(query: string): Promise<UsersResult> {
+  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
     const rows = await runQuery<
       [
         (
@@ -602,21 +615,30 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: UsersResult = { users: 0 };
+    const result: UsersQueryResponse = [];
+
     rows &&
       rows[0] &&
       rows[0].forEach((row) => {
         if (row.type === "overall") {
-          result.users = row.users;
+          result.push({
+            date: "",
+            users: row.users,
+          });
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
-          result.dates = row.dates;
+          row.dates.forEach((d) => {
+            result.push({
+              date: d.date,
+              users: d.users,
+            });
+          });
         }
       });
 
     return result;
   }
-  async runMetricValueQuery(query: string): Promise<MetricValueResult> {
+  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const rows = await runQuery<
       [
         (
@@ -646,38 +668,44 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: MetricValueResult = {};
+    const result: MetricValueQueryResponse = [];
+    const overall: MetricValueQueryResponseRow = {
+      date: "",
+      mean: 0,
+      stddev: 0,
+      count: 0,
+    };
+
     rows &&
       rows[0] &&
       rows[0].forEach((row) => {
         if (row.type === "overall") {
-          result.count = row.count;
-          result.mean = row.avg;
-          result.stddev = row.stddev;
+          overall.count = row.count;
+          overall.mean = row.avg;
+          overall.stddev = row.stddev;
         } else if (row.type === "byDate") {
-          result.dates = [];
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
           row.dates.forEach(({ date, count, sum }) => {
-            result.dates.push({
+            result.push({
               date,
               count,
               mean: count > 0 ? sum / count : 0,
+              stddev: 0,
             });
           });
         } else if (row.type === "percentile") {
-          result.percentiles = {};
           row.percentiles.forEach(({ percentile, value }) => {
-            result.percentiles[percentile + ""] = value;
+            overall["p" + percentile] = value;
           });
         }
       });
 
-    return result;
+    return [overall, ...result];
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {
+  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
     console.log(query);
     throw new Error("Method not implemented.");
   }

@@ -29,13 +29,8 @@
     "eslint-plugin-react": "^7.20.0",
     "lint-staged": "^10.2.7",
     "prettier": "^2.2.1",
-    "typescript": "^4.4.2",
+    "typescript": "4.3.5",
     "husky": "^7.0.0"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn type-check && lint-staged"
-    }
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [

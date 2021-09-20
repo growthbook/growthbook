@@ -57,32 +57,66 @@ const ExpandableQuery: FC<{
         </div>
       )}
       {query.status === "succeeded" && (
-        <div
-          className={clsx("alert alert-success expandable-container mb-1", {
-            expanded: resultsOpen,
-          })}
-          onClick={() => !resultsOpen && setResultsOpen(true)}
-        >
-          <pre>{JSON.stringify(query.result, null, 2)}</pre>
-          <div
-            className="fader"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(212,237,218,0) 0%,rgba(212,237,218,0.8) 60%)",
-            }}
-            onClick={(e) => {
-              if (!resultsOpen) return;
-              setResultsOpen(false);
+        <>
+          {query.rawResult?.[0] ? (
+            <table className="table table-bordered table-sm">
+              <thead>
+                <tr>
+                  <th></th>
+                  {Object.keys(query.rawResult[0]).map((k) => {
+                    return <th key={k}>{k}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {query.rawResult.map((row, i) => {
+                  return (
+                    <tr key={i}>
+                      <th>{i}</th>
+                      {Object.keys(query.rawResult[0]).map((k) => {
+                        return (
+                          <td key={k}>
+                            {JSON.stringify(row[k]) ?? (
+                              <em className="text-muted">null</em>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div
+              className={clsx("alert alert-success expandable-container mb-1", {
+                expanded: resultsOpen,
+              })}
+              onClick={() => !resultsOpen && setResultsOpen(true)}
+            >
+              <pre>{JSON.stringify(query.result, null, 2)}</pre>
+              <div
+                className="fader"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, rgba(212,237,218,0) 0%,rgba(212,237,218,0.8) 60%)",
+                }}
+                onClick={(e) => {
+                  if (!resultsOpen) return;
+                  setResultsOpen(false);
 
-              const pre = (e.target as HTMLDivElement).previousElementSibling;
-              if (pre) {
-                pre.scrollTo({ top: 0 });
-              }
-            }}
-          >
-            click to {resultsOpen ? "minimize" : "expand"}
-          </div>
-        </div>
+                  const pre = (e.target as HTMLDivElement)
+                    .previousElementSibling;
+                  if (pre) {
+                    pre.scrollTo({ top: 0 });
+                  }
+                }}
+              >
+                click to {resultsOpen ? "minimize" : "expand"}
+              </div>
+            </div>
+          )}
+        </>
       )}
       {query.status === "succeeded" && (
         <small>

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import digamma
 from scipy.stats import beta, norm
-from bayesian.dists import Beta, Norm
+from gbstats.bayesian.dists import Beta, Norm
 
 
 DECIMALS = 5
@@ -68,13 +68,14 @@ class TestBeta(TestCase):
         self.assertRaises(RuntimeError, Beta.moments, -1, -1)
 
     def test_gq(self):
-        test_cases = zip([10, 100, 500, 1000, 10000],
-                         [10000, 1000, 500, 100, 10])
+        test_cases = zip([10, 100, 500, 1000, 10000], [10000, 1000, 500, 100, 10])
         for a, b in test_cases:
             x, w = Beta.gq(24, a, b)
             for p in range(8):
                 self.assertEqual(roundsum(x ** p * w), roundsum(beta.moment(p, a, b)))
-            self.assertEqual(roundsum(np.log(x) * w), roundsum(digamma(a) - digamma(a + b)))
+            self.assertEqual(
+                roundsum(np.log(x) * w), roundsum(digamma(a) - digamma(a + b))
+            )
 
 
 class TestNorm(TestCase):
@@ -82,7 +83,7 @@ class TestNorm(TestCase):
         prior = 0, 1, 10
         data = 12, 1, 10
         result = Norm.posterior(prior, data)
-        outcome = (6, np.sqrt(1/20))
+        outcome = (6, np.sqrt(1 / 20))
 
         for res, out in zip(result, outcome):
             self.assertEqual(res, out)
@@ -90,7 +91,7 @@ class TestNorm(TestCase):
         prior = 0, 1, 10
         data = pd.Series([12, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
         result = Norm.posterior(prior, data)
-        outcome = pd.Series([6., 50.]), pd.Series([np.sqrt(1/20), np.sqrt(1/20)])
+        outcome = pd.Series([6.0, 50.0]), pd.Series([np.sqrt(1 / 20), np.sqrt(1 / 20)])
 
         for res, out in zip(result, outcome):
             pd.testing.assert_series_equal(res, out)
@@ -98,7 +99,7 @@ class TestNorm(TestCase):
         prior = pd.Series([0, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
         data = pd.Series([12, 100]), pd.Series([1, np.sqrt(2)]), pd.Series([10, 20])
         result = Norm.posterior(prior, data)
-        outcome = pd.Series([6., 100.]), pd.Series([np.sqrt(1/20), np.sqrt(1/20)])
+        outcome = pd.Series([6.0, 100.0]), pd.Series([np.sqrt(1 / 20), np.sqrt(1 / 20)])
 
         for res, out in zip(result, outcome):
             pd.testing.assert_series_equal(res, out)
@@ -128,16 +129,17 @@ class TestNorm(TestCase):
         self.assertRaises(RuntimeError, Norm.moments, 1, -1)
 
     def test_gq(self):
-        test_cases = zip([0, -2, 2, 10],
-                         [.01, 1, 4, .0001])
+        test_cases = zip([0, -2, 2, 10], [0.01, 1, 4, 0.0001])
         for loc, scale in test_cases:
             x, w = Norm.gq(24, loc, scale)
             for p in range(8):
-                self.assertEqual(roundsum(x ** p * w), roundsum(norm.moment(p, loc, scale)))
+                self.assertEqual(
+                    roundsum(x ** p * w), roundsum(norm.moment(p, loc, scale))
+                )
 
         self.assertRaises(RuntimeError, Norm.gq, 24, 0, 0)
         self.assertRaises(RuntimeError, Norm.gq, 24, 0, -1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest_main()

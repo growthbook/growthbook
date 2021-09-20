@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Tuple
 from warnings import warn
 import numpy as np
-from numpy import ndarray, vectorize
 from scipy.stats import beta, norm, rv_continuous
-from scipy.special import digamma, polygamma, roots_hermitenorm  # , roots_sh_jacobi
+from scipy.special import digamma, polygamma, roots_hermitenorm
 from .orthogonal import roots_sh_jacobi
-
 
 EPSILON = 1e-04
 
@@ -60,8 +57,9 @@ class BayesABDist(ABC):
         a_nodes, a_weights = cls.gq(n, a_par1, a_par2)
         b_nodes, b_weights = cls.gq(n, b_par1, b_par2)
 
-        gq = sum(a_nodes * cls.dist.cdf(a_nodes, b_par1, b_par2) * a_weights) + \
-            sum(b_nodes * cls.dist.cdf(b_nodes, a_par1, a_par2) * b_weights)
+        gq = sum(a_nodes * cls.dist.cdf(a_nodes, b_par1, b_par2) * a_weights) + sum(
+            b_nodes * cls.dist.cdf(b_nodes, a_par1, a_par2) * b_weights
+        )
         out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))
 
         return out
@@ -79,7 +77,7 @@ class Beta(BayesABDist):
     @staticmethod
     def moments(par1, par2, log=False):
         if np.sum(par2 < 0) + np.sum(par1 < 0):
-            raise RuntimeError('params of beta distribution cannot be negative')
+            raise RuntimeError("params of beta distribution cannot be negative")
 
         if log:
             mean = digamma(par1) - digamma(par1 + par2)
@@ -111,16 +109,19 @@ class Norm(BayesABDist):
     @staticmethod
     def moments(par1, par2, log=False):
         if np.sum(par2 < 0):
-            raise RuntimeError('got negative standard deviation.')
+            raise RuntimeError("got negative standard deviation.")
 
         if log:
             if np.sum(par1 <= 0):
-                raise RuntimeError('got mu <= 0. cannot use log approximation.')
+                raise RuntimeError("got mu <= 0. cannot use log approximation.")
 
             max_prob = np.max(norm.cdf(0, par1, par2))
             if max_prob > EPSILON:
-                warn(f'probability of being negative is higher than {EPSILON} (={max_prob}). '
-                     f'log approximation is in-exact', RuntimeWarning)
+                warn(
+                    f"probability of being negative is higher than {EPSILON} (={max_prob}). "
+                    f"log approximation is in-exact",
+                    RuntimeWarning,
+                )
 
             mean = np.log(par1)
             var = np.power(par2 / par1, 2)
@@ -132,7 +133,7 @@ class Norm(BayesABDist):
     @staticmethod
     def gq(n, par1, par2):
         if par2 <= 0:
-            raise RuntimeError('got negative standard deviation.')
+            raise RuntimeError("got negative standard deviation.")
 
         x, w, m = roots_hermitenorm(int(n), True)
         x = par2 * x + par1
