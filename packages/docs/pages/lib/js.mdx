@@ -1,6 +1,6 @@
-# Javascript
+# GrowthBook Javascript Client Library
 
-View the full documentation on [GitHub](https://github.com/growthbook/growthbook-js).
+Supports both browser and NodeJS environments.
 
 ## Installation
 
@@ -14,7 +14,7 @@ or use directly in your HTML without installing first:
 
 ```html
 <script type="module">
-  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/growthbook.esm.js";
+  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
   //...
 </script>
 ```
@@ -209,7 +209,7 @@ The full list of experiment properties you can override is:
 - groups
 - url (can use string instead of regex if serializing in a database)
 
-If you use the Growth Book App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format. It's a great way to make sure your experiments are always up-to-date.
+If you use the GrowthBook App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format. It's a great way to make sure your experiments are always up-to-date.
 
 ## Typescript
 
@@ -281,3 +281,25 @@ mixpanel.track("$experiment_started", {
   "Variant name": result.variationId,
 });
 ```
+
+### Analysis
+
+Now just connect GrowthBook to the data source where your tracked events end up (Mixpanel, GA, or a data warehouse like Snowflake)
+and you can pull the data, run it through the built-in stats engine, and analyze results.
+
+## Dev Mode
+
+If you are using this library to run experiments client-side in a browser, you can use the GrowthBook Dev Mode widget to make development and testing easier.
+
+Simply add the following script tag to your development or staging site:
+
+```html
+<script
+  async
+  src="https://unpkg.com/@growthbook/dev/dist/bundles/index.min.js"
+></script>
+```
+
+and you should see the Dev Mode widget on the bottom-left of your screen
+
+![Dev Mode Variation Switcher](/images/variation-switcher.png)

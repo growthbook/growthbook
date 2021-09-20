@@ -8,22 +8,27 @@ import {
   ImpactEstimationResult,
   MetricValueParams,
   UsersQueryParams,
-  MetricValueResult,
-  UsersResult,
   SourceIntegrationInterface,
   VariationMetricResult,
-  PastExperimentResult,
   ExperimentMetricQueryParams,
-  ExperimentMetricResult,
   ExperimentUsersQueryParams,
-  ExperimentUsersResult,
   PastExperimentParams,
+  PastExperimentResponse,
+  ExperimentUsersQueryResponse,
+  ExperimentMetricQueryResponse,
+  UsersQueryResponse,
+  MetricValueQueryResponse,
+  MetricValueQueryResponseRow,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import {
+  processMetricValueQueryResponse,
+  processUsersQueryResponse,
+} from "../services/queries";
 
 const percentileNumbers = [
   0.01,
@@ -40,36 +45,6 @@ const percentileNumbers = [
   0.95,
   0.99,
 ];
-
-type UsersQueryResponse = {
-  date?: string;
-  users: string;
-}[];
-type MetricValueQueryResponse = {
-  date?: string;
-  count: string;
-  mean: string;
-  stddev: string;
-}[];
-type PastExperimentResponse = {
-  experiment_id: string;
-  variation_id: string;
-  start_date: string;
-  end_date: string;
-  users: string;
-}[];
-type ExperimentUsersQueryResponse = {
-  dimension?: string;
-  variation: string;
-  users: string;
-}[];
-type ExperimentMetricQueryResponse = {
-  dimension?: string;
-  variation: string;
-  count: string;
-  mean: string;
-  stddev: string;
-}[];
 
 export function getExperimentQuery(
   settings: DataSourceSettings,
@@ -147,6 +122,7 @@ export default abstract class SqlIntegration
   abstract percentile(col: string, percentile: number): string;
   // eslint-disable-next-line
   abstract getNonSensitiveParams(): any;
+
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     this.setParams(encryptedParams);
     this.settings = {
@@ -275,20 +251,18 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {
-    const rows: PastExperimentResponse = await this.runQuery(query);
+  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
+    const rows = await this.runQuery(query);
 
-    return {
-      experiments: rows.map((r) => {
-        return {
-          users: parseInt(r.users),
-          end_date: this.convertDate(r.end_date),
-          start_date: this.convertDate(r.start_date),
-          experiment_id: r.experiment_id,
-          variation_id: r.variation_id,
-        };
-      }),
-    };
+    return rows.map((row) => {
+      return {
+        experiment_id: row.experiment_id,
+        variation_id: row.variation_id ?? "",
+        users: parseInt(row.users) || 0,
+        end_date: this.convertDate(row.end_date).toISOString(),
+        start_date: this.convertDate(row.start_date).toISOString(),
+      };
+    });
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
@@ -485,162 +459,65 @@ export default abstract class SqlIntegration
   }
 
   async runExperimentUsersQuery(
-    experiment: ExperimentInterface,
     query: string
-  ): Promise<ExperimentUsersResult> {
-    const rows: ExperimentUsersQueryResponse = await this.runQuery(query);
-    const ret: ExperimentUsersResult = {
-      dimensions: [],
-      unknownVariations: [],
-    };
-
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
+  ): Promise<ExperimentUsersQueryResponse> {
+    const rows = await this.runQuery(query);
+    return rows.map((row) => {
+      return {
+        dimension: row.dimension || "",
+        variation: row.variation ?? "",
+        users: parseInt(row.users),
+      };
     });
-
-    const dimensionMap = new Map<string, number>();
-    rows.forEach(({ variation, dimension, users }) => {
-      let i = 0;
-      if (dimensionMap.has(dimension)) {
-        i = dimensionMap.get(dimension);
-      } else {
-        i = ret.dimensions.length;
-        ret.dimensions.push({
-          dimension,
-          variations: [],
-        });
-        dimensionMap.set(dimension, i);
-      }
-
-      const varIndex =
-        (this.settings?.variationIdFormat ||
-          this.settings?.experiments?.variationFormat) === "key"
-          ? variationKeyMap.get(variation)
-          : parseInt(variation);
-      if (
-        typeof varIndex === "undefined" ||
-        varIndex < 0 ||
-        varIndex >= experiment.variations.length
-      ) {
-        ret.unknownVariations.push(variation);
-        return;
-      }
-
-      ret.dimensions[i].variations.push({
-        variation: varIndex,
-        users: parseInt(users) || 0,
-      });
-    });
-
-    return ret;
   }
+
   async runExperimentMetricQuery(
-    experiment: ExperimentInterface,
     query: string
-  ): Promise<ExperimentMetricResult> {
-    const rows: ExperimentMetricQueryResponse = await this.runQuery(query);
-    const ret: ExperimentMetricResult = {
-      dimensions: [],
-    };
-
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
+  ): Promise<ExperimentMetricQueryResponse> {
+    const rows = await this.runQuery(query);
+    return rows.map((row) => {
+      return {
+        variation: row.variation ?? "",
+        dimension: row.dimension || "",
+        count: parseFloat(row.count) || 0,
+        mean: parseFloat(row.mean) || 0,
+        stddev: parseFloat(row.stddev) || 0,
+      };
     });
-
-    const dimensionMap = new Map<string, number>();
-    rows.forEach(({ variation, dimension, count, mean, stddev }) => {
-      let i = 0;
-      if (dimensionMap.has(dimension)) {
-        i = dimensionMap.get(dimension);
-      } else {
-        i = ret.dimensions.length;
-        ret.dimensions.push({
-          dimension,
-          variations: [],
-        });
-        dimensionMap.set(dimension, i);
-      }
-
-      const varIndex =
-        (this.settings?.variationIdFormat ||
-          this.settings?.experiments?.variationFormat) === "key"
-          ? variationKeyMap.get(variation)
-          : parseInt(variation);
-      if (varIndex < 0 || varIndex >= experiment.variations.length) {
-        console.log("Unexpected variation", variation);
-        return;
-      }
-
-      ret.dimensions[i].variations.push({
-        variation: varIndex,
-        stats: {
-          mean: parseFloat(mean) || 0,
-          count: parseFloat(count) || 0,
-          stddev: parseFloat(stddev) || 0,
-        },
-      });
-    });
-
-    return ret;
   }
 
-  async runUsersQuery(query: string): Promise<UsersResult> {
-    const rows: UsersQueryResponse = await this.runQuery(query);
-    const ret: UsersResult = {
-      users: 0,
-    };
-    rows.forEach((row) => {
-      const { users, date } = row;
-      if (date) {
-        ret.dates = ret.dates || [];
-        ret.dates.push({
-          date: this.convertDate(date).toISOString(),
-          users: parseInt(users) || 0,
-        });
-      } else {
-        ret.users = parseInt(users) || 0;
-      }
-    });
-
-    return ret;
-  }
-  async runMetricValueQuery(query: string): Promise<MetricValueResult> {
+  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
     const rows = await this.runQuery(query);
 
-    const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
+    return rows.map((row) => {
+      return {
+        date: row.date ? this.convertDate(row.date).toISOString() : "",
+        users: parseInt(row.users) || 0,
+      };
+    });
+  }
 
-    rows.forEach((row) => {
+  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
+    const rows = await this.runQuery(query);
+
+    return rows.map((row) => {
       const { date, count, mean, stddev, ...percentiles } = row;
 
-      // Row for each date
-      if (date) {
-        ret.dates = ret.dates || [];
-        ret.dates.push({
-          date: this.convertDate(date).toISOString(),
-          count: parseInt(count) || 0,
-          mean: parseFloat(mean) || 0,
-          stddev: parseFloat(stddev) || 0,
+      const ret: MetricValueQueryResponseRow = {
+        date: date ? this.convertDate(date).toISOString() : "",
+        count: parseInt(count) || 0,
+        mean: parseFloat(mean) || 0,
+        stddev: parseFloat(stddev) || 0,
+      };
+
+      if (percentiles) {
+        Object.keys(percentiles).forEach((p) => {
+          ret[p] = parseFloat(percentiles[p]) || 0;
         });
       }
-      // Overall numbers
-      else {
-        ret.count = parseInt(count) || 0;
-        ret.mean = parseFloat(mean) || 0;
-        ret.stddev = parseFloat(stddev) || 0;
 
-        if (percentiles) {
-          Object.keys(percentiles).forEach((p) => {
-            ret.percentiles = ret.percentiles || {};
-            ret.percentiles[p.replace(/^p/, "")] =
-              parseInt(percentiles[p]) || 0;
-          });
-        }
-      }
+      return ret;
     });
-
-    return ret;
   }
 
   getFormatOptions(): FormatOptions {
@@ -697,45 +574,30 @@ export default abstract class SqlIntegration
       segmentName: segment?.name,
     });
 
-    const [users, metricTotal, value]: [
+    const [usersResponse, metricTotalResponse, valueResponse]: [
       UsersQueryResponse,
       MetricValueQueryResponse,
       MetricValueQueryResponse
     ] = await Promise.all([
-      this.runQuery(usersSql),
-      this.runQuery(metricSql),
-      this.runQuery(valueSql),
+      this.runUsersQuery(usersSql),
+      this.runMetricValueQuery(metricSql),
+      this.runMetricValueQuery(valueSql),
     ]);
+
+    const users = processUsersQueryResponse(usersResponse);
+    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
+    const value = processMetricValueQueryResponse(valueResponse);
 
     const formatted =
       [usersSql, metricSql, valueSql]
         .map((sql) => format(sql, this.getFormatOptions()))
         .join(";\n\n") + ";";
 
-    if (
-      users &&
-      metricTotal &&
-      value &&
-      users[0] &&
-      metricTotal[0] &&
-      value[0]
-    ) {
-      return {
-        query: formatted,
-        users: (parseInt(users[0].users) || 0) / numDays,
-        value:
-          (parseInt(value[0].count) * parseFloat(value[0].mean) || 0) / numDays,
-        metricTotal:
-          (parseInt(metricTotal[0].count) * parseFloat(metricTotal[0].mean) ||
-            0) / numDays,
-      };
-    }
-
     return {
       query: formatted,
-      users: 0,
-      value: 0,
-      metricTotal: 0,
+      users: users.users,
+      value: (value.count * value.mean) / numDays,
+      metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
     };
   }
 

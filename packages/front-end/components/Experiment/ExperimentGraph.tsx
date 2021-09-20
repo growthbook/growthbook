@@ -88,7 +88,7 @@ export default function ExperimentGraph({
                     key={d.name + i}
                     x={barX + 5}
                     y={barY}
-                    width={barWidth - 10}
+                    width={Math.max(10, barWidth - 10)}
                     height={barHeight}
                     fill="#029dd1"
                   />

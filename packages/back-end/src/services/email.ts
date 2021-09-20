@@ -57,7 +57,7 @@ async function sendMail({
 
   try {
     await transporter.sendMail({
-      from: `"Growth Book" <${EMAIL_FROM}>`,
+      from: `"GrowthBook" <${EMAIL_FROM}>`,
       to,
       subject,
       text,
@@ -85,9 +85,9 @@ export async function sendInviteEmail(
 
   await sendMail({
     html,
-    subject: `You've been invited to join ${organization.name} on Growth Book`,
+    subject: `You've been invited to join ${organization.name} on GrowthBook`,
     to: invite.email,
-    text: `Join ${organization.name} on Growth Book by visiting ${inviteUrl}`,
+    text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
   });
 }
 
@@ -128,7 +128,7 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   });
   await sendMail({
     html,
-    subject: "Reset Growth Book Password",
+    subject: "Reset GrowthBook Password",
     to: email,
     text: `Reset your password by visiting ${resetUrl}`,
   });

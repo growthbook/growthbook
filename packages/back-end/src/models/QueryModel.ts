@@ -28,6 +28,7 @@ const querySchema = new mongoose.Schema({
   finishedAt: Date,
   heartbeat: Date,
   result: {},
+  rawResult: [],
   error: String,
 });
 

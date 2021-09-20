@@ -6,13 +6,14 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import {
   formatConversionRate,
   getMetricConversionTitle,
 } from "../../services/metrics";
+import Field from "../Forms/Field";
 
 type SnapshotPreview = {
   srm: number;
@@ -38,9 +39,6 @@ const ManualSnapshotForm: FC<{
       filteredMetrics.push(m);
     });
   }
-  const formKey =
-    (lastSnapshot ? lastSnapshot.id : "") +
-    filteredMetrics.map((m) => m.id).join("-");
 
   const initialValue: {
     users: number[];
@@ -71,13 +69,15 @@ const ManualSnapshotForm: FC<{
     }
   });
   const [hash, setHash] = useState(null);
-  const [values, inputProps] = useForm(initialValue, formKey, {
-    className: "form-control",
-    onBlur: () => {
-      setHash(JSON.stringify(values));
-    },
+  const form = useForm({
+    defaultValues: initialValue,
   });
   const [preview, setPreview] = useState<SnapshotPreview>(null);
+
+  const values = {
+    metrics: form.watch("metrics"),
+    users: form.watch("users"),
+  };
 
   function getStats() {
     const ret: { [key: string]: MetricStats[] } = {};
@@ -166,7 +166,7 @@ const ManualSnapshotForm: FC<{
     }
   }, [hash]);
 
-  const onSubmit = async () => {
+  const onSubmit = form.handleSubmit(async (values) => {
     await apiCall<{ status: number; message: string }>(
       `/experiment/${experiment.id}/snapshot`,
       {
@@ -180,7 +180,7 @@ const ManualSnapshotForm: FC<{
     );
 
     success();
-  };
+  });
 
   return (
     <Modal
@@ -192,18 +192,25 @@ const ManualSnapshotForm: FC<{
       submit={onSubmit}
     >
       <p>Manually enter the latest data for the experiment below.</p>
-      <div style={{ overflowY: "auto", overflowX: "hidden" }}>
+      <div
+        style={{ overflowY: "auto", overflowX: "hidden" }}
+        onBlur={(e) => {
+          if (e.target.tagName !== "INPUT") return;
+          setHash(JSON.stringify(form.getValues()));
+        }}
+      >
         <div className="mb-3">
           <h4>Users</h4>
           <div className="row">
             {experiment.variations.map((v, i) => (
               <div className="col-auto" key={i}>
-                <div className="input-group">
-                  <div className="input-group-prepend">
-                    <div className="input-group-text">{v.name}</div>
-                  </div>
-                  <input type="number" required {...inputProps.users[i]} />
-                </div>
+                <Field
+                  type="number"
+                  step="1"
+                  required
+                  prepend={v.name}
+                  {...form.register(`users.${i}`, { valueAsNumber: true })}
+                />
               </div>
             ))}
             {preview && preview.srm < 0.001 && (
@@ -250,43 +257,58 @@ const ManualSnapshotForm: FC<{
                     <td>{v.name}</td>
                     {m.type === "binomial" ? (
                       <td>
-                        <input
+                        <Field
                           type="number"
+                          step="1"
                           required
-                          {...inputProps.metrics[m.id][i].count}
+                          {...form.register(`metrics.${m.id}.${i}.count`, {
+                            valueAsNumber: true,
+                          })}
                         />
                       </td>
                     ) : m.type === "count" ? (
                       <td>
-                        <input
+                        <Field
                           type="number"
+                          step="any"
                           required
-                          {...inputProps.metrics[m.id][i].mean}
+                          {...form.register(`metrics.${m.id}.${i}.mean`, {
+                            valueAsNumber: true,
+                          })}
                         />
                       </td>
                     ) : (
                       <>
                         {m.type === "revenue" && (
                           <td>
-                            <input
+                            <Field
                               type="number"
+                              step="1"
                               required
-                              {...inputProps.metrics[m.id][i].count}
+                              {...form.register(`metrics.${m.id}.${i}.count`, {
+                                valueAsNumber: true,
+                              })}
                             />
                           </td>
                         )}
                         <td>
-                          <input
+                          <Field
                             type="number"
+                            step="any"
                             required
-                            {...inputProps.metrics[m.id][i].mean}
+                            {...form.register(`metrics.${m.id}.${i}.mean`, {
+                              valueAsNumber: true,
+                            })}
                           />
                         </td>
                         <td>
-                          <input
+                          <Field
                             type="number"
+                            step="any"
                             required
-                            {...inputProps.metrics[m.id][i].stddev}
+                            {...form.register(`metrics.${m.id}.${i}.stddev`, {
+                              valueAsNumber: true,
+                            })}
                           />
                         </td>
                       </>

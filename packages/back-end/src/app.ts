@@ -110,7 +110,7 @@ app.use(compression());
 
 app.get("/", (req, res) => {
   res.json({
-    name: "Growth Book API",
+    name: "GrowthBook API",
     production: process.env.NODE_ENV === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
@@ -244,6 +244,11 @@ if (UPLOAD_METHOD === "local") {
     organizationsController.putUpload
   );
   app.use("/upload", express.static(uploadDir));
+
+  // Stop upload requests from running any of the middlewares defined below
+  app.use("/upload", () => {
+    return;
+  });
 }
 
 // All other routes require a valid JWT
@@ -390,6 +395,10 @@ app.get(
 app.post(
   "/experiments/import/:id/cancel",
   experimentsController.cancelPastExperiments
+);
+app.post(
+  "/experiments/notebook/:id",
+  experimentsController.postSnapshotNotebook
 );
 
 // Segments

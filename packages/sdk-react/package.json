@@ -1,0 +1,65 @@
+{
+  "name": "@growthbook/growthbook-react",
+  "version": "0.5.0",
+  "license": "MIT",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "typings": "dist/types/index.d.ts",
+  "exports": {
+    "require": "./dist/cjs/index.js",
+    "import": "./dist/esm/index.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-react"
+  },
+  "scripts": {
+    "build:bundles": "rollup -c",
+    "build:clean": "rm -rf dist",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
+    "test": "jest",
+    "type-check": "tsc --pretty --noEmit",
+    "size": "gzip-size ./dist/esm/index.js --include-original"
+  },
+  "author": "Jeremy Dorn",
+  "peerDependencies": {
+    "react": "^16.8.0-0 || ^17.0.0-0"
+  },
+  "dependencies": {
+    "@growthbook/growthbook": "^0.13.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.15.4",
+    "@babel/core": "^7.15.5",
+    "@babel/preset-react": "^7.14.5",
+    "@babel/preset-typescript": "^7.15.0",
+    "@rollup/plugin-babel": "^5.3.0",
+    "@rollup/plugin-commonjs": "^20.0.0",
+    "@rollup/plugin-node-resolve": "^13.0.4",
+    "@rollup/plugin-replace": "^3.0.0",
+    "@types/jest": "^27.0.1",
+    "@types/react": "^17.0.3",
+    "@types/react-dom": "^17.0.3",
+    "gzip-size-cli": "^5.0.0",
+    "jest": "^27.1.1",
+    "npm-run-all": "^4.1.5",
+    "rollup": "^2.56.3",
+    "ts-jest": "^27.0.5",
+    "typescript": "4.3.5"
+  },
+  "browserslist": [
+    "defaults",
+    "not IE 11",
+    "maintained node versions"
+  ]
+}

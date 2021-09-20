@@ -1,6 +1,7 @@
 import { FC, useRef, useEffect, useState, ReactElement } from "react";
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
+import Portal from "./Modal/Portal";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -63,7 +64,7 @@ const Modal: FC<ModalProps> = ({
           <h5 className="modal-title">
             {header === "logo" ? (
               <img
-                alt="Growth Book"
+                alt="GrowthBook"
                 src="/logo/growthbook-logo.png"
                 style={{ height: 40 }}
               />
@@ -144,7 +145,7 @@ const Modal: FC<ModalProps> = ({
     : null;
 
   return (
-    <>
+    <Portal>
       {!inline && (
         <div
           className={clsx("modal-backdrop fade", {
@@ -198,7 +199,7 @@ const Modal: FC<ModalProps> = ({
           )}
         </div>
       </div>
-    </>
+    </Portal>
   );
 };
 

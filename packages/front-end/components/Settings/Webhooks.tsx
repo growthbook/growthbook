@@ -27,7 +27,7 @@ const Webhooks: FC = () => {
       {open && <WebhooksModal close={() => setOpen(false)} onCreate={mutate} />}
       <p>
         Webhooks push the latest experiment overrides to your server whenever an
-        experiment is modified within the Growth Book app.{" "}
+        experiment is modified within the GrowthBook app.{" "}
         <a
           href="https://docs.growthbook.io/app/webhooks"
           target="_blank"

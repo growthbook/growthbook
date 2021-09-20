@@ -1,33 +1,30 @@
 import { FC } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import TagsInput from "../TagsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const IdeaForm: FC<{
   idea: Partial<IdeaInterface>;
   mutate: () => void;
   close: () => void;
 }> = ({ idea, close, mutate }) => {
-  const [value, inputProps, manualUpdate] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       text: idea.text || "",
       tags: idea.tags || [],
     },
-    idea.id || "new",
-    {
-      className: "form-control",
-    }
-  );
+  });
 
   const edit = !!idea.id;
 
   const { apiCall } = useAuth();
   const { refreshTags } = useDefinitions();
 
-  const submit = async () => {
+  const submit = form.handleSubmit(async (value) => {
     const body = {
       ...value,
     };
@@ -41,7 +38,7 @@ const IdeaForm: FC<{
     );
     mutate();
     refreshTags(value.tags);
-  };
+  });
 
   return (
     <Modal
@@ -52,20 +49,16 @@ const IdeaForm: FC<{
       cta={edit ? "Save" : "Create"}
       closeCta="Cancel"
     >
-      <div className={`form-group`}>
-        <label>Short Description</label>
-        <input type="text" required {...inputProps.text} />
-        <small className="form-text text-muted">
-          You&apos;ll be able to add more details later
-        </small>
-      </div>
+      <Field
+        required
+        {...form.register("text")}
+        helpText="You'll be able to add more details later"
+      />
       <div className="form-group">
         <label>Tags</label>
         <TagsInput
-          value={value.tags}
-          onChange={(tags) => {
-            manualUpdate({ tags });
-          }}
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
     </Modal>

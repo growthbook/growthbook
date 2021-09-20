@@ -3,9 +3,10 @@ import { useAuth } from "../../services/auth";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import Button from "../Button";
 import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
 import { MetricInterface } from "back-end/types/metric";
+import Field from "../Forms/Field";
 
 export type SaveImpactFunction = (data: {
   estimate: ImpactEstimateInterface;
@@ -62,14 +63,13 @@ const ImpactSummary: FC<{
     initialEstimate || null
   );
   const [manualModalOpen, setManualModalOpen] = useState(false);
-  const [values, inputProps] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       value: 0,
       metricTotal: 0,
       users: 0,
     },
-    metric + regex
-  );
+  });
 
   if (!metric) {
     return null;
@@ -82,7 +82,7 @@ const ImpactSummary: FC<{
         header="Estimated Impact: More Info Needed"
         open={true}
         close={() => setManualModalOpen(false)}
-        submit={async () => {
+        submit={form.handleSubmit(async (values) => {
           const res = await apiCall<{ estimate: ImpactEstimateInterface }>(
             `/ideas/estimate/manual`,
             {
@@ -95,27 +95,20 @@ const ImpactSummary: FC<{
             }
           );
           setEstimate(res.estimate);
-        }}
+        })}
       >
         <p>
           <strong>Metric:</strong> {metric.name}
         </p>
         <h4>Entire Site</h4>
-        <div className="form-group">
-          Completed Metric
-          <div className="input-group">
-            <input
-              type="number"
-              className="form-control"
-              min="1"
-              required
-              {...inputProps.metricTotal}
-            />
-            <div className="input-group-append">
-              <div className="input-group-text">users per day</div>
-            </div>
-          </div>
-        </div>
+        <Field
+          label="Completed Metric"
+          type="number"
+          min="1"
+          required
+          {...form.register("metricTotal", { valueAsNumber: true })}
+          append="users per day"
+        />
         <hr />
         <h4>Selected URLs Only</h4>
         <div className="bg-white border p-2 my-3">
@@ -123,36 +116,22 @@ const ImpactSummary: FC<{
             <code>{regex}</code>
           </strong>
         </div>
-        <div className="form-group">
-          Viewed Experiment URLs
-          <div className="input-group">
-            <input
-              type="number"
-              className="form-control"
-              min="1"
-              required
-              {...inputProps.users}
-            />
-            <div className="input-group-append">
-              <div className="input-group-text">users per day</div>
-            </div>
-          </div>
-        </div>
-        <div className="form-group">
-          Completed Metric
-          <div className="input-group">
-            <input
-              type="number"
-              className="form-control"
-              min="1"
-              required
-              {...inputProps.value}
-            />
-            <div className="input-group-append">
-              <div className="input-group-text">users per day</div>
-            </div>
-          </div>
-        </div>
+        <Field
+          label="Viewed Experiment URLs"
+          type="number"
+          min="1"
+          required
+          {...form.register("users", { valueAsNumber: true })}
+          append="users per day"
+        />
+        <Field
+          label="Completed Metric"
+          type="number"
+          min="1"
+          required
+          {...form.register("value", { valueAsNumber: true })}
+          append="users per day"
+        />
       </Modal>
     );
   }

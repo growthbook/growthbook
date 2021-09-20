@@ -559,6 +559,7 @@ export async function createSnapshot(
     phase: phaseIndex,
     manual: false,
     queries,
+    hasRawQueries: true,
     queryLanguage: integration.getSourceProperties().queryLanguage,
     dimension: dimensionId,
     results: results?.dimensions,

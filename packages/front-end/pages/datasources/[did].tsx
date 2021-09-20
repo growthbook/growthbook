@@ -113,7 +113,7 @@ const DataSourcePage: FC = () => {
                     setEditSettings(true);
                   }}
                 >
-                  <FaCode /> Edit {supportsSQL ? "Queries" : "Query Settings"}
+                  <FaCode /> Edit Query Settings
                 </a>
               </div>
             )}
@@ -144,7 +144,6 @@ const DataSourcePage: FC = () => {
                   })}
                 </tbody>
               </table>
-              <ul></ul>
             </>
           )}
           {supportsSQL && (
@@ -210,6 +209,24 @@ const DataSourcePage: FC = () => {
                   )}
                 />
               </div>
+              <div className="mb-4">
+                <h3>Jupyter Notebook Query Runner</h3>
+                <div>
+                  Defines a Python <code>runQuery</code> function that executes
+                  a SQL query and returns a pandas data frame.
+                </div>
+                <div className="mt-2">
+                  Used to generate Jupyter Notebooks for experiments in this
+                  data source.
+                </div>
+                <Code
+                  code={
+                    d.settings?.notebookRunQuery ||
+                    "def runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
+                  }
+                  language="python"
+                />
+              </div>
             </>
           )}
         </div>
@@ -220,7 +237,7 @@ const DataSourcePage: FC = () => {
                 <h2>Import Past Experiments</h2>
                 <p>
                   If you have past experiments already in your data source, you
-                  can import them to Growth Book.
+                  can import them to GrowthBook.
                 </p>
                 <Button
                   color="outline-primary"

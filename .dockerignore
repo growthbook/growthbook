@@ -1,15 +1,19 @@
 # Build and test artifacts
 .git
 .github
-node_modules
-packages/front-end/.next
-packages/back-end/coverage
+**/node_modules
+**/coverage
+**/.next
 **/dist
 **/*.log
+**/dummy
 
-# Docs package
+# Other packages
 packages/docs
+packages/sdk-**
+packages/stats
 
 # Secrets / private data
 **/*.env.local
+**/config.yml
 packages/back-end/uploads

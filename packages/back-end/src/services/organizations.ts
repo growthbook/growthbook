@@ -177,6 +177,9 @@ export async function inviteUser(
     invites,
   });
 
+  // append the new invites to the existin object (or refetch)
+  organization.invites = invites;
+
   let emailSent = false;
   if (isEmailEnabled()) {
     try {

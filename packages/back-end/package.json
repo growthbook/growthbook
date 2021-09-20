@@ -4,15 +4,12 @@
   "private": true,
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "build:python": "rm -rf dist/python && mkdir -p dist/python && cp -r src/python/* dist/python",
     "build:clean": "rm -rf dist",
     "build:typescript": "tsc",
     "dev": "node-dev src/server.ts",
-    "build": "yarn build:clean && yarn build:typescript && yarn build:python && yarn build:emails",
+    "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
-    "test:node": "NO_INIT=1 jest --forceExit --coverage --verbose --detectOpenHandles",
-    "test:python": "cd src/python && python3 -m unittest discover",
-    "test": "yarn test:python && yarn test:node",
+    "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
     "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
@@ -54,6 +51,7 @@
     "pino-pretty": "^5.1.0",
     "presto-client": "^0.11.2",
     "python-shell": "^3.0.0",
+    "saslprep": "^1.0.0",
     "snowflake-promise": "^4.5.0",
     "sql-formatter": "^4.0.2",
     "string-env-interpolation": "^1.0.1",
@@ -61,7 +59,6 @@
     "uniqid": "^5.3.0"
   },
   "devDependencies": {
-    "@shelf/jest-mongodb": "^1.2.5",
     "@types/async": "^3.0.2",
     "@types/body-parser": "^1.17.1",
     "@types/compression": "^1.7.0",
@@ -71,7 +68,7 @@
     "@types/errorhandler": "^0.0.32",
     "@types/express": "^4.17.1",
     "@types/express-jwt": "^0.0.42",
-    "@types/jest": "^24.0.23",
+    "@types/jest": "^27.0.1",
     "@types/js-yaml": "^4.0.2",
     "@types/jsonwebtoken": "^8.5.1",
     "@types/lodash": "^4.14.157",
@@ -85,15 +82,13 @@
     "@types/request": "^2.48.3",
     "@types/request-promise": "^4.1.44",
     "@types/sql-formatter": "^2.3.0",
-    "@types/supertest": "^2.0.9",
     "@types/uniqid": "^5.2.0",
-    "jest": "^26.6.3",
+    "jest": "^27.1.1",
     "node-dev": "^7.0.0",
     "objects-to-csv": "^1.3.6",
-    "supertest": "^4.0.2",
-    "ts-jest": "^26.5.6",
+    "ts-jest": "^27.0.5",
     "ts-node": "^10.0.0",
-    "typescript": "^4.2.4"
+    "typescript": "4.3.5"
   },
   "license": "MIT"
 }
