@@ -4,6 +4,11 @@ const pg = require("pg");
 const { MongoClient } = require("mongodb");
 const { POSTGRES_TEST_CONN } = require("../../src/util/secrets");
 
+const args = process.argv.slice(2);
+
+const mongoOnly = args[0] === "mongo";
+const dbOnly = args[0] === "db";
+
 if (!fs.existsSync("./dummy/users.csv")) {
   console.error(
     "Missing CSV files. Make sure to run `yarn generate-dummy-data` first."
@@ -111,17 +116,22 @@ async function run() {
   try {
     const time = Date.now();
     console.log(new Date(), "Starting");
-    await client.connect();
-    console.log(new Date(), "Connected to Postgres");
-    await Promise.all(dropQueries.map((q) => client.query(q)));
-    console.log(new Date(), "DROP TABLE complete");
-    await Promise.all(createQueries.map((q) => client.query(q)));
-    console.log(new Date(), "CREATE TABLE complete");
-    await Promise.all(insertQueries.map((q) => client.query(q)));
-    console.log(new Date(), "INSERT INTO complete");
-    await client.end();
-    await updateMongo();
-    console.log(new Date(), "Mongo Update complete");
+
+    if (!mongoOnly) {
+      await client.connect();
+      console.log(new Date(), "Connected to Postgres");
+      await Promise.all(dropQueries.map((q) => client.query(q)));
+      console.log(new Date(), "DROP TABLE complete");
+      await Promise.all(createQueries.map((q) => client.query(q)));
+      console.log(new Date(), "CREATE TABLE complete");
+      await Promise.all(insertQueries.map((q) => client.query(q)));
+      console.log(new Date(), "INSERT INTO complete");
+      await client.end();
+    }
+    if (!dbOnly) {
+      await updateMongo();
+      console.log(new Date(), "Mongo Update complete");
+    }
     console.log("Finished! Took", Date.now() - time, "ms");
     process.exit(0);
   } catch (e) {
