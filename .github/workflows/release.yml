@@ -20,6 +20,8 @@ jobs:
 
       - name: Add tag to latest image
         run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          
           # Pull the latest image
           docker pull growthbook/growthbook:latest
 
