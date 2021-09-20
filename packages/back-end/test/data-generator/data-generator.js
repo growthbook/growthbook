@@ -30,21 +30,26 @@ d.setMonth(d.getMonth() - 2);
 const startDate = d.toDateString();
 const endDate = new Date().toDateString();
 
+function pickRandom(options, skew = 1) {
+  const n = Math.pow(options.length, skew);
+  const i = Math.floor(Math.pow(Math.random() * n, 1 / skew));
+  return options[options.length - i - 1];
+}
+
 // max time intervals between events, in seconds (randomized):
 const smallTimeEvent = 20; // twenty seconds
 const largeTimeEvent = 24 * 60 * 60; // sessions, 1 day
 
 const genders = ["male", "female", ""];
-const browsers = ["Chrome", "Safari", "Firefox", "Edge"];
-const devices = ["mobile", "desktop"];
-const geos = [
-  "North America",
-  "Europe",
-  "Asia",
-  "Africa",
-  "South America",
-  "Australasia",
+const browsers = [
+  "chrome for android",
+  "mobile safari",
+  "chrome desktop",
+  "safari desktop",
+  "edge desktop",
+  "firefox desktop",
 ];
+const geos = ["US", "CA", "UK", "Other", "IN"];
 
 // ---
 
@@ -89,6 +94,7 @@ for (let i = 1; i < numUsers; i++) {
   let sessionInfo = {
     session_id: sessionId,
     user_id: userId,
+    anonymous_id: userId,
     date_start: format_time(userTime),
     date_end: "",
     duration_seconds: 0,
@@ -98,14 +104,16 @@ for (let i = 1; i < numUsers; i++) {
   // add to user table
   users.push({
     user_id: userId,
+    anonymous_id: userId,
     received_at: format_time(userTime),
     gender: genders[Math.floor(Math.random() * genders.length)],
-    geo: geos[Math.floor(Math.random() * geos.length)],
+    geo_country: pickRandom(geos, 3),
   });
 
   // add a page view
   pages.push({
     user_id: userId,
+    anonymous_id: userId,
     received_at: format_time(userTime),
     path: allPages[Math.floor(Math.random() * allPages.length)],
   });
@@ -116,11 +124,11 @@ for (let i = 1; i < numUsers; i++) {
     const varIndex = Math.round(Math.random()); // 0 or 1
     experiment_viewed.push({
       user_id: userId,
+      anonymous_id: userId,
       received_at: format_time(userTime),
       experiment_id: exp.id,
       variation_id: varIndex,
-      browser: browsers[Math.floor(Math.random() * browsers.length)],
-      device: devices[Math.floor(Math.random() * devices.length)],
+      user_agent: pickRandom(browsers, 2),
     });
     // does this experiment effect the outcome of anything?
     if (varIndex > 0) {
@@ -159,6 +167,7 @@ for (let i = 1; i < numUsers; i++) {
       sessionInfo = {
         session_id: sessionId,
         user_id: userId,
+        anonymous_id: userId,
         date_start: format_time(userTime),
         date_end: "",
         duration_seconds: 0,
@@ -169,6 +178,7 @@ for (let i = 1; i < numUsers; i++) {
     // add page:
     pages.push({
       user_id: userId,
+      anonymous_id: userId,
       received_at: format_time(userTime),
       path: allPages[Math.floor(Math.random() * allPages.length)],
     });
@@ -180,6 +190,7 @@ for (let i = 1; i < numUsers; i++) {
       // signup viewed:
       viewed_signup.push({
         user_id: userId,
+        anonymous_id: userId,
         received_at: format_time(userTime),
       });
 
@@ -188,6 +199,7 @@ for (let i = 1; i < numUsers; i++) {
       userTime = increment_time(userTime);
       pages.push({
         user_id: userId,
+        anonymous_id: userId,
         received_at: format_time(userTime),
         path: p.pages.register[0],
       });
@@ -200,6 +212,7 @@ for (let i = 1; i < numUsers; i++) {
 
         pages.push({
           user_id: userId,
+          anonymous_id: userId,
           received_at: format_time(userTime),
           path: p.pages.register[1],
         });
@@ -207,6 +220,7 @@ for (let i = 1; i < numUsers; i++) {
 
         signup.push({
           user_id: userId,
+          anonymous_id: userId,
           received_at: format_time(userTime),
         });
       }
@@ -224,6 +238,7 @@ for (let i = 1; i < numUsers; i++) {
         userTime = increment_time(userTime);
         pages.push({
           user_id: userId,
+          anonymous_id: userId,
           received_at: format_time(userTime),
           path: p.pages.purchase[n],
         });
@@ -232,6 +247,7 @@ for (let i = 1; i < numUsers; i++) {
       // add purchase to purchase stats
       purchase.push({
         user_id: userId,
+        anonymous_id: userId,
         received_at: format_time(userTime),
         amount: Math.round(
           Math.random() * (userPurchaseAmount[1] - userPurchaseAmount[0]) +
