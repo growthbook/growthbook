@@ -729,6 +729,10 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
+  if (!IS_CLOUD) {
+    throw new Error("An organization already exists");
+  }
+
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
