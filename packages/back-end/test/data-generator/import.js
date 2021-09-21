@@ -2,7 +2,15 @@
 const fs = require("fs");
 const pg = require("pg");
 const { MongoClient } = require("mongodb");
-const { POSTGRES_TEST_CONN } = require("../../src/util/secrets");
+const dotenv = require("dotenv");
+
+if (fs.existsSync(".env.local")) {
+  dotenv.config({ path: ".env.local" });
+}
+
+const POSTGRES_TEST_CONN = process.env.POSTGRES_TEST_CONN
+  ? JSON.parse(process.env.POSTGRES_TEST_CONN)
+  : {};
 
 const args = process.argv.slice(2);
 
@@ -28,8 +36,8 @@ const client = new pg.Client({
 });
 
 async function updateMongo() {
-  if (!process.env.IMPORT_ORG_ID) return;
-  if (!process.env.MONGO_IMPORT_URI) return;
+  if (!mongoOnly && !process.env.IMPORT_ORG_ID) return;
+  if (!dbOnly && !process.env.MONGO_IMPORT_URI) return;
 
   const data = fs.readFileSync("./dummy/mongo.json");
   const { startDate, endDate, experiments } = JSON.parse(data);
