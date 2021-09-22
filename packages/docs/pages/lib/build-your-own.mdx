@@ -101,16 +101,10 @@ There are a bunch of ordered steps to run an experiment:
 11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
 12. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
 13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-14. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+14. Default variation weights and coverage if not specified
 
     ```js
-    n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
-    ```
-
-15. Apply coverage to weights:
-
-    ```js
-    // Default weights to an even split
+    // Default weights to an even split between all variations
     weights = experiment.weights;
     if (!weights) {
       weights = Array(experiment.variations.length).fill(
@@ -118,27 +112,44 @@ There are a bunch of ordered steps to run an experiment:
       );
     }
 
-    // Multiple each weight by the coverage (or 1 if not set)
-    weights = weights.map((w) => w * (experiment.coverage || 1));
+    // Default coverage to 1 (100%)
+    coverage = experiment.coverage ?? 1
     ```
 
-16. Loop through `weights` until you reach the hash value
+15. Calculate bucket ranges for the variations
 
     ```js
+    // Convert weights/coverage to ranges
+    // 50/50 split at 100% coverage == [[0, 0.5], [0.5, 1]]
+    // 20/80 split with 50% coverage == [[0, 0.1], [0.2, 0.6]]
     cumulative = 0;
-    assigned = -1;
-    for (i = 0; i < weights.length; i++) {
-      cumulative += weights[i];
-      if (n < cumulative) {
-        assigned = i;
-        break;
-      }
-    }
+    ranges = weights.map((w) => {
+      start = cumulative;
+      cumulative += w;
+      return [start, start + coverage * w];
+    });
     ```
 
-17. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
-18. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
-19. Return (**in experiment**, assigned variation)
+16. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+
+    ```js
+    n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
+    ```
+
+17. Assign a variation based on the hash and bucket ranges
+
+    ```js
+    assigned = -1
+    ranges.forEach((range, i) => {
+      if (n >= range[0] && n < range[1]) {
+        assigned = i;
+      }
+    })
+    ```
+
+18. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+19. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
+20. Return (**in experiment**, assigned variation)
 
 ## Remote Config
 
@@ -202,7 +213,8 @@ result = growthbook.run({
   groups: ["beta-testers"],
 });
 
-print(result.value.color, result.value.size); // "blue,small" OR "green,large"
+print(result.value.color, result.value.size);
+// "blue,small" OR "green,large"
 ```
 
 ### Type Hinting
@@ -274,13 +286,7 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 ## Tests
 
-We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages.
-
-1.  Copy/paste the test suite from an existing client library
-2.  Do global search/replace to fix common syntax differences (e.g. replacing `->` in php with `.` in javascript)
-3.  Manually fix the rest of the syntax errors and coding patterns
-4.  Run the tests!
-5.  Go back to step 3 a bunch of times :)
+We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages. Pick the closest existing SDK as a guide and adapt as needed.
 
 ## Getting Help
 
