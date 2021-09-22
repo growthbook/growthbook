@@ -7,12 +7,10 @@ import Modal from "../Modal";
 export default function PickSegmentModal({
   close,
   save,
-  objName,
   segment,
   datasource,
 }: {
   segment: string;
-  objName: string;
   datasource: string;
   close: () => void;
   save: (segment?: string) => Promise<void>;
@@ -40,12 +38,11 @@ export default function PickSegmentModal({
     <Modal
       open={true}
       close={close}
-      header="Change Segment"
+      header="Apply a Segment"
       submit={form.handleSubmit(async (data) => {
         await save(data.segment);
       })}
     >
-      <p>Pick a segment to apply to this {objName}.</p>
       <Field
         label="Segment"
         options={segmentOptions}

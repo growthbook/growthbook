@@ -128,7 +128,6 @@ const MetricPage: FC = () => {
       {segmentOpen && (
         <PickSegmentModal
           close={() => setSegmentOpen(false)}
-          objName={"metric"}
           datasource={metric.datasource || ""}
           save={async (s) => {
             // Update the segment
