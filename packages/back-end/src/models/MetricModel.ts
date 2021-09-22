@@ -62,6 +62,8 @@ const metricSchema = new mongoose.Schema({
         _id: false,
         d: Date,
         v: Number,
+        s: Number,
+        u: Number,
       },
     ],
   },

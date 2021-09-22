@@ -966,7 +966,7 @@ async function getMetricAnalysis(
 
   let total = (metricData.count || 0) * (metricData.mean || 0);
   let count = metricData.count || 0;
-  const dates: { d: Date; v: number }[] = [];
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
 
   // Calculate total from dates
   if (metricData.dates && usersData.dates) {
@@ -988,6 +988,8 @@ async function getMetricAnalysis(
       dates.push({
         d: new Date(d.date),
         v: averageBase > 0 ? dateTotal / averageBase : 0,
+        u: averageBase,
+        s: d.stddev || 0,
       });
     });
   }

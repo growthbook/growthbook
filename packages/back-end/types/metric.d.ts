@@ -17,7 +17,7 @@ export interface MetricAnalysis {
   stddev?: number;
   count?: number;
   percentiles: { p: number; v: number }[];
-  dates: { d: Date; v: number }[];
+  dates: { d: Date; v: number; s?: number; u?: number }[];
 }
 
 export interface Condition {

@@ -45,6 +45,7 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
+import clsx from "clsx";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -61,6 +62,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
+  const [groupby, setGroupby] = useState<"day" | "week">("day");
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -345,9 +347,40 @@ const MetricPage: FC = () => {
                       {analysis.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
                           <h5 className="mb-3">Metric Over Time</h5>
+                          {analysis.dates?.[0]?.u > 0 && (
+                            <div>
+                              <a
+                                className={clsx("badge badge-pill mr-2", {
+                                  "badge-light": groupby === "week",
+                                  "badge-primary": groupby === "day",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("day");
+                                }}
+                              >
+                                day
+                              </a>
+                              <a
+                                className={clsx("badge badge-pill mr-2", {
+                                  "badge-light": groupby === "day",
+                                  "badge-primary": groupby === "week",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("week");
+                                }}
+                              >
+                                week
+                              </a>
+                            </div>
+                          )}
                           <DateGraph
                             type={metric.type}
                             dates={analysis.dates}
+                            groupby={groupby}
                           />
                         </div>
                       )}

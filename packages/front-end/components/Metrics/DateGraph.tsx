@@ -1,5 +1,5 @@
 import { MetricType } from "back-end/types/metric";
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
 import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
@@ -9,17 +9,60 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { LinePath } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
+import setDay from "date-fns/setDay";
 
 const DateGraph: FC<{
   type: MetricType;
-  dates: { d: Date; v: number }[];
-}> = ({ type, dates }) => {
-  const data = dates.map(({ d, v }) => {
-    return {
-      d: new Date(d).getTime(),
-      v,
-    };
-  });
+  groupby?: "day" | "week";
+  dates: { d: Date; v: number; u?: number; s?: number }[];
+}> = ({ type, dates, groupby = "day" }) => {
+  const data = useMemo(
+    () =>
+      dates
+        .reduce(
+          (
+            dates: { key: number; total: number; users: number }[],
+            { d, v, u }
+          ) => {
+            const key = (groupby === "day"
+              ? new Date(d)
+              : setDay(new Date(d), 0)
+            ).getTime();
+
+            const users = u || 1;
+            const total = v * users;
+
+            for (let i = 0; i < dates.length; i++) {
+              if (dates[i].key === key) {
+                const clone = [...dates];
+                clone[i] = {
+                  key,
+                  total: dates[i].total + total,
+                  users: dates[i].users + users,
+                };
+                return clone;
+              }
+            }
+
+            return [
+              ...dates,
+              {
+                key,
+                total,
+                users,
+              },
+            ];
+          },
+          []
+        )
+        .map((row) => {
+          return {
+            d: row.key,
+            v: row.total / row.users,
+          };
+        }),
+    [dates, groupby]
+  );
 
   const height = 220;
 
