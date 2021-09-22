@@ -27,6 +27,7 @@ const metricSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   userIdColumn: String,
+  segment: String,
   anonymousIdColumn: String,
   userIdType: String,
   sql: String,
@@ -44,6 +45,7 @@ const metricSchema = new mongoose.Schema({
   runStarted: Date,
   analysis: {
     createdAt: Date,
+    segment: String,
     users: Number,
     average: Number,
     stddev: Number,
