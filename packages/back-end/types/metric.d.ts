@@ -11,6 +11,7 @@ export interface MetricStats {
 
 export interface MetricAnalysis {
   createdAt: Date;
+  segment?: string;
   users: number;
   average: number;
   stddev?: number;
@@ -41,6 +42,7 @@ export interface MetricInterface {
   loseRisk?: number;
   maxPercentChange?: number;
   minSampleSize?: number;
+  segment?: string;
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";

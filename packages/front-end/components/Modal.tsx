@@ -43,17 +43,21 @@ const Modal: FC<ModalProps> = ({
     setError(externalError);
   }, [externalError]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>();
   useEffect(() => {
-    if (open && bodyRef.current) {
-      const input = bodyRef.current.querySelector<
-        HTMLInputElement | HTMLTextAreaElement
-      >("input,textarea");
-      if (input) {
-        input.focus();
-        input.select();
+    setTimeout(() => {
+      if (open && bodyRef.current) {
+        const input = bodyRef.current.querySelector<
+          HTMLInputElement | HTMLTextAreaElement
+        >("input,textarea,select");
+        if (input) {
+          input.focus();
+          if (input.select) {
+            input.select();
+          }
+        }
       }
-    }
+    }, 70);
   }, [open]);
 
   const contents = (

@@ -43,16 +43,24 @@ import {
 } from "../../services/env";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
+import { BsGear } from "react-icons/bs";
+import PickSegmentModal from "../../components/Segments/PickSegmentModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const { permissions } = useContext(UserContext);
   const { apiCall } = useAuth();
-  const { mutateDefinitions, getDatasourceById } = useDefinitions();
+  const {
+    mutateDefinitions,
+    getDatasourceById,
+    getSegmentById,
+    segments,
+  } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
 
   const [editing, setEditing] = useState(false);
+  const [segmentOpen, setSegmentOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -89,6 +97,8 @@ const MetricPage: FC = () => {
     analysis = null;
   }
 
+  const segment = getSegmentById(metric.segment);
+
   const datasourceSettingsSupport =
     datasource && !["google_analytics"].includes(datasource.type);
   const supportsSQL =
@@ -113,6 +123,29 @@ const MetricPage: FC = () => {
               mutate();
             }
           }}
+        />
+      )}
+      {segmentOpen && (
+        <PickSegmentModal
+          close={() => setSegmentOpen(false)}
+          objName={"metric"}
+          datasource={metric.datasource || ""}
+          save={async (s) => {
+            // Update the segment
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                segment: s || "",
+              }),
+            });
+            // Run the analysis with the new segment
+            await apiCall(`/metric/${metric.id}/analysis`, {
+              method: "POST",
+            });
+            mutateDefinitions({});
+            mutate();
+          }}
+          segment={metric.segment || ""}
         />
       )}
       <div className="mb-2">
@@ -221,7 +254,7 @@ const MetricPage: FC = () => {
               <hr />
               {!!datasource && (
                 <div>
-                  <h4>Data Preview</h4>
+                  <h3>Data Preview</h3>
                   {status === "failed" && (
                     <div className="alert alert-danger my-3">
                       Error running the analysis. View Queries for more info
@@ -235,11 +268,70 @@ const MetricPage: FC = () => {
                           from the previous run.
                         </div>
                       )}
-                      <p>
-                        <small>
-                          last updated on {date(analysis.createdAt)}
-                        </small>
-                      </p>
+                      {status === "succeeded" &&
+                        (metric.segment || analysis.segment) &&
+                        metric.segment !== analysis.segment && (
+                          <div className="alert alert-info">
+                            The graphs below are using an old Segment. Update
+                            them to see the latest numbers.
+                          </div>
+                        )}
+                      <div className="row mb-3 align-items-center">
+                        {segments.length > 0 && (
+                          <div className="col-auto">
+                            {segment?.name ? (
+                              <>
+                                Segment applied:{" "}
+                                <span className="badge badge-secondary mr-1">
+                                  {segment?.name || "Everyone"}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="mr-1">No segment applied</span>
+                            )}
+                            <a
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSegmentOpen(true);
+                              }}
+                              href="#"
+                            >
+                              <BsGear />
+                            </a>
+                          </div>
+                        )}
+                        <div className="col-auto text-muted">
+                          Last updated on {date(analysis.createdAt)}
+                        </div>
+                        <div className="col-auto">
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              try {
+                                await apiCall(`/metric/${metric.id}/analysis`, {
+                                  method: "POST",
+                                });
+                                mutate();
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            <RunQueriesButton
+                              icon="refresh"
+                              cta={analysis ? "Refresh Data" : "Run Analysis"}
+                              initialStatus={getQueryStatus(
+                                metric.queries || []
+                              )}
+                              statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                              onReady={() => {
+                                mutate();
+                              }}
+                            />
+                          </form>
+                        </div>
+                      </div>
                       <div className="mb-4">
                         <div className="d-flex flex-row align-items-end">
                           <div style={{ fontSize: "2.5em" }}>
@@ -280,32 +372,6 @@ const MetricPage: FC = () => {
                     </p>
                   )}
                   <div className="row my-3">
-                    <div className="col-auto text-center">
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          try {
-                            await apiCall(`/metric/${metric.id}/analysis`, {
-                              method: "POST",
-                            });
-                            mutate();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                      >
-                        <RunQueriesButton
-                          icon="refresh"
-                          cta={analysis ? "Refresh Data" : "Run Analysis"}
-                          initialStatus={getQueryStatus(metric.queries || [])}
-                          statusEndpoint={`/metric/${metric.id}/analysis/status`}
-                          cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                          onReady={() => {
-                            mutate();
-                          }}
-                        />
-                      </form>
-                    </div>
                     <div className="col-auto">
                       <ViewAsyncQueriesButton
                         queries={

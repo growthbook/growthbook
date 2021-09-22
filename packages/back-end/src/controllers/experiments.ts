@@ -60,6 +60,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
+import { SegmentModel } from "../models/SegmentModel";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -1000,6 +1001,7 @@ async function getMetricAnalysis(
     average,
     users,
     dates,
+    segment: metric.segment || "",
     percentiles: metricData.percentiles
       ? Object.keys(metricData.percentiles).map((k) => {
           return {
@@ -1065,6 +1067,20 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
       );
       const integration = getSourceIntegrationObject(datasource);
 
+      let segmentQuery = "";
+      let segmentName = "";
+      if (metric.segment) {
+        const segment = await SegmentModel.findOne({
+          id: metric.segment,
+          datasource: metric.datasource,
+        });
+        if (!segment) {
+          throw new Error("Invalid user segment chosen");
+        }
+        segmentQuery = segment.sql;
+        segmentName = segment.name;
+      }
+
       const from = new Date();
       from.setDate(from.getDate() - 90);
       const to = new Date();
@@ -1074,6 +1090,8 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         to,
         name: "Site-Wide",
         includeByDate: true,
+        segmentName,
+        segmentQuery,
         userIdType: metric.userIdType,
       };
 
@@ -1188,6 +1206,7 @@ export async function postMetrics(
     cap,
     conversionWindowHours,
     sql,
+    segment,
     tags,
     winRisk,
     loseRisk,
@@ -1221,6 +1240,7 @@ export async function postMetrics(
     name,
     description,
     type,
+    segment,
     table,
     column,
     inverse,
@@ -1266,6 +1286,7 @@ export async function putMetric(
   const fields: (keyof MetricInterface)[] = [
     "name",
     "description",
+    "segment",
     "type",
     "earlyStart",
     "inverse",
