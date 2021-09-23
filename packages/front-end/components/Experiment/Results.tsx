@@ -18,6 +18,7 @@ import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import Button from "../Button";
+import { useEffect } from "react";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -33,6 +34,10 @@ const Results: FC<{
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
+
+  useEffect(() => {
+    setPhase(experiment.phases.length - 1);
+  }, [experiment.phases.length]);
 
   const { permissions } = useContext(UserContext);
 
@@ -261,7 +266,7 @@ const Results: FC<{
           Add at least 1 metric to view results.
         </div>
       )}
-      {!hasData && experiment.metrics.length > 0 && (
+      {!hasData && status !== "running" && experiment.metrics.length > 0 && (
         <div className="alert alert-info">
           No data yet.{" "}
           {snapshot &&
@@ -331,6 +336,7 @@ const Results: FC<{
             </div>
           )}
           {!snapshot.dimension &&
+            hasData &&
             snapshot.hasRawQueries &&
             datasource?.settings?.notebookRunQuery && (
               <div className="col-auto">

@@ -11,7 +11,6 @@ const ExpandableQuery: FC<{
   total: number;
 }> = ({ query, i, total }) => {
   const [queryOpen, setQueryOpen] = useState(false);
-  const [resultsOpen, setResultsOpen] = useState(false);
 
   return (
     <div className="mb-4">
@@ -93,32 +92,8 @@ const ExpandableQuery: FC<{
               </table>
             </div>
           ) : (
-            <div
-              className={clsx("alert alert-success expandable-container mb-1", {
-                expanded: resultsOpen,
-              })}
-              onClick={() => !resultsOpen && setResultsOpen(true)}
-            >
-              <pre>{JSON.stringify(query.result, null, 2)}</pre>
-              <div
-                className="fader"
-                style={{
-                  background:
-                    "linear-gradient(to bottom, rgba(212,237,218,0) 0%,rgba(212,237,218,0.8) 60%)",
-                }}
-                onClick={(e) => {
-                  if (!resultsOpen) return;
-                  setResultsOpen(false);
-
-                  const pre = (e.target as HTMLDivElement)
-                    .previousElementSibling;
-                  if (pre) {
-                    pre.scrollTo({ top: 0 });
-                  }
-                }}
-              >
-                click to {resultsOpen ? "minimize" : "expand"}
-              </div>
+            <div className={clsx("alert alert-info mb-1")}>
+              <em>No rows returned</em>
             </div>
           )}
         </>

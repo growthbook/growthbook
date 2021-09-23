@@ -366,6 +366,10 @@ app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.post("/experiment/:id/watch", experimentsController.watchExperiment);
 app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.delete(
+  "/experiment/:id/phase/:phase",
+  experimentsController.deleteExperimentPhase
+);
 app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",

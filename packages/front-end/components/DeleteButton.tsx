@@ -11,6 +11,7 @@ const DeleteButton: FC<{
   link?: boolean;
   displayName: string;
   text?: string;
+  additionalMessage?: string;
 }> = ({
   onClick,
   className,
@@ -19,6 +20,7 @@ const DeleteButton: FC<{
   outline = true,
   link = false,
   text = "",
+  additionalMessage = "",
 }) => {
   const [confirming, setConfirming] = useState(false);
   return (
@@ -33,6 +35,7 @@ const DeleteButton: FC<{
           submit={onClick}
         >
           <p>Are you sure? This action cannot be undone.</p>
+          {additionalMessage && <p>{additionalMessage}</p>}
         </Modal>
       ) : (
         ""

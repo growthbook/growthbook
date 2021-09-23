@@ -55,6 +55,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
 import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
+import DeleteButton from "../../components/DeleteButton";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -736,6 +737,7 @@ const ExperimentPage = (): ReactElement => {
                     <th>Percent of Traffic</th>
                     <th>Traffic Split</th>
                     <th>Reason for Stopping</th>
+                    {canEdit && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -748,13 +750,38 @@ const ExperimentPage = (): ReactElement => {
                       <td>{Math.floor(phase.coverage * 100)}%</td>
                       <td>{formatTrafficSplit(phase.variationWeights)}</td>
                       <td>{phase.reason}</td>
+                      {canEdit && (
+                        <td>
+                          <DeleteButton
+                            displayName="phase"
+                            additionalMessage={
+                              experiment.phases.length === 1
+                                ? "This is the only phase. Deleting this will revert the experiment to a draft."
+                                : ""
+                            }
+                            onClick={async () => {
+                              await apiCall(
+                                `/experiment/${experiment.id}/phase/${i}`,
+                                {
+                                  method: "DELETE",
+                                }
+                              );
+                              mutate();
+                            }}
+                          />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          <HistoryTable type="experiment" id={experiment.id} />
+          <HistoryTable
+            type="experiment"
+            id={experiment.id}
+            key={experiment.phases?.length}
+          />
         </Tab>
       </Tabs>
     </div>
