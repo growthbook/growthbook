@@ -144,66 +144,60 @@ const DateGraph: FC<{
         const numYTicks = 5;
 
         return (
-          <>
-            <svg width={width} height={height}>
-              <Group left={margin[3]} top={margin[0]}>
-                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
-                <GridColumns
-                  scale={xScale}
-                  height={yMax}
-                  numTicks={numXTicks}
-                />
+          <svg width={width} height={height}>
+            <Group left={margin[3]} top={margin[0]}>
+              <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+              <GridColumns scale={xScale} height={yMax} numTicks={numXTicks} />
 
-                {type !== "binomial" && (
-                  <>
-                    <AreaClosed
-                      yScale={yScale}
-                      data={data}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
-                      y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
-                      fill={"#dddddd"}
-                      opacity={0.5}
-                      curve={curveMonotoneX}
-                    />
-                    <AreaClosed
-                      yScale={yScale}
-                      data={data}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
-                      y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
-                      fill={"#cccccc"}
-                      opacity={0.5}
-                      curve={curveMonotoneX}
-                    />
-                  </>
-                )}
+              {type !== "binomial" && (
+                <>
+                  <AreaClosed
+                    yScale={yScale}
+                    data={data}
+                    x={(d) => xScale(d.d) ?? 0}
+                    y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
+                    y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
+                    fill={"#dddddd"}
+                    opacity={0.5}
+                    curve={curveMonotoneX}
+                  />
+                  <AreaClosed
+                    yScale={yScale}
+                    data={data}
+                    x={(d) => xScale(d.d) ?? 0}
+                    y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
+                    y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
+                    fill={"#cccccc"}
+                    opacity={0.5}
+                    curve={curveMonotoneX}
+                  />
+                </>
+              )}
 
-                <LinePath
-                  data={data}
-                  x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(d.v) ?? 0}
-                  stroke={"#8884d8"}
-                  strokeWidth={2}
-                  curve={curveMonotoneX}
-                />
+              <LinePath
+                data={data}
+                x={(d) => xScale(d.d) ?? 0}
+                y={(d) => yScale(d.v) ?? 0}
+                stroke={"#8884d8"}
+                strokeWidth={2}
+                curve={curveMonotoneX}
+              />
 
-                <AxisBottom
-                  top={yMax}
-                  scale={xScale}
-                  numTicks={numXTicks}
-                  tickFormat={(d) => {
-                    return date(d as Date);
-                  }}
-                />
-                <AxisLeft
-                  scale={yScale}
-                  numTicks={numYTicks}
-                  tickFormat={(v) => formatConversionRate(type, v as number)}
-                />
-              </Group>
-            </svg>
-          </>
+              <AxisBottom
+                top={yMax}
+                scale={xScale}
+                numTicks={numXTicks}
+                tickFormat={(d) => {
+                  return date(d as Date);
+                }}
+              />
+              <AxisLeft
+                scale={yScale}
+                numTicks={numYTicks}
+                tickFormat={(v) => formatConversionRate(type, v as number)}
+              />
+            </Group>
+          </svg>
         );
       }}
     </ParentSizeModern>
