@@ -59,34 +59,39 @@ const ExpandableQuery: FC<{
       {query.status === "succeeded" && (
         <>
           {query.rawResult?.[0] ? (
-            <table className="table table-bordered table-sm">
-              <thead>
-                <tr>
-                  <th></th>
-                  {Object.keys(query.rawResult[0]).map((k) => {
-                    return <th key={k}>{k}</th>;
+            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+              <table className="table table-bordered table-sm">
+                <thead>
+                  <tr
+                    style={{ position: "sticky", top: 0 }}
+                    className="bg-light"
+                  >
+                    <th></th>
+                    {Object.keys(query.rawResult[0]).map((k) => {
+                      return <th key={k}>{k}</th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {query.rawResult.map((row, i) => {
+                    return (
+                      <tr key={i}>
+                        <th>{i}</th>
+                        {Object.keys(query.rawResult[0]).map((k) => {
+                          return (
+                            <td key={k}>
+                              {JSON.stringify(row[k]) ?? (
+                                <em className="text-muted">null</em>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
                   })}
-                </tr>
-              </thead>
-              <tbody>
-                {query.rawResult.map((row, i) => {
-                  return (
-                    <tr key={i}>
-                      <th>{i}</th>
-                      {Object.keys(query.rawResult[0]).map((k) => {
-                        return (
-                          <td key={k}>
-                            {JSON.stringify(row[k]) ?? (
-                              <em className="text-muted">null</em>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div
               className={clsx("alert alert-success expandable-container mb-1", {

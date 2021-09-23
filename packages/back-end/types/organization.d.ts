@@ -31,6 +31,7 @@ export interface OrganizationSettings {
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
+  metricAnalysisDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

@@ -19,19 +19,15 @@ export interface ABTestStats {
   }[];
 }
 
-export function adjustStats(
-  ignoreNulls: boolean,
-  x: number,
-  sX: number,
-  c: number,
-  n: number
-) {
-  if (ignoreNulls) {
-    return {
-      mean: x,
-      stddev: sX,
-    };
-  }
+/**
+ * This takes a mean/stddev from only converted users and
+ * adjusts them to include non-converted users
+ */
+export function getAdjustedStats(stats: MetricStats, users: number) {
+  const x = stats.mean;
+  const sX = stats.stddev;
+  const c = stats.count;
+  const n = users;
 
   const mean = (x * c) / n;
 
@@ -46,14 +42,6 @@ export function adjustStats(
     mean,
     stddev,
   };
-}
-
-/**
- * This takes a mean/stddev from only converted users and
- * adjusts them to include non-converted users
- */
-export function getAdjustedStats(stats: MetricStats, users: number) {
-  return adjustStats(true, stats.mean, stats.stddev, stats.count, users);
 }
 
 export async function abtest(
