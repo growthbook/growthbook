@@ -286,6 +286,7 @@ const Results: FC<{
             snapshot={snapshot}
             experiment={experiment}
             phase={experiment.phases?.[phase]}
+            isUpdating={status === "running"}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3">

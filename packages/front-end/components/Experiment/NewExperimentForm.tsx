@@ -329,6 +329,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <Field
                       label="Id"
                       {...form.register(`variations.${i}.key`)}
+                      placeholder={i + ""}
                     />
                   )}
                   <Field
