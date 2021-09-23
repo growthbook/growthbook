@@ -411,7 +411,8 @@ const CompactResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
   phase?: ExperimentPhaseStringDates;
-}> = ({ snapshot, experiment, phase }) => {
+  isUpdating?: boolean;
+}> = ({ snapshot, experiment, phase, isUpdating }) => {
   const { getMetricById } = useDefinitions();
 
   const results = snapshot.results[0];
@@ -430,6 +431,7 @@ const CompactResults: FC<{
         experiment={experiment}
         snapshot={snapshot}
         phase={phase}
+        isUpdating={isUpdating}
       />
       <table className={`table experiment-compact aligned-graph`}>
         <thead>

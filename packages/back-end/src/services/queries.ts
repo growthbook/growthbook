@@ -261,6 +261,24 @@ export function processPastExperimentQueryResponse(
   };
 }
 
+function getVariationMap(
+  experiment: ExperimentInterface,
+  settings?: DataSourceSettings
+) {
+  const variationMap = new Map<string, number>();
+  experiment.variations.forEach((v, i) => {
+    if (
+      (settings?.variationIdFormat ||
+        settings?.experiments?.variationFormat) === "key"
+    ) {
+      variationMap.set(v.key?.length > 0 ? v.key : i + "", i);
+    } else {
+      variationMap.set(i + "", i);
+    }
+  });
+  return variationMap;
+}
+
 export function processExperimentMetricQueryResponse(
   experiment: ExperimentInterface,
   rows: ExperimentMetricQueryResponse,
@@ -270,10 +288,7 @@ export function processExperimentMetricQueryResponse(
     dimensions: [],
   };
 
-  const variationKeyMap = new Map<string, number>();
-  experiment.variations.forEach((v, i) => {
-    variationKeyMap.set(v.key, i);
-  });
+  const variationMap = getVariationMap(experiment, settings);
 
   const dimensionMap = new Map<string, number>();
   rows.forEach(({ variation, dimension, count, mean, stddev }) => {
@@ -289,13 +304,12 @@ export function processExperimentMetricQueryResponse(
       dimensionMap.set(dimension, i);
     }
 
-    const varIndex =
-      (settings?.variationIdFormat ||
-        settings?.experiments?.variationFormat) === "key"
-        ? variationKeyMap.get(variation)
-        : parseInt(variation);
-    if (varIndex < 0 || varIndex >= experiment.variations.length) {
-      console.log("Unexpected variation", variation);
+    const varIndex = variationMap.get(variation + "");
+    if (
+      typeof varIndex === "undefined" ||
+      varIndex < 0 ||
+      varIndex >= experiment.variations.length
+    ) {
       return;
     }
 
@@ -322,10 +336,7 @@ export function processExperimentUsersResponse(
     unknownVariations: [],
   };
 
-  const variationKeyMap = new Map<string, number>();
-  experiment.variations.forEach((v, i) => {
-    variationKeyMap.set(v.key, i);
-  });
+  const variationMap = getVariationMap(experiment, settings);
 
   const unknownVariations: Map<string, number> = new Map();
   let totalUsers = 0;
@@ -347,11 +358,7 @@ export function processExperimentUsersResponse(
     const numUsers = users || 0;
     totalUsers += numUsers;
 
-    const varIndex =
-      (settings?.variationIdFormat ||
-        settings?.experiments?.variationFormat) === "key"
-        ? variationKeyMap.get(variation)
-        : parseInt(variation);
+    const varIndex = variationMap.get(variation + "");
     if (
       typeof varIndex === "undefined" ||
       varIndex < 0 ||

@@ -32,7 +32,8 @@ const DataQualityWarning: FC<{
   experiment: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
   phase?: ExperimentPhaseStringDates;
-}> = ({ experiment, snapshot, phase }) => {
+  isUpdating?: boolean;
+}> = ({ experiment, snapshot, phase, isUpdating }) => {
   const { getDatasourceById } = useDefinitions();
 
   const { permissions } = useContext(UserContext);
@@ -86,6 +87,9 @@ const DataQualityWarning: FC<{
     snapshot.unknownVariations?.length > 0 &&
     isEqual(returnedVariations, definedVariations)
   ) {
+    if (isUpdating) {
+      return null;
+    }
     return (
       <div className="alert alert-info">
         Results are out of date. Update Data to refresh.
