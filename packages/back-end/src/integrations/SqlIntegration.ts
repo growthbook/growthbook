@@ -1035,7 +1035,7 @@ export default abstract class SqlIntegration
     }
     // Need to use anonymousId, but metric is user only
     else if (!userId && metric.userIdType === "user") {
-      userIdCol = "i.user_id";
+      userIdCol = "i.anonymous_id";
       join = this.getIdentifiesJoinSql(
         "m." + this.getUserIdColumn(metric),
         true
@@ -1095,7 +1095,7 @@ export default abstract class SqlIntegration
     }
     // Need to use anonymousId, but experiment is user only
     else if (!userId && experiment.userIdType === "user") {
-      userIdCol = "i.user_id";
+      userIdCol = "i.anonymous_id";
       join = this.getIdentifiesJoinSql("e.user_id", true);
     }
     // Otherwise, can query the experiment directly
@@ -1129,7 +1129,7 @@ export default abstract class SqlIntegration
     if (!userId) {
       return `-- Segment (${name})
       SELECT
-        i.user_id,
+        i.anonymous_id as user_id,
         s.date
       FROM
         (${sql}) s
@@ -1150,7 +1150,7 @@ export default abstract class SqlIntegration
     if (!userId) {
       return `-- Dimension (${dimension.name})
       SELECT
-        i.user_id,
+        i.anonymous_id as user_id,
         d.value
       FROM
         (${dimension.sql}) d
