@@ -346,37 +346,42 @@ const MetricPage: FC = () => {
                       </div>
                       {analysis.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
-                          <h5 className="mb-3">Metric Over Time</h5>
-                          {analysis.dates?.[0]?.u > 0 && (
-                            <div>
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "week",
-                                  "badge-primary": groupby === "day",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("day");
-                                }}
-                              >
-                                day
-                              </a>
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "day",
-                                  "badge-primary": groupby === "week",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("week");
-                                }}
-                              >
-                                week
-                              </a>
+                          <div className="row mb-3">
+                            <div className="col-auto">
+                              <h5>Metric Over Time</h5>
                             </div>
-                          )}
+                            {analysis.dates?.[0]?.u > 0 && (
+                              <div className="col-auto">
+                                <a
+                                  className={clsx("badge badge-pill mr-2", {
+                                    "badge-light": groupby === "week",
+                                    "badge-primary": groupby === "day",
+                                  })}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setGroupby("day");
+                                  }}
+                                >
+                                  day
+                                </a>
+                                <a
+                                  className={clsx("badge badge-pill", {
+                                    "badge-light": groupby === "day",
+                                    "badge-primary": groupby === "week",
+                                  })}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setGroupby("week");
+                                  }}
+                                >
+                                  week
+                                </a>
+                              </div>
+                            )}
+                          </div>
+
                           <DateGraph
                             type={metric.type}
                             dates={analysis.dates}
@@ -393,27 +398,53 @@ const MetricPage: FC = () => {
                           />
                         </div>
                       )}
+
+                      <div className="row my-3">
+                        <div className="col-auto">
+                          <ViewAsyncQueriesButton
+                            queries={
+                              metric.queries?.length > 0
+                                ? metric.queries.map((q) => q.query)
+                                : []
+                            }
+                          />
+                        </div>
+                      </div>
                     </>
                   )}
                   {!analysis && (
-                    <p>
+                    <div>
+                      <form
+                        className="mb-3"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            await apiCall(`/metric/${metric.id}/analysis`, {
+                              method: "POST",
+                            });
+                            mutate();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                      >
+                        <RunQueriesButton
+                          icon="refresh"
+                          cta={analysis ? "Refresh Data" : "Run Analysis"}
+                          initialStatus={getQueryStatus(metric.queries || [])}
+                          statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                          cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                          onReady={() => {
+                            mutate();
+                          }}
+                        />
+                      </form>
                       <em>
                         No data for this metric yet. Click the Run Analysis
                         button above.
                       </em>
-                    </p>
-                  )}
-                  <div className="row my-3">
-                    <div className="col-auto">
-                      <ViewAsyncQueriesButton
-                        queries={
-                          metric.queries?.length > 0
-                            ? metric.queries.map((q) => q.query)
-                            : []
-                        }
-                      />
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

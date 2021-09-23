@@ -61,6 +61,7 @@ import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
+import { adjustStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -980,6 +981,14 @@ async function getMetricAnalysis(
     });
 
     metricData.dates.forEach((d) => {
+      const { mean, stddev } = adjustStats(
+        metric.ignoreNulls,
+        d.mean || 0,
+        d.stddev || 0,
+        d.count || 0,
+        userDateMap.get(d.date + "") || 0
+      );
+
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
       const dateTotal = (d.count || 0) * (d.mean || 0);
@@ -987,9 +996,9 @@ async function getMetricAnalysis(
       count += d.count || 0;
       dates.push({
         d: new Date(d.date),
-        v: averageBase > 0 ? dateTotal / averageBase : 0,
+        v: mean,
         u: averageBase,
-        s: d.stddev || 0,
+        s: stddev,
       });
     });
   }
