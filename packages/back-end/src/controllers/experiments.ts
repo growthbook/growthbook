@@ -61,6 +61,7 @@ import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
+import { getAdjustedStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -966,7 +967,7 @@ async function getMetricAnalysis(
 
   let total = (metricData.count || 0) * (metricData.mean || 0);
   let count = metricData.count || 0;
-  const dates: { d: Date; v: number }[] = [];
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
 
   // Calculate total from dates
   if (metricData.dates && usersData.dates) {
@@ -980,6 +981,10 @@ async function getMetricAnalysis(
     });
 
     metricData.dates.forEach((d) => {
+      const { mean, stddev } = metric.ignoreNulls
+        ? { mean: d.mean, stddev: d.stddev }
+        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
+
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
       const dateTotal = (d.count || 0) * (d.mean || 0);
@@ -987,7 +992,9 @@ async function getMetricAnalysis(
       count += d.count || 0;
       dates.push({
         d: new Date(d.date),
-        v: averageBase > 0 ? dateTotal / averageBase : 0,
+        v: mean,
+        u: averageBase,
+        s: stddev,
       });
     });
   }
@@ -1081,8 +1088,13 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         segmentName = segment.name;
       }
 
+      let days = req.organization?.settings?.metricAnalysisDays || 90;
+      if (days < 1 || days > 400) {
+        days = 90;
+      }
+
       const from = new Date();
-      from.setDate(from.getDate() - 90);
+      from.setDate(from.getDate() - days);
       const to = new Date();
 
       const baseParams: UsersQueryParams | MetricValueParams = {

@@ -12,6 +12,7 @@ import ConfigYamlButton from "../../components/Settings/ConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
+import Field from "../../components/Forms/Field";
 
 export type SettingsApiResponse = {
   status: number;
@@ -68,6 +69,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
+      metricAnalysisDays: 90,
       // customization:
       customized: false,
       logoPath: "",
@@ -80,6 +82,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   useEffect(() => {
     if (data?.organization?.settings) {
       form.reset({
+        ...form.getValues(),
         ...data.organization.settings,
       });
     }
@@ -99,6 +102,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const value = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
+    metricAnalysisDays: form.watch("metricAnalysisDays"),
     // customization:
     customized: form.watch("customized"),
     logoPath: form.watch("logoPath"),
@@ -275,21 +279,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <h4>Other Settings</h4>
             </div>
             <div className="col-sm-9 form-inline">
-              <div className="form-group">
-                Minimum experiment length (in days) when importing past
-                experiments:
-                <input
-                  type="number"
-                  className="form-control ml-2"
-                  step="1"
-                  min="0"
-                  max="31"
-                  disabled={hasFileConfig()}
-                  {...form.register("pastExperimentsMinLength", {
-                    valueAsNumber: true,
-                  })}
-                />
-              </div>
+              <Field
+                label="Minimum experiment length (in days) when importing past
+                experiments"
+                type="number"
+                className="ml-2"
+                containerClassName="mb-3"
+                append="days"
+                step="1"
+                min="0"
+                max="31"
+                disabled={hasFileConfig()}
+                {...form.register("pastExperimentsMinLength", {
+                  valueAsNumber: true,
+                })}
+              />
+              <Field
+                label="Amount of historical data to include when analyzing metrics"
+                append="days"
+                className="ml-2"
+                containerClassName="mb-3"
+                disabled={hasFileConfig()}
+                options={[7, 14, 30, 90, 180, 365]}
+                {...form.register("metricAnalysisDays", {
+                  valueAsNumber: true,
+                })}
+              />
             </div>
           </div>
           {!hasFileConfig() && (

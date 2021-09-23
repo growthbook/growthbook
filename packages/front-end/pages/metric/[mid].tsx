@@ -45,6 +45,7 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
+import clsx from "clsx";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -61,6 +62,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
+  const [groupby, setGroupby] = useState<"day" | "week">("day");
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -254,133 +256,169 @@ const MetricPage: FC = () => {
               {!!datasource && (
                 <div>
                   <h3>Data Preview</h3>
-                  {status === "failed" && (
+                  {analysis && status === "failed" && (
                     <div className="alert alert-danger my-3">
                       Error running the analysis. View Queries for more info
                     </div>
                   )}
-                  {analysis && (
-                    <>
-                      {status === "running" && (
-                        <div className="alert alert-info">
-                          Your analysis is currently running. The data below is
-                          from the previous run.
-                        </div>
-                      )}
-                      {status === "succeeded" &&
-                        (metric.segment || analysis.segment) &&
-                        metric.segment !== analysis.segment && (
-                          <div className="alert alert-info">
-                            The graphs below are using an old Segment. Update
-                            them to see the latest numbers.
-                          </div>
+                  {analysis && status === "running" && (
+                    <div className="alert alert-info">
+                      Your analysis is currently running. The data below is from
+                      the previous run.
+                    </div>
+                  )}
+                  {analysis &&
+                    status === "succeeded" &&
+                    (metric.segment || analysis.segment) &&
+                    metric.segment !== analysis.segment && (
+                      <div className="alert alert-info">
+                        The graphs below are using an old Segment. Update them
+                        to see the latest numbers.
+                      </div>
+                    )}
+                  <div className="row mb-3 align-items-center">
+                    {segments.length > 0 && (
+                      <div className="col-auto">
+                        {segment?.name ? (
+                          <>
+                            Segment applied:{" "}
+                            <span className="badge badge-secondary mr-1">
+                              {segment?.name || "Everyone"}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="mr-1">No segment applied</span>
                         )}
-                      <div className="row mb-3 align-items-center">
-                        {segments.length > 0 && (
+                        <a
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSegmentOpen(true);
+                          }}
+                          href="#"
+                        >
+                          <BsGear />
+                        </a>
+                      </div>
+                    )}
+                    {analysis && (
+                      <div className="col-auto text-muted">
+                        Last updated on {date(analysis?.createdAt)}
+                      </div>
+                    )}
+                    <div className="col-auto">
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            await apiCall(`/metric/${metric.id}/analysis`, {
+                              method: "POST",
+                            });
+                            mutate();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                      >
+                        <RunQueriesButton
+                          icon="refresh"
+                          cta={analysis ? "Refresh Data" : "Run Analysis"}
+                          initialStatus={getQueryStatus(metric.queries || [])}
+                          statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                          cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                          onReady={() => {
+                            mutate();
+                          }}
+                        />
+                      </form>
+                    </div>
+                  </div>
+                  {analysis && (
+                    <div className="mb-4">
+                      <div className="d-flex flex-row align-items-end">
+                        <div style={{ fontSize: "2.5em" }}>
+                          {formatConversionRate(metric.type, analysis.average)}
+                        </div>
+                        <div className="pb-2 ml-1">average</div>
+                      </div>
+                    </div>
+                  )}
+                  {analysis?.dates && analysis.dates.length > 0 && (
+                    <div className="mb-4">
+                      <div className="row mb-3">
+                        <div className="col-auto">
+                          <h5>Metric Over Time</h5>
+                        </div>
+                        {analysis.dates?.[0]?.u > 0 && (
                           <div className="col-auto">
-                            {segment?.name ? (
-                              <>
-                                Segment applied:{" "}
-                                <span className="badge badge-secondary mr-1">
-                                  {segment?.name || "Everyone"}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="mr-1">No segment applied</span>
-                            )}
                             <a
+                              className={clsx("badge badge-pill mr-2", {
+                                "badge-light": groupby === "week",
+                                "badge-primary": groupby === "day",
+                              })}
+                              href="#"
                               onClick={(e) => {
                                 e.preventDefault();
-                                setSegmentOpen(true);
+                                setGroupby("day");
                               }}
-                              href="#"
                             >
-                              <BsGear />
+                              day
+                            </a>
+                            <a
+                              className={clsx("badge badge-pill", {
+                                "badge-light": groupby === "day",
+                                "badge-primary": groupby === "week",
+                              })}
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setGroupby("week");
+                              }}
+                            >
+                              week
                             </a>
                           </div>
                         )}
-                        <div className="col-auto text-muted">
-                          Last updated on {date(analysis.createdAt)}
-                        </div>
-                        <div className="col-auto">
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
-                              try {
-                                await apiCall(`/metric/${metric.id}/analysis`, {
-                                  method: "POST",
-                                });
-                                mutate();
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                          >
-                            <RunQueriesButton
-                              icon="refresh"
-                              cta={analysis ? "Refresh Data" : "Run Analysis"}
-                              initialStatus={getQueryStatus(
-                                metric.queries || []
-                              )}
-                              statusEndpoint={`/metric/${metric.id}/analysis/status`}
-                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                              onReady={() => {
-                                mutate();
-                              }}
-                            />
-                          </form>
-                        </div>
                       </div>
-                      <div className="mb-4">
-                        <div className="d-flex flex-row align-items-end">
-                          <div style={{ fontSize: "2.5em" }}>
-                            {formatConversionRate(
-                              metric.type,
-                              analysis.average
-                            )}
-                          </div>
-                          <div className="pb-2 ml-1">average</div>
-                        </div>
-                      </div>
-                      {analysis.dates && analysis.dates.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="mb-3">Metric Over Time</h5>
-                          <DateGraph
-                            type={metric.type}
-                            dates={analysis.dates}
-                          />
-                        </div>
-                      )}
-                      {analysis.percentiles && analysis.percentiles.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="mb-3">Percentile Breakdown</h5>
-                          <DistributionGraph
-                            type={metric.type}
-                            percentiles={analysis.percentiles}
-                          />
-                        </div>
-                      )}
-                    </>
+
+                      <DateGraph
+                        type={metric.type}
+                        dates={analysis.dates}
+                        groupby={groupby}
+                      />
+                    </div>
                   )}
+                  {analysis?.percentiles && analysis.percentiles.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="mb-3">Percentile Breakdown</h5>
+                      <DistributionGraph
+                        type={metric.type}
+                        percentiles={analysis.percentiles}
+                      />
+                    </div>
+                  )}
+
                   {!analysis && (
-                    <p>
+                    <div>
                       <em>
                         No data for this metric yet. Click the Run Analysis
                         button above.
                       </em>
-                    </p>
-                  )}
-                  <div className="row my-3">
-                    <div className="col-auto">
-                      <ViewAsyncQueriesButton
-                        queries={
-                          metric.queries?.length > 0
-                            ? metric.queries.map((q) => q.query)
-                            : []
-                        }
-                      />
                     </div>
-                  </div>
+                  )}
+
+                  {analysis && (
+                    <div className="row my-3">
+                      <div className="col-auto">
+                        <ViewAsyncQueriesButton
+                          queries={
+                            metric.queries?.length > 0
+                              ? metric.queries.map((q) => q.query)
+                              : []
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
