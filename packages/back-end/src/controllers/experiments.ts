@@ -720,6 +720,89 @@ export async function postExperimentStop(
   }
 }
 
+export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
+  if (!req.permissions.runExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id, phase }: { id: string; phase: string } = req.params;
+  const phaseIndex = parseInt(phase);
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  if (phaseIndex < 0 || phaseIndex >= exp.phases?.length) {
+    throw new Error("Invalid phase id");
+  }
+
+  // Remove phase from experiment and revert to draft if no more phases left
+  const deleted = exp.phases.splice(phaseIndex, 1);
+  exp.markModified("phases");
+
+  if (!exp.phases.length) {
+    exp.set("status", "draft");
+  }
+  await exp.save();
+
+  // Delete all snapshots for the phase
+  await ExperimentSnapshotModel.deleteMany({
+    organization: req.organization.id,
+    experiment: id,
+    phase: phaseIndex,
+  });
+
+  // Decrement the phase index for all later phases
+  await ExperimentSnapshotModel.updateMany(
+    {
+      organization: req.organization.id,
+      experiment: id,
+      phase: {
+        $gt: phaseIndex,
+      },
+    },
+    {
+      $inc: {
+        phase: -1,
+      },
+    }
+  );
+
+  // Add audit entry
+  await req.audit({
+    event: "experiment.phase.delete",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: JSON.stringify({
+      phase: phaseIndex + 1,
+      data: deleted[0],
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase>,
   res: Response
@@ -737,7 +820,7 @@ export async function postExperimentPhase(
   const exp = await getExperimentById(id);
 
   if (!exp) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Experiment not found",
     });
@@ -1390,7 +1473,12 @@ export async function previewManualSnapshot(
 export async function getSnapshotStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
   const snapshot = await ExperimentSnapshotModel.findOne({ id });
-  if (!snapshot) throw new Error("Unknown snapshot id");
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unknown snapshot id",
+    });
+  }
 
   if (snapshot.organization !== req.organization?.id)
     throw new Error("You don't have access to that snapshot");
