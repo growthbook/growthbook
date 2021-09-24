@@ -127,7 +127,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
         )}
         .filter(function(e) {
           if(${this.getValidExperimentCondition(
-            experiment.trackingKey
+            experiment.trackingKey,
+            "e",
+            phase.dateStarted,
+            phase.dateEnded
           )}) return true;
           ${
             activationMetric
@@ -160,7 +163,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
             const e = events[i];
             // User is put into the experiment
             if(!state.inExperiment && ${this.getValidExperimentCondition(
-              experiment.trackingKey
+              experiment.trackingKey,
+              "e",
+              phase.dateStarted,
+              phase.dateEnded
             )}) {
               state.inExperiment = true;
               state.variation = ${this.getPropertyColumn(
@@ -810,13 +816,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return checks.join(" && ");
   }
-  private getValidExperimentCondition(id: string, event: string = "e") {
+  private getValidExperimentCondition(
+    id: string,
+    event: string = "e",
+    start: Date,
+    end?: Date
+  ) {
     const experimentEvent =
       this.settings.events.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
       this.settings.events.experimentIdProperty || "Experiment name",
       event
     );
-    return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}"`;
+    let timeCheck = `${event}.time >= ${start.getTime()}`;
+    if (end) {
+      timeCheck += ` && ${event}.time <= ${end.getTime()}`;
+    }
+    return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}" && ${timeCheck}`;
   }
 }
