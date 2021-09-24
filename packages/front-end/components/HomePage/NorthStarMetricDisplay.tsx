@@ -7,15 +7,20 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 const NorthStarMetricDisplay = ({
   metricId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   window,
+  resolution,
 }: {
   metricId: string;
   window?: number | string;
+  resolution?: string;
 }): React.ReactElement => {
-  const { data, error, mutate } = useApi<{
+  const { data, error } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${metricId}`);
+
+  // @todo: get the metric period in days from the 'window'.
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -47,6 +52,7 @@ const NorthStarMetricDisplay = ({
               type={metric.type}
               dates={analysis.dates}
               experiments={experiments}
+              groupby={resolution === "week" ? "week" : "day"}
             />
           </div>
         )}

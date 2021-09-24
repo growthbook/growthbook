@@ -154,7 +154,7 @@ const DateGraph: FC<{
         }
         // get the earliest start date, and the latest end date - this might not be what we want,
         // we may want to only look at the 'main' phase.
-        e.phases.forEach((p, j) => {
+        e.phases.forEach((p) => {
           if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
           else if (p.dateStarted < expLines.dateStarted) {
             expLines.dateStarted = p.dateStarted;

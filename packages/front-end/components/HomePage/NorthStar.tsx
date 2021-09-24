@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
@@ -9,6 +9,7 @@ import MetricsSelector from "../Experiment/MetricsSelector";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
+import Field from "../Forms/Field";
 
 const NorthStar: FC = () => {
   const { apiCall } = useAuth();
@@ -23,19 +24,29 @@ const NorthStar: FC = () => {
     mutate,
   } = useApi<SettingsApiResponse>(`/organization`);
 
-  const [value, inputProps, manualUpdate] = useForm({
-    title: "",
-    metrics: [],
-    window: "",
-  });
+  const form = useForm<{
+    title: string;
+    window: string | number;
+    metrics: string[];
+    resolution: string;
+  }>({ defaultValues: { resolution: "week" } });
 
   useEffect(() => {
-    const tmp = { ...value };
     if (orgData?.organization?.settings?.northStar?.metricIds) {
-      tmp.metrics = orgData?.organization?.settings?.northStar?.metricIds;
-      manualUpdate(tmp);
+      form.setValue(
+        "metrics",
+        orgData?.organization?.settings?.northStar?.metricIds || []
+      );
+      form.setValue(
+        "window",
+        orgData?.organization?.settings?.northStar?.window || ""
+      );
+      form.setValue(
+        "title",
+        orgData?.organization?.settings?.northStar?.title || ""
+      );
     }
-  }, [orgData?.organization?.settings?.northStar?.metricIds]);
+  }, [orgData?.organization?.settings?.northStar]);
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
@@ -85,6 +96,7 @@ const NorthStar: FC = () => {
               <NorthStarMetricDisplay
                 metricId={mid}
                 window={northStar?.window}
+                resolution={northStar?.resolution ?? "week"}
               />
             </div>
           ))}
@@ -104,18 +116,20 @@ const NorthStar: FC = () => {
       {openNorthStarModal && (
         <Modal
           close={() => setOpenNorthStarModal(false)}
-          submit={async () => {
+          submit={form.handleSubmit(async (value) => {
             const settings = { ...orgData.organization.settings };
             if (!settings.northStar)
               settings.northStar = {
                 metricIds: value.metrics,
                 title: value.title,
-                window: value.window,
+                window: "" + value.window,
+                resolution: value.resolution,
               };
             else {
               settings.northStar.metricIds = value.metrics;
               settings.northStar.title = value.title;
-              settings.northStar.window = value.window;
+              settings.northStar.window = "" + value.window;
+              settings.northStar.resolution = value.resolution;
             }
             await apiCall("/organization", {
               method: "PUT",
@@ -125,7 +139,7 @@ const NorthStar: FC = () => {
             });
             await mutate();
             setOpenNorthStarModal(false);
-          }}
+          })}
           header={
             hasNorthStar
               ? "Edit North Star Metric(s)"
@@ -136,26 +150,31 @@ const NorthStar: FC = () => {
           <div className="form-group">
             <label>Metric</label>
             <MetricsSelector
-              selected={value.metrics}
-              onChange={(metrics) => {
-                manualUpdate({ metrics });
-              }}
+              selected={form.watch("metrics")}
+              onChange={(metrics) => form.setValue("metrics", metrics)}
             />
           </div>
-          <div className="form-group">
-            <label>Title to show</label>
-            <input className="form-control" type="text" {...inputProps.title} />
-          </div>
-          <div className="form-group">
-            <label>Date window</label>
-            <select className="form-control" {...inputProps.window}>
-              <option value="30">Last 30 days</option>
-              <option value="60">Last 60 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="182">6 months</option>
-              <option value="365">1 year</option>
-            </select>
-          </div>
+          <Field label="Title" {...form.register("title")} />
+          <Field
+            label="Date window"
+            initialOption="90"
+            {...form.register("window")}
+            options={[
+              { value: "30", display: "30 days" },
+              { value: "60", display: "60 days" },
+              { value: "90", display: "90 days" },
+              { value: "182", display: "6 months" },
+              { value: "365", display: "1 year" },
+            ]}
+          />
+          <Field
+            label="Resolution"
+            {...form.register("resolution")}
+            options={[
+              { value: "day", display: "day" },
+              { value: "week", display: "week" },
+            ]}
+          />
         </Modal>
       )}
     </>
