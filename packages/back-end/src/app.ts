@@ -466,7 +466,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/upload/:filetype", discussionsController.postImageUploadUrl);
+app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
