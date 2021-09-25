@@ -13,8 +13,23 @@ import {
   OrganizationInterface,
   Permissions,
 } from "../../types/organization";
-import { getExperimentsByOrganization } from "./experiments";
+import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
+import { ConfigFile } from "../init/config";
+import {
+  createDataSource,
+  getDataSourceById,
+  updateDataSource,
+} from "../models/DataSourceModel";
+import { encryptParams } from "./datasource";
+import { getMetricById, updateMetric } from "../models/MetricModel";
+import { MetricInterface } from "../../types/metric";
+import {
+  createDimension,
+  findDimensionById,
+  updateDimension,
+} from "../models/DimensionModel";
+import { DimensionInterface } from "../../types/dimension";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -194,6 +209,111 @@ export async function inviteUser(
     emailSent,
     inviteUrl: getInviteUrl(key),
   };
+}
+
+export async function importConfig(
+  config: ConfigFile,
+  organization: OrganizationInterface
+) {
+  if (config.organization?.settings) {
+    await updateOrganization(organization.id, {
+      settings: {
+        ...organization.settings,
+        ...config.organization.settings,
+      },
+    });
+  }
+  if (config.datasources) {
+    await Promise.all(
+      Object.keys(config.datasources).map(async (k) => {
+        const ds = config.datasources[k];
+
+        const existing = await getDataSourceById(k, organization.id);
+        if (existing) {
+          let params = existing.params;
+          if (ds.params) {
+            params = encryptParams(ds.params);
+          }
+
+          await updateDataSource(k, organization.id, {
+            name: ds.name || existing.name,
+            type: ds.type || existing.type,
+            params,
+            settings: {
+              ...existing.settings,
+              ...ds.settings,
+              queries: {
+                ...existing.settings.queries,
+                ...ds.settings?.queries,
+              },
+              events: {
+                ...existing.settings?.events,
+                ...ds.settings?.events,
+              },
+            },
+          });
+        } else {
+          await createDataSource(
+            organization.id,
+            ds.name || k,
+            ds.type,
+            ds.params,
+            ds.settings || {},
+            k
+          );
+        }
+      })
+    );
+  }
+  if (config.metrics) {
+    await Promise.all(
+      Object.keys(config.metrics).map(async (k) => {
+        const m = config.metrics[k];
+
+        const existing = await getMetricById(k, organization.id);
+        if (existing) {
+          const updates: Partial<MetricInterface> = {
+            ...m,
+          };
+          delete updates.organization;
+
+          await updateMetric(k, updates, organization.id);
+        } else {
+          await createMetric({
+            name: k,
+            ...m,
+            id: k,
+            organization: organization.id,
+          });
+        }
+      })
+    );
+  }
+  if (config.dimensions) {
+    await Promise.all(
+      Object.keys(config.dimensions).map(async (k) => {
+        const d = config.dimensions[k];
+
+        const existing = await findDimensionById(k, organization.id);
+        if (existing) {
+          const updates: Partial<DimensionInterface> = {
+            ...d,
+          };
+          delete updates.organization;
+
+          await updateDimension(k, organization.id, updates);
+        } else {
+          await createDimension({
+            ...d,
+            id: k,
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            organization: organization.id,
+          });
+        }
+      })
+    );
+  }
 }
 
 export async function getEmailFromUserId(userId: string) {

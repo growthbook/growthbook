@@ -94,8 +94,8 @@ export async function getLatestSnapshot(
 
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
-    ...data,
     id: uniqid("met_"),
+    ...data,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });

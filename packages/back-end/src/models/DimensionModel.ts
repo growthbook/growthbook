@@ -65,6 +65,7 @@ export async function findDimensionsByDataSource(
 
 export async function updateDimension(
   id: string,
+  organization: string,
   updates: Partial<DimensionInterface>
 ) {
   // If using config.yml, immediately return the list from there

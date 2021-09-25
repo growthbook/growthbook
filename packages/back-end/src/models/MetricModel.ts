@@ -68,6 +68,7 @@ const metricSchema = new mongoose.Schema({
     ],
   },
 });
+metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
@@ -84,12 +85,13 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function deleteMetricById(id: string) {
+export async function deleteMetricById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
   }
   await MetricModel.deleteOne({
     id,
+    organization,
   });
 }
 

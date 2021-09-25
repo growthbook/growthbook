@@ -656,7 +656,7 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
     );
   }
 
-  await deleteDatasourceById(datasource.id);
+  await deleteDatasourceById(datasource.id, req.organization.id);
 
   res.status(200).json({
     status: 200,
@@ -996,7 +996,7 @@ export async function putDataSource(
       });
     }
 
-    await updateDataSource(id, updates);
+    await updateDataSource(id, req.organization.id, updates);
 
     res.status(200).json({
       status: 200,

@@ -967,11 +967,10 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
-  const del = await deleteMetricById(metric.id);
+  await deleteMetricById(metric.id, req.organization.id);
 
   res.status(200).json({
     status: 200,
-    result: del,
   });
 }
 
