@@ -1,0 +1,26 @@
+.tooltipDategraph {
+  z-index: 0;
+  position: absolute;
+  overflow: hidden;
+  border-radius: 16px;
+  font-size: 14px;
+  color: white;
+  width: 100%;
+  height: 100%;
+}
+.positionIndicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #35477d;
+  position: absolute;
+}
+.crosshair {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0px;
+  margin-left: -0.5px;
+  border-left: 1px dashed #35477d;
+}
