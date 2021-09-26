@@ -3,11 +3,3 @@
 
 echo "#### Linting typescript, scss, and markdown files"
 yarn lint-staged
-
-echo ""
-echo "#### Linting python stats engine"
-(cd packages/stats && black gbstats tests && flake8)
-
-echo ""
-echo "#### Typescript type checks"
-yarn type-check
