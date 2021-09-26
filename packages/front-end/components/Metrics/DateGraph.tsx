@@ -1,5 +1,6 @@
+import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
-import { FC, useMemo } from "react";
+import { FC, useState, useCallback, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
 import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
@@ -9,7 +10,21 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
+import {
+  TooltipWithBounds,
+  useTooltip,
+  useTooltipInPortal,
+  defaultStyles,
+} from "@visx/tooltip";
 import setDay from "date-fns/setDay";
+
+type TooltipData = { x: number; y: number; d: Datapoint };
+interface Datapoint {
+  d: number;
+  v: number;
+  u?: number;
+  s?: number;
+}
 
 function addStddev(
   value?: number,
@@ -46,7 +61,7 @@ function correctStddev(
 const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
-  dates: { d: Date; v: number; u?: number; s?: number }[];
+  dates: Datapoint[];
 }> = ({ type, dates, groupby = "day" }) => {
   const data = useMemo(
     () =>
@@ -112,24 +127,85 @@ const DateGraph: FC<{
     [dates, groupby]
   );
 
+  const getTooltipData = (
+    mx: number
+  ): { x: number; y: number; d: Datapoint } => {
+    const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
+    const px = mx / innerWidth;
+    const index = Math.max(
+      Math.min(Math.round(px * data.length), data.length - 1),
+      0
+    );
+    const d = data[index];
+    const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
+    const y = yScale(d.v) ?? 0;
+    return { x, y, d };
+  };
+  const getTooltipContents = ({ d }) => {
+    return (
+      <>
+        <div>{date(d.d as Date)}</div>
+        <div>y: {formatConversionRate(type, d.v as number)}</div>
+        {"u" in d && <div>users: {d.u}</div>}
+        {"s" in d && <div>&sigma;: {d.s.toFixed(2)}</div>}
+      </>
+    );
+  };
+
+  const [tooltipShouldDetectBounds] = useState(true);
+
+  const { containerRef, containerBounds } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: tooltipShouldDetectBounds,
+  });
+
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipOpen,
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+  } = useTooltip<TooltipData>();
+
+  // event handlers
+  const handlePointer = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      // coordinates should be relative to the container in which Tooltip is rendered
+      const containerX =
+        ("clientX" in event ? event.clientX : 0) - containerBounds.left;
+      const data = getTooltipData(containerX);
+      showTooltip({
+        tooltipLeft: data.x,
+        tooltipTop: data.y,
+        tooltipData: data,
+      });
+    },
+    [showTooltip, tooltipShouldDetectBounds, containerBounds, data]
+  );
+
+  let xScale = null;
+  let yScale = null;
+  let width = 0;
   const height = 220;
+  const margin = [15, 15, 30, 80];
 
   const min = Math.min(...data.map((d) => d.d));
   const max = Math.max(...data.map((d) => d.d));
 
   return (
     <ParentSizeModern>
-      {({ width }) => {
-        const margin = [15, 15, 30, 80];
+      {(parent) => {
+        width = parent.width;
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
 
-        const xScale = scaleTime({
+        xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
           round: true,
         });
-        const yScale = scaleLinear<number>({
+        yScale = scaleLinear<number>({
           domain: [
             0,
             Math.max(
@@ -143,61 +219,112 @@ const DateGraph: FC<{
         const numXTicks = width > 768 ? 7 : 4;
         const numYTicks = 5;
 
-        return (
-          <svg width={width} height={height}>
-            <Group left={margin[3]} top={margin[0]}>
-              <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
-              <GridColumns scale={xScale} height={yMax} numTicks={numXTicks} />
+        const tooltipStyles = {
+          ...defaultStyles,
+          backgroundColor: "rgba(53,71,125,0.8)",
+          color: "white",
+          width: 152,
+          padding: 12,
+        };
 
-              {type !== "binomial" && (
+        return (
+          <>
+            <div
+              ref={containerRef}
+              className={styles.tooltopDategraph}
+              style={{
+                width: width - margin[1] - margin[3],
+                height: height - margin[0] - margin[2],
+                marginLeft: margin[3],
+                marginTop: margin[0],
+              }}
+              onPointerMove={handlePointer}
+              onPointerLeave={hideTooltip}
+            >
+              {tooltipOpen && (
                 <>
-                  <AreaClosed
-                    yScale={yScale}
-                    data={data}
-                    x={(d) => xScale(d.d) ?? 0}
-                    y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
-                    y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
-                    fill={"#dddddd"}
-                    opacity={0.5}
-                    curve={curveMonotoneX}
+                  <div
+                    className={styles.positionIndicator}
+                    style={{
+                      transform: `translate(${tooltipLeft - 8 / 2}px, ${
+                        tooltipTop - 8 / 2
+                      }px)`,
+                    }}
                   />
-                  <AreaClosed
-                    yScale={yScale}
-                    data={data}
-                    x={(d) => xScale(d.d) ?? 0}
-                    y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
-                    y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
-                    fill={"#cccccc"}
-                    opacity={0.5}
-                    curve={curveMonotoneX}
+                  <div
+                    className={styles.crosshair}
+                    style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
+                  <TooltipWithBounds
+                    key={Math.random()} // needed for bounds to update correctly
+                    left={tooltipLeft}
+                    top={tooltipTop}
+                    style={tooltipStyles}
+                  >
+                    {getTooltipContents(tooltipData)}
+                  </TooltipWithBounds>
                 </>
               )}
+            </div>
+            <svg width={width} height={height}>
+              <Group left={margin[3]} top={margin[0]}>
+                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+                <GridColumns
+                  scale={xScale}
+                  height={yMax}
+                  numTicks={numXTicks}
+                />
 
-              <LinePath
-                data={data}
-                x={(d) => xScale(d.d) ?? 0}
-                y={(d) => yScale(d.v) ?? 0}
-                stroke={"#8884d8"}
-                strokeWidth={2}
-                curve={curveMonotoneX}
-              />
+                {type !== "binomial" && (
+                  <>
+                    <AreaClosed
+                      yScale={yScale}
+                      data={data}
+                      x={(d) => xScale(d.d) ?? 0}
+                      y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
+                      y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
+                      fill={"#dddddd"}
+                      opacity={0.5}
+                      curve={curveMonotoneX}
+                    />
+                    <AreaClosed
+                      yScale={yScale}
+                      data={data}
+                      x={(d) => xScale(d.d) ?? 0}
+                      y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
+                      y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
+                      fill={"#cccccc"}
+                      opacity={0.5}
+                      curve={curveMonotoneX}
+                    />
+                  </>
+                )}
 
-              <AxisBottom
-                top={yMax}
-                scale={xScale}
-                numTicks={numXTicks}
-                tickFormat={(d) => {
-                  return date(d as Date);
-                }}
-              />
-              <AxisLeft
-                scale={yScale}
-                numTicks={numYTicks}
-                tickFormat={(v) => formatConversionRate(type, v as number)}
-              />
-            </Group>
-          </svg>
+                <LinePath
+                  data={data}
+                  x={(d) => xScale(d.d) ?? 0}
+                  y={(d) => yScale(d.v) ?? 0}
+                  stroke={"#8884d8"}
+                  strokeWidth={2}
+                  curve={curveMonotoneX}
+                />
+
+                <AxisBottom
+                  top={yMax}
+                  scale={xScale}
+                  numTicks={numXTicks}
+                  tickFormat={(d) => {
+                    return date(d as Date);
+                  }}
+                />
+                <AxisLeft
+                  scale={yScale}
+                  numTicks={numYTicks}
+                  tickFormat={(v) => formatConversionRate(type, v as number)}
+                />
+              </Group>
+            </svg>
+          </>
         );
       }}
     </ParentSizeModern>
