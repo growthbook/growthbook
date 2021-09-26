@@ -231,7 +231,7 @@ const DateGraph: FC<{
           <>
             <div
               ref={containerRef}
-              className={styles.tooltopDategraph}
+              className={styles.tooltipDategraph}
               style={{
                 width: width - margin[1] - margin[3],
                 height: height - margin[0] - margin[2],
