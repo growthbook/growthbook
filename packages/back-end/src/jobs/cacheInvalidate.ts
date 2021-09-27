@@ -61,9 +61,9 @@ export async function queueCDNInvalidate(
 
     // if they have API key:
     if (apiKeys && apiKeys.length) {
-      let url: string;
       // Queue up a job(s) to invalidate paths in the CDN
       for (const k of apiKeys) {
+        let url: string;
         if (experiment.implementation === "visual") {
           url = "/js/" + k.key + ".js";
         } else {
