@@ -14,7 +14,6 @@ import {
   TooltipWithBounds,
   useTooltip,
   useTooltipInPortal,
-  defaultStyles,
 } from "@visx/tooltip";
 import setDay from "date-fns/setDay";
 
@@ -144,10 +143,14 @@ const DateGraph: FC<{
   const getTooltipContents = ({ d }) => {
     return (
       <>
-        <div>{date(d.d as Date)}</div>
-        <div>y: {formatConversionRate(type, d.v as number)}</div>
-        {"u" in d && <div>users: {d.u}</div>}
-        {"s" in d && <div>&sigma;: {d.s.toFixed(2)}</div>}
+        <div className={styles.date}>{date(d.d as Date)}</div>
+        <div className={styles.val}>
+          {formatConversionRate(type, d.v as number)}
+        </div>
+        {"u" in d && <div className={styles.secondary}>users: {d.u}</div>}
+        {"s" in d && (
+          <div className={styles.secondary}>&sigma;: {d.s.toFixed(2)}</div>
+        )}
       </>
     );
   };
@@ -168,7 +171,6 @@ const DateGraph: FC<{
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  // event handlers
   const handlePointer = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       // coordinates should be relative to the container in which Tooltip is rendered
@@ -219,14 +221,6 @@ const DateGraph: FC<{
         const numXTicks = width > 768 ? 7 : 4;
         const numYTicks = 5;
 
-        const tooltipStyles = {
-          ...defaultStyles,
-          backgroundColor: "rgba(53,71,125,0.8)",
-          color: "white",
-          width: 152,
-          padding: 12,
-        };
-
         return (
           <>
             <div
@@ -246,9 +240,7 @@ const DateGraph: FC<{
                   <div
                     className={styles.positionIndicator}
                     style={{
-                      transform: `translate(${tooltipLeft - 8 / 2}px, ${
-                        tooltipTop - 8 / 2
-                      }px)`,
+                      transform: `translate(${tooltipLeft}px, ${tooltipTop}px)`,
                     }}
                   />
                   <div
@@ -256,10 +248,10 @@ const DateGraph: FC<{
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
                   <TooltipWithBounds
-                    key={Math.random()} // needed for bounds to update correctly
                     left={tooltipLeft}
                     top={tooltipTop}
-                    style={tooltipStyles}
+                    className={styles.tooltip}
+                    unstyled={true}
                   >
                     {getTooltipContents(tooltipData)}
                   </TooltipWithBounds>
