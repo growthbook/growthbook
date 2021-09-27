@@ -11,16 +11,18 @@
   color: #ffffff;
   transition: 100ms all;
   .date {
-    font-size: 13px;
-    font-weight: 600;
+    margin: 2px -2px -2px 20px;
+    text-align: right;
+    font-size: 10px;
   }
   .val {
     font-size: 13px;
-    margin-top: 2px;
+    line-height: 15px;
+    margin: 2px 0;
     font-weight: 600;
   }
   .secondary {
-    margin-left: 5px;
+    line-height: 14px;
   }
 }
 .tooltipDategraph {

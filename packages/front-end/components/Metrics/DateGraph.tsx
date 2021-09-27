@@ -19,7 +19,7 @@ import setDay from "date-fns/setDay";
 
 type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
-  d: number;
+  d: Date | number;
   v: number;
   u?: number;
   s?: number;
@@ -121,6 +121,7 @@ const DateGraph: FC<{
             d: row.key,
             v: row.total / row.users,
             s: row.stddev,
+            u: row.users,
           };
         }),
     [dates, groupby]
@@ -143,14 +144,14 @@ const DateGraph: FC<{
   const getTooltipContents = ({ d }) => {
     return (
       <>
-        <div className={styles.date}>{date(d.d as Date)}</div>
         <div className={styles.val}>
           {formatConversionRate(type, d.v as number)}
         </div>
-        {"u" in d && <div className={styles.secondary}>users: {d.u}</div>}
         {"s" in d && (
           <div className={styles.secondary}>&sigma;: {d.s.toFixed(2)}</div>
         )}
+        {"u" in d && <div className={styles.secondary}>n: {d.u}</div>}
+        <div className={styles.date}>{date(d.d as Date)}</div>
       </>
     );
   };
