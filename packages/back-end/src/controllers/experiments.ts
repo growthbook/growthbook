@@ -493,6 +493,7 @@ export async function postExperiment(
     "winner",
     "implementation",
     "targetURLRegex",
+    "previewURL",
   ];
   const existing: ExperimentInterface = exp.toJSON();
   let requiresWebhook = false;

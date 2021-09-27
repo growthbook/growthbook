@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { AWS_CLOUDFRONT_DISTRIBUTION_ID, IS_CLOUD } from "../util/secrets";
-import AWS from "aws-sdk";
+import AWS from "aws-sdk"; // v2 way
+//import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront"; // v3 way.
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
 import { ExperimentInterface } from "../../types/experiment";
 import { getAllApiKeysByOrganization } from "../services/apiKey";
@@ -18,8 +19,7 @@ export default function (ag: Agenda) {
   agenda.define(INVALIDATE_JOB_NAME, async (job: InvalidateJob) => {
     const { url } = job.attrs.data;
 
-    if (!url || url === "") return;
-
+    if (!url) return;
     // we should eventually restructure this to a cron job that collects
     // a full list of all URLs to be cleared, and send one clear request
     // to AWS, which might help reduce the number of calls to aws.
@@ -43,8 +43,8 @@ export default function (ag: Agenda) {
           throw new Error("Cache invalidate: Error: " + err);
         } else {
           // successful response
-          console.log("Cache invalidate: suceeded");
-          console.log(data);
+          //console.log("Cache invalidate: succeeded");
+          //console.log(data);
         }
       });
     }
@@ -56,7 +56,7 @@ export async function queueCDNInvalidate(
   orgId: string,
   experiment: ExperimentInterface
 ) {
-  if (IS_CLOUD) {
+  if (IS_CLOUD && AWS_CLOUDFRONT_DISTRIBUTION_ID) {
     const apiKeys = await getAllApiKeysByOrganization(orgId);
 
     // if they have API key:
