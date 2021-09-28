@@ -75,5 +75,5 @@ export async function updateDimension(
     );
   }
 
-  await DimensionModel.updateOne({ id }, { $set: updates });
+  await DimensionModel.updateOne({ id, organization }, { $set: updates });
 }
