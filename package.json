@@ -38,6 +38,10 @@
     ],
     "./**/*.{ts,tsx}": [
       "yarn lint"
+    ],
+    "./packages/stats/gbstats/**/*.py": [
+      "black",
+      "flake8"
     ]
   },
   "license": "MIT"
