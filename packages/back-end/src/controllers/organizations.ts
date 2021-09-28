@@ -7,6 +7,7 @@ import {
   revokeInvite,
   getInviteUrl,
   getRole,
+  importConfig,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -72,6 +73,7 @@ import {
   findOrganizationsByMemberId,
   updateOrganization,
 } from "../models/OrganizationModel";
+import { ConfigFile } from "../init/config";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -1129,6 +1131,28 @@ export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     url,
+  });
+}
+
+export async function postImportConfig(req: AuthRequest, res: Response) {
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { contents }: { contents: string } = req.body;
+
+  const config: ConfigFile = JSON.parse(contents);
+  if (!config) {
+    throw new Error("Failed to parse config.yml file contents.");
+  }
+
+  await importConfig(config, req.organization);
+
+  res.status(200).json({
+    status: 200,
   });
 }
 
