@@ -1,6 +1,6 @@
 import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
-import { FC, useState, useCallback, useMemo } from "react";
+import { FC, useState, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
 import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
@@ -127,7 +127,7 @@ const DateGraph: FC<{
     [dates, groupby]
   );
 
-  const getTooltipData = (mx: number): TooltipData => {
+  const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
     const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
     const px = mx / innerWidth;
     const index = Math.max(
@@ -173,43 +173,25 @@ const DateGraph: FC<{
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const handlePointer = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      // coordinates should be relative to the container in which Tooltip is rendered
-      const containerX =
-        ("clientX" in event ? event.clientX : 0) - containerBounds.left;
-      const data = getTooltipData(containerX);
-      showTooltip({
-        tooltipLeft: data.x,
-        tooltipTop: data.y,
-        tooltipData: data,
-      });
-    },
-    [showTooltip, tooltipShouldDetectBounds, containerBounds, data]
-  );
-
-  let xScale = null;
-  let yScale = null;
-  let width = 0;
   const height = 220;
   const margin = [15, 15, 30, 80];
-
   const min = Math.min(...data.map((d) => d.d));
   const max = Math.max(...data.map((d) => d.d));
 
   return (
     <ParentSizeModern>
-      {(parent) => {
-        width = parent.width;
+      {({ width }) => {
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
+        const numXTicks = width > 768 ? 7 : 4;
+        const numYTicks = 5;
 
-        xScale = scaleTime({
+        const xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
           round: true,
         });
-        yScale = scaleLinear<number>({
+        const yScale = scaleLinear<number>({
           domain: [
             0,
             Math.max(
@@ -220,8 +202,17 @@ const DateGraph: FC<{
           round: true,
         });
 
-        const numXTicks = width > 768 ? 7 : 4;
-        const numYTicks = 5;
+        const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+          // coordinates should be relative to the container in which Tooltip is rendered
+          const containerX =
+            ("clientX" in event ? event.clientX : 0) - containerBounds.left;
+          const data = getTooltipData(containerX, width, yScale);
+          showTooltip({
+            tooltipLeft: data.x,
+            tooltipTop: data.y,
+            tooltipData: data,
+          });
+        };
 
         return (
           <>
