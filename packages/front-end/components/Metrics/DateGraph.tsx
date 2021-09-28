@@ -127,9 +127,7 @@ const DateGraph: FC<{
     [dates, groupby]
   );
 
-  const getTooltipData = (
-    mx: number
-  ): { x: number; y: number; d: Datapoint } => {
+  const getTooltipData = (mx: number): TooltipData => {
     const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
     const px = mx / innerWidth;
     const index = Math.max(
@@ -141,16 +139,19 @@ const DateGraph: FC<{
     const y = yScale(d.v) ?? 0;
     return { x, y, d };
   };
-  const getTooltipContents = ({ d }) => {
+
+  const getTooltipContents = (d: Datapoint) => {
     return (
       <>
         <div className={styles.val}>
-          {formatConversionRate(type, d.v as number)}
+          &mu;: {formatConversionRate(type, d.v as number)}
         </div>
-        {"s" in d && (
+        {type !== "binomial" && "s" in d && (
           <div className={styles.secondary}>&sigma;: {d.s.toFixed(2)}</div>
         )}
-        {"u" in d && <div className={styles.secondary}>n: {d.u}</div>}
+        {"u" in d && (
+          <div className={styles.secondary}>n: {d.u.toLocaleString()}</div>
+        )}
         <div className={styles.date}>{date(d.d as Date)}</div>
       </>
     );
@@ -254,7 +255,7 @@ const DateGraph: FC<{
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {getTooltipContents(tooltipData)}
+                    {getTooltipContents(tooltipData.d)}
                   </TooltipWithBounds>
                 </>
               )}
