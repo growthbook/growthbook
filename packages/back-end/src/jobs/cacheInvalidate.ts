@@ -36,7 +36,7 @@ export default function (ag: Agenda) {
         },
       };
 
-      cloudfront.createInvalidation(params, function (err, data) {
+      cloudfront.createInvalidation(params, function (err) {
         if (err) {
           console.log("Cache invalidate: Error invalidating CDN");
           console.log(err, err.stack);
