@@ -5,17 +5,39 @@ import { useConfigJson } from "../../services/config";
 import { useState } from "react";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import Code from "../Code";
+import { useForm } from "react-hook-form";
+import Field from "../Forms/Field";
+import { load, dump } from "js-yaml";
+import { useMemo } from "react";
+import { createPatch } from "diff";
+import { html } from "diff2html";
+import { useAuth } from "../../services/auth";
 
 export default function RestoreConfigYamlButton({
   settings = {},
+  mutate,
 }: {
   settings?: OrganizationSettings;
+  mutate: () => void;
 }) {
-  const { datasources, metrics, dimensions } = useDefinitions();
+  const {
+    datasources,
+    metrics,
+    dimensions,
+    mutateDefinitions,
+  } = useDefinitions();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const [parsed, setParsed] = useState(null);
+
+  const { apiCall } = useAuth();
+
+  const form = useForm({
+    defaultValues: {
+      config: "",
+    },
+  });
 
   const config = useConfigJson({
     datasources,
@@ -23,6 +45,18 @@ export default function RestoreConfigYamlButton({
     dimensions,
     settings,
   });
+
+  const diffHTML = useMemo(() => {
+    const patch = createPatch(
+      "config.yml",
+      dump(config, { skipInvalid: true }),
+      dump(parsed, { skipInvalid: true }),
+      "",
+      ""
+    );
+
+    return html(patch, {});
+  }, [parsed]);
 
   return (
     <div>
@@ -33,16 +67,44 @@ export default function RestoreConfigYamlButton({
           step={step}
           setStep={setStep}
           submit={async () => {
-            console.log("submit");
+            await apiCall(`/organization/config/import`, {
+              method: "POST",
+              body: JSON.stringify({
+                contents: JSON.stringify(parsed),
+              }),
+            });
+            mutateDefinitions();
+            mutate();
           }}
           size="lg"
+          cta="Confirm and Restore"
         >
-          <Page display="Import">
-            Import config.yml file or paste in contents.
+          <Page
+            display="Import"
+            validate={async () => {
+              const { config } = form.getValues();
+              const json = load(config);
+
+              if (!json || typeof json !== "object") {
+                throw new Error("Could not parsed yaml file into JSON object");
+              }
+
+              setParsed(json);
+            }}
+          >
+            Paste in the contents of <code>config.yml</code> below:
+            <Field
+              textarea
+              minRows={10}
+              maxRows={30}
+              minLength={20}
+              required
+              {...form.register("config")}
+            />
           </Page>
           <Page display="Review and Confirm">
             Review diff and confirm.
-            <Code language="json" code={JSON.stringify(config, null, 2)} />
+            <div dangerouslySetInnerHTML={{ __html: diffHTML }} />
           </Page>
         </PagedModal>
       )}

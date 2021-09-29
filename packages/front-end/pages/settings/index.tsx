@@ -237,6 +237,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <div className="col-auto">
                 <RestoreConfigYamlButton
                   settings={data?.organization?.settings}
+                  mutate={mutate}
                 />
               </div>
             </div>
