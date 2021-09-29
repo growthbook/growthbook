@@ -1,19 +1,23 @@
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { MetricInterface } from "back-end/types/metric";
-import { dump } from "js-yaml";
 import { useMemo } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "../../back-end/types/datasource";
+import { DimensionInterface } from "../../back-end/types/dimension";
+import { OrganizationSettings } from "../../back-end/types/organization";
 
-export default function ConfigYamlButton({
-  settings = {},
-}: {
-  settings?: OrganizationSettings;
-}) {
-  const { datasources, metrics, dimensions } = useDefinitions();
+type Props = {
+  metrics: MetricInterface[];
+  dimensions: DimensionInterface[];
+  datasources: DataSourceInterfaceWithParams[];
+  settings: OrganizationSettings;
+};
 
-  const href = useMemo(() => {
+export function useConfigJson({
+  metrics,
+  dimensions,
+  datasources,
+  settings,
+}: Props) {
+  return useMemo(() => {
     const config: {
       organization?: {
         settings?: OrganizationSettings;
@@ -108,24 +112,6 @@ export default function ConfigYamlButton({
       };
     });
 
-    try {
-      const yml =
-        dump(config, {
-          skipInvalid: true,
-        }) + "\n";
-      const blob = new Blob([yml], { type: "text/yaml" });
-      return window.URL.createObjectURL(blob);
-    } catch (e) {
-      console.error(e);
-      return "";
-    }
-  }, [dimensions, metrics, datasources]);
-
-  if (!href) return null;
-
-  return (
-    <a href={href} download="config.yml" className="btn btn-primary btn-sm">
-      Download config.yml
-    </a>
-  );
+    return config;
+  }, [metrics, dimensions, datasources, settings]);
 }

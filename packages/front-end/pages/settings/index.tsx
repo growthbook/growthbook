@@ -8,7 +8,8 @@ import { useForm } from "react-hook-form";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
-import ConfigYamlButton from "../../components/Settings/ConfigYamlButton";
+import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
+import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
@@ -202,32 +203,47 @@ const GeneralSettingsPage = (): React.ReactElement => {
             .
           </div>
         )}
-        {!hasFileConfig() && !isCloud() && (
+        {!hasFileConfig() && (
           <div className="alert alert-info my-3">
-            <h3>New Feature: config.yml support</h3>
-            <p>
-              You can now control the below settings as well as define data
-              sources, metrics, and dimensions using a <code>config.yml</code>{" "}
-              file. This file can be version controlled and easily moved between
-              environments.{" "}
-              <a
-                href="https://docs.growthbook.io/self-host/config#configyml"
-                target="_blank"
-                rel="noreferrer"
-                className="font-weight-bold"
-              >
-                Learn More
-              </a>
-              .
-            </p>
-            <p>
-              Export existing settings:{" "}
-              <ConfigYamlButton settings={data?.organization?.settings} />
-            </p>
+            <h3>Backup/Restore from config.yml</h3>
+            {isCloud() ? (
+              <p>
+                Backup and restore your organization settings, data sources,
+                metrics, and dimensions from a <code>config.yml</code> file. Use
+                this to easily move between self-hosted and cloud deployments.
+              </p>
+            ) : (
+              <p>
+                You can now control organization settings as well as define data
+                sources, metrics, and dimensions using a <code>config.yml</code>{" "}
+                file. This file can be version controlled and easily moved
+                between environments.{" "}
+                <a
+                  href="https://docs.growthbook.io/self-host/config#configyml"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-weight-bold"
+                >
+                  Learn More
+                </a>
+              </p>
+            )}
+            <div className="row mb-3">
+              <div className="col-auto">
+                <BackupConfigYamlButton
+                  settings={data?.organization?.settings}
+                />
+              </div>
+              <div className="col-auto">
+                <RestoreConfigYamlButton
+                  settings={data?.organization?.settings}
+                />
+              </div>
+            </div>
             <div className="text-muted">
-              <strong>Note:</strong> Downloaded file does not include data
-              source connection secrets such as passwords. You must edit the
-              file and add these yourselves.
+              <strong>Note:</strong> For security reasons, the backup file does
+              not include data source connection secrets such as passwords. You
+              must edit the file and add these yourselves.
             </div>
           </div>
         )}
