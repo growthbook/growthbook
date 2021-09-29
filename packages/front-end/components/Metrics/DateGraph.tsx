@@ -227,10 +227,15 @@ const DateGraph: FC<{
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
         const axisHeight = 30;
+        const minGraphHeight = 100;
         const expBarHeight = 10;
         const expBarMargin = 4;
         const expHeight = bands.size * (expBarHeight + expBarMargin);
-        const graphHeight = yMax - expHeight;
+        let graphHeight = yMax - expHeight;
+        if (graphHeight < minGraphHeight) {
+          height += minGraphHeight - (yMax - expHeight);
+          graphHeight = minGraphHeight;
+        }
 
         const xScale = scaleTime({
           domain: [min, max],
