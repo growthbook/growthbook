@@ -53,6 +53,7 @@ const NorthStarMetricDisplay = ({
               dates={analysis.dates}
               experiments={experiments}
               groupby={resolution === "week" ? "week" : "day"}
+              height={300}
             />
           </div>
         )}

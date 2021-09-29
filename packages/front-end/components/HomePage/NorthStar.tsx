@@ -71,7 +71,7 @@ const NorthStar: FC = () => {
     <>
       {hasNorthStar ? (
         <div
-          className="list-group activity-box overflow-auto mb-4"
+          className="list-group activity-box mb-4"
           style={{ position: "relative" }}
         >
           <a

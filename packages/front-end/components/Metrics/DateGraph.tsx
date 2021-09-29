@@ -46,12 +46,28 @@ function correctStddev(
   );
 }
 
+type ExperimentDisplayData = {
+  id: string;
+  name: string;
+  dateStarted?: string;
+  dateEnded?: string;
+  result?: string;
+  color?: string;
+  band?: number;
+  opacity?: number;
+  tipPosition?: {
+    top: number;
+    left: number;
+  };
+};
+
 const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
   dates: { d: Date; v: number; u?: number; s?: number }[];
   experiments?: Partial<ExperimentInterfaceStringDates>[];
-}> = ({ type, dates, groupby = "day", experiments = [] }) => {
+  height?: number;
+}> = ({ type, dates, groupby = "day", experiments = [], height = 220 }) => {
   const data = useMemo(
     () =>
       dates
@@ -116,44 +132,41 @@ const DateGraph: FC<{
     [dates, groupby]
   );
 
-  const [showToolTip, setShowToolTip] = useState(false);
   const [toolTipTimer, setToolTipTimer] = useState<null | ReturnType<
     typeof setTimeout
   >>(null);
-  const [toolTipData, setToolTipData] = useState({
-    name: "",
-    id: "",
-    dateStarted: "",
-    dateEnded: "",
-    top: 0,
-    left: 0,
-  });
-
-  const height = 220;
+  const [
+    highlightExp,
+    setHighlightExp,
+  ] = useState<null | ExperimentDisplayData>(null);
 
   const min = Math.min(...data.map((d) => d.d));
   const max = Math.max(...data.map((d) => d.d));
 
   // in future we might want to mark the different phases or percent traffic in this as different colors
-  const experimentDates = [];
+  const experimentDates: ExperimentDisplayData[] = [];
+  const bands = new Map();
+  const toolTipDelay = 600;
+
   if (experiments) {
     experiments.forEach((e) => {
       if (e.status !== "draft") {
-        const expLines: {
-          name?: string;
-          id?: string;
-          dateStarted?: string;
-          dateEnded?: string;
-          color: string;
-        } = { name: e.name, id: e.id, color: "#8884d858" };
+        const expLines: ExperimentDisplayData = {
+          name: e.name,
+          id: e.id,
+          color: "rgb(136, 132, 216)",
+          band: 0,
+          result: e.results,
+          opacity: highlightExp && highlightExp.id === e.id ? 1 : 0.35,
+        };
 
         if (e.results === "won") {
-          expLines.color = "rgba(20,206,134,0.35)";
+          expLines.color = "rgba(20,206,134)";
         } else if (e.results === "lost") {
-          expLines.color = "rgba(179,50,50,0.35)";
+          expLines.color = "rgb(199,51,51)";
         }
         // get the earliest start date, and the latest end date - this might not be what we want,
-        // we may want to only look at the 'main' phase.
+        // we may want to only look at the 'main' phase, or ignore the holdouts.
         e.phases.forEach((p) => {
           if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
           else if (p.dateStarted < expLines.dateStarted) {
@@ -164,17 +177,60 @@ const DateGraph: FC<{
             expLines.dateEnded = p.dateEnded;
           }
         });
+
         experimentDates.push(expLines);
+      }
+    });
+    // get all the experiments in order of start date.
+    experimentDates.sort((a, b) => {
+      return a.dateStarted > b.dateStarted ? 1 : -1;
+    });
+
+    // get bands:
+    experimentDates.forEach((ed) => {
+      let curBandNum = 0;
+      let placed = false;
+      while (!placed) {
+        const curBands = bands.get(curBandNum);
+        if (!curBands) {
+          ed.band = curBandNum;
+          bands.set(curBandNum, [ed]);
+          placed = true;
+        } else {
+          let fits = true;
+          for (let i = 0; i < curBands.length; i++) {
+            if (ed.dateStarted < curBands[i].dateEnded) {
+              // it will not fit, there is an overlapping test.
+              fits = false;
+            }
+          }
+          if (fits) {
+            ed.band = curBandNum;
+            // append to the list:
+            const tmp = bands.get(curBandNum);
+            tmp.push(ed);
+            bands.set(curBandNum, tmp);
+            placed = true;
+          } else {
+            // doesn't fit, increase the band number and try again:
+            curBandNum++;
+          }
+        }
       }
     });
   }
 
   return (
-    <ParentSizeModern>
+    <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
         const margin = [15, 15, 30, 80];
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
+        const axisHeight = 30;
+        const expBarHeight = 10;
+        const expBarMargin = 4;
+        const expHeight = bands.size * (expBarHeight + expBarMargin);
+        const graphHeight = yMax - expHeight;
 
         const xScale = scaleTime({
           domain: [min, max],
@@ -188,7 +244,7 @@ const DateGraph: FC<{
               ...data.map((d) => Math.min(d.v * 2, d.v + (d.s ?? 0) * 2))
             ),
           ],
-          range: [yMax, 0],
+          range: [graphHeight, 0],
           round: true,
         });
 
@@ -202,47 +258,39 @@ const DateGraph: FC<{
                 <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
                 <GridColumns
                   scale={xScale}
-                  height={yMax}
+                  height={graphHeight}
                   numTicks={numXTicks}
                 />
-                {experimentDates.map((e, i) => {
-                  // draw a block around the dates for each experiment
-                  return (
-                    <rect
-                      key={i}
-                      fill={e.color}
-                      x={xScale(new Date(e.dateStarted).getTime())}
-                      y={0}
-                      width={
-                        xScale(new Date(e.dateEnded).getTime()) -
-                        xScale(new Date(e.dateStarted).getTime())
+                {experiments && (
+                  <>
+                    {experimentDates.map((e) => {
+                      if (highlightExp && e.id === highlightExp.id) {
+                        return (
+                          <rect
+                            fill={e.color}
+                            x={xScale(new Date(e.dateStarted).getTime())}
+                            y={0}
+                            width={
+                              xScale(new Date(e.dateEnded).getTime()) -
+                              xScale(new Date(e.dateStarted).getTime())
+                            }
+                            style={{ opacity: 0.15 }}
+                            height={graphHeight}
+                            onMouseOver={() => {
+                              clearTimeout(toolTipTimer);
+                            }}
+                            onMouseLeave={() => {
+                              clearTimeout(toolTipTimer);
+                              setToolTipTimer(
+                                setTimeout(setHighlightExp, toolTipDelay, null)
+                              );
+                            }}
+                          />
+                        );
                       }
-                      height={yMax}
-                      onMouseOver={() => {
-                        clearTimeout(toolTipTimer);
-                        setToolTipData({
-                          name: e.name,
-                          id: e.id,
-                          dateStarted: e.dateStarted,
-                          dateEnded: e.dateEnded,
-                          top: 40,
-                          left: xScale(
-                            new Date(e.dateStarted).getTime() +
-                              (new Date(e.dateEnded).getTime() -
-                                new Date(e.dateStarted).getTime()) /
-                                2
-                          ),
-                        });
-                        setShowToolTip(true);
-                      }}
-                      onMouseLeave={() => {
-                        clearTimeout(toolTipTimer);
-                        setToolTipTimer(setTimeout(setShowToolTip, 700, false));
-                      }}
-                    />
-                  );
-                })}
-
+                    })}
+                  </>
+                )}
                 {type !== "binomial" && (
                   <>
                     <AreaClosed
@@ -277,7 +325,7 @@ const DateGraph: FC<{
                 />
 
                 <AxisBottom
-                  top={yMax}
+                  top={graphHeight}
                   scale={xScale}
                   numTicks={numXTicks}
                   tickFormat={(d) => {
@@ -290,11 +338,54 @@ const DateGraph: FC<{
                   tickFormat={(v) => formatConversionRate(type, v as number)}
                 />
               </Group>
+              {experiments && (
+                <Group
+                  left={margin[3]}
+                  top={graphHeight + axisHeight + margin[0]}
+                >
+                  {experimentDates.map((e, i) => {
+                    e.tipPosition = {
+                      top: height,
+                      left: xScale(
+                        new Date(e.dateStarted).getTime() +
+                          (new Date(e.dateEnded).getTime() -
+                            new Date(e.dateStarted).getTime()) /
+                            2
+                      ),
+                    };
+                    return (
+                      <rect
+                        key={i}
+                        fill={e.color}
+                        x={xScale(new Date(e.dateStarted).getTime())}
+                        y={e.band * (expBarHeight + expBarMargin)}
+                        width={
+                          xScale(new Date(e.dateEnded).getTime()) -
+                          xScale(new Date(e.dateStarted).getTime())
+                        }
+                        style={{ opacity: e.opacity }}
+                        rx={4}
+                        height={expBarHeight}
+                        onMouseOver={() => {
+                          clearTimeout(toolTipTimer);
+                          setHighlightExp(e);
+                        }}
+                        onMouseLeave={() => {
+                          clearTimeout(toolTipTimer);
+                          setToolTipTimer(
+                            setTimeout(setHighlightExp, toolTipDelay, null)
+                          );
+                        }}
+                      />
+                    );
+                  })}
+                </Group>
+              )}
             </svg>
-            {showToolTip && toolTipData && (
+            {highlightExp && (
               <Tooltip
-                top={toolTipData.top}
-                left={toolTipData.left}
+                top={highlightExp.tipPosition.top}
+                left={highlightExp.tipPosition.left}
                 style={{
                   ...defaultTooltipStyles,
                   backgroundColor: "#283238",
@@ -307,18 +398,29 @@ const DateGraph: FC<{
                 }}
                 onMouseLeave={() => {
                   clearTimeout(toolTipTimer);
-                  setToolTipTimer(setTimeout(setShowToolTip, 700, false));
+                  setToolTipTimer(
+                    setTimeout(setHighlightExp, toolTipDelay, null)
+                  );
                 }}
               >
-                <div>
-                  <Link
-                    href="/experiment/[eid]"
-                    as={`/experiment/${toolTipData.id}`}
-                  >
-                    <a style={{ color: "#b3e8ff", fontSize: "12px" }}>
-                      <strong>{toolTipData.name}</strong>
-                    </a>
-                  </Link>
+                <div style={{ color: "#fff", fontSize: "12px" }}>
+                  <p className="mb-1">
+                    <Link
+                      href="/experiment/[eid]"
+                      as={`/experiment/${highlightExp.id}`}
+                    >
+                      <a style={{ color: "#b3e8ff", fontSize: "12px" }}>
+                        <strong>{highlightExp.name}</strong>
+                      </a>
+                    </Link>
+                  </p>
+                  <p className="mb-1">
+                    {date(highlightExp.dateStarted)} -{" "}
+                    {date(highlightExp.dateEnded)}
+                  </p>
+                  <p className="mb-1">
+                    Result: <strong>{highlightExp.result}</strong>
+                  </p>
                 </div>
               </Tooltip>
             )}
