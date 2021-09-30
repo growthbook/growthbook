@@ -21,8 +21,16 @@ import {
   getDataSourceById,
   updateDataSource,
 } from "../models/DataSourceModel";
-import { encryptParams } from "./datasource";
-import { getMetricById, updateMetric } from "../models/MetricModel";
+import {
+  decryptDataSourceParams,
+  encryptParams,
+  getSourceIntegrationObject,
+} from "./datasource";
+import {
+  ALLOWED_METRIC_TYPES,
+  getMetricById,
+  updateMetric,
+} from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
 import {
   createDimension,
@@ -30,6 +38,7 @@ import {
   updateDimension,
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
+import { DataSourceInterface } from "../../types/datasource";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -211,10 +220,92 @@ export async function inviteUser(
   };
 }
 
+function validateId(id: string) {
+  if (!id.match(/^[a-zA-Z_][a-zA-Z0-9_-]*$/)) {
+    throw new Error(
+      "Invalid id (must be only alphanumeric plus underscores and hyphens)"
+    );
+  }
+}
+
+function validateConfig(config: ConfigFile, organizationId: string) {
+  const errors: string[] = [];
+
+  const datasourceIds: string[] = [];
+  if (config.datasources) {
+    Object.keys(config.datasources).forEach((k) => {
+      try {
+        datasourceIds.push(k);
+        validateId(k);
+
+        const { params, ...props } = config.datasources[k];
+
+        // This will throw an error if something required is missing
+        getSourceIntegrationObject({
+          ...props,
+          params: encryptParams(params),
+          id: k,
+          organization: organizationId,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        } as DataSourceInterface);
+      } catch (e) {
+        errors.push(`Data source ${k}: ${e.message}`);
+      }
+    });
+  }
+
+  if (config.metrics) {
+    Object.keys(config.metrics).forEach((k) => {
+      try {
+        validateId(k);
+        const metric = config.metrics[k];
+        if (metric.datasource && !datasourceIds.includes(metric.datasource)) {
+          throw new Error("Unknown datasource id '" + metric.datasource + "'");
+        }
+        if (!ALLOWED_METRIC_TYPES.includes(metric.type)) {
+          throw new Error("Invalid type '" + metric.type + "'");
+        }
+      } catch (e) {
+        errors.push(`Metric ${k}: ${e.message}`);
+      }
+    });
+  }
+
+  if (config.dimensions) {
+    Object.keys(config.dimensions).forEach((k) => {
+      try {
+        validateId(k);
+        const dimension = config.dimensions[k];
+        if (!dimension.datasource) {
+          throw new Error("Must specify a datasource");
+        }
+        if (!datasourceIds.includes(dimension.datasource)) {
+          throw new Error(
+            "Unknown datasource id '" + dimension.datasource + "'"
+          );
+        }
+        if (!dimension.sql) {
+          throw new Error("Must specify sql");
+        }
+      } catch (e) {
+        errors.push(`Dimension ${k}: ${e.message}`);
+      }
+    });
+  }
+
+  return errors;
+}
+
 export async function importConfig(
   config: ConfigFile,
   organization: OrganizationInterface
 ) {
+  const errors = validateConfig(config, organization.id);
+  if (errors.length > 0) {
+    throw new Error(errors.join("\n"));
+  }
+
   if (config.organization?.settings) {
     await updateOrganization(organization.id, {
       settings: {
@@ -227,40 +318,58 @@ export async function importConfig(
     await Promise.all(
       Object.keys(config.datasources).map(async (k) => {
         const ds = config.datasources[k];
+        k = k.toLowerCase();
+        try {
+          const existing = await getDataSourceById(k, organization.id);
+          if (existing) {
+            let params = existing.params;
+            if (ds.params) {
+              const merged = {
+                ...decryptDataSourceParams(existing.params),
+                ...ds.params,
+              };
+              params = encryptParams(merged);
+            }
 
-        const existing = await getDataSourceById(k, organization.id);
-        if (existing) {
-          let params = existing.params;
-          if (ds.params) {
-            params = encryptParams(ds.params);
+            const updates = {
+              name: ds.name || existing.name,
+              type: ds.type || existing.type,
+              params,
+              settings: {
+                ...existing.settings,
+                ...ds.settings,
+                queries: {
+                  ...existing.settings.queries,
+                  ...ds.settings?.queries,
+                },
+                events: {
+                  ...existing.settings?.events,
+                  ...ds.settings?.events,
+                },
+              },
+            };
+            const integration = getSourceIntegrationObject({
+              ...updates,
+              id: k,
+              organization: organization.id,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+            });
+            await integration.testConnection();
+
+            await updateDataSource(k, organization.id, updates);
+          } else {
+            await createDataSource(
+              organization.id,
+              ds.name || k,
+              ds.type,
+              ds.params,
+              ds.settings || {},
+              k
+            );
           }
-
-          await updateDataSource(k, organization.id, {
-            name: ds.name || existing.name,
-            type: ds.type || existing.type,
-            params,
-            settings: {
-              ...existing.settings,
-              ...ds.settings,
-              queries: {
-                ...existing.settings.queries,
-                ...ds.settings?.queries,
-              },
-              events: {
-                ...existing.settings?.events,
-                ...ds.settings?.events,
-              },
-            },
-          });
-        } else {
-          await createDataSource(
-            organization.id,
-            ds.name || k,
-            ds.type,
-            ds.params,
-            ds.settings || {},
-            k
-          );
+        } catch (e) {
+          throw new Error(`Datasource ${k}: ${e.message}`);
         }
       })
     );
@@ -269,22 +378,27 @@ export async function importConfig(
     await Promise.all(
       Object.keys(config.metrics).map(async (k) => {
         const m = config.metrics[k];
+        k = k.toLowerCase();
 
-        const existing = await getMetricById(k, organization.id);
-        if (existing) {
-          const updates: Partial<MetricInterface> = {
-            ...m,
-          };
-          delete updates.organization;
+        try {
+          const existing = await getMetricById(k, organization.id);
+          if (existing) {
+            const updates: Partial<MetricInterface> = {
+              ...m,
+            };
+            delete updates.organization;
 
-          await updateMetric(k, updates, organization.id);
-        } else {
-          await createMetric({
-            name: k,
-            ...m,
-            id: k,
-            organization: organization.id,
-          });
+            await updateMetric(k, updates, organization.id);
+          } else {
+            await createMetric({
+              name: k,
+              ...m,
+              id: k,
+              organization: organization.id,
+            });
+          }
+        } catch (e) {
+          throw new Error(`Metric ${k}: ${e.message}`);
         }
       })
     );
@@ -293,23 +407,28 @@ export async function importConfig(
     await Promise.all(
       Object.keys(config.dimensions).map(async (k) => {
         const d = config.dimensions[k];
+        k = k.toLowerCase();
 
-        const existing = await findDimensionById(k, organization.id);
-        if (existing) {
-          const updates: Partial<DimensionInterface> = {
-            ...d,
-          };
-          delete updates.organization;
+        try {
+          const existing = await findDimensionById(k, organization.id);
+          if (existing) {
+            const updates: Partial<DimensionInterface> = {
+              ...d,
+            };
+            delete updates.organization;
 
-          await updateDimension(k, organization.id, updates);
-        } else {
-          await createDimension({
-            ...d,
-            id: k,
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-            organization: organization.id,
-          });
+            await updateDimension(k, organization.id, updates);
+          } else {
+            await createDimension({
+              ...d,
+              id: k,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              organization: organization.id,
+            });
+          }
+        } catch (e) {
+          throw new Error(`Dimension ${k}: ${e.message}`);
         }
       })
     );

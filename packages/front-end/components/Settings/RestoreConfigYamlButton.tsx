@@ -76,7 +76,7 @@ export default function RestoreConfigYamlButton({
             mutateDefinitions();
             mutate();
           }}
-          size="lg"
+          size="max"
           cta="Confirm and Restore"
         >
           <Page
@@ -103,7 +103,6 @@ export default function RestoreConfigYamlButton({
             />
           </Page>
           <Page display="Review and Confirm">
-            Review diff and confirm.
             <div dangerouslySetInnerHTML={{ __html: diffHTML }} />
           </Page>
         </PagedModal>

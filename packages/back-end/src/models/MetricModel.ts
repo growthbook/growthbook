@@ -3,6 +3,13 @@ import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { queriesSchema } from "./QueryModel";
 
+export const ALLOWED_METRIC_TYPES = [
+  "binomial",
+  "count",
+  "duration",
+  "revenue",
+];
+
 const metricSchema = new mongoose.Schema({
   id: String,
   organization: {
