@@ -1,6 +1,6 @@
 import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
-import { FC, useState, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
 import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
@@ -144,24 +144,27 @@ const DateGraph: FC<{
     return (
       <>
         <div className={styles.val}>
-          &mu;: {formatConversionRate(type, d.v as number)}
+          {type !== "binomial" && <span>&mu;: </span>}
+          {formatConversionRate(type, d.v as number)}
         </div>
         {type !== "binomial" && "s" in d && (
-          <div className={styles.secondary}>&sigma;: {d.s.toFixed(2)}</div>
+          <div className={styles.secondary}>
+            &sigma;: {formatConversionRate(type, d.s)}
+          </div>
         )}
         {"u" in d && (
-          <div className={styles.secondary}>n: {d.u.toLocaleString()}</div>
+          <div className={styles.secondary}>
+            <em>n</em>: {d.u.toLocaleString()}
+          </div>
         )}
         <div className={styles.date}>{date(d.d as Date)}</div>
       </>
     );
   };
 
-  const [tooltipShouldDetectBounds] = useState(true);
-
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
-    detectBounds: tooltipShouldDetectBounds,
+    detectBounds: true,
   });
 
   const {
