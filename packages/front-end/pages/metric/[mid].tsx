@@ -62,8 +62,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKey = `metric_groupby`;
-  // const [groupby, setGroupby] = useState<"day" | "week">("day");
+  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
   const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
     storageKey,
     "day"
