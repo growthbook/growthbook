@@ -8,6 +8,7 @@ import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   defaultMaxPercentChange,
+  defaultMinPercentChange,
   defaultMinSampleSize,
 } from "../../services/metrics";
 import clsx from "clsx";
@@ -58,6 +59,18 @@ function isSuspiciousUplift(
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
 
+function isInconclusiveChange(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: MetricInterface
+): boolean {
+  if (!baseline?.cr || !stats?.cr) return false;
+
+  const minPercentChange = metric.minPercentChange || defaultMinPercentChange;
+
+  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+}
+
 function getRisk(
   riskVariation: number,
   metric: MetricInterface,
@@ -78,7 +91,8 @@ function getRisk(
       risk !== null &&
       riskCR > 0 &&
       hasEnoughData(baseline, stats, metric) &&
-      !isSuspiciousUplift(baseline, stats, metric);
+      !isSuspiciousUplift(baseline, stats, metric) &&
+      !isInconclusiveChange(baseline, stats, metric);
   } else {
     risk = -1;
     variations.forEach((v, i) => {
@@ -88,6 +102,9 @@ function getRisk(
         return;
       }
       if (isSuspiciousUplift(baseline, stats, metric)) {
+        return;
+      }
+      if (isInconclusiveChange(baseline, stats, metric)) {
         return;
       }
 
@@ -183,6 +200,7 @@ function ChanceToWinColumn({
   const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
   const enoughData = hasEnoughData(baseline, stats, metric);
   const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
+  const inconclusiveChange = isInconclusiveChange(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =
@@ -190,13 +208,15 @@ function ChanceToWinColumn({
     baseline?.value &&
     stats?.value &&
     enoughData &&
-    !suspiciousChange;
+    !suspiciousChange &&
+    !inconclusiveChange;
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 
   return (
     <td
       className={clsx("variation chance result-number align-middle", {
+        inconclusive: inconclusiveChange,
         won: shouldHighlight && chanceToWin > ciUpper,
         lost: shouldHighlight && chanceToWin < ciLower,
       })}
@@ -221,6 +241,17 @@ function ChanceToWinColumn({
             </span>
           </div>
           <small className="text-muted">value changed too much</small>
+        </div>
+      ) : inconclusiveChange ? (
+        <div>
+          <div className="mb-1">
+            <span className="badge badge-pill badge-warning">
+              inconclusive result
+            </span>
+          </div>
+          <small className="text-muted">
+            value has inconclusively small change
+          </small>
         </div>
       ) : (
         percentFormatter.format(chanceToWin)

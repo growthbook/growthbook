@@ -1298,6 +1298,7 @@ export async function postMetrics(
     winRisk,
     loseRisk,
     maxPercentChange,
+    minPercentChange,
     minSampleSize,
     conditions,
     datasource,
@@ -1345,6 +1346,7 @@ export async function postMetrics(
     winRisk,
     loseRisk,
     maxPercentChange,
+    minPercentChange,
     minSampleSize,
   });
 
@@ -1385,6 +1387,7 @@ export async function putMetric(
     "winRisk",
     "loseRisk",
     "maxPercentChange",
+    "minPercentChange",
     "minSampleSize",
     "conditions",
     "dateUpdated",

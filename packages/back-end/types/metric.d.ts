@@ -41,6 +41,7 @@ export interface MetricInterface {
   winRisk?: number;
   loseRisk?: number;
   maxPercentChange?: number;
+  minPercentChange?: number;
   minSampleSize?: number;
   segment?: string;
   dateCreated: Date;
