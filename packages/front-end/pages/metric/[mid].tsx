@@ -2,7 +2,8 @@ import { useRouter } from "next/router";
 import useApi from "../../hooks/useApi";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import { FC, useContext, useState } from "react";
+import { FC, useContext, useState, useEffect } from "react";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
@@ -42,7 +43,6 @@ import {
   hasFileConfig,
 } from "../../services/env";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
 import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
 import clsx from "clsx";
@@ -62,7 +62,11 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const [groupby, setGroupby] = useState<"day" | "week">("day");
+  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
+  const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
+    storageKey,
+    "day"
+  );
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
