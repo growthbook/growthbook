@@ -14,6 +14,7 @@ import { html } from "diff2html";
 import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
   Object.keys(d.params).forEach((p) => {
@@ -162,6 +163,7 @@ export default function RestoreConfigYamlButton({
           header="Import from config.yml"
           step={step}
           setStep={setStep}
+          navFill={false}
           submit={async () => {
             if (!parsed) {
               throw new Error("Empty config.yml file");
@@ -191,11 +193,19 @@ export default function RestoreConfigYamlButton({
               setParsed(json);
             }}
           >
+            <div>
+              <UploadConfigYml
+                setContent={(content) => {
+                  form.setValue("config", content);
+                }}
+              />
+            </div>
+
             <Field
               textarea
               label={
                 <>
-                  Paste in the contents of <code>config.yml</code> below:
+                  Or paste in the contents of <code>config.yml</code> below:
                 </>
               }
               minRows={10}
