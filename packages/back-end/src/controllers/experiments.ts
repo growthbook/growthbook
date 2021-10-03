@@ -1104,7 +1104,7 @@ async function getMetricAnalysis(
 
 export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
   const result = await getStatusEndpoint(
     metric,
     req.organization.id,
@@ -1121,7 +1121,7 @@ export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
 }
 export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
   res.status(200).json(
     await cancelRun(metric, req.organization.id, async () => {
       await updateMetric(
@@ -1139,7 +1139,7 @@ export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
 export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -1228,19 +1228,12 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
 export async function getMetric(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, false, true);
+  const metric = await getMetricById(id, req.organization.id, true);
 
   if (!metric) {
     return res.status(404).json({
       status: 404,
       message: "Metric not found",
-    });
-  }
-
-  if (!(await userHasAccess(req, metric.organization))) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this metric",
     });
   }
 

@@ -128,6 +128,7 @@ export async function getMetricsByDatasource(
 
   const docs = await MetricModel.find({
     datasource,
+    organization,
   });
   return docs.map(toInterface);
 }
@@ -145,7 +146,6 @@ export async function hasSampleMetric(organization: string) {
 export async function getMetricById(
   id: string,
   organization: string,
-  requireMatchingOrgs: boolean = true,
   includeAnalysis: boolean = false
 ) {
   // If using config.yml, immediately return the from there
@@ -167,12 +167,9 @@ export async function getMetricById(
   const res = toInterface(
     await MetricModel.findOne({
       id,
+      organization,
     })
   );
-
-  if (res && requireMatchingOrgs && res.organization !== organization) {
-    throw new Error("You do not have access to that metric");
-  }
 
   return res;
 }
@@ -210,6 +207,7 @@ export async function updateMetric(
   await MetricModel.updateOne(
     {
       id,
+      organization,
     },
     {
       $set: updates,

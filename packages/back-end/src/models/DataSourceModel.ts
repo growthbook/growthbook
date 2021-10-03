@@ -15,10 +15,7 @@ import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 
 const dataSourceSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
+  id: String,
   name: String,
   organization: {
     type: String,
@@ -77,6 +74,7 @@ const dataSourceSchema = new mongoose.Schema({
     },
   },
 });
+dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceDocument>(
