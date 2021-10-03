@@ -242,7 +242,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="text-muted">
               <strong>Note:</strong> For security reasons, the exported file
               does not include data source connection secrets such as passwords.
-              You must edit the file and add these yourselves.
+              You must edit the file and add these yourself.
             </div>
           </div>
         )}

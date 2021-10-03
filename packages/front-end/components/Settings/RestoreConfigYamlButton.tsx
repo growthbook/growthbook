@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { createPatch } from "diff";
 import { html } from "diff2html";
 import { useAuth } from "../../services/auth";
-import { DataSourceInterfaceWithParams } from "../../../back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
@@ -159,10 +159,13 @@ export default function RestoreConfigYamlButton({
       {open && (
         <PagedModal
           close={() => setOpen(false)}
-          header="Restore from config.yml"
+          header="Import from config.yml"
           step={step}
           setStep={setStep}
           submit={async () => {
+            if (!parsed) {
+              throw new Error("Empty config.yml file");
+            }
             await apiCall(`/organization/config/import`, {
               method: "POST",
               body: JSON.stringify({
@@ -173,10 +176,10 @@ export default function RestoreConfigYamlButton({
             mutate();
           }}
           size="max"
-          cta="Confirm and Restore"
+          cta="Confirm and Import"
         >
           <Page
-            display="Import"
+            display="Select File"
             validate={async () => {
               const { config } = form.getValues();
               const json = load(config);

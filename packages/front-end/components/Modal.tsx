@@ -37,7 +37,7 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setError(externalError);
@@ -114,9 +114,12 @@ const Modal: FC<ModalProps> = ({
         <div className="modal-footer">
           {error && (
             <div className="alert alert-danger mr-auto">
-              {error.split("\n").map((s, i) => (
-                <div key={i}>{s}</div>
-              ))}
+              {error
+                .split("\n")
+                .filter((v) => !!v.trim())
+                .map((s, i) => (
+                  <div key={i}>{s}</div>
+                ))}
             </div>
           )}
           {submit ? (

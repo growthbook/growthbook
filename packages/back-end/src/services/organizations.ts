@@ -372,6 +372,10 @@ export async function importConfig(
         const m = config.metrics[k];
         k = k.toLowerCase();
 
+        if (m.datasource) {
+          m.datasource = m.datasource.toLowerCase();
+        }
+
         try {
           const existing = await getMetricById(k, organization.id);
           if (existing) {
@@ -400,6 +404,10 @@ export async function importConfig(
       Object.keys(config.dimensions).map(async (k) => {
         const d = config.dimensions[k];
         k = k.toLowerCase();
+
+        if (d.datasource) {
+          d.datasource = d.datasource.toLowerCase();
+        }
 
         try {
           const existing = await findDimensionById(k, organization.id);
