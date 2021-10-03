@@ -16,9 +16,10 @@ import {
   DataSourceInterface,
 } from "../../types/datasource";
 import {
-  testDataSourceConnection,
-  mergeAndEncryptParams,
   getSourceIntegrationObject,
+  getNonSensitiveParams,
+  mergeParams,
+  encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
 import { getAllTags } from "../services/tag";
@@ -275,7 +276,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         name: d.name,
         type: d.type,
         settings: d.settings,
-        params: integration.getNonSensitiveParams(),
+        params: getNonSensitiveParams(integration),
       };
     }),
     dimensions,
@@ -817,7 +818,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
         name: d.name,
         type: d.type,
         settings: d.settings,
-        params: integration.getNonSensitiveParams(),
+        params: getNonSensitiveParams(integration),
       };
     }),
   });
@@ -848,7 +849,7 @@ export async function getDataSource(req: AuthRequest, res: Response) {
     id: datasource.id,
     name: datasource.name,
     type: datasource.type,
-    params: integration.getNonSensitiveParams(),
+    params: getNonSensitiveParams(integration),
     settings: datasource.settings,
   });
 }
@@ -987,15 +988,13 @@ export async function putDataSource(
       (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token;
     }
 
-    const newParams = mergeAndEncryptParams(params, datasource.params);
-    if (newParams !== datasource.params) {
-      // If the connection params changed, re-validate the connection
-      // If the user is just updating the display name, no need to do this
-      updates.params = newParams;
-      await testDataSourceConnection({
-        ...datasource,
-        ...updates,
-      });
+    // If the connection params changed, re-validate the connection
+    // If the user is just updating the display name, no need to do this
+    if (params) {
+      const integration = getSourceIntegrationObject(datasource);
+      mergeParams(integration, params);
+      await integration.testConnection();
+      updates.params = encryptParams(integration.params);
     }
 
     await updateDataSource(id, req.organization.id, updates);

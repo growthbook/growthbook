@@ -10,11 +10,8 @@ export default class Mysql extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<MysqlConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   async runQuery(sql: string) {
     const conn = await mysql.createConnection({

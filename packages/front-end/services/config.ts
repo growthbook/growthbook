@@ -34,8 +34,11 @@ export function useConfigJson({
       },
     };
 
+    const datasourceIds: string[] = [];
+
     if (datasources.length) config.datasources = {};
     datasources.forEach((d) => {
+      datasourceIds.push(d.id);
       config.datasources[d.id] = {
         type: d.type,
         name: d.name,
@@ -60,6 +63,7 @@ export function useConfigJson({
 
     if (metrics.length) config.metrics = {};
     metrics.forEach((m) => {
+      if (m.datasource && !datasourceIds.includes(m.datasource)) return;
       const met: Partial<MetricInterface> = {
         type: m.type,
         name: m.name,
@@ -105,6 +109,7 @@ export function useConfigJson({
 
     if (dimensions.length) config.dimensions = {};
     dimensions.forEach((d) => {
+      if (d.datasource && !datasourceIds.includes(d.datasource)) return;
       config.dimensions[d.id] = {
         name: d.name,
         datasource: d.datasource,

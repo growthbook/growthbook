@@ -205,29 +205,27 @@ const GeneralSettingsPage = (): React.ReactElement => {
         )}
         {!hasFileConfig() && (
           <div className="alert alert-info my-3">
-            <h3>Backup/Restore from config.yml</h3>
-            {isCloud() ? (
-              <p>
-                Backup and restore your organization settings, data sources,
-                metrics, and dimensions from a <code>config.yml</code> file. Use
-                this to easily move between self-hosted and cloud deployments.
-              </p>
-            ) : (
-              <p>
-                You can now control organization settings as well as define data
-                sources, metrics, and dimensions using a <code>config.yml</code>{" "}
-                file. This file can be version controlled and easily moved
-                between environments.{" "}
-                <a
-                  href="https://docs.growthbook.io/self-host/config#configyml"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-weight-bold"
-                >
-                  Learn More
-                </a>
-              </p>
-            )}
+            <h3>Import/Export config.yml</h3>
+            <p>
+              {isCloud()
+                ? "GrowthBook Cloud stores"
+                : "You are currently storing"}{" "}
+              all organization settings, data sources, metrics, and dimensions
+              in a database.
+            </p>
+            <p>
+              You can import/export these settings to a <code>config.yml</code>{" "}
+              file to more easily move between GrowthBook Cloud accounts and/or
+              self-hosted environments.{" "}
+              <a
+                href="https://docs.growthbook.io/self-host/config#configyml"
+                target="_blank"
+                rel="noreferrer"
+                className="font-weight-bold"
+              >
+                Learn More
+              </a>
+            </p>
             <div className="row mb-3">
               <div className="col-auto">
                 <BackupConfigYamlButton
@@ -242,9 +240,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
             </div>
             <div className="text-muted">
-              <strong>Note:</strong> For security reasons, the backup file does
-              not include data source connection secrets such as passwords. You
-              must edit the file and add these yourselves.
+              <strong>Note:</strong> For security reasons, the exported file
+              does not include data source connection secrets such as passwords.
+              You must edit the file and add these yourselves.
             </div>
           </div>
         )}

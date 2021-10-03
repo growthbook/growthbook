@@ -37,7 +37,7 @@ export default function BackupConfigYamlButton({
 
   return (
     <a href={href} download="config.yml" className="btn btn-primary">
-      <FaDownload /> Backup
+      <FaDownload /> Export to config.yml
     </a>
   );
 }

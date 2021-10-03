@@ -10,11 +10,8 @@ export default class Snowflake extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<SnowflakeConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   runQuery(sql: string) {
     return runSnowflakeQuery(this.params, sql);

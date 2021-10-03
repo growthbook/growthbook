@@ -12,6 +12,26 @@ import { useMemo } from "react";
 import { createPatch } from "diff";
 import { html } from "diff2html";
 import { useAuth } from "../../services/auth";
+import { DataSourceInterfaceWithParams } from "../../../back-end/types/datasource";
+import cloneDeep from "lodash/cloneDeep";
+
+function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
+  Object.keys(d.params).forEach((p) => {
+    if (
+      [
+        "password",
+        "pass",
+        "secretAccessKey",
+        "accessKeyId",
+        "privateKey",
+        "refreshToken",
+        "secret",
+      ].includes(p)
+    ) {
+      d.params[p] = "********";
+    }
+  });
+}
 
 export default function RestoreConfigYamlButton({
   settings = {},
@@ -47,12 +67,88 @@ export default function RestoreConfigYamlButton({
   });
 
   const diffHTML = useMemo(() => {
+    if (!parsed) return "";
+
+    // Only include relevent objects in original value
+    // Merge original value to new value to backfill missing properties
+    const origConfig = cloneDeep(config);
+    const newConfig = cloneDeep(parsed);
+
+    if (origConfig.datasources) {
+      Object.keys(origConfig.datasources).forEach((k) => {
+        if (!newConfig?.datasources?.[k]) {
+          delete origConfig.datasources[k];
+        } else {
+          const o = origConfig.datasources[k];
+          const n = newConfig.datasources[k];
+
+          newConfig.datasources[k] = {
+            ...o,
+            ...n,
+            settings: {
+              ...o.settings,
+              ...n.settings,
+            },
+            params: {
+              ...o.params,
+              ...n.params,
+            },
+          };
+        }
+      });
+    }
+    if (origConfig.metrics) {
+      Object.keys(origConfig.metrics).forEach((k) => {
+        if (!newConfig?.metrics?.[k]) {
+          delete origConfig.metrics[k];
+        } else {
+          const o = origConfig.metrics[k];
+          const n = newConfig.metrics[k];
+
+          newConfig.metrics[k] = {
+            ...o,
+            ...n,
+          };
+        }
+      });
+    }
+    if (origConfig.dimensions) {
+      Object.keys(origConfig.dimensions).forEach((k) => {
+        if (!newConfig?.dimensions?.[k]) {
+          delete origConfig.dimensions[k];
+        } else {
+          const o = origConfig.dimensions[k];
+          const n = newConfig.dimensions[k];
+
+          newConfig.dimensions[k] = {
+            ...o,
+            ...n,
+          };
+        }
+      });
+    }
+
+    // Mask secrets in datasource settings
+    if (origConfig.datasources) {
+      Object.keys(origConfig.datasources).forEach((k) => {
+        sanitizeSecrets(
+          origConfig.datasources[k] as DataSourceInterfaceWithParams
+        );
+      });
+    }
+    if (newConfig.datasources) {
+      Object.keys(newConfig.datasources).forEach((k) => {
+        sanitizeSecrets(newConfig.datasources[k]);
+      });
+    }
+
     const patch = createPatch(
       "config.yml",
-      dump(config, { skipInvalid: true }),
-      dump(parsed, { skipInvalid: true }),
+      dump(origConfig, { skipInvalid: true }),
+      dump(newConfig, { skipInvalid: true }),
       "",
-      ""
+      "",
+      { context: 10 }
     );
 
     return html(patch, {});
@@ -92,9 +188,13 @@ export default function RestoreConfigYamlButton({
               setParsed(json);
             }}
           >
-            Paste in the contents of <code>config.yml</code> below:
             <Field
               textarea
+              label={
+                <>
+                  Paste in the contents of <code>config.yml</code> below:
+                </>
+              }
               minRows={10}
               maxRows={30}
               minLength={20}
@@ -112,10 +212,15 @@ export default function RestoreConfigYamlButton({
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
+          form.reset({
+            config: "",
+          });
+          setStep(0);
+          setParsed(null);
           setOpen(true);
         }}
       >
-        <FaUpload /> Restore
+        <FaUpload /> Import from config.yml
       </a>
     </div>
   );

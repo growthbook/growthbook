@@ -22,9 +22,9 @@ import {
   updateDataSource,
 } from "../models/DataSourceModel";
 import {
-  decryptDataSourceParams,
   encryptParams,
   getSourceIntegrationObject,
+  mergeParams,
 } from "./datasource";
 import {
   ALLOWED_METRIC_TYPES,
@@ -323,12 +323,12 @@ export async function importConfig(
           const existing = await getDataSourceById(k, organization.id);
           if (existing) {
             let params = existing.params;
+            // If params are changing, merge them with existing and test the connection
             if (ds.params) {
-              const merged = {
-                ...decryptDataSourceParams(existing.params),
-                ...ds.params,
-              };
-              params = encryptParams(merged);
+              const integration = getSourceIntegrationObject(existing);
+              mergeParams(integration, ds.params);
+              await integration.testConnection();
+              params = encryptParams(integration.params);
             }
 
             const updates = {
@@ -348,14 +348,6 @@ export async function importConfig(
                 },
               },
             };
-            const integration = getSourceIntegrationObject({
-              ...updates,
-              id: k,
-              organization: organization.id,
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-            });
-            await integration.testConnection();
 
             await updateDataSource(k, organization.id, updates);
           } else {
