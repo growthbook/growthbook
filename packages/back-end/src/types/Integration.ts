@@ -174,7 +174,8 @@ export interface SourceIntegrationInterface {
   organization: string;
   settings: DataSourceSettings;
   // eslint-disable-next-line
-  getNonSensitiveParams(): any;
+  params: any;
+  getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,

@@ -25,7 +25,7 @@ import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 import DataQualityWarning from "./DataQualityWarning";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import MetricValueColumn from "./MetricValueColumn";
 
 const numberFormatter = new Intl.NumberFormat();

@@ -7,6 +7,7 @@ import {
   revokeInvite,
   getInviteUrl,
   getRole,
+  importConfig,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -15,9 +16,10 @@ import {
   DataSourceInterface,
 } from "../../types/datasource";
 import {
-  testDataSourceConnection,
-  mergeAndEncryptParams,
   getSourceIntegrationObject,
+  getNonSensitiveParams,
+  mergeParams,
+  encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
 import { getAllTags } from "../services/tag";
@@ -72,6 +74,7 @@ import {
   findOrganizationsByMemberId,
   updateOrganization,
 } from "../models/OrganizationModel";
+import { ConfigFile } from "../init/config";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -273,7 +276,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         name: d.name,
         type: d.type,
         settings: d.settings,
-        params: integration.getNonSensitiveParams(),
+        params: getNonSensitiveParams(integration),
       };
     }),
     dimensions,
@@ -656,7 +659,7 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
     );
   }
 
-  await deleteDatasourceById(datasource.id);
+  await deleteDatasourceById(datasource.id, req.organization.id);
 
   res.status(200).json({
     status: 200,
@@ -815,7 +818,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
         name: d.name,
         type: d.type,
         settings: d.settings,
-        params: integration.getNonSensitiveParams(),
+        params: getNonSensitiveParams(integration),
       };
     }),
   });
@@ -846,7 +849,7 @@ export async function getDataSource(req: AuthRequest, res: Response) {
     id: datasource.id,
     name: datasource.name,
     type: datasource.type,
-    params: integration.getNonSensitiveParams(),
+    params: getNonSensitiveParams(integration),
     settings: datasource.settings,
   });
 }
@@ -985,18 +988,16 @@ export async function putDataSource(
       (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token;
     }
 
-    const newParams = mergeAndEncryptParams(params, datasource.params);
-    if (newParams !== datasource.params) {
-      // If the connection params changed, re-validate the connection
-      // If the user is just updating the display name, no need to do this
-      updates.params = newParams;
-      await testDataSourceConnection({
-        ...datasource,
-        ...updates,
-      });
+    // If the connection params changed, re-validate the connection
+    // If the user is just updating the display name, no need to do this
+    if (params) {
+      const integration = getSourceIntegrationObject(datasource);
+      mergeParams(integration, params);
+      await integration.testConnection();
+      updates.params = encryptParams(integration.params);
     }
 
-    await updateDataSource(id, updates);
+    await updateDataSource(id, req.organization.id, updates);
 
     res.status(200).json({
       status: 200,
@@ -1129,6 +1130,28 @@ export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     url,
+  });
+}
+
+export async function postImportConfig(req: AuthRequest, res: Response) {
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { contents }: { contents: string } = req.body;
+
+  const config: ConfigFile = JSON.parse(contents);
+  if (!config) {
+    throw new Error("Failed to parse config.yml file contents.");
+  }
+
+  await importConfig(config, req.organization);
+
+  res.status(200).json({
+    status: 200,
   });
 }
 

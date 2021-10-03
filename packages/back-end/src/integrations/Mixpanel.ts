@@ -715,11 +715,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     console.log(query);
     throw new Error("Method not implemented.");
   }
-  getNonSensitiveParams(): Partial<MixpanelConnectionParams> {
-    return {
-      ...this.params,
-      secret: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["secret"];
   }
 
   private getMetricValueCode(

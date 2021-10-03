@@ -10,11 +10,8 @@ export default class Redshift extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<PostgresConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   runQuery(sql: string) {
     return runPostgresQuery(this.params, sql);

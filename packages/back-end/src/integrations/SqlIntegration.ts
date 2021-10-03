@@ -116,12 +116,13 @@ export default abstract class SqlIntegration
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
+  // eslint-disable-next-line
+  params: any;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
   abstract percentile(col: string, percentile: number): string;
-  // eslint-disable-next-line
-  abstract getNonSensitiveParams(): any;
+  abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     this.setParams(encryptedParams);
@@ -129,7 +130,6 @@ export default abstract class SqlIntegration
       ...settings,
     };
   }
-
   getSourceProperties(): DataSourceProperties {
     return {
       includeInConfig: true,

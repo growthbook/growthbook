@@ -300,6 +300,10 @@ app.get("/history/:type/:id", organizationsController.getHistory);
 app.get("/organization", organizationsController.getOrganization);
 app.post("/organization", organizationsController.signup);
 app.put("/organization", organizationsController.putOrganization);
+app.post(
+  "/organization/config/import",
+  organizationsController.postImportConfig
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);

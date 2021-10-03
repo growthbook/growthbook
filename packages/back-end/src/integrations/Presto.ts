@@ -14,11 +14,8 @@ export default class Presto extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<PrestoConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;

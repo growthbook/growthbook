@@ -224,11 +224,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     return true;
   }
 
-  getNonSensitiveParams(): Partial<GoogleAnalyticsParams> {
-    return {
-      customDimension: this.params.customDimension,
-      viewId: this.params.viewId,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["refreshToken"];
   }
 
   getAuth() {
