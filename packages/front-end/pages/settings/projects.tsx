@@ -6,6 +6,7 @@ import { ProjectInterface } from "../../../back-end/types/project";
 import DeleteButton from "../../components/DeleteButton";
 import ProjectModal from "../../components/Projects/ProjectModal";
 import { useAuth } from "../../services/auth";
+import { date } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
 
 const ProjectsPage: FC = () => {
@@ -42,9 +43,8 @@ const ProjectsPage: FC = () => {
           <thead>
             <tr>
               <th>Project Name</th>
-              <th>Metrics</th>
-              <th>Segments</th>
-              <th>User Dimensions</th>
+              <th>Date Created</th>
+              <th>Date Updated</th>
               <th></th>
             </tr>
           </thead>
@@ -52,9 +52,8 @@ const ProjectsPage: FC = () => {
             {projects.map((p) => (
               <tr key={p.id}>
                 <td>{p.name}</td>
-                <td>{p.metrics?.length || 0}</td>
-                <td>{p.segments?.length || 0}</td>
-                <td>{p.dimensions?.length || 0}</td>
+                <td>{date(p.dateCreated)}</td>
+                <td>{date(p.dateUpdated)}</td>
                 <td>
                   <button
                     className="btn btn-outline-primary"

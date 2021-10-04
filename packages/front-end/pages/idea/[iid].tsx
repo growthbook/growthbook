@@ -33,6 +33,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
+import Field from "../../components/Forms/Field";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -44,8 +45,10 @@ const IdeaPage = (): ReactElement => {
   const {
     getMetricById,
     metrics,
+    projects,
     getSegmentById,
     refreshTags,
+    getProjectById,
   } = useDefinitions();
 
   const { permissions, getUserDisplay } = useContext(UserContext);
@@ -64,12 +67,18 @@ const IdeaPage = (): ReactElement => {
 
   useSwitchOrg(data?.idea?.organization);
 
-  const form = useForm<{ text: string; tags: string[]; details: string }>();
+  const form = useForm<{
+    text: string;
+    tags: string[];
+    details: string;
+    project: string;
+  }>();
   useEffect(() => {
     if (data?.idea) {
       form.setValue("text", data.idea.text || "");
       form.setValue("tags", data.idea.tags || []);
       form.setValue("details", data.idea.details || "");
+      form.setValue("project", data.idea.project || "");
     }
   }, [data]);
 
@@ -212,39 +221,59 @@ const IdeaPage = (): ReactElement => {
               form.setValue("text", idea.text || "");
               form.setValue("tags", idea.tags || []);
               form.setValue("details", idea.details || "");
+              form.setValue("project", idea.project || "");
             }}
             setEdit={setEdit}
           >
             {({ save, cancel }) => (
               <div className="bg-white p-3 border idea-wrap">
-                <div className="d-flex">
-                  <EditableH1
-                    editing={edit}
-                    className="mb-0 flex-1"
-                    autoFocus
-                    save={save}
-                    cancel={cancel}
-                    value={form.watch("text")}
-                    onChange={(e) => form.setValue("text", e.target.value)}
-                  />
+                <div className="row">
+                  <div className="col">
+                    <EditableH1
+                      editing={edit}
+                      className="mb-0 flex-grow-1"
+                      autoFocus
+                      label="Idea Text"
+                      save={save}
+                      cancel={cancel}
+                      value={form.watch("text")}
+                      onChange={(e) => form.setValue("text", e.target.value)}
+                    />
+                  </div>
                   {!edit && (
-                    <button
-                      className="btn btn-outline-secondary"
-                      onClick={() => {
-                        setEdit(true);
-                      }}
-                    >
-                      Edit
-                    </button>
+                    <div className="col-auto">
+                      <button
+                        className="btn btn-outline-secondary"
+                        onClick={() => {
+                          setEdit(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </div>
                   )}
                 </div>
 
                 {edit ? (
                   <div className="py-2">
-                    <TagsInput
-                      value={form.watch("tags")}
-                      onChange={(tags) => form.setValue("tags", tags)}
-                    />
+                    <div className="form-group">
+                      <label>Tags</label>
+                      <TagsInput
+                        value={form.watch("tags")}
+                        onChange={(tags) => form.setValue("tags", tags)}
+                      />
+                    </div>
+                    {projects.length > 0 && (
+                      <Field
+                        label="Project"
+                        {...form.register("project")}
+                        options={projects.map((p) => ({
+                          display: p.name,
+                          value: p.id,
+                        }))}
+                        initialOption="None"
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="d-flex">
@@ -260,7 +289,7 @@ const IdeaPage = (): ReactElement => {
                         on <strong>{date(idea.dateCreated)}</strong>
                       </small>
                     </div>
-                    <div className="idea-tags text-muted">
+                    <div className="idea-tags text-muted mr-3">
                       <small>
                         Tags:{" "}
                         {idea.tags &&
@@ -275,12 +304,21 @@ const IdeaPage = (): ReactElement => {
                         {!idea.tags?.length && <em>None</em>}
                       </small>
                     </div>
+                    <div className="text-muted mr-3">
+                      <small>
+                        Project:{" "}
+                        <span className="badge badge-secondary">
+                          {getProjectById(idea.project)?.name || "None"}
+                        </span>
+                      </small>
+                    </div>
                   </div>
                 )}
 
                 <MarkdownEditor
                   defaultValue={idea.details || ""}
                   editing={edit}
+                  label="More Details"
                   form={form}
                   name="details"
                   save={save}
@@ -409,6 +447,7 @@ const IdeaPage = (): ReactElement => {
             name: idea.text,
             description: idea.details,
             tags: idea.tags,
+            project: idea.project || "",
             targetURLRegex: data?.estimate?.regex || "",
             datasource: data?.estimate?.metric
               ? getMetricById(data?.estimate?.metric)?.datasource

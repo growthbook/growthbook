@@ -20,7 +20,6 @@ export interface PresentationInterface {
   id: string;
   userId: string;
   organization: string;
-  project?: string;
   title?: string;
   description?: string;
   theme?: string;

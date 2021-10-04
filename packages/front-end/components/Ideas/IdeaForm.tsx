@@ -12,7 +12,7 @@ const IdeaForm: FC<{
   mutate: () => void;
   close: () => void;
 }> = ({ idea, close, mutate }) => {
-  const { refreshTags, project } = useDefinitions();
+  const { refreshTags, project, projects } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
@@ -55,6 +55,14 @@ const IdeaForm: FC<{
         {...form.register("text")}
         helpText="You'll be able to add more details later"
       />
+      {edit && (
+        <Field
+          label="Project"
+          {...form.register("project")}
+          options={projects.map((p) => ({ display: p.name, value: p.id }))}
+          initialOption="None"
+        />
+      )}
       <div className="form-group">
         <label>Tags</label>
         <TagsInput

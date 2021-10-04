@@ -12,13 +12,10 @@ export async function postProjects(
   req: AuthRequest<Partial<ProjectInterface>>,
   res: Response
 ) {
-  const { name, metrics, dimensions, segments } = req.body;
+  const { name } = req.body;
 
   const doc = await createProject(req.organization.id, {
     name,
-    metrics,
-    dimensions,
-    segments,
   });
 
   res.status(200).json({
@@ -37,13 +34,10 @@ export async function putProject(
     throw new Error("Could not find project");
   }
 
-  const { name, metrics, dimensions, segments } = req.body;
+  const { name } = req.body;
 
   await updateProject(id, project.organization, {
     name,
-    metrics,
-    dimensions,
-    segments,
     dateUpdated: new Date(),
   });
 

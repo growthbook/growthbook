@@ -10,13 +10,16 @@ import { UserContext } from "../components/ProtectedPage";
 import { useSearch } from "../services/search";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
 
+  const { project } = useDefinitions();
+
   const { data, error, mutate } = useApi<{
     ideas: IdeaInterface[];
-  }>("/ideas");
+  }>(`/ideas?project=${project || ""}`);
 
   const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
 

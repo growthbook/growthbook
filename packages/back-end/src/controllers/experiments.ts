@@ -64,7 +64,15 @@ import { SegmentModel } from "../models/SegmentModel";
 import { getAdjustedStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
-  const experiments = await getExperimentsByOrganization(req.organization.id);
+  let project: string;
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const experiments = await getExperimentsByOrganization(
+    req.organization.id,
+    project
+  );
 
   res.status(200).json({
     status: 200,

@@ -5,7 +5,6 @@ const presentationSchema = new mongoose.Schema({
   id: String,
   userId: String,
   organization: String,
-  project: String,
   title: String,
   description: String,
   options: {

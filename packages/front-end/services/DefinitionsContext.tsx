@@ -3,9 +3,10 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { createContext, FC } from "react";
 import useApi from "../hooks/useApi";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -78,7 +79,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
     "/organization/definitions"
   );
 
-  const [project, setProject] = useState("");
+  const [project, setProject] = useLocalStorage("gb_current_project", "");
 
   let value: DefinitionContextValue;
   if (error) {
@@ -95,7 +96,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       tags: data.tags,
       groups: data.groups,
       projects: data.projects,
-      project,
+      project: data.projects.map((p) => p.id).includes(project) ? project : "",
       setProject,
       getMetricById: getByIdFunction(data.metrics),
       getDatasourceById: getByIdFunction(data.datasources),
