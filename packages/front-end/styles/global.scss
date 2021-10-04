@@ -436,6 +436,7 @@ pre {
 
   td.won,
   td.lost,
+  td.draw,
   td.warning {
     opacity: 1;
     .change-container {
@@ -465,6 +466,9 @@ pre {
   }
   td.warning {
     background-color: rgba(#eddca6, 0.3);
+  }
+  td.draw {
+    background-color: rgba(#e8e8e8, 0.3);
   }
 
   .metricname:hover {

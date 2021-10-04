@@ -59,7 +59,7 @@ function isSuspiciousUplift(
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
 
-function isInconclusiveChange(
+function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: MetricInterface
@@ -81,6 +81,7 @@ function getRisk(
   let riskCR: number;
   let relativeRisk: number;
   let showRisk = false;
+  let belowMinChange = false;
   const baseline = variations[0]?.metrics?.[m];
 
   if (riskVariation > 0) {
@@ -91,8 +92,8 @@ function getRisk(
       risk !== null &&
       riskCR > 0 &&
       hasEnoughData(baseline, stats, metric) &&
-      !isSuspiciousUplift(baseline, stats, metric) &&
-      !isInconclusiveChange(baseline, stats, metric);
+      !isSuspiciousUplift(baseline, stats, metric);
+    belowMinChange = isBelowMinChange(baseline, stats, metric);
   } else {
     risk = -1;
     variations.forEach((v, i) => {
@@ -104,9 +105,7 @@ function getRisk(
       if (isSuspiciousUplift(baseline, stats, metric)) {
         return;
       }
-      if (isInconclusiveChange(baseline, stats, metric)) {
-        return;
-      }
+      belowMinChange = isBelowMinChange(baseline, stats, metric);
 
       const vRisk = stats?.risk?.[metric?.inverse ? 1 : 0];
       if (vRisk > risk) {
@@ -124,6 +123,7 @@ function getRisk(
     risk,
     relativeRisk,
     showRisk,
+    belowMinChange,
   };
 }
 
@@ -200,7 +200,7 @@ function ChanceToWinColumn({
   const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
   const enoughData = hasEnoughData(baseline, stats, metric);
   const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
-  const inconclusiveChange = isInconclusiveChange(baseline, stats, metric);
+  const belowMinChange = isBelowMinChange(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =
@@ -209,16 +209,17 @@ function ChanceToWinColumn({
     stats?.value &&
     enoughData &&
     !suspiciousChange &&
-    !inconclusiveChange;
+    !belowMinChange;
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 
   return (
     <td
       className={clsx("variation chance result-number align-middle", {
-        inconclusive: inconclusiveChange,
         won: shouldHighlight && chanceToWin > ciUpper,
         lost: shouldHighlight && chanceToWin < ciLower,
+        draw:
+          belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower),
       })}
     >
       {!baseline?.value || !stats?.value ? (
@@ -241,17 +242,6 @@ function ChanceToWinColumn({
             </span>
           </div>
           <small className="text-muted">value changed too much</small>
-        </div>
-      ) : inconclusiveChange ? (
-        <div>
-          <div className="mb-1">
-            <span className="badge badge-pill badge-warning">
-              inconclusive result
-            </span>
-          </div>
-          <small className="text-muted">
-            value has inconclusively small change
-          </small>
         </div>
       ) : (
         percentFormatter.format(chanceToWin)
@@ -316,7 +306,7 @@ function RiskColumn({
   variations: SnapshotVariation[];
   riskVariation: number;
 }) {
-  const { relativeRisk, risk, showRisk } = getRisk(
+  const { relativeRisk, risk, showRisk, belowMinChange } = getRisk(
     riskVariation,
     metric,
     variations
@@ -332,9 +322,14 @@ function RiskColumn({
   return (
     <td
       className={clsx("chance variation align-middle", {
-        won: showRisk && relativeRisk <= winRiskThreshold,
-        lost: showRisk && relativeRisk >= loseRiskThreshold,
+        won: !belowMinChange && showRisk && relativeRisk <= winRiskThreshold,
+        lost: !belowMinChange && showRisk && relativeRisk >= loseRiskThreshold,
+        draw:
+          belowMinChange &&
+          (relativeRisk >= loseRiskThreshold ||
+            relativeRisk <= winRiskThreshold),
         warning:
+          !belowMinChange &&
           showRisk &&
           relativeRisk > winRiskThreshold &&
           relativeRisk < loseRiskThreshold,

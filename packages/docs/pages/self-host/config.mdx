@@ -314,9 +314,10 @@ minSampleSize: 150
 #   we hide the result and label it as suspicious.
 # Default 0.5 = 50% change
 maxPercentChange: 0.50
-# The minimum change required for a result to be considered inconclusive. If the percent
-# change for a variation is below this, we hide the result and label it inconclusive.
-# Default 0.5 = 50% change
+# The minimum change required for a result to considered a win or loss. If the percent
+# change for a variation is below this threshold, we will consider an otherwise conclusive
+# test a draw.
+# Default 0.005 = 0.5% change
 minPercentChange: 0.005
 # Arbitrary tags used to group related metrics
 tags:
