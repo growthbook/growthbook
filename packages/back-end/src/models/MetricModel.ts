@@ -3,6 +3,13 @@ import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { queriesSchema } from "./QueryModel";
 
+export const ALLOWED_METRIC_TYPES = [
+  "binomial",
+  "count",
+  "duration",
+  "revenue",
+];
+
 const metricSchema = new mongoose.Schema({
   id: String,
   organization: {
@@ -27,6 +34,7 @@ const metricSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   userIdColumn: String,
+  segment: String,
   anonymousIdColumn: String,
   userIdType: String,
   sql: String,
@@ -44,6 +52,7 @@ const metricSchema = new mongoose.Schema({
   runStarted: Date,
   analysis: {
     createdAt: Date,
+    segment: String,
     users: Number,
     average: Number,
     stddev: Number,
@@ -60,10 +69,13 @@ const metricSchema = new mongoose.Schema({
         _id: false,
         d: Date,
         v: Number,
+        s: Number,
+        u: Number,
       },
     ],
   },
 });
+metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
@@ -80,12 +92,13 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function deleteMetricById(id: string) {
+export async function deleteMetricById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
   }
   await MetricModel.deleteOne({
     id,
+    organization,
   });
 }
 
@@ -115,6 +128,7 @@ export async function getMetricsByDatasource(
 
   const docs = await MetricModel.find({
     datasource,
+    organization,
   });
   return docs.map(toInterface);
 }
@@ -132,7 +146,6 @@ export async function hasSampleMetric(organization: string) {
 export async function getMetricById(
   id: string,
   organization: string,
-  requireMatchingOrgs: boolean = true,
   includeAnalysis: boolean = false
 ) {
   // If using config.yml, immediately return the from there
@@ -154,12 +167,9 @@ export async function getMetricById(
   const res = toInterface(
     await MetricModel.findOne({
       id,
+      organization,
     })
   );
-
-  if (res && requireMatchingOrgs && res.organization !== organization) {
-    throw new Error("You do not have access to that metric");
-  }
 
   return res;
 }
@@ -197,6 +207,7 @@ export async function updateMetric(
   await MetricModel.updateOne(
     {
       id,
+      organization,
     },
     {
       $set: updates,

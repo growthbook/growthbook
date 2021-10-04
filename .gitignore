@@ -15,8 +15,13 @@ packages/back-end/globalConfig.json
 packages/back-end/dummy
 config.yml
 .vscode
+packages/stats/notebooks
 
 # Python compiled files
 __pycache__/
 *.py[cod]
 *$py.class
+coverage.xml
+.coverage
+.tox
+.ipynb_checkpoints

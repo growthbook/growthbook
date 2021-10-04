@@ -10,6 +10,8 @@ import track from "../services/track";
 import { hasFileConfig, initEnv } from "../services/env";
 import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
+import "diff2html/bundles/css/diff2html.min.css";
+
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
 };

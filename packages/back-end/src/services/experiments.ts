@@ -94,8 +94,8 @@ export async function getLatestSnapshot(
 
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
-    ...data,
     id: uniqid("met_"),
+    ...data,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
@@ -559,6 +559,7 @@ export async function createSnapshot(
     phase: phaseIndex,
     manual: false,
     queries,
+    hasRawQueries: true,
     queryLanguage: integration.getSourceProperties().queryLanguage,
     dimension: dimensionId,
     results: results?.dimensions,

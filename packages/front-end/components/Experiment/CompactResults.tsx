@@ -25,7 +25,7 @@ import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useState } from "react";
 import DataQualityWarning from "./DataQualityWarning";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import MetricValueColumn from "./MetricValueColumn";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -411,7 +411,8 @@ const CompactResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
   phase?: ExperimentPhaseStringDates;
-}> = ({ snapshot, experiment, phase }) => {
+  isUpdating?: boolean;
+}> = ({ snapshot, experiment, phase, isUpdating }) => {
   const { getMetricById } = useDefinitions();
 
   const results = snapshot.results[0];
@@ -430,6 +431,7 @@ const CompactResults: FC<{
         experiment={experiment}
         snapshot={snapshot}
         phase={phase}
+        isUpdating={isUpdating}
       />
       <table className={`table experiment-compact aligned-graph`}>
         <thead>

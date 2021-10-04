@@ -14,6 +14,7 @@ const dimensionSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
 });
+dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionDocument>(
   "Dimension",
@@ -65,6 +66,7 @@ export async function findDimensionsByDataSource(
 
 export async function updateDimension(
   id: string,
+  organization: string,
   updates: Partial<DimensionInterface>
 ) {
   // If using config.yml, immediately return the list from there
@@ -74,5 +76,5 @@ export async function updateDimension(
     );
   }
 
-  await DimensionModel.updateOne({ id }, { $set: updates });
+  await DimensionModel.updateOne({ id, organization }, { $set: updates });
 }

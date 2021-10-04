@@ -9,6 +9,8 @@ import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import Field from "../Forms/Field";
+import Code from "../Code";
 
 type FormValue = Partial<DataSourceInterfaceWithParams> & {
   dimensions: string;
@@ -37,6 +39,7 @@ const EditDataSourceSettingsForm: FC<{
         ...data,
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
+          notebookRunQuery: data?.settings?.notebookRunQuery || "",
           queries: {
             experimentsQuery: getExperimentQuery(
               data.settings,
@@ -131,8 +134,8 @@ const EditDataSourceSettingsForm: FC<{
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="lg"
-      header={firstTime ? "Query Settings" : "Edit Queries"}
+      size="max"
+      header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
       {firstTime && (
@@ -430,6 +433,55 @@ FROM
                   <code>url</code>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          <div className="row mb-3">
+            <div className="col">
+              <Field
+                label="Jupyter Notebook Query Runner (optional)"
+                placeholder="def runQuery(sql):"
+                labelClassName="font-weight-bold"
+                value={datasource.settings?.notebookRunQuery}
+                onChange={(e) => {
+                  setDatasource({
+                    ...datasource,
+                    settings: {
+                      ...datasource.settings,
+                      notebookRunQuery: e.target.value,
+                    },
+                  });
+                  setDirty(true);
+                }}
+                textarea
+                minRows={5}
+                maxRows={20}
+                helpText="Used when exporting experiment results to a Jupyter notebook"
+              />
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-4">
+                <p>
+                  Define a <code>runQuery</code> Python function for this data
+                  source that takes a SQL string argument and returns a pandas
+                  data frame. For example:
+                </p>
+                <Code
+                  language="python"
+                  code={`import os
+import psycopg2
+import pandas as pd
+from sqlalchemy import create_engine, text
+
+# Use environment variables or similar for passwords!
+password = os.getenv('POSTGRES_PW')
+connStr = f'postgresql+psycopg2://user:{password}@localhost'
+dbConnection = create_engine(connStr).connect();
+
+def runQuery(sql):
+  return pd.read_sql(text(sql), dbConnection)`}
+                />
+              </div>
             </div>
           </div>
         </div>

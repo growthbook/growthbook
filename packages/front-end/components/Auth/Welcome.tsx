@@ -37,7 +37,7 @@ export default function Welcome({
     state === "login"
       ? "Log in"
       : state === "register"
-      ? "Sign in"
+      ? "Create Account"
       : state === "forgot"
       ? "Look up"
       : state === "firsttime"

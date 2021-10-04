@@ -183,6 +183,12 @@ const ImportPage: FC = () => {
                                     .substr(0, 10) + "T23:59:59Z",
                               },
                             ],
+                            // Default to stopped if the last data was more than 3 days ago
+                            status:
+                              new Date(e.endDate).getTime() <
+                              Date.now() - 72 * 60 * 60 * 1000
+                                ? "stopped"
+                                : "running",
                           });
                         }}
                       >

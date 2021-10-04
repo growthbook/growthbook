@@ -113,7 +113,7 @@ const DataSourcePage: FC = () => {
                     setEditSettings(true);
                   }}
                 >
-                  <FaCode /> Edit {supportsSQL ? "Queries" : "Query Settings"}
+                  <FaCode /> Edit Query Settings
                 </a>
               </div>
             )}
@@ -144,7 +144,6 @@ const DataSourcePage: FC = () => {
                   })}
                 </tbody>
               </table>
-              <ul></ul>
             </>
           )}
           {supportsSQL && (
@@ -208,6 +207,24 @@ const DataSourcePage: FC = () => {
                     d.settings,
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
+                />
+              </div>
+              <div className="mb-4">
+                <h3>Jupyter Notebook Query Runner</h3>
+                <div>
+                  Defines a Python <code>runQuery</code> function that executes
+                  a SQL query and returns a pandas data frame.
+                </div>
+                <div className="mt-2">
+                  Used to generate Jupyter Notebooks for experiments in this
+                  data source.
+                </div>
+                <Code
+                  code={
+                    d.settings?.notebookRunQuery ||
+                    "def runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
+                  }
+                  language="python"
                 />
               </div>
             </>

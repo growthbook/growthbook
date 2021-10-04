@@ -129,6 +129,39 @@ export type PastExperimentResult = {
   }[];
 };
 
+export type UsersQueryResponse = {
+  date: string;
+  users: number;
+}[];
+export type MetricValueQueryResponseRow = {
+  date: string;
+  count: number;
+  mean: number;
+  stddev: number;
+  // eslint-disable-next-line
+  [percentile: string]: any;
+};
+export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
+export type PastExperimentResponse = {
+  experiment_id: string;
+  variation_id: string;
+  start_date: string;
+  end_date: string;
+  users: number;
+}[];
+export type ExperimentUsersQueryResponse = {
+  dimension: string;
+  variation: string;
+  users: number;
+}[];
+export type ExperimentMetricQueryResponse = {
+  dimension: string;
+  variation: string;
+  count: number;
+  mean: number;
+  stddev: number;
+}[];
+
 export interface SourceIntegrationConstructor {
   new (
     encryptedParams: string,
@@ -139,8 +172,10 @@ export interface SourceIntegrationConstructor {
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
+  settings: DataSourceSettings;
   // eslint-disable-next-line
-  getNonSensitiveParams(): any;
+  params: any;
+  getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -166,16 +201,12 @@ export interface SourceIntegrationInterface {
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentUsersQuery(params: ExperimentUsersQueryParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
-  runUsersQuery(query: string): Promise<UsersResult>;
-  runMetricValueQuery(query: string): Promise<MetricValueResult>;
-  runExperimentUsersQuery(
-    experiment: ExperimentInterface,
-    query: string
-  ): Promise<ExperimentUsersResult>;
-  runExperimentMetricQuery(
-    experiment: ExperimentInterface,
-    query: string
-  ): Promise<ExperimentMetricResult>;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  runPastExperimentQuery(query: string): Promise<PastExperimentResult>;
+  runUsersQuery(query: string): Promise<UsersQueryResponse>;
+  runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
+  runExperimentUsersQuery(query: string): Promise<ExperimentUsersQueryResponse>;
+  runExperimentMetricQuery(
+    query: string
+  ): Promise<ExperimentMetricQueryResponse>;
+  runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
 }

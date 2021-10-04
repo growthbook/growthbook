@@ -59,6 +59,9 @@ import { IdeaInterface } from "../../types/idea";
 import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { generateExperimentNotebook } from "../services/notebook";
+import { SegmentModel } from "../models/SegmentModel";
+import { getAdjustedStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const experiments = await getExperimentsByOrganization(req.organization.id);
@@ -239,6 +242,17 @@ export async function getSnapshot(req: AuthRequest, res: Response) {
     status: 200,
     snapshot,
     latest,
+  });
+}
+
+export async function postSnapshotNotebook(req: AuthRequest, res: Response) {
+  const { id }: { id: string } = req.params;
+
+  const notebook = await generateExperimentNotebook(id, req.organization.id);
+
+  res.status(200).json({
+    status: 200,
+    notebook,
   });
 }
 
@@ -709,6 +723,89 @@ export async function postExperimentStop(
   }
 }
 
+export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
+  if (!req.permissions.runExperiments) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id, phase }: { id: string; phase: string } = req.params;
+  const phaseIndex = parseInt(phase);
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (exp.organization !== req.organization.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  if (phaseIndex < 0 || phaseIndex >= exp.phases?.length) {
+    throw new Error("Invalid phase id");
+  }
+
+  // Remove phase from experiment and revert to draft if no more phases left
+  const deleted = exp.phases.splice(phaseIndex, 1);
+  exp.markModified("phases");
+
+  if (!exp.phases.length) {
+    exp.set("status", "draft");
+  }
+  await exp.save();
+
+  // Delete all snapshots for the phase
+  await ExperimentSnapshotModel.deleteMany({
+    organization: req.organization.id,
+    experiment: id,
+    phase: phaseIndex,
+  });
+
+  // Decrement the phase index for all later phases
+  await ExperimentSnapshotModel.updateMany(
+    {
+      organization: req.organization.id,
+      experiment: id,
+      phase: {
+        $gt: phaseIndex,
+      },
+    },
+    {
+      $inc: {
+        phase: -1,
+      },
+    }
+  );
+
+  // Add audit entry
+  await req.audit({
+    event: "experiment.phase.delete",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: JSON.stringify({
+      phase: phaseIndex + 1,
+      data: deleted[0],
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase>,
   res: Response
@@ -726,7 +823,7 @@ export async function postExperimentPhase(
   const exp = await getExperimentById(id);
 
   if (!exp) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Experiment not found",
     });
@@ -873,11 +970,10 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
-  const del = await deleteMetricById(metric.id);
+  await deleteMetricById(metric.id, req.organization.id);
 
   res.status(200).json({
     status: 200,
-    result: del,
   });
 }
 
@@ -956,7 +1052,7 @@ async function getMetricAnalysis(
 
   let total = (metricData.count || 0) * (metricData.mean || 0);
   let count = metricData.count || 0;
-  const dates: { d: Date; v: number }[] = [];
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
 
   // Calculate total from dates
   if (metricData.dates && usersData.dates) {
@@ -970,6 +1066,10 @@ async function getMetricAnalysis(
     });
 
     metricData.dates.forEach((d) => {
+      const { mean, stddev } = metric.ignoreNulls
+        ? { mean: d.mean, stddev: d.stddev }
+        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
+
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
       const dateTotal = (d.count || 0) * (d.mean || 0);
@@ -977,7 +1077,9 @@ async function getMetricAnalysis(
       count += d.count || 0;
       dates.push({
         d: new Date(d.date),
-        v: averageBase > 0 ? dateTotal / averageBase : 0,
+        v: mean,
+        u: averageBase,
+        s: stddev,
       });
     });
   }
@@ -991,6 +1093,7 @@ async function getMetricAnalysis(
     average,
     users,
     dates,
+    segment: metric.segment || "",
     percentiles: metricData.percentiles
       ? Object.keys(metricData.percentiles).map((k) => {
           return {
@@ -1004,7 +1107,7 @@ async function getMetricAnalysis(
 
 export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
   const result = await getStatusEndpoint(
     metric,
     req.organization.id,
@@ -1021,7 +1124,7 @@ export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
 }
 export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
   res.status(200).json(
     await cancelRun(metric, req.organization.id, async () => {
       await updateMetric(
@@ -1039,7 +1142,7 @@ export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
 export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, true, true);
+  const metric = await getMetricById(id, req.organization.id, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -1056,8 +1159,27 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
       );
       const integration = getSourceIntegrationObject(datasource);
 
+      let segmentQuery = "";
+      let segmentName = "";
+      if (metric.segment) {
+        const segment = await SegmentModel.findOne({
+          id: metric.segment,
+          datasource: metric.datasource,
+        });
+        if (!segment) {
+          throw new Error("Invalid user segment chosen");
+        }
+        segmentQuery = segment.sql;
+        segmentName = segment.name;
+      }
+
+      let days = req.organization?.settings?.metricAnalysisDays || 90;
+      if (days < 1 || days > 400) {
+        days = 90;
+      }
+
       const from = new Date();
-      from.setDate(from.getDate() - 90);
+      from.setDate(from.getDate() - days);
       const to = new Date();
 
       const baseParams: UsersQueryParams | MetricValueParams = {
@@ -1065,6 +1187,8 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
         to,
         name: "Site-Wide",
         includeByDate: true,
+        segmentName,
+        segmentQuery,
         userIdType: metric.userIdType,
       };
 
@@ -1107,19 +1231,12 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
 export async function getMetric(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, false, true);
+  const metric = await getMetricById(id, req.organization.id, true);
 
   if (!metric) {
     return res.status(404).json({
       status: 404,
       message: "Metric not found",
-    });
-  }
-
-  if (!(await userHasAccess(req, metric.organization))) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this metric",
     });
   }
 
@@ -1179,6 +1296,7 @@ export async function postMetrics(
     cap,
     conversionWindowHours,
     sql,
+    segment,
     tags,
     winRisk,
     loseRisk,
@@ -1212,6 +1330,7 @@ export async function postMetrics(
     name,
     description,
     type,
+    segment,
     table,
     column,
     inverse,
@@ -1257,6 +1376,7 @@ export async function putMetric(
   const fields: (keyof MetricInterface)[] = [
     "name",
     "description",
+    "segment",
     "type",
     "earlyStart",
     "inverse",
@@ -1348,7 +1468,12 @@ export async function previewManualSnapshot(
 export async function getSnapshotStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
   const snapshot = await ExperimentSnapshotModel.findOne({ id });
-  if (!snapshot) throw new Error("Unknown snapshot id");
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unknown snapshot id",
+    });
+  }
 
   if (snapshot.organization !== req.organization?.id)
     throw new Error("You don't have access to that snapshot");

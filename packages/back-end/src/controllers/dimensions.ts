@@ -67,7 +67,7 @@ export async function putDimension(
     throw new Error("Invalid data source");
   }
 
-  await updateDimension(id, {
+  await updateDimension(id, req.organization.id, {
     datasource,
     name,
     sql,

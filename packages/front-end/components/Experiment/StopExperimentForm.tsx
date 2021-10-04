@@ -90,7 +90,7 @@ const StopExperimentForm: FC<{
       <div className="row">
         <Field
           label="Conclusion"
-          className="col-lg"
+          containerClassName="col-lg"
           {...form.register("results")}
           options={[
             { display: "Did Not Finish", value: "dnf" },
@@ -102,7 +102,7 @@ const StopExperimentForm: FC<{
         {form.watch("results") === "won" && experiment.variations.length > 2 && (
           <Field
             label="Winner"
-            className="col-lg"
+            containerClassName="col-lg"
             {...form.register("winner")}
             options={experiment.variations.map((v, i) => {
               if (!i) return null;

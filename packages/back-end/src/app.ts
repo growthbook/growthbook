@@ -246,6 +246,11 @@ if (UPLOAD_METHOD === "local") {
     organizationsController.putUpload
   );
   app.use("/upload", express.static(uploadDir));
+
+  // Stop upload requests from running any of the middlewares defined below
+  app.use("/upload", () => {
+    return;
+  });
 }
 
 // All other routes require a valid JWT
@@ -297,6 +302,10 @@ app.get("/history/:type/:id", organizationsController.getHistory);
 app.get("/organization", organizationsController.getOrganization);
 app.post("/organization", organizationsController.signup);
 app.put("/organization", organizationsController.putOrganization);
+app.post(
+  "/organization/config/import",
+  organizationsController.postImportConfig
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
@@ -363,6 +372,10 @@ app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.post("/experiment/:id/watch", experimentsController.watchExperiment);
 app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.delete(
+  "/experiment/:id/phase/:phase",
+  experimentsController.deleteExperimentPhase
+);
 app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
@@ -392,6 +405,10 @@ app.get(
 app.post(
   "/experiments/import/:id/cancel",
   experimentsController.cancelPastExperiments
+);
+app.post(
+  "/experiments/notebook/:id",
+  experimentsController.postSnapshotNotebook
 );
 
 // Segments
@@ -460,7 +477,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/upload/:filetype", discussionsController.postImageUploadUrl);
+app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);

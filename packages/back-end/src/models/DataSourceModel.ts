@@ -15,10 +15,7 @@ import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 
 const dataSourceSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
+  id: String,
   name: String,
   organization: {
     type: String,
@@ -29,6 +26,7 @@ const dataSourceSchema = new mongoose.Schema({
   type: { type: String },
   params: String,
   settings: {
+    notebookRunQuery: String,
     queries: {
       experimentsQuery: String,
       pageviewsQuery: String,
@@ -76,6 +74,7 @@ const dataSourceSchema = new mongoose.Schema({
     },
   },
 });
+dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceDocument>(
@@ -110,11 +109,8 @@ export async function getDataSourceById(id: string, organization: string) {
 
   const doc = await DataSourceModel.findOne({
     id,
+    organization,
   });
-
-  if (doc && doc.organization !== organization) {
-    throw new Error("You do not have access to that datasource");
-  }
 
   return toInterface(doc);
 }
@@ -125,12 +121,13 @@ export async function getOrganizationsWithDatasources(): Promise<string[]> {
   }
   return await DataSourceModel.distinct("organization");
 }
-export async function deleteDatasourceById(id: string) {
+export async function deleteDatasourceById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   await DataSourceModel.deleteOne({
     id,
+    organization,
   });
 }
 
@@ -139,13 +136,14 @@ export async function createDataSource(
   name: string,
   type: DataSourceType,
   params: DataSourceParams,
-  settings?: DataSourceSettings
+  settings?: DataSourceSettings,
+  id?: string
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
-  const id = uniqid("ds_");
+  id = id || uniqid("ds_");
 
   if (type === "google_analytics") {
     const oauth2Client = getOauth2Client();
@@ -175,6 +173,7 @@ export async function createDataSource(
 
 export async function updateDataSource(
   id: string,
+  organization: string,
   updates: Partial<DataSourceInterface>
 ) {
   if (usingFileConfig()) {
@@ -184,6 +183,7 @@ export async function updateDataSource(
   await DataSourceModel.updateOne(
     {
       id,
+      organization,
     },
     {
       $set: updates,

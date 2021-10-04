@@ -2,7 +2,20 @@
 const fs = require("fs");
 const pg = require("pg");
 const { MongoClient } = require("mongodb");
-const { POSTGRES_TEST_CONN } = require("../../src/util/secrets");
+const dotenv = require("dotenv");
+
+if (fs.existsSync(".env.local")) {
+  dotenv.config({ path: ".env.local" });
+}
+
+const POSTGRES_TEST_CONN = process.env.POSTGRES_TEST_CONN
+  ? JSON.parse(process.env.POSTGRES_TEST_CONN)
+  : {};
+
+const args = process.argv.slice(2);
+
+const mongoOnly = args[0] === "mongo";
+const dbOnly = args[0] === "db";
 
 if (!fs.existsSync("./dummy/users.csv")) {
   console.error(
@@ -23,8 +36,8 @@ const client = new pg.Client({
 });
 
 async function updateMongo() {
-  if (!process.env.IMPORT_ORG_ID) return;
-  if (!process.env.MONGO_IMPORT_URI) return;
+  if (!mongoOnly && !process.env.IMPORT_ORG_ID) return;
+  if (!dbOnly && !process.env.MONGO_IMPORT_URI) return;
 
   const data = fs.readFileSync("./dummy/mongo.json");
   const { startDate, endDate, experiments } = JSON.parse(data);
@@ -84,13 +97,13 @@ async function run() {
     "DROP TABLE IF EXISTS viewed_signup",
   ];
   const createQueries = [
-    "CREATE TABLE users (user_id VARCHAR(8) PRIMARY KEY, received_at TIMESTAMP, gender VARCHAR(10))",
-    "CREATE TABLE pages (user_id VARCHAR(8), received_at TIMESTAMP, path VARCHAR(256))",
-    "CREATE TABLE purchase (user_id VARCHAR(8), received_at TIMESTAMP, amount INT)",
-    "CREATE TABLE experiment_viewed (user_id VARCHAR(8), received_at TIMESTAMP, experiment_id VARCHAR(64), variation_id INT)",
-    "CREATE TABLE sessions (session_id VARCHAR(8) PRIMARY KEY, user_id VARCHAR(8), date_start TIMESTAMP, date_end TIMESTAMP, duration_seconds INT, num_pages INT)",
-    "CREATE TABLE signup (user_id VARCHAR(8), received_at TIMESTAMP)",
-    "CREATE TABLE viewed_signup (user_id VARCHAR(8), received_at TIMESTAMP)",
+    "CREATE TABLE users (user_id VARCHAR(8) PRIMARY KEY, anonymous_id VARCHAR(8), received_at TIMESTAMP, gender VARCHAR(10), geo_country VARCHAR(10))",
+    "CREATE TABLE pages (user_id VARCHAR(8), anonymous_id VARCHAR(8),received_at TIMESTAMP, path VARCHAR(256))",
+    "CREATE TABLE purchase (user_id VARCHAR(8), anonymous_id VARCHAR(8),received_at TIMESTAMP, amount INT)",
+    "CREATE TABLE experiment_viewed (user_id VARCHAR(8), anonymous_id VARCHAR(8),received_at TIMESTAMP, experiment_id VARCHAR(64), variation_id INT, user_agent VARCHAR(100))",
+    "CREATE TABLE sessions (session_id VARCHAR(8) PRIMARY KEY, user_id VARCHAR(8), anonymous_id VARCHAR(8), date_start TIMESTAMP, date_end TIMESTAMP, duration_seconds INT, num_pages INT)",
+    "CREATE TABLE signup (user_id VARCHAR(8),anonymous_id VARCHAR(8), received_at TIMESTAMP)",
+    "CREATE TABLE viewed_signup (user_id VARCHAR(8),anonymous_id VARCHAR(8), received_at TIMESTAMP)",
   ];
   const insertQueries = [
     getInsertQuery("users"),
@@ -111,17 +124,22 @@ async function run() {
   try {
     const time = Date.now();
     console.log(new Date(), "Starting");
-    await client.connect();
-    console.log(new Date(), "Connected to Postgres");
-    await Promise.all(dropQueries.map((q) => client.query(q)));
-    console.log(new Date(), "DROP TABLE complete");
-    await Promise.all(createQueries.map((q) => client.query(q)));
-    console.log(new Date(), "CREATE TABLE complete");
-    await Promise.all(insertQueries.map((q) => client.query(q)));
-    console.log(new Date(), "INSERT INTO complete");
-    await client.end();
-    await updateMongo();
-    console.log(new Date(), "Mongo Update complete");
+
+    if (!mongoOnly) {
+      await client.connect();
+      console.log(new Date(), "Connected to Postgres");
+      await Promise.all(dropQueries.map((q) => client.query(q)));
+      console.log(new Date(), "DROP TABLE complete");
+      await Promise.all(createQueries.map((q) => client.query(q)));
+      console.log(new Date(), "CREATE TABLE complete");
+      await Promise.all(insertQueries.map((q) => client.query(q)));
+      console.log(new Date(), "INSERT INTO complete");
+      await client.end();
+    }
+    if (!dbOnly) {
+      await updateMongo();
+      console.log(new Date(), "Mongo Update complete");
+    }
     console.log("Finished! Took", Date.now() - time, "ms");
     process.exit(0);
   } catch (e) {

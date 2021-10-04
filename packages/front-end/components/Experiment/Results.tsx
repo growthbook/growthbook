@@ -7,7 +7,7 @@ import { phaseSummary } from "../../services/utils";
 import clsx from "clsx";
 import { UserContext } from "../ProtectedPage";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt, FaPlus } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -17,6 +17,8 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
+import Button from "../Button";
+import { useEffect } from "react";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -32,6 +34,10 @@ const Results: FC<{
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
+
+  useEffect(() => {
+    setPhase(experiment.phases.length - 1);
+  }, [experiment.phases.length]);
 
   const { permissions } = useContext(UserContext);
 
@@ -260,7 +266,7 @@ const Results: FC<{
           Add at least 1 metric to view results.
         </div>
       )}
-      {!hasData && experiment.metrics.length > 0 && (
+      {!hasData && status !== "running" && experiment.metrics.length > 0 && (
         <div className="alert alert-info">
           No data yet.{" "}
           {snapshot &&
@@ -285,6 +291,7 @@ const Results: FC<{
             snapshot={snapshot}
             experiment={experiment}
             phase={experiment.phases?.[phase]}
+            isUpdating={status === "running"}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3">
@@ -314,32 +321,77 @@ const Results: FC<{
         </>
       )}
       {snapshot && (
-        <div>
+        <div className="row">
           {permissions.runExperiments && editMetrics && (
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => {
-                editMetrics();
-              }}
-            >
-              Add/Remove Metrics
-            </button>
+            <div className="col-auto">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => {
+                  editMetrics();
+                }}
+              >
+                <FaPlus /> Add/Remove Metrics
+              </button>
+            </div>
           )}
+          {!snapshot.dimension &&
+            hasData &&
+            snapshot.hasRawQueries &&
+            datasource?.settings?.notebookRunQuery && (
+              <div className="col-auto">
+                <Button
+                  color="outline-info"
+                  onClick={async () => {
+                    const res = await apiCall<{ notebook: string }>(
+                      `/experiments/notebook/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
 
-          {snapshot.queries?.length > 0 ? (
-            <ViewAsyncQueriesButton
-              queries={snapshot.queries.map((q) => q.query)}
-            />
-          ) : (
-            // From old query engine
-            snapshot.query && (
-              <ViewQueryButton
-                queries={[snapshot.query]}
-                language={snapshot.queryLanguage}
+                    const url = URL.createObjectURL(
+                      new Blob([res.notebook], {
+                        type: "application/json",
+                      })
+                    );
+
+                    const name = experiment.trackingKey
+                      .replace(/[^a-zA-Z0-9_-]+/g, "")
+                      .replace(/[-]+/g, "_")
+                      .replace(/[_]{2,}/g, "_");
+
+                    const d = new Date()
+                      .toISOString()
+                      .slice(0, 10)
+                      .replace(/-/g, "_");
+
+                    const el = document.createElement("a");
+                    el.href = url;
+                    el.download = `${name}_${d}.ipynb`;
+                    el.click();
+                  }}
+                >
+                  <FaFileDownload /> Download Notebook
+                </Button>
+              </div>
+            )}
+
+          <div className="col-auto">
+            {snapshot.queries?.length > 0 ? (
+              <ViewAsyncQueriesButton
+                queries={snapshot.queries.map((q) => q.query)}
               />
-            )
-          )}
+            ) : (
+              // From old query engine
+              snapshot.query && (
+                <ViewQueryButton
+                  queries={[snapshot.query]}
+                  language={snapshot.queryLanguage}
+                />
+              )
+            )}
+          </div>
         </div>
       )}
     </>

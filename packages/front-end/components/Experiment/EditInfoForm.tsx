@@ -181,7 +181,11 @@ const EditInfoForm: FC<{
                   {...form.register(`variations.${i}.name`)}
                 />
                 {variationKeys && (
-                  <Field label="Id" {...form.register(`variations.${i}.key`)} />
+                  <Field
+                    label="Id"
+                    {...form.register(`variations.${i}.key`)}
+                    placeholder={i + ""}
+                  />
                 )}
                 <Field
                   label="Description"

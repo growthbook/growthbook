@@ -1,5 +1,5 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-yarn type-check
+echo "#### Linting typescript, scss, and markdown files"
 yarn lint-staged

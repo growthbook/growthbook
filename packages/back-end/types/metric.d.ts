@@ -11,12 +11,13 @@ export interface MetricStats {
 
 export interface MetricAnalysis {
   createdAt: Date;
+  segment?: string;
   users: number;
   average: number;
   stddev?: number;
   count?: number;
   percentiles: { p: number; v: number }[];
-  dates: { d: Date; v: number }[];
+  dates: { d: Date; v: number; s?: number; u?: number }[];
 }
 
 export interface Condition {
@@ -41,6 +42,7 @@ export interface MetricInterface {
   loseRisk?: number;
   maxPercentChange?: number;
   minSampleSize?: number;
+  segment?: string;
   dateCreated: Date;
   dateUpdated: Date;
   userIdType?: "anonymous" | "user" | "either";

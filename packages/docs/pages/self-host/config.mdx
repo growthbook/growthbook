@@ -213,7 +213,7 @@ The settings tell GrowthBook how to query your data.
 
 #### SQL Data Sources
 
-For data sources that support SQL, there are 2 queries you need to define:
+For data sources that support SQL, there are 2 queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
 
 ```yml
 type: postgres
@@ -241,6 +241,21 @@ settings:
         path as url
       FROM
         pages
+  # Used when exporting experiment results to a Jupyter notebook
+  # Define a `runQuery(sql)` function that returns a pandas data frame
+  notebookRunQuery: >
+    import os
+    import psycopg2
+    import pandas as pd
+    from sqlalchemy import create_engine, text
+
+    # Use environment variables or similar for passwords!
+    password = os.getenv('POSTGRES_PW')
+    connStr = f'postgresql+psycopg2://user:{password}@localhost'
+    dbConnection = create_engine(connStr).connect();
+
+    def runQuery(sql):
+      return pd.read_sql(text(sql), dbConnection)
 ```
 
 #### Mixpanel
@@ -395,4 +410,7 @@ organization:
     visualEditorEnabled: true
     # Minimum experiment length (in days) when importing past experiments. Default `6`
     pastExperimentsMinLength: 3
+    # Number of days of historical data to use when analyzing metrics
+    # (must be between 1 and 400, default `90`)
+    metricAnalysisDays: 90
 ```

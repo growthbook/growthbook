@@ -37,23 +37,27 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setError(externalError);
   }, [externalError]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>();
   useEffect(() => {
-    if (open && bodyRef.current) {
-      const input = bodyRef.current.querySelector<
-        HTMLInputElement | HTMLTextAreaElement
-      >("input,textarea");
-      if (input) {
-        input.focus();
-        input.select();
+    setTimeout(() => {
+      if (open && bodyRef.current) {
+        const input = bodyRef.current.querySelector<
+          HTMLInputElement | HTMLTextAreaElement
+        >("input,textarea,select");
+        if (input) {
+          input.focus();
+          if (input.select) {
+            input.select();
+          }
+        }
       }
-    }
+    }, 70);
   }, [open]);
 
   const contents = (
@@ -108,7 +112,16 @@ const Modal: FC<ModalProps> = ({
       </div>
       {submit || close ? (
         <div className="modal-footer">
-          {error && <div className="alert alert-danger mr-auto">{error}</div>}
+          {error && (
+            <div className="alert alert-danger mr-auto">
+              {error
+                .split("\n")
+                .filter((v) => !!v.trim())
+                .map((s, i) => (
+                  <div key={i}>{s}</div>
+                ))}
+            </div>
+          )}
           {submit ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
