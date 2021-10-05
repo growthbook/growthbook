@@ -140,8 +140,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  console.log(form.getValues());
-
   const variations = useFieldArray({
     name: "variations",
     control: form.control,

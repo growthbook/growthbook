@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FC } from "react";
 import { FaAngleLeft, FaFolderPlus, FaPencilAlt } from "react-icons/fa";
-import { ProjectInterface } from "../../../back-end/types/project";
+import { ProjectInterface } from "back-end/types/project";
 import DeleteButton from "../../components/DeleteButton";
 import ProjectModal from "../../components/Projects/ProjectModal";
 import { useAuth } from "../../services/auth";
@@ -35,8 +35,8 @@ const ProjectsPage: FC = () => {
       </div>
       <h1>Projects</h1>
       <p>
-        Group your experiments, metrics, dimensions, and more into{" "}
-        <strong>Projects</strong> to keep things organized and easy to manage.
+        Group your ideas and experiments into <strong>Projects</strong> to keep
+        things organized and easy to manage.
       </p>
       {projects.length > 0 && (
         <table className="table">

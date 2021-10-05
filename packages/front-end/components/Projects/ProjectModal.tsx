@@ -24,7 +24,7 @@ export default function ProjectModal({
     <Modal
       open={true}
       close={close}
-      header="Create Project"
+      header={existing.id ? "Edit Project" : "Create Project"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(existing.id ? `/projects/${existing.id}` : `/projects`, {
           method: existing.id ? "PUT" : "POST",
