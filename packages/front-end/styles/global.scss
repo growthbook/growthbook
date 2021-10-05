@@ -344,7 +344,7 @@ pre {
     }
   }
 
-  td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+  td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
     opacity: 0.6;
   }
 
@@ -353,7 +353,7 @@ pre {
   }
 
   &.aligned-graph {
-    td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+    td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
       opacity: 1;
       color: #999;
     }
@@ -468,7 +468,8 @@ pre {
     background-color: rgba(#eddca6, 0.3);
   }
   td.draw {
-    background-color: rgba(#e8e8e8, 0.3);
+    background-color: rgba(#d7c9e2, 0.3);
+    color: $dark-purple;
   }
 
   .metricname:hover {

@@ -81,7 +81,6 @@ function getRisk(
   let riskCR: number;
   let relativeRisk: number;
   let showRisk = false;
-  let belowMinChange = false;
   const baseline = variations[0]?.metrics?.[m];
 
   if (riskVariation > 0) {
@@ -93,7 +92,6 @@ function getRisk(
       riskCR > 0 &&
       hasEnoughData(baseline, stats, metric) &&
       !isSuspiciousUplift(baseline, stats, metric);
-    belowMinChange = isBelowMinChange(baseline, stats, metric);
   } else {
     risk = -1;
     variations.forEach((v, i) => {
@@ -105,7 +103,6 @@ function getRisk(
       if (isSuspiciousUplift(baseline, stats, metric)) {
         return;
       }
-      belowMinChange = isBelowMinChange(baseline, stats, metric);
 
       const vRisk = stats?.risk?.[metric?.inverse ? 1 : 0];
       if (vRisk > risk) {
@@ -123,7 +120,6 @@ function getRisk(
     risk,
     relativeRisk,
     showRisk,
-    belowMinChange,
   };
 }
 
@@ -306,7 +302,7 @@ function RiskColumn({
   variations: SnapshotVariation[];
   riskVariation: number;
 }) {
-  const { relativeRisk, risk, showRisk, belowMinChange } = getRisk(
+  const { relativeRisk, risk, showRisk } = getRisk(
     riskVariation,
     metric,
     variations
@@ -322,14 +318,9 @@ function RiskColumn({
   return (
     <td
       className={clsx("chance variation align-middle", {
-        won: !belowMinChange && showRisk && relativeRisk <= winRiskThreshold,
-        lost: !belowMinChange && showRisk && relativeRisk >= loseRiskThreshold,
-        draw:
-          belowMinChange &&
-          (relativeRisk >= loseRiskThreshold ||
-            relativeRisk <= winRiskThreshold),
+        won: showRisk && relativeRisk <= winRiskThreshold,
+        lost: showRisk && relativeRisk >= loseRiskThreshold,
         warning:
-          !belowMinChange &&
           showRisk &&
           relativeRisk > winRiskThreshold &&
           relativeRisk < loseRiskThreshold,
