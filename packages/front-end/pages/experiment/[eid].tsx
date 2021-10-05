@@ -86,6 +86,7 @@ const ExperimentPage = (): ReactElement => {
     getMetricById,
     getDatasourceById,
     projects,
+    project,
     getProjectById,
   } = useDefinitions();
   const { permissions } = useContext(UserContext);
@@ -254,6 +255,29 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
         />
+      )}
+      {project && project !== experiment.project && (
+        <div className="bg-info p-2 mb-2 text-center text-white">
+          This experiment is in a different project. Move it to{" "}
+          <a
+            href="#"
+            className="text-white"
+            onClick={async (e) => {
+              e.preventDefault();
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  project,
+                }),
+              });
+              mutate();
+            }}
+          >
+            <strong>
+              {getProjectById(project)?.name || "the current project"}
+            </strong>
+          </a>
+        </div>
       )}
       <div className="mb-2">
         <Link href="/experiments">

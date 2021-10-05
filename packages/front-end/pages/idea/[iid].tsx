@@ -46,6 +46,7 @@ const IdeaPage = (): ReactElement => {
     getMetricById,
     metrics,
     projects,
+    project,
     getSegmentById,
     refreshTags,
     getProjectById,
@@ -101,8 +102,31 @@ const IdeaPage = (): ReactElement => {
   const estimate = data.estimate;
 
   return (
-    <div className="container-fluid pagecontents pt-4">
-      <div className="mb-2 row d-flex">
+    <div className="container-fluid pagecontents pt-3">
+      {project && project !== idea.project && (
+        <div className="bg-info p-2 mb-3 text-center text-white">
+          This idea is in a different project. Move it to{" "}
+          <a
+            href="#"
+            className="text-white"
+            onClick={async (e) => {
+              e.preventDefault();
+              await apiCall(`/idea/${idea.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  project,
+                }),
+              });
+              mutate();
+            }}
+          >
+            <strong>
+              {getProjectById(project)?.name || "the current project"}
+            </strong>
+          </a>
+        </div>
+      )}
+      <div className="mb-2 mt-2 row d-flex">
         <div className="col-auto">
           <Link href="/ideas">
             <a>

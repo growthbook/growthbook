@@ -36,7 +36,7 @@ export default function UploadConfigYml({
       >
         <input {...getInputProps()} />
         <div className={styles.message}>Drop config.yml Here...</div>
-        <button className="btn btn-outline-primary btn-sm">
+        <button className="btn btn-outline-primary btn-sm" type="button">
           Upload config.yml
         </button>
       </div>
