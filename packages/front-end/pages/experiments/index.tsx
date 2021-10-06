@@ -18,11 +18,11 @@ import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 
 const ExperimentsPage = (): React.ReactElement => {
+  const { ready, project } = useDefinitions();
+
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
-
-  const { ready } = useDefinitions();
+  }>(`/experiments?project=${project || ""}`);
 
   const [draftsExpanded, setDraftsExpanded] = useState(false);
 

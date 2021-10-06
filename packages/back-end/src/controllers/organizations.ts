@@ -74,6 +74,7 @@ import {
   findOrganizationsByMemberId,
   updateOrganization,
 } from "../models/OrganizationModel";
+import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -255,6 +256,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    projects,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
@@ -264,6 +266,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }),
     getAllTags(orgId),
     getAllGroups(orgId),
+    findAllProjectsByOrganization(orgId),
   ]);
 
   return res.status(200).json({
@@ -283,6 +286,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    projects,
   });
 }
 

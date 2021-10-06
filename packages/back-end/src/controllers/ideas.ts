@@ -17,8 +17,14 @@ import {
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
+
 export async function getIdeas(req: AuthRequest, res: Response) {
-  const ideas = await getIdeasByOrganization(req.organization.id);
+  let project: string;
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const ideas = await getIdeasByOrganization(req.organization.id, project);
 
   res.status(200).json({
     status: 200,
@@ -179,6 +185,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
 
   data.text && idea.set("text", data.text);
   "details" in data && idea.set("details", data.details);
+  "project" in data && idea.set("project", data.project);
   "tags" in data && idea.set("tags", data.tags);
   "archived" in data && idea.set("archived", data.archived);
   data.votes && idea.set("votes", data.votes);

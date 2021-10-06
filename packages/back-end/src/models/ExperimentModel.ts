@@ -10,6 +10,7 @@ const experimentSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  project: String,
   owner: String,
   datasource: String,
   userIdType: String,

@@ -16,7 +16,7 @@ const getValueFromLocalStorage = (key: string, defaultValue) => {
 
 export const useLocalStorage = <T>(
   key: string,
-  defaultValue = ""
+  defaultValue: T
 ): [T, Dispatch<SetStateAction<T>>] => {
   const [value, setValue] = useState(() => {
     return getValueFromLocalStorage(key, defaultValue);

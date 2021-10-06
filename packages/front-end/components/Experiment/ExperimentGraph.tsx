@@ -8,6 +8,7 @@ import { ParentSizeModern } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export default function ExperimentGraph({
   resolution = "month",
@@ -20,6 +21,8 @@ export default function ExperimentGraph({
   status: "all" | "draft" | "running" | "stopped";
   height?: number;
 }): React.ReactElement {
+  const { project } = useDefinitions();
+
   const { data, error } = useApi<{
     data: {
       all: { name: string; numExp: number }[];
@@ -27,7 +30,7 @@ export default function ExperimentGraph({
       running: { name: string; numExp: number }[];
       stopped: { name: string; numExp: number }[];
     };
-  }>(`/experiments/frequency/${resolution}/${num}`);
+  }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
   if (error) {
     return (

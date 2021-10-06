@@ -1,4 +1,4 @@
-import { ExperimentModel } from "../models/ExperimentModel";
+import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
@@ -34,10 +34,19 @@ import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
 
-export function getExperimentsByOrganization(organization: string) {
-  return ExperimentModel.find({
+export function getExperimentsByOrganization(
+  organization: string,
+  project?: string
+) {
+  const query: FilterQuery<ExperimentDocument> = {
     organization,
-  });
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  return ExperimentModel.find(query);
 }
 export async function getExperimentById(id: string) {
   const experiment = await ExperimentModel.findOne({

@@ -46,6 +46,7 @@ export interface ExperimentInterface {
   id: string;
   trackingKey: string;
   organization: string;
+  project?: string;
   owner: string;
   datasource: string;
   implementation: ImplementationType;

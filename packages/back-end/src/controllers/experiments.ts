@@ -64,7 +64,15 @@ import { SegmentModel } from "../models/SegmentModel";
 import { getAdjustedStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
-  const experiments = await getExperimentsByOrganization(req.organization.id);
+  let project: string;
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const experiments = await getExperimentsByOrganization(
+    req.organization.id,
+    project
+  );
 
   res.status(200).json({
     status: 200,
@@ -76,8 +84,16 @@ export async function getExperimentsFrequencyMonth(
   req: AuthRequest,
   res: Response
 ) {
+  let project: string;
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
   const { num }: { num: string } = req.params;
-  const experiments = await getExperimentsByOrganization(req.organization.id);
+  const experiments = await getExperimentsByOrganization(
+    req.organization.id,
+    project
+  );
 
   const allData: { name: string; numExp: number }[] = [];
 
@@ -343,6 +359,7 @@ export async function postExperiments(
 
   const obj: Partial<ExperimentInterface> = {
     organization: data.organization,
+    project: data.project,
     owner: data.owner || req.userId,
     trackingKey: data.trackingKey || null,
     datasource: data.datasource || "",
@@ -497,6 +514,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "data",
+    "project",
   ];
   const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
     "trackingKey",
@@ -506,6 +524,7 @@ export async function postExperiment(
     "winner",
     "implementation",
     "targetURLRegex",
+    "project",
   ];
   const existing: ExperimentInterface = exp.toJSON();
   let requiresWebhook = false;

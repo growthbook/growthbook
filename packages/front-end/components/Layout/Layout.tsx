@@ -16,11 +16,13 @@ import {
   FaBookOpen,
   FaArrowRight,
   FaBolt,
+  FaFolder,
 } from "react-icons/fa";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
+import ProjectSelector from "./ProjectSelector";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -88,6 +90,12 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/team",
         Icon: FaUsers,
         path: /^settings\/team/,
+      },
+      {
+        name: "Projects",
+        href: "/settings/projects",
+        Icon: FaFolder,
+        path: /^settings\/projects/,
       },
       {
         name: "Billing",
@@ -260,7 +268,11 @@ const Layout = (): React.ReactElement => {
                 }}
               >
                 <li>
-                  <a href="#" className={`${styles.closebutton} closebutton`}>
+                  <a
+                    href="#"
+                    className={`${styles.closebutton} closebutton`}
+                    onClick={(e) => e.preventDefault()}
+                  >
                     <svg
                       className="bi bi-x"
                       width="1.9em"
@@ -280,6 +292,7 @@ const Layout = (): React.ReactElement => {
                     </svg>
                   </a>
                 </li>
+                <ProjectSelector />
                 {navlinks.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}
