@@ -4,6 +4,7 @@ import useApi from "../../hooks/useApi";
 import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../LoadingOverlay";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export default function ExperimentList({
   num,
@@ -12,9 +13,10 @@ export default function ExperimentList({
   num: number;
   status: "draft" | "running" | "stopped";
 }): React.ReactElement {
+  const { project } = useDefinitions();
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
+  }>(`/experiments?project=${project || ""}`);
 
   if (error) {
     return (

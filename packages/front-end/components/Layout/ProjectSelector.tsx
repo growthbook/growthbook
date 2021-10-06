@@ -20,7 +20,7 @@ function ProjectName({
 }) {
   return (
     <div className={clsx(className, "d-flex align-items-center")}>
-      <LetterAvatar name={avatarName} />
+      <LetterAvatar name={avatarName} defaultInitials="ALL" />
       <div
         style={{
           flex: 1,
@@ -62,7 +62,7 @@ export default function ProjectSelector() {
           <ProjectName
             caret
             avatarName={current?.name || ""}
-            display={current?.name || "No Project Selected"}
+            display={current?.name || "All Projects"}
           />
         }
       >

@@ -27,15 +27,23 @@ function getTextColor(bg: string): string {
   }
 }
 
-export default function LetterAvatar({ name }: { name: string }) {
+export default function LetterAvatar({
+  name,
+  defaultInitials = "",
+}: {
+  name: string;
+  defaultInitials?: string;
+}) {
   const initials = name
-    .toUpperCase()
-    .replace(/[^A-Z ]/g, "")
-    .split(" ")
-    .map((word) => word[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("");
+    ? name
+        .toUpperCase()
+        .replace(/[^A-Z ]/g, "")
+        .split(" ")
+        .map((word) => word[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+    : defaultInitials;
 
   const bg = name
     ? colors[parseInt(md5(name).slice(0, 3), 16) % colors.length]

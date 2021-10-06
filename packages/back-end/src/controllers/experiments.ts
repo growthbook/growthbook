@@ -84,8 +84,16 @@ export async function getExperimentsFrequencyMonth(
   req: AuthRequest,
   res: Response
 ) {
+  let project: string;
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
   const { num }: { num: string } = req.params;
-  const experiments = await getExperimentsByOrganization(req.organization.id);
+  const experiments = await getExperimentsByOrganization(
+    req.organization.id,
+    project
+  );
 
   const allData: { name: string; numExp: number }[] = [];
 
