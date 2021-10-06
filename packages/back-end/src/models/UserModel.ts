@@ -13,6 +13,13 @@ const userSchema = new mongoose.Schema({
   },
   passwordHash: String,
   admin: Boolean,
+  isVerified: Boolean,
+  verificationSecret: String,
+  verificationSent: {
+    type: Date,
+    // Link is valid for 30 days
+    expires: 30 * 60 * 60 * 24,
+  },
 });
 
 export type UserDocument = mongoose.Document & UserInterface;

@@ -4,4 +4,7 @@ export interface UserInterface {
   email: string;
   passwordHash?: string;
   admin: boolean;
+  isVerified?: boolean;
+  verificationSecret?: string;
+  verificationSent?: Date;
 }
