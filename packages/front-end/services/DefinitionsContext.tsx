@@ -96,7 +96,10 @@ export const DefinitionsProvider: FC = ({ children }) => {
       tags: data.tags,
       groups: data.groups,
       projects: data.projects,
-      project: data.projects.map((p) => p.id).includes(project) ? project : "",
+      project:
+        data.projects && data.projects.map((p) => p.id).includes(project)
+          ? project
+          : "",
       setProject,
       getMetricById: getByIdFunction(data.metrics),
       getDatasourceById: getByIdFunction(data.datasources),
