@@ -22,7 +22,7 @@ import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import ProjectSelector from "./ProjectSelector";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -164,7 +164,6 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const { settings } = useContext(UserContext);
-  const { project, projects, setProject } = useDefinitions();
 
   // hacky:
   const router = useRouter();
@@ -293,27 +292,7 @@ const Layout = (): React.ReactElement => {
                     </svg>
                   </a>
                 </li>
-                {projects.length > 0 && (
-                  <li
-                    className="px-3"
-                    style={{ marginTop: -10, marginBottom: 10 }}
-                  >
-                    <select
-                      className="form-control"
-                      value={project}
-                      onChange={(e) => {
-                        setProject(e.target.value);
-                      }}
-                    >
-                      <option value="">All Projects</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </li>
-                )}
+                <ProjectSelector />
                 {navlinks.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}
