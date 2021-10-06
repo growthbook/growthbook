@@ -9,6 +9,7 @@ export type AuthRequest<T = any> = Request<null, null, T> & {
   userId?: string;
   name?: string;
   admin?: boolean;
+  isVerified?: boolean;
   organization?: OrganizationInterface;
   permissions: Permissions;
   audit: (data: Partial<AuditInterface>) => Promise<void>;

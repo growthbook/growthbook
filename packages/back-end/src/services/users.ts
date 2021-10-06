@@ -1,7 +1,8 @@
-import { UserDocument, UserModel } from "../models/UserModel";
+import { updateUser, UserDocument, UserModel } from "../models/UserModel";
+import { isEmailEnabled, sendVerifyEmailAddressEmail } from "./email";
 import uniqid from "uniqid";
 import crypto from "crypto";
-import { IS_CLOUD } from "../util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { promisify } from "util";
 import { validatePasswordFormat } from "./auth";
 
@@ -73,18 +74,58 @@ export async function createUser(
   name: string,
   email: string,
   password?: string
-) {
+): Promise<UserDocument> {
   let passwordHash = "";
+  let isVerified = true;
+  let sendVerificationEmail = false;
 
   if (!IS_CLOUD) {
     validatePasswordFormat(password);
     passwordHash = await hash(password);
+    isVerified = false;
+  } else {
+    if (isEmailEnabled()) {
+      isVerified = false;
+      sendVerificationEmail = true;
+    }
   }
 
-  return UserModel.create({
+  const user = await UserModel.create({
     name,
     email,
     passwordHash,
     id: uniqid("u_"),
+    isVerified,
   });
+
+  if (sendVerificationEmail) {
+    await createVerifyEmailToken(user);
+  }
+
+  return user;
+}
+
+export async function createVerifyEmailToken(
+  user: UserDocument
+): Promise<void> {
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  const verificationSent = new Date();
+  const verifyUrl = `${APP_ORIGIN}/verify-email?token=${verificationToken}`;
+
+  await updateUser(user.id, {
+    verificationToken,
+    verificationSent,
+  });
+
+  try {
+    await sendVerifyEmailAddressEmail(user.email, verifyUrl);
+  } catch (e) {
+    console.error(
+      "Failed to send reset password email. The reset password link for " +
+        user.email +
+        " is: " +
+        verifyUrl
+    );
+    throw e;
+  }
 }

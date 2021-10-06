@@ -97,6 +97,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
+    isVerified: req.isVerified,
     organizations: orgs.map((org) => ({
       id: org.id,
       name: org.name,
@@ -522,12 +523,15 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       slackTeam: connections?.slack?.team,
-      members: users.map(({ id, email, name }) => {
+      members: users.map(({ id, email, name, isVerified }) => {
+        const memberRole = roleMapping.get(id);
+        isVerified = memberRole === "admin" ? true : isVerified ?? false;
         return {
           id,
           email,
           name,
-          role: roleMapping.get(id),
+          role: memberRole,
+          status: isVerified ? "verified" : "unverified",
         };
       }),
       settings,

@@ -136,6 +136,21 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   });
 }
 
+export async function sendVerifyEmailAddressEmail(
+  email: string,
+  verifyUrl: string
+) {
+  const html = nunjucks.render("verify-email-address.jinja", {
+    verifyUrl,
+  });
+  await sendMail({
+    html,
+    subject: "Verify Email Address",
+    to: email,
+    text: `Verify your email address by visiting ${verifyUrl}`,
+  });
+}
+
 export async function sendNewOrgEmail(company: string, email: string) {
   if (!SITE_MANAGER_EMAIL) return;
 

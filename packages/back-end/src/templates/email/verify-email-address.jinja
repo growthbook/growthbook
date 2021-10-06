@@ -1,0 +1,20 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Click here to verify your email address
+{% endblock %}
+
+{% block title %}
+  <p style='text-align:center; margin: 0 0 30px;'>Verify Your Email Address</p>
+{% endblock %}
+
+{% block top %}
+  <p style='text-align:center; margin: 0 0 30px;'>To complete your account registration, please click below to verify your email address:</p>
+  {{ utils.button("Verify", verifyUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>If the above button does not work, go to the url: {{verifyUrl}}</p>
+  <p>The link will expire in 30 days</p>
+{% endblock %}

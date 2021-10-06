@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { MemberRole, useAuth } from "../../services/auth";
+import { MemberRole, MemberStatus, useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
@@ -33,6 +33,7 @@ export type SettingsApiResponse = {
       email: string;
       name: string;
       role: MemberRole;
+      status: MemberStatus;
     }[];
     subscription?: {
       id: string;

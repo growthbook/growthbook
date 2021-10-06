@@ -10,6 +10,7 @@ import Modal from "../components/Modal";
 import { getApiHost, isCloud } from "./env";
 
 export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
+export type MemberStatus = "verified" | "unverified";
 
 export type SubscriptionStatus =
   | "incomplete"

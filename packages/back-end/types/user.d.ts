@@ -5,6 +5,6 @@ export interface UserInterface {
   passwordHash?: string;
   admin: boolean;
   isVerified?: boolean;
-  verificationSecret?: string;
+  verificationToken?: string;
   verificationSent?: Date;
 }

@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: String,
   admin: Boolean,
   isVerified: Boolean,
-  verificationSecret: String,
+  verificationToken: String,
   verificationSent: {
     type: Date,
     // Link is valid for 30 days
@@ -25,3 +25,14 @@ const userSchema = new mongoose.Schema({
 export type UserDocument = mongoose.Document & UserInterface;
 
 export const UserModel = mongoose.model<UserDocument>("User", userSchema);
+
+export async function updateUser(id: string, update: Partial<UserInterface>) {
+  await UserModel.updateOne(
+    {
+      id,
+    },
+    {
+      $set: update,
+    }
+  );
+}

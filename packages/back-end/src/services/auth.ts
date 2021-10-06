@@ -85,6 +85,7 @@ export async function processJWT(
     req.userId = user.id;
     req.name = user.name;
     req.admin = !!user.admin;
+    req.isVerified = !!user.isVerified;
 
     if (req.headers["x-organization"]) {
       req.organization = await getOrganizationById(

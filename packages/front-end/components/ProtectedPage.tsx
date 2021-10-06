@@ -20,6 +20,7 @@ interface UserResponse {
   userName: string;
   email: string;
   admin: boolean;
+  isVerified?: boolean;
   organizations?: UserOrganizations;
 }
 
@@ -54,6 +55,7 @@ export type UserContextValue = {
   name?: string;
   email?: string;
   admin?: boolean;
+  isVerified?: boolean;
   role?: string;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
