@@ -1,18 +1,16 @@
 import md5 from "md5";
 
 const colors = [
+  "#ffed6f",
   "#8dd3c7",
-  "#bebada",
   "#ffffb3",
+  "#b3de69",
+  "#fccde5",
+  "#bc80bd",
   "#fb8072",
   "#80b1d3",
   "#fdb462",
-  "#b3de69",
-  "#fccde5",
-  "#d9d9d9",
-  "#bc80bd",
   "#ccebc5",
-  "#ffed6f",
 ];
 
 function getTextColor(bg: string): string {
