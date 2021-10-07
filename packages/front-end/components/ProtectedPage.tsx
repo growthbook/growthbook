@@ -8,6 +8,7 @@ import {
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
+import UnverifiedPage from "../pages/unverified";
 import md5 from "md5";
 import track from "../services/track";
 import { OrganizationSettings } from "back-end/types/organization";
@@ -141,6 +142,10 @@ const ProtectedPage: React.FC<{
     update();
   }, [isAuthenticated]);
 
+  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
+  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+  const isVerified = role === "admin" ? true : data?.isVerified ?? false;
+
   // This page is before the user is authenticated (e.g. reset password)
   if (preAuth) {
     return <>{children}</>;
@@ -149,6 +154,11 @@ const ProtectedPage: React.FC<{
   // Waiting for initial authentication
   if (!isAuthenticated || !data?.userId) {
     return <LoadingOverlay />;
+  }
+
+  // User is not verified
+  if (!isVerified) {
+    return <UnverifiedPage />;
   }
 
   // This page doesn't require an organization to load (e.g. accept invitation)
@@ -160,9 +170,6 @@ const ProtectedPage: React.FC<{
   if (data?.organizations?.length > 0 && !orgId) {
     return <LoadingOverlay />;
   }
-
-  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
 
   const userContextValue: UserContextValue = {
     userId: data?.userId,
