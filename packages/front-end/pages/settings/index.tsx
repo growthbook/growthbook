@@ -362,25 +362,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="divider border-bottom mb-3 mt-3"></div>
-          <div className="fixed-bottom p-3" style={{ backgroundColor: "#fff" }}>
-            <div className="row">
-              <div className="col-12">
-                <div className=" d-flex flex-row-reverse">
-                  <button
-                    className={`btn btn-${
-                      ctaEnabled ? "primary" : "secondary"
-                    }`}
-                    type="submit"
-                    disabled={!ctaEnabled}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      if (!ctaEnabled) return;
-                      saveSettings();
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
+
+          <div className="row">
+            <div className="col-12">
+              <div className=" d-flex flex-row-reverse">
+                <button
+                  className={`btn btn-${ctaEnabled ? "primary" : "secondary"}`}
+                  type="submit"
+                  disabled={!ctaEnabled}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (!ctaEnabled) return;
+                    saveSettings();
+                  }}
+                >
+                  Save
+                </button>
               </div>
             </div>
           </div>
