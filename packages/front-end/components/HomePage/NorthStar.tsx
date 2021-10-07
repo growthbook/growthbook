@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useContext, useEffect, useState } from "react";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import useApi from "../../hooks/useApi";
@@ -10,6 +10,7 @@ import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
 import Field from "../Forms/Field";
+import { UserContext } from "../ProtectedPage";
 
 const NorthStar: FC = () => {
   const { apiCall } = useAuth();
@@ -37,10 +38,10 @@ const NorthStar: FC = () => {
         "metrics",
         orgData?.organization?.settings?.northStar?.metricIds || []
       );
-      form.setValue(
-        "window",
-        orgData?.organization?.settings?.northStar?.window || ""
-      );
+      // form.setValue(
+      //   "window",
+      //   orgData?.organization?.settings?.northStar?.window || ""
+      // );
       form.setValue(
         "title",
         orgData?.organization?.settings?.northStar?.title || ""
@@ -49,6 +50,7 @@ const NorthStar: FC = () => {
   }, [orgData?.organization?.settings?.northStar]);
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
+  const { permissions } = useContext(UserContext);
 
   if (orgError) {
     return <div className="alert alert-danger">{orgError.message}</div>;
@@ -74,16 +76,18 @@ const NorthStar: FC = () => {
           className="list-group activity-box mb-4"
           style={{ position: "relative" }}
         >
-          <a
-            className="cursor-pointer"
-            style={{ position: "absolute", top: "10px", right: "10px" }}
-            onClick={(e) => {
-              e.preventDefault();
-              setOpenNorthStarModal(true);
-            }}
-          >
-            <BsGear />
-          </a>
+          {permissions.organizationSettings && (
+            <a
+              className="cursor-pointer"
+              style={{ position: "absolute", top: "10px", right: "10px" }}
+              onClick={(e) => {
+                e.preventDefault();
+                setOpenNorthStarModal(true);
+              }}
+            >
+              <BsGear />
+            </a>
+          )}
           <h2>
             {northStar?.title
               ? northStar.title
@@ -120,16 +124,18 @@ const NorthStar: FC = () => {
             const settings = { ...orgData.organization.settings };
             if (!settings.northStar)
               settings.northStar = {
+                //enabled: true,
                 metricIds: value.metrics,
                 title: value.title,
-                window: "" + value.window,
-                resolution: value.resolution,
+                //window: "" + value.window,
+                //resolution: value.resolution,
               };
             else {
+              //settings.northStar.enabled = true;
               settings.northStar.metricIds = value.metrics;
               settings.northStar.title = value.title;
-              settings.northStar.window = "" + value.window;
-              settings.northStar.resolution = value.resolution;
+              //settings.northStar.window = "" + value.window;
+              //settings.northStar.resolution = value.resolution;
             }
             await apiCall("/organization", {
               method: "PUT",
@@ -148,33 +154,33 @@ const NorthStar: FC = () => {
           open={true}
         >
           <div className="form-group">
-            <label>Metric</label>
+            <label>Metric(s)</label>
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
             />
           </div>
           <Field label="Title" {...form.register("title")} />
-          <Field
-            label="Date window"
-            initialOption="90"
-            {...form.register("window")}
-            options={[
-              { value: "30", display: "30 days" },
-              { value: "60", display: "60 days" },
-              { value: "90", display: "90 days" },
-              { value: "182", display: "6 months" },
-              { value: "365", display: "1 year" },
-            ]}
-          />
-          <Field
-            label="Resolution"
-            {...form.register("resolution")}
-            options={[
-              { value: "day", display: "day" },
-              { value: "week", display: "week" },
-            ]}
-          />
+          {/*<Field*/}
+          {/*  label="Date window"*/}
+          {/*  initialOption="90"*/}
+          {/*  {...form.register("window")}*/}
+          {/*  options={[*/}
+          {/*    { value: "30", display: "30 days" },*/}
+          {/*    { value: "60", display: "60 days" },*/}
+          {/*    { value: "90", display: "90 days" },*/}
+          {/*    { value: "182", display: "6 months" },*/}
+          {/*    { value: "365", display: "1 year" },*/}
+          {/*  ]}*/}
+          {/*/>*/}
+          {/*<Field*/}
+          {/*  label="Resolution"*/}
+          {/*  {...form.register("resolution")}*/}
+          {/*  options={[*/}
+          {/*    { value: "day", display: "day" },*/}
+          {/*    { value: "week", display: "week" },*/}
+          {/*  ]}*/}
+          {/*/>*/}
         </Modal>
       )}
     </>

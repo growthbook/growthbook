@@ -29,6 +29,10 @@ const NorthStarMetricDisplay = ({
     return <LoadingOverlay />;
   }
 
+  // TODO
+  // Autoupdate metrics - cron job similar to the exp update. OR add a refresh button.
+  // Disable window range for now.
+  // Settings have permissiong built in. Can move modal there.
   const nameMap = new Map<string, string>();
   data.experiments.forEach((e) => {
     nameMap.set(e.id, e.name);

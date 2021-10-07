@@ -22,6 +22,7 @@ export interface Member {
 }
 
 export interface northStarMetric {
+  //enabled: boolean;
   title: string;
   metricIds: string[];
   target?: number | number[];
