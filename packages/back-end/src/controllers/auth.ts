@@ -95,17 +95,19 @@ export async function postLogin(req: Request, res: Response) {
 
   const user = await getUserByEmail(email);
   if (!user) {
+    console.log("Unknown email", email);
     return res.status(400).json({
       status: 400,
-      message: "Could not find account with that email address",
+      message: "Invalid email or password",
     });
   }
 
-  const valid = verifyPassword(user, password);
+  const valid = await verifyPassword(user, password);
   if (!valid) {
+    console.log("Invalid password for", email);
     return res.status(400).json({
       status: 400,
-      message: "Invalid password",
+      message: "Invalid email or password",
     });
   }
 
@@ -134,7 +136,7 @@ export async function postRegister(req: Request, res: Response) {
   const existingUser = await getUserByEmail(email);
   if (existingUser) {
     // Try to login to existing account
-    const valid = verifyPassword(existingUser, password);
+    const valid = await verifyPassword(existingUser, password);
     if (valid) {
       return successResponse(req, res, existingUser.id);
     }

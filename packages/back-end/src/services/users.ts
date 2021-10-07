@@ -42,6 +42,7 @@ export async function verifyPassword(
   user: UserDocument,
   password: string
 ): Promise<boolean> {
+  if (!user.passwordHash) return false;
   const [salt, key] = user.passwordHash.split(":");
   const keyBuffer = Buffer.from(key, "hex");
   const derivedKey = await (scrypt(
