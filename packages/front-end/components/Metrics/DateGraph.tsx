@@ -1,4 +1,5 @@
 import Link from "next/link";
+import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
@@ -9,10 +10,23 @@ import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
-import { Tooltip, defaultStyles as defaultTooltipStyles } from "@visx/tooltip";
 import { curveMonotoneX } from "@visx/curve";
+import {
+  TooltipWithBounds,
+  Tooltip,
+  useTooltip,
+  useTooltipInPortal,
+} from "@visx/tooltip";
 import setDay from "date-fns/setDay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+
+type TooltipData = { x: number; y: number; d: Datapoint };
+interface Datapoint {
+  d: Date | number;
+  v: number;
+  u?: number;
+  s?: number;
+}
 
 function addStddev(
   value?: number,
@@ -64,7 +78,7 @@ type ExperimentDisplayData = {
 const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
-  dates: { d: Date; v: number; u?: number; s?: number }[];
+  dates: Datapoint[];
   experiments?: Partial<ExperimentInterfaceStringDates>[];
   height?: number;
 }> = ({ type, dates, groupby = "day", experiments = [], height = 220 }) => {
@@ -127,10 +141,64 @@ const DateGraph: FC<{
             d: row.key,
             v: row.total / row.users,
             s: row.stddev,
+            u: row.users,
           };
         }),
     [dates, groupby]
   );
+
+  const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
+    const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
+    const px = mx / innerWidth;
+    const index = Math.max(
+      Math.min(Math.round(px * data.length), data.length - 1),
+      0
+    );
+    const d = data[index];
+    const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
+    const y = yScale(d.v) ?? 0;
+    return { x, y, d };
+  };
+
+  const getTooltipContents = (d: Datapoint) => {
+    return (
+      <>
+        <div className={styles.val}>
+          {type !== "binomial" && <span>&mu;: </span>}
+          {formatConversionRate(type, d.v as number)}
+        </div>
+        {type !== "binomial" && "s" in d && (
+          <div className={styles.secondary}>
+            &sigma;: {formatConversionRate(type, d.s)}
+          </div>
+        )}
+        {"u" in d && (
+          <div className={styles.secondary}>
+            <em>n</em>: {d.u.toLocaleString()}
+          </div>
+        )}
+        <div className={styles.date}>{date(d.d as Date)}</div>
+      </>
+    );
+  };
+
+  const { containerRef, containerBounds } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: true,
+  });
+
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipOpen,
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+  } = useTooltip<TooltipData>();
+
+  const margin = [15, 15, 30, 80];
+  const min = Math.min(...data.map((d) => d.d));
+  const max = Math.max(...data.map((d) => d.d));
 
   const [toolTipTimer, setToolTipTimer] = useState<null | ReturnType<
     typeof setTimeout
@@ -139,9 +207,6 @@ const DateGraph: FC<{
     highlightExp,
     setHighlightExp,
   ] = useState<null | ExperimentDisplayData>(null);
-
-  const min = Math.min(...data.map((d) => d.d));
-  const max = Math.max(...data.map((d) => d.d));
 
   // in future we might want to mark the different phases or percent traffic in this as different colors
   const experimentDates: ExperimentDisplayData[] = [];
@@ -223,9 +288,10 @@ const DateGraph: FC<{
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
-        const margin = [15, 15, 30, 80];
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
+        const numXTicks = width > 768 ? 7 : 4;
+        const numYTicks = 5;
         const axisHeight = 30;
         const minGraphHeight = 100;
         const expBarHeight = 10;
@@ -253,11 +319,55 @@ const DateGraph: FC<{
           round: true,
         });
 
-        const numXTicks = width > 768 ? 7 : 4;
-        const numYTicks = 5;
+        const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+          // coordinates should be relative to the container in which Tooltip is rendered
+          const containerX =
+            ("clientX" in event ? event.clientX : 0) - containerBounds.left;
+          const data = getTooltipData(containerX, width, yScale);
+          showTooltip({
+            tooltipLeft: data.x,
+            tooltipTop: data.y,
+            tooltipData: data,
+          });
+        };
 
         return (
           <>
+            <div
+              ref={containerRef}
+              className={styles.tooltipDategraph}
+              style={{
+                width: xMax,
+                height: graphHeight,
+                marginLeft: margin[3],
+                marginTop: margin[0],
+              }}
+              onPointerMove={handlePointer}
+              onPointerLeave={hideTooltip}
+            >
+              {tooltipOpen && (
+                <>
+                  <div
+                    className={styles.positionIndicator}
+                    style={{
+                      transform: `translate(${tooltipLeft}px, ${tooltipTop}px)`,
+                    }}
+                  />
+                  <div
+                    className={styles.crosshair}
+                    style={{ transform: `translateX(${tooltipLeft}px)` }}
+                  />
+                  <TooltipWithBounds
+                    left={tooltipLeft}
+                    top={tooltipTop}
+                    className={styles.tooltip}
+                    unstyled={true}
+                  >
+                    {getTooltipContents(tooltipData.d)}
+                  </TooltipWithBounds>
+                </>
+              )}
+            </div>
             <svg width={width} height={height}>
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
@@ -320,6 +430,7 @@ const DateGraph: FC<{
                     />
                   </>
                 )}
+
                 <LinePath
                   data={data}
                   x={(d) => xScale(d.d) ?? 0}
@@ -391,12 +502,11 @@ const DateGraph: FC<{
               <Tooltip
                 top={highlightExp.tipPosition.top}
                 left={highlightExp.tipPosition.left}
+                className={styles.tooltip}
                 style={{
-                  ...defaultTooltipStyles,
-                  backgroundColor: "#283238",
+                  position: "absolute",
                   color: "white",
                   zIndex: 9000,
-                  pointerEvents: "all",
                 }}
                 onMouseOver={() => {
                   clearTimeout(toolTipTimer);

@@ -120,7 +120,7 @@ export async function generateExperimentNotebook(
     run_query: datasource.settings.notebookRunQuery,
     users_sql: queries.get("users").query,
     user_rows: queries.get("users").rawResult,
-  });
+  }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
     `

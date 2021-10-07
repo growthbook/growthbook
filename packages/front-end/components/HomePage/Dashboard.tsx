@@ -57,7 +57,7 @@ const Dashboard: FC = () => {
           <div className="col-lg-4 mb-4">
             <h4>Running Experiments</h4>
             <div className="list-group activity-box fixed-height overflow-auto mb-4">
-              <ExperimentList num={5} status={"stopped"} />
+              <ExperimentList num={5} status={"running"} />
             </div>
           </div>
           <div className="col-lg-4 mb-4">

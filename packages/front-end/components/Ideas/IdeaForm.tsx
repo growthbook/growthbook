@@ -12,18 +12,19 @@ const IdeaForm: FC<{
   mutate: () => void;
   close: () => void;
 }> = ({ idea, close, mutate }) => {
+  const { refreshTags, project, projects } = useDefinitions();
+
   const form = useForm({
     defaultValues: {
       text: idea.text || "",
       tags: idea.tags || [],
+      project: idea.project || project || "",
     },
   });
 
   const edit = !!idea.id;
 
   const { apiCall } = useAuth();
-  const { refreshTags } = useDefinitions();
-
   const submit = form.handleSubmit(async (value) => {
     const body = {
       ...value,
@@ -54,6 +55,14 @@ const IdeaForm: FC<{
         {...form.register("text")}
         helpText="You'll be able to add more details later"
       />
+      {edit && (
+        <Field
+          label="Project"
+          {...form.register("project")}
+          options={projects.map((p) => ({ display: p.name, value: p.id }))}
+          initialOption="None"
+        />
+      )}
       <div className="form-group">
         <label>Tags</label>
         <TagsInput

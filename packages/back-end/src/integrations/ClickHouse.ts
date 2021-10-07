@@ -19,11 +19,8 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getNonSensitiveParams(): Partial<ClickHouseConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   async runQuery(sql: string) {
     const client = new ClickHouseClient({

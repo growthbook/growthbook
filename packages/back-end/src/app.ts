@@ -37,6 +37,7 @@ import * as adminController from "./controllers/admin";
 import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
+import * as projectsController from "./controllers/projects";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
@@ -60,6 +61,7 @@ wrapController(adminController);
 wrapController(stripeController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
+wrapController(projectsController);
 wrapController(slackController);
 
 const app = express();
@@ -300,6 +302,10 @@ app.get("/history/:type/:id", organizationsController.getHistory);
 app.get("/organization", organizationsController.getOrganization);
 app.post("/organization", organizationsController.signup);
 app.put("/organization", organizationsController.putOrganization);
+app.post(
+  "/organization/config/import",
+  organizationsController.postImportConfig
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
@@ -415,6 +421,11 @@ app.get("/dimensions", dimensionsController.getAllDimensions);
 app.post("/dimensions", dimensionsController.postDimensions);
 app.put("/dimensions/:id", dimensionsController.putDimension);
 
+// Projects
+app.post("/projects", projectsController.postProjects);
+app.put("/projects/:id", projectsController.putProject);
+app.delete("/projects/:id", projectsController.deleteProject);
+
 // Reports
 /*
 app.get("/reports", reportsController.getReports);
@@ -466,7 +477,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/upload/:filetype", discussionsController.postImageUploadUrl);
+app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);

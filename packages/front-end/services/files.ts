@@ -6,7 +6,7 @@ export async function uploadFile(
   file: File
 ) {
   const ext = file.name.split(".").reverse()[0];
-  const { uploadURL, fileURL } = await apiCall(`/upload/${ext}`, {
+  const { uploadURL, fileURL } = await apiCall(`/file/upload/${ext}`, {
     method: "POST",
   });
 

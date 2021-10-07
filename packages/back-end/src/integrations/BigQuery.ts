@@ -10,11 +10,8 @@ export default class BigQuery extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<BigQueryConnectionParams> {
-    return {
-      ...this.params,
-      privateKey: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["privateKey"];
   }
   async runQuery(sql: string) {
     const client = new bq.BigQuery({

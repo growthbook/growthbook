@@ -12,7 +12,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
 
-type ConfigFile = {
+export type ConfigFile = {
   organization?: {
     settings: OrganizationSettings;
   };

@@ -83,6 +83,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     datasources,
     getDatasourceById,
     refreshTags,
+    project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
 
@@ -118,6 +119,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
+      project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",

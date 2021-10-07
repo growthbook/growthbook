@@ -10,12 +10,8 @@ export default class Athena extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<AthenaConnectionParams> {
-    return {
-      ...this.params,
-      accessKeyId: undefined,
-      secretAccessKey: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["accessKeyId", "secretAccessKey"];
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;

@@ -55,6 +55,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
 import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
+import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
 
 const ExperimentPage = (): ReactElement => {
@@ -66,6 +67,7 @@ const ExperimentPage = (): ReactElement => {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
@@ -80,7 +82,13 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization);
 
-  const { getMetricById, getDatasourceById } = useDefinitions();
+  const {
+    getMetricById,
+    getDatasourceById,
+    projects,
+    project,
+    getProjectById,
+  } = useDefinitions();
   const { permissions } = useContext(UserContext);
 
   if (error) {
@@ -167,6 +175,14 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
         />
       )}
+      {projectModalOpen && (
+        <EditProjectForm
+          cancel={() => setProjectModalOpen(false)}
+          mutate={mutate}
+          current={experiment.project}
+          apiEndpoint={`/experiment/${experiment.id}`}
+        />
+      )}
       {dataSourceModalOpen && (
         <EditDataSourceForm
           experiment={experiment}
@@ -239,6 +255,29 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
         />
+      )}
+      {project && project !== experiment.project && (
+        <div className="bg-info p-2 mb-2 text-center text-white">
+          This experiment is in a different project. Move it to{" "}
+          <a
+            href="#"
+            className="text-white"
+            onClick={async (e) => {
+              e.preventDefault();
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  project,
+                }),
+              });
+              mutate();
+            }}
+          >
+            <strong>
+              {getProjectById(project)?.name || "the current project"}
+            </strong>
+          </a>
+        </div>
       )}
       <div className="mb-2">
         <Link href="/experiments">
@@ -570,6 +609,20 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
+              {projects.length > 0 && (
+                <>
+                  <RightRailSection
+                    title="Project"
+                    open={() => setProjectModalOpen(true)}
+                    canOpen={canEdit}
+                  >
+                    <RightRailSectionGroup empty="None" type="badge">
+                      {getProjectById(experiment.project)?.name}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                  <hr />
+                </>
+              )}
               {!experiment.archived &&
                 experiment.status !== "stopped" &&
                 experiment.implementation !== "visual" && (

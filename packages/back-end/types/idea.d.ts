@@ -12,6 +12,7 @@ export interface IdeaInterface {
   userName?: string;
   source?: IdeaSource;
   organization: string;
+  project?: string;
   tags: string[];
   votes?: Vote[];
   dateCreated: Date;
