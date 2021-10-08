@@ -179,93 +179,21 @@ const MetricsPage = (): React.ReactElement => {
         <thead>
           <tr>
             <th>
-              Name{" "}
-              <a
-                href="#"
-                className={
-                  metricSort.field === "name" ? "activesort" : "inactivesort"
-                }
+              <span
+                className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
                   setSort("name");
                 }}
               >
-                {metricSort.field === "name" ? (
-                  metricSort.dir < 0 ? (
-                    <FaSortUp />
-                  ) : (
-                    <FaSortDown />
-                  )
-                ) : (
-                  <FaSort />
-                )}
-              </a>
-            </th>
-            <th>
-              Type{" "}
-              <a
-                href="#"
-                className={
-                  metricSort.field === "type" ? "activesort" : "inactivesort"
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("type");
-                }}
-              >
-                {metricSort.field === "type" ? (
-                  metricSort.dir < 0 ? (
-                    <FaSortUp />
-                  ) : (
-                    <FaSortDown />
-                  )
-                ) : (
-                  <FaSort />
-                )}
-              </a>
-            </th>
-            <th>Tags</th>
-            <th className="d-none d-lg-table-cell">
-              Data Source{" "}
-              <a
-                href="#"
-                className={
-                  metricSort.field === "datasource"
-                    ? "activesort"
-                    : "inactivesort"
-                }
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("datasource");
-                }}
-              >
-                {metricSort.field === "datasource" ? (
-                  metricSort.dir < 0 ? (
-                    <FaSortUp />
-                  ) : (
-                    <FaSortDown />
-                  )
-                ) : (
-                  <FaSort />
-                )}
-              </a>
-            </th>
-            {!hasFileConfig() && (
-              <th className="d-none d-md-table-cell">
-                Last Updated{" "}
+                Name{" "}
                 <a
                   href="#"
                   className={
-                    metricSort.field === "dateUpdated"
-                      ? "activesort"
-                      : "inactivesort"
+                    metricSort.field === "name" ? "activesort" : "inactivesort"
                   }
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSort("dateUpdated");
-                  }}
                 >
-                  {metricSort.field === "dateUpdated" ? (
+                  {metricSort.field === "name" ? (
                     metricSort.dir < 0 ? (
                       <FaSortUp />
                     ) : (
@@ -275,6 +203,94 @@ const MetricsPage = (): React.ReactElement => {
                     <FaSort />
                   )}
                 </a>
+              </span>
+            </th>
+            <th>
+              <span
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSort("type");
+                }}
+              >
+                Type{" "}
+                <a
+                  href="#"
+                  className={
+                    metricSort.field === "type" ? "activesort" : "inactivesort"
+                  }
+                >
+                  {metricSort.field === "type" ? (
+                    metricSort.dir < 0 ? (
+                      <FaSortUp />
+                    ) : (
+                      <FaSortDown />
+                    )
+                  ) : (
+                    <FaSort />
+                  )}
+                </a>
+              </span>
+            </th>
+            <th>Tags</th>
+            <th className="d-none d-lg-table-cell">
+              <span
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSort("datasource");
+                }}
+              >
+                Data Source{" "}
+                <a
+                  href="#"
+                  className={
+                    metricSort.field === "datasource"
+                      ? "activesort"
+                      : "inactivesort"
+                  }
+                >
+                  {metricSort.field === "datasource" ? (
+                    metricSort.dir < 0 ? (
+                      <FaSortUp />
+                    ) : (
+                      <FaSortDown />
+                    )
+                  ) : (
+                    <FaSort />
+                  )}
+                </a>
+              </span>
+            </th>
+            {!hasFileConfig() && (
+              <th className="d-none d-md-table-cell">
+                <span
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSort("dateUpdated");
+                  }}
+                >
+                  Last Updated{" "}
+                  <a
+                    href="#"
+                    className={
+                      metricSort.field === "dateUpdated"
+                        ? "activesort"
+                        : "inactivesort"
+                    }
+                  >
+                    {metricSort.field === "dateUpdated" ? (
+                      metricSort.dir < 0 ? (
+                        <FaSortUp />
+                      ) : (
+                        <FaSortDown />
+                      )
+                    ) : (
+                      <FaSort />
+                    )}
+                  </a>
+                </span>
               </th>
             )}
           </tr>
