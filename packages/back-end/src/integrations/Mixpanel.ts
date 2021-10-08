@@ -54,7 +54,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       encryptedParams
     );
     this.settings = {
-      variationIdFormat: "index",
+      variationIdFormat: settings.variationIdFormat || "index",
       events: {
         experimentEvent: "$experiment_started",
         experimentIdProperty: "Experiment name",
