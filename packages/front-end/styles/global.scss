@@ -78,6 +78,16 @@ pre {
     border-top: none;
     border-radius: 0 0 5px 5px;
   }
+
+  .activesort {
+    opacity: 1;
+  }
+  .inactivesort {
+    opacity: 0.2;
+    &:hover {
+      opacity: 1;
+    }
+  }
 }
 .flex-1 {
   flex: 1;
