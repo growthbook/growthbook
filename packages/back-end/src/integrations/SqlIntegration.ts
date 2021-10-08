@@ -4,12 +4,10 @@ import {
   DataSourceProperties,
 } from "../../types/datasource";
 import {
-  ExperimentResults,
   ImpactEstimationResult,
   MetricValueParams,
   UsersQueryParams,
   SourceIntegrationInterface,
-  VariationMetricResult,
   ExperimentMetricQueryParams,
   ExperimentUsersQueryParams,
   PastExperimentParams,
@@ -19,6 +17,7 @@ import {
   UsersQueryResponse,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
+  ExperimentRawResults,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
@@ -897,125 +896,8 @@ export default abstract class SqlIntegration
     );
   }
 
-  async getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
-    userDimension: DimensionInterface | null
-  ): Promise<ExperimentResults> {
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensionMap = new Map<
-      string,
-      { variation: number; users: number; metrics: VariationMetricResult[] }[]
-    >();
-
-    const query: string[] = [];
-
-    const getDimensionData = (key: string, variation: number) => {
-      let obj = dimensionMap.get(key);
-      if (!obj) {
-        obj = [];
-        dimensionMap.set(key, obj);
-      }
-
-      if (!obj[variation]) {
-        obj[variation] = {
-          variation,
-          users: 0,
-          metrics: [],
-        };
-      }
-
-      return obj[variation];
-    };
-
-    const promises = metrics.map(async (m) => {
-      const sql = this.getExperimentMetricQuery({
-        metric: m,
-        experiment,
-        phase,
-        activationMetric,
-        userDimension,
-      });
-      query.push(sql);
-      const rows: {
-        variation: string;
-        dimension: string;
-        count: string;
-        mean: string;
-        stddev: string;
-      }[] = await this.runQuery(sql);
-
-      rows.forEach(({ variation, dimension, count, mean, stddev }) => {
-        const varIndex =
-          (this.settings?.variationIdFormat ||
-            this.settings?.experiments?.variationFormat) === "key"
-            ? variationKeyMap.get(variation)
-            : parseInt(variation);
-
-        if (varIndex < 0 || varIndex >= experiment.variations.length) {
-          console.log("Unexpected variation", variation);
-          return;
-        }
-
-        const data = getDimensionData(dimension, varIndex);
-        data.metrics.push({
-          metric: m.id,
-          count: parseInt(count) || 0,
-          mean: parseFloat(mean) || 0,
-          stddev: parseFloat(stddev) || 0,
-        });
-      });
-    });
-
-    // Users query
-    promises.push(
-      (async () => {
-        const sql = this.getExperimentUsersQuery({
-          experiment,
-          phase,
-          activationMetric,
-          userDimension,
-        });
-        query.push(sql);
-        const rows: {
-          variation: string;
-          users: string;
-          dimension: string;
-        }[] = await this.runQuery(sql);
-        rows.forEach(({ variation, dimension, users }) => {
-          const varIndex =
-            (this.settings?.variationIdFormat ||
-              this.settings?.experiments?.variationFormat) === "key"
-              ? variationKeyMap.get(variation)
-              : parseInt(variation);
-          if (varIndex < 0 || varIndex >= experiment.variations.length) {
-            console.log("Unexpected variation", variation);
-            return;
-          }
-
-          const data = getDimensionData(dimension, varIndex);
-          data.users = parseInt(users) || 0;
-        });
-      })()
-    );
-
-    await Promise.all(promises);
-
-    const results: ExperimentResults = [];
-
-    dimensionMap.forEach((variations, k) => {
-      results.push({
-        dimension: k,
-        variations,
-      });
-    });
-    return results;
+  async getExperimentResults(): Promise<ExperimentRawResults> {
+    throw new Error("Not implemented");
   }
 
   private getMetricCTE(

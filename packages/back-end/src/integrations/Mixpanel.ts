@@ -10,9 +10,8 @@ import { SegmentInterface } from "../../types/segment";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
-  DimensionResult,
   ExperimentMetricQueryResponse,
-  ExperimentResults,
+  ExperimentRawResults,
   ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
@@ -275,7 +274,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
-  ): Promise<ExperimentResults> {
+  ): Promise<ExperimentRawResults> {
     const query = this.getExperimentResultsQuery(
       experiment,
       phase,
@@ -299,35 +298,21 @@ export default class Mixpanel implements SourceIntegrationInterface {
       }[]
     >(this.params, query);
 
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensions: { [key: string]: DimensionResult } = {};
-
-    result.forEach((row) => {
-      dimensions[row.dimension] = dimensions[row.dimension] || {
-        dimension: row.dimension,
-        variations: [],
+    return result.map(({ variation, dimension, users, metrics }) => {
+      return {
+        dimension,
+        variation,
+        users,
+        metrics: metrics.map((m) => {
+          return {
+            metric: m.id,
+            count: m.count,
+            mean: m.mean,
+            stddev: m.stddev,
+          };
+        }),
       };
-
-      dimensions[row.dimension].variations.push({
-        variation:
-          this.settings.variationIdFormat === "key"
-            ? variationKeyMap.get(row.variation)
-            : parseInt(row.variation),
-        users: row.users || 0,
-        metrics: row.metrics.map((m) => ({
-          metric: m.id,
-          count: m.count,
-          mean: m.mean,
-          stddev: m.stddev,
-        })),
-      });
     });
-
-    return Object.values(dimensions);
   }
   async testConnection(): Promise<boolean> {
     const today = new Date().toISOString().substr(0, 10);

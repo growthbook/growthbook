@@ -10,18 +10,27 @@ import { SegmentInterface } from "../../types/segment";
 export type VariationMetricResult = MetricStats & {
   metric: string;
 };
-export interface VariationResult {
-  variation: number;
+
+export type ExperimentResults = {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      users: number;
+      metrics: {
+        [key: string]: MetricStats;
+      };
+    }[];
+  }[];
+  unknownVariations?: string[];
+};
+
+export type ExperimentRawResults = {
+  dimension: string;
+  variation: string;
   users: number;
   metrics: VariationMetricResult[];
-}
-
-export interface DimensionResult {
-  dimension: string;
-  variations: VariationResult[];
-}
-
-export type ExperimentResults = DimensionResult[];
+}[];
 
 export interface ExperimentUsersResult {
   dimensions: {
@@ -189,7 +198,7 @@ export interface SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
-  ): Promise<ExperimentResults>;
+  ): Promise<ExperimentRawResults>;
   testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
   getImpactEstimation(

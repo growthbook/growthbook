@@ -17,7 +17,7 @@ import {
   startRun,
 } from "./queries";
 import {
-  DimensionResult,
+  ExperimentResults,
   ExperimentMetricResult,
   ExperimentUsersResult,
   PastExperimentResult,
@@ -333,8 +333,11 @@ export async function processSnapshotData(
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   if (queryData.has("results")) {
-    const data = queryData.get("results").result as DimensionResult[];
-    data.forEach((row) => {
+    const data = queryData.get("results").result as ExperimentResults;
+
+    unknownVariations = data.unknownVariations;
+
+    data.dimensions.forEach((row) => {
       combined[row.dimension] = {
         users: [],
         metrics: {},
@@ -342,7 +345,8 @@ export async function processSnapshotData(
       const d = combined[row.dimension];
       row.variations.forEach((v) => {
         d.users[v.variation] = v.users;
-        v.metrics.forEach(({ metric, ...stats }) => {
+        Object.keys(v.metrics).forEach((metric) => {
+          const stats = v.metrics[metric];
           if (!d.metrics[metric]) d.metrics[metric] = [];
           d.metrics[metric][v.variation] = stats;
         });

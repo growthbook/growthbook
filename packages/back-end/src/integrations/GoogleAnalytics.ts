@@ -1,16 +1,15 @@
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
-  ExperimentResults,
   ImpactEstimationResult,
   UsersQueryParams,
   MetricValueParams,
-  VariationResult,
   ExperimentUsersQueryResponse,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
   UsersQueryResponse,
   MetricValueQueryResponse,
+  ExperimentRawResults,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -278,7 +277,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     metrics: MetricInterface[]
-  ): Promise<ExperimentResults> {
+  ): Promise<ExperimentRawResults> {
     const query = this.getExperimentResultsQuery(experiment, phase, metrics);
 
     const result = await google.analyticsreporting("v4").reports.batchGet({
@@ -288,18 +287,16 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       },
     });
 
-    const rows: VariationResult[] = [];
-    const raw = result?.data?.reports[0]?.data?.rows;
-    if (!raw) {
+    const rows = result?.data?.reports[0]?.data?.rows;
+    if (!rows) {
       throw new Error("Failed to update");
     }
 
-    raw.forEach((row, i) => {
-      if (i >= experiment.variations.length) return;
-      row.dimensions[0] = `myexp:${i}`;
+    return rows.map((row) => {
       const users = parseInt(row.metrics[0].values[0]);
-      rows.push({
-        variation: parseInt(row.dimensions[0].split(":", 2)[1]),
+      return {
+        dimension: "",
+        variation: row.dimensions[0].split(":", 2)[1],
         users,
         metrics: metrics.map((metric, j) => {
           let value = parseFloat(row.metrics[0].values[j + 1]);
@@ -311,8 +308,14 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
           const mean = Math.round(value) / users;
 
-          // If the metric is duration, we can assume an exponential distribution and the stddev equals the mean
-          const stddev = metric.type === "duration" ? mean : 0;
+          // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
+          // If the metric is count, we can assume a poisson distribution where the variance equals the mean
+          const stddev =
+            metric.type === "duration"
+              ? mean
+              : metric.type === "count"
+              ? Math.sqrt(mean)
+              : 0;
 
           return {
             metric: metric.id,
@@ -321,15 +324,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             stddev,
           };
         }),
-      });
+      };
     });
-
-    return [
-      {
-        dimension: "All",
-        variations: rows,
-      },
-    ];
   }
 };
 export default GoogleAnalytics;
