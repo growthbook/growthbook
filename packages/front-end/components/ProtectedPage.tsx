@@ -156,19 +156,16 @@ const ProtectedPage: React.FC<{
     return <LoadingOverlay />;
   }
 
-  // User is not verified
-  if (!isVerified) {
-    return <UnverifiedPage />;
-  }
+  if (isVerified) {
+    // This page doesn't require an organization to load (e.g. accept invitation)
+    if (!organizationRequired) {
+      return <>{children}</>;
+    }
 
-  // This page doesn't require an organization to load (e.g. accept invitation)
-  if (!organizationRequired) {
-    return <>{children}</>;
-  }
-
-  // Still waiting to fetch current user/org details
-  if (data?.organizations?.length > 0 && !orgId) {
-    return <LoadingOverlay />;
+    // Still waiting to fetch current user/org details
+    if (data?.organizations?.length > 0 && !orgId) {
+      return <LoadingOverlay />;
+    }
   }
 
   const userContextValue: UserContextValue = {
@@ -190,6 +187,15 @@ const ProtectedPage: React.FC<{
     permissions: getPermissionsByRole(role),
     settings: currentOrg?.settings || {},
   };
+
+  // User is not yet verified
+  if (!isVerified) {
+    return (
+      <UserContext.Provider value={userContextValue} key={orgId}>
+        <UnverifiedPage />
+      </UserContext.Provider>
+    );
+  }
 
   return (
     <UserContext.Provider value={userContextValue} key={orgId}>

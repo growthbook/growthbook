@@ -226,6 +226,7 @@ if (!IS_CLOUD) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
+  app.post("/auth/resetverify/", authController.postResetEmailVerification);
 }
 
 // File uploads don't require auth tokens.

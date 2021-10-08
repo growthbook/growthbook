@@ -16,9 +16,11 @@ import {
   markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
+import { isEmailEnabled } from "../services/email";
 import { getEmailFromUserId } from "../services/organizations";
 import {
   createUser,
+  createVerifyEmailToken,
   getUserByEmail,
   getUserById,
   updatePassword,
@@ -241,6 +243,31 @@ export async function postResetPassword(req: Request, res: Response) {
   res.status(200).json({
     status: 200,
     email,
+  });
+}
+
+export async function postResetEmailVerification(req: Request, res: Response) {
+  const { email }: { email: string } = req.body;
+
+  if (!email) {
+    throw new Error("Missing email address.");
+  }
+
+  const user = await getUserByEmail(email);
+  if (user.isVerified) {
+    throw new Error("User is already verified.");
+  }
+
+  if (!isEmailEnabled()) {
+    throw new Error(
+      "Email is disabled. Please ask your admin to verify your account."
+    );
+  }
+
+  await createVerifyEmailToken(user);
+
+  res.status(200).json({
+    status: 200,
   });
 }
 

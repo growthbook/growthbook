@@ -82,8 +82,6 @@ export async function createUser(
   if (!IS_CLOUD) {
     validatePasswordFormat(password);
     passwordHash = await hash(password);
-    isVerified = false;
-  } else {
     if (isEmailEnabled()) {
       isVerified = false;
       sendVerificationEmail = true;
@@ -99,7 +97,7 @@ export async function createUser(
   });
 
   if (sendVerificationEmail) {
-    await createVerifyEmailToken(user);
+    createVerifyEmailToken(user);
   }
 
   return user;
@@ -111,6 +109,8 @@ export async function createVerifyEmailToken(
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationSent = new Date();
   const verifyUrl = `${APP_ORIGIN}/verify-email?token=${verificationToken}`;
+
+  console.log("updating...");
 
   await updateUser(user.id, {
     verificationToken,
