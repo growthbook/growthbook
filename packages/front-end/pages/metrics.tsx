@@ -31,14 +31,14 @@ const MetricsPage = (): React.ReactElement => {
 
   const [metricSort, setMetricSort] = useState({
     field: "name",
-    dir: -1,
+    dir: 1,
   });
   const setSort = (field: string) => {
     if (metricSort.field === field) {
       // switch dir:
       setMetricSort({ ...metricSort, dir: metricSort.dir * -1 });
     } else {
-      setMetricSort({ field, dir: -1 });
+      setMetricSort({ field, dir: 1 });
     }
   };
   const {
@@ -123,11 +123,12 @@ const MetricsPage = (): React.ReactElement => {
 
   // sort the metrics:
   const sortedMetrics = filteredMetrics.sort((a, b) => {
-    return a[metricSort.field] === b[metricSort.field]
-      ? 0
-      : a[metricSort.field] < b[metricSort.field]
-      ? metricSort.dir
-      : -1 * metricSort.dir;
+    const comp1 = a[metricSort.field];
+    const comp2 = b[metricSort.field];
+    if (typeof comp1 === "string") {
+      return comp1.localeCompare(comp2) * metricSort.dir;
+    }
+    return comp1 - comp2;
   });
 
   return (
@@ -190,7 +191,7 @@ const MetricsPage = (): React.ReactElement => {
                 }}
               >
                 {metricSort.field === "name" ? (
-                  metricSort.dir > 0 ? (
+                  metricSort.dir < 0 ? (
                     <FaSortUp />
                   ) : (
                     <FaSortDown />
@@ -213,7 +214,7 @@ const MetricsPage = (): React.ReactElement => {
                 }}
               >
                 {metricSort.field === "type" ? (
-                  metricSort.dir > 0 ? (
+                  metricSort.dir < 0 ? (
                     <FaSortUp />
                   ) : (
                     <FaSortDown />
@@ -239,7 +240,7 @@ const MetricsPage = (): React.ReactElement => {
                 }}
               >
                 {metricSort.field === "datasource" ? (
-                  metricSort.dir > 0 ? (
+                  metricSort.dir < 0 ? (
                     <FaSortUp />
                   ) : (
                     <FaSortDown />
@@ -265,7 +266,7 @@ const MetricsPage = (): React.ReactElement => {
                   }}
                 >
                   {metricSort.field === "dateUpdated" ? (
-                    metricSort.dir > 0 ? (
+                    metricSort.dir < 0 ? (
                       <FaSortUp />
                     ) : (
                       <FaSortDown />
