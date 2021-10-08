@@ -16,7 +16,7 @@ import {
   PastExperimentResponse,
   PastExperimentResult,
   ExperimentResults,
-  ExperimentRawResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import {
@@ -331,7 +331,7 @@ export function processExperimentMetricQueryResponse(
 
 export function processExperimentResultsResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentRawResults,
+  rows: ExperimentQueryResponses,
   settings?: DataSourceSettings
 ): ExperimentResults {
   const ret: ExperimentResults = {

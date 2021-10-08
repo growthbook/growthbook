@@ -9,7 +9,7 @@ import {
   PastExperimentResponse,
   UsersQueryResponse,
   MetricValueQueryResponse,
-  ExperimentRawResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -277,7 +277,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     metrics: MetricInterface[]
-  ): Promise<ExperimentRawResults> {
+  ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(experiment, phase, metrics);
 
     const result = await google.analyticsreporting("v4").reports.batchGet({

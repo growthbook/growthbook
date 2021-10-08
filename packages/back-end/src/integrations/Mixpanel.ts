@@ -11,7 +11,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
-  ExperimentRawResults,
+  ExperimentQueryResponses,
   ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
@@ -274,7 +274,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
-  ): Promise<ExperimentRawResults> {
+  ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
       experiment,
       phase,

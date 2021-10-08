@@ -17,7 +17,7 @@ import {
   UsersQueryResponse,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
-  ExperimentRawResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
@@ -896,7 +896,7 @@ export default abstract class SqlIntegration
     );
   }
 
-  async getExperimentResults(): Promise<ExperimentRawResults> {
+  async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
   }
 

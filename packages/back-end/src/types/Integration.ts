@@ -25,7 +25,7 @@ export type ExperimentResults = {
   unknownVariations?: string[];
 };
 
-export type ExperimentRawResults = {
+export type ExperimentQueryResponses = {
   dimension: string;
   variation: string;
   users: number;
@@ -198,7 +198,7 @@ export interface SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
-  ): Promise<ExperimentRawResults>;
+  ): Promise<ExperimentQueryResponses>;
   testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
   getImpactEstimation(
