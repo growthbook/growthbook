@@ -22,7 +22,7 @@ export type ExperimentResults = {
       };
     }[];
   }[];
-  unknownVariations?: string[];
+  unknownVariations: string[];
 };
 
 export type ExperimentQueryResponses = {
@@ -40,7 +40,7 @@ export interface ExperimentUsersResult {
       users: number;
     }[];
   }[];
-  unknownVariations?: string[];
+  unknownVariations: string[];
 }
 export interface ExperimentMetricResult {
   dimensions: {

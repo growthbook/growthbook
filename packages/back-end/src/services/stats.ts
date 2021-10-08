@@ -107,7 +107,7 @@ print(json.dumps(${func}(${args})))`,
     };
   };
   try {
-    parsed = JSON.parse(result[0]);
+    parsed = JSON.parse(result?.[0]);
   } catch (e) {
     console.error("Failed to run stats model", result);
     throw e;

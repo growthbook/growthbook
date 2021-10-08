@@ -136,10 +136,15 @@ export async function processJWT(
   next();
 }
 
-export function validatePasswordFormat(password: string): void {
+export function validatePasswordFormat(password?: string): string {
+  if (!password) {
+    throw new Error("Password cannot be empty");
+  }
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
+
+  return password;
 }
 
 async function checkNewInstallation() {

@@ -35,6 +35,10 @@ export async function removeExperimentFromPresentations(experiment: string) {
 }
 
 export async function createPresentation(data: Partial<PresentationInterface>) {
+  if (!data.slides || !data.userId || !data.organization) {
+    throw new Error("Missing required presentation data");
+  }
+
   const exps: PresentationSlide[] = [...data.slides];
   const pres: PresentationInterface = {
     slides: exps,

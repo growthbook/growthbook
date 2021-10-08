@@ -51,7 +51,7 @@ if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
 
 export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
 export const EMAIL_HOST = process.env.EMAIL_HOST;
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT) || 587;
+export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_USE_TLS = !!process.env.EMAIL_USE_TLS;
@@ -70,7 +70,7 @@ export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
-  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY) || 6;
+  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS) || 72;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || 72;

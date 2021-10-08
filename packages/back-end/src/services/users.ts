@@ -77,7 +77,7 @@ export async function createUser(
   let passwordHash = "";
 
   if (!IS_CLOUD) {
-    validatePasswordFormat(password);
+    password = validatePasswordFormat(password);
     passwordHash = await hash(password);
   }
 
