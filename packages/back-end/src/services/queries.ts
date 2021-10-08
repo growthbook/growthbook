@@ -15,6 +15,8 @@ import {
   MetricValueResult,
   PastExperimentResponse,
   PastExperimentResult,
+  ExperimentResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import {
@@ -24,7 +26,7 @@ import {
   QueryStatus,
 } from "../../types/query";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceSettings } from "../../types/datasource";
 export type QueryMap = Map<string, QueryInterface>;
@@ -204,7 +206,8 @@ export async function getExperimentResults(
         activationMetric,
         dimension
       ),
-    (rows) => rows,
+    (rows) =>
+      processExperimentResultsResponse(experiment, rows, integration.settings),
     false
   );
 }
@@ -321,6 +324,72 @@ export function processExperimentMetricQueryResponse(
         stddev,
       },
     });
+  });
+
+  return ret;
+}
+
+export function processExperimentResultsResponse(
+  experiment: ExperimentInterface,
+  rows: ExperimentQueryResponses,
+  settings?: DataSourceSettings
+): ExperimentResults {
+  const ret: ExperimentResults = {
+    dimensions: [],
+    unknownVariations: [],
+  };
+
+  const variationMap = getVariationMap(experiment, settings);
+
+  const unknownVariations: Map<string, number> = new Map();
+  let totalUsers = 0;
+
+  const dimensionMap = new Map<string, number>();
+
+  rows.forEach(({ dimension, metrics, users, variation }) => {
+    let i = 0;
+    if (dimensionMap.has(dimension)) {
+      i = dimensionMap.get(dimension);
+    } else {
+      i = ret.dimensions.length;
+      ret.dimensions.push({
+        dimension,
+        variations: [],
+      });
+      dimensionMap.set(dimension, i);
+    }
+
+    const numUsers = users || 0;
+    totalUsers += numUsers;
+
+    const varIndex = variationMap.get(variation + "");
+    if (
+      typeof varIndex === "undefined" ||
+      varIndex < 0 ||
+      varIndex >= experiment.variations.length
+    ) {
+      unknownVariations.set(variation, numUsers);
+      return;
+    }
+
+    const metricData: { [key: string]: MetricStats } = {};
+    metrics.forEach(({ metric, ...stats }) => {
+      metricData[metric] = stats;
+    });
+
+    ret.dimensions[i].variations.push({
+      variation: varIndex,
+      users: numUsers,
+      metrics: metricData,
+    });
+  });
+
+  unknownVariations.forEach((users, variation) => {
+    // Ignore unknown variations with an insignificant number of users
+    // This protects against random typos causing false positives
+    if (totalUsers > 0 && users / totalUsers >= 0.02) {
+      ret.unknownVariations.push(variation);
+    }
   });
 
   return ret;
