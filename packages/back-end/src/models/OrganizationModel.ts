@@ -53,7 +53,6 @@ const OrganizationModel = mongoose.model<OrganizationDocument>(
 );
 
 function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  if (!doc) return null;
   const json = doc.toJSON();
 
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
@@ -101,7 +100,7 @@ export async function findAllOrganizations() {
 }
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
-  return toInterface(doc);
+  return doc ? toInterface(doc) : null;
 }
 export async function updateOrganization(
   id: string,
@@ -151,7 +150,7 @@ export async function findOrganizationByInviteKey(key: string) {
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
   });
-  return toInterface(doc);
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getOrganizationFromSlackTeam(teamId: string) {

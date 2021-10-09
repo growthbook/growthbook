@@ -40,7 +40,7 @@ export interface ExperimentSnapshotInterface {
   query?: string;
   queryLanguage?: QueryLanguage;
   queries: Queries;
-  dimension?: string;
+  dimension: string | null;
   unknownVariations?: string[];
   results?: {
     name: string;

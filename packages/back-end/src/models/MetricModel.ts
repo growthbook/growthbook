@@ -81,7 +81,6 @@ type MetricDocument = mongoose.Document & MetricInterface;
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
-  if (!doc) return null;
   return doc.toJSON();
 }
 
@@ -157,21 +156,19 @@ export async function getMetricById(
     if (includeAnalysis) {
       const metric = await MetricModel.findOne({ id, organization });
       doc.queries = metric?.queries || [];
-      doc.analysis = metric?.analysis || null;
-      doc.runStarted = metric?.runStarted || null;
+      doc.analysis = metric?.analysis || undefined;
+      doc.runStarted = metric?.runStarted || undefined;
     }
 
     return doc;
   }
 
-  const res = toInterface(
-    await MetricModel.findOne({
-      id,
-      organization,
-    })
-  );
+  const res = await MetricModel.findOne({
+    id,
+    organization,
+  });
 
-  return res;
+  return res ? toInterface(res) : null;
 }
 
 export async function updateMetric(

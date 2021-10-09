@@ -1,7 +1,4 @@
-import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { APP_ORIGIN } from "../util/secrets";
-import { DataSourceInterface } from "../../types/datasource";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getMetricsByDatasource } from "../models/MetricModel";
@@ -13,12 +10,10 @@ import { PythonShell } from "python-shell";
 
 async function getNotebookObjects(snapshotId: string, organization: string) {
   // Get snapshot
-  const snapshot: ExperimentSnapshotInterface = await ExperimentSnapshotModel.findOne(
-    {
-      id: snapshotId,
-      organization,
-    }
-  );
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    id: snapshotId,
+    organization,
+  });
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }
@@ -30,7 +25,7 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
   }
 
   // Get experiment
-  const experiment: ExperimentInterface = await ExperimentModel.findOne({
+  const experiment = await ExperimentModel.findOne({
     id: snapshot.experiment,
     organization,
   });
@@ -42,7 +37,7 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
   }
 
   // Get datasource
-  const datasource: DataSourceInterface = await getDataSourceById(
+  const datasource = await getDataSourceById(
     experiment.datasource,
     organization
   );
@@ -118,8 +113,8 @@ export async function generateExperimentNotebook(
     var_names: experiment.variations.map((v) => v.name),
     weights: experiment.phases[snapshot.phase].variationWeights,
     run_query: datasource.settings.notebookRunQuery,
-    users_sql: queries.get("users").query,
-    user_rows: queries.get("users").rawResult,
+    users_sql: queries.get("users")?.query || "",
+    user_rows: queries.get("users")?.rawResult || [],
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
@@ -156,6 +151,10 @@ print(create_notebook(
 ))`,
     {}
   );
+
+  if (!result) {
+    throw new Error("Failed to generate notebook");
+  }
 
   return result.join("\n");
 }

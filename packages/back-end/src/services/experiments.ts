@@ -109,7 +109,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
     dateUpdated: new Date(),
   });
 
-  if (data.tags) {
+  if (data.tags && data.organization) {
     await addTags(data.organization, data.tags);
   }
 
@@ -142,6 +142,10 @@ function generateTrackingKey(name: string, n: number): string {
 }
 
 export async function createExperiment(data: Partial<ExperimentInterface>) {
+  if (!data.organization) {
+    throw new Error("Missing organization");
+  }
+
   if (data.trackingKey) {
     // Make sure id is unique
     const existing = await getExperimentByTrackingKey(
@@ -158,7 +162,7 @@ export async function createExperiment(data: Partial<ExperimentInterface>) {
     let n = 1;
     let found = null;
     while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name, n);
+      const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(data.organization, key))) {
         found = key;
       }
@@ -210,6 +214,7 @@ export async function getManualSnapshotData(
   await Promise.all(
     Object.keys(metrics).map((m) => {
       const metric = metricMap.get(m);
+      if (!metric) return;
       return Promise.all(
         experiment.variations.map(async (v, i) => {
           const valueCR = getValueCR(
@@ -279,6 +284,7 @@ export async function createManualSnapshot(
     id: uniqid("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
+    dimension: null,
     phase: phaseIndex,
     queries: [],
     runStarted: new Date(),
@@ -333,7 +339,9 @@ export async function processSnapshotData(
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   if (queryData.has("results")) {
-    const data = queryData.get("results").result as ExperimentResults;
+    const results = queryData.get("results");
+    if (!results) throw new Error("Empty experiment results");
+    const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
 
@@ -407,6 +415,7 @@ export async function processSnapshotData(
               const success = data.count * data.mean;
 
               const metric = metricMap.get(k);
+              if (!metric) return;
               const value = success;
 
               // Don't do stats for the baseline
@@ -491,14 +500,15 @@ export async function createSnapshot(
     metricMap.set(m.id, m);
   });
 
-  const activationMetric = metricMap.get(experiment.activationMetric) || null;
+  const activationMetric =
+    metricMap.get(experiment.activationMetric || "") || null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
     new Set(experiment.metrics.concat(experiment.guardrails || []))
   )
     .map((m) => metricMap.get(m))
-    .filter((m) => m);
+    .filter((m) => m) as MetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
@@ -530,7 +540,7 @@ export async function createSnapshot(
       phase,
       selectedMetrics,
       activationMetric,
-      userDimension
+      userDimension || null
     );
   }
   // Run as multiple async queries (new way for sql datasources)
@@ -574,7 +584,7 @@ export async function createSnapshot(
     queries,
     hasRawQueries: true,
     queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimensionId,
+    dimension: dimensionId || "",
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
   };
@@ -634,7 +644,7 @@ export async function processPastExperiments(
 
   const experimentMap = new Map<string, PastExperiment>();
   experiments.forEach((e) => {
-    let el: PastExperiment = experimentMap.get(e.experiment_id);
+    let el = experimentMap.get(e.experiment_id);
     if (!el) {
       el = {
         endDate: e.end_date,

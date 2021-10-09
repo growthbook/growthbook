@@ -37,6 +37,10 @@ export async function runAthenaQuery<T>(
     })
     .promise();
 
+  if (!QueryExecutionId) {
+    throw new Error("Failed to start query");
+  }
+
   const waitAndCheck = () => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
@@ -44,21 +48,24 @@ export async function runAthenaQuery<T>(
           .getQueryExecution({ QueryExecutionId })
           .promise()
           .then((resp) => {
-            const {
-              QueryExecution: {
-                Status: { State, StateChangeReason },
-              },
-            } = resp;
+            const State = resp.QueryExecution?.Status?.State;
+            const StateChangeReason =
+              resp.QueryExecution?.Status?.StateChangeReason;
+
             if (State === "RUNNING") {
               resolve(false);
             } else if (State === "FAILED") {
-              reject(new Error(StateChangeReason));
+              reject(new Error(StateChangeReason || "Query failed"));
             } else {
               athena
                 .getQueryResults({ QueryExecutionId })
                 .promise()
                 .then(({ ResultSet }) => {
-                  resolve(ResultSet);
+                  if (ResultSet) {
+                    resolve(ResultSet);
+                  } else {
+                    reject("Query did not return results");
+                  }
                 })
                 .catch((e) => {
                   console.error(e);
@@ -77,14 +84,16 @@ export async function runAthenaQuery<T>(
   // Timeout after 300 seconds
   for (let i = 0; i < 600; i++) {
     const result = await waitAndCheck();
-    if (result) {
+    if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
       const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
       return result.Rows.slice(1).map((row) => {
         // eslint-disable-next-line
         const obj: any = {};
-        row.Data.forEach((value, i) => {
-          obj[keys[i]] = value.VarCharValue || null;
-        });
+        if (row.Data) {
+          row.Data.forEach((value, i) => {
+            obj[keys[i]] = value.VarCharValue || null;
+          });
+        }
         return obj;
       });
     }

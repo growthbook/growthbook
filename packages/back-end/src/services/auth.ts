@@ -30,7 +30,7 @@ function getLocalJWTCheck() {
 }
 async function getUserFromLocalJWT(user: {
   sub: string;
-}): Promise<UserDocument> {
+}): Promise<UserDocument | null> {
   return getUserById(user.sub);
 }
 
@@ -50,7 +50,7 @@ function getAuth0JWTCheck() {
 }
 async function getUserFromAuth0JWT(user: {
   "https://growthbook.io/email": string;
-}): Promise<UserDocument> {
+}): Promise<UserDocument | null> {
   return getUserByEmail(user["https://growthbook.io/email"]);
 }
 
@@ -87,9 +87,9 @@ export async function processJWT(
     req.admin = !!user.admin;
 
     if (req.headers["x-organization"]) {
-      req.organization = await getOrganizationById(
-        "" + req.headers["x-organization"]
-      );
+      req.organization =
+        (await getOrganizationById("" + req.headers["x-organization"])) ||
+        undefined;
 
       if (req.organization) {
         // Make sure member is part of the organization
@@ -105,7 +105,7 @@ export async function processJWT(
 
         const role: MemberRole = req.admin
           ? "admin"
-          : getRole(req.organization, req.userId);
+          : getRole(req.organization, user.id) || "collaborator";
         req.permissions = getPermissionsByRole(role);
       } else {
         return res.status(404).json({
@@ -119,8 +119,8 @@ export async function processJWT(
       await insertAudit({
         ...data,
         user: {
-          id: req.userId,
-          email: req.email,
+          id: user.id,
+          email: user.email,
           name: user.name,
         },
         organization: req.organization?.id,
@@ -161,7 +161,7 @@ async function checkNewInstallation() {
   return true;
 }
 
-let newInstallationPromise: Promise<boolean> = null;
+let newInstallationPromise: Promise<boolean>;
 export function isNewInstallation() {
   if (!newInstallationPromise) {
     newInstallationPromise = checkNewInstallation();
