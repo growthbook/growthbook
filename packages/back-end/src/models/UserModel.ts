@@ -15,11 +15,7 @@ const userSchema = new mongoose.Schema({
   admin: Boolean,
   isVerified: Boolean,
   verificationToken: String,
-  verificationSent: {
-    type: Date,
-    // Link is valid for 30 days
-    expires: 30 * 60 * 60 * 24,
-  },
+  verificationSent: Date,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;

@@ -271,6 +271,25 @@ export async function postResetEmailVerification(req: Request, res: Response) {
   });
 }
 
+export async function postVerifyEmail(req: AuthRequest, res: Response) {
+  const { key }: { key: string } = req.body;
+  if (!key) {
+    throw new Error("Missing verification token.");
+  }
+
+  const user = await getUserById(req.userId);
+  console.log(req.userId, user);
+  if (user.isVerified) {
+    throw new Error("User is already verified.");
+  }
+
+  console.log(user);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postChangePassword(req: AuthRequest, res: Response) {
   const {
     currentPassword,

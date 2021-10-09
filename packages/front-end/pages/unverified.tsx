@@ -9,7 +9,7 @@ import { useAuth } from "../services/auth";
 import { getApiHost, isCloud } from "../services/env";
 
 const UnverifiedPage = (): React.ReactElement => {
-  const { apiCall } = useAuth();
+  const { apiCall, isAuthenticated } = useAuth();
   const { email } = useContext(UserContext);
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +32,9 @@ const UnverifiedPage = (): React.ReactElement => {
       setLoading(true);
     }
 
+    console.log("authenticated?", isAuthenticated ? "t" : "f");
     apiCall<{ status: number; orgId?: string; message?: string }>(
-      `/invite/accept`,
+      `/auth/verify`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -47,7 +48,7 @@ const UnverifiedPage = (): React.ReactElement => {
         } else {
           setError(
             res.message ||
-              "There was an error accepting the invite. Please go back to your email and click the invite link again."
+              "The verification token is invalid or has expired. Please request a new verification email."
           );
         }
       })
@@ -69,6 +70,7 @@ const UnverifiedPage = (): React.ReactElement => {
   return (
     <Modal
       open={true}
+      cta="Send a new verification link"
       autoCloseOnSubmit={false}
       submit={
         success || error || loading
