@@ -226,8 +226,7 @@ if (!IS_CLOUD) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
-  app.post("/auth/resetverify/", authController.postResetEmailVerification);
-  app.post("/auth/verify/", authController.postVerifyEmail);
+  app.post("/auth/resetverify", authController.postResetEmailVerification);
 }
 
 // File uploads don't require auth tokens.
@@ -280,6 +279,7 @@ app.use(
 // Managed cloud deployment uses Auth0 instead
 if (!IS_CLOUD) {
   app.post("/auth/change-password", authController.postChangePassword);
+  app.post("/auth/verify", authController.postVerifyEmail);
 }
 
 // Organizations

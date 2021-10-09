@@ -25,6 +25,7 @@ import {
   getUserById,
   updatePassword,
   verifyPassword,
+  verifyUser,
 } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { JWT_SECRET } from "../util/secrets";
@@ -278,12 +279,20 @@ export async function postVerifyEmail(req: AuthRequest, res: Response) {
   }
 
   const user = await getUserById(req.userId);
-  console.log(req.userId, user);
   if (user.isVerified) {
     throw new Error("User is already verified.");
   }
 
-  console.log(user);
+  const nowMinus30Days = new Date(
+    new Date().getTime() - 30 * 24 * 60 * 60 * 1000
+  );
+  if (!user.verificationSent || user.verificationSent < nowMinus30Days) {
+    throw new Error(
+      "The verification token is invalid or has expired. Please request a new verification email."
+    );
+  }
+
+  verifyUser(user);
 
   res.status(200).json({
     status: 200,

@@ -108,9 +108,7 @@ export async function createVerifyEmailToken(
 ): Promise<void> {
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationSent = new Date();
-  const verifyUrl = `${APP_ORIGIN}/verify-email?token=${verificationToken}`;
-
-  console.log("updating...");
+  const verifyUrl = `${APP_ORIGIN}/?verify=${verificationToken}`;
 
   await updateUser(user.id, {
     verificationToken,
@@ -121,11 +119,17 @@ export async function createVerifyEmailToken(
     await sendVerifyEmailAddressEmail(user.email, verifyUrl);
   } catch (e) {
     console.error(
-      "Failed to send reset password email. The reset password link for " +
+      "Failed to send verification email. The verification link for " +
         user.email +
         " is: " +
         verifyUrl
     );
     throw e;
   }
+}
+
+export async function verifyUser(user: UserDocument): Promise<void> {
+  await updateUser(user.id, {
+    isVerified: true,
+  });
 }

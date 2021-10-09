@@ -15,6 +15,7 @@ import { getEmailFromUserId, getInviteUrl } from "./organizations";
 import path from "path";
 import { OrganizationInterface } from "../../types/organization";
 export function isEmailEnabled(): boolean {
+  return true;
   if (!EMAIL_ENABLED) return false;
   if (!EMAIL_HOST) return false;
   if (!EMAIL_PORT) return false;

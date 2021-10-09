@@ -9,8 +9,8 @@ import { useAuth } from "../services/auth";
 import { getApiHost, isCloud } from "../services/env";
 
 const UnverifiedPage = (): React.ReactElement => {
-  const { apiCall, isAuthenticated } = useAuth();
-  const { email } = useContext(UserContext);
+  const { apiCall } = useAuth();
+  const { email, isVerified } = useContext(UserContext);
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ const UnverifiedPage = (): React.ReactElement => {
   useEffect(() => {
     let key = null;
     const m =
-      window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) ?? null;
+      window.location.search.match(/(^|&|\?)verify=([a-zA-Z0-9]+)/) ?? null;
     if (m) {
       key = m[2];
     }
@@ -32,29 +32,32 @@ const UnverifiedPage = (): React.ReactElement => {
       setLoading(true);
     }
 
-    console.log("authenticated?", isAuthenticated ? "t" : "f");
-    apiCall<{ status: number; orgId?: string; message?: string }>(
-      `/auth/verify`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          key,
-        }),
-      }
-    )
-      .then((res) => {
-        if (res.orgId) {
-          window.location.href = `/?org=${res.orgId}`;
-        } else {
-          setError(
-            res.message ||
-              "The verification token is invalid or has expired. Please request a new verification email."
-          );
+    if (!isVerified) {
+      apiCall<{ status: number; orgId?: string; message?: string }>(
+        `/auth/verify`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            key,
+          }),
         }
-      })
-      .catch((e) => {
-        setError(e.message);
-      });
+      )
+        .then((res) => {
+          setLoading(false);
+          if (res.orgId) {
+            window.location.href = `/?org=${res.orgId}`;
+          } else {
+            setError(
+              res.message ||
+                "The verification token is invalid or has expired. Please request a new verification email."
+            );
+          }
+        })
+        .catch((e) => {
+          setLoading(false);
+          setError(e.message);
+        });
+    }
   }, []);
 
   if (isCloud()) {
@@ -70,7 +73,7 @@ const UnverifiedPage = (): React.ReactElement => {
   return (
     <Modal
       open={true}
-      cta="Send a new verification link"
+      cta="Send a new verification email"
       autoCloseOnSubmit={false}
       submit={
         success || error || loading
@@ -119,8 +122,12 @@ const UnverifiedPage = (): React.ReactElement => {
         </div>
       ) : (
         <div>
+          <p className="text">
+            In order to use Growthbook you must first verify your email address.
+          </p>
           <p className="text-muted">
-            Verify Email <strong>{email}</strong>.
+            Please check your inbox at <strong>{email}</strong> for a
+            verification email.
           </p>
           <input type="hidden" name="email" value={email} readOnly />
         </div>
