@@ -45,7 +45,7 @@ export interface OrganizationInterface {
   subscription?: {
     id: string;
     qty: number;
-    trialEnd: Date;
+    trialEnd: Date | null;
     status:
       | "incomplete"
       | "incomplete_expired"

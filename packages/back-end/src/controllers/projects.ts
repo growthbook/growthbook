@@ -7,14 +7,16 @@ import {
   updateProject,
 } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
+import { getOrgFromReq } from "../services/organizations";
 
 export async function postProjects(
   req: AuthRequest<Partial<ProjectInterface>>,
   res: Response
 ) {
   const { name } = req.body;
+  const org = getOrgFromReq(req);
 
-  const doc = await createProject(req.organization.id, {
+  const doc = await createProject(org.id, {
     name,
   });
 
@@ -24,11 +26,12 @@ export async function postProjects(
   });
 }
 export async function putProject(
-  req: AuthRequest<Partial<ProjectInterface>>,
+  req: AuthRequest<Partial<ProjectInterface>, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
-  const project = await findProjectById(id, req.organization.id);
+  const org = getOrgFromReq(req);
+  const { id } = req.params;
+  const project = await findProjectById(id, org.id);
 
   if (!project) {
     throw new Error("Could not find project");
@@ -47,12 +50,13 @@ export async function putProject(
 }
 
 export async function deleteProject(
-  req: AuthRequest<Partial<ProjectInterface>>,
+  req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
+  const org = getOrgFromReq(req);
 
-  await deleteProjectById(id, req.organization.id);
+  await deleteProjectById(id, org.id);
 
   res.status(200).json({
     status: 200,

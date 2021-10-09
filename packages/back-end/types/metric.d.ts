@@ -43,8 +43,8 @@ export interface MetricInterface {
   maxPercentChange?: number;
   minSampleSize?: number;
   segment?: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   userIdType?: "anonymous" | "user" | "either";
   queries: Queries;
   runStarted?: Date;

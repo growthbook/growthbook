@@ -44,6 +44,14 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
+export function getOrgFromReq(req: AuthRequest): OrganizationInterface {
+  if (!req.organization) {
+    throw new Error("Must be part of an organization to make that request");
+  }
+
+  return req.organization;
+}
+
 export async function getConfidenceLevelsForOrg(id: string) {
   const org = await getOrganizationById(id);
   const ciUpper = org?.settings?.confidenceLevel || 0.95;

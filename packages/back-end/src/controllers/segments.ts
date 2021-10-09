@@ -4,10 +4,12 @@ import uniqid from "uniqid";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { getOrgFromReq } from "../services/organizations";
 
 export async function getAllSegments(req: AuthRequest, res: Response) {
+  const org = getOrgFromReq(req);
   const segments = await SegmentModel.find({
-    organization: req.organization.id,
+    organization: org.id,
   });
   res.status(200).json({
     status: 200,
@@ -19,11 +21,12 @@ export async function postSegments(
   res: Response
 ) {
   const { datasource, name, sql } = req.body;
+  if (!datasource || !sql || !name) {
+    throw new Error("Missing required properties");
+  }
+  const org = getOrgFromReq(req);
 
-  const datasourceDoc = await getDataSourceById(
-    datasource,
-    req.organization.id
-  );
+  const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -35,7 +38,7 @@ export async function postSegments(
     id: uniqid("seg_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    organization: req.organization.id,
+    organization: org.id,
   });
 
   res.status(200).json({
@@ -52,19 +55,21 @@ export async function putSegment(
     id,
   });
 
+  const org = getOrgFromReq(req);
+
   if (!segment) {
     throw new Error("Could not find segment");
   }
-  if (segment.organization !== req.organization.id) {
+  if (segment.organization !== org.id) {
     throw new Error("You don't have access to that segment");
   }
 
   const { datasource, name, sql } = req.body;
+  if (!datasource || !sql || !name) {
+    throw new Error("Missing required properties");
+  }
 
-  const datasourceDoc = await getDataSourceById(
-    datasource,
-    req.organization.id
-  );
+  const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }

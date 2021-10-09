@@ -58,10 +58,10 @@ export const EMAIL_USE_TLS = !!process.env.EMAIL_USE_TLS;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
-export const STRIPE_SECRET = process.env.STRIPE_SECRET;
-export const STRIPE_PRICE = process.env.STRIPE_PRICE;
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON;
+export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
+export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 

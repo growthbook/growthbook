@@ -95,8 +95,8 @@ interface DataSourceBase {
   id: string;
   name: string;
   organization: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   params: string;
   settings: DataSourceSettings;
 }

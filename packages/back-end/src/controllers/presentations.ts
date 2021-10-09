@@ -10,15 +10,14 @@ import {
   getExperimentsByIds,
   getLatestSnapshot,
 } from "../services/experiments";
-import { userHasAccess } from "../services/organizations";
+import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
-  const presentations = await getPresentationsByOrganization(
-    req.organization.id
-  );
+  const org = getOrgFromReq(req);
+  const presentations = await getPresentationsByOrganization(org.id);
 
   res.status(200).json({
     status: 200,
@@ -26,8 +25,11 @@ export async function getPresentations(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getPresentation(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getPresentation(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
 
   const pres = await getPresentationById(id);
 
@@ -131,10 +133,11 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
 }
 
 export async function deletePresentation(
-  req: AuthRequest<ExperimentInterface>,
+  req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
+  const org = getOrgFromReq(req);
 
   const p = await getPresentationById(id);
 
@@ -146,7 +149,7 @@ export async function deletePresentation(
     return;
   }
 
-  if (p.organization !== req.organization.id) {
+  if (p.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this presentation",
@@ -174,7 +177,8 @@ export async function postPresentation(
   res: Response
 ) {
   const data = req.body;
-  data.organization = req.organization.id;
+  const org = getOrgFromReq(req);
+  data.organization = org.id;
 
   data.userId = req.userId;
   const presentation = await createPresentation(data);
@@ -191,11 +195,12 @@ export async function postPresentation(
  * @param res
  */
 export async function updatePresentation(
-  req: AuthRequest<PresentationInterface>,
+  req: AuthRequest<PresentationInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const data = req.body;
+  const org = getOrgFromReq(req);
 
   const p = await getPresentationById(id);
 
@@ -207,7 +212,7 @@ export async function updatePresentation(
     return;
   }
 
-  if (p.organization !== req.organization.id) {
+  if (p.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this presentation",
