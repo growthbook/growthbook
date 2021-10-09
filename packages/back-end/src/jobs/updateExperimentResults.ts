@@ -114,7 +114,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   try {
     logger.info("Start Refreshing Results");
     const datasource = await getDataSourceById(
-      experiment.datasource,
+      experiment.datasource || "",
       experiment.organization
     );
     if (!datasource) return;

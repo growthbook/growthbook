@@ -44,12 +44,19 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
-export function getOrgFromReq(req: AuthRequest): OrganizationInterface {
+export function getOrgFromReq(req: AuthRequest) {
   if (!req.organization) {
     throw new Error("Must be part of an organization to make that request");
   }
+  if (!req.userId || !req.email) {
+    throw new Error("Must be logged in");
+  }
 
-  return req.organization;
+  return {
+    org: req.organization,
+    userId: req.userId,
+    email: req.email,
+  };
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {

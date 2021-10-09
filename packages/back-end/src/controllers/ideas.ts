@@ -9,7 +9,7 @@ import {
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../services/tag";
 import { Vote } from "../../types/vote";
-import { userHasAccess } from "../services/organizations";
+import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
@@ -18,13 +18,23 @@ import {
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
 
-export async function getIdeas(req: AuthRequest, res: Response) {
-  let project: string;
-  if (typeof req.query?.project === "string") {
+export async function getIdeas(
+  req: AuthRequest<
+    null,
+    null,
+    {
+      project?: string;
+    }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query.project === "string") {
     project = req.query.project;
   }
 
-  const ideas = await getIdeasByOrganization(req.organization.id, project);
+  const ideas = await getIdeasByOrganization(org.id, project);
 
   res.status(200).json({
     status: 200,
@@ -32,18 +42,14 @@ export async function getIdeas(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getEstimatedImpact(req: AuthRequest, res: Response) {
-  const {
-    regex,
-    metric,
-    segment,
-  }: { regex: string; metric: string; segment?: string } = req.body;
-  const estimate = await getImpactEstimate(
-    req.organization.id,
-    metric,
-    regex,
-    segment
-  );
+export async function getEstimatedImpact(
+  req: AuthRequest<{ regex: string; metric: string; segment?: string }>,
+  res: Response
+) {
+  const { regex, metric, segment } = req.body;
+
+  const { org } = getOrgFromReq(req);
+  const estimate = await getImpactEstimate(org.id, metric, regex, segment);
 
   res.status(200).json({
     status: 200,
@@ -55,10 +61,15 @@ export async function postEstimatedImpactManual(
   req: AuthRequest<Partial<ImpactEstimateInterface>>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   const { value, metricTotal, users, metric, regex } = req.body;
 
+  if (!metric) {
+    throw new Error("Missing required metric.");
+  }
+
   const estimate = await createImpactEstimate(
-    req.organization.id,
+    org.id,
     metric,
     null,
     regex,
@@ -82,10 +93,11 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   const data = req.body;
-  data.organization = req.organization.id;
+  data.organization = org.id;
   data.source = "web";
-  data.userId = req.userId;
+  data.userId = userId;
   const idea = await createIdea(data);
 
   res.status(200).json({
@@ -160,10 +172,14 @@ export async function getIdea(
  * @param req
  * @param res
  */
-export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postIdea(
+  req: AuthRequest<IdeaInterface, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
+  const { org } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -173,7 +189,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
     return;
   }
 
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -196,7 +212,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
   await idea.save();
 
   if (data.tags && data.tags.length > 0) {
-    await addTagsDiff(req.organization.id, existing.tags || [], data.tags);
+    await addTagsDiff(org.id, existing.tags || [], data.tags);
   }
 
   res.status(200).json({
@@ -206,11 +222,12 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
 }
 
 export async function deleteIdea(
-  req: AuthRequest<IdeaInterface>,
+  req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const idea = await getIdeaById(id);
+  const { org } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -220,7 +237,7 @@ export async function deleteIdea(
     return;
   }
 
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -238,10 +255,15 @@ export async function deleteIdea(
   });
 }
 
-export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postVote(
+  req: AuthRequest<Partial<Vote>, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
   const data = req.body;
   const idea = await getIdeaById(id);
+
+  const { org, userId } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -250,7 +272,7 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
     });
     return;
   }
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -259,12 +281,12 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
   }
 
   try {
-    const newVote = data.dir > 0 ? 1 : -1;
+    const newVote = (data.dir || 1) > 0 ? 1 : -1;
     let found = false;
     if (idea.votes) {
       // you can only vote once, see if they've already voted
       idea.votes.map((v) => {
-        if (v.userId === req.userId) {
+        if (v.userId === userId) {
           // they have changed their vote, or are voting again
           v.dir = newVote;
           v.dateUpdated = new Date();
@@ -275,12 +297,13 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
     if (!found) {
       // add the vote:
       const v: Vote = {
-        userId: req.userId,
+        userId: userId,
         dir: newVote,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       };
 
+      idea.votes = idea.votes || [];
       idea.votes.push(v);
     }
 

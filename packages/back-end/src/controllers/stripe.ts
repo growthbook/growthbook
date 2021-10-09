@@ -124,7 +124,7 @@ export async function postCreateBillingSession(
       });
     }
 
-    const org = getOrgFromReq(req);
+    const { org } = getOrgFromReq(req);
     if (!org.stripeCustomerId) {
       throw new Error("Missing customer id");
     }

@@ -14,7 +14,7 @@ export async function postProjects(
   res: Response
 ) {
   const { name } = req.body;
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
@@ -29,7 +29,7 @@ export async function putProject(
   req: AuthRequest<Partial<ProjectInterface>, { id: string }>,
   res: Response
 ) {
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const project = await findProjectById(id, org.id);
 
@@ -54,7 +54,7 @@ export async function deleteProject(
   res: Response
 ) {
   const { id } = req.params;
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
 

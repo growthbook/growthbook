@@ -7,7 +7,7 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { getOrgFromReq } from "../services/organizations";
 
 export async function getAllSegments(req: AuthRequest, res: Response) {
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
   const segments = await SegmentModel.find({
     organization: org.id,
   });
@@ -24,7 +24,7 @@ export async function postSegments(
   if (!datasource || !sql || !name) {
     throw new Error("Missing required properties");
   }
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -55,7 +55,7 @@ export async function putSegment(
     id,
   });
 
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   if (!segment) {
     throw new Error("Could not find segment");

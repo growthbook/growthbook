@@ -16,7 +16,7 @@ import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
   const presentations = await getPresentationsByOrganization(org.id);
 
   res.status(200).json({
@@ -137,7 +137,7 @@ export async function deletePresentation(
   res: Response
 ) {
   const { id } = req.params;
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   const p = await getPresentationById(id);
 
@@ -177,7 +177,7 @@ export async function postPresentation(
   res: Response
 ) {
   const data = req.body;
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
   data.organization = org.id;
 
   data.userId = req.userId;
@@ -200,7 +200,7 @@ export async function updatePresentation(
 ) {
   const { id } = req.params;
   const data = req.body;
-  const org = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   const p = await getPresentationById(id);
 
