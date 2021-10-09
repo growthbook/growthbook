@@ -119,9 +119,9 @@ export type MetricValueResultDate = {
 };
 
 export type MetricValueResult = {
-  count?: number;
-  stddev?: number;
-  mean?: number;
+  count: number;
+  stddev: number;
+  mean: number;
   percentiles?: {
     [key: string]: number;
   };

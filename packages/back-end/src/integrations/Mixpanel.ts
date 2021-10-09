@@ -169,7 +169,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             )}) {
               state.inExperiment = true;
               state.variation = ${this.getPropertyColumn(
-                this.settings.events.variationIdProperty || "Variant name",
+                this.settings.events?.variationIdProperty || "Variant name",
                 "e"
               )};
               ${
@@ -358,7 +358,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       from: start,
       to: end,
       includeByDate: false,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
       conversionWindowHours,
     };
 
@@ -366,7 +366,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ...baseSettings,
       name: "Traffic - Selected Pages and Segment",
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
     const metricQuery = this.getMetricValueQuery({
@@ -381,7 +381,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       metric,
       includePercentiles: false,
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
 
@@ -743,13 +743,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidPageCondition(urlRegex?: string, event: string = "event") {
     if (urlRegex && urlRegex !== ".*") {
-      const urlCol = this.settings.events.urlProperty;
+      const urlCol = this.settings.events?.urlProperty;
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }" && ${event}.properties["${urlCol}"] && ${event}.properties["${urlCol}"].match(/${urlRegex}/)`;
     } else {
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }"`;
     }
   }
@@ -805,9 +805,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     end?: Date
   ) {
     const experimentEvent =
-      this.settings.events.experimentEvent || "$experiment_started";
+      this.settings.events?.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
-      this.settings.events.experimentIdProperty || "Experiment name",
+      this.settings.events?.experimentIdProperty || "Experiment name",
       event
     );
     let timeCheck = `${event}.time >= ${start.getTime()}`;
