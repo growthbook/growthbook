@@ -32,7 +32,7 @@ import { DataSourceSettings } from "../../types/datasource";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
-  runStarted: Date;
+  runStarted: Date | null;
   queries: Queries;
   organization: string;
 };

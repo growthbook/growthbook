@@ -47,7 +47,7 @@ export interface MetricInterface {
   dateUpdated: Date | null;
   userIdType?: "anonymous" | "user" | "either";
   queries: Queries;
-  runStarted?: Date | null;
+  runStarted: Date | null;
   analysis?: MetricAnalysis;
   sql?: string;
   // Query Builder Props (alternative to sql)

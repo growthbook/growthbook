@@ -58,7 +58,7 @@ export async function getEstimatedImpact(
 }
 
 export async function postEstimatedImpactManual(
-  req: AuthRequest<Partial<ImpactEstimateInterface>>,
+  req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);

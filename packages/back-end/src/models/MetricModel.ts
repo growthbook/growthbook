@@ -157,7 +157,7 @@ export async function getMetricById(
       const metric = await MetricModel.findOne({ id, organization });
       doc.queries = metric?.queries || [];
       doc.analysis = metric?.analysis || undefined;
-      doc.runStarted = metric?.runStarted || undefined;
+      doc.runStarted = metric?.runStarted || null;
     }
 
     return doc;

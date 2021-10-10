@@ -102,7 +102,7 @@ export type MetricValueParams = {
   from: Date;
   to: Date;
   metric: MetricInterface;
-  name?: string;
+  name: string;
   userIdType?: "anonymous" | "user" | "either";
   segmentQuery?: string;
   segmentName?: string;
@@ -113,9 +113,9 @@ export type MetricValueParams = {
 
 export type MetricValueResultDate = {
   date: string;
-  count?: number;
-  mean?: number;
-  stddev?: number;
+  count: number;
+  mean: number;
+  stddev: number;
 };
 
 export type MetricValueResult = {

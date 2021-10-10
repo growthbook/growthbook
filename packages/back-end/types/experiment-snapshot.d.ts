@@ -35,7 +35,7 @@ export interface ExperimentSnapshotInterface {
   experiment: string;
   phase: number;
   dateCreated: Date;
-  runStarted: Date;
+  runStarted: Date | null;
   manual: boolean;
   query?: string;
   queryLanguage?: QueryLanguage;
