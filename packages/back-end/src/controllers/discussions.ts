@@ -7,25 +7,27 @@ import {
   getLastNDiscussions,
 } from "../services/discussions";
 import { getFileUploadURL } from "../services/files";
+import { getOrgFromReq } from "../services/organizations";
 
 export async function postDiscussions(
-  req: AuthRequest<{ comment: string }>,
+  req: AuthRequest<
+    { comment: string },
+    { parentId: string; parentType: DiscussionParentType }
+  >,
   res: Response
 ) {
-  const {
-    parentId,
-    parentType,
-  }: { parentId: string; parentType: DiscussionParentType } = req.params;
+  const { org, userId, email } = getOrgFromReq(req);
+  const { parentId, parentType } = req.params;
   const { comment } = req.body;
 
   try {
     // TODO: validate that parentType and parentId are valid for this organization
 
     await addComment(
-      req.organization.id,
+      org.id,
       parentType,
       parentId,
-      { id: req.userId, email: req.email, name: req.name },
+      { id: userId, email: email, name: req?.name || "" },
       comment
     );
     res.status(200).json({
@@ -39,24 +41,23 @@ export async function postDiscussions(
   }
 }
 
-export async function deleteComment(req: AuthRequest, res: Response) {
-  const {
-    parentId,
-    parentType,
-    index,
-  }: {
-    parentId: string;
-    parentType: DiscussionParentType;
-    index: string;
-  } = req.params;
+export async function deleteComment(
+  req: AuthRequest<
+    null,
+    {
+      parentId: string;
+      parentType: DiscussionParentType;
+      index: string;
+    }
+  >,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { parentId, parentType, index } = req.params;
 
   const i = parseInt(index);
 
-  const discussion = await getDiscussionByParent(
-    req.organization.id,
-    parentType,
-    parentId
-  );
+  const discussion = await getDiscussionByParent(org.id, parentType, parentId);
   if (!discussion) {
     return res.status(404).json({
       status: 404,
@@ -65,7 +66,7 @@ export async function deleteComment(req: AuthRequest, res: Response) {
   }
 
   const current = discussion.comments[parseInt(index)];
-  if (current && current?.userId !== req.userId) {
+  if (current && current?.userId !== userId) {
     return res.status(403).json({
       status: 403,
       message: "Only the original author can delete a comment",
@@ -89,27 +90,23 @@ export async function deleteComment(req: AuthRequest, res: Response) {
 }
 
 export async function putComment(
-  req: AuthRequest<{ comment: string }>,
+  req: AuthRequest<
+    { comment: string },
+    {
+      parentId: string;
+      parentType: DiscussionParentType;
+      index: string;
+    }
+  >,
   res: Response
 ) {
-  const {
-    parentId,
-    parentType,
-    index,
-  }: {
-    parentId: string;
-    parentType: DiscussionParentType;
-    index: string;
-  } = req.params;
+  const { org, userId } = getOrgFromReq(req);
+  const { parentId, parentType, index } = req.params;
   const { comment } = req.body;
 
   const i = parseInt(index);
 
-  const discussion = await getDiscussionByParent(
-    req.organization.id,
-    parentType,
-    parentId
-  );
+  const discussion = await getDiscussionByParent(org.id, parentType, parentId);
   if (!discussion || !discussion.comments[i]) {
     return res.status(404).json({
       status: 404,
@@ -118,7 +115,7 @@ export async function putComment(
   }
 
   const current = discussion.comments[i];
-  if (current.userId !== req.userId) {
+  if (current.userId !== userId) {
     return res.status(403).json({
       status: 403,
       message: "Only the original author can edit a comment",
@@ -143,15 +140,19 @@ export async function putComment(
   }
 }
 
-export async function getDiscussion(req: AuthRequest, res: Response) {
-  const {
-    parentId,
-    parentType,
-  }: { parentId: string; parentType: DiscussionParentType } = req.params;
+export async function getDiscussion(
+  req: AuthRequest<
+    null,
+    { parentId: string; parentType: DiscussionParentType }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { parentId, parentType } = req.params;
 
   try {
     const discussion = await getDiscussionByParent(
-      req.organization.id,
+      org.id,
       parentType,
       parentId
     );
@@ -167,17 +168,18 @@ export async function getDiscussion(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getRecentDiscussions(req: AuthRequest, res: Response) {
-  const { num }: { num: string } = req.params;
+export async function getRecentDiscussions(
+  req: AuthRequest<null, { num: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;
 
   try {
     // since deletes can update the dateUpdated, we want to give ourselves a bit of buffer.
-    const discussions = await getLastNDiscussions(
-      req.organization.id,
-      intNum + 5
-    );
+    const discussions = await getLastNDiscussions(org.id, intNum + 5);
 
     let recent: {
       content: string;
@@ -215,13 +217,17 @@ export async function getRecentDiscussions(req: AuthRequest, res: Response) {
   }
 }
 
-export async function postImageUploadUrl(req: AuthRequest, res: Response) {
-  const { filetype }: { filetype: string } = req.params;
+export async function postImageUploadUrl(
+  req: AuthRequest<null, { filetype: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { filetype } = req.params;
 
   const now = new Date();
   const { uploadURL, fileURL } = await getFileUploadURL(
     filetype,
-    `${req.organization.id}/${now.toISOString().substr(0, 7)}/`
+    `${org.id}/${now.toISOString().substr(0, 7)}/`
   );
 
   res.status(200).json({
