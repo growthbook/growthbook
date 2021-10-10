@@ -14,8 +14,9 @@ export function canAutoAssignExperiment(
   if (!experiment.targetURLRegex) return false;
 
   return (
-    experiment.variations.filter((v) => v.dom?.length > 0 || v.css?.length > 0)
-      .length > 0
+    experiment.variations.filter(
+      (v) => (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
+    ).length > 0
   );
 }
 
@@ -107,7 +108,12 @@ export async function getExperimentsScript(
       const groups: string[] = [];
 
       const phase = exp.phases[exp.phases.length - 1];
-      if (phase && exp.status === "running" && phase.groups?.length > 0) {
+      if (
+        phase &&
+        exp.status === "running" &&
+        phase.groups &&
+        phase.groups.length > 0
+      ) {
         groups.push(...phase.groups);
       }
 
@@ -120,11 +126,13 @@ export async function getExperimentsScript(
           if (v.css) {
             commands.push("injectStyles(" + JSON.stringify(v.css) + ")");
           }
-          v.dom.forEach((dom) => {
-            commands.push(
-              "mutate.declarative(" + JSON.stringify(dom) + ").revert"
-            );
-          });
+          if (v.dom) {
+            v.dom.forEach((dom) => {
+              commands.push(
+                "mutate.declarative(" + JSON.stringify(dom) + ").revert"
+              );
+            });
+          }
           return "[" + commands.join(",") + "]";
         }),
       };
@@ -171,7 +179,7 @@ export async function getExperimentsScript(
           .map((exp) => {
             const options: CompressedExperimentOptions = {
               w: exp.weights,
-              u: exp.url,
+              u: exp.url || "",
               g: exp.groups,
               f: exp.force ?? -1,
             };
@@ -181,8 +189,9 @@ export async function getExperimentsScript(
             if (exp.anon) {
               options.a = 1;
             }
-            if (exp.coverage) {
-              options.w = options.w.map((n) => n * exp.coverage);
+            if (exp.coverage && options.w) {
+              const coverage = exp.coverage;
+              options.w = options.w.map((n) => n * coverage);
             }
             return `run(${JSON.stringify(exp.key)},[${exp.variationCode
               .map((v) => `()=>${v}`)

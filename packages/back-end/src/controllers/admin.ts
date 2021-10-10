@@ -66,6 +66,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   }
 
   // Change organization settings (allow all kinds of experiments)
+  org.settings = org.settings || {};
   org.settings.visualEditorEnabled = true;
   await updateOrganization(id, {
     settings: org.settings,
@@ -243,11 +244,13 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     }
     const data = experiments[imp.experiment_id];
 
-    if (data.phases[0].dateStarted > imp.start_date) {
-      data.phases[0].dateStarted = imp.start_date;
-    }
-    if (data.phases[0].dateEnded < imp.end_date) {
-      data.phases[0].dateEnded = imp.end_date;
+    if (data.phases && data.phases[0]) {
+      if (data.phases[0].dateStarted > imp.start_date) {
+        data.phases[0].dateStarted = imp.start_date;
+      }
+      if (data.phases[0].dateEnded && data.phases[0].dateEnded < imp.end_date) {
+        data.phases[0].dateEnded = imp.end_date;
+      }
     }
 
     if (imp.experiment_id === "green_buttons") {
@@ -354,7 +357,11 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       const exp = await createExperiment(data);
 
       // Add a few experiments to evidence
-      if (["simple_registration", "green_buttons"].includes(data.trackingKey)) {
+      if (
+        ["simple_registration", "green_buttons"].includes(
+          data.trackingKey || ""
+        )
+      ) {
         evidence.push(exp.id);
       }
 

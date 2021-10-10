@@ -19,13 +19,8 @@ import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
 
 export async function getIdeas(
-  req: AuthRequest<
-    null,
-    null,
-    {
-      project?: string;
-    }
-  >,
+  // eslint-disable-next-line
+  req: AuthRequest<any, any, { project?: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);

@@ -16,7 +16,7 @@ import {
   markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
-import { getEmailFromUserId } from "../services/organizations";
+import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
 import {
   createUser,
   getUserByEmail,
@@ -88,8 +88,12 @@ export async function postRefresh(req: Request, res: Response) {
   });
 }
 
-export async function postLogin(req: Request, res: Response) {
-  const { email, password }: { email: string; password: string } = req.body;
+export async function postLogin(
+  // eslint-disable-next-line
+  req: Request<any, any, { email: string; password: string }>,
+  res: Response
+) {
+  const { email, password } = req.body;
 
   validatePasswordFormat(password);
 
@@ -111,7 +115,7 @@ export async function postLogin(req: Request, res: Response) {
     });
   }
 
-  return successResponse(req, res, user.id);
+  return successResponse(req as Request, res, user.id);
 }
 
 export async function postLogout(req: Request, res: Response) {
@@ -122,12 +126,12 @@ export async function postLogout(req: Request, res: Response) {
   });
 }
 
-export async function postRegister(req: Request, res: Response) {
-  const {
-    email,
-    name,
-    password,
-  }: { email: string; name: string; password: string } = req.body;
+export async function postRegister(
+  // eslint-disable-next-line
+  req: Request<any, any, { email: string; name: string; password: string }>,
+  res: Response
+) {
+  const { email, name, password } = req.body;
 
   validatePasswordFormat(password);
 
@@ -138,7 +142,7 @@ export async function postRegister(req: Request, res: Response) {
     // Try to login to existing account
     const valid = await verifyPassword(existingUser, password);
     if (valid) {
-      return successResponse(req, res, existingUser.id);
+      return successResponse(req as Request, res, existingUser.id);
     }
 
     return res.status(400).json({
@@ -149,21 +153,25 @@ export async function postRegister(req: Request, res: Response) {
 
   // Create new account
   const user = await createUser(name, email, password);
-  return successResponse(req, res, user.id);
+  return successResponse(req as Request, res, user.id);
 }
 
-export async function postFirstTimeRegister(req: Request, res: Response) {
-  const {
-    email,
-    name,
-    password,
-    companyname,
-  }: {
-    email: string;
-    name: string;
-    password: string;
-    companyname: string;
-  } = req.body;
+export async function postFirstTimeRegister(
+  req: Request<
+    // eslint-disable-next-line
+    any,
+    // eslint-disable-next-line
+    any,
+    {
+      email: string;
+      name: string;
+      password: string;
+      companyname: string;
+    }
+  >,
+  res: Response
+) {
+  const { email, name, password, companyname } = req.body;
 
   validatePasswordFormat(password);
   if (companyname.length < 3) {
@@ -184,8 +192,12 @@ export async function postFirstTimeRegister(req: Request, res: Response) {
   return successResponse(req, res, user.id);
 }
 
-export async function postForgotPassword(req: Request, res: Response) {
-  const { email }: { email: string } = req.body;
+export async function postForgotPassword(
+  // eslint-disable-next-line
+  req: Request<any, any, { email: string }>,
+  res: Response
+) {
+  const { email } = req.body;
   await createForgotPasswordToken(email);
 
   res.status(200).json({
@@ -193,7 +205,10 @@ export async function postForgotPassword(req: Request, res: Response) {
   });
 }
 
-export async function getResetPassword(req: Request, res: Response) {
+export async function getResetPassword(
+  req: Request<{ token: string }>,
+  res: Response
+) {
   const { token } = req.params;
   if (!token) {
     throw new Error("Invalid password reset token.");
@@ -216,9 +231,13 @@ export async function getResetPassword(req: Request, res: Response) {
   });
 }
 
-export async function postResetPassword(req: Request, res: Response) {
+export async function postResetPassword(
+  // eslint-disable-next-line
+  req: Request<{ token: string }, any, { password: string }>,
+  res: Response
+) {
   const { token } = req.params;
-  const { password }: { password: string } = req.body;
+  const { password } = req.body;
 
   if (!token) {
     throw new Error("Invalid password reset token.");
@@ -244,16 +263,20 @@ export async function postResetPassword(req: Request, res: Response) {
   });
 }
 
-export async function postChangePassword(req: AuthRequest, res: Response) {
-  const {
-    currentPassword,
-    newPassword,
-  }: {
+export async function postChangePassword(
+  req: AuthRequest<{
     currentPassword: string;
     newPassword: string;
-  } = req.body;
+  }>,
+  res: Response
+) {
+  const { currentPassword, newPassword } = req.body;
+  const { userId } = getOrgFromReq(req);
 
-  const user = await getUserById(req.userId);
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error("Invalid user");
+  }
 
   const valid = await verifyPassword(user, currentPassword);
   if (!valid) {

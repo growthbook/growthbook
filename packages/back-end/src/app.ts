@@ -44,7 +44,8 @@ import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
 
 // Wrap every controller function in asyncHandler to catch errors properly
-function wrapController(controller: Record<string, RequestHandler>): void {
+// eslint-disable-next-line
+function wrapController(controller: Record<string, RequestHandler<any>>): void {
   Object.keys(controller).forEach((key) => {
     if (typeof controller[key] === "function") {
       controller[key] = asyncHandler(controller[key]);
