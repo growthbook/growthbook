@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -9,6 +9,7 @@ import {
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "../../../back-end/types/metric";
+import Toggle from "../Forms/Toggle";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -28,6 +29,8 @@ const BreakDownResults: FC<{
   const dimension = useMemo(() => {
     return getDimensionById(snapshot.dimension)?.name || "Dimension";
   }, [getDimensionById, snapshot.dimension]);
+
+  const [fullStats, setFullStats] = useState(snapshot.results?.length < 10);
 
   const tables = useMemo<TableDef[]>(() => {
     return Array.from(
@@ -99,10 +102,24 @@ const BreakDownResults: FC<{
         </div>
       )}
 
-      <div className="alert alert-warning">
-        <strong>Warning: </strong>The more dimensions and metrics you look at,
-        the more likely you are to see a false positive.
+      <div className="row align-items-center mb-3">
+        <div className="col">
+          <div className="alert alert-warning mb-0">
+            <strong>Warning: </strong>The more dimensions and metrics you look
+            at, the more likely you are to see a false positive.
+          </div>
+        </div>
+        <div className="col-auto">
+          <Toggle
+            value={fullStats}
+            setValue={setFullStats}
+            id="full-stats"
+            label="Show Full Stats"
+          />
+          Show Full Stats
+        </div>
       </div>
+
       {tables.map((table) => (
         <div className="mb-5" key={table.metric.id}>
           <h3>
@@ -123,6 +140,7 @@ const BreakDownResults: FC<{
               phase={snapshot.phase}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
+              fullStats={fullStats}
               {...risk}
             />
           </div>

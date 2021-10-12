@@ -24,11 +24,16 @@ export type ResultsTableProps = {
   phase: number;
   dateCreated: Date;
   hasRisk: boolean;
+  fullStats?: boolean;
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
 };
 
 const numberFormatter = new Intl.NumberFormat();
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export default function ResultsTable({
   id,
@@ -39,6 +44,7 @@ export default function ResultsTable({
   renderLabelColumn,
   phase,
   dateCreated,
+  fullStats = true,
   hasRisk,
   riskVariation,
   setRiskVariation,
@@ -46,13 +52,19 @@ export default function ResultsTable({
   const domain = useDomain(experiment, rows);
 
   return (
-    <table className={`table experiment-compact aligned-graph`}>
+    <table
+      className={`table experiment-compact aligned-graph`}
+      style={{
+        width: fullStats ? "100%" : "auto",
+        maxWidth: "100%",
+      }}
+    >
       <thead>
         <tr>
           <th rowSpan={2} className="metric" style={{ minWidth: 125 }}>
             {labelHeader}
           </th>
-          {hasRisk && (
+          {hasRisk && fullStats && (
             <th
               rowSpan={2}
               className="metric"
@@ -81,7 +93,7 @@ export default function ResultsTable({
             </th>
           )}
           {experiment.variations.map((v, i) => (
-            <th colSpan={i ? 3 : 1} className="value" key={i}>
+            <th colSpan={i ? (fullStats ? 3 : 2) : 1} className="value" key={i}>
               <span className="text-muted font-weight-normal">{i}:</span>
               &nbsp;{v.name}
             </th>
@@ -93,7 +105,7 @@ export default function ResultsTable({
               <th className={clsx("value", `variation${i} text-center`)}>
                 Value
               </th>
-              {i > 0 && (
+              {i > 0 && fullStats && (
                 <th
                   className={`variation${i} text-center`}
                   style={{ minWidth: 110 }}
@@ -104,7 +116,7 @@ export default function ResultsTable({
               {i > 0 && (
                 <th className={`variation${i} text-center`}>
                   Percent Change{" "}
-                  {hasRisk && (
+                  {hasRisk && fullStats && (
                     <Tooltip text="The true value is more likely to be in the thicker parts of the graph">
                       <FaQuestionCircle />
                     </Tooltip>
@@ -118,7 +130,7 @@ export default function ResultsTable({
       <tbody>
         <tr>
           <th>{users ? "Users" : ""}</th>
-          {hasRisk && <th className="empty-td"></th>}
+          {hasRisk && fullStats && <th className="empty-td"></th>}
           {experiment.variations.map((v, i) => (
             <React.Fragment key={i}>
               <td className="value">
@@ -126,17 +138,19 @@ export default function ResultsTable({
               </td>
               {i > 0 && (
                 <>
-                  <td className="empty-td"></td>
+                  {fullStats && <td className="empty-td"></td>}
                   <td className="p-0">
                     <div>
-                      <AlignedGraph
-                        id={`${id}_axis_var${i}`}
-                        domain={domain}
-                        significant={true}
-                        showAxis={true}
-                        axisOnly={true}
-                        height={45}
-                      />
+                      {fullStats && (
+                        <AlignedGraph
+                          id={`${id}_axis_var${i}`}
+                          domain={domain}
+                          significant={true}
+                          showAxis={true}
+                          axisOnly={true}
+                          height={45}
+                        />
+                      )}
                     </div>
                   </td>
                 </>
@@ -166,7 +180,7 @@ export default function ResultsTable({
               <th className="metricname">
                 {renderLabelColumn(row.label, row.metric)}
               </th>
-              {hasRisk && (
+              {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />
               )}
               {experiment.variations.map((v, i) => {
@@ -183,7 +197,7 @@ export default function ResultsTable({
                       users={stats?.users || 0}
                       className="value variation"
                     />
-                    {i > 0 && (
+                    {i > 0 && fullStats && (
                       <ChanceToWinColumn
                         baseline={baseline}
                         stats={stats}
@@ -194,13 +208,21 @@ export default function ResultsTable({
                       />
                     )}
                     {i > 0 && (
-                      <PercentGraphColumn
-                        baseline={baseline}
-                        domain={domain}
-                        metric={row.metric}
-                        stats={stats}
-                        id={`${id}_violin_row${ind}_var${i}`}
-                      />
+                      <>
+                        {fullStats ? (
+                          <PercentGraphColumn
+                            baseline={baseline}
+                            domain={domain}
+                            metric={row.metric}
+                            stats={stats}
+                            id={`${id}_violin_row${ind}_var${i}`}
+                          />
+                        ) : (
+                          <td className="align-middle">
+                            {percentFormatter.format(stats?.expected || 0)}
+                          </td>
+                        )}
+                      </>
                     )}
                   </React.Fragment>
                 );
