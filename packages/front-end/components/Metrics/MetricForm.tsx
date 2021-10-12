@@ -887,7 +887,7 @@ GROUP BY
           step="any"
           append="%"
           {...form.register("minPercentChange", { valueAsNumber: true })}
-          helpText={`An experiment that changes the metric by less than this percent be
+          helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${defaultMinPercentChange * 100})`}
         />
       </Page>
