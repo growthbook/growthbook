@@ -8,6 +8,7 @@ import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   defaultMaxPercentChange,
+  defaultMinPercentChange,
   defaultMinSampleSize,
 } from "../../services/metrics";
 import clsx from "clsx";
@@ -56,6 +57,18 @@ function isSuspiciousUplift(
   const maxPercentChange = metric.maxPercentChange || defaultMaxPercentChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+}
+
+function isBelowMinChange(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: MetricInterface
+): boolean {
+  if (!baseline?.cr || !stats?.cr) return false;
+
+  const minPercentChange = metric.minPercentChange || defaultMinPercentChange;
+
+  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
 }
 
 function getRisk(
@@ -183,6 +196,7 @@ function ChanceToWinColumn({
   const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
   const enoughData = hasEnoughData(baseline, stats, metric);
   const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
+  const belowMinChange = isBelowMinChange(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =
@@ -190,7 +204,8 @@ function ChanceToWinColumn({
     baseline?.value &&
     stats?.value &&
     enoughData &&
-    !suspiciousChange;
+    !suspiciousChange &&
+    !belowMinChange;
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 
@@ -199,6 +214,8 @@ function ChanceToWinColumn({
       className={clsx("variation chance result-number align-middle", {
         won: shouldHighlight && chanceToWin > ciUpper,
         lost: shouldHighlight && chanceToWin < ciLower,
+        draw:
+          belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower),
       })}
     >
       {!baseline?.value || !stats?.value ? (

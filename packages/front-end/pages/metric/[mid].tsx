@@ -16,6 +16,7 @@ import {
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   defaultMaxPercentChange,
+  defaultMinPercentChange,
   defaultMinSampleSize,
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
@@ -550,6 +551,11 @@ const MetricPage: FC = () => {
                     <i>Max percent change</i> :{" "}
                     {metric?.maxPercentChange * 100 ||
                       defaultMaxPercentChange * 100}
+                    %
+                    <br />
+                    <i>Min percent change</i> :{" "}
+                    {metric?.minPercentChange * 100 ||
+                      defaultMinPercentChange * 100}
                     %
                   </small>
                 </RightRailSectionGroup>

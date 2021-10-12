@@ -354,7 +354,7 @@ pre {
     }
   }
 
-  td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+  td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
     opacity: 0.6;
   }
 
@@ -363,7 +363,7 @@ pre {
   }
 
   &.aligned-graph {
-    td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+    td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
       opacity: 1;
       color: #999;
     }
@@ -446,6 +446,7 @@ pre {
 
   td.won,
   td.lost,
+  td.draw,
   td.warning {
     opacity: 1;
     .change-container {
@@ -475,6 +476,10 @@ pre {
   }
   td.warning {
     background-color: rgba(#eddca6, 0.3);
+  }
+  td.draw {
+    background-color: rgba(#d7c9e2, 0.3);
+    color: $dark-purple;
   }
 
   .metricname:hover {

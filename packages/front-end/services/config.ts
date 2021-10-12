@@ -80,6 +80,7 @@ export function useConfigJson({
         "loseRisk",
         "winRisk",
         "maxPercentChange",
+        "minPercentChange",
         "minSampleSize",
         "userIdType",
         "tags",

@@ -16,6 +16,7 @@ import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   defaultMaxPercentChange,
+  defaultMinPercentChange,
   defaultMinSampleSize,
   formatConversionRate,
 } from "../../services/metrics";
@@ -158,6 +159,8 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange:
         (current.maxPercentChange || defaultMaxPercentChange) * 100,
+      minPercentChange:
+        (current.minPercentChange || defaultMinPercentChange) * 100,
       minSampleSize: current.minSampleSize || defaultMinSampleSize,
     },
   });
@@ -215,13 +218,21 @@ const MetricForm: FC<MetricFormProps> = ({
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const { winRisk, loseRisk, maxPercentChange, sql, ...otherValues } = value;
+    const {
+      winRisk,
+      loseRisk,
+      maxPercentChange,
+      minPercentChange,
+      sql,
+      ...otherValues
+    } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
+      minPercentChange: minPercentChange / 100,
       sql: sqlInput ? sql : "",
     };
 
@@ -869,6 +880,15 @@ GROUP BY
             be flagged as suspicious (default ${
               defaultMaxPercentChange * 100
             })`}
+        />
+        <Field
+          label="Min Percent Change"
+          type="number"
+          step="any"
+          append="%"
+          {...form.register("minPercentChange", { valueAsNumber: true })}
+          helpText={`An experiment that changes the metric by less than this percent will be
+            considered a draw (default ${defaultMinPercentChange * 100})`}
         />
       </Page>
     </PagedModal>
