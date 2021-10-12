@@ -1,4 +1,3 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
@@ -7,18 +6,16 @@ import AlignedGraph from "./AlignedGraph";
 
 export default function PercentGraphColumn({
   metric,
-  experiment,
-  variation,
   baseline,
   stats,
   domain,
+  id,
 }: {
   metric: MetricInterface;
-  experiment: ExperimentInterfaceStringDates;
-  variation: number;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
+  id: string;
 }) {
   const enoughData = hasEnoughData(baseline, stats, metric);
   const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
@@ -30,7 +27,7 @@ export default function PercentGraphColumn({
     <td className="compact-graph pb-0 align-middle">
       <AlignedGraph
         ci={showGraph ? stats.ci || [] : [0, 0]}
-        id={experiment.id + "_" + variation + "_" + metric?.id}
+        id={id}
         domain={domain}
         uplift={showGraph ? stats.uplift : null}
         expected={showGraph ? stats.expected : null}

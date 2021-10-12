@@ -1,7 +1,5 @@
 import clsx from "clsx";
-import { SnapshotVariation } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
-import { getRisk } from "../../services/experiments";
+import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
@@ -14,26 +12,18 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function RiskColumn({
-  metric,
-  baselineValue,
-  variations,
+  row,
   riskVariation,
 }: {
-  metric: MetricInterface;
-  baselineValue: number;
-  variations: SnapshotVariation[];
+  row: ExperimentTableRow;
   riskVariation: number;
 }) {
-  const { relativeRisk, risk, showRisk } = getRisk(
-    riskVariation,
-    metric,
-    variations
-  );
+  const { relativeRisk, risk, showRisk } = getRisk(riskVariation, row);
 
-  const winRiskThreshold = metric?.winRisk || defaultWinRiskThreshold;
-  const loseRiskThreshold = metric?.loseRisk || defaultLoseRiskThreshold;
+  const winRiskThreshold = row.metric.winRisk || defaultWinRiskThreshold;
+  const loseRiskThreshold = row.metric.loseRisk || defaultLoseRiskThreshold;
 
-  if (!baselineValue || !showRisk) {
+  if (!row.variations[0]?.value || !showRisk) {
     return <td className="empty-td"></td>;
   }
 
@@ -51,11 +41,11 @@ export default function RiskColumn({
       <div className="result-number">
         {percentFormatter.format(relativeRisk)}
       </div>
-      {metric?.type !== "binomial" && (
+      {row.metric.type !== "binomial" && (
         <div>
           <small className="text-muted">
             <em>
-              {formatConversionRate(metric?.type, risk)}
+              {formatConversionRate(row.metric.type, risk)}
               &nbsp;/&nbsp;user
             </em>
           </small>
