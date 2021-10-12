@@ -584,7 +584,7 @@ export async function createSnapshot(
     queries,
     hasRawQueries: true,
     queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimensionId || "",
+    dimension: dimensionId || null,
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
   };
