@@ -11,7 +11,7 @@ import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "../../../back-end/types/metric";
 import Toggle from "../Forms/Toggle";
 
-const FULL_STATS_LIMIT = 8;
+const FULL_STATS_LIMIT = 5;
 
 const numberFormatter = new Intl.NumberFormat();
 
