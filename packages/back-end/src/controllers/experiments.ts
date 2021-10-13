@@ -108,19 +108,19 @@ export async function getExperimentsFrequencyMonth(
 
   // now get the right number of experiments:
   experiments.forEach((e) => {
-    let dateStarted: Date = new Date();
+    let dateStarted: Date | null = null;
     if (e.status === "draft") {
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
         // get the earliest time it was main or ramp:
         if (p.phase === "main" || p.phase === "ramp") {
-          if (!dateStarted || p.dateStarted < dateStarted)
+          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
             dateStarted = p.dateStarted;
         }
       });
     }
-    const monthYear = format(new Date(dateStarted), "MMM yyy");
+    const monthYear = format(new Date(dateStarted || new Date()), "MMM yyy");
 
     allData.forEach((md, i) => {
       if (md.name === monthYear) {
