@@ -53,7 +53,7 @@ const CONFIG_FILE = path.join(
 );
 
 let configFileTime: number;
-let config: ConfigFile;
+let config: ConfigFile | null = null;
 
 function loadConfig(initial = false) {
   if (IS_CLOUD) return;
@@ -106,9 +106,10 @@ export function getConfigDatasources(
 ): DataSourceInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
+  const datasources = config.datasources;
 
-  return Object.keys(config.datasources).map((id) => {
-    const d = config.datasources[id];
+  return Object.keys(datasources).map((id) => {
+    const d = datasources[id];
 
     return {
       id,
@@ -126,15 +127,16 @@ export function getConfigDatasources(
 export function getConfigMetrics(organization: string): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
+  const metrics = config.metrics;
 
-  return Object.keys(config.metrics).map((id) => {
-    const m = config.metrics[id];
+  return Object.keys(metrics).map((id) => {
+    const m = metrics[id];
 
     return {
       tags: [],
-      description: "",
       id,
       ...m,
+      description: m?.description || "",
       organization,
       dateCreated: null,
       dateUpdated: null,
@@ -149,9 +151,10 @@ export function getConfigDimensions(
 ): DimensionInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.dimensions) return [];
+  const dimensions = config.dimensions;
 
-  return Object.keys(config.dimensions).map((id) => {
-    const d = config.dimensions[id];
+  return Object.keys(dimensions).map((id) => {
+    const d = dimensions[id];
 
     return {
       id,

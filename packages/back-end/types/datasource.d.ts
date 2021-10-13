@@ -49,15 +49,15 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   queries?: {
-    experimentsQuery: string;
-    pageviewsQuery: string;
+    experimentsQuery?: string;
+    pageviewsQuery?: string;
   };
   events?: {
-    experimentEvent: string;
-    experimentIdProperty: string;
-    variationIdProperty: string;
-    pageviewEvent: string;
-    urlProperty: string;
+    experimentEvent?: string;
+    experimentIdProperty?: string;
+    variationIdProperty?: string;
+    pageviewEvent?: string;
+    urlProperty?: string;
   };
   default?: {
     timestampColumn?: string;
@@ -95,8 +95,8 @@ interface DataSourceBase {
   id: string;
   name: string;
   organization: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   params: string;
   settings: DataSourceSettings;
 }

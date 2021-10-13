@@ -83,7 +83,6 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 );
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
-  if (!doc) return null;
   return doc.toJSON();
 }
 
@@ -112,7 +111,7 @@ export async function getDataSourceById(id: string, organization: string) {
     organization,
   });
 
-  return toInterface(doc);
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getOrganizationsWithDatasources(): Promise<string[]> {
@@ -136,7 +135,7 @@ export async function createDataSource(
   name: string,
   type: DataSourceType,
   params: DataSourceParams,
-  settings?: DataSourceSettings,
+  settings: DataSourceSettings,
   id?: string
 ) {
   if (usingFileConfig()) {
@@ -150,7 +149,7 @@ export async function createDataSource(
     const { tokens } = await oauth2Client.getToken(
       (params as GoogleAnalyticsParams).refreshToken
     );
-    (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token;
+    (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
   const datasource: DataSourceInterface = {

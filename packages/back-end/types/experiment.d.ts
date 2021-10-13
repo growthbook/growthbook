@@ -25,7 +25,7 @@ export interface Variation {
 }
 
 export interface ExperimentPhase {
-  dateStarted?: Date;
+  dateStarted: Date;
   dateEnded?: Date;
   phase: "ramp" | "main" | "holdout";
   reason: string;

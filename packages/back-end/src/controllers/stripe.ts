@@ -13,7 +13,8 @@ import {
   updateOrganizationByStripeId,
 } from "../models/OrganizationModel";
 import { createOrganization } from "../models/OrganizationModel";
-const stripe = new Stripe(STRIPE_SECRET, { apiVersion: "2020-08-27" });
+import { getOrgFromReq } from "../services/organizations";
+const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
 async function updateSubscription(subscription: string | Stripe.Subscription) {
   // Make sure we have the full subscription object
@@ -29,7 +30,7 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
   await updateOrganizationByStripeId(stripeCustomerId, {
     subscription: {
       id: subscription.id,
-      qty: subscription.items.data[0].quantity,
+      qty: subscription.items.data[0].quantity || 1,
       trialEnd: subscription.trial_end
         ? new Date(subscription.trial_end * 1000)
         : null,
@@ -57,8 +58,8 @@ export async function postStartTrial(
         throw new Error("Company name must be at least 3 characters long");
       }
       req.organization = await createOrganization(
-        req.email,
-        req.userId,
+        req.email || "",
+        req.userId || "",
         name,
         ""
       );
@@ -67,10 +68,10 @@ export async function postStartTrial(
     // Create customer in Stripe if not exists
     if (!req.organization.stripeCustomerId) {
       const resp = await stripe.customers.create({
-        email: req.email,
-        name: req.name,
+        email: req.email || "",
+        name: req.name || "",
         metadata: {
-          user: req.userId,
+          user: req.userId || "",
           organization: req.organization.id,
         },
       });
@@ -88,7 +89,7 @@ export async function postStartTrial(
       collection_method: "charge_automatically",
       trial_from_plan: true,
       metadata: {
-        user: req.userId,
+        user: req.userId || "",
         organization: req.organization.id,
       },
       items: [
@@ -123,8 +124,13 @@ export async function postCreateBillingSession(
       });
     }
 
+    const { org } = getOrgFromReq(req);
+    if (!org.stripeCustomerId) {
+      throw new Error("Missing customer id");
+    }
+
     const { url } = await stripe.billingPortal.sessions.create({
-      customer: req.organization.stripeCustomerId,
+      customer: org.stripeCustomerId,
       return_url: `${APP_ORIGIN}/settings`,
     });
 
@@ -143,6 +149,9 @@ export async function postCreateBillingSession(
 export async function postWebhook(req: Request, res: Response) {
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
+  if (!sig) {
+    return res.status(400).send("Missing signature");
+  }
 
   let event;
   try {
@@ -157,7 +166,9 @@ export async function postWebhook(req: Request, res: Response) {
     case "checkout.session.completed": {
       const { subscription } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
-      updateSubscription(subscription);
+      if (subscription) {
+        updateSubscription(subscription);
+      }
       break;
     }
 
@@ -165,7 +176,9 @@ export async function postWebhook(req: Request, res: Response) {
     case "invoice.payment_failed": {
       const { subscription } = event.data
         .object as Stripe.Response<Stripe.Invoice>;
-      updateSubscription(subscription);
+      if (subscription) {
+        updateSubscription(subscription);
+      }
       break;
     }
 
@@ -173,7 +186,9 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.updated": {
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
-      updateSubscription(subscription);
+      if (subscription) {
+        updateSubscription(subscription);
+      }
       break;
     }
   }

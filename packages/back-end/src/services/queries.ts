@@ -32,7 +32,7 @@ import { DataSourceSettings } from "../../types/datasource";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
-  runStarted: Date;
+  runStarted: Date | null;
   queries: Queries;
   organization: string;
 };
@@ -82,7 +82,7 @@ async function createNewQuery(
   const data: QueryInterface = {
     createdAt: new Date(),
     datasource: integration.datasource,
-    finishedAt: result || error ? new Date() : null,
+    finishedAt: result || error ? new Date() : undefined,
     heartbeat: new Date(),
     id: uniqid("qry_"),
     language: integration.getSourceProperties().queryLanguage,
@@ -90,8 +90,8 @@ async function createNewQuery(
     query,
     startedAt: new Date(),
     status: result ? "succeeded" : error ? "failed" : "running",
-    result,
-    error,
+    result: result || undefined,
+    error: error || undefined,
   };
   return await QueryModel.create(data);
 }
@@ -274,7 +274,7 @@ function getVariationMap(
       (settings?.variationIdFormat ||
         settings?.experiments?.variationFormat) === "key"
     ) {
-      variationMap.set(v.key?.length > 0 ? v.key : i + "", i);
+      variationMap.set(v.key && v.key.length > 0 ? v.key : i + "", i);
     } else {
       variationMap.set(i + "", i);
     }
@@ -297,7 +297,7 @@ export function processExperimentMetricQueryResponse(
   rows.forEach(({ variation, dimension, count, mean, stddev }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension);
+      i = dimensionMap.get(dimension) || 0;
     } else {
       i = ret.dimensions.length;
       ret.dimensions.push({
@@ -349,7 +349,7 @@ export function processExperimentResultsResponse(
   rows.forEach(({ dimension, metrics, users, variation }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension);
+      i = dimensionMap.get(dimension) || 0;
     } else {
       i = ret.dimensions.length;
       ret.dimensions.push({
@@ -414,7 +414,7 @@ export function processExperimentUsersResponse(
   rows.forEach(({ variation, dimension, users }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension);
+      i = dimensionMap.get(dimension) || 0;
     } else {
       i = ret.dimensions.length;
       ret.dimensions.push({
@@ -685,7 +685,9 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   return {
     status: 200,
     queryStatus: status,
-    elapsed: Math.floor((Date.now() - doc?.runStarted?.getTime()) / 1000),
+    elapsed: Math.floor(
+      (Date.now() - (doc?.runStarted?.getTime() || 0)) / 1000
+    ),
     finished: doc.queries.filter((q) => q.status === "succeeded").length,
     total: doc.queries.length,
   };

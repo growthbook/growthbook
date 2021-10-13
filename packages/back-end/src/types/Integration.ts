@@ -22,7 +22,7 @@ export type ExperimentResults = {
       };
     }[];
   }[];
-  unknownVariations?: string[];
+  unknownVariations: string[];
 };
 
 export type ExperimentQueryResponses = {
@@ -40,7 +40,7 @@ export interface ExperimentUsersResult {
       users: number;
     }[];
   }[];
-  unknownVariations?: string[];
+  unknownVariations: string[];
 }
 export interface ExperimentMetricResult {
   dimensions: {
@@ -102,7 +102,7 @@ export type MetricValueParams = {
   from: Date;
   to: Date;
   metric: MetricInterface;
-  name?: string;
+  name: string;
   userIdType?: "anonymous" | "user" | "either";
   segmentQuery?: string;
   segmentName?: string;
@@ -113,15 +113,15 @@ export type MetricValueParams = {
 
 export type MetricValueResultDate = {
   date: string;
-  count?: number;
-  mean?: number;
-  stddev?: number;
+  count: number;
+  mean: number;
+  stddev: number;
 };
 
 export type MetricValueResult = {
-  count?: number;
-  stddev?: number;
-  mean?: number;
+  count: number;
+  stddev: number;
+  mean: number;
   percentiles?: {
     [key: string]: number;
   };

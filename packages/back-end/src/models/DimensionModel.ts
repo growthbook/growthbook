@@ -22,7 +22,6 @@ const DimensionModel = mongoose.model<DimensionDocument>(
 );
 
 function toInterface(doc: DimensionDocument): DimensionInterface {
-  if (!doc) return null;
   return doc.toJSON();
 }
 
@@ -45,7 +44,9 @@ export async function findDimensionById(id: string, organization: string) {
     return getConfigDimensions(organization).filter((d) => d.id === id)[0];
   }
 
-  return toInterface(await DimensionModel.findOne({ id, organization }));
+  const doc = await DimensionModel.findOne({ id, organization });
+
+  return doc ? toInterface(doc) : null;
 }
 
 export async function findDimensionsByDataSource(

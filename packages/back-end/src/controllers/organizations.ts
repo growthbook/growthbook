@@ -8,6 +8,7 @@ import {
   getInviteUrl,
   getRole,
   importConfig,
+  getOrgFromReq,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -79,21 +80,23 @@ import { ConfigFile } from "../init/config";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
-  if (!req.userId) {
-    if (IS_CLOUD) {
-      const user = await createUser(req.name, req.email);
-      req.userId = user.id;
-    } else {
-      throw new Error("Must be logged in");
-    }
+  if (!req.userId && IS_CLOUD) {
+    const user = await createUser(req.name || "", req.email);
+    req.userId = user.id;
   }
+
+  if (!req.userId) {
+    throw new Error("Must be logged in");
+  }
+
+  const userId = req.userId;
 
   // List of all organizations the user belongs to
   const orgs = await findOrganizationsByMemberId(req.userId);
 
   return res.status(200).json({
     status: 200,
-    userId: req.userId,
+    userId: userId,
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
@@ -102,14 +105,15 @@ export async function getUser(req: AuthRequest, res: Response) {
       name: org.name,
       subscriptionStatus: org.subscription?.status,
       trialEnd: org.subscription?.trialEnd,
-      role: getRole(org, req.userId),
+      role: getRole(org, userId),
       settings: org.settings || {},
     })),
   });
 }
 
 export async function postSampleData(req: AuthRequest, res: Response) {
-  const orgId = req.organization?.id;
+  const { org, userId } = getOrgFromReq(req);
+  const orgId = org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
@@ -119,10 +123,16 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     throw new Error("Sample data already exists");
   }
 
-  const metric1: Partial<MetricInterface> = {
+  const metric1: MetricInterface = {
     id: uniqid("met_sample_"),
+    datasource: "",
+    ignoreNulls: false,
+    earlyStart: false,
+    inverse: false,
+    queries: [],
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    runStarted: null,
     name: "Sample Conversions",
     description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
     type: "binomial",
@@ -131,10 +141,16 @@ export async function postSampleData(req: AuthRequest, res: Response) {
   };
   await insertMetric(metric1);
 
-  const metric2: Partial<MetricInterface> = {
+  const metric2: MetricInterface = {
     id: uniqid("met_sample_"),
+    datasource: "",
+    ignoreNulls: false,
+    earlyStart: false,
+    inverse: false,
+    queries: [],
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    runStarted: null,
     name: "Sample Revenue per User",
     description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
     type: "revenue",
@@ -180,12 +196,12 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     ],
     autoAssign: false,
     autoSnapshots: false,
-    datasource: null,
+    datasource: "",
     dateCreated: new Date(),
     dateUpdated: new Date(),
     implementation: "code",
     metrics: [metric1.id, metric2.id],
-    owner: req.userId,
+    owner: userId,
     trackingKey: "sample-experiment",
     userIdType: "anonymous",
     tags: [],
@@ -244,7 +260,8 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
 }
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const orgId = req.organization?.id;
+  const { org } = getOrgFromReq(req);
+  const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
@@ -311,8 +328,9 @@ export async function getUsers(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
+  const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(req.userId, req.organization.id, {
+    const docs = await getWatchedAudits(userId, org.id, {
       limit: 50,
     });
 
@@ -352,10 +370,11 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 }
 
 export async function getWatchedExperiments(req: AuthRequest, res: Response) {
+  const { org, userId } = getOrgFromReq(req);
   try {
     const watch = await WatchModel.findOne({
-      userId: req.userId,
-      organization: req.organization.id,
+      userId: userId,
+      organization: org.id,
     });
     res.status(200).json({
       status: 200,
@@ -369,8 +388,12 @@ export async function getWatchedExperiments(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getHistory(req: AuthRequest, res: Response) {
-  const { type, id }: { type: string; id: string } = req.params;
+export async function getHistory(
+  req: AuthRequest<null, { type: string; id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { type, id } = req.params;
 
   const events = await Promise.all([
     findByEntity(type, id),
@@ -385,7 +408,7 @@ export async function getHistory(req: AuthRequest, res: Response) {
     return 0;
   });
 
-  if (merged.filter((e) => e.organization !== req.organization.id).length > 0) {
+  if (merged.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history for this",
@@ -403,11 +426,12 @@ export async function putUserName(
   res: Response
 ) {
   const { name } = req.body;
+  const { userId } = getOrgFromReq(req);
 
   try {
     await UserModel.updateOne(
       {
-        id: req.userId,
+        id: userId,
       },
       {
         $set: {
@@ -427,9 +451,10 @@ export async function putUserName(
 }
 
 export async function putMemberRole(
-  req: AuthRequest<{ role: MemberRole }>,
+  req: AuthRequest<{ role: MemberRole }, { id: string }>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -438,9 +463,9 @@ export async function putMemberRole(
   }
 
   const { role } = req.body;
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
-  if (id === req.userId) {
+  if (id === userId) {
     return res.status(400).json({
       status: 400,
       message: "Cannot change your own role",
@@ -448,7 +473,7 @@ export async function putMemberRole(
   }
 
   let found = false;
-  req.organization.members.forEach((m) => {
+  org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
       found = true;
@@ -463,8 +488,8 @@ export async function putMemberRole(
   }
 
   try {
-    await updateOrganization(req.organization.id, {
-      members: req.organization.members,
+    await updateOrganization(org.id, {
+      members: org.members,
     });
     return res.status(200).json({
       status: 200,
@@ -484,6 +509,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
+  const { org } = getOrgFromReq(req);
 
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
@@ -501,7 +527,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     subscription,
     connections,
     settings,
-  } = req.organization;
+  } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
   members.forEach((m) => {
@@ -510,7 +536,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const users = await getUsersByIds(members.map((m) => m.id));
 
-  const apiKeys = await getAllApiKeysByOrganization(req.organization.id);
+  const apiKeys = await getAllApiKeysByOrganization(org.id);
 
   return res.status(200).json({
     status: 200,
@@ -539,6 +565,9 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
   const { key } = req.body;
 
   try {
+    if (!req.userId) {
+      throw new Error("Must be logged in");
+    }
     const org = await acceptInvite(key, req.userId);
     return res.status(200).json({
       status: 200,
@@ -553,6 +582,7 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
 }
 
 export async function postInvite(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -562,18 +592,7 @@ export async function postInvite(req: AuthRequest, res: Response) {
 
   const { email, role } = req.body;
 
-  if (!req.organization) {
-    return res.status(400).json({
-      status: 400,
-      message: "Must be part of an organization to invite users",
-    });
-  }
-
-  const { emailSent, inviteUrl } = await inviteUser(
-    req.organization,
-    email,
-    role
-  );
+  const { emailSent, inviteUrl } = await inviteUser(org, email, role);
   return res.status(200).json({
     status: 200,
     inviteUrl,
@@ -585,7 +604,11 @@ interface SignupBody {
   company: string;
 }
 
-export async function deleteMember(req: AuthRequest, res: Response) {
+export async function deleteMember(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -593,30 +616,27 @@ export async function deleteMember(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
-  if (id === req.userId) {
+  if (id === userId) {
     return res.status(400).json({
       status: 400,
       message: "Cannot change your own role",
     });
   }
 
-  if (!req.organization) {
-    return res.status(400).json({
-      status: 400,
-      message: "Must be part of an organization to remove a member",
-    });
-  }
-
-  await removeMember(req.organization, id);
+  await removeMember(org, id);
 
   res.status(200).json({
     status: 200,
   });
 }
 
-export async function deleteDataSource(req: AuthRequest, res: Response) {
+export async function deleteDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -624,9 +644,9 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, req.organization.id);
+  const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -663,7 +683,7 @@ export async function deleteDataSource(req: AuthRequest, res: Response) {
     );
   }
 
-  await deleteDatasourceById(datasource.id, req.organization.id);
+  await deleteDatasourceById(datasource.id, org.id);
 
   res.status(200).json({
     status: 200,
@@ -674,6 +694,7 @@ export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -683,16 +704,9 @@ export async function postInviteResend(
 
   const { key } = req.body;
 
-  if (!req.organization) {
-    return res.status(400).json({
-      status: 400,
-      message: "Must be part of an organization to remove an invitation",
-    });
-  }
-
   let emailSent = false;
   try {
-    await sendInviteEmail(req.organization, key);
+    await sendInviteEmail(org, key);
     emailSent = true;
   } catch (e) {
     emailSent = false;
@@ -710,6 +724,7 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -719,14 +734,7 @@ export async function deleteInvite(
 
   const { key } = req.body;
 
-  if (!req.organization) {
-    return res.status(400).json({
-      status: 400,
-      message: "Must be part of an organization to remove an invitation",
-    });
-  }
-
-  await revokeInvite(req.organization, key);
+  await revokeInvite(org, key);
 
   res.status(200).json({
     status: 200,
@@ -743,6 +751,9 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
+    }
+    if (!req.userId) {
+      throw Error("Must be logged in");
     }
     const org = await createOrganization(req.email, req.userId, company, "");
 
@@ -770,6 +781,7 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -789,7 +801,7 @@ export async function putOrganization(
       updates.settings = settings;
     }
 
-    await updateOrganization(req.organization.id, updates);
+    await updateOrganization(org.id, updates);
 
     res.status(200).json({
       status: 200,
@@ -803,7 +815,8 @@ export async function putOrganization(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const datasources = await getDataSourcesByOrganization(req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const datasources = await getDataSourcesByOrganization(org.id);
 
   if (!datasources || !datasources.length) {
     res.status(200).json({
@@ -828,7 +841,11 @@ export async function getDataSources(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getDataSource(req: AuthRequest, res: Response) {
+export async function getDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -836,9 +853,9 @@ export async function getDataSource(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, req.organization.id);
+  const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -867,6 +884,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -910,7 +928,7 @@ FROM
     };
 
     const datasource = await createDataSource(
-      req.organization.id,
+      org.id,
       name,
       type,
       params,
@@ -930,7 +948,8 @@ FROM
 }
 
 export async function getTags(req: AuthRequest, res: Response) {
-  const tags = await getAllTags(req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const tags = await getAllTags(org.id);
   res.status(200).json({
     status: 200,
     tags,
@@ -938,14 +957,18 @@ export async function getTags(req: AuthRequest, res: Response) {
 }
 
 export async function putDataSource(
-  req: AuthRequest<{
-    name: string;
-    type: DataSourceType;
-    params: DataSourceParams;
-    settings: DataSourceSettings;
-  }>,
+  req: AuthRequest<
+    {
+      name: string;
+      type: DataSourceType;
+      params: DataSourceParams;
+      settings: DataSourceSettings;
+    },
+    { id: string }
+  >,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -953,10 +976,10 @@ export async function putDataSource(
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const { name, type, params, settings } = req.body;
 
-  const datasource = await getDataSourceById(id, req.organization.id);
+  const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -989,7 +1012,8 @@ export async function putDataSource(
       const { tokens } = await oauth2Client.getToken(
         (params as GoogleAnalyticsParams).refreshToken
       );
-      (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token;
+      (params as GoogleAnalyticsParams).refreshToken =
+        tokens.refresh_token || "";
     }
 
     // If the connection params changed, re-validate the connection
@@ -1001,7 +1025,7 @@ export async function putDataSource(
       updates.params = encryptParams(integration.params);
     }
 
-    await updateDataSource(id, req.organization.id, updates);
+    await updateDataSource(id, org.id, updates);
 
     res.status(200).json({
       status: 200,
@@ -1016,7 +1040,8 @@ export async function putDataSource(
 }
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const keys = await getAllApiKeysByOrganization(req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const keys = await getAllApiKeysByOrganization(org.id);
   res.status(200).json({
     status: 200,
     keys,
@@ -1027,6 +1052,7 @@ export async function postApiKey(
   req: AuthRequest<{ description?: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -1036,7 +1062,7 @@ export async function postApiKey(
 
   const { description } = req.body;
 
-  const key = await createApiKey(req.organization.id, description);
+  const key = await createApiKey(org.id, description);
 
   res.status(200).json({
     status: 200,
@@ -1044,7 +1070,11 @@ export async function postApiKey(
   });
 }
 
-export async function deleteApiKey(req: AuthRequest, res: Response) {
+export async function deleteApiKey(
+  req: AuthRequest<null, { key: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -1052,9 +1082,9 @@ export async function deleteApiKey(req: AuthRequest, res: Response) {
     });
   }
 
-  const { key }: { key: string } = req.params;
+  const { key } = req.params;
 
-  await deleteByOrganizationAndApiKey(req.organization.id, key);
+  await deleteByOrganizationAndApiKey(org.id, key);
 
   res.status(200).json({
     status: 200,
@@ -1062,8 +1092,9 @@ export async function deleteApiKey(req: AuthRequest, res: Response) {
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
   const webhooks = await WebhookModel.find({
-    organization: req.organization.id,
+    organization: org.id,
   });
   res.status(200).json({
     status: 200,
@@ -1075,6 +1106,7 @@ export async function postWebhook(
   req: AuthRequest<{ name: string; endpoint: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -1084,7 +1116,7 @@ export async function postWebhook(
 
   const { name, endpoint } = req.body;
 
-  const webhook = await createWebhook(req.organization.id, name, endpoint);
+  const webhook = await createWebhook(org.id, name, endpoint);
 
   res.status(200).json({
     status: 200,
@@ -1092,7 +1124,11 @@ export async function postWebhook(
   });
 }
 
-export async function deleteWebhook(req: AuthRequest, res: Response) {
+export async function deleteWebhook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -1100,10 +1136,10 @@ export async function deleteWebhook(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: req.organization.id,
+    organization: org.id,
     id,
   });
 
@@ -1138,6 +1174,7 @@ export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
 }
 
 export async function postImportConfig(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.organizationSettings) {
     return res.status(403).json({
       status: 403,
@@ -1152,19 +1189,23 @@ export async function postImportConfig(req: AuthRequest, res: Response) {
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, req.organization);
+  await importConfig(config, org);
 
   res.status(200).json({
     status: 200,
   });
 }
 
-export async function getQueries(req: AuthRequest, res: Response) {
-  const { ids }: { ids: string } = req.params;
+export async function getQueries(
+  req: AuthRequest<null, { ids: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { ids } = req.params;
   const queries = ids.split(",");
 
   const docs = await QueryModel.find({
-    organization: req.organization.id,
+    organization: org.id,
     id: {
       $in: queries,
     },

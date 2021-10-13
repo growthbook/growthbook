@@ -44,11 +44,11 @@ export interface MetricInterface {
   minPercentChange?: number;
   minSampleSize?: number;
   segment?: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   userIdType?: "anonymous" | "user" | "either";
   queries: Queries;
-  runStarted: Date;
+  runStarted: Date | null;
   analysis?: MetricAnalysis;
   sql?: string;
   // Query Builder Props (alternative to sql)

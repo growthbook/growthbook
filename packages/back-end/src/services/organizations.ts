@@ -44,6 +44,21 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
+export function getOrgFromReq(req: AuthRequest) {
+  if (!req.organization) {
+    throw new Error("Must be part of an organization to make that request");
+  }
+  if (!req.userId || !req.email) {
+    throw new Error("Must be logged in");
+  }
+
+  return {
+    org: req.organization,
+    userId: req.userId,
+    email: req.email,
+  };
+}
+
 export async function getConfidenceLevelsForOrg(id: string) {
   const org = await getOrganizationById(id);
   const ciUpper = org?.settings?.confidenceLevel || 0.95;
@@ -86,6 +101,7 @@ export async function userHasAccess(
 ): Promise<boolean> {
   if (req.admin) return true;
   if (req.organization?.id === organization) return true;
+  if (!req.userId) return false;
 
   const doc = await getOrganizationById(organization);
   if (doc && doc.members.map((m) => m.id).includes(req.userId)) {
@@ -237,8 +253,10 @@ function validateConfig(config: ConfigFile, organizationId: string) {
       try {
         datasourceIds.push(k);
         validateId(k);
+        const ds = config.datasources?.[k];
+        if (!ds) return;
 
-        const { params, ...props } = config.datasources[k];
+        const { params, ...props } = ds;
 
         // This will throw an error if something required is missing
         getSourceIntegrationObject({
@@ -259,7 +277,8 @@ function validateConfig(config: ConfigFile, organizationId: string) {
     Object.keys(config.metrics).forEach((k) => {
       try {
         validateId(k);
-        const metric = config.metrics[k];
+        const metric = config.metrics?.[k];
+        if (!metric) return;
         if (metric.datasource && !datasourceIds.includes(metric.datasource)) {
           throw new Error("Unknown datasource id '" + metric.datasource + "'");
         }
@@ -276,7 +295,8 @@ function validateConfig(config: ConfigFile, organizationId: string) {
     Object.keys(config.dimensions).forEach((k) => {
       try {
         validateId(k);
-        const dimension = config.dimensions[k];
+        const dimension = config.dimensions?.[k];
+        if (!dimension) return;
         if (!dimension.datasource) {
           throw new Error("Must specify a datasource");
         }
@@ -317,7 +337,8 @@ export async function importConfig(
   if (config.datasources) {
     await Promise.all(
       Object.keys(config.datasources).map(async (k) => {
-        const ds = config.datasources[k];
+        const ds = config.datasources?.[k];
+        if (!ds) return;
         k = k.toLowerCase();
         try {
           const existing = await getDataSourceById(k, organization.id);
@@ -331,7 +352,7 @@ export async function importConfig(
               params = encryptParams(integration.params);
             }
 
-            const updates = {
+            const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               type: ds.type || existing.type,
               params,
@@ -369,7 +390,8 @@ export async function importConfig(
   if (config.metrics) {
     await Promise.all(
       Object.keys(config.metrics).map(async (k) => {
-        const m = config.metrics[k];
+        const m = config.metrics?.[k];
+        if (!m) return;
         k = k.toLowerCase();
 
         if (m.datasource) {
@@ -387,8 +409,8 @@ export async function importConfig(
             await updateMetric(k, updates, organization.id);
           } else {
             await createMetric({
-              name: k,
               ...m,
+              name: m.name || k,
               id: k,
               organization: organization.id,
             });
@@ -402,7 +424,8 @@ export async function importConfig(
   if (config.dimensions) {
     await Promise.all(
       Object.keys(config.dimensions).map(async (k) => {
-        const d = config.dimensions[k];
+        const d = config.dimensions?.[k];
+        if (!d) return;
         k = k.toLowerCase();
 
         if (d.datasource) {
@@ -437,7 +460,7 @@ export async function importConfig(
 
 export async function getEmailFromUserId(userId: string) {
   const u = await UserModel.findOne({ id: userId });
-  return u.email;
+  return u?.email || "";
 }
 
 export async function getExperimentOverrides(organization: string) {
@@ -453,7 +476,12 @@ export async function getExperimentOverrides(organization: string) {
     const groups: string[] = [];
 
     const phase = exp.phases[exp.phases.length - 1];
-    if (phase && exp.status === "running" && phase.groups?.length > 0) {
+    if (
+      phase &&
+      exp.status === "running" &&
+      phase.groups &&
+      phase.groups.length > 0
+    ) {
       groups.push(...phase.groups);
     }
 

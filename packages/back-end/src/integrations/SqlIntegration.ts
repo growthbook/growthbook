@@ -286,7 +286,7 @@ export default abstract class SqlIntegration
           params.segmentQuery
             ? `, segment as (${this.getSegmentCTE(
                 params.segmentQuery,
-                params.segmentName,
+                params.segmentName || "",
                 userId
               )})`
             : ""
@@ -416,7 +416,7 @@ export default abstract class SqlIntegration
           params.segmentQuery
             ? `, __segment as (${this.getSegmentCTE(
                 params.segmentQuery,
-                params.segmentName,
+                params.segmentName || "",
                 userId
               )})`
             : ""
@@ -546,7 +546,7 @@ export default abstract class SqlIntegration
       from: start,
       to: end,
       includeByDate: false,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
       conversionWindowHours,
     };
 
@@ -554,7 +554,7 @@ export default abstract class SqlIntegration
       ...baseSettings,
       name: "Traffic - Selected Pages and Segment",
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
     const metricSql = this.getMetricValueQuery({
@@ -569,7 +569,7 @@ export default abstract class SqlIntegration
       metric,
       includePercentiles: false,
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
 
@@ -611,7 +611,7 @@ export default abstract class SqlIntegration
     }: {
       from: Date;
       to?: Date;
-      metrics?: MetricInterface[];
+      metrics?: (MetricInterface | null)[];
       dimension?: boolean;
       segment?: boolean;
     }
@@ -633,9 +633,9 @@ export default abstract class SqlIntegration
     if (metrics) {
       for (let i = 0; i < metrics.length; i++) {
         if (!metrics[i]) continue;
-        if (userId && metrics[i].userIdType === "anonymous") {
+        if (userId && metrics[i]?.userIdType === "anonymous") {
           return select;
-        } else if (!userId && metrics[i].userIdType === "user") {
+        } else if (!userId && metrics[i]?.userIdType === "user") {
           return select;
         }
       }
@@ -947,8 +947,8 @@ export default abstract class SqlIntegration
         ${
           metric.sql
             ? `(${metric.sql})`
-            : (schema && !metric.table.match(/\./) ? schema + "." : "") +
-              metric.table
+            : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
+              (metric.table || "")
         } m
         ${join}
       ${
@@ -1088,7 +1088,7 @@ export default abstract class SqlIntegration
     return date;
   }
 
-  private capValue(cap: number, value: string) {
+  private capValue(cap: number | undefined, value: string) {
     if (!cap) {
       return value;
     }

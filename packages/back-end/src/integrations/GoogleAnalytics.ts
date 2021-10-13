@@ -122,13 +122,14 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
   async runUsersQuery(query: string): Promise<UsersQueryResponse> {
     const { rows } = await this.runQuery(query);
+    if (!rows) return [];
 
     let totalUsers = 0;
     const correctedRows = rows.map((row) => {
-      const users = parseFloat(row.metrics[0].values[0]);
+      const users = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
       totalUsers += users;
       return {
-        date: row.dimensions[0] + "T12:00:00Z",
+        date: (row.dimensions?.[0] || "") + "T12:00:00Z",
         users,
       };
     });
@@ -152,12 +153,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           metric
         );
       rows.forEach((row) => {
-        const date = row.dimensions[0] + "T12:00:00Z";
-        const value = parseFloat(row.metrics[0].values[0]);
-        const users = parseInt(row.metrics[1].values[0]);
+        const date = (row.dimensions?.[0] || "") + "T12:00:00Z";
+        const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
+        const users = parseInt(row.metrics?.[1]?.values?.[0] || "") || 0;
 
-        let count;
-        let mean;
+        let count: number;
+        let mean: number;
         let stddev = 0;
 
         if (metric === "ga:bounceRate") {
@@ -200,10 +201,10 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
     return {
       metrics: (
-        result?.data?.reports[0]?.columnHeader?.metricHeader
+        result?.data?.reports?.[0]?.columnHeader?.metricHeader
           ?.metricHeaderEntries || []
       ).map((m) => m.name),
-      rows: result?.data?.reports[0]?.data?.rows,
+      rows: result?.data?.reports?.[0]?.data?.rows,
     };
   }
 
@@ -287,22 +288,22 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       },
     });
 
-    const rows = result?.data?.reports[0]?.data?.rows;
+    const rows = result?.data?.reports?.[0]?.data?.rows;
     if (!rows) {
       throw new Error("Failed to update");
     }
 
     return rows.map((row) => {
-      const users = parseInt(row.metrics[0].values[0]);
+      const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
       return {
         dimension: "",
-        variation: row.dimensions[0].split(":", 2)[1],
-        users,
+        variation: (row.dimensions?.[0] || "").split(":", 2)[1] || "",
+        users: users || 0,
         metrics: metrics.map((metric, j) => {
-          let value = parseFloat(row.metrics[0].values[j + 1]);
+          let value = parseFloat(row.metrics?.[0]?.values?.[j + 1] || "") || 0;
           if (metric.table === "ga:bounceRate") {
             value = (users * value) / 100;
-          } else if (metric.table.match(/^ga:avg/)) {
+          } else if (metric.table?.match(/^ga:avg/)) {
             value = users * value;
           }
 

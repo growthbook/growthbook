@@ -35,12 +35,12 @@ export interface ExperimentSnapshotInterface {
   experiment: string;
   phase: number;
   dateCreated: Date;
-  runStarted: Date;
+  runStarted: Date | null;
   manual: boolean;
   query?: string;
   queryLanguage?: QueryLanguage;
   queries: Queries;
-  dimension?: string;
+  dimension: string | null;
   unknownVariations?: string[];
   results?: {
     name: string;

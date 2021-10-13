@@ -18,7 +18,7 @@ export interface QueryInterface {
   status: QueryStatus;
   createdAt: Date;
   startedAt: Date;
-  finishedAt: Date;
+  finishedAt?: Date;
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;

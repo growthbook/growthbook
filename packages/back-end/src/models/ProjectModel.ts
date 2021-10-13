@@ -21,7 +21,6 @@ type ProjectDocument = mongoose.Document & ProjectInterface;
 const ProjectModel = mongoose.model<ProjectDocument>("Project", projectSchema);
 
 function toInterface(doc: ProjectDocument): ProjectInterface {
-  if (!doc) return null;
   return doc.toJSON();
 }
 
@@ -47,7 +46,7 @@ export async function findAllProjectsByOrganization(organization: string) {
 }
 export async function findProjectById(id: string, organization: string) {
   const doc = await ProjectModel.findOne({ id, organization });
-  return toInterface(doc);
+  return doc ? toInterface(doc) : null;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

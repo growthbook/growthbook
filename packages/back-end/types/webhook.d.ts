@@ -4,7 +4,7 @@ export interface WebhookInterface {
   name: string;
   endpoint: string;
   signingKey: string;
-  lastSuccess: Date;
+  lastSuccess: Date | null;
   error: string;
   created: Date;
 }

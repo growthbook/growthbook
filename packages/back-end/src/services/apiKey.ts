@@ -29,7 +29,9 @@ export async function deleteByOrganizationAndApiKey(
   return;
 }
 
-export async function lookupOrganizationByApiKey(key: string): Promise<string> {
+export async function lookupOrganizationByApiKey(
+  key: string
+): Promise<string | null> {
   const doc = await ApiKeyModel.findOne({
     key,
   });
