@@ -11,6 +11,8 @@ import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "../../../back-end/types/metric";
 import Toggle from "../Forms/Toggle";
 
+const FULL_STATS_LIMIT = 8;
+
 const numberFormatter = new Intl.NumberFormat();
 
 type TableDef = {
@@ -30,7 +32,10 @@ const BreakDownResults: FC<{
     return getDimensionById(snapshot.dimension)?.name || "Dimension";
   }, [getDimensionById, snapshot.dimension]);
 
-  const [fullStats, setFullStats] = useState(snapshot.results?.length < 10);
+  const tooManyDimensions = snapshot.results?.length > FULL_STATS_LIMIT;
+
+  const [fullStatsToggle, setFullStats] = useState(tooManyDimensions);
+  const fullStats = !tooManyDimensions || fullStatsToggle;
 
   const tables = useMemo<TableDef[]>(() => {
     return Array.from(
@@ -102,23 +107,26 @@ const BreakDownResults: FC<{
         </div>
       )}
 
-      <div className="row align-items-center mb-3">
-        <div className="col">
-          <div className="alert alert-warning mb-0">
-            <strong>Warning: </strong>The more dimensions and metrics you look
-            at, the more likely you are to see a false positive.
+      {tooManyDimensions && (
+        <div className="row align-items-center mb-3">
+          <div className="col">
+            <div className="alert alert-warning mb-0">
+              <strong>Warning: </strong> This dimension contains many unique
+              values. We&apos;ve disabled the stats engine by default since it
+              may be misleading.
+            </div>
+          </div>
+          <div className="col-auto">
+            <Toggle
+              value={fullStats}
+              setValue={setFullStats}
+              id="full-stats"
+              label="Show Full Stats"
+            />
+            Stats Engine
           </div>
         </div>
-        <div className="col-auto">
-          <Toggle
-            value={fullStats}
-            setValue={setFullStats}
-            id="full-stats"
-            label="Show Full Stats"
-          />
-          Show Full Stats
-        </div>
-      </div>
+      )}
 
       {tables.map((table) => (
         <div className="mb-5" key={table.metric.id}>
