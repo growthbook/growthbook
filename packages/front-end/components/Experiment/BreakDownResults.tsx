@@ -21,6 +21,26 @@ type TableDef = {
   rows: ExperimentTableRow[];
 };
 
+function getAllocationText(weights: number[]) {
+  const sum = weights.reduce((s, n) => s + n, 0);
+  if (!sum) return "";
+  const adjusted = weights.map((w) => {
+    return Math.round((w * 100) / sum);
+  });
+
+  const adjustedSum = adjusted.reduce((s, n) => s + n, 0);
+  if (adjustedSum !== 100) {
+    const dir = adjustedSum > 100 ? -1 : 1;
+    const numDiff = Math.abs(adjustedSum - 100);
+
+    for (let i = 0; i < numDiff; i++) {
+      adjusted[i % adjusted.length] += dir;
+    }
+  }
+
+  return adjusted.join("/");
+}
+
 const BreakDownResults: FC<{
   snapshot: ExperimentSnapshotInterface;
   experiment: ExperimentInterfaceStringDates;
@@ -82,6 +102,8 @@ const BreakDownResults: FC<{
                 {experiment.variations.map((v, i) => (
                   <th key={i}>{v.name}</th>
                 ))}
+                <th>Expected</th>
+                <th>Actual</th>
                 <th>SRM P-Value</th>
               </tr>
             </thead>
@@ -94,6 +116,18 @@ const BreakDownResults: FC<{
                       {numberFormatter.format(r.variations[i]?.users || 0)}
                     </td>
                   ))}
+                  <td>
+                    {getAllocationText(
+                      experiment.phases[snapshot.phase]?.variationWeights || []
+                    )}
+                  </td>
+                  <td>
+                    {getAllocationText(
+                      experiment.variations.map(
+                        (v, i) => r.variations[i]?.users || 0
+                      )
+                    )}
+                  </td>
                   <td className="bg-danger text-light">
                     <FaExclamationTriangle className="mr-1" />
                     {(r.srm || 0).toFixed(6)}
