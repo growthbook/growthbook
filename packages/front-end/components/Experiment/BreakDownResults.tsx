@@ -34,7 +34,7 @@ const BreakDownResults: FC<{
 
   const tooManyDimensions = snapshot.results?.length > FULL_STATS_LIMIT;
 
-  const [fullStatsToggle, setFullStats] = useState(tooManyDimensions);
+  const [fullStatsToggle, setFullStats] = useState(false);
   const fullStats = !tooManyDimensions || fullStatsToggle;
 
   const tables = useMemo<TableDef[]>(() => {
