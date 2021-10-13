@@ -283,7 +283,11 @@ const Results: FC<{
         </div>
       )}
       {hasData && snapshot.dimension && (
-        <BreakDownResults snapshot={snapshot} experiment={experiment} />
+        <BreakDownResults
+          snapshot={snapshot}
+          experiment={experiment}
+          key={snapshot.dimension}
+        />
       )}
       {hasData && !snapshot.dimension && (
         <>
