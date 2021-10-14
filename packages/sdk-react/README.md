@@ -13,6 +13,7 @@ Powerful A/B testing for React.
 - Written in **Typescript** with an extensive test suite
 - Flexible experiment **targeting**
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
+- Run mutually exclusive experiments with **namespaces**
 - **Adjust variation weights and targeting** without deploying new code
 
 **Note**: This library is just for running A/B tests in React. To analyze results, use the GrowthBook App (https://github.com/growthbook/growthbook).
