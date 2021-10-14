@@ -523,17 +523,20 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       slackTeam: connections?.slack?.team,
-      members: users.map(({ id, email, name, isVerified }) => {
-        const memberRole = roleMapping.get(id);
-        isVerified = memberRole === "admin" ? true : isVerified ?? false;
-        return {
-          id,
-          email,
-          name,
-          role: memberRole,
-          status: isVerified ? "verified" : "unverified",
-        };
-      }),
+      members: users.map(
+        ({ id, email, name, isVerified, verificationToken }) => {
+          const memberRole = roleMapping.get(id);
+          isVerified = memberRole === "admin" ? true : isVerified ?? false;
+          return {
+            id,
+            email,
+            name,
+            role: memberRole,
+            status: isVerified ? "verified" : "unverified",
+            verificationToken,
+          };
+        }
+      ),
       settings,
     },
   });

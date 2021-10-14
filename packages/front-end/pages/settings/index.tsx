@@ -34,6 +34,7 @@ export type SettingsApiResponse = {
       name: string;
       role: MemberRole;
       status: MemberStatus;
+      verificationToken: string;
     }[];
     subscription?: {
       id: string;

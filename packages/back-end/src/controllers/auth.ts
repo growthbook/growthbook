@@ -273,12 +273,15 @@ export async function postResetEmailVerification(req: Request, res: Response) {
 }
 
 export async function postVerifyEmail(req: AuthRequest, res: Response) {
-  const { key }: { key: string } = req.body;
+  const key: string = req.body.key;
+  let id: string = req.body.id;
   if (!key) {
     throw new Error("Missing verification token.");
   }
-
-  const user = await getUserById(req.userId);
+  if (!id) {
+    id = req.userId;
+  }
+  const user = await getUserById(id);
   if (user.isVerified) {
     throw new Error("User is already verified.");
   }

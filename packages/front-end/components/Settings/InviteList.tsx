@@ -109,9 +109,9 @@ const InviteList: FC<{
       <table className="table appbox table-hover">
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Date Invited</th>
-            <th>Role</th>
+            <th style={{ width: "20%" }}>Email</th>
+            <th style={{ width: "30%" }}>Date Invited</th>
+            <th style={{ width: "15%" }}>Role</th>
             <th></th>
           </tr>
         </thead>
@@ -123,7 +123,7 @@ const InviteList: FC<{
               <td>{role}</td>
               <td>
                 <button
-                  className="btn btn-outline-primary mr-2"
+                  className="tr-hover btn btn-outline-primary mr-2"
                   onClick={(e) => {
                     e.preventDefault();
                     onResend(key, email);
@@ -132,7 +132,7 @@ const InviteList: FC<{
                   <FaEnvelope /> Resend Invite
                 </button>
                 <button
-                  className="btn btn-outline-danger"
+                  className="tr-hover btn btn-outline-danger"
                   onClick={(e) => {
                     e.preventDefault();
                     setDeleteInvite({ email, key });

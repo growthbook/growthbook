@@ -6,6 +6,23 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import InviteList from "../../components/Settings/InviteList";
 import MemberList from "../../components/Settings/MemberList";
 import useApi from "../../hooks/useApi";
+import { MemberRole, MemberStatus } from "../../services/auth";
+
+export type Member = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+  status: MemberStatus;
+  verificationToken: string;
+};
+
+export type Invite = {
+  key: string;
+  email: string;
+  role: string;
+  dateCreated: string;
+};
 
 const TeamPage: FC = () => {
   const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
@@ -21,6 +38,9 @@ const TeamPage: FC = () => {
     return <LoadingOverlay />;
   }
 
+  const members: Member[] = data.organization.members;
+  const invites: Invite[] = data.organization.invites;
+
   return (
     <div className="container-fluid mt-3 pagecontents">
       <div className="mb-2">
@@ -31,12 +51,8 @@ const TeamPage: FC = () => {
         </Link>
       </div>
       <h1>Team Members</h1>
-      <MemberList members={data.organization.members} mutate={mutate} />
-      {data.organization.invites.length > 0 ? (
-        <InviteList invites={data.organization.invites} mutate={mutate} />
-      ) : (
-        ""
-      )}
+      <MemberList members={members} mutate={mutate} />
+      {invites.length > 0 && <InviteList invites={invites} mutate={mutate} />}
     </div>
   );
 };

@@ -79,7 +79,7 @@ const UnverifiedPage = (): React.ReactElement => {
         success || error || loading
           ? undefined
           : async () => {
-              const res = await fetch(getApiHost() + "/auth/resetverify/", {
+              const res = await fetch(getApiHost() + "/auth/resetverify", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
