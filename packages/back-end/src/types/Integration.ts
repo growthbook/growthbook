@@ -59,12 +59,24 @@ export interface ImpactEstimationResult {
   value: number;
 }
 
+export type UserDimension = {
+  type: "user";
+  dimension: DimensionInterface;
+};
+export type ExperimentDimension = {
+  type: "experiment";
+  id: string;
+};
+export type DateDimension = {
+  type: "date";
+};
+export type Dimension = UserDimension | ExperimentDimension | DateDimension;
+
 export type ExperimentUsersQueryParams = {
   experiment: ExperimentInterface;
   phase: ExperimentPhase;
   activationMetric: MetricInterface | null;
-  userDimension?: DimensionInterface | null;
-  experimentDimension?: string | null;
+  dimension: Dimension | null;
 };
 
 export type ExperimentMetricQueryParams = {
@@ -72,8 +84,7 @@ export type ExperimentMetricQueryParams = {
   phase: ExperimentPhase;
   metric: MetricInterface;
   activationMetric: MetricInterface | null;
-  userDimension?: DimensionInterface | null;
-  experimentDimension?: string | null;
+  dimension: Dimension | null;
 };
 
 export type PastExperimentParams = {

@@ -31,4 +31,7 @@ export default class Athena extends SqlIntegration {
   percentile(col: string, percentile: number) {
     return `approx_percentile(${col}, ${percentile})`;
   }
+  formatDate(col: string): string {
+    return `substr(to_iso8601(${col}),0,10)`;
+  }
 }

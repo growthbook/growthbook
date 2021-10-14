@@ -37,4 +37,7 @@ export default class Snowflake extends SqlIntegration {
 
     return `rlike(${col}, '${regex}')`;
   }
+  formatDate(col: string): string {
+    return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
+  }
 }

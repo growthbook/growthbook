@@ -36,7 +36,11 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import { MetricValueResult, UsersResult } from "../types/Integration";
+import {
+  Dimension,
+  MetricValueResult,
+  UsersResult,
+} from "../types/Integration";
 import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
@@ -47,7 +51,6 @@ import {
   getMetricById,
   updateMetric,
 } from "../models/MetricModel";
-import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
@@ -1694,24 +1697,31 @@ export async function postSnapshot(
     return;
   }
 
-  let userDimension: DimensionInterface | undefined = undefined;
-  let experimentDimension = "";
+  let dimensionArg: Dimension | null = null;
+
   if (dimension) {
     if (dimension.match(/^exp:/)) {
-      experimentDimension = dimension.substr(4);
+      dimensionArg = {
+        type: "experiment",
+        id: dimension.substr(4),
+      };
+    } else if (dimension === "pre:date") {
+      dimensionArg = {
+        type: "date",
+      };
     } else {
-      userDimension = (await findDimensionById(dimension, org.id)) || undefined;
+      const obj = await findDimensionById(dimension, org.id);
+      if (obj) {
+        dimensionArg = {
+          type: "user",
+          dimension: obj,
+        };
+      }
     }
   }
 
   try {
-    const snapshot = await createSnapshot(
-      exp,
-      phase,
-      datasource,
-      userDimension,
-      experimentDimension
-    );
+    const snapshot = await createSnapshot(exp, phase, datasource, dimensionArg);
     await req.audit({
       event: "snapshot.create.auto",
       entity: {

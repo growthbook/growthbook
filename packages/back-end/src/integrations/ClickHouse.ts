@@ -73,4 +73,7 @@ export default class ClickHouse extends SqlIntegration {
   stddev(col: string) {
     return `stddevSamp(${col})`;
   }
+  formatDate(col: string): string {
+    return `formatDateTime(${col}, '%F')`;
+  }
 }

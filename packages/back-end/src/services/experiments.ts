@@ -21,6 +21,7 @@ import {
   ExperimentMetricResult,
   ExperimentUsersResult,
   PastExperimentResult,
+  Dimension,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
@@ -28,7 +29,6 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
@@ -491,8 +491,7 @@ export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   datasource: DataSourceInterface,
-  userDimension?: DimensionInterface,
-  experimentDimension?: string
+  dimension: Dimension | null
 ) {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -540,15 +539,14 @@ export async function createSnapshot(
       phase,
       selectedMetrics,
       activationMetric,
-      userDimension || null
+      dimension?.type === "user" ? dimension.dimension : null
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     queryDocs["users"] = getExperimentUsers(integration, {
       experiment,
-      userDimension,
-      experimentDimension,
+      dimension,
       activationMetric,
       phase,
     });
@@ -556,8 +554,7 @@ export async function createSnapshot(
       queryDocs[m.id] = getExperimentMetric(integration, {
         metric: m,
         experiment,
-        userDimension,
-        experimentDimension,
+        dimension,
         activationMetric,
         phase,
       });
@@ -570,8 +567,13 @@ export async function createSnapshot(
   );
 
   const dimensionId =
-    userDimension?.id ||
-    (experimentDimension ? "exp:" + experimentDimension : null);
+    (!dimension
+      ? null
+      : dimension.type === "user"
+      ? dimension.dimension.id
+      : dimension.type === "experiment"
+      ? "exp:" + dimension.id
+      : "pre:" + dimension.type) || null;
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),

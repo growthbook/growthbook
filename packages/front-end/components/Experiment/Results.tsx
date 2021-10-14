@@ -158,7 +158,7 @@ const Results: FC<{
             </div>
           </div>
         )}
-        {filteredDimensions.length > 0 && (
+        {datasource && datasource.type !== "google_analytics" && (
           <div className="col-auto">
             <div className="input-group">
               <div className="input-group-prepend">
@@ -172,11 +172,18 @@ const Results: FC<{
                 }}
               >
                 <option value="">None</option>
-                {filteredDimensions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
+                <optgroup label="Built-in">
+                  <option value="pre:date">By Date</option>
+                </optgroup>
+                {filteredDimensions.length > 0 && (
+                  <optgroup label="Custom">
+                    {filteredDimensions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>
