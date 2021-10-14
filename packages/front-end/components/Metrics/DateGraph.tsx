@@ -79,9 +79,17 @@ const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
   dates: Datapoint[];
+  showStdDev?: boolean;
   experiments?: Partial<ExperimentInterfaceStringDates>[];
   height?: number;
-}> = ({ type, dates, groupby = "day", experiments = [], height = 220 }) => {
+}> = ({
+  type,
+  dates,
+  groupby = "day",
+  showStdDev = true,
+  experiments = [],
+  height = 220,
+}) => {
   const data = useMemo(
     () =>
       dates
@@ -406,7 +414,7 @@ const DateGraph: FC<{
                     })}
                   </>
                 )}
-                {type !== "binomial" && (
+                {showStdDev && type !== "binomial" && (
                   <>
                     <AreaClosed
                       yScale={yScale}

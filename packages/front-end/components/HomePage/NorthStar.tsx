@@ -120,6 +120,7 @@ const NorthStar: FC = () => {
       {openNorthStarModal && (
         <Modal
           close={() => setOpenNorthStarModal(false)}
+          overflowAuto={false}
           submit={form.handleSubmit(async (value) => {
             const settings = { ...orgData.organization.settings };
             if (!settings.northStar)

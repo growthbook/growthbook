@@ -13,6 +13,8 @@ import {
   ensureWatching,
   processPastExperiments,
   processSnapshotData,
+  getMetricAnalysis,
+  refreshMetric,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -28,20 +30,11 @@ import { userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import { WatchModel } from "../models/WatchModel";
 import {
-  getUsers,
-  QueryMap,
-  getMetricValue,
   getStatusEndpoint,
   startRun,
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import {
-  MetricValueResult,
-  UsersResult,
-  UsersQueryParams,
-  MetricValueParams,
-} from "../types/Integration";
 import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
@@ -60,8 +53,6 @@ import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { SegmentModel } from "../models/SegmentModel";
-import { getAdjustedStats } from "../services/stats";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   let project: string;
@@ -1058,69 +1049,6 @@ export async function getMetrics(req: AuthRequest, res: Response) {
   });
 }
 
-async function getMetricAnalysis(
-  metric: MetricInterface,
-  queryData: QueryMap
-): Promise<MetricAnalysis> {
-  const metricData: MetricValueResult = queryData.get("metric")?.result || {};
-  const usersData: UsersResult = (queryData.get("users")
-    ?.result as UsersResult) || { users: 0 };
-
-  let total = (metricData.count || 0) * (metricData.mean || 0);
-  let count = metricData.count || 0;
-  const dates: { d: Date; v: number; s: number; u: number }[] = [];
-
-  // Calculate total from dates
-  if (metricData.dates && usersData.dates) {
-    total = 0;
-    count = 0;
-
-    // Map of date to user count
-    const userDateMap: Map<string, number> = new Map();
-    usersData.dates.forEach((u) => {
-      userDateMap.set(u.date + "", u.users);
-    });
-
-    metricData.dates.forEach((d) => {
-      const { mean, stddev } = metric.ignoreNulls
-        ? { mean: d.mean, stddev: d.stddev }
-        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
-
-      const averageBase =
-        (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
-      const dateTotal = (d.count || 0) * (d.mean || 0);
-      total += dateTotal;
-      count += d.count || 0;
-      dates.push({
-        d: new Date(d.date),
-        v: mean,
-        u: averageBase,
-        s: stddev,
-      });
-    });
-  }
-
-  const users = usersData.users || 0;
-  const averageBase = metric.ignoreNulls ? count : users;
-  const average = averageBase > 0 ? total / averageBase : 0;
-
-  return {
-    createdAt: new Date(),
-    average,
-    users,
-    dates,
-    segment: metric.segment || "",
-    percentiles: metricData.percentiles
-      ? Object.keys(metricData.percentiles).map((k) => {
-          return {
-            p: parseInt(k) / 100,
-            v: metricData.percentiles[k],
-          };
-        })
-      : [],
-  };
-}
-
 export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
   const metric = await getMetricById(id, req.organization.id, true);
@@ -1168,71 +1096,11 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   }
 
   try {
-    if (metric.datasource) {
-      const datasource = await getDataSourceById(
-        metric.datasource,
-        metric.organization
-      );
-      const integration = getSourceIntegrationObject(datasource);
-
-      let segmentQuery = "";
-      let segmentName = "";
-      if (metric.segment) {
-        const segment = await SegmentModel.findOne({
-          id: metric.segment,
-          datasource: metric.datasource,
-        });
-        if (!segment) {
-          throw new Error("Invalid user segment chosen");
-        }
-        segmentQuery = segment.sql;
-        segmentName = segment.name;
-      }
-
-      let days = req.organization?.settings?.metricAnalysisDays || 90;
-      if (days < 1 || days > 400) {
-        days = 90;
-      }
-
-      const from = new Date();
-      from.setDate(from.getDate() - days);
-      const to = new Date();
-
-      const baseParams: UsersQueryParams | MetricValueParams = {
-        from,
-        to,
-        name: "Site-Wide",
-        includeByDate: true,
-        segmentName,
-        segmentQuery,
-        userIdType: metric.userIdType,
-      };
-
-      const updates: Partial<MetricInterface> = {};
-
-      updates.runStarted = new Date();
-
-      const { queries, result } = await startRun(
-        {
-          users: getUsers(integration, baseParams),
-          metric: getMetricValue(integration, {
-            ...baseParams,
-            metric,
-            includePercentiles: true,
-          }),
-        },
-        (queryData) => getMetricAnalysis(metric, queryData)
-      );
-
-      updates.queries = queries;
-      if (result) {
-        updates.analysis = result;
-      }
-
-      await updateMetric(metric.id, updates, req.organization.id);
-    } else {
-      throw new Error("Cannot analyze manual metrics");
-    }
+    await refreshMetric(
+      metric,
+      req.organization.id,
+      req.organization?.settings?.metricAnalysisDays
+    );
 
     return res.status(200).json({
       status: 200,
@@ -1248,7 +1116,6 @@ export async function getMetric(req: AuthRequest, res: Response) {
   const { id }: { id: string } = req.params;
 
   const metric = await getMetricById(id, req.organization.id, true);
-
   if (!metric) {
     return res.status(404).json({
       status: 404,

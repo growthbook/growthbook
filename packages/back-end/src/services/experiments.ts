@@ -3,9 +3,19 @@ import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
+import {
+  getMetricsByOrganization,
+  insertMetric,
+  updateMetric,
+} from "../models/MetricModel";
 import uniqid from "uniqid";
-import { srm, ABTestStats, abtest, getValueCR } from "./stats";
+import {
+  srm,
+  ABTestStats,
+  abtest,
+  getValueCR,
+  getAdjustedStats,
+} from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
@@ -13,6 +23,8 @@ import {
   getExperimentMetric,
   getExperimentResults,
   getExperimentUsers,
+  getMetricValue,
+  getUsers,
   QueryMap,
   startRun,
 } from "./queries";
@@ -20,19 +32,31 @@ import {
   DimensionResult,
   ExperimentMetricResult,
   ExperimentUsersResult,
+  MetricValueParams,
+  MetricValueResult,
   PastExperimentResult,
+  UsersQueryParams,
+  UsersResult,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import {
+  MetricAnalysis,
+  MetricInterface,
+  MetricStats,
+} from "../../types/metric";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
+
+const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -114,6 +138,142 @@ export async function createMetric(data: Partial<MetricInterface>) {
   }
 
   return metric;
+}
+
+export async function refreshMetric(
+  metric: MetricInterface,
+  orgId: string,
+  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
+) {
+  if (metric.datasource) {
+    const datasource = await getDataSourceById(
+      metric.datasource,
+      metric.organization
+    );
+    const integration = getSourceIntegrationObject(datasource);
+
+    let segmentQuery = "";
+    let segmentName = "";
+    if (metric.segment) {
+      const segment = await SegmentModel.findOne({
+        id: metric.segment,
+        datasource: metric.datasource,
+      });
+      if (!segment) {
+        throw new Error("Invalid user segment chosen");
+      }
+      segmentQuery = segment.sql;
+      segmentName = segment.name;
+    }
+
+    let days = metricAnalysisDays;
+    if (days < 1 || days > 400) {
+      days = DEFAULT_METRIC_ANALYSIS_DAYS;
+    }
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const to = new Date();
+
+    const baseParams: UsersQueryParams | MetricValueParams = {
+      from,
+      to,
+      name: "Site-Wide",
+      includeByDate: true,
+      segmentName,
+      segmentQuery,
+      userIdType: metric.userIdType,
+    };
+
+    const updates: Partial<MetricInterface> = {};
+
+    updates.runStarted = new Date();
+
+    const { queries, result } = await startRun(
+      {
+        users: getUsers(integration, baseParams),
+        metric: getMetricValue(integration, {
+          ...baseParams,
+          metric,
+          includePercentiles: true,
+        }),
+      },
+      (queryData) => getMetricAnalysis(metric, queryData)
+    );
+
+    updates.queries = queries;
+    if (result) {
+      updates.analysis = result;
+    }
+
+    await updateMetric(metric.id, updates, orgId);
+    return true;
+  } else {
+    throw new Error("Cannot analyze manual metrics");
+  }
+}
+
+export async function getMetricAnalysis(
+  metric: MetricInterface,
+  queryData: QueryMap
+): Promise<MetricAnalysis> {
+  const metricData: MetricValueResult = queryData.get("metric")?.result || {};
+  const usersData: UsersResult = (queryData.get("users")
+    ?.result as UsersResult) || { users: 0 };
+
+  let total = (metricData.count || 0) * (metricData.mean || 0);
+  let count = metricData.count || 0;
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
+
+  // Calculate total from dates
+  if (metricData.dates && usersData.dates) {
+    total = 0;
+    count = 0;
+
+    // Map of date to user count
+    const userDateMap: Map<string, number> = new Map();
+    usersData.dates.forEach((u) => {
+      userDateMap.set(u.date + "", u.users);
+    });
+
+    metricData.dates.forEach((d) => {
+      const { mean, stddev } = metric.ignoreNulls
+        ? { mean: d.mean, stddev: d.stddev }
+        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
+
+      const averageBase =
+        (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
+      const dateTotal = (d.count || 0) * (d.mean || 0);
+      total += dateTotal;
+      count += d.count || 0;
+      dates.push({
+        d: new Date(d.date),
+        v: mean,
+        u: averageBase,
+        s: stddev,
+      });
+    });
+  }
+
+  const users = usersData.users || 0;
+  const averageBase = metric.ignoreNulls ? count : users;
+  const average = averageBase > 0 ? total / averageBase : 0;
+
+  return {
+    createdAt: new Date(),
+    average,
+    users,
+    dates,
+    segment: metric.segment || "",
+    percentiles: metricData.percentiles
+      ? Object.keys(metricData.percentiles).map((k) => {
+          return {
+            p: parseInt(k) / 100,
+            v: metricData.percentiles[k],
+          };
+        })
+      : [],
+  };
 }
 
 function generateTrackingKey(name: string, n: number): string {

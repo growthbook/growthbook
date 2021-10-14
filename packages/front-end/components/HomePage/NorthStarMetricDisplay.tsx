@@ -40,7 +40,6 @@ const NorthStarMetricDisplay = ({
 
   const metric = data.metric;
   const experiments = data.experiments;
-
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
     analysis = null;
@@ -49,13 +48,14 @@ const NorthStarMetricDisplay = ({
   return (
     <>
       <div>
-        {analysis.dates && analysis.dates.length > 0 && (
+        {analysis && analysis?.dates && analysis.dates.length > 0 && (
           <div className="mb-4">
             <h5 className="mb-3">{metric.name}</h5>
             <DateGraph
               type={metric.type}
               dates={analysis.dates}
               experiments={experiments}
+              showStdDev={false}
               groupby={resolution === "week" ? "week" : "day"}
               height={300}
             />

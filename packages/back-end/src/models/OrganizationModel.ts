@@ -47,7 +47,7 @@ organizationSchema.index({ "members.id": 1 });
 
 type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
-const OrganizationModel = mongoose.model<OrganizationDocument>(
+export const OrganizationModel = mongoose.model<OrganizationDocument>(
   "Organization",
   organizationSchema
 );
