@@ -19,6 +19,7 @@ import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import Button from "../Button";
 import { useEffect } from "react";
+import DateResults from "./DateResults";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -77,6 +78,9 @@ const Results: FC<{
       });
     });
   }
+
+  const supportsSql =
+    datasource && !["google_analytics", "mixpanel"].includes(datasource?.type);
 
   const status = getQueryStatus(latest?.queries || []);
 
@@ -158,7 +162,7 @@ const Results: FC<{
             </div>
           </div>
         )}
-        {datasource && datasource.type !== "google_analytics" && (
+        {(filteredDimensions.length > 0 || supportsSql) && (
           <div className="col-auto">
             <div className="input-group">
               <div className="input-group-prepend">
@@ -172,9 +176,11 @@ const Results: FC<{
                 }}
               >
                 <option value="">None</option>
-                <optgroup label="Built-in">
-                  <option value="pre:date">By Date</option>
-                </optgroup>
+                {supportsSql && (
+                  <optgroup label="Built-in">
+                    <option value="pre:date">Date</option>
+                  </optgroup>
+                )}
                 {filteredDimensions.length > 0 && (
                   <optgroup label="Custom">
                     {filteredDimensions.map((d) => (
@@ -289,13 +295,17 @@ const Results: FC<{
             `Click the "Update" button above.`}
         </div>
       )}
-      {hasData && snapshot.dimension && (
-        <BreakDownResults
-          snapshot={snapshot}
-          experiment={experiment}
-          key={snapshot.dimension}
-        />
-      )}
+      {hasData &&
+        snapshot.dimension &&
+        (snapshot.dimension === "pre:date" ? (
+          <DateResults snapshot={snapshot} experiment={experiment} />
+        ) : (
+          <BreakDownResults
+            snapshot={snapshot}
+            experiment={experiment}
+            key={snapshot.dimension}
+          />
+        ))}
       {hasData && !snapshot.dimension && (
         <>
           <CompactResults
