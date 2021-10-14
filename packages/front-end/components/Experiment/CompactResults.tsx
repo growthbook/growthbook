@@ -41,6 +41,11 @@ const CompactResults: FC<{
       .filter((row) => row.metric);
   }, [snapshot]);
 
+  const users = useMemo(() => {
+    const vars = snapshot.results?.[0]?.variations;
+    return experiment.variations.map((v, i) => vars?.[i]?.users || 0);
+  }, [snapshot]);
+
   const risk = useRiskVariation(experiment, rows);
 
   return (
@@ -58,6 +63,7 @@ const CompactResults: FC<{
         {...risk}
         labelHeader="Metric"
         phase={snapshot.phase}
+        users={users}
         renderLabelColumn={(label, metric) => {
           if (!metric.inverse) return label;
 
