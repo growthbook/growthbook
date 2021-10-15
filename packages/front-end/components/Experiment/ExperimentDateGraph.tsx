@@ -18,7 +18,8 @@ export interface ExperimentDateGraphDataPoint {
   variations: {
     label: string;
     value: number;
-    stddev?: number;
+    users: number;
+    error?: [number, number];
   }[];
 }
 export interface ExperimentDateGraphProps {
@@ -31,18 +32,6 @@ export interface ExperimentDateGraphProps {
 const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
 
 type TooltipData = { x: number; y: number[]; d: ExperimentDateGraphDataPoint };
-
-function addStddev(
-  value?: number,
-  stddev?: number,
-  num: number = 1,
-  add: boolean = true
-) {
-  value = value ?? 0;
-  stddev = stddev ?? 0;
-  const err = stddev * num;
-  return add ? value + err : value - err;
-}
 
 const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   datapoints,
@@ -107,6 +96,35 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         const numXTicks = width > 768 ? 7 : 4;
         const numYTicks = 5;
 
+        const minValue = Math.min(
+          ...datapoints.map((d) =>
+            Math.min(...d.variations.map((v) => v.value))
+          )
+        );
+        const maxValue = Math.max(
+          ...datapoints.map((d) =>
+            Math.max(...d.variations.map((v) => v.value))
+          )
+        );
+        const minError = Math.min(
+          ...datapoints.map((d) =>
+            Math.min(
+              ...d.variations.map((v) =>
+                v.users > 20 && v.error?.[0] ? v.error[0] : v.value
+              )
+            )
+          )
+        );
+        const maxError = Math.max(
+          ...datapoints.map((d) =>
+            Math.max(
+              ...d.variations.map((v) =>
+                v.users > 20 && v.error?.[1] ? v.error[1] : v.value
+              )
+            )
+          )
+        );
+
         const xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
@@ -114,20 +132,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         });
         const yScale = scaleLinear<number>({
           domain: [
-            Math.min(
-              ...datapoints.map((d) =>
-                Math.min(
-                  ...d.variations.map((v) => v.value - (v.stddev ?? 0) * 2)
-                )
-              )
-            ),
-            Math.max(
-              ...datapoints.map((d) =>
-                Math.max(
-                  ...d.variations.map((v) => v.value + (v.stddev ?? 0) * 2)
-                )
-              )
-            ),
+            Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
+            Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
           ],
           range: [yMax, 0],
           round: true,
@@ -211,33 +217,15 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 {variationNames.map((v, i) => {
-                  return typeof datapoints[0]?.variations?.[i]?.stddev !==
+                  return typeof datapoints[0]?.variations?.[i]?.error !==
                     "undefined" ? (
                     <AreaClosed
                       key={i}
                       yScale={yScale}
                       data={datapoints}
                       x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) =>
-                        yScale(
-                          addStddev(
-                            d.variations[i]?.value || 0,
-                            d.variations[i]?.stddev || 0,
-                            2,
-                            false
-                          )
-                        )
-                      }
-                      y1={(d) =>
-                        yScale(
-                          addStddev(
-                            d.variations[i]?.value,
-                            d.variations[i]?.stddev || 0,
-                            2,
-                            true
-                          )
-                        )
-                      }
+                      y0={(d) => yScale(d.variations[i]?.error?.[0]) ?? 0}
+                      y1={(d) => yScale(d.variations[i]?.error?.[1]) ?? 0}
                       fill={COLORS[i % COLORS.length]}
                       opacity={0.12}
                       curve={curveMonotoneX}

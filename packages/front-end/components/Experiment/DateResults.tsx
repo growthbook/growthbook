@@ -7,6 +7,8 @@ import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
 import { formatConversionRate } from "../../services/metrics";
+import { useState } from "react";
+import Toggle from "../Forms/Toggle";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -26,17 +28,26 @@ const DateResults: FC<{
 }> = ({ snapshot, experiment }) => {
   const { getMetricById } = useDefinitions();
 
+  const [cumulative, setCumulative] = useState(true);
+
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
+    const total: number[] = [];
     return snapshot.results.map((d) => {
       return {
         d: new Date(d.name),
-        variations: experiment.variations.map((v, i) => ({
-          value: d.variations[i]?.users || 0,
-          label: numberFormatter.format(d.variations[i]?.users || 0),
-        })),
+        variations: experiment.variations.map((v, i) => {
+          const users = d.variations[i]?.users || 0;
+          total[i] = total[i] || 0;
+          total[i] += users;
+          return {
+            value: cumulative ? total[i] : users,
+            users: users,
+            label: numberFormatter.format(cumulative ? total[i] : users),
+          };
+        }),
       };
     });
-  }, [snapshot]);
+  }, [snapshot, cumulative]);
 
   const metrics = useMemo<Metric[]>(() => {
     return Array.from(
@@ -44,6 +55,8 @@ const DateResults: FC<{
     )
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        const totalUsers: number[] = [];
+        const totalValue: number[] = [];
         return {
           metric,
           isGuardrail: !experiment.metrics.includes(metricId),
@@ -53,21 +66,46 @@ const DateResults: FC<{
               variations: d.variations.map((v, i) => {
                 const stats = v?.metrics?.[metricId];
                 const uplift = stats?.uplift;
-                const value = i ? Math.exp(uplift?.mean || 0) - 1 : 0;
-                const stddev = i
-                  ? Math.exp(uplift?.stddev || 0) - 1
-                  : undefined;
+
+                totalUsers[i] = totalUsers[i] || 0;
+                totalValue[i] = totalValue[i] || 0;
+
+                totalUsers[i] += stats?.users;
+                totalValue[i] += stats?.value;
+
+                let error: [number, number] | undefined = undefined;
+                let value = 0;
+                if (i && !cumulative) {
+                  const x = uplift?.mean || 0;
+                  const sx = uplift?.stddev || 0;
+                  error = [Math.exp(x - 2 * sx) - 1, Math.exp(x + 2 * sx) - 1];
+                  value = Math.exp(x) - 1;
+                } else if (i) {
+                  const crA = totalUsers[0] ? totalValue[0] / totalUsers[0] : 0;
+                  const crB = totalUsers[i] ? totalValue[i] / totalUsers[i] : 0;
+                  value = crA ? (crB - crA) / crA : 0;
+                } else {
+                  value = 0;
+                }
+
+                const users = (cumulative ? totalUsers[i] : stats?.users) || 0;
+
                 const label = i
                   ? (value > 0 ? "+" : "") + percentFormatter.format(value)
                   : formatConversionRate(
                       metric.type,
-                      (metric.type === "binomial" ? stats?.cr : stats?.value) ||
-                        0
+                      cumulative
+                        ? totalUsers[i]
+                          ? totalValue[i] / totalUsers[i]
+                          : 0
+                        : stats?.cr || 0
                     );
+
                 return {
                   value,
                   label,
-                  stddev,
+                  users,
+                  error,
                 };
               }),
             };
@@ -75,10 +113,24 @@ const DateResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [snapshot]);
+  }, [snapshot, cumulative]);
 
   return (
     <div className="mb-4 pb-4">
+      <div className="my-3 bg-light border p-2 d-flex align-items-center">
+        <div className="mr-3">
+          <strong>Graph Controls: </strong>
+        </div>
+        <div>
+          <Toggle
+            label="Cumulative"
+            id="cumulative"
+            value={cumulative}
+            setValue={setCumulative}
+          />
+          Cumulative
+        </div>
+      </div>
       <div className="mb-5">
         <h3>Users</h3>
         <ExperimentDateGraph
