@@ -13,12 +13,13 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
+import { ScaleLinear } from "d3-scale";
+import { useMemo } from "react";
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations: {
     label: string;
     value: number;
-    users: number;
     error?: [number, number];
   }[];
 }
@@ -33,42 +34,55 @@ const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
 
 type TooltipData = { x: number; y: number[]; d: ExperimentDateGraphDataPoint };
 
+const height = 220;
+const margin = [15, 15, 30, 80];
+
+// Render the contents of a tooltip
+const getTooltipContents = (
+  d: ExperimentDateGraphDataPoint,
+  variationNames: string[]
+) => {
+  return (
+    <>
+      {variationNames.map((v, i) => {
+        return (
+          <div key={i} style={{ color: COLORS[i % COLORS.length] }}>
+            {v}: <span className={styles.val}>{d.variations[i]?.label}</span>
+          </div>
+        );
+      })}
+      <div className={styles.date}>{date(d.d as Date)}</div>
+    </>
+  );
+};
+
+// Finds the closest date to the cursor and figures out x/y coordinates
+const getTooltipData = (
+  mx: number,
+  width: number,
+  datapoints: ExperimentDateGraphDataPoint[],
+  yScale: ScaleLinear<number, number, never>
+): TooltipData => {
+  const innerWidth =
+    width - margin[1] - margin[3] + width / datapoints.length - 1;
+  const px = mx / innerWidth;
+  const index = Math.max(
+    Math.min(Math.round(px * datapoints.length), datapoints.length - 1),
+    0
+  );
+  const d = datapoints[index];
+  const x =
+    (datapoints.length > 0 ? index / datapoints.length : 0) * innerWidth;
+  const y = d.variations.map((v) => yScale(v.value) ?? 0);
+  return { x, y, d };
+};
+
 const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   datapoints,
   variationNames,
   label,
   tickFormat,
 }) => {
-  const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
-    const innerWidth =
-      width - margin[1] - margin[3] + width / datapoints.length - 1;
-    const px = mx / innerWidth;
-    const index = Math.max(
-      Math.min(Math.round(px * datapoints.length), datapoints.length - 1),
-      0
-    );
-    const d = datapoints[index];
-    const x =
-      (datapoints.length > 0 ? index / datapoints.length : 0) * innerWidth;
-    const y = d.variations.map((v) => yScale(v.value) ?? 0);
-    return { x, y, d };
-  };
-
-  const getTooltipContents = (d: ExperimentDateGraphDataPoint) => {
-    return (
-      <>
-        {variationNames.map((v, i) => {
-          return (
-            <div key={i} style={{ color: COLORS[i % COLORS.length] }}>
-              {v}: <span className={styles.val}>{d.variations[i]?.label}</span>
-            </div>
-          );
-        })}
-        <div className={styles.date}>{date(d.d as Date)}</div>
-      </>
-    );
-  };
-
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
@@ -83,8 +97,37 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const height = 220;
-  const margin = [15, 15, 30, 80];
+  // Get y-axis domain
+  const yDomain = useMemo<[number, number]>(() => {
+    const minValue = Math.min(
+      ...datapoints.map((d) => Math.min(...d.variations.map((v) => v.value)))
+    );
+    const maxValue = Math.max(
+      ...datapoints.map((d) => Math.max(...d.variations.map((v) => v.value)))
+    );
+    const minError = Math.min(
+      ...datapoints.map((d) =>
+        Math.min(
+          ...d.variations.map((v) => (v.error?.[0] ? v.error[0] : v.value))
+        )
+      )
+    );
+    const maxError = Math.max(
+      ...datapoints.map((d) =>
+        Math.max(
+          ...d.variations.map((v) => (v.error?.[1] ? v.error[1] : v.value))
+        )
+      )
+    );
+
+    // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
+    return [
+      Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
+      Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
+    ];
+  }, [datapoints]);
+
+  // Get x-axis domain
   const min = Math.min(...datapoints.map((d) => d.d.getTime()));
   const max = Math.max(...datapoints.map((d) => d.d.getTime()));
 
@@ -96,45 +139,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         const numXTicks = width > 768 ? 7 : 4;
         const numYTicks = 5;
 
-        const minValue = Math.min(
-          ...datapoints.map((d) =>
-            Math.min(...d.variations.map((v) => v.value))
-          )
-        );
-        const maxValue = Math.max(
-          ...datapoints.map((d) =>
-            Math.max(...d.variations.map((v) => v.value))
-          )
-        );
-        const minError = Math.min(
-          ...datapoints.map((d) =>
-            Math.min(
-              ...d.variations.map((v) =>
-                v.users > 20 && v.error?.[0] ? v.error[0] : v.value
-              )
-            )
-          )
-        );
-        const maxError = Math.max(
-          ...datapoints.map((d) =>
-            Math.max(
-              ...d.variations.map((v) =>
-                v.users > 20 && v.error?.[1] ? v.error[1] : v.value
-              )
-            )
-          )
-        );
-
         const xScale = scaleTime({
           domain: [min, max],
           range: [0, xMax],
           round: true,
         });
         const yScale = scaleLinear<number>({
-          domain: [
-            Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
-            Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
-          ],
+          domain: yDomain,
           range: [yMax, 0],
           round: true,
         });
@@ -143,7 +154,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
-          const data = getTooltipData(containerX, width, yScale);
+          const data = getTooltipData(containerX, width, datapoints, yScale);
           showTooltip({
             tooltipLeft: data.x,
             tooltipTop: Math.min(...data.y),
@@ -181,6 +192,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {variationNames.map((v, i) => {
+                    // Render a dot at the current x location for each variation
                     return (
                       <div
                         key={i}
@@ -202,7 +214,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {getTooltipContents(tooltipData.d)}
+                    {getTooltipContents(tooltipData.d, variationNames)}
                   </TooltipWithBounds>
                 </>
               )}
@@ -217,6 +229,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 {variationNames.map((v, i) => {
+                  // Render a shaded area for error bars for each variation if defined
                   return typeof datapoints[0]?.variations?.[i]?.error !==
                     "undefined" ? (
                     <AreaClosed
@@ -236,6 +249,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 })}
 
                 {variationNames.map((v, i) => {
+                  // Render the actual line chart for each variation
                   return (
                     <LinePath
                       key={i}
