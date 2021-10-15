@@ -52,7 +52,7 @@ function correctStddev(
   const t = n + m;
 
   return Math.sqrt(
-    ((n - 1) * s2x + (m - 1) * s2y) / (t + 1) +
+    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
       (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
   );
 }
