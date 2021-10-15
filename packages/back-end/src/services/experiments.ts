@@ -33,6 +33,7 @@ import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
+import { promiseAllChunks } from "../util/promise";
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -392,85 +393,99 @@ export async function processSnapshotData(
 
   const dimensions: ProcessedSnapshotDimension[] = [];
 
-  await Promise.all(
-    Object.keys(combined).map(async (dimension) => {
-      const row = combined[dimension];
-      // One doc per variation
-      const variations: SnapshotVariation[] = experiment.variations.map(
-        (v, i) => ({
-          users: row.users[i] || 0,
-          metrics: {},
-        })
-      );
-
-      // Calculate metric stats
-      const metricPromises: Promise<void[]>[] = [];
-      Object.keys(row.metrics).forEach((k) => {
-        const v = row.metrics[k];
-        const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
-
-        metricPromises.push(
-          Promise.all(
-            v.map(async (data, i) => {
-              const success = data.count * data.mean;
-
-              const metric = metricMap.get(k);
-              if (!metric) return;
-              const value = success;
-
-              // Don't do stats for the baseline
-              if (!i) {
-                variations[i].metrics[k] = {
-                  ...getValueCR(metric, value, data.count, variations[i].users),
-                  stats: data,
-                };
-                return;
-              }
-
-              let result: ABTestStats;
-              // Short cut if either the baseline or variation has no data
-              if (!baselineSuccess || !success) {
-                result = {
-                  buckets: [],
-                  chanceToWin: 0,
-                  ci: [0, 0],
-                  risk: [0, 0],
-                  expected: 0,
-                };
-              } else {
-                result = await abtest(
-                  metric,
-                  variations[0].users,
-                  v[0],
-                  variations[i].users,
-                  data
-                );
-              }
-
-              variations[i].metrics[k] = {
-                ...getValueCR(metric, value, data.count, variations[i].users),
-                ...result,
-                stats: data,
-              };
-            })
-          )
+  await promiseAllChunks(
+    Object.keys(combined).map((dimension) => {
+      return async () => {
+        const row = combined[dimension];
+        // One doc per variation
+        const variations: SnapshotVariation[] = experiment.variations.map(
+          (v, i) => ({
+            users: row.users[i] || 0,
+            metrics: {},
+          })
         );
-      });
-      await Promise.all(metricPromises);
 
-      // Check to see if the observed number of samples per variation matches what we expect
-      // This returns a p-value and a small value indicates the results are untrustworthy
-      const sampleRatioMismatch = srm(
-        variations.map((v) => v.users),
-        phase.variationWeights
-      );
+        // Calculate metric stats
+        await promiseAllChunks(
+          Object.keys(row.metrics).map((k) => {
+            return async () => {
+              const v = row.metrics[k];
+              const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
-      dimensions.push({
-        name: dimension,
-        srm: sampleRatioMismatch,
-        variations,
-      });
-    })
+              await Promise.all(
+                v.map(async (data, i) => {
+                  const success = data.count * data.mean;
+
+                  const metric = metricMap.get(k);
+                  if (!metric) return;
+                  const value = success;
+
+                  // Don't do stats for the baseline
+                  if (!i) {
+                    variations[i].metrics[k] = {
+                      ...getValueCR(
+                        metric,
+                        value,
+                        data.count,
+                        variations[i].users
+                      ),
+                      stats: data,
+                    };
+                    return;
+                  }
+
+                  let result: ABTestStats;
+                  // Short cut if either the baseline or variation has no data
+                  if (!baselineSuccess || !success) {
+                    result = {
+                      buckets: [],
+                      chanceToWin: 0,
+                      ci: [0, 0],
+                      risk: [0, 0],
+                      expected: 0,
+                    };
+                  } else {
+                    result = await abtest(
+                      metric,
+                      variations[0].users,
+                      v[0],
+                      variations[i].users,
+                      data
+                    );
+                  }
+
+                  variations[i].metrics[k] = {
+                    ...getValueCR(
+                      metric,
+                      value,
+                      data.count,
+                      variations[i].users
+                    ),
+                    ...result,
+                    stats: data,
+                  };
+                })
+              );
+            };
+          }),
+          2
+        );
+
+        // Check to see if the observed number of samples per variation matches what we expect
+        // This returns a p-value and a small value indicates the results are untrustworthy
+        const sampleRatioMismatch = srm(
+          variations.map((v) => v.users),
+          phase.variationWeights
+        );
+
+        dimensions.push({
+          name: dimension,
+          srm: sampleRatioMismatch,
+          variations,
+        });
+      };
+    }),
+    2
   );
 
   if (!dimensions.length) {

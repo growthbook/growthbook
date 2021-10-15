@@ -35,7 +35,7 @@ const DateResults: FC<{
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    return snapshot.results.map((d) => {
+    const datapoints = snapshot.results.map((d) => {
       return {
         d: new Date(d.name),
         variations: experiment.variations.map((v, i) => {
@@ -50,6 +50,10 @@ const DateResults: FC<{
         }),
       };
     });
+    datapoints.sort((a, b) => {
+      return a.d.getTime() - b.d.getTime();
+    });
+    return datapoints;
   }, [snapshot, cumulative]);
 
   // Data for the metric graphs
@@ -64,69 +68,68 @@ const DateResults: FC<{
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
+
+          const datapoints = snapshot.results.map((d) => {
+            return {
+              d: new Date(d.name),
+              variations: experiment.variations.map((v, i) => {
+                const stats = d.variations[i]?.metrics?.[metricId];
+                const uplift = stats?.uplift;
+
+                totalUsers[i] = totalUsers[i] || 0;
+                totalValue[i] = totalValue[i] || 0;
+
+                totalUsers[i] += stats?.users || 0;
+                totalValue[i] += stats?.value || 0;
+
+                let error: [number, number] | undefined = undefined;
+                // Since this is relative uplift, the baseline is a horizontal line at zero
+                let value = 0;
+                // For non-baseline variations and cumulative turned off, include error bars
+                if (i && !cumulative) {
+                  const x = uplift?.mean || 0;
+                  const sx = uplift?.stddev || 0;
+                  // Uplift distribution is lognormal, so need to correct this
+                  // Add 2 standard deviations (~95% CI) for an error bar
+                  error = [Math.exp(x - 2 * sx) - 1, Math.exp(x + 2 * sx) - 1];
+                  value = Math.exp(x) - 1;
+                }
+                // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
+                else if (i) {
+                  const crA = totalUsers[0] ? totalValue[0] / totalUsers[0] : 0;
+                  const crB = totalUsers[i] ? totalValue[i] / totalUsers[i] : 0;
+                  value = crA ? (crB - crA) / crA : 0;
+                }
+
+                // Baseline should show the actual conversion rate
+                // Variations should show the relative uplift on top of this conversion rate
+                const label = i
+                  ? (value > 0 ? "+" : "") + percentFormatter.format(value)
+                  : formatConversionRate(
+                      metric?.type,
+                      cumulative
+                        ? totalUsers[i]
+                          ? totalValue[i] / totalUsers[i]
+                          : 0
+                        : stats?.cr || 0
+                    );
+
+                return {
+                  value,
+                  label,
+                  error,
+                };
+              }),
+            };
+          });
+          datapoints.sort((a, b) => {
+            return a.d.getTime() - b.d.getTime();
+          });
+
           return {
             metric,
             isGuardrail: !experiment.metrics.includes(metricId),
-            datapoints: snapshot.results.map((d) => {
-              return {
-                d: new Date(d.name),
-                variations: experiment.variations.map((v, i) => {
-                  const stats = d.variations[i]?.metrics?.[metricId];
-                  const uplift = stats?.uplift;
-
-                  totalUsers[i] = totalUsers[i] || 0;
-                  totalValue[i] = totalValue[i] || 0;
-
-                  totalUsers[i] += stats?.users || 0;
-                  totalValue[i] += stats?.value || 0;
-
-                  let error: [number, number] | undefined = undefined;
-                  // Since this is relative uplift, the baseline is a horizontal line at zero
-                  let value = 0;
-                  // For non-baseline variations and cumulative turned off, include error bars
-                  if (i && !cumulative) {
-                    const x = uplift?.mean || 0;
-                    const sx = uplift?.stddev || 0;
-                    // Uplift distribution is lognormal, so need to correct this
-                    // Add 2 standard deviations (~95% CI) for an error bar
-                    error = [
-                      Math.exp(x - 2 * sx) - 1,
-                      Math.exp(x + 2 * sx) - 1,
-                    ];
-                    value = Math.exp(x) - 1;
-                  }
-                  // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
-                  else if (i) {
-                    const crA = totalUsers[0]
-                      ? totalValue[0] / totalUsers[0]
-                      : 0;
-                    const crB = totalUsers[i]
-                      ? totalValue[i] / totalUsers[i]
-                      : 0;
-                    value = crA ? (crB - crA) / crA : 0;
-                  }
-
-                  // Baseline should show the actual conversion rate
-                  // Variations should show the relative uplift on top of this conversion rate
-                  const label = i
-                    ? (value > 0 ? "+" : "") + percentFormatter.format(value)
-                    : formatConversionRate(
-                        metric?.type,
-                        cumulative
-                          ? totalUsers[i]
-                            ? totalValue[i] / totalUsers[i]
-                            : 0
-                          : stats?.cr || 0
-                      );
-
-                  return {
-                    value,
-                    label,
-                    error,
-                  };
-                }),
-              };
-            }),
+            datapoints,
           };
         })
         // Filter out any edge cases when the metric is undefined
