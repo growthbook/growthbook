@@ -712,7 +712,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setTargetingModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                {datasource?.type !== "mixpanel" && (
+                {datasource?.properties?.userIds && (
                   <RightRailSectionGroup title="Login State" type="badge">
                     {experiment.userIdType === "user" ? "User" : "Anonymous"}
                   </RightRailSectionGroup>

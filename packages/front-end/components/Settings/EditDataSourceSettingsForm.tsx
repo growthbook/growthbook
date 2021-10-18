@@ -127,7 +127,6 @@ const EditDataSourceSettingsForm: FC<{
   > = (key) => (e) => {
     setSettings({ [e.target.name]: e.target.value }, key);
   };
-  const settingsSupported = !["google_analytics"].includes(datasource.type);
 
   return (
     <Modal
@@ -151,7 +150,7 @@ const EditDataSourceSettingsForm: FC<{
           </a>
         </div>
       )}
-      {datasource.type === "mixpanel" && (
+      {datasource.properties?.events && (
         <div>
           <h4 className="font-weight-bold">Experiments</h4>
           <div className="form-group">
@@ -237,7 +236,7 @@ const EditDataSourceSettingsForm: FC<{
           </div>
         </div>
       )}
-      {settingsSupported && datasource.type !== "mixpanel" && (
+      {datasource?.properties?.queryLanguage === "sql" && (
         <div>
           <div
             className="row py-2 mb-3 align-items-center bg-light border-bottom"

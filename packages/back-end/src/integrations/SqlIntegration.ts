@@ -131,12 +131,14 @@ export default abstract class SqlIntegration
   }
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "database",
       queryLanguage: "sql",
       metricCaps: true,
+      segments: true,
+      dimensions: true,
       separateExperimentResultQueries: true,
+      hasSettings: true,
+      events: false,
+      userIds: true,
     };
   }
 
@@ -656,7 +658,7 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUsersQuery(params: ExperimentUsersQueryParams): string {
-    const { experiment, phase, dimension, activationMetric } = params;
+    const { experiment, phase, dimension, activationMetric, segment } = params;
 
     const userId = experiment.userIdType === "user";
 
@@ -667,19 +669,29 @@ export default abstract class SqlIntegration
         from: phase.dateStarted,
         to: phase.dateEnded,
         dimension: dimension?.type === "user",
+        segment: !!experiment.segment,
         metrics: [activationMetric],
       })}
       __rawExperiment as (${getExperimentQuery(
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(
+      __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
-        activationMetric?.conversionWindowHours,
-        userId,
-        dimension?.type === "experiment" ? dimension.id : null
-      )})
+        conversionWindowHours: activationMetric?.conversionWindowHours || 0,
+        experimentDimension:
+          dimension?.type === "experiment" ? dimension.id : null,
+      })})
+      ${
+        segment
+          ? `, __segment as (${this.getSegmentCTE(
+              segment.sql,
+              segment.name,
+              userId
+            )})`
+          : ""
+      }
       ${
         dimension?.type === "user"
           ? `, __dimension as (${this.getDimensionCTE(
@@ -713,6 +725,7 @@ export default abstract class SqlIntegration
           } as dimension
         FROM
           __experiment e
+          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
           ${
             dimension?.type === "user"
               ? "JOIN __dimension d ON (d.user_id = e.user_id)"
@@ -746,7 +759,14 @@ export default abstract class SqlIntegration
     );
   }
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { metric, experiment, phase, dimension, activationMetric } = params;
+    const {
+      metric,
+      experiment,
+      phase,
+      dimension,
+      activationMetric,
+      segment,
+    } = params;
 
     const userId = experiment.userIdType === "user";
 
@@ -763,20 +783,30 @@ export default abstract class SqlIntegration
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(
+      __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
-        activationMetric
-          ? activationMetric.conversionWindowHours
-          : metric.conversionWindowHours,
-        userId,
-        dimension?.type === "experiment" ? dimension.id : null
-      )})
+        conversionWindowHours:
+          (activationMetric
+            ? activationMetric.conversionWindowHours
+            : metric.conversionWindowHours) || 0,
+        experimentDimension:
+          dimension?.type === "experiment" ? dimension.id : null,
+      })})
       , __metric as (${this.getMetricCTE(
         metric,
         DEFAULT_CONVERSION_WINDOW_HOURS,
         userId
       )})
+      ${
+        segment
+          ? `, __segment as (${this.getSegmentCTE(
+              segment.sql,
+              segment.name,
+              userId
+            )})`
+          : ""
+      }
       ${
         dimension?.type === "user"
           ? `, __dimension as (${this.getDimensionCTE(
@@ -813,6 +843,7 @@ export default abstract class SqlIntegration
           MIN(${activationMetric ? "a" : "e"}.conversion_end) as conversion_end
         FROM
           __experiment e
+          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
           ${
             dimension?.type === "user"
               ? "JOIN __dimension d ON (d.user_id = e.user_id)"
@@ -866,50 +897,9 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
-  getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
-    userDimension: DimensionInterface | null
-  ): string {
-    const query: string[] = [];
-
-    // Users query
-    query.push(
-      this.getExperimentUsersQuery({
-        experiment,
-        phase,
-        activationMetric,
-        dimension: userDimension
-          ? {
-              type: "user",
-              dimension: userDimension,
-            }
-          : null,
-      })
-    );
-    metrics.forEach((m) => {
-      const sql = this.getExperimentMetricQuery({
-        metric: m,
-        experiment,
-        phase,
-        activationMetric,
-        dimension: userDimension
-          ? {
-              type: "user",
-              dimension: userDimension,
-            }
-          : null,
-      });
-      query.push(sql);
-    });
-
-    return (
-      query.map((q) => format(q, this.getFormatOptions())).join(";\n\n") + ";"
-    );
+  getExperimentResultsQuery(): string {
+    throw new Error("Not implemented");
   }
-
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
   }
@@ -975,29 +965,22 @@ export default abstract class SqlIntegration
     `;
   }
 
-  private getExperimentCTE(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    userId: boolean = true,
-    experimentDimension: string | null = null
-  ) {
-    let userIdCol: string;
-    let join = "";
-    // Need to use userId, but experiment is anonymous only
-    if (userId && experiment.userIdType === "anonymous") {
-      userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql("e.anonymous_id", false);
-    }
-    // Need to use anonymousId, but experiment is user only
-    else if (!userId && experiment.userIdType === "user") {
-      userIdCol = "i.anonymous_id";
-      join = this.getIdentifiesJoinSql("e.user_id", true);
-    }
-    // Otherwise, can query the experiment directly
-    else {
-      userIdCol = userId ? "e.user_id" : "e.anonymous_id";
-    }
+  private getExperimentCTE({
+    experiment,
+    phase,
+    conversionWindowHours = 0,
+    experimentDimension = null,
+  }: {
+    experiment: ExperimentInterface;
+    phase: ExperimentPhase;
+    conversionWindowHours: number;
+    experimentDimension: string | null;
+  }) {
+    conversionWindowHours =
+      conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+
+    const userIdCol =
+      experiment.userIdType === "user" ? "e.user_id" : "e.anonymous_id";
 
     return `-- Viewed Experiment
     SELECT
@@ -1009,7 +992,6 @@ export default abstract class SqlIntegration
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
         __rawExperiment e
-      ${join}
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
         AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
@@ -1018,6 +1000,7 @@ export default abstract class SqlIntegration
             ? `AND e.timestamp <= ${this.toTimestamp(phase.dateEnded)}`
             : ""
         }
+        ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {

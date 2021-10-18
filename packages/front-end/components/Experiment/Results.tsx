@@ -79,8 +79,7 @@ const Results: FC<{
     });
   }
 
-  const supportsSql =
-    datasource && !["google_analytics", "mixpanel"].includes(datasource?.type);
+  const supportsSql = datasource?.properties?.queryLanguage === "sql";
 
   const status = getQueryStatus(latest?.queries || []);
 

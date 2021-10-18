@@ -32,7 +32,7 @@ const DimensionsPage: FC = () => {
   }
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.type !== "google_analytics"
+    (d) => d.properties?.dimensions
   )[0];
 
   if (!hasValidDataSources) {
@@ -116,7 +116,7 @@ const DimensionsPage: FC = () => {
                       {getDatasourceById(s.datasource)?.name}
                     </td>
                     <td className="d-none d-lg-table-cell">
-                      {getDatasourceById(s.datasource)?.type === "mixpanel" ? (
+                      {getDatasourceById(s.datasource)?.properties?.events ? (
                         <div>
                           Event property: <code>{s.sql}</code>
                         </div>

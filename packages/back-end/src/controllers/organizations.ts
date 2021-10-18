@@ -297,6 +297,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         type: d.type,
         settings: d.settings,
         params: getNonSensitiveParams(integration),
+        properties: integration.getSourceProperties(),
       };
     }),
     dimensions,

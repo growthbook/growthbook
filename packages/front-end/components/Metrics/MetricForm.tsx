@@ -188,26 +188,22 @@ const MetricForm: FC<MetricFormProps> = ({
   const datasourceType = currentDataSource?.type;
 
   const datasourceSettingsSupport =
-    !!currentDataSource && !["google_analytics"].includes(datasourceType);
+    currentDataSource?.properties?.hasSettings || false;
 
-  const conditionsSupported = !["google_analytics"].includes(datasourceType);
-  const capSupported =
-    datasourceType && !["google_analytics"].includes(datasourceType);
+  const capSupported = currentDataSource?.properties?.metricCaps || false;
+  // TODO: eventually make each of these their own independent properties
+  const conditionsSupported = capSupported;
+  const ignoreNullsSupported = capSupported;
+  const conversionWindowSupported = capSupported;
 
-  const ignoreNullsSupported = !["google_analytics"].includes(datasourceType);
-
-  const conversionWindowSupported =
-    !!currentDataSource && !["google_analytics"].includes(datasourceType);
-
-  const supportsSQL =
-    datasourceSettingsSupport && !["mixpanel"].includes(datasourceType);
+  const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
   let table = "Table";
   let column = "Column";
-  if (datasourceType === "mixpanel") {
+  if (currentDataSource?.properties?.events) {
     table = "Event";
     column = "Property";
   }

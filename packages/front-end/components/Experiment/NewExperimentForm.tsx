@@ -451,7 +451,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </small>
           </div>
 
-          {datasource?.type !== "mixpanel" && (
+          {datasource?.properties?.userIds && (
             <Field
               label="Login State"
               {...form.register("userIdType")}

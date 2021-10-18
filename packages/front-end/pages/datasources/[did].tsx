@@ -51,8 +51,8 @@ const DataSourcePage: FC = () => {
     );
   }
 
-  const supportsSQL = !["google_analytics", "mixpanel"].includes(d.type);
-  const supportsEvents = d.type === "mixpanel";
+  const supportsSQL = d.properties?.queryLanguage === "sql";
+  const supportsEvents = d.properties?.events || false;
 
   return (
     <div className="container mt-3 pagecontents">
@@ -118,10 +118,9 @@ const DataSourcePage: FC = () => {
               </div>
             )}
           </div>
-          {d.type === "google_analytics" && (
+          {!d.properties?.hasSettings && (
             <div className="alert alert-info">
-              Google Analytics data sources do not require any additional
-              configuration.
+              This data source does not require any additional configuration.
             </div>
           )}
           {supportsEvents && (

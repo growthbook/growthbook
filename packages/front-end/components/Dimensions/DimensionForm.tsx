@@ -26,7 +26,7 @@ const DimensionForm: FC<{
 
   const datasource = form.watch("datasource");
 
-  const dsType = getDatasourceById(datasource)?.type || null;
+  const dsProps = getDatasourceById(datasource)?.properties;
 
   return (
     <Modal
@@ -53,18 +53,18 @@ const DimensionForm: FC<{
         options={datasources.map((d) => ({ value: d.id, display: d.name }))}
       />
       <Field
-        label={dsType === "mixpanel" ? "Event Property" : "SQL"}
+        label={dsProps?.events ? "Event Property" : "SQL"}
         required
         {...form.register("sql")}
         textarea
         minRows={3}
         placeholder={
-          dsType === "mixpanel"
+          dsProps?.events
             ? "$browser"
             : "SELECT user_id, browser as value FROM users"
         }
         helpText={
-          dsType !== "mixpanel" ? (
+          dsProps?.queryLanguage === "sql" ? (
             <>
               Select two columns named <code>user_id</code> and{" "}
               <code>value</code>

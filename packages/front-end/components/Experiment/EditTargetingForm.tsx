@@ -21,7 +21,7 @@ const EditTargetingForm: FC<{
   const { getDatasourceById } = useDefinitions();
 
   const supportsUserIds =
-    getDatasourceById(experiment.datasource)?.type !== "mixpanel";
+    getDatasourceById(experiment.datasource)?.properties?.userIds || false;
 
   return (
     <Modal
