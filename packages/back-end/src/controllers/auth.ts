@@ -281,18 +281,24 @@ export async function postVerifyEmail(req: AuthRequest, res: Response) {
   if (!id) {
     id = req.userId;
   }
+
+  if (!req.organization?.members.find((m) => m.id === id)) {
+    throw new Error("Member id does not belong to this organization.");
+  }
   const user = await getUserById(id);
   if (user.isVerified) {
     throw new Error("User is already verified.");
   }
 
-  const nowMinus30Days = new Date(
-    new Date().getTime() - 30 * 24 * 60 * 60 * 1000
-  );
-  if (!user.verificationSent || user.verificationSent < nowMinus30Days) {
-    throw new Error(
-      "The verification token is invalid or has expired. Please request a new verification email."
+  if (!req.permissions.organizationSettings) {
+    const nowMinus30Days = new Date(
+      new Date().getTime() - 30 * 24 * 60 * 60 * 1000
     );
+    if (!user.verificationSent || user.verificationSent < nowMinus30Days) {
+      throw new Error(
+        "The verification token is invalid or has expired. Please request a new verification email."
+      );
+    }
   }
 
   verifyUser(user);
