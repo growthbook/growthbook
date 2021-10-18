@@ -171,6 +171,23 @@ export async function getMetricById(
   return res ? toInterface(res) : null;
 }
 
+export async function getMetricsUsingSegment(
+  segment: string,
+  organization: string
+) {
+  // If using config.yml, immediately return the from there
+  if (usingFileConfig()) {
+    return (
+      getConfigMetrics(organization).filter((m) => m.segment === segment) || []
+    );
+  }
+
+  return MetricModel.find({
+    organization,
+    segment,
+  });
+}
+
 export async function updateMetric(
   id: string,
   updates: Partial<MetricInterface>,

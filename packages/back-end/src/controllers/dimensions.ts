@@ -7,6 +7,7 @@ import {
   findDimensionById,
   findDimensionsByOrganization,
   updateDimension,
+  deleteDimensionById,
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { getOrgFromReq } from "../services/organizations";
@@ -75,5 +76,30 @@ export async function putDimension(
   res.status(200).json({
     status: 200,
     dimension,
+  });
+}
+
+export async function deleteDimension(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id }: { id: string } = req.params;
+  const { org } = getOrgFromReq(req);
+  const dimension = await findDimensionById(id, org.id);
+
+  if (!dimension) {
+    throw new Error("Could not find dimension");
+  }
+  try {
+    await deleteDimensionById(id, org.id);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
   });
 }

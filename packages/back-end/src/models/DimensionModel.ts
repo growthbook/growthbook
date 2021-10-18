@@ -79,3 +79,17 @@ export async function updateDimension(
 
   await DimensionModel.updateOne({ id, organization }, { $set: updates });
 }
+
+export async function deleteDimensionById(id: string, organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    throw new Error(
+      "Cannot update. Dimensions are being managed by config.yml"
+    );
+  }
+
+  await DimensionModel.deleteOne({
+    id,
+    organization,
+  });
+}

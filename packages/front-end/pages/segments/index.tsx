@@ -1,11 +1,12 @@
-import { FC, useState } from "react";
-import { FaPlus, FaPencilAlt } from "react-icons/fa";
+import React, { FC, useState } from "react";
+import { FaPlus, FaPencilAlt, FaTrash } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
 import { ago } from "../../services/dates";
 import Button from "../../components/Button";
 import SegmentForm from "../../components/Segments/SegmentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import DeleteSegmentModal from "../../components/Segments/DeleteSegmentModal";
 
 const SegmentPage: FC = () => {
   const {
@@ -14,12 +15,17 @@ const SegmentPage: FC = () => {
     getDatasourceById,
     datasources,
     error: segmentsError,
+    mutateDefinitions: mutate,
   } = useDefinitions();
 
   const [
     segmentForm,
     setSegmentForm,
   ] = useState<null | Partial<SegmentInterface>>(null);
+
+  const [deleteSegment, setDeleteSegment] = useState<SegmentInterface | null>(
+    null
+  );
 
   if (!segmentsError && !ready) {
     return <LoadingOverlay />;
@@ -74,7 +80,7 @@ const SegmentPage: FC = () => {
       )}
       {segments.length > 0 && (
         <div className="row mb-4">
-          <div className="col-auto">
+          <div className="col-12">
             <p>
               Segments define important groups of users - for example,
               &quot;annual subscribers&quot; or &quot;left-handed people from
@@ -104,13 +110,25 @@ const SegmentPage: FC = () => {
                     <td>
                       <a
                         href="#"
-                        className="tr-hover text-primary"
+                        className="tr-hover text-primary mr-3"
+                        title="Edit this segment"
                         onClick={(e) => {
                           e.preventDefault();
                           setSegmentForm(s);
                         }}
                       >
                         <FaPencilAlt />
+                      </a>
+                      <a
+                        href="#"
+                        className="tr-hover text-primary"
+                        title="Delete this segment"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setDeleteSegment(s);
+                        }}
+                      >
+                        <FaTrash />
                       </a>
                     </td>
                   </tr>
@@ -125,6 +143,15 @@ const SegmentPage: FC = () => {
           You don&apos;t have any segments defined yet. Click the green button
           above to create your first one.
         </div>
+      )}
+      {deleteSegment && (
+        <DeleteSegmentModal
+          segment={deleteSegment}
+          close={() => {
+            setDeleteSegment(null);
+          }}
+          success={mutate}
+        />
       )}
     </div>
   );

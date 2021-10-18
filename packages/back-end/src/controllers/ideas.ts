@@ -5,6 +5,7 @@ import {
   createIdea,
   getIdeaById,
   deleteIdeaById,
+  getIdeasByQuery,
 } from "../services/ideas";
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../services/tag";
@@ -17,6 +18,8 @@ import {
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
+import { FilterQuery } from "mongoose";
+import { IdeaDocument } from "../models/IdeasModel";
 
 export async function getIdeas(
   // eslint-disable-next-line
@@ -30,6 +33,26 @@ export async function getIdeas(
   }
 
   const ideas = await getIdeasByOrganization(org.id, project);
+
+  res.status(200).json({
+    status: 200,
+    ideas,
+  });
+}
+
+export async function getIdeasBySegment(
+  // eslint-disable-next-line
+  req: AuthRequest<any, any, { project?: string }>,
+  res: Response
+) {
+  const { segment } = req.body;
+  const { org } = getOrgFromReq(req);
+  const query: FilterQuery<IdeaDocument> = {
+    organization: org.id,
+    "estimateParams.segment": segment,
+  };
+
+  const ideas = await getIdeasByQuery(query);
 
   res.status(200).json({
     status: 200,

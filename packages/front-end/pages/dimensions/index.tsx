@@ -1,5 +1,5 @@
-import { FC, useContext, useState } from "react";
-import { FaPlus, FaPencilAlt } from "react-icons/fa";
+import React, { FC, useContext, useState } from "react";
+import { FaPlus, FaPencilAlt, FaTrash } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
 import Button from "../../components/Button";
@@ -10,6 +10,8 @@ import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
 import { UserContext } from "../../components/ProtectedPage";
+import ConfirmModal from "../../components/ConfirmModal";
+import { useAuth } from "../../services/auth";
 
 const DimensionsPage: FC = () => {
   const {
@@ -18,6 +20,7 @@ const DimensionsPage: FC = () => {
     getDatasourceById,
     ready,
     error,
+    mutateDefinitions: mutate,
   } = useDefinitions();
 
   const { permissions } = useContext(UserContext);
@@ -27,9 +30,53 @@ const DimensionsPage: FC = () => {
     setDimensionForm,
   ] = useState<null | Partial<DimensionInterface>>(null);
 
+  const [
+    deleteDimension,
+    setDeleteDimension,
+  ] = useState<DimensionInterface | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { apiCall } = useAuth();
+
   if (!error && !ready) {
     return <LoadingOverlay />;
   }
+
+  const confirmDelete = async () => {
+    if (deleteLoading) return;
+    //console.log("lets delete ", deleteId);
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      const res = await apiCall<{ status: number; message?: string }>(
+        `/dimensions/${deleteDimension.id}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({ id: deleteDimension.id }),
+        }
+      );
+      if (res.status === 200) {
+        setDeleteLoading(false);
+        setDeleteDimension(null);
+        await mutate();
+      } else {
+        console.error(res);
+        setDeleteError(
+          res.message ||
+            "There was an error submitting the form. Please try again."
+        );
+        setDeleteLoading(false);
+        setDeleteDimension(null);
+        //close();
+      }
+    } catch (e) {
+      console.error(e);
+      setDeleteError(e.message);
+      setDeleteLoading(false);
+      setDeleteDimension(null);
+    }
+  };
 
   const hasValidDataSources = !!datasources.filter(
     (d) => d.type !== "google_analytics"
@@ -88,7 +135,7 @@ const DimensionsPage: FC = () => {
       </div>
       {dimensions.length > 0 && (
         <div className="row mb-4">
-          <div className="col-auto">
+          <div className="col-12">
             <p>
               User Dimensions are attributes of your users - for example,
               &quot;subscription plan&quot; or &quot;age group&quot;. In Growth
@@ -129,13 +176,25 @@ const DimensionsPage: FC = () => {
                       <td>
                         <a
                           href="#"
-                          className="tr-hover text-primary"
+                          className="tr-hover text-primary mr-3"
+                          title="Edit this dimension"
                           onClick={(e) => {
                             e.preventDefault();
                             setDimensionForm(s);
                           }}
                         >
                           <FaPencilAlt />
+                        </a>
+                        <a
+                          href="#"
+                          className="tr-hover text-primary"
+                          title="Delete this dimension"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setDeleteDimension(s);
+                          }}
+                        >
+                          <FaTrash />
                         </a>
                       </td>
                     )}
@@ -180,6 +239,20 @@ const DimensionsPage: FC = () => {
           </Link>
         )}
       </div>
+      {deleteDimension && (
+        <ConfirmModal
+          title="Are you sure you want to delete this dimension?"
+          subtitle="This action cannot be undone"
+          yesText="Yes, delete it"
+          noText="Never mind"
+          modalState={true}
+          setModalState={() => {
+            setDeleteDimension(null);
+          }}
+          onConfirm={confirmDelete}
+        />
+      )}
+      {deleteError}
     </div>
   );
 };
