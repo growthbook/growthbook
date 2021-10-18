@@ -64,6 +64,8 @@ export interface ExperimentInterface {
   metrics: string[];
   guardrails?: string[];
   activationMetric?: string;
+  segment?: string;
+  queryFilter?: string;
   sqlOverride: Map<string, string>;
   autoAssign: boolean;
   previewURL: string;
