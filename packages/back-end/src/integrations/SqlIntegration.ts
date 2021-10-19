@@ -137,8 +137,8 @@ export default abstract class SqlIntegration
       dimensions: true,
       separateExperimentResultQueries: true,
       hasSettings: true,
-      events: false,
       userIds: true,
+      experimentSegments: true,
     };
   }
 

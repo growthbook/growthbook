@@ -28,8 +28,14 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   editMetrics: () => void;
   editResult: () => void;
-}> = ({ experiment, editMetrics, editResult }) => {
-  const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
+  editAnalysis: () => void;
+}> = ({ experiment, editMetrics, editResult, editAnalysis }) => {
+  const {
+    dimensions,
+    getMetricById,
+    getDatasourceById,
+    getSegmentById,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -339,6 +345,48 @@ const Results: FC<{
             </div>
           )}
         </>
+      )}
+      {datasource?.properties?.hasSettings && (
+        <div className="mb-3 bg-light p-3 border radius">
+          <h3>
+            Analysis Settings{" "}
+            {permissions.runExperiments && editAnalysis && (
+              <small>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editAnalysis();
+                  }}
+                >
+                  edit
+                </a>
+              </small>
+            )}
+          </h3>
+          <div className="row align-items-center">
+            <div className="col-auto">
+              <strong>Activation Metric: </strong>
+              {(experiment.activationMetric
+                ? getMetricById(experiment.activationMetric)?.name
+                : "") || "None"}
+            </div>
+            {datasource?.properties?.experimentSegments && (
+              <div className="col-auto">
+                <strong>Segment: </strong>
+                {(experiment.segment
+                  ? getSegmentById(experiment.segment)?.name
+                  : "") || "None"}
+              </div>
+            )}
+            {datasource?.properties?.queryLanguage === "sql" && (
+              <div className="col-auto d-flex align-items-center">
+                <strong className="mr-1">Custom SQL Filter: </strong>
+                {experiment.queryFilter ? "Yes" : "None"}
+              </div>
+            )}
+          </div>
+        </div>
       )}
       {snapshot && (
         <div className="row">

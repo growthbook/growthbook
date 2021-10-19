@@ -332,10 +332,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
       metricCaps: true,
       segments: true,
       dimensions: true,
-      separateExperimentResultQueries: false,
       hasSettings: true,
       events: true,
-      userIds: false,
     };
   }
 

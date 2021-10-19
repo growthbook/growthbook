@@ -35,13 +35,14 @@ export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
 export interface DataSourceProperties {
   queryLanguage: QueryLanguage;
-  metricCaps: boolean;
-  segments: boolean;
-  dimensions: boolean;
-  hasSettings: boolean;
-  events: boolean;
-  userIds: boolean;
-  separateExperimentResultQueries: boolean;
+  metricCaps?: boolean;
+  segments?: boolean;
+  experimentSegments?: boolean;
+  dimensions?: boolean;
+  hasSettings?: boolean;
+  events?: boolean;
+  userIds?: boolean;
+  separateExperimentResultQueries?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

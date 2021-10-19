@@ -211,13 +211,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "json",
-      metricCaps: false,
-      segments: false,
-      dimensions: false,
-      separateExperimentResultQueries: false,
-      hasSettings: false,
-      events: false,
-      userIds: false,
     };
   }
 
