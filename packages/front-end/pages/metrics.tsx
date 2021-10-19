@@ -1,7 +1,13 @@
 import React, { useState, useContext } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
-import { FaPlus, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import {
+  FaPlus,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaRegCopy,
+} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { datetime, ago } from "../services/dates";
 import { UserContext } from "../components/ProtectedPage";
@@ -293,6 +299,7 @@ const MetricsPage = (): React.ReactElement => {
                 </span>
               </th>
             )}
+            {permissions.createMetrics && !hasFileConfig() && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -332,8 +339,29 @@ const MetricsPage = (): React.ReactElement => {
                   {ago(metric.dateUpdated)}
                 </td>
               )}
+              {permissions.createMetrics && !hasFileConfig() && (
+                <td>
+                  <button
+                    className="tr-hover btn btn-secondary btn-sm float-right"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setModalData({
+                        current: {
+                          ...metric,
+                          name: metric.name + " (copy)",
+                        },
+                        edit: false,
+                      });
+                    }}
+                  >
+                    <FaRegCopy /> Duplicate
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
+
           {!sortedMetrics.length && isFiltered && (
             <tr>
               <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
