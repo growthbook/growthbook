@@ -81,10 +81,10 @@ export async function updateDimension(
 }
 
 export async function deleteDimensionById(id: string, organization: string) {
-  // If using config.yml, immediately return the list from there
+  // If using config.yml, immediately throw error
   if (usingFileConfig()) {
     throw new Error(
-      "Cannot update. Dimensions are being managed by config.yml"
+      "Cannot delete. Dimensions are being managed by config.yml"
     );
   }
 

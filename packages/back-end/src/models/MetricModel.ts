@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { queriesSchema } from "./QueryModel";
@@ -227,4 +227,35 @@ export async function updateMetric(
       $set: updates,
     }
   );
+}
+
+export async function updateMetricsByQuery(
+  query: FilterQuery<MetricDocument>,
+  updates: Partial<MetricInterface>
+) {
+  if (usingFileConfig()) {
+    // Trying to update unsupported properties
+    if (
+      Object.keys(updates).filter(
+        (k) => !["analysis", "queries", "runStarted"].includes(k)
+      ).length > 0
+    ) {
+      throw new Error("Cannot update. Metrics managed by config.yml");
+    }
+
+    await MetricModel.updateMany(
+      query,
+      {
+        $set: updates,
+      },
+      {
+        upsert: true,
+      }
+    );
+    return;
+  }
+
+  await MetricModel.updateMany(query, {
+    $set: updates,
+  });
 }

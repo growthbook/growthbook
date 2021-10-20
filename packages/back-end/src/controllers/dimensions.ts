@@ -83,7 +83,7 @@ export async function deleteDimension(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const dimension = await findDimensionById(id, org.id);
 
