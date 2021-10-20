@@ -48,4 +48,7 @@ export interface ExperimentSnapshotInterface {
     variations: SnapshotVariation[];
   }[];
   hasRawQueries?: boolean;
+  queryFilter?: string;
+  segment?: string;
+  activationMetric?: string;
 }

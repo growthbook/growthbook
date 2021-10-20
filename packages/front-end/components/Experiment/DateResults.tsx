@@ -35,7 +35,12 @@ const DateResults: FC<{
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const datapoints = snapshot.results.map((d) => {
+    const sortedResults = [...snapshot.results];
+    sortedResults.sort((a, b) => {
+      return new Date(a.name).getTime() - new Date(b.name).getTime();
+    });
+
+    return sortedResults.map((d) => {
       return {
         d: new Date(d.name),
         variations: experiment.variations.map((v, i) => {
@@ -50,14 +55,15 @@ const DateResults: FC<{
         }),
       };
     });
-    datapoints.sort((a, b) => {
-      return a.d.getTime() - b.d.getTime();
-    });
-    return datapoints;
   }, [snapshot, cumulative]);
 
   // Data for the metric graphs
   const metrics = useMemo<Metric[]>(() => {
+    const sortedResults = [...snapshot.results];
+    sortedResults.sort((a, b) => {
+      return new Date(a.name).getTime() - new Date(b.name).getTime();
+    });
+
     // Merge goal and guardrail metrics
     return (
       Array.from(
@@ -69,7 +75,7 @@ const DateResults: FC<{
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
 
-          const datapoints = snapshot.results.map((d) => {
+          const datapoints = sortedResults.map((d) => {
             return {
               d: new Date(d.name),
               variations: experiment.variations.map((v, i) => {
@@ -122,9 +128,6 @@ const DateResults: FC<{
               }),
             };
           });
-          datapoints.sort((a, b) => {
-            return a.d.getTime() - b.d.getTime();
-          });
 
           return {
             metric,
@@ -139,7 +142,7 @@ const DateResults: FC<{
 
   return (
     <div className="mb-4 pb-4">
-      <div className="my-3 bg-light border p-2 d-flex align-items-center">
+      <div className="mb-3 bg-light border py-2 px-3 d-flex align-items-center">
         <div className="mr-3">
           <strong>Graph Controls: </strong>
         </div>
@@ -153,7 +156,7 @@ const DateResults: FC<{
           Cumulative
         </div>
       </div>
-      <div className="mb-5">
+      <div className="mb-5 mx-3">
         <h3>Users</h3>
         <ExperimentDateGraph
           datapoints={users}
@@ -163,7 +166,7 @@ const DateResults: FC<{
         />
       </div>
       {metrics.map(({ metric, isGuardrail, datapoints }) => (
-        <div className="mb-5" key={metric.id}>
+        <div className="mb-5 mx-3" key={metric.id}>
           <h3>
             {metric.name}{" "}
             {isGuardrail && (

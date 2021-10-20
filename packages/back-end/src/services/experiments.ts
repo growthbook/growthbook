@@ -617,6 +617,9 @@ export async function createSnapshot(
     dimension: dimensionId || null,
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
+    activationMetric: experiment.activationMetric || "",
+    segment: experiment.segment || "",
+    queryFilter: experiment.queryFilter || "",
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);

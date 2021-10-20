@@ -20,7 +20,8 @@ const CompactResults: FC<{
   experiment: ExperimentInterfaceStringDates;
   phase?: ExperimentPhaseStringDates;
   isUpdating?: boolean;
-}> = ({ snapshot, experiment, phase, isUpdating }) => {
+  editMetrics?: () => void;
+}> = ({ snapshot, experiment, phase, isUpdating, editMetrics }) => {
   const { getMetricById } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
@@ -49,39 +50,59 @@ const CompactResults: FC<{
   const risk = useRiskVariation(experiment, rows);
 
   return (
-    <div className="mb-4 experiment-compact-holder">
-      <DataQualityWarning
-        experiment={experiment}
-        snapshot={snapshot}
-        phase={phase}
-        isUpdating={isUpdating}
-      />
-      <ResultsTable
-        dateCreated={snapshot.dateCreated}
-        experiment={experiment}
-        id={experiment.id}
-        {...risk}
-        labelHeader="Metric"
-        phase={snapshot.phase}
-        users={users}
-        renderLabelColumn={(label, metric) => {
-          if (!metric.inverse) return label;
+    <>
+      <div className="px-3">
+        <DataQualityWarning
+          experiment={experiment}
+          snapshot={snapshot}
+          phase={phase}
+          isUpdating={isUpdating}
+        />
+        <h3>
+          Metrics
+          {editMetrics && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                editMetrics();
+              }}
+              className="ml-2"
+              style={{ fontSize: "0.8rem" }}
+            >
+              Add/Remove Metrics
+            </a>
+          )}
+        </h3>
+      </div>
+      <div className="mb-3 experiment-compact-holder">
+        <ResultsTable
+          dateCreated={snapshot.dateCreated}
+          experiment={experiment}
+          id={experiment.id}
+          {...risk}
+          labelHeader="Metric"
+          phase={snapshot.phase}
+          users={users}
+          renderLabelColumn={(label, metric) => {
+            if (!metric.inverse) return label;
 
-          return (
-            <>
-              {label}{" "}
-              <Tooltip
-                text="metric is inverse, lower is better"
-                className="inverse-indicator"
-              >
-                <MdSwapCalls />
-              </Tooltip>
-            </>
-          );
-        }}
-        rows={rows}
-      />
-    </div>
+            return (
+              <>
+                {label}{" "}
+                <Tooltip
+                  text="metric is inverse, lower is better"
+                  className="inverse-indicator"
+                >
+                  <MdSwapCalls />
+                </Tooltip>
+              </>
+            );
+          }}
+          rows={rows}
+        />
+      </div>
+    </>
   );
 };
 export default CompactResults;

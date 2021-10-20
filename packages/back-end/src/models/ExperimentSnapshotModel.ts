@@ -63,6 +63,9 @@ const experimentSnapshotSchema = new mongoose.Schema({
     },
   ],
   hasRawQueries: Boolean,
+  queryFilter: String,
+  segment: String,
+  activationMetric: String,
 });
 experimentSnapshotSchema.index({
   experiment: 1,

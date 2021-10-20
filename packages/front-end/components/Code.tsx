@@ -19,14 +19,12 @@ export type Language =
 export default function Code({
   code,
   language,
-  padding,
 }: {
   code: string;
   language: Language;
-  padding?: string;
 }) {
   return (
-    <Prism language={language} style={theme} customStyle={{ padding }}>
+    <Prism language={language} style={theme}>
       {code}
     </Prism>
   );

@@ -57,7 +57,6 @@ import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
-import AnalysisForm from "../../components/Experiment/AnalysisForm";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -73,7 +72,6 @@ const ExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
-  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -87,7 +85,6 @@ const ExperimentPage = (): ReactElement => {
   const {
     getMetricById,
     getDatasourceById,
-    getSegmentById,
     projects,
     project,
     getProjectById,
@@ -211,13 +208,6 @@ const ExperimentPage = (): ReactElement => {
         <InstructionsModal
           close={() => setInstructionsModalOpen(false)}
           experiment={experiment}
-        />
-      )}
-      {analysisModalOpen && (
-        <AnalysisForm
-          experiment={experiment}
-          cancel={() => setAnalysisModalOpen(false)}
-          mutate={mutate}
         />
       )}
       {deleteOpen && (
@@ -731,33 +721,6 @@ const ExperimentPage = (): ReactElement => {
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>
-              {datasource?.properties?.hasSettings && <hr />}
-              {datasource?.properties?.hasSettings && (
-                <RightRailSection
-                  title="Analysis"
-                  open={() => {
-                    setAnalysisModalOpen(true);
-                  }}
-                  canOpen={canEdit && !experiment.archived}
-                >
-                  <RightRailSectionGroup title="Activation Metric" type="badge">
-                    {getMetricById(experiment.activationMetric)?.name}
-                  </RightRailSectionGroup>
-                  {datasource?.properties?.experimentSegments && (
-                    <RightRailSectionGroup title="Segment" type="badge">
-                      {getSegmentById(experiment.segment)?.name}
-                    </RightRailSectionGroup>
-                  )}
-                  {datasource?.properties?.queryLanguage === "sql" && (
-                    <RightRailSectionGroup
-                      title="Custom SQL Filter"
-                      type="custom"
-                    >
-                      <Code language="sql" code={experiment.queryFilter} />
-                    </RightRailSectionGroup>
-                  )}
-                </RightRailSection>
-              )}
               {data.idea && <hr />}
               {data.idea && (
                 <RightRailSection title="Linked Idea" canOpen={false}>
@@ -792,13 +755,14 @@ const ExperimentPage = (): ReactElement => {
           anchor="results"
           lazy={true}
           visible={experiment.status !== "draft"}
+          padding={false}
         >
           <div className="position-relative">
             <Results
               experiment={experiment}
               editMetrics={() => setMetricsModalOpen(true)}
               editResult={() => setStopModalOpen(true)}
-              editAnalysis={() => setAnalysisModalOpen(true)}
+              mutateExperiment={mutate}
             />
           </div>
         </Tab>
