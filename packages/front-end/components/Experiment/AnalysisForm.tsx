@@ -8,9 +8,10 @@ import Field from "../Forms/Field";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  phase: number;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
+}> = ({ experiment, cancel, mutate, phase }) => {
   const { metrics, segments, getDatasourceById } = useDefinitions();
 
   const filteredMetrics = metrics.filter(
@@ -23,31 +24,88 @@ const AnalysisForm: FC<{
   const datasource = getDatasourceById(experiment.datasource);
   const datasourceProperties = datasource?.properties;
 
+  const phaseObj = experiment.phases[phase];
+
   const form = useForm({
     defaultValues: {
+      trackingKey: experiment.trackingKey || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
+      dateStarted: new Date(phaseObj?.dateStarted).toISOString().substr(0, 16),
+      dateEnded: new Date(phaseObj?.dateEnded).toISOString().substr(0, 16),
     },
   });
   const { apiCall } = useAuth();
 
   return (
     <Modal
-      header={"Edit Analysis Settings"}
+      header={"Configure Experiment Analysis"}
       open={true}
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
+        const { dateStarted, dateEnded, ...values } = value;
+
+        const body: Partial<ExperimentInterfaceStringDates> & {
+          phaseStartDate: string;
+          phaseEndDate?: string;
+          currentPhase?: number;
+        } = {
+          ...values,
+          currentPhase: phase,
+          phaseStartDate: dateStarted,
+        };
+
+        if (experiment.status === "stopped") {
+          body.phaseEndDate = dateEnded;
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify(body),
         });
         mutate();
       })}
       cta="Save"
     >
-      <p>These settings limit who is included in the experiment analysis.</p>
+      <Field
+        label="Data Source"
+        labelClassName="font-weight-bold"
+        value={datasource?.name || "Manual"}
+        disabled
+        helpText="You must revert this experiment to a draft to change the data source"
+      />
+      <Field
+        label="Experiment Id"
+        labelClassName="font-weight-bold"
+        {...form.register("trackingKey")}
+        helpText="Will match against the experiment_id column in your data source"
+      />
+      {phaseObj && (
+        <div className="row">
+          <div className="col">
+            <Field
+              label="Start Date (UTC)"
+              labelClassName="font-weight-bold"
+              type="datetime-local"
+              {...form.register("dateStarted")}
+              helpText="Only include users who entered the experiment on or after this date"
+            />
+          </div>
+          {experiment.status === "stopped" && (
+            <div className="col">
+              <Field
+                label="End Date (UTC)"
+                labelClassName="font-weight-bold"
+                type="datetime-local"
+                {...form.register("dateEnded")}
+                helpText="Only include users who entered the experiment on or before this date"
+              />
+            </div>
+          )}
+        </div>
+      )}
       <Field
         label="Activation Metric"
         labelClassName="font-weight-bold"
@@ -88,7 +146,7 @@ const AnalysisForm: FC<{
               helpText="WHERE clause to add to the default experiment query"
             />
           </div>
-          <div className="pt-3 border-left col-sm-4 col-lg-6">
+          <div className="pt-2 border-left col-sm-4 col-lg-6">
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
               {["user_id", "anonymous_id", "timestamp", "variation_id"]

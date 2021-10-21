@@ -228,64 +228,65 @@ const Results: FC<{
           )}
         </>
       )}
-      {snapshot && (
-        <div className="px-3">
-          <div className="row mb-3">
-            {permissions.runExperiments && editMetrics && (
+      <div className="px-3">
+        <div className="row mb-3">
+          {permissions.runExperiments && editMetrics && (
+            <div className="col-auto">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => {
+                  editMetrics();
+                }}
+              >
+                Add{experiment.metrics?.length > 0 ? "/Remove" : ""} Metrics
+              </button>
+            </div>
+          )}
+          {snapshot &&
+            !snapshot.dimension &&
+            hasData &&
+            snapshot.hasRawQueries &&
+            datasource?.settings?.notebookRunQuery && (
               <div className="col-auto">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => {
-                    editMetrics();
+                <Button
+                  color="outline-info"
+                  onClick={async () => {
+                    const res = await apiCall<{ notebook: string }>(
+                      `/experiments/notebook/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
+
+                    const url = URL.createObjectURL(
+                      new Blob([res.notebook], {
+                        type: "application/json",
+                      })
+                    );
+
+                    const name = experiment.trackingKey
+                      .replace(/[^a-zA-Z0-9_-]+/g, "")
+                      .replace(/[-]+/g, "_")
+                      .replace(/[_]{2,}/g, "_");
+
+                    const d = new Date()
+                      .toISOString()
+                      .slice(0, 10)
+                      .replace(/-/g, "_");
+
+                    const el = document.createElement("a");
+                    el.href = url;
+                    el.download = `${name}_${d}.ipynb`;
+                    el.click();
                   }}
                 >
-                  Add/Remove Metrics
-                </button>
+                  <FaFileDownload /> Download Notebook
+                </Button>
               </div>
             )}
-            {!snapshot.dimension &&
-              hasData &&
-              snapshot.hasRawQueries &&
-              datasource?.settings?.notebookRunQuery && (
-                <div className="col-auto">
-                  <Button
-                    color="outline-info"
-                    onClick={async () => {
-                      const res = await apiCall<{ notebook: string }>(
-                        `/experiments/notebook/${snapshot.id}`,
-                        {
-                          method: "POST",
-                        }
-                      );
 
-                      const url = URL.createObjectURL(
-                        new Blob([res.notebook], {
-                          type: "application/json",
-                        })
-                      );
-
-                      const name = experiment.trackingKey
-                        .replace(/[^a-zA-Z0-9_-]+/g, "")
-                        .replace(/[-]+/g, "_")
-                        .replace(/[_]{2,}/g, "_");
-
-                      const d = new Date()
-                        .toISOString()
-                        .slice(0, 10)
-                        .replace(/-/g, "_");
-
-                      const el = document.createElement("a");
-                      el.href = url;
-                      el.download = `${name}_${d}.ipynb`;
-                      el.click();
-                    }}
-                  >
-                    <FaFileDownload /> Download Notebook
-                  </Button>
-                </div>
-              )}
-
+          {snapshot && (
             <div className="col-auto">
               {snapshot.queries?.length > 0 ? (
                 <ViewAsyncQueriesButton
@@ -301,9 +302,9 @@ const Results: FC<{
                 )
               )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </>
   );
 };

@@ -141,8 +141,8 @@ const DateResults: FC<{
   }, [snapshot, cumulative]);
 
   return (
-    <div className="mb-4 pb-4">
-      <div className="mb-3 bg-light border py-2 px-3 d-flex align-items-center">
+    <div className="mb-4 mx-3 pb-4">
+      <div className="mb-3 d-flex align-items-center">
         <div className="mr-3">
           <strong>Graph Controls: </strong>
         </div>
@@ -156,7 +156,7 @@ const DateResults: FC<{
           Cumulative
         </div>
       </div>
-      <div className="mb-5 mx-3">
+      <div className="mb-5">
         <h3>Users</h3>
         <ExperimentDateGraph
           datapoints={users}
@@ -166,7 +166,7 @@ const DateResults: FC<{
         />
       </div>
       {metrics.map(({ metric, isGuardrail, datapoints }) => (
-        <div className="mb-5 mx-3" key={metric.id}>
+        <div className="mb-5" key={metric.id}>
           <h3>
             {metric.name}{" "}
             {isGuardrail && (

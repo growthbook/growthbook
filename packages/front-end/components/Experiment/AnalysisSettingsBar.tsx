@@ -3,11 +3,12 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import clsx from "clsx";
 import { useState } from "react";
 import { useContext } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaCog } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
-import { datetime } from "../../services/dates";
+import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummary } from "../../services/utils";
+import Field from "../Forms/Field";
 import { UserContext } from "../ProtectedPage";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
@@ -23,6 +24,7 @@ function isOutdated(
   experiment: ExperimentInterfaceStringDates,
   snapshot: ExperimentSnapshotInterface
 ) {
+  if (!snapshot) return false;
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
     console.log("activationMetric different");
     return true;
@@ -60,12 +62,7 @@ export default function AnalysisSettingsBar({
   mutate: () => void;
   mutateExperiment: () => void;
 }) {
-  const {
-    getMetricById,
-    getSegmentById,
-    getDatasourceById,
-    dimensions,
-  } = useDefinitions();
+  const { getDatasourceById, dimensions } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const supportsSql = datasource?.properties?.queryLanguage === "sql";
   const outdated = isOutdated(experiment, snapshot);
@@ -82,36 +79,35 @@ export default function AnalysisSettingsBar({
   const status = getQueryStatus(latest?.queries || []);
 
   return (
-    <div className="mb-3 pt-3">
+    <div>
       {modalOpen && (
         <AnalysisForm
           cancel={() => setModalOpen(false)}
           experiment={experiment}
           mutate={mutateExperiment}
+          phase={phase}
         />
       )}
-      <div className="row align-items-center px-3">
+      <div className="row align-items-center p-3">
         {experiment.phases && experiment.phases.length > 1 && (
-          <div className="col-auto mb-2">
-            <small>Phase</small>
-            <select
-              className="form-control"
+          <div className="col-auto form-inline">
+            <Field
+              label="Phase"
+              labelClassName="mr-2"
               value={phase}
               onChange={(e) => {
                 setPhase(parseInt(e.target.value));
               }}
-            >
-              {experiment.phases.map((phase, i) => (
-                <option key={i} value={i}>
-                  {i + 1}: {phaseSummary(phase)}
-                </option>
-              ))}
-            </select>
+              options={experiment.phases.map((phase, i) => ({
+                display: `${i + 1}: ${phaseSummary(phase)}`,
+                value: i,
+              }))}
+            />
           </div>
         )}
         {(filteredDimensions.length > 0 || supportsSql) && (
-          <div className="col-auto">
-            <small>Dimension</small>
+          <div className="col-auto form-inline">
+            <label className="mr-2">Dimension</label>{" "}
             <select
               className="form-control"
               value={dimension}
@@ -137,56 +133,26 @@ export default function AnalysisSettingsBar({
             </select>
           </div>
         )}
-        {datasource?.properties?.hasSettings && (
-          <div className="col-auto my-1">
-            <small>Activation metric</small>
-            <div>
-              {(experiment.activationMetric
-                ? getMetricById(experiment.activationMetric)?.name
-                : "") || "None"}
-            </div>
-          </div>
-        )}
-        {datasource?.properties?.experimentSegments && (
-          <div className="col-auto my-1">
-            <small>Segment</small>
-            <div>
-              {(experiment.segment
-                ? getSegmentById(experiment.segment)?.name
-                : "") || "None"}
-            </div>
-          </div>
-        )}
-        {supportsSql && (
-          <div className="col-auto my-1">
-            <small>Custom SQL filter</small>
-            <div>
-              {experiment.queryFilter ? (
-                <code className="text-dark" title={experiment.queryFilter}>
-                  {experiment.queryFilter.substr(0, 20)}...
-                </code>
-              ) : (
-                "None"
-              )}
-            </div>
-          </div>
-        )}
-
-        {permissions.runExperiments && datasource?.properties?.hasSettings && (
-          <div className="col-auto">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <FaPencilAlt /> Edit
-            </a>
-          </div>
-        )}
-
         <div style={{ flex: 1 }} />
+        <div className="col-auto">
+          {snapshot &&
+            (outdated && status !== "running" ? (
+              <div
+                className="badge badge-warning d-block py-1"
+                style={{ marginBottom: 3 }}
+              >
+                Out of Date
+              </div>
+            ) : (
+              <div
+                className="text-muted"
+                style={{ fontSize: "0.8em" }}
+                title={datetime(snapshot.dateCreated)}
+              >
+                last updated {ago(snapshot.dateCreated)}
+              </div>
+            ))}
+        </div>
         {permissions.runExperiments && experiment.metrics.length > 0 && (
           <div className="col-auto">
             {experiment.datasource && latest && latest.queries?.length > 0 ? (
@@ -208,19 +174,6 @@ export default function AnalysisSettingsBar({
                     });
                 }}
               >
-                {snapshot &&
-                  (outdated && status !== "running" ? (
-                    <div
-                      className="badge badge-warning d-block"
-                      style={{ marginBottom: 3 }}
-                    >
-                      Update Needed
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "right" }}>
-                      <small>{datetime(snapshot.dateCreated)}</small>
-                    </div>
-                  ))}
                 <RunQueriesButton
                   cta="Update Data"
                   initialStatus={status}
@@ -245,24 +198,41 @@ export default function AnalysisSettingsBar({
           </div>
         )}
       </div>
-      <hr />
-      {snapshot && status !== "succeeded" && (
-        <div>
-          <ViewAsyncQueriesButton
-            queries={latest.queries.map((q) => q.query)}
-            color={clsx(
-              {
-                danger: status === "failed",
-                info: status === "running",
-              },
-              "btn-sm ml-3"
+      {permissions.runExperiments && datasource && (
+        <div className="px-3">
+          <div className="row">
+            {snapshot && status !== "succeeded" && (
+              <div className="col-auto pb-3">
+                <ViewAsyncQueriesButton
+                  queries={latest.queries.map((q) => q.query)}
+                  color={clsx(
+                    {
+                      danger: status === "failed",
+                      info: status === "running",
+                    },
+                    "btn-sm ml-3"
+                  )}
+                  display={
+                    status === "failed"
+                      ? "View Update Errors"
+                      : "View Running Queries"
+                  }
+                />
+              </div>
             )}
-            display={
-              status === "failed"
-                ? "View Update Errors"
-                : "View Running Queries"
-            }
-          />
+            <div style={{ flex: 1 }} />
+            <div className="col-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalOpen(true);
+                }}
+              >
+                <FaCog /> Configure Analysis
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
