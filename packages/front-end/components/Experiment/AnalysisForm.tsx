@@ -28,6 +28,7 @@ const AnalysisForm: FC<{
 
   const form = useForm({
     defaultValues: {
+      userIdType: experiment.userIdType || "anonymous",
       trackingKey: experiment.trackingKey || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
@@ -82,6 +83,24 @@ const AnalysisForm: FC<{
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
       />
+      {datasource?.properties?.userIds && (
+        <Field
+          label="User Id Property"
+          labelClassName="font-weight-bold"
+          {...form.register("userIdType")}
+          options={[
+            {
+              display: "user_id",
+              value: "user",
+            },
+            {
+              display: "anonymous_id",
+              value: "anonymous",
+            },
+          ]}
+          helpText="Determines how we define a single 'user' in the analysis"
+        />
+      )}
       {phaseObj && (
         <div className="row">
           <div className="col">
