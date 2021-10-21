@@ -14,6 +14,17 @@ This is used to generate links to GrowthBook and enable CORS access to the API.
 - **APP_ORIGIN** - default http://localhost:3000
 - **API_HOST** - default http://localhost:3100
 
+If you want to run GrowthBook on a different host than localhost, you need to add the above environment
+variables to your `docker-compose.yml` file.
+
+```yml
+growthbook:
+  ...
+  environment:
+    - APP_ORIGIN=http://<my ip>:3000
+    - API_HOST=http://<my ip>:3100
+```
+
 If you need to change the ports on your local dev environment (e.g. if `3000` is already being used),
 you need to update the above variables AND change the port mapping in `docker-compose.yml`:
 
@@ -22,6 +33,10 @@ growthbook:
   ports:
     - "4000:3000" # example: use 4000 instead of 3000 for the app
     - "4100:3100" # example: use 4100 instead of 3100 for the api
+  ...
+  environment:
+    - APP_ORIGIN=http://<my ip or url>:4000
+    - API_HOST=http://<my ip or url>:4100
 ```
 
 ### Production Settings
@@ -40,6 +55,7 @@ This is required in order to send experiment alerts and team member invites.
 - **EMAIL_PORT**
 - **EMAIL_HOST_USER**
 - **EMAIL_HOST_PASSWORD**
+- **EMAIL_FROM**
 - **EMAIL_USE_TLS** ("true" or "false")
 
 ### Google OAuth Settings
