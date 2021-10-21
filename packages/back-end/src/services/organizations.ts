@@ -226,7 +226,7 @@ export async function inviteUser(
       await sendInviteEmail(organization, key);
       emailSent = true;
     } catch (e) {
-      console.log("Error sending email: " + e);
+      console.error("Error sending email: " + e);
       emailSent = false;
     }
   }

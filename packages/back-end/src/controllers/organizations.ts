@@ -709,6 +709,7 @@ export async function postInviteResend(
     await sendInviteEmail(org, key);
     emailSent = true;
   } catch (e) {
+    console.error("Error sending email: " + e);
     emailSent = false;
   }
 

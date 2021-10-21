@@ -97,23 +97,23 @@ function loadConfig(initial = false) {
 
   if (EMAIL_ENABLED) {
     if (!EMAIL_HOST)
-      console.log(
+      console.error(
         "Email is enabled, but missing required EMAIL_HOST env variable"
       );
     if (!EMAIL_PORT)
-      console.log(
+      console.error(
         "Email is enabled, but missing required EMAIL_PORT env variable"
       );
     if (!EMAIL_HOST_USER)
-      console.log(
+      console.error(
         "Email is enabled, but missing required EMAIL_HOST_USER env variable"
       );
     if (!EMAIL_HOST_PASSWORD)
-      console.log(
+      console.error(
         "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable"
       );
     if (!EMAIL_FROM)
-      console.log(
+      console.error(
         "Email is enabled, but missing required EMAIL_FROM env variable"
       );
   }
