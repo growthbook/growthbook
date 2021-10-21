@@ -26,15 +26,12 @@ function isOutdated(
 ) {
   if (!snapshot) return false;
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    console.log("activationMetric different");
     return true;
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    console.log("segment different");
     return true;
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    console.log("queryFilter different");
     return true;
   }
 
