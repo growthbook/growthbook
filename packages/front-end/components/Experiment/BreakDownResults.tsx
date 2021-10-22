@@ -86,14 +86,16 @@ const BreakDownResults: FC<{
   );
 
   return (
-    <div className="mb-4 pb-4">
+    <div className="mb-3">
       {srmFailures.length > 0 && (
         <div className="mb-4">
-          <h2>Users</h2>
-          <div className="alert alert-danger">
-            The following dimension values failed the Sample Ratio Mismatch
-            (SRM) check. This means the traffic split between the variations was
-            not what we expected. This is likely a bug.
+          <div className="px-3">
+            <h2>Users</h2>
+            <div className="alert alert-danger">
+              The following dimension values failed the Sample Ratio Mismatch
+              (SRM) check. This means the traffic split between the variations
+              was not what we expected. This is likely a bug.
+            </div>
           </div>
           <table className="table w-auto table-bordered">
             <thead>
@@ -142,7 +144,7 @@ const BreakDownResults: FC<{
       )}
 
       {tooManyDimensions && (
-        <div className="row align-items-center mb-3">
+        <div className="row align-items-center mb-3 px-3">
           <div className="col">
             <div className="alert alert-warning mb-0">
               <strong>Warning: </strong> This dimension contains many unique
@@ -164,14 +166,16 @@ const BreakDownResults: FC<{
 
       {tables.map((table) => (
         <div className="mb-5" key={table.metric.id}>
-          <h3>
-            {table.isGuardrail ? (
-              <small className="text-muted">Guardrail: </small>
-            ) : (
-              ""
-            )}
-            {table.metric.name}
-          </h3>
+          <div className="px-3">
+            <h3>
+              {table.isGuardrail ? (
+                <small className="text-muted">Guardrail: </small>
+              ) : (
+                ""
+              )}
+              {table.metric.name}
+            </h3>
+          </div>
 
           <div className="experiment-compact-holder">
             <ResultsTable

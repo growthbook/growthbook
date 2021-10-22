@@ -35,7 +35,12 @@ const DateResults: FC<{
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const datapoints = snapshot.results.map((d) => {
+    const sortedResults = [...snapshot.results];
+    sortedResults.sort((a, b) => {
+      return new Date(a.name).getTime() - new Date(b.name).getTime();
+    });
+
+    return sortedResults.map((d) => {
       return {
         d: new Date(d.name),
         variations: experiment.variations.map((v, i) => {
@@ -50,14 +55,15 @@ const DateResults: FC<{
         }),
       };
     });
-    datapoints.sort((a, b) => {
-      return a.d.getTime() - b.d.getTime();
-    });
-    return datapoints;
   }, [snapshot, cumulative]);
 
   // Data for the metric graphs
   const metrics = useMemo<Metric[]>(() => {
+    const sortedResults = [...snapshot.results];
+    sortedResults.sort((a, b) => {
+      return new Date(a.name).getTime() - new Date(b.name).getTime();
+    });
+
     // Merge goal and guardrail metrics
     return (
       Array.from(
@@ -69,7 +75,7 @@ const DateResults: FC<{
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
 
-          const datapoints = snapshot.results.map((d) => {
+          const datapoints = sortedResults.map((d) => {
             return {
               d: new Date(d.name),
               variations: experiment.variations.map((v, i) => {
@@ -122,9 +128,6 @@ const DateResults: FC<{
               }),
             };
           });
-          datapoints.sort((a, b) => {
-            return a.d.getTime() - b.d.getTime();
-          });
 
           return {
             metric,
@@ -138,8 +141,8 @@ const DateResults: FC<{
   }, [snapshot, cumulative]);
 
   return (
-    <div className="mb-4 pb-4">
-      <div className="my-3 bg-light border p-2 d-flex align-items-center">
+    <div className="mb-4 mx-3 pb-4">
+      <div className="mb-3 d-flex align-items-center">
         <div className="mr-3">
           <strong>Graph Controls: </strong>
         </div>

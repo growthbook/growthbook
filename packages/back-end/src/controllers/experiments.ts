@@ -44,7 +44,11 @@ import {
 import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+} from "../../types/experiment";
 import {
   deleteMetricById,
   getMetricsByOrganization,
@@ -357,6 +361,8 @@ export async function postExperiments(
     metrics: data.metrics || [],
     guardrails: data.guardrails || [],
     activationMetric: data.activationMetric || "",
+    segment: data.segment || "",
+    queryFilter: data.queryFilter || "",
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
@@ -402,12 +408,19 @@ export async function postExperiments(
  * @param res
  */
 export async function postExperiment(
-  req: AuthRequest<ExperimentInterface, { id: string }>,
+  req: AuthRequest<
+    ExperimentInterfaceStringDates & {
+      currentPhase?: number;
+      phaseStartDate?: string;
+      phaseEndDate?: string;
+    },
+    { id: string }
+  >,
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
-  const data = req.body;
+  const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
   const exp = await getExperimentById(id);
 
@@ -485,6 +498,8 @@ export async function postExperiment(
     "description",
     "hypothesis",
     "activationMetric",
+    "segment",
+    "queryFilter",
     "metrics",
     "guardrails",
     "variations",
@@ -529,6 +544,27 @@ export async function postExperiment(
       }
     }
   });
+
+  // If changing phase start/end dates (from "Configure Analysis" modal)
+  if (
+    exp.status !== "draft" &&
+    currentPhase !== undefined &&
+    exp.phases?.[currentPhase] &&
+    (phaseStartDate || phaseEndDate)
+  ) {
+    const phases = [...exp.toJSON().phases];
+    const phaseClone = { ...phases[currentPhase] };
+    phases[Math.floor(currentPhase * 1)] = phaseClone;
+
+    if (phaseStartDate) {
+      phaseClone.dateStarted = new Date(phaseStartDate + ":00Z");
+    }
+    if (exp.status === "stopped" && phaseEndDate) {
+      phaseClone.dateEnded = new Date(phaseEndDate + ":00Z");
+    }
+    exp.set("phases", phases);
+  }
+
   await exp.save();
 
   await req.audit({

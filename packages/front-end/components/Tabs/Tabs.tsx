@@ -56,6 +56,7 @@ const Tabs: FC<{
   if (!activeChosen) {
     activeChosen = backupActive;
   }
+  let contentsPadding = true;
 
   Children.forEach(children, (child, i) => {
     if (!isValidElement(child)) return;
@@ -67,10 +68,15 @@ const Tabs: FC<{
       visible,
       action,
       className,
+      padding,
     } = child.props;
     if (visible === false) return;
 
     const isActive = display === activeChosen;
+
+    if (isActive && padding === false) {
+      contentsPadding = false;
+    }
 
     tabs.push(
       <a
@@ -163,10 +169,12 @@ const Tabs: FC<{
       </nav>
       <div
         className={clsx(
-          "tab-content bg-white p-3 border border-top-0",
+          "tab-content bg-white border border-top-0",
           tabContentsClassName,
           {
             "col-md-9": orientation === "vertical",
+            "p-3": contentsPadding,
+            "p-0": !contentsPadding,
           }
         )}
       >

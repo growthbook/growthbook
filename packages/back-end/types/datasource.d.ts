@@ -34,15 +34,21 @@ export type DataSourceParams =
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
 export interface DataSourceProperties {
-  type: "manual" | "database" | "api";
   queryLanguage: QueryLanguage;
-  includeInConfig: boolean;
-  readonlyFields: string[];
-  metricCaps: boolean;
-  separateExperimentResultQueries: boolean;
+  metricCaps?: boolean;
+  segments?: boolean;
+  experimentSegments?: boolean;
+  dimensions?: boolean;
+  hasSettings?: boolean;
+  events?: boolean;
+  userIds?: boolean;
+  separateExperimentResultQueries?: boolean;
 }
 
-type WithParams<B, P> = Omit<B, "params"> & { params: P };
+type WithParams<B, P> = Omit<B, "params"> & {
+  params: P;
+  properties?: DataSourceProperties;
+};
 
 export type DataSourceSettings = {
   variationIdFormat?: "key" | "index";

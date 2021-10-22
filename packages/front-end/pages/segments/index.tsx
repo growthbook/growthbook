@@ -26,7 +26,7 @@ const SegmentPage: FC = () => {
   }
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.type !== "google_analytics"
+    (d) => d.properties?.segments
   )[0];
 
   if (!hasValidDataSources) {

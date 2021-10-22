@@ -106,10 +106,7 @@ const MetricPage: FC = () => {
 
   const segment = getSegmentById(metric.segment);
 
-  const datasourceSettingsSupport =
-    datasource && !["google_analytics"].includes(datasource.type);
-  const supportsSQL =
-    datasourceSettingsSupport && !["mixpanel"].includes(datasource.type);
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
@@ -448,7 +445,7 @@ const MetricPage: FC = () => {
                 )}
               </RightRailSection>
 
-              {!!datasource && datasource.type !== "google_analytics" && (
+              {datasource?.properties?.hasSettings && (
                 <>
                   <hr />
                   <RightRailSection
@@ -526,7 +523,7 @@ const MetricPage: FC = () => {
                   ]}
                 </RightRailSectionGroup>
 
-                {!!datasource && datasource.type !== "google_analytics" && (
+                {datasource?.properties?.metricCaps && (
                   <RightRailSectionGroup type="code" title="Conversion Window">
                     {metric.conversionWindowHours ||
                       getDefaultConversionWindowHours()}{" "}

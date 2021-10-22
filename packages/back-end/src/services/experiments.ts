@@ -34,6 +34,8 @@ import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
 import { promiseAllChunks } from "../util/promise";
+import { SegmentModel } from "../models/SegmentModel";
+import { SegmentInterface } from "../../types/segment";
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -529,6 +531,15 @@ export async function createSnapshot(
 
   const phase = experiment.phases[phaseIndex];
 
+  let segment: SegmentInterface | null = null;
+  if (experiment.segment) {
+    segment =
+      (await SegmentModel.findOne({
+        id: experiment.segment,
+        organization: experiment.organization,
+      })) || null;
+  }
+
   // Update lastSnapshotAttempt
   experiment.lastSnapshotAttempt = new Date();
   await ExperimentModel.updateOne(
@@ -564,6 +575,7 @@ export async function createSnapshot(
       dimension,
       activationMetric,
       phase,
+      segment,
     });
     selectedMetrics.forEach((m) => {
       queryDocs[m.id] = getExperimentMetric(integration, {
@@ -572,6 +584,7 @@ export async function createSnapshot(
         dimension,
         activationMetric,
         phase,
+        segment,
       });
     });
   }
@@ -604,6 +617,9 @@ export async function createSnapshot(
     dimension: dimensionId || null,
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
+    activationMetric: experiment.activationMetric || "",
+    segment: experiment.segment || "",
+    queryFilter: experiment.queryFilter || "",
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);

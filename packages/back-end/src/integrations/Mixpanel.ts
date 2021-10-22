@@ -328,12 +328,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "api",
       queryLanguage: "javascript",
       metricCaps: true,
-      separateExperimentResultQueries: false,
+      segments: true,
+      dimensions: true,
+      hasSettings: true,
+      events: true,
     };
   }
 
