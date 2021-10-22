@@ -21,6 +21,7 @@ const EditMetricsForm: FC<{
 
   return (
     <Modal
+      autoFocusSelector=""
       header={"Edit Metrics"}
       open={true}
       close={cancel}

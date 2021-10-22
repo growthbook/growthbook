@@ -189,7 +189,7 @@ const Results: FC<{
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">
-              <h3>
+              <h3 className="mb-3">
                 Guardrails
                 {editMetrics && (
                   <a

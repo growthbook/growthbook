@@ -58,7 +58,7 @@ const CompactResults: FC<{
           phase={phase}
           isUpdating={isUpdating}
         />
-        <h3>
+        <h3 className="mb-3">
           Metrics
           {editMetrics && (
             <a

@@ -14,6 +14,7 @@ type ModalProps = {
   error?: string;
   size?: "md" | "lg" | "max";
   inline?: boolean;
+  autoFocusSelector?: string;
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
@@ -33,6 +34,7 @@ const Modal: FC<ModalProps> = ({
   className = "",
   autoCloseOnSubmit = true,
   inline = false,
+  autoFocusSelector = "input,textarea,select",
   solidOverlay = false,
   error: externalError,
 }) => {
@@ -46,10 +48,11 @@ const Modal: FC<ModalProps> = ({
   const bodyRef = useRef<HTMLDivElement>();
   useEffect(() => {
     setTimeout(() => {
+      if (!autoFocusSelector) return;
       if (open && bodyRef.current) {
         const input = bodyRef.current.querySelector<
           HTMLInputElement | HTMLTextAreaElement
-        >("input,textarea,select");
+        >(autoFocusSelector);
         if (input) {
           input.focus();
           if (input.select) {
@@ -58,7 +61,7 @@ const Modal: FC<ModalProps> = ({
         }
       }
     }, 70);
-  }, [open]);
+  }, [open, autoFocusSelector]);
 
   const contents = (
     <div className={`modal-content ${className}`} style={{ maxHeight: "93vh" }}>
