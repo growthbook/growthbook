@@ -85,7 +85,7 @@ const AnalysisForm: FC<{
       />
       {datasource?.properties?.userIds && (
         <Field
-          label="User Id Property"
+          label="User Id Column"
           labelClassName="font-weight-bold"
           {...form.register("userIdType")}
           options={[
@@ -178,7 +178,10 @@ const AnalysisForm: FC<{
                   );
                 })}
             </div>
-            <div>Subqueries are supported for more advanced filtering.</div>
+            <div>
+              <strong>Tip:</strong> Use a subquery inside an <code>IN</code> or{" "}
+              <code>NOT IN</code> clause for more advanced filtering.
+            </div>
           </div>
         </div>
       )}
