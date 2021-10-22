@@ -151,15 +151,18 @@ export async function deleteSegment(
 
   // delete references:
   // ideas:
-  await IdeaModel.updateMany(
-    { organization: org.id, "estimateParams.segment": id },
-    {
-      $unset: { "estimateParams.segment": "" },
-    },
-    {
-      upsert: true,
-    }
-  );
+  const ideas = await getIdeasByQuery({
+    organization: org.id,
+    "estimateParams.segment": id,
+  });
+  if (ideas.length > 0) {
+    await IdeaModel.updateMany(
+      { organization: org.id, "estimateParams.segment": id },
+      {
+        $unset: { "estimateParams.segment": "" },
+      }
+    );
+  }
 
   // metrics
   const metrics = await getMetricsUsingSegment(id, org.id);
