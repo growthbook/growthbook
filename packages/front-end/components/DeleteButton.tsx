@@ -1,4 +1,4 @@
-import { FC, useState, CSSProperties } from "react";
+import { FC, useState, useEffect, CSSProperties } from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
 import Modal from "./Modal";
@@ -11,7 +11,10 @@ const DeleteButton: FC<{
   link?: boolean;
   displayName: string;
   text?: string;
+  title?: string;
+  deleteMessage?: string;
   additionalMessage?: string;
+  getConfirmationContent?: () => Promise<string | React.ReactElement>;
 }> = ({
   onClick,
   className,
@@ -20,9 +23,23 @@ const DeleteButton: FC<{
   outline = true,
   link = false,
   text = "",
+  title = "",
+  deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
+  getConfirmationContent,
 }) => {
   const [confirming, setConfirming] = useState(false);
+  const [dynamicContent, setDynamicContent] = useState<
+    string | React.ReactElement
+  >("");
+
+  useEffect(() => {
+    if (!confirming || !getConfirmationContent) return;
+    getConfirmationContent()
+      .then((c) => setDynamicContent(c))
+      .catch((e) => console.error(e));
+  }, [confirming]);
+
   return (
     <>
       {confirming ? (
@@ -34,7 +51,7 @@ const DeleteButton: FC<{
           submitColor="danger"
           submit={onClick}
         >
-          <p>Are you sure? This action cannot be undone.</p>
+          {dynamicContent ? dynamicContent : <p>{deleteMessage}</p>}
           {additionalMessage && <p>{additionalMessage}</p>}
         </Modal>
       ) : (
@@ -47,6 +64,7 @@ const DeleteButton: FC<{
             : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
           className
         )}
+        title={title}
         href="#"
         style={style}
         onClick={(e) => {

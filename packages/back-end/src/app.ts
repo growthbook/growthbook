@@ -416,11 +416,14 @@ app.post(
 app.get("/segments", segmentsController.getAllSegments);
 app.post("/segments", segmentsController.postSegments);
 app.put("/segments/:id", segmentsController.putSegment);
+app.delete("/segments/:id", segmentsController.deleteSegment);
+app.get("/segments/:id/usage", segmentsController.getSegmentUsage);
 
 // Dimensions
 app.get("/dimensions", dimensionsController.getAllDimensions);
 app.post("/dimensions", dimensionsController.postDimensions);
 app.put("/dimensions/:id", dimensionsController.putDimension);
+app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 
 // Projects
 app.post("/projects", projectsController.postProjects);
