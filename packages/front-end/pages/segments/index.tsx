@@ -35,106 +35,108 @@ const SegmentPage: FC = () => {
 
   const getSegmentUsage = (s: SegmentInterface) => {
     return async () => {
-      const res = await apiCall<{
-        status: number;
-        ideas?: IdeaInterface[];
-        metrics?: MetricInterface[];
-        total?: number;
-      }>(`/segments/${s.id}/usage`, {
-        method: "GET",
-      });
+      try {
+        const res = await apiCall<{
+          status: number;
+          ideas?: IdeaInterface[];
+          metrics?: MetricInterface[];
+          total?: number;
+        }>(`/segments/${s.id}/usage`, {
+          method: "GET",
+        });
 
-      if (res.status !== 200) {
+        const metricLinks = [];
+        const ideaLinks = [];
+        let subtitleText = "This segment is not referenced anywhere else.";
+        if (res.total) {
+          subtitleText = "This segment is referenced in ";
+          const refs = [];
+          if (res.metrics.length) {
+            refs.push(
+              res.metrics.length === 1
+                ? "1 metric"
+                : res.metrics.length + " metrics"
+            );
+            res.metrics.forEach((m) => {
+              metricLinks.push(
+                <Link href={`/metric/${m.id}`}>
+                  <a className="">{m.name}</a>
+                </Link>
+              );
+            });
+          }
+          if (res.ideas.length) {
+            refs.push(
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+            );
+            res.ideas.forEach((i) => {
+              ideaLinks.push(
+                <Link href={`/idea/${i.id}`}>
+                  <a>{i.text}</a>
+                </Link>
+              );
+            });
+          }
+          subtitleText += refs.join(" and ");
+
+          return (
+            <div>
+              <p>{subtitleText}</p>
+              {res.total > 0 && (
+                <>
+                  <div
+                    className="row mx-2 mb-2 mt-1 py-2"
+                    style={{ fontSize: "0.8rem", border: "1px solid #eee" }}
+                  >
+                    {metricLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Metrics:{" "}
+                        <ul className="mb-0 pl-3">
+                          {metricLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {ideaLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Ideas:{" "}
+                        <ul className="mb-0 pl-3">
+                          {ideaLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mb-0">
+                    Deleting this segment will remove these references
+                  </p>
+                </>
+              )}
+              <p>This action cannot be undone.</p>
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error(e);
         return (
           <div className="alert alert-danger">
             An error occurred getting the segment usage
           </div>
         );
       }
-      const metricLinks = [];
-      const ideaLinks = [];
-      let subtitleText = "This segment is not referenced anywhere else.";
-      if (res.total) {
-        subtitleText = "This segment is referenced in ";
-        const refs = [];
-        if (res.metrics.length) {
-          refs.push(
-            res.metrics.length === 1
-              ? "1 metric"
-              : res.metrics.length + " metrics"
-          );
-          res.metrics.forEach((m) => {
-            metricLinks.push(
-              <Link href={`/metric/${m.id}`}>
-                <a className="">{m.name}</a>
-              </Link>
-            );
-          });
-        }
-        if (res.ideas.length) {
-          refs.push(
-            res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
-          );
-          res.ideas.forEach((i) => {
-            ideaLinks.push(
-              <Link href={`/idea/${i.id}`}>
-                <a>{i.text}</a>
-              </Link>
-            );
-          });
-        }
-        subtitleText += refs.join(" and ");
-      }
-
-      return (
-        <div>
-          <p>{subtitleText}</p>
-          {res.total > 0 && (
-            <>
-              <div
-                className="row mx-2 mb-2 mt-1 py-2"
-                style={{ fontSize: "0.8rem", border: "1px solid #eee" }}
-              >
-                {metricLinks.length > 0 && (
-                  <div className="col-6 text-smaller text-left">
-                    Metrics:{" "}
-                    <ul className="mb-0 pl-3">
-                      {metricLinks.map((l, i) => {
-                        return (
-                          <Fragment key={i}>
-                            <li className="">{l}</li>
-                          </Fragment>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-                {ideaLinks.length > 0 && (
-                  <div className="col-6 text-smaller text-left">
-                    Ideas:{" "}
-                    <ul className="mb-0 pl-3">
-                      {ideaLinks.map((l, i) => {
-                        return (
-                          <Fragment key={i}>
-                            <li className="">{l}</li>
-                          </Fragment>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              <p className="mb-0">
-                Deleting this segment will remove{" "}
-                {res.total === 1 ? "this" : "these"} references
-              </p>
-            </>
-          )}
-          <p>This action cannot be undone.</p>
-        </div>
-      );
     };
   };
+
   const hasValidDataSources = !!datasources.filter(
     (d) => d.type !== "google_analytics"
   )[0];
