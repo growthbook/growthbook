@@ -149,16 +149,14 @@ export function validatePasswordFormat(password?: string): string {
 
 async function checkNewInstallation() {
   const doc = await hasOrganization();
-  if (doc) {
-    return false;
+  if (!doc) {
+    // no org found = new install.
+    return true;
   }
 
   const doc2 = await UserModel.findOne();
-  if (doc2) {
-    return false;
-  }
-
-  return true;
+  // if the user and org exists, its not new.
+  return !doc2;
 }
 
 let newInstallationPromise: Promise<boolean>;
