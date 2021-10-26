@@ -33,8 +33,12 @@ const AnalysisForm: FC<{
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
-      dateStarted: new Date(phaseObj?.dateStarted).toISOString().substr(0, 16),
-      dateEnded: new Date(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      dateStarted: new Date(phaseObj?.dateStarted || Date.now())
+        .toISOString()
+        .substr(0, 16),
+      dateEnded: new Date(phaseObj?.dateEnded || Date.now())
+        .toISOString()
+        .substr(0, 16),
     },
   });
   const { apiCall } = useAuth();
