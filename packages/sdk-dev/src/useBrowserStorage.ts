@@ -1,10 +1,16 @@
 import { useState, useEffect } from "react";
 import { Dispatch, SetStateAction } from "react";
 
-const getValueFromLocalStorage = <T>(key: string, defaultValue: T) => {
+type StorageType = "localStorage" | "sessionStorage";
+
+const getValueFromStorage = <T>(
+  storageType: StorageType,
+  key: string,
+  defaultValue: T
+) => {
   let value = defaultValue;
   try {
-    const item = localStorage.getItem(key);
+    const item = window[storageType].getItem(key);
     if (item !== null) {
       value = JSON.parse(item) ?? value;
     }
@@ -14,17 +20,18 @@ const getValueFromLocalStorage = <T>(key: string, defaultValue: T) => {
   return value;
 };
 
-export const useLocalStorage = <T>(
+export const useBrowserStorage = <T>(
+  storageType: StorageType,
   key: string,
   defaultValue: T
 ): [T, Dispatch<SetStateAction<T>>] => {
   const [value, setValue] = useState(() => {
-    return getValueFromLocalStorage(key, defaultValue);
+    return getValueFromStorage(storageType, key, defaultValue);
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      window[storageType].setItem(key, JSON.stringify(value));
     } catch (e) {
       console.error(e);
     }
