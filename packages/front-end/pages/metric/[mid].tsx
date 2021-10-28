@@ -111,6 +111,7 @@ const MetricPage: FC = () => {
   const customizeUserIds = supportsSQL;
 
   const status = getQueryStatus(metric.queries || []);
+  const hasQueries = metric.queries?.length > 0;
 
   return (
     <div className="container-fluid mt-3 pagecontents">
@@ -258,26 +259,6 @@ const MetricPage: FC = () => {
               {!!datasource && (
                 <div>
                   <h3>Data Preview</h3>
-                  {analysis && status === "failed" && (
-                    <div className="alert alert-danger my-3">
-                      Error running the analysis. View Queries for more info
-                    </div>
-                  )}
-                  {analysis && status === "running" && (
-                    <div className="alert alert-info">
-                      Your analysis is currently running. The data below is from
-                      the previous run.
-                    </div>
-                  )}
-                  {analysis &&
-                    status === "succeeded" &&
-                    (metric.segment || analysis.segment) &&
-                    metric.segment !== analysis.segment && (
-                      <div className="alert alert-info">
-                        The graphs below are using an old Segment. Update them
-                        to see the latest numbers.
-                      </div>
-                    )}
                   <div className="row mb-3 align-items-center">
                     {segments.length > 0 && (
                       <div className="col-auto">
@@ -334,6 +315,27 @@ const MetricPage: FC = () => {
                       </form>
                     </div>
                   </div>
+
+                  {hasQueries && status === "failed" && (
+                    <div className="alert alert-danger my-3">
+                      Error running the analysis. View Queries for more info
+                    </div>
+                  )}
+                  {hasQueries && status === "running" && (
+                    <div className="alert alert-info">
+                      Your analysis is currently running.{" "}
+                      {analysis && "The data below is from the previous run."}
+                    </div>
+                  )}
+                  {analysis &&
+                    status === "succeeded" &&
+                    (metric.segment || analysis.segment) &&
+                    metric.segment !== analysis.segment && (
+                      <div className="alert alert-info">
+                        The graphs below are using an old Segment. Update them
+                        to see the latest numbers.
+                      </div>
+                    )}
                   {analysis && (
                     <div className="mb-4">
                       <div className="d-flex flex-row align-items-end">
@@ -408,15 +410,12 @@ const MetricPage: FC = () => {
                     </div>
                   )}
 
-                  {analysis && (
+                  {hasQueries && (
                     <div className="row my-3">
                       <div className="col-auto">
                         <ViewAsyncQueriesButton
-                          queries={
-                            metric.queries?.length > 0
-                              ? metric.queries.map((q) => q.query)
-                              : []
-                          }
+                          queries={metric.queries.map((q) => q.query)}
+                          color={status === "failed" ? "danger" : "info"}
                         />
                       </div>
                     </div>
