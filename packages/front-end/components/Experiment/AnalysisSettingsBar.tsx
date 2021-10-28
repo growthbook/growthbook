@@ -69,9 +69,23 @@ export default function AnalysisSettingsBar({
 
   const { apiCall } = useAuth();
 
-  const filteredDimensions = dimensions.filter(
-    (d) => d.datasource === experiment.datasource
-  );
+  const filteredDimensions = dimensions
+    .filter((d) => d.datasource === experiment.datasource)
+    .map((d) => {
+      return {
+        display: d.name,
+        value: d.id,
+      };
+    });
+
+  if (datasource?.settings?.experimentDimensions?.length > 0) {
+    datasource.settings.experimentDimensions.forEach((d) => {
+      filteredDimensions.push({
+        display: d,
+        value: "exp:" + d,
+      });
+    });
+  }
 
   const status = getQueryStatus(latest?.queries || []);
 
@@ -121,8 +135,8 @@ export default function AnalysisSettingsBar({
               {filteredDimensions.length > 0 && (
                 <optgroup label="Custom">
                   {filteredDimensions.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
+                    <option key={d.value} value={d.value}>
+                      {d.display}
                     </option>
                   ))}
                 </optgroup>
