@@ -36,10 +36,8 @@
   "author": "Jeremy Dorn",
   "peerDependencies": {
     "react": "^16.8.0-0 || ^17.0.0-0",
-    "react-dom": "^16.8.0 || ^17.0.0"
-  },
-  "dependencies": {
-    "@growthbook/growthbook-react": "^0.5.1"
+    "react-dom": "^16.8.0 || ^17.0.0",
+    "@growthbook/growthbook-react": "^0.5.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",
