@@ -255,7 +255,7 @@ export function processPastExperimentQueryResponse(
 function getVariationMap(experiment: ExperimentInterface) {
   const variationMap = new Map<string, number>();
   experiment.variations.forEach((v, i) => {
-    variationMap.set(v.key && v.key.length > 0 ? v.key : i + "", i);
+    variationMap.set(v.key || i + "", i);
   });
   return variationMap;
 }
