@@ -193,7 +193,7 @@ const DimensionsPage: FC = () => {
         </p>
 
         {permissions.organizationSettings && (
-          <Link href="/settings/datasources">
+          <Link href="/datasources">
             <a className="btn btn-outline-primary">View Data Sources</a>
           </Link>
         )}

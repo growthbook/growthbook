@@ -83,11 +83,7 @@ export async function generateExperimentNotebook(
 
   const var_id_map: Record<string, number> = {};
   experiment.variations.forEach((v, i) => {
-    if (datasource.settings?.variationIdFormat === "key" && v.key) {
-      var_id_map[v.key] = i;
-    } else {
-      var_id_map[i + ""] = i;
-    }
+    var_id_map[v.key || i + ""] = i;
   });
 
   const data = JSON.stringify({

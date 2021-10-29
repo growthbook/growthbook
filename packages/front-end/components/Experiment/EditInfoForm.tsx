@@ -9,7 +9,6 @@ import {
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
@@ -23,7 +22,6 @@ const EditInfoForm: FC<{
     settings: { visualEditorEnabled },
   } = useContext(UserContext);
 
-  const { getDatasourceById } = useDefinitions();
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       name: experiment.name || "",
@@ -66,11 +64,6 @@ const EditInfoForm: FC<{
   });
 
   const implementation = form.watch("implementation");
-
-  const datasource = getDatasourceById(experiment.datasource);
-  const variationKeys =
-    (datasource?.settings?.variationIdFormat ||
-      datasource?.settings?.experiments?.variationFormat) === "key";
 
   return (
     <Modal
@@ -180,13 +173,11 @@ const EditInfoForm: FC<{
                   label={i === 0 ? "Control Name" : `Variation ${i} Name`}
                   {...form.register(`variations.${i}.name`)}
                 />
-                {variationKeys && (
-                  <Field
-                    label="Id"
-                    {...form.register(`variations.${i}.key`)}
-                    placeholder={i + ""}
-                  />
-                )}
+                <Field
+                  label="Id"
+                  {...form.register(`variations.${i}.key`)}
+                  placeholder={i + ""}
+                />
                 <Field
                   label="Description"
                   textarea

@@ -145,9 +145,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
-  const variationKeys =
-    (datasource?.settings?.variationIdFormat ||
-      datasource?.settings?.experiments?.variationFormat) === "key";
 
   const { apiCall } = useAuth();
 
@@ -326,13 +323,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     label={i === 0 ? "Control Name" : `Variation ${i} Name`}
                     {...form.register(`variations.${i}.name`)}
                   />
-                  {variationKeys && (
-                    <Field
-                      label="Id"
-                      {...form.register(`variations.${i}.key`)}
-                      placeholder={i + ""}
-                    />
-                  )}
+                  <Field
+                    label="Id"
+                    {...form.register(`variations.${i}.key`)}
+                    placeholder={i + ""}
+                  />
                   <Field
                     label="Description"
                     {...form.register(`variations.${i}.description`)}

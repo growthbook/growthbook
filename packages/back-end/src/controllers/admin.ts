@@ -100,7 +100,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   FROM
     pages`,
       },
-      variationIdFormat: "index",
     }
   );
   const integration = getSourceIntegrationObject(datasource);

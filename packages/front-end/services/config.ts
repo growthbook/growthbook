@@ -43,9 +43,7 @@ export function useConfigJson({
         type: d.type,
         name: d.name,
         params: d.params,
-        settings: {
-          variationIdFormat: d.settings.variationIdFormat ?? "index",
-        },
+        settings: {},
       } as Partial<DataSourceInterfaceWithParams>;
 
       if (d.type === "google_analytics") return;

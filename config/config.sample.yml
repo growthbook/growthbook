@@ -28,7 +28,6 @@ datasources:
             path as url
           FROM
             pages
-      variationIdFormat: index
       experimentDimensions:
         - country
 metrics:
