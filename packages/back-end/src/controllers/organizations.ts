@@ -73,6 +73,7 @@ import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
   findOrganizationsByMemberId,
+  hasOrganization,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
@@ -747,7 +748,13 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
   if (!IS_CLOUD) {
-    throw new Error("An organization already exists");
+    const orgs = await hasOrganization();
+    // there are odd edge cases where a user can exist, but not an org,
+    // so we want to allow org creation this way if there are no other orgs
+    // on a local install.
+    if (orgs) {
+      throw new Error("An organization already exists");
+    }
   }
 
   try {

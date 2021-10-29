@@ -7,8 +7,14 @@ import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import Field from "../Forms/Field";
 import { isCloud } from "../../services/env";
+import useApi from "../../hooks/useApi";
+import LoadingOverlay from "../LoadingOverlay";
 
 export default function CreateOrganization(): ReactElement {
+  const { data } = useApi<{
+    hasOrganizations: boolean;
+  }>("/auth/hasorgs");
+
   const form = useForm({
     defaultValues: {
       company: "",
@@ -17,14 +23,17 @@ export default function CreateOrganization(): ReactElement {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
   const { apiCall, logout } = useAuth();
   const { update } = useContext(UserContext);
+
+  if (!data) {
+    return <LoadingOverlay />;
+  }
 
   const leftside = (
     <>
       <h1 className="title h1">Welcome to GrowthBook</h1>
-      {isCloud() ? (
+      {isCloud() || !data.hasOrganizations ? (
         <p>
           You aren&apos;t part of an organization yet. <br />
           Create a new one here.
@@ -34,6 +43,7 @@ export default function CreateOrganization(): ReactElement {
       )}
     </>
   );
+
   return (
     <>
       <WelcomeFrame leftside={leftside} loading={loading}>
@@ -48,7 +58,7 @@ export default function CreateOrganization(): ReactElement {
         >
           <FiLogOut /> log out
         </a>
-        {isCloud() ? (
+        {isCloud() || !data.hasOrganizations ? (
           <form
             onSubmit={form.handleSubmit(async (value) => {
               if (loading) return;

@@ -10,7 +10,11 @@ import {
   deleteForgotPasswordToken,
   getUserIdFromForgotPasswordToken,
 } from "../models/ForgotPasswordModel";
-import { createOrganization } from "../models/OrganizationModel";
+import {
+  createOrganization,
+  hasOrganization,
+} from "../models/OrganizationModel";
+import { IS_CLOUD } from "../util/secrets";
 import {
   isNewInstallation,
   markInstalled,
@@ -53,6 +57,14 @@ async function successResponse(req: Request, res: Response, userId: string) {
   return res.status(200).json({
     status: 200,
     token,
+  });
+}
+
+export async function getHasOrganizations(req: Request, res: Response) {
+  const hasOrg = IS_CLOUD ? true : await hasOrganization();
+  return res.json({
+    status: 200,
+    hasOrganizations: hasOrg,
   });
 }
 
