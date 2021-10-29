@@ -225,6 +225,7 @@ if (!IS_CLOUD) {
   app.post("/auth/register", authController.postRegister);
   app.post("/auth/firsttime", authController.postFirstTimeRegister);
   app.post("/auth/forgot", authController.postForgotPassword);
+  app.get("/auth/hasorgs", authController.getHasOrganizations);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
