@@ -48,6 +48,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
+  Variation,
 } from "../../types/experiment";
 import {
   deleteMetricById,
@@ -288,6 +289,14 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
   return;
 }
 
+const validateVariationIds = (variations: Variation[]) => {
+  const ids = variations.map((v, i) => v.key || i + "");
+
+  if (ids.length !== new Set(ids).size) {
+    throw new Error("Variation ids must be unique");
+  }
+};
+
 /**
  * Creates a new experiment
  * @param req
@@ -374,7 +383,9 @@ export async function postExperiments(
     data: data.data || "",
     ideaSource: data.ideaSource || "",
   };
+
   try {
+    validateVariationIds(obj.variations || []);
     const experiment = await createExperiment(obj);
 
     await req.audit({
@@ -486,6 +497,10 @@ export async function postExperiment(
         return;
       }
     }
+  }
+
+  if (data.variations) {
+    validateVariationIds(data.variations);
   }
 
   const keys: (keyof ExperimentInterface)[] = [

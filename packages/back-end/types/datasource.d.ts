@@ -51,7 +51,6 @@ type WithParams<B, P> = Omit<B, "params"> & {
 };
 
 export type DataSourceSettings = {
-  variationIdFormat?: "key" | "index";
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   queries?: {
@@ -77,7 +76,6 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     experimentIdColumn?: string;
     variationColumn?: string;
-    variationFormat?: "index" | "key";
   };
   users?: {
     table?: string;

@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
@@ -46,9 +46,15 @@ const AnalysisForm: FC<{
       queryFilter: experiment.queryFilter || "",
       dateStarted: defaultDateStarted.toISOString().substr(0, 16),
       dateEnded: defaultDateEnded.toISOString().substr(0, 16),
+      variations: experiment.variations || [],
     },
   });
   const { apiCall } = useAuth();
+
+  const variations = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
 
   return (
     <Modal
@@ -94,6 +100,25 @@ const AnalysisForm: FC<{
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
       />
+      <div className="form-group">
+        <label className="font-weight-bold">Variation Ids</label>
+        <div className="row align-items-top">
+          {variations.fields.map((v, i) => (
+            <div className="col-auto" key={i}>
+              <Field
+                label={v.name}
+                labelClassName="mb-0"
+                containerClassName="mb-1"
+                {...form.register(`variations.${i}.key`)}
+                placeholder={i + ""}
+              />
+            </div>
+          ))}
+        </div>
+        <small className="form-text text-muted">
+          Will match against the variation_id column in your data source
+        </small>
+      </div>
       {datasource?.properties?.userIds && (
         <Field
           label="User Id Column"

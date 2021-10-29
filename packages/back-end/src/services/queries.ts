@@ -28,7 +28,6 @@ import {
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
-import { DataSourceSettings } from "../../types/datasource";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -206,8 +205,7 @@ export async function getExperimentResults(
         activationMetric,
         dimension
       ),
-    (rows) =>
-      processExperimentResultsResponse(experiment, rows, integration.settings),
+    (rows) => processExperimentResultsResponse(experiment, rows),
     false
   );
 }
@@ -220,12 +218,7 @@ export async function getExperimentUsers(
     integration,
     integration.getExperimentUsersQuery(params),
     (query) => integration.runExperimentUsersQuery(query),
-    (rows) =>
-      processExperimentUsersResponse(
-        params.experiment,
-        rows,
-        integration.settings
-      ),
+    (rows) => processExperimentUsersResponse(params.experiment, rows),
     false
   );
 }
@@ -238,12 +231,7 @@ export async function getExperimentMetric(
     integration,
     integration.getExperimentMetricQuery(params),
     (query) => integration.runExperimentMetricQuery(query),
-    (rows) =>
-      processExperimentMetricQueryResponse(
-        params.experiment,
-        rows,
-        integration.settings
-      ),
+    (rows) => processExperimentMetricQueryResponse(params.experiment, rows),
     false
   );
 }
@@ -264,34 +252,23 @@ export function processPastExperimentQueryResponse(
   };
 }
 
-function getVariationMap(
-  experiment: ExperimentInterface,
-  settings?: DataSourceSettings
-) {
+function getVariationMap(experiment: ExperimentInterface) {
   const variationMap = new Map<string, number>();
   experiment.variations.forEach((v, i) => {
-    if (
-      (settings?.variationIdFormat ||
-        settings?.experiments?.variationFormat) === "key"
-    ) {
-      variationMap.set(v.key && v.key.length > 0 ? v.key : i + "", i);
-    } else {
-      variationMap.set(i + "", i);
-    }
+    variationMap.set(v.key && v.key.length > 0 ? v.key : i + "", i);
   });
   return variationMap;
 }
 
 export function processExperimentMetricQueryResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentMetricQueryResponse,
-  settings?: DataSourceSettings
+  rows: ExperimentMetricQueryResponse
 ): ExperimentMetricResult {
   const ret: ExperimentMetricResult = {
     dimensions: [],
   };
 
-  const variationMap = getVariationMap(experiment, settings);
+  const variationMap = getVariationMap(experiment);
 
   const dimensionMap = new Map<string, number>();
   rows.forEach(({ variation, dimension, count, mean, stddev }) => {
@@ -331,15 +308,14 @@ export function processExperimentMetricQueryResponse(
 
 export function processExperimentResultsResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentQueryResponses,
-  settings?: DataSourceSettings
+  rows: ExperimentQueryResponses
 ): ExperimentResults {
   const ret: ExperimentResults = {
     dimensions: [],
     unknownVariations: [],
   };
 
-  const variationMap = getVariationMap(experiment, settings);
+  const variationMap = getVariationMap(experiment);
 
   const unknownVariations: Map<string, number> = new Map();
   let totalUsers = 0;
@@ -397,15 +373,14 @@ export function processExperimentResultsResponse(
 
 export function processExperimentUsersResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentUsersQueryResponse,
-  settings?: DataSourceSettings
+  rows: ExperimentUsersQueryResponse
 ): ExperimentUsersResult {
   const ret: ExperimentUsersResult = {
     dimensions: [],
     unknownVariations: [],
   };
 
-  const variationMap = getVariationMap(experiment, settings);
+  const variationMap = getVariationMap(experiment);
 
   const unknownVariations: Map<string, number> = new Map();
   let totalUsers = 0;
