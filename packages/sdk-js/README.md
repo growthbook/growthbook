@@ -2,7 +2,7 @@
 
 Powerful A/B testing for Javascript.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.61KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.66KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -12,6 +12,7 @@ Powerful A/B testing for Javascript.
 - Written in **Typescript** with 100% test coverage
 - Flexible experiment **targeting**
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
+- Run mutually exclusive experiments with **namespaces**
 - **Adjust variation weights and targeting** without deploying new code
 
 **Note**: This library is just for running A/B tests in Javascript. To analyze results, use the GrowthBook App (https://github.com/growthbook/growthbook).

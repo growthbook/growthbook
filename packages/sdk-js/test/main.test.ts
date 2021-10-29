@@ -3,6 +3,7 @@ import {
   getBucketRanges,
   chooseVariation,
   hashFnv32a,
+  inNamespace,
 } from "../src/util";
 import { GrowthBook } from "../src";
 import { Experiment } from "../src/types";
@@ -932,5 +933,89 @@ describe("experiments", () => {
     growthbook.destroy();
 
     expect(window._growthbook).toBeUndefined();
+  });
+
+  it("calculates namespace inclusion correctly", () => {
+    let included = 0;
+    for (let i = 0; i < 10000; i++) {
+      if (inNamespace(i + "", ["namespace1", 0, 0.4])) {
+        included++;
+      }
+    }
+    expect(included).toEqual(4042);
+
+    included = 0;
+    for (let i = 0; i < 10000; i++) {
+      if (inNamespace(i + "", ["namespace1", 0.4, 1])) {
+        included++;
+      }
+    }
+    expect(included).toEqual(5958);
+
+    included = 0;
+    for (let i = 0; i < 10000; i++) {
+      if (inNamespace(i + "", ["namespace2", 0, 0.4])) {
+        included++;
+      }
+    }
+    expect(included).toEqual(3984);
+  });
+
+  it("checks namespace when running an experiment", () => {
+    const growthbook = new GrowthBook({
+      user: {
+        id: "1",
+      },
+    });
+    const res1 = growthbook.run({
+      key: "my-test",
+      variations: [0, 1],
+      namespace: ["namespace", 0, 0.1],
+    });
+
+    expect(res1.inExperiment).toEqual(false);
+    expect(res1.variationId).toEqual(0);
+
+    const res2 = growthbook.run({
+      key: "my-test",
+      variations: [0, 1],
+      namespace: ["namespace", 0.1, 1],
+    });
+    expect(res2.inExperiment).toEqual(true);
+    expect(res2.variationId).toEqual(1);
+
+    growthbook.destroy();
+  });
+
+  it("does not have bias when using namespaces", () => {
+    const growthbook = new GrowthBook({
+      user: {
+        id: "1",
+      },
+    });
+
+    const variations: { [key: string]: number } = {
+      "0": 0,
+      "1": 0,
+      "-1": 0,
+    };
+    for (let i = 0; i < 10000; i++) {
+      growthbook.context.user = { id: i + "" };
+      const res = growthbook.run({
+        key: "my-test",
+        variations: ["0", "1"],
+        namespace: ["namespace", 0, 0.5],
+      });
+      const v = res.inExperiment ? res.value : "-1";
+      variations[v]++;
+    }
+
+    expect(variations).toEqual({
+      "-1": 4973,
+      "0": 2538,
+      "1": 2489,
+    });
+
+    growthbook.destroy();
   });
 });

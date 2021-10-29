@@ -6,6 +6,7 @@ import {
   hashFnv32a,
   chooseVariation,
   getQueryStringOverride,
+  inNamespace,
 } from "./util";
 
 export type { Context, Experiment, Result, ExperimentOverride } from "./types";
@@ -161,21 +162,28 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 8. Exclude if experiment.include returns false or throws
+    // 8. Exclude if user not in experiment.namespace
+    if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Exclude because hashValue not in experiment.namespace range");
+      return this.getResult(experiment);
+    }
+
+    // 9. Exclude if experiment.include returns false or throws
     if (experiment.include && !isIncluded(experiment.include)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because experiment.include did not return true");
       return this.getResult(experiment);
     }
 
-    // 9. Exclude if user is not in a required group
+    // 10. Exclude if user is not in a required group
     if (experiment.groups && !this.hasGroupOverlap(experiment.groups)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because user not in required group");
       return this.getResult(experiment);
     }
 
-    // 10. Exclude if not on a targeted url
+    // 11. Exclude if not on a targeted url
     if (experiment.url && !this.urlIsValid(experiment.url)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
@@ -184,52 +192,52 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 11. Experiment has a forced variation
+    // 12. Experiment has a forced variation
     if ("force" in experiment) {
       process.env.NODE_ENV !== "production" &&
         this.log("Forced via experiment");
       return this.getResult(experiment, experiment.force);
     }
 
-    // 12. Exclude if experiment is stopped
+    // 13. Exclude if experiment is stopped
     if (experiment.status === "stopped") {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because status is 'stopped'");
       return this.getResult(experiment);
     }
 
-    // 13. Exclude if in QA mode
+    // 14. Exclude if in QA mode
     if (this.context.qaMode) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because context is in QA mode");
       return this.getResult(experiment);
     }
 
-    // 14. Compute a hash
+    // 15. Compute a hash
     const n = (hashFnv32a(hashValue + experiment.key) % 1000) / 1000;
 
-    // 15. Get bucket ranges
+    // 16. Get bucket ranges
     const ranges = getBucketRanges(
       experiment.variations.length,
       experiment.coverage || 1,
       experiment.weights
     );
 
-    // 16. Assign a variation
+    // 17. Assign a variation
     const assigned = chooseVariation(n, ranges);
 
-    // 17. Return if not in experiment
+    // 18. Return if not in experiment
     if (assigned < 0) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because of coverage");
       return this.getResult(experiment);
     }
 
-    // 18. Fire the tracking callback
+    // 19. Fire the tracking callback
     const result = this.getResult(experiment, assigned, true);
     this.track(experiment, result);
 
-    // 19. Return the result
+    // 20. Return the result
     process.env.NODE_ENV !== "production" &&
       this.log("Assigned variation", result.variationId);
     return result;
