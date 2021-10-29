@@ -1,9 +1,10 @@
 import * as React from "react";
-import { useBrowserStorage } from "./useBrowserStorage";
+// import { useBrowserStorage } from "./useBrowserStorage";
+import { useCookie } from "./useCookie";
 import style from "./style.css";
 
-const storageKey = "gbdev_";
-const storageTypeSession = "sessionStorage";
+// const storageKey = "gbdev_";
+// const storageTypeSession = "sessionStorage";
 // const storageTypeLocal = "localStorage";
 
 export type VariationData = Map<
@@ -22,11 +23,13 @@ export default function VariationSwitcher({
   forceVariation: (key: string, variation: number) => void;
   variations: VariationData;
 }): null | React.ReactElement {
-  const [open, setOpen] = useBrowserStorage<boolean>(
-    storageTypeSession,
-    storageKey + "open",
-    false
-  );
+  // const [open, setOpen] = useBrowserStorage<boolean>(
+  //   storageTypeSession,
+  //   storageKey + "open",
+  //   false
+  // );
+
+  const [open, setOpen] = useCookie<boolean>("open", 10, false);
 
   if (!variations.size) {
     return null;
