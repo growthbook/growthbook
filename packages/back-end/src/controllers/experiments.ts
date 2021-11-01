@@ -1756,9 +1756,10 @@ export async function postSnapshot(
         type: "experiment",
         id: dimension.substr(4),
       };
-    } else if (dimension === "pre:date") {
+    } else if (dimension.substr(0, 4) === "pre:") {
       dimensionArg = {
-        type: "date",
+        // eslint-disable-next-line
+        type: dimension.substr(4) as any,
       };
     } else {
       const obj = await findDimensionById(dimension, org.id);

@@ -130,6 +130,10 @@ export default function AnalysisSettingsBar({
               {supportsSql && (
                 <optgroup label="Built-in">
                   <option value="pre:date">Date</option>
+                  {datasource?.properties?.activationDimension &&
+                    experiment.activationMetric && (
+                      <option value="pre:activation">Activation Status</option>
+                    )}
                 </optgroup>
               )}
               {filteredDimensions.length > 0 && (
