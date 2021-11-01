@@ -88,17 +88,14 @@ const BreakDownResults: FC<{
   return (
     <div className="mb-3">
       <div className="mb-4 px-3">
-        {snapshot.dimension === "pre:activation" &&
-          experiment.activationMetric && (
-            <div className="alert alert-info mt-1">
-              Your experiment has an Activation Metric (
-              <strong>
-                {getMetricById(experiment.activationMetric)?.name}
-              </strong>
-              ). This report lets you compare activated users with those who
-              entered into the experiment, but were not activated.
-            </div>
-          )}
+        {snapshot.dimension === "pre:activation" && snapshot.activationMetric && (
+          <div className="alert alert-info mt-1">
+            Your experiment has an Activation Metric (
+            <strong>{getMetricById(snapshot.activationMetric)?.name}</strong>
+            ). This report lets you compare activated users with those who
+            entered into the experiment, but were not activated.
+          </div>
+        )}
         <h2>Users</h2>
         <table className="table w-auto table-bordered mb-5">
           <thead>
