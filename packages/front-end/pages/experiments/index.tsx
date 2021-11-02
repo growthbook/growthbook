@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -18,7 +18,7 @@ import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, getMetricById } = useDefinitions();
 
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
@@ -28,28 +28,38 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId } = useContext(UserContext);
+  const { getUserDisplay, permissions, userId, users } = useContext(
+    UserContext
+  );
 
   const router = useRouter();
 
-  const {
-    list: experiments,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.experiments || [], [
-    "name",
-    "implementation",
-    "hypothesis",
-    "description",
-    "tags",
-    "trackingKey",
-    "status",
-    "id",
-    "owner",
-    "metrics",
-    "results",
-    "analysis",
-  ]);
+  const transforms = useMemo(() => {
+    return {
+      owner: (orig: string) => getUserDisplay(orig),
+      metrics: (orig: string[]) =>
+        orig.map((m) => getMetricById(m)?.name).filter(Boolean),
+    };
+  }, [getMetricById, users.size]);
+
+  const { list: experiments, searchInputProps, isFiltered } = useSearch(
+    data?.experiments || [],
+    [
+      "name",
+      "implementation",
+      "hypothesis",
+      "description",
+      "tags",
+      "trackingKey",
+      "status",
+      "id",
+      "owner",
+      "metrics",
+      "results",
+      "analysis",
+    ],
+    transforms
+  );
 
   if (error) {
     return (
