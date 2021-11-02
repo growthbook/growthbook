@@ -38,7 +38,7 @@ const ExperimentsPage = (): React.ReactElement => {
     return {
       owner: (orig: string) => getUserDisplay(orig),
       metrics: (orig: string[]) =>
-        orig.map((m) => getMetricById(m)?.name).filter(Boolean),
+        orig?.map((m) => getMetricById(m)?.name)?.filter(Boolean) || [],
     };
   }, [getMetricById, users.size]);
 
