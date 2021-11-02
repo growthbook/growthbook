@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useContext } from "react";
 import { FaCog } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
@@ -64,6 +64,13 @@ export default function AnalysisSettingsBar({
   const supportsSql = datasource?.properties?.queryLanguage === "sql";
   const outdated = isOutdated(experiment, snapshot);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // If an experiment doesn't have an activation metric, don't allow selecting it
+  useEffect(() => {
+    if (dimension === "pre:activation" && !experiment.activationMetric) {
+      setDimension("");
+    }
+  }, [dimension, experiment.activationMetric]);
 
   const { permissions } = useContext(UserContext);
 
@@ -130,6 +137,10 @@ export default function AnalysisSettingsBar({
               {supportsSql && (
                 <optgroup label="Built-in">
                   <option value="pre:date">Date</option>
+                  {datasource?.properties?.activationDimension &&
+                    experiment.activationMetric && (
+                      <option value="pre:activation">Activation Status</option>
+                    )}
                 </optgroup>
               )}
               {filteredDimensions.length > 0 && (

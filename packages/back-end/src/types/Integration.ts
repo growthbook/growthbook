@@ -70,7 +70,14 @@ export type ExperimentDimension = {
 export type DateDimension = {
   type: "date";
 };
-export type Dimension = UserDimension | ExperimentDimension | DateDimension;
+export type ActivationDimension = {
+  type: "activation";
+};
+export type Dimension =
+  | UserDimension
+  | ExperimentDimension
+  | DateDimension
+  | ActivationDimension;
 
 export type ExperimentUsersQueryParams = {
   experiment: ExperimentInterface;

@@ -139,6 +139,7 @@ export default abstract class SqlIntegration
       hasSettings: true,
       userIds: true,
       experimentSegments: true,
+      activationDimension: true,
     };
   }
 
@@ -180,6 +181,9 @@ export default abstract class SqlIntegration
   }
   formatDate(col: string): string {
     return col;
+  }
+  ifElse(condition: string, ifTrue: string, ifFalse: string) {
+    return `(CASE WHEN ${condition} THEN ${ifTrue} ELSE ${ifFalse} END)`;
   }
 
   getPastExperimentQuery(params: PastExperimentParams) {
@@ -662,6 +666,9 @@ export default abstract class SqlIntegration
 
     const userId = experiment.userIdType === "user";
 
+    const activationDimension =
+      activationMetric && dimension?.type === "activation";
+
     return format(
       `-- Number of users in experiment
     WITH
@@ -706,7 +713,8 @@ export default abstract class SqlIntegration
               activationMetric,
               DEFAULT_CONVERSION_WINDOW_HOURS,
               userId
-            )})`
+            )})
+            , __activatedUsers as (${this.getActivatedUsersCTE()})`
           : ""
       }
       , __distinctUsers as (
@@ -721,6 +729,12 @@ export default abstract class SqlIntegration
               ? "e.dimension"
               : dimension?.type === "date"
               ? this.formatDate(this.dateTrunc("e.actual_start"))
+              : activationDimension
+              ? this.ifElse(
+                  "a.user_id IS NULL",
+                  "'Not Activated'",
+                  "'Activated'"
+                )
               : "'All'"
           } as dimension
         FROM
@@ -734,11 +748,9 @@ export default abstract class SqlIntegration
           ${
             activationMetric
               ? `
-          JOIN __activationMetric a ON (
+          ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
             a.user_id = e.user_id
-          ) WHERE
-            a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end`
+          )`
               : ""
           }
         GROUP BY
@@ -758,6 +770,29 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
+
+  private getActivatedUsersCTE() {
+    return `
+      SELECT
+        e.user_id,
+        a.actual_start,
+        a.session_start,
+        a.conversion_end
+      FROM
+        __experiment e
+        JOIN __activationMetric a ON (
+          a.user_id = e.user_id
+        )
+      WHERE
+        a.actual_start >= e.actual_start
+        AND a.actual_start <= e.conversion_end`;
+  }
+
+  private ifNullFallback(nullable: string | null, fallback: string) {
+    if (!nullable) return fallback;
+    return `COALESCE(${nullable}, ${fallback})`;
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric,
@@ -769,6 +804,9 @@ export default abstract class SqlIntegration
     } = params;
 
     const userId = experiment.userIdType === "user";
+
+    const activationDimension =
+      activationMetric && dimension?.type === "activation";
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -821,7 +859,8 @@ export default abstract class SqlIntegration
               activationMetric,
               metric.conversionWindowHours,
               userId
-            )})`
+            )})
+            , __activatedUsers as (${this.getActivatedUsersCTE()})`
           : ""
       }
       , __distinctUsers as (
@@ -836,11 +875,26 @@ export default abstract class SqlIntegration
               ? "e.dimension"
               : dimension?.type === "date"
               ? this.formatDate(this.dateTrunc("e.actual_start"))
+              : activationDimension
+              ? this.ifElse(
+                  "a.user_id IS NULL",
+                  "'Not Activated'",
+                  "'Activated'"
+                )
               : "'All'"
           } as dimension,
-          MIN(${activationMetric ? "a" : "e"}.actual_start) as actual_start,
-          MIN(${activationMetric ? "a" : "e"}.session_start) as session_start,
-          MIN(${activationMetric ? "a" : "e"}.conversion_end) as conversion_end
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.actual_start" : null,
+            "e.actual_start"
+          )}) as actual_start,
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.session_start" : null,
+            "e.session_start"
+          )}) as session_start,
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.conversion_end" : null,
+            "e.conversion_end"
+          )}) as conversion_end
         FROM
           __experiment e
           ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
@@ -852,11 +906,9 @@ export default abstract class SqlIntegration
           ${
             activationMetric
               ? `
-          JOIN __activationMetric a ON (
+          ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
             a.user_id = e.user_id
-          ) WHERE
-            a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end`
+          )`
               : ""
           }
         GROUP BY
