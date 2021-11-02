@@ -67,11 +67,7 @@ export default function AnalysisSettingsBar({
 
   // If an experiment doesn't have an activation metric, don't allow selecting it
   useEffect(() => {
-    if (
-      dimension &&
-      dimension === "pre:activation" &&
-      !experiment.activationMetric
-    ) {
+    if (dimension === "pre:activation" && !experiment.activationMetric) {
       setDimension("");
     }
   }, [dimension, experiment.activationMetric]);
