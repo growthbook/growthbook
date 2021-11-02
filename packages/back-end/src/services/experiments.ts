@@ -5,7 +5,13 @@ import {
 } from "../../types/experiment-snapshot";
 import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { srm, ABTestStats, abtest, getValueCR } from "./stats";
+import {
+  srm,
+  ABTestStats,
+  abtest,
+  getValueCR,
+  mergeMetricStats,
+} from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
@@ -36,6 +42,8 @@ import { FilterQuery } from "mongoose";
 import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
+
+const MAX_DIMENSIONS = 20;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -307,6 +315,21 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
+type RawDimensionData = {
+  [key: string]: {
+    users: number[];
+    metrics: {
+      [key: string]: MetricStats[];
+    };
+  };
+};
+type MergedDimension = {
+  dimension: string;
+  users: number[];
+  metrics: {
+    [key: string]: MetricStats[];
+  };
+};
 type ProcessedSnapshotDimension = {
   name: string;
   srm: number;
@@ -317,10 +340,83 @@ type ProcessedSnapshotData = {
   unknownVariations: string[];
 };
 
+function sortAndMergeDimensions(
+  dimensions: RawDimensionData,
+  ignoreDimensionLimits: boolean = false
+): MergedDimension[] {
+  // Sort dimensions so the ones with the most overall users are first
+  const usersPerDimension = Object.keys(dimensions).map((key) => {
+    return {
+      dimension: key,
+      users: dimensions[key].users.reduce((sum, u) => sum + u, 0),
+    };
+  });
+  usersPerDimension.sort((a, b) => b.users - a.users);
+
+  const res: MergedDimension[] = [];
+
+  const overflowByMetric: Map<
+    string,
+    { users: number[]; values: MetricStats[] }[]
+  > = new Map();
+  const overflowUsers: number[] = [];
+
+  for (let i = 0; i < usersPerDimension.length; i++) {
+    const dimension = usersPerDimension[i].dimension;
+    // For the first few dimension values, keep them as-is
+    if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
+      res.push({
+        dimension,
+        ...dimensions[dimension],
+      });
+    }
+    // For the rest, queue them up to be merged together into an "other" category
+    else {
+      Object.keys(dimensions[dimension].metrics).forEach((m) => {
+        const dims = overflowByMetric.get(m) || [];
+        dims.push({
+          users: dimensions[dimension].users,
+          values: dimensions[dimension].metrics[m],
+        });
+        overflowByMetric.set(m, dims);
+      });
+      dimensions[dimension].users.forEach((u, i) => {
+        overflowUsers[i] = overflowUsers[i] || 0;
+        overflowUsers[i] += u;
+      });
+    }
+  }
+
+  if (overflowByMetric.size > 0) {
+    const overflowDimension: MergedDimension = {
+      dimension: "(other)",
+      users: overflowUsers,
+      metrics: {},
+    };
+    // Merge dimension values together
+    overflowByMetric.forEach((dims, m) => {
+      overflowDimension.metrics[m] = dims.reduce((total, current) => {
+        // First time, just start with the current dimension values
+        if (!total.length) return [...current.values];
+        // After that, merge data from each variation one-by-one
+        for (let i = 0; i < total.length; i++) {
+          total[i] = mergeMetricStats(total[i], current.values[i]);
+        }
+        return total;
+      }, [] as MetricStats[]);
+    });
+
+    res.push(overflowDimension);
+  }
+
+  return res;
+}
+
 export async function processSnapshotData(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
-  queryData: QueryMap
+  queryData: QueryMap,
+  dimension: string | null = null
 ): Promise<ProcessedSnapshotData> {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -329,14 +425,7 @@ export async function processSnapshotData(
   });
 
   // Combine user and metric data into a single data structure
-  const combined: {
-    [key: string]: {
-      users: number[];
-      metrics: {
-        [key: string]: MetricStats[];
-      };
-    };
-  } = {};
+  const combined: RawDimensionData = {};
 
   let unknownVariations: string[] = [];
 
@@ -393,25 +482,27 @@ export async function processSnapshotData(
     });
   }
 
+  // Don't merge when breaking down by date dimension
+  const merged = sortAndMergeDimensions(combined, dimension === "pre:date");
+
   const dimensions: ProcessedSnapshotDimension[] = [];
 
   await promiseAllChunks(
-    Object.keys(combined).map((dimension) => {
+    merged.map(({ dimension, metrics, users }) => {
       return async () => {
-        const row = combined[dimension];
         // One doc per variation
         const variations: SnapshotVariation[] = experiment.variations.map(
           (v, i) => ({
-            users: row.users[i] || 0,
+            users: users[i] || 0,
             metrics: {},
           })
         );
 
         // Calculate metric stats
         await promiseAllChunks(
-          Object.keys(row.metrics).map((k) => {
+          Object.keys(metrics).map((k) => {
             return async () => {
-              const v = row.metrics[k];
+              const v = metrics[k];
               const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
               await Promise.all(
@@ -589,11 +680,6 @@ export async function createSnapshot(
     });
   }
 
-  const { queries, result: results } = await startRun(
-    queryDocs,
-    async (queryData) => processSnapshotData(experiment, phase, queryData)
-  );
-
   const dimensionId =
     (!dimension
       ? null
@@ -602,6 +688,12 @@ export async function createSnapshot(
       : dimension.type === "experiment"
       ? "exp:" + dimension.id
       : "pre:" + dimension.type) || null;
+
+  const { queries, result: results } = await startRun(
+    queryDocs,
+    async (queryData) =>
+      processSnapshotData(experiment, phase, queryData, dimensionId)
+  );
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),

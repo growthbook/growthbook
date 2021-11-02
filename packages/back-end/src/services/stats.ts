@@ -20,6 +20,49 @@ export interface ABTestStats {
 }
 
 /**
+ * Calculates a combined standard deviation of two sets of data
+ */
+function correctStddev(
+  n: number,
+  x: number,
+  sx: number,
+  m: number,
+  y: number,
+  sy: number
+) {
+  const s2x = Math.pow(sx, 2);
+  const s2y = Math.pow(sy, 2);
+  const t = n + m;
+
+  // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+  return Math.sqrt(
+    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
+      (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
+  );
+}
+
+/**
+ * This combines two sets of count/mean/stddev into one
+ * using the necessary statistical corrections
+ */
+export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
+  const newStdDev = correctStddev(
+    a.count,
+    a.mean,
+    a.stddev,
+    b.count,
+    b.mean,
+    b.stddev
+  );
+
+  return {
+    count: a.count + b.count,
+    mean: (a.count * a.mean + b.count * b.mean) / (a.count + b.count),
+    stddev: newStdDev,
+  };
+}
+
+/**
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */

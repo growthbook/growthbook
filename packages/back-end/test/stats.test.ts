@@ -1,4 +1,4 @@
-import { getValueCR } from "../src/services/stats";
+import { getValueCR, mergeMetricStats } from "../src/services/stats";
 import { MetricInterface } from "../types/metric";
 
 const baseMetric: MetricInterface = {
@@ -18,6 +18,26 @@ const baseMetric: MetricInterface = {
 };
 
 describe("stats", () => {
+  it("merges metric stats", () => {
+    const a = {
+      count: 100,
+      mean: 10,
+      stddev: 5,
+    };
+    const b = {
+      count: 150,
+      mean: 15,
+      stddev: 3,
+    };
+    const merged = mergeMetricStats(a, b);
+
+    expect(merged).toEqual({
+      count: 250,
+      mean: 13,
+      stddev: 4.62054083310184,
+    });
+  });
+
   it("gets value and conversion rate", () => {
     expect(
       getValueCR(

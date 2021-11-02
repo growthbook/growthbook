@@ -1607,7 +1607,8 @@ export async function getSnapshotStatus(
   const result = await getStatusEndpoint(
     snapshot,
     org.id,
-    (queryData) => processSnapshotData(experiment, phase, queryData),
+    (queryData) =>
+      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
     async (updates, results) => {
       await ExperimentSnapshotModel.updateOne(
         {
