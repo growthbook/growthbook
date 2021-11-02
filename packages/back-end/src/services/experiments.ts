@@ -366,34 +366,42 @@ function sortAndMergeDimensions(
     { users: number[]; values: MetricStats[] }[]
   > = new Map();
   const overflowUsers: number[] = [];
+  let hasOverflow = false;
 
-  for (let i = 0; i < usersPerDimension.length; i++) {
-    const dimension = usersPerDimension[i].dimension;
+  usersPerDimension.forEach(({ dimension }, i) => {
+    const orig = dimensions[dimension];
+    if (!orig) return;
+
     // For the first few dimension values, keep them as-is
     if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
       res.push({
         dimension,
-        ...dimensions[dimension],
+        ...orig,
       });
     }
     // For the rest, queue them up to be merged together into an "other" category
     else {
+      hasOverflow = true;
       Object.keys(dimensions[dimension].metrics).forEach((m) => {
-        const dims = overflowByMetric.get(m) || [];
-        dims.push({
-          users: dimensions[dimension].users,
-          values: dimensions[dimension].metrics[m],
-        });
-        overflowByMetric.set(m, dims);
+        if (!orig.metrics[m]) return;
+
+        const existing = overflowByMetric.get(m) || [];
+        overflowByMetric.set(m, [
+          ...existing,
+          {
+            users: orig.users,
+            values: orig.metrics[m],
+          },
+        ]);
       });
-      dimensions[dimension].users.forEach((u, i) => {
+      orig.users.forEach((u, i) => {
         overflowUsers[i] = overflowUsers[i] || 0;
         overflowUsers[i] += u;
       });
     }
-  }
+  });
 
-  if (overflowByMetric.size > 0) {
+  if (hasOverflow) {
     const overflowDimension: MergedDimension = {
       dimension: "(other)",
       users: overflowUsers,
