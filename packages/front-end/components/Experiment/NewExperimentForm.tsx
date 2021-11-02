@@ -21,6 +21,7 @@ import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import { getValidDate } from "../../services/dates";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -90,12 +91,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? [
         {
           coverage: 1,
-          dateStarted: new Date(
-            initialValue.phases?.[0]?.dateStarted || Date.now()
-          )
+          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
-          dateEnded: new Date(initialValue.phases?.[0]?.dateEnded || Date.now())
+          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
           phase: "main",

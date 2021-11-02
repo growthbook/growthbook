@@ -4,7 +4,7 @@ import { useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
-import { datetime, ago } from "../../services/dates";
+import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
@@ -178,8 +178,8 @@ const ExperimentsPage = (): React.ReactElement => {
                 {byStatus.myDrafts
                   .sort(
                     (a, b) =>
-                      new Date(b.dateCreated).getTime() -
-                      new Date(a.dateCreated).getTime()
+                      getValidDate(b.dateCreated).getTime() -
+                      getValidDate(a.dateCreated).getTime()
                   )
                   .slice(0, draftsExpanded ? 20 : 3)
                   .map((e) => {
@@ -283,10 +283,10 @@ const ExperimentsPage = (): React.ReactElement => {
                     {byStatus.running
                       .sort(
                         (a, b) =>
-                          new Date(
+                          getValidDate(
                             b.phases[b.phases.length - 1]?.dateStarted
                           ).getTime() -
-                          new Date(
+                          getValidDate(
                             a.phases[a.phases.length - 1]?.dateStarted
                           ).getTime()
                       )
@@ -364,8 +364,8 @@ const ExperimentsPage = (): React.ReactElement => {
                     {byStatus.draft
                       .sort(
                         (a, b) =>
-                          new Date(b.dateCreated).getTime() -
-                          new Date(a.dateCreated).getTime()
+                          getValidDate(b.dateCreated).getTime() -
+                          getValidDate(a.dateCreated).getTime()
                       )
                       .map((e) => {
                         return (
@@ -442,10 +442,10 @@ const ExperimentsPage = (): React.ReactElement => {
                     {byStatus.stopped
                       .sort(
                         (a, b) =>
-                          new Date(
+                          getValidDate(
                             b.phases[b.phases.length - 1]?.dateEnded
                           ).getTime() -
-                          new Date(
+                          getValidDate(
                             a.phases[a.phases.length - 1]?.dateEnded
                           ).getTime()
                       )

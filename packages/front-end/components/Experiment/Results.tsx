@@ -14,7 +14,7 @@ import GuardrailResults from "./GuardrailResult";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
 import { useAuth } from "../../services/auth";
-import { ago } from "../../services/dates";
+import { ago, getValidDate } from "../../services/dates";
 import Button from "../Button";
 import { useEffect } from "react";
 import DateResults from "./DateResults";
@@ -85,7 +85,7 @@ const Results: FC<{
 
   const phaseAgeMinutes =
     (Date.now() -
-      new Date(experiment.phases?.[phase]?.dateStarted || 0).getTime()) /
+      getValidDate(experiment.phases?.[phase]?.dateStarted).getTime()) /
     (1000 * 60);
 
   return (
