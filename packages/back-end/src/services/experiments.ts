@@ -43,7 +43,7 @@ import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 
-const MAX_DIMENSIONS = 20;
+const MAX_DIMENSIONS = 19;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -352,6 +352,12 @@ function sortAndMergeDimensions(
     };
   });
   usersPerDimension.sort((a, b) => b.users - a.users);
+
+  // Wait until the "(other)" category will have at least 2 dimension values
+  const numDimensions = usersPerDimension.length;
+  if (numDimensions === MAX_DIMENSIONS + 1) {
+    ignoreDimensionLimits = true;
+  }
 
   const res: MergedDimension[] = [];
 
