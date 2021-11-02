@@ -642,6 +642,14 @@ export async function postExperimentArchive(
     res.status(200).json({
       status: 200,
     });
+
+    await req.audit({
+      event: "experiment.archive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
+    });
   } catch (e) {
     res.status(400).json({
       status: 400,
@@ -685,6 +693,14 @@ export async function postExperimentUnarchive(
     // TODO: audit
     res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "experiment.unarchive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
     });
   } catch (e) {
     res.status(400).json({
@@ -1052,6 +1068,14 @@ export async function deleteMetric(
   // 'deleted' instead of actually deleting the document.
   await deleteMetricById(metric.id, org.id);
 
+  await req.audit({
+    event: "metric.delete",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -1325,8 +1349,16 @@ export async function postMetricAnalysis(
       throw new Error("Cannot analyze manual metrics");
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "metric.analysis",
+      entity: {
+        object: "metric",
+        id: metric.id,
+      },
     });
   } catch (e) {
     return res.status(400).json({
@@ -1466,6 +1498,15 @@ export async function postMetrics(
     status: 200,
     metric,
   });
+
+  await req.audit({
+    event: "metric.create",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(metric),
+  });
 }
 
 export async function putMetric(
@@ -1527,6 +1568,15 @@ export async function putMetric(
 
   res.status(200).json({
     status: 200,
+  });
+
+  await req.audit({
+    event: "metric.update",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(updates),
   });
 }
 
@@ -2061,6 +2111,7 @@ export async function postPastExperiments(
     datasource,
     organization: org.id,
   });
+  let runStarted = false;
   if (!model) {
     const { queries, result } = await startRun(
       {
@@ -2082,6 +2133,7 @@ export async function postPastExperiments(
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
+    runStarted = true;
   } else if (force) {
     const { queries, result } = await startRun(
       {
@@ -2099,10 +2151,21 @@ export async function postPastExperiments(
       model.set("experiments", result);
     }
     await model.save();
+    runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
     id: model.id,
   });
+
+  if (runStarted) {
+    await req.audit({
+      event: "datasource.import",
+      entity: {
+        object: "datasource",
+        id: datasource,
+      },
+    });
+  }
 }
