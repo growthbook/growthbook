@@ -2,7 +2,7 @@ import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
 import { FC, useMemo } from "react";
 import { formatConversionRate } from "../../services/metrics";
-import { date } from "../../services/dates";
+import { date, getValidDate } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -76,8 +76,8 @@ const DateGraph: FC<{
             { d, v, u, s }
           ) => {
             const key = (groupby === "day"
-              ? new Date(d)
-              : setDay(new Date(d), 0)
+              ? getValidDate(d)
+              : setDay(getValidDate(d), 0)
             ).getTime();
 
             const users = u || 1;

@@ -5,6 +5,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import { getValidDate } from "../../services/dates";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -26,17 +27,6 @@ const AnalysisForm: FC<{
 
   const phaseObj = experiment.phases[phase];
 
-  let defaultDateStarted = new Date(phaseObj?.dateStarted || Date.now());
-  // check for a valid date:
-  if (!+defaultDateStarted) {
-    defaultDateStarted = new Date();
-  }
-  let defaultDateEnded = new Date(phaseObj?.dateEnded || Date.now());
-  // check for a valid date:
-  if (!+defaultDateEnded) {
-    defaultDateEnded = new Date();
-  }
-
   const form = useForm({
     defaultValues: {
       userIdType: experiment.userIdType || "anonymous",
@@ -44,8 +34,10 @@ const AnalysisForm: FC<{
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
-      dateStarted: defaultDateStarted.toISOString().substr(0, 16),
-      dateEnded: defaultDateEnded.toISOString().substr(0, 16),
+      dateStarted: getValidDate(phaseObj?.dateStarted)
+        .toISOString()
+        .substr(0, 16),
+      dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
       variations: experiment.variations || [],
     },
   });

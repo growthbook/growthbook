@@ -65,6 +65,7 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
 import { getAdjustedStats } from "../services/stats";
+import { getValidDate } from "../util/dates";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -128,7 +129,7 @@ export async function getExperimentsFrequencyMonth(
         }
       });
     }
-    const monthYear = format(new Date(dateStarted || new Date()), "MMM yyy");
+    const monthYear = format(getValidDate(dateStarted), "MMM yyy");
 
     allData.forEach((md, i) => {
       if (md.name === monthYear) {
@@ -572,10 +573,10 @@ export async function postExperiment(
     phases[Math.floor(currentPhase * 1)] = phaseClone;
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = new Date(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
     }
     if (exp.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = new Date(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
     }
     exp.set("phases", phases);
   }
@@ -735,7 +736,7 @@ export async function postExperimentStop(
   if (phases.length) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
-      dateEnded: dateEnded ? new Date(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
       reason,
     };
     exp.set("phases", phases);
@@ -903,7 +904,7 @@ export async function postExperimentPhase(
     return;
   }
 
-  const date = dateStarted ? new Date(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...exp.toJSON().phases];
   // Already has phases
@@ -1162,7 +1163,7 @@ async function getMetricAnalysis(
       total += dateTotal;
       count += d.count || 0;
       dates.push({
-        d: new Date(d.date),
+        d: getValidDate(d.date),
         v: mean,
         u: averageBase,
         s: stddev,

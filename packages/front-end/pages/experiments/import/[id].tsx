@@ -10,7 +10,7 @@ import RunQueriesButton, {
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
 import useApi from "../../../hooks/useApi";
 import { useAuth } from "../../../services/auth";
-import { date } from "../../../services/dates";
+import { date, getValidDate } from "../../../services/dates";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../../services/DefinitionsContext";
@@ -193,18 +193,18 @@ const ImportPage: FC = () => {
                                 reason: "",
                                 variationWeights: e.weights,
                                 dateStarted:
-                                  new Date(e.startDate)
+                                  getValidDate(e.startDate)
                                     .toISOString()
                                     .substr(0, 10) + "T00:00:00Z",
                                 dateEnded:
-                                  new Date(e.endDate)
+                                  getValidDate(e.endDate)
                                     .toISOString()
                                     .substr(0, 10) + "T23:59:59Z",
                               },
                             ],
                             // Default to stopped if the last data was more than 3 days ago
                             status:
-                              new Date(e.endDate).getTime() <
+                              getValidDate(e.endDate).getTime() <
                               Date.now() - 72 * 60 * 60 * 1000
                                 ? "stopped"
                                 : "running",

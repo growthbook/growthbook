@@ -1,4 +1,5 @@
 import { formatDistance } from "date-fns";
+import { getValidDate } from "../../services/dates";
 
 export default function NotEnoughData({
   phaseStart,
@@ -21,11 +22,11 @@ export default function NotEnoughData({
     Math.max(variationValue, baselineValue) / minSampleSize
   );
 
-  const snapshotCreatedTime = new Date(snapshotCreated).getTime();
+  const snapshotCreatedTime = getValidDate(snapshotCreated).getTime();
 
   const msRemaining =
     percentComplete > 0.1
-      ? ((snapshotCreatedTime - new Date(phaseStart).getTime()) *
+      ? ((snapshotCreatedTime - getValidDate(phaseStart).getTime()) *
           (1 - percentComplete)) /
           percentComplete -
         (Date.now() - snapshotCreatedTime)

@@ -9,6 +9,7 @@ import ExperimentDateGraph, {
 import { formatConversionRate } from "../../services/metrics";
 import { useState } from "react";
 import Toggle from "../Forms/Toggle";
+import { getValidDate } from "../../services/dates";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -37,12 +38,12 @@ const DateResults: FC<{
     const total: number[] = [];
     const sortedResults = [...snapshot.results];
     sortedResults.sort((a, b) => {
-      return new Date(a.name).getTime() - new Date(b.name).getTime();
+      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     return sortedResults.map((d) => {
       return {
-        d: new Date(d.name),
+        d: getValidDate(d.name),
         variations: experiment.variations.map((v, i) => {
           const users = d.variations[i]?.users || 0;
           total[i] = total[i] || 0;
@@ -61,7 +62,7 @@ const DateResults: FC<{
   const metrics = useMemo<Metric[]>(() => {
     const sortedResults = [...snapshot.results];
     sortedResults.sort((a, b) => {
-      return new Date(a.name).getTime() - new Date(b.name).getTime();
+      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     // Merge goal and guardrail metrics
@@ -77,7 +78,7 @@ const DateResults: FC<{
 
           const datapoints = sortedResults.map((d) => {
             return {
-              d: new Date(d.name),
+              d: getValidDate(d.name),
               variations: experiment.variations.map((v, i) => {
                 const stats = d.variations[i]?.metrics?.[metricId];
                 const uplift = stats?.uplift;

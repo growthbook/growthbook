@@ -28,6 +28,7 @@ import {
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
+import { getValidDate } from "../util/dates";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -245,8 +246,8 @@ export function processPastExperimentQueryResponse(
         users: row.users,
         experiment_id: row.experiment_id,
         variation_id: row.variation_id,
-        end_date: new Date(row.end_date),
-        start_date: new Date(row.start_date),
+        end_date: getValidDate(row.end_date),
+        start_date: getValidDate(row.start_date),
       };
     }),
   };
