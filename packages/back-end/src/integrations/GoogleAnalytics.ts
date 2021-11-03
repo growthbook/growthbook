@@ -34,6 +34,22 @@ export function getOauth2Client() {
   );
 }
 
+// Transforms YYYYMMDD to ISO format (or empty string)
+function convertDate(rawDate: string): string {
+  if (rawDate.match(/^[0-9]{8}$/)) {
+    return (
+      rawDate.slice(0, 4) +
+      "-" +
+      rawDate.slice(4, 6) +
+      "-" +
+      rawDate.slice(6, 8) +
+      "T12:00:00Z"
+    );
+  }
+
+  return "";
+}
+
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
@@ -128,8 +144,11 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     const correctedRows = rows.map((row) => {
       const users = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
       totalUsers += users;
+
+      const date = convertDate(row.dimensions?.[0] || "");
+
       return {
-        date: (row.dimensions?.[0] || "") + "T12:00:00Z",
+        date,
         users,
       };
     });
@@ -153,7 +172,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           metric
         );
       rows.forEach((row) => {
-        const date = (row.dimensions?.[0] || "") + "T12:00:00Z";
+        const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
         const users = parseInt(row.metrics?.[1]?.values?.[0] || "") || 0;
 
