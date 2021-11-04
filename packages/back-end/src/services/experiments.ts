@@ -342,6 +342,7 @@ type ProcessedSnapshotData = {
 
 function sortAndMergeDimensions(
   dimensions: RawDimensionData,
+  numVariations: number,
   ignoreDimensionLimits: boolean = false
 ): MergedDimension[] {
   // Sort dimensions so the ones with the most overall users are first
@@ -409,14 +410,20 @@ function sortAndMergeDimensions(
     };
     // Merge dimension values together
     overflowByMetric.forEach((dims, m) => {
-      overflowDimension.metrics[m] = dims.reduce((total, current) => {
-        // First time, just start with the current dimension values
-        if (!total.length) return [...current.values];
-        // After that, merge data from each variation one-by-one
-        for (let i = 0; i < total.length; i++) {
-          total[i] = mergeMetricStats(total[i], current.values[i]);
+      overflowDimension.metrics[m] = dims.reduce((old, current) => {
+        const merged = [...old];
+
+        for (let i = 0; i < numVariations; i++) {
+          // If there's no old value, just use the new one (if it exists)
+          if (!merged[i]) {
+            if (current.values[i]) merged[i] = current.values[i];
+          }
+          // Merge the old and new values together
+          else if (current.values[i]) {
+            merged[i] = mergeMetricStats(merged[i], current.values[i]);
+          }
         }
-        return total;
+        return merged;
       }, [] as MetricStats[]);
     });
 
@@ -497,7 +504,11 @@ export async function processSnapshotData(
   }
 
   // Don't merge when breaking down by date dimension
-  const merged = sortAndMergeDimensions(combined, dimension === "pre:date");
+  const merged = sortAndMergeDimensions(
+    combined,
+    experiment.variations.length,
+    dimension === "pre:date"
+  );
 
   const dimensions: ProcessedSnapshotDimension[] = [];
 
