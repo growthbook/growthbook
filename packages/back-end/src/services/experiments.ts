@@ -362,55 +362,52 @@ function sortAndMergeDimensions(
 
   const res: MergedDimension[] = [];
 
-  const overflowByMetric: Map<
+  const otherMetrics: Map<
     string,
     { users: number[]; values: MetricStats[] }[]
   > = new Map();
-  const overflowUsers: number[] = [];
+  const otherUsers: number[] = [];
   let hasOverflow = false;
 
   usersPerDimension.forEach(({ dimension }, i) => {
-    const orig = dimensions[dimension];
-    if (!orig) return;
+    const data = dimensions[dimension];
+    if (!data) return;
 
     // For the first few dimension values, keep them as-is
     if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
       res.push({
         dimension,
-        ...orig,
+        ...data,
       });
     }
     // For the rest, queue them up to be merged together into an "other" category
     else {
       hasOverflow = true;
-      Object.keys(dimensions[dimension].metrics).forEach((m) => {
-        if (!orig.metrics[m]) return;
-
-        const existing = overflowByMetric.get(m) || [];
-        overflowByMetric.set(m, [
-          ...existing,
+      Object.keys(data.metrics).forEach((m) => {
+        otherMetrics.set(m, [
+          ...(otherMetrics.get(m) || []),
           {
-            users: orig.users,
-            values: orig.metrics[m],
+            users: data.users,
+            values: data.metrics[m],
           },
         ]);
       });
-      orig.users.forEach((u, i) => {
-        overflowUsers[i] = overflowUsers[i] || 0;
-        overflowUsers[i] += u;
+      data.users.forEach((u, i) => {
+        otherUsers[i] = otherUsers[i] || 0;
+        otherUsers[i] += u;
       });
     }
   });
 
   if (hasOverflow) {
-    const overflowDimension: MergedDimension = {
+    const otherDimension: MergedDimension = {
       dimension: "(other)",
-      users: overflowUsers,
+      users: otherUsers,
       metrics: {},
     };
-    // Merge dimension values together
-    overflowByMetric.forEach((dims, m) => {
-      overflowDimension.metrics[m] = dims.reduce((old, current) => {
+    // Merge dimension values together for each metric
+    otherMetrics.forEach((metricStats, m) => {
+      otherDimension.metrics[m] = metricStats.reduce((old, current) => {
         const merged = [...old];
 
         for (let i = 0; i < numVariations; i++) {
@@ -427,7 +424,7 @@ function sortAndMergeDimensions(
       }, [] as MetricStats[]);
     });
 
-    res.push(overflowDimension);
+    res.push(otherDimension);
   }
 
   return res;
