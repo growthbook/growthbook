@@ -65,6 +65,7 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
 import { addNonconvertingUsersToStats } from "../services/stats";
+import { getValidDate } from "../util/dates";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -128,7 +129,7 @@ export async function getExperimentsFrequencyMonth(
         }
       });
     }
-    const monthYear = format(new Date(dateStarted || new Date()), "MMM yyy");
+    const monthYear = format(getValidDate(dateStarted), "MMM yyy");
 
     allData.forEach((md, i) => {
       if (md.name === monthYear) {
@@ -572,10 +573,10 @@ export async function postExperiment(
     phases[Math.floor(currentPhase * 1)] = phaseClone;
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = new Date(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
     }
     if (exp.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = new Date(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
     }
     exp.set("phases", phases);
   }
@@ -642,6 +643,14 @@ export async function postExperimentArchive(
     res.status(200).json({
       status: 200,
     });
+
+    await req.audit({
+      event: "experiment.archive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
+    });
   } catch (e) {
     res.status(400).json({
       status: 400,
@@ -685,6 +694,14 @@ export async function postExperimentUnarchive(
     // TODO: audit
     res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "experiment.unarchive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
     });
   } catch (e) {
     res.status(400).json({
@@ -735,7 +752,7 @@ export async function postExperimentStop(
   if (phases.length) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
-      dateEnded: dateEnded ? new Date(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
       reason,
     };
     exp.set("phases", phases);
@@ -903,7 +920,7 @@ export async function postExperimentPhase(
     return;
   }
 
-  const date = dateStarted ? new Date(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...exp.toJSON().phases];
   // Already has phases
@@ -1052,6 +1069,14 @@ export async function deleteMetric(
   // 'deleted' instead of actually deleting the document.
   await deleteMetricById(metric.id, org.id);
 
+  await req.audit({
+    event: "metric.delete",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -1165,7 +1190,7 @@ async function getMetricAnalysis(
       total += dateTotal;
       count += d.count || 0;
       dates.push({
-        d: new Date(d.date),
+        d: getValidDate(d.date),
         v: mean,
         u: averageBase,
         s: stddev,
@@ -1328,8 +1353,16 @@ export async function postMetricAnalysis(
       throw new Error("Cannot analyze manual metrics");
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "metric.analysis",
+      entity: {
+        object: "metric",
+        id: metric.id,
+      },
     });
   } catch (e) {
     return res.status(400).json({
@@ -1469,6 +1502,15 @@ export async function postMetrics(
     status: 200,
     metric,
   });
+
+  await req.audit({
+    event: "metric.create",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(metric),
+  });
 }
 
 export async function putMetric(
@@ -1530,6 +1572,15 @@ export async function putMetric(
 
   res.status(200).json({
     status: 200,
+  });
+
+  await req.audit({
+    event: "metric.update",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(updates),
   });
 }
 
@@ -2065,6 +2116,7 @@ export async function postPastExperiments(
     datasource,
     organization: org.id,
   });
+  let runStarted = false;
   if (!model) {
     const { queries, result } = await startRun(
       {
@@ -2086,6 +2138,7 @@ export async function postPastExperiments(
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
+    runStarted = true;
   } else if (force) {
     const { queries, result } = await startRun(
       {
@@ -2103,10 +2156,21 @@ export async function postPastExperiments(
       model.set("experiments", result);
     }
     await model.save();
+    runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
     id: model.id,
   });
+
+  if (runStarted) {
+    await req.audit({
+      event: "datasource.import",
+      entity: {
+        object: "datasource",
+        id: datasource,
+      },
+    });
+  }
 }

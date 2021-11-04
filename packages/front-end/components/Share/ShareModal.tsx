@@ -9,7 +9,7 @@ import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import Preview from "./Preview";
-import { ago, datetime } from "../../services/dates";
+import { ago, datetime, getValidDate } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
@@ -382,10 +382,12 @@ const ShareModal = ({
               {byStatus[status]
                 .sort(
                   (a, b) =>
-                    new Date(
+                    getValidDate(
                       b.phases[b.phases.length - 1]?.dateEnded
                     ).getTime() -
-                    new Date(a.phases[a.phases.length - 1]?.dateEnded).getTime()
+                    getValidDate(
+                      a.phases[a.phases.length - 1]?.dateEnded
+                    ).getTime()
                 )
                 .map((e: ExperimentInterfaceStringDates) => {
                   const phase = e.phases[e.phases.length - 1];

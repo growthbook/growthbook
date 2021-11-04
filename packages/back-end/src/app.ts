@@ -225,10 +225,10 @@ if (!IS_CLOUD) {
   app.post("/auth/register", authController.postRegister);
   app.post("/auth/firsttime", authController.postFirstTimeRegister);
   app.post("/auth/forgot", authController.postForgotPassword);
-  app.get("/auth/hasorgs", authController.getHasOrganizations);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.

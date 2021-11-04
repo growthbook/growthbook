@@ -28,6 +28,7 @@ import {
   processMetricValueQueryResponse,
   processUsersQueryResponse,
 } from "../services/queries";
+import { getValidDate } from "../util/dates";
 
 const percentileNumbers = [
   0.01,
@@ -171,7 +172,7 @@ export default abstract class SqlIntegration
   }
   // eslint-disable-next-line
   convertDate(fromDB: any): Date {
-    return new Date(fromDB);
+    return getValidDate(fromDB);
   }
   stddev(col: string) {
     return `STDDEV(${col})`;
