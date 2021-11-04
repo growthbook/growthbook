@@ -64,7 +64,7 @@ import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
-import { getAdjustedStats } from "../services/stats";
+import { addNonconvertingUsersToStats } from "../services/stats";
 import { getValidDate } from "../util/dates";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
@@ -1179,7 +1179,10 @@ async function getMetricAnalysis(
     metricData.dates.forEach((d) => {
       const { mean, stddev } = metric.ignoreNulls
         ? { mean: d.mean, stddev: d.stddev }
-        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
+        : addNonconvertingUsersToStats(
+            d as MetricStats,
+            userDateMap.get(d.date + "") || 0
+          );
 
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
@@ -1658,7 +1661,8 @@ export async function getSnapshotStatus(
   const result = await getStatusEndpoint(
     snapshot,
     org.id,
-    (queryData) => processSnapshotData(experiment, phase, queryData),
+    (queryData) =>
+      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
     async (updates, results) => {
       await ExperimentSnapshotModel.updateOne(
         {

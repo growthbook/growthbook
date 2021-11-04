@@ -5,7 +5,13 @@ import {
 } from "../../types/experiment-snapshot";
 import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { srm, ABTestStats, abtest, getValueCR } from "./stats";
+import {
+  srm,
+  ABTestStats,
+  abtest,
+  getValueCR,
+  mergeMetricStats,
+} from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
@@ -36,6 +42,8 @@ import { FilterQuery } from "mongoose";
 import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
+
+const MAX_DIMENSIONS = 20;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -307,6 +315,21 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
+type RawDimensionData = {
+  [key: string]: {
+    users: number[];
+    metrics: {
+      [key: string]: MetricStats[];
+    };
+  };
+};
+type MergedDimension = {
+  dimension: string;
+  users: number[];
+  metrics: {
+    [key: string]: MetricStats[];
+  };
+};
 type ProcessedSnapshotDimension = {
   name: string;
   srm: number;
@@ -317,10 +340,101 @@ type ProcessedSnapshotData = {
   unknownVariations: string[];
 };
 
+function sortAndMergeDimensions(
+  dimensions: RawDimensionData,
+  numVariations: number,
+  ignoreDimensionLimits: boolean = false
+): MergedDimension[] {
+  // Sort dimensions so the ones with the most overall users are first
+  const usersPerDimension = Object.keys(dimensions).map((key) => {
+    return {
+      dimension: key,
+      users: dimensions[key].users.reduce((sum, u) => sum + u, 0),
+    };
+  });
+  usersPerDimension.sort((a, b) => b.users - a.users);
+
+  // Wait until the "(other)" category will have at least 2 dimension values
+  const numDimensions = usersPerDimension.length;
+  if (numDimensions === MAX_DIMENSIONS + 1) {
+    ignoreDimensionLimits = true;
+  }
+
+  const res: MergedDimension[] = [];
+
+  const otherMetrics: Map<
+    string,
+    { users: number[]; values: MetricStats[] }[]
+  > = new Map();
+  const otherUsers: number[] = [];
+  let hasOverflow = false;
+
+  usersPerDimension.forEach(({ dimension }, i) => {
+    const data = dimensions[dimension];
+    if (!data) return;
+
+    // For the first few dimension values, keep them as-is
+    if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
+      res.push({
+        dimension,
+        ...data,
+      });
+    }
+    // For the rest, queue them up to be merged together into an "other" category
+    else {
+      hasOverflow = true;
+      Object.keys(data.metrics).forEach((m) => {
+        otherMetrics.set(m, [
+          ...(otherMetrics.get(m) || []),
+          {
+            users: data.users,
+            values: data.metrics[m],
+          },
+        ]);
+      });
+      data.users.forEach((u, i) => {
+        otherUsers[i] = otherUsers[i] || 0;
+        otherUsers[i] += u;
+      });
+    }
+  });
+
+  if (hasOverflow) {
+    const otherDimension: MergedDimension = {
+      dimension: "(other)",
+      users: otherUsers,
+      metrics: {},
+    };
+    // Merge dimension values together for each metric
+    otherMetrics.forEach((metricStats, m) => {
+      otherDimension.metrics[m] = metricStats.reduce((old, current) => {
+        const merged = [...old];
+
+        for (let i = 0; i < numVariations; i++) {
+          // If there's no old value, just use the new one (if it exists)
+          if (!merged[i]) {
+            if (current.values[i]) merged[i] = current.values[i];
+          }
+          // Merge the old and new values together
+          else if (current.values[i]) {
+            merged[i] = mergeMetricStats(merged[i], current.values[i]);
+          }
+        }
+        return merged;
+      }, [] as MetricStats[]);
+    });
+
+    res.push(otherDimension);
+  }
+
+  return res;
+}
+
 export async function processSnapshotData(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
-  queryData: QueryMap
+  queryData: QueryMap,
+  dimension: string | null = null
 ): Promise<ProcessedSnapshotData> {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -329,14 +443,7 @@ export async function processSnapshotData(
   });
 
   // Combine user and metric data into a single data structure
-  const combined: {
-    [key: string]: {
-      users: number[];
-      metrics: {
-        [key: string]: MetricStats[];
-      };
-    };
-  } = {};
+  const combined: RawDimensionData = {};
 
   let unknownVariations: string[] = [];
 
@@ -393,25 +500,31 @@ export async function processSnapshotData(
     });
   }
 
+  // Don't merge when breaking down by date dimension
+  const merged = sortAndMergeDimensions(
+    combined,
+    experiment.variations.length,
+    dimension === "pre:date"
+  );
+
   const dimensions: ProcessedSnapshotDimension[] = [];
 
   await promiseAllChunks(
-    Object.keys(combined).map((dimension) => {
+    merged.map(({ dimension, metrics, users }) => {
       return async () => {
-        const row = combined[dimension];
         // One doc per variation
         const variations: SnapshotVariation[] = experiment.variations.map(
           (v, i) => ({
-            users: row.users[i] || 0,
+            users: users[i] || 0,
             metrics: {},
           })
         );
 
         // Calculate metric stats
         await promiseAllChunks(
-          Object.keys(row.metrics).map((k) => {
+          Object.keys(metrics).map((k) => {
             return async () => {
-              const v = row.metrics[k];
+              const v = metrics[k];
               const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
               await Promise.all(
@@ -589,11 +702,6 @@ export async function createSnapshot(
     });
   }
 
-  const { queries, result: results } = await startRun(
-    queryDocs,
-    async (queryData) => processSnapshotData(experiment, phase, queryData)
-  );
-
   const dimensionId =
     (!dimension
       ? null
@@ -602,6 +710,12 @@ export async function createSnapshot(
       : dimension.type === "experiment"
       ? "exp:" + dimension.id
       : "pre:" + dimension.type) || null;
+
+  const { queries, result: results } = await startRun(
+    queryDocs,
+    async (queryData) =>
+      processSnapshotData(experiment, phase, queryData, dimensionId)
+  );
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),

@@ -20,27 +20,60 @@ export interface ABTestStats {
 }
 
 /**
+ * Calculates a combined standard deviation of two sets of data
+ * From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+ */
+function correctStddev(
+  n: number,
+  x: number,
+  sx: number,
+  m: number,
+  y: number,
+  sy: number
+) {
+  const vx = Math.pow(sx, 2);
+  const vy = Math.pow(sy, 2);
+  const t = n + m;
+
+  if (t <= 1) return 0;
+
+  return Math.sqrt(
+    ((n - 1) * vx + (m - 1) * vy) / (t - 1) +
+      (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
+  );
+}
+
+// Combines two means together with proper weighting
+function correctMean(n: number, x: number, m: number, y: number) {
+  if (n + m < 1) return 0;
+
+  return (n * x + m * y) / (n + m);
+}
+
+/**
+ * This combines two sets of count/mean/stddev into one
+ * using the necessary statistical corrections
+ */
+export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
+  return {
+    count: a.count + b.count,
+    mean: correctMean(a.count, a.mean, b.count, b.mean),
+    stddev: correctStddev(a.count, a.mean, a.stddev, b.count, b.mean, b.stddev),
+  };
+}
+
+/**
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */
-export function getAdjustedStats(stats: MetricStats, users: number) {
-  const x = stats.mean;
-  const sX = stats.stddev;
-  const c = stats.count;
-  const n = users;
-
-  const mean = (x * c) / n;
-
-  const varX = Math.pow(sX, 2);
-
-  // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
-  const stddev = Math.sqrt(
-    ((c - 1) * varX) / (n - 1) + (c * (n - c) * Math.pow(x, 2)) / (n * (n - 1))
-  );
-
+export function addNonconvertingUsersToStats(
+  stats: MetricStats,
+  users: number
+) {
+  const m = users - stats.count;
   return {
-    mean,
-    stddev,
+    mean: correctMean(stats.count, stats.mean, m, 0),
+    stddev: correctStddev(stats.count, stats.mean, stats.stddev, m, 0, 0),
   };
 }
 
@@ -57,12 +90,41 @@ export async function abtest(
   } else {
     aStats = {
       ...aStats,
-      ...getAdjustedStats(aStats, aUsers),
+      ...addNonconvertingUsersToStats(aStats, aUsers),
     };
 
     bStats = {
       ...bStats,
-      ...getAdjustedStats(bStats, bUsers),
+      ...addNonconvertingUsersToStats(bStats, bUsers),
+    };
+  }
+
+  // Don't call the stats engine if the input data is invalid
+  // This avoids divide by zero errors and square roots of negatives
+  let validData = true;
+  if (metric.type !== "binomial") {
+    if (aStats.stddev <= 0 || bStats.stddev <= 0) {
+      validData = false;
+    } else if (aUsers <= 1 || bUsers <= 1) {
+      validData = false;
+    }
+  } else {
+    if (aStats.count < 1 || bStats.count < 1) {
+      validData = false;
+    }
+  }
+  if (!validData) {
+    return {
+      expected: 0,
+      chanceToWin: 0,
+      ci: [0, 0],
+      risk: [0, 0],
+      uplift: {
+        dist: "lognormal",
+        mean: 0,
+        stddev: 0,
+      },
+      buckets: [],
     };
   }
 
@@ -146,14 +208,14 @@ export function srm(users: number[], weights: number[]): number {
   users.forEach((o) => {
     totalObserved += o;
   });
-  if (!totalObserved) {
+  if (totalObserved <= 1) {
     return 1;
   }
 
   let x = 0;
   users.forEach((o, i) => {
     const e = weights[i] * totalObserved;
-    x += Math.pow(o - e, 2) / e;
+    x += e ? Math.pow(o - e, 2) / e : 0;
   });
 
   return 1 - jStat.chisquare.cdf(x, users.length - 1) || 0;
