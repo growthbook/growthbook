@@ -43,7 +43,7 @@ import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 
-const MAX_DIMENSIONS = 19;
+const MAX_DIMENSIONS = 20;
 
 export function getExperimentsByOrganization(
   organization: string,

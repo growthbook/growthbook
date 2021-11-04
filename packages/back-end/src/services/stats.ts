@@ -21,6 +21,7 @@ export interface ABTestStats {
 
 /**
  * Calculates a combined standard deviation of two sets of data
+ * From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
  */
 function correctStddev(
   n: number,
@@ -30,15 +31,23 @@ function correctStddev(
   y: number,
   sy: number
 ) {
-  const s2x = Math.pow(sx, 2);
-  const s2y = Math.pow(sy, 2);
+  const vx = Math.pow(sx, 2);
+  const vy = Math.pow(sy, 2);
   const t = n + m;
 
-  // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+  if (t <= 1) return 0;
+
   return Math.sqrt(
-    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
+    ((n - 1) * vx + (m - 1) * vy) / (t - 1) +
       (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
   );
+}
+
+// Combines two means together with proper weighting
+function correctMean(n: number, x: number, m: number, y: number) {
+  if (n + m < 1) return 0;
+
+  return (n * x + m * y) / (n + m);
 }
 
 /**
@@ -46,28 +55,10 @@ function correctStddev(
  * using the necessary statistical corrections
  */
 export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
-  // Need to make sure there are enough data points to avoid divide by zero errors
-  if (a.count + b.count <= 1) {
-    return {
-      count: 0,
-      mean: 0,
-      stddev: 0,
-    };
-  }
-
-  const newStdDev = correctStddev(
-    a.count,
-    a.mean,
-    a.stddev,
-    b.count,
-    b.mean,
-    b.stddev
-  );
-
   return {
     count: a.count + b.count,
-    mean: (a.count * a.mean + b.count * b.mean) / (a.count + b.count),
-    stddev: newStdDev,
+    mean: correctMean(a.count, a.mean, b.count, b.mean),
+    stddev: correctStddev(a.count, a.mean, a.stddev, b.count, b.mean, b.stddev),
   };
 }
 
@@ -75,32 +66,14 @@ export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */
-export function getAdjustedStats(stats: MetricStats, users: number) {
-  const x = stats.mean;
-  const sX = stats.stddev;
-  const c = stats.count;
-  const n = users;
-
-  // Need to make sure there are enough data points to avoid divide by zero errors
-  if (n <= 1) {
-    return {
-      mean: 0,
-      stddev: 0,
-    };
-  }
-
-  const mean = (x * c) / n;
-
-  const varX = Math.pow(sX, 2);
-
-  // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
-  const stddev = Math.sqrt(
-    ((c - 1) * varX) / (n - 1) + (c * (n - c) * Math.pow(x, 2)) / (n * (n - 1))
-  );
-
+export function addNonconvertingUsersToStats(
+  stats: MetricStats,
+  users: number
+) {
+  const m = users - stats.count;
   return {
-    mean,
-    stddev,
+    mean: correctMean(stats.count, stats.mean, m, 0),
+    stddev: correctStddev(stats.count, stats.mean, stats.stddev, m, 0, 0),
   };
 }
 
@@ -117,12 +90,12 @@ export async function abtest(
   } else {
     aStats = {
       ...aStats,
-      ...getAdjustedStats(aStats, aUsers),
+      ...addNonconvertingUsersToStats(aStats, aUsers),
     };
 
     bStats = {
       ...bStats,
-      ...getAdjustedStats(bStats, bUsers),
+      ...addNonconvertingUsersToStats(bStats, bUsers),
     };
   }
 
