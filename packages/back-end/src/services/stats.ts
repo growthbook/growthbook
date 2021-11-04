@@ -46,6 +46,15 @@ function correctStddev(
  * using the necessary statistical corrections
  */
 export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
+  // Need to make sure there are enough data points to avoid divide by zero errors
+  if (a.count + b.count <= 1) {
+    return {
+      count: 0,
+      mean: 0,
+      stddev: 0,
+    };
+  }
+
   const newStdDev = correctStddev(
     a.count,
     a.mean,
@@ -71,6 +80,14 @@ export function getAdjustedStats(stats: MetricStats, users: number) {
   const sX = stats.stddev;
   const c = stats.count;
   const n = users;
+
+  // Need to make sure there are enough data points to avoid divide by zero errors
+  if (n <= 1) {
+    return {
+      mean: 0,
+      stddev: 0,
+    };
+  }
 
   const mean = (x * c) / n;
 
@@ -106,6 +123,35 @@ export async function abtest(
     bStats = {
       ...bStats,
       ...getAdjustedStats(bStats, bUsers),
+    };
+  }
+
+  // Don't call the stats engine if the input data is invalid
+  // This avoids divide by zero errors and square roots of negatives
+  let validData = true;
+  if (metric.type !== "binomial") {
+    if (aStats.stddev <= 0 || bStats.stddev <= 0) {
+      validData = false;
+    } else if (aUsers <= 1 || bUsers <= 1) {
+      validData = false;
+    }
+  } else {
+    if (aStats.count < 1 || bStats.count < 1) {
+      validData = false;
+    }
+  }
+  if (!validData) {
+    return {
+      expected: 0,
+      chanceToWin: 0,
+      ci: [0, 0],
+      risk: [0, 0],
+      uplift: {
+        dist: "lognormal",
+        mean: 0,
+        stddev: 0,
+      },
+      buckets: [],
     };
   }
 
@@ -189,14 +235,14 @@ export function srm(users: number[], weights: number[]): number {
   users.forEach((o) => {
     totalObserved += o;
   });
-  if (!totalObserved) {
+  if (totalObserved <= 1) {
     return 1;
   }
 
   let x = 0;
   users.forEach((o, i) => {
     const e = weights[i] * totalObserved;
-    x += Math.pow(o - e, 2) / e;
+    x += e ? Math.pow(o - e, 2) / e : 0;
   });
 
   return 1 - jStat.chisquare.cdf(x, users.length - 1) || 0;
