@@ -30,6 +30,7 @@ const metricSchema = new mongoose.Schema({
   winRisk: Number,
   loseRisk: Number,
   maxPercentChange: Number,
+  minPercentChange: Number,
   minSampleSize: Number,
   dateCreated: Date,
   dateUpdated: Date,
