@@ -32,16 +32,6 @@ export type ExperimentQueryResponses = {
   metrics: VariationMetricResult[];
 }[];
 
-export interface ExperimentUsersResult {
-  dimensions: {
-    dimension: string;
-    variations: {
-      variation: number;
-      users: number;
-    }[];
-  }[];
-  unknownVariations: string[];
-}
 export interface ExperimentMetricResult {
   dimensions: {
     dimension: string;
@@ -50,6 +40,7 @@ export interface ExperimentMetricResult {
       stats: MetricStats;
     }[];
   }[];
+  unknownVariations: string[];
 }
 
 export interface ImpactEstimationResult {
@@ -78,14 +69,6 @@ export type Dimension =
   | ExperimentDimension
   | DateDimension
   | ActivationDimension;
-
-export type ExperimentUsersQueryParams = {
-  experiment: ExperimentInterface;
-  phase: ExperimentPhase;
-  activationMetric: MetricInterface | null;
-  dimension: Dimension | null;
-  segment: SegmentInterface | null;
-};
 
 export type ExperimentMetricQueryParams = {
   experiment: ExperimentInterface;
@@ -178,14 +161,10 @@ export type PastExperimentResponse = {
   end_date: string;
   users: number;
 }[];
-export type ExperimentUsersQueryResponse = {
-  dimension: string;
-  variation: string;
-  users: number;
-}[];
 export type ExperimentMetricQueryResponse = {
   dimension: string;
   variation: string;
+  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -228,12 +207,10 @@ export interface SourceIntegrationInterface {
   ): Promise<ImpactEstimationResult>;
   getUsersQuery(params: UsersQueryParams): string;
   getMetricValueQuery(params: MetricValueParams): string;
-  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runUsersQuery(query: string): Promise<UsersQueryResponse>;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
-  runExperimentUsersQuery(query: string): Promise<ExperimentUsersQueryResponse>;
   runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse>;

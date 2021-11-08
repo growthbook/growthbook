@@ -56,6 +56,7 @@ function correctMean(n: number, x: number, m: number, y: number) {
  */
 export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
   return {
+    users: a.users + b.users,
     count: a.count + b.count,
     mean: correctMean(a.count, a.mean, b.count, b.mean),
     stddev: correctStddev(a.count, a.mean, a.stddev, b.count, b.mean, b.stddev),
@@ -66,11 +67,8 @@ export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */
-export function addNonconvertingUsersToStats(
-  stats: MetricStats,
-  users: number
-) {
-  const m = users - stats.count;
+export function addNonconvertingUsersToStats(stats: MetricStats) {
+  const m = stats.users - stats.count;
   return {
     mean: correctMean(stats.count, stats.mean, m, 0),
     stddev: correctStddev(stats.count, stats.mean, stats.stddev, m, 0, 0),
@@ -79,23 +77,24 @@ export function addNonconvertingUsersToStats(
 
 export async function abtest(
   metric: MetricInterface,
-  aUsers: number,
   aStats: MetricStats,
-  bUsers: number,
   bStats: MetricStats
 ): Promise<ABTestStats> {
+  let aUsers = aStats.users;
+  let bUsers = bStats.users;
+
   if (metric.ignoreNulls) {
     aUsers = aStats.count;
     bUsers = bStats.count;
   } else {
     aStats = {
       ...aStats,
-      ...addNonconvertingUsersToStats(aStats, aUsers),
+      ...addNonconvertingUsersToStats(aStats),
     };
 
     bStats = {
       ...bStats,
-      ...addNonconvertingUsersToStats(bStats, bUsers),
+      ...addNonconvertingUsersToStats(bStats),
     };
   }
 
@@ -187,16 +186,13 @@ print(json.dumps(${func}(${args})))`,
   };
 }
 
-export function getValueCR(
-  metric: MetricInterface,
-  value: number,
-  count: number,
-  users: number
-) {
-  const base = metric.ignoreNulls ? count : users;
+export function getValueCR(metric: MetricInterface, stats: MetricStats) {
+  const value = stats.count * stats.mean;
+  const base = metric.ignoreNulls ? stats.count : stats.users;
+
   return {
     value,
-    users: base,
+    denominator: base,
     cr: base > 0 ? value / base : 0,
   };
 }

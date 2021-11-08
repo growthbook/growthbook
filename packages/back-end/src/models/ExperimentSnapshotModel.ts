@@ -42,6 +42,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 stddev: Number,
               },
               stats: {
+                users: Number,
                 mean: Number,
                 count: Number,
                 stddev: Number,

@@ -25,11 +25,13 @@ const baseMetric: MetricInterface = {
 describe("stats", () => {
   it("merges metric stats", () => {
     const a = {
+      users: 200,
       count: 100,
       mean: 10,
       stddev: 5,
     };
     const b = {
+      users: 210,
       count: 150,
       mean: 15,
       stddev: 3,
@@ -37,6 +39,7 @@ describe("stats", () => {
     const merged = mergeMetricStats(a, b);
 
     expect(merged).toEqual({
+      users: 410,
       count: 250,
       mean: 13,
       stddev: 4.62054083310184,
@@ -45,11 +48,13 @@ describe("stats", () => {
 
   it("merges stats with not enough users", () => {
     const a = {
+      users: 0,
       count: 0,
       mean: 0,
       stddev: 0,
     };
     const b = {
+      users: 10,
       count: 1,
       mean: 15,
       stddev: 0,
@@ -57,6 +62,7 @@ describe("stats", () => {
     const merged = mergeMetricStats(a, b);
 
     expect(merged).toEqual({
+      users: 10,
       count: 1,
       mean: 15,
       stddev: 0,
@@ -64,14 +70,12 @@ describe("stats", () => {
   });
 
   it("adjusts stats when ignoreNull is false", () => {
-    const res = addNonconvertingUsersToStats(
-      {
-        count: 100,
-        mean: 10,
-        stddev: 5,
-      },
-      500
-    );
+    const res = addNonconvertingUsersToStats({
+      users: 500,
+      count: 100,
+      mean: 10,
+      stddev: 5,
+    });
     expect(res).toEqual({
       mean: 2,
       stddev: 4.58170099067321,
@@ -97,13 +101,16 @@ describe("stats", () => {
           ...baseMetric,
           ignoreNulls: false,
         },
-        500,
-        1000,
-        10000
+        {
+          users: 10000,
+          count: 1000,
+          mean: 0.5,
+          stddev: 0,
+        }
       )
     ).toEqual({
       cr: 0.05,
-      users: 10000,
+      denominator: 10000,
       value: 500,
     });
 
@@ -113,13 +120,16 @@ describe("stats", () => {
           ...baseMetric,
           ignoreNulls: true,
         },
-        500,
-        1000,
-        10000
+        {
+          users: 10000,
+          count: 1000,
+          mean: 0.5,
+          stddev: 0,
+        }
       )
     ).toEqual({
       cr: 0.5,
-      users: 1000,
+      denominator: 1000,
       value: 500,
     });
   });

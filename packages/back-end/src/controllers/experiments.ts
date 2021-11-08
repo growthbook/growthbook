@@ -1179,10 +1179,7 @@ async function getMetricAnalysis(
     metricData.dates.forEach((d) => {
       const { mean, stddev } = metric.ignoreNulls
         ? { mean: d.mean, stddev: d.stddev }
-        : addNonconvertingUsersToStats(
-            d as MetricStats,
-            userDateMap.get(d.date + "") || 0
-          );
+        : addNonconvertingUsersToStats({ ...d, users } as MetricStats);
 
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;

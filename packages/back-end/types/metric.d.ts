@@ -4,6 +4,7 @@ export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 
 export interface MetricStats {
+  users: number;
   count: number;
   stddev: number;
   mean: number;

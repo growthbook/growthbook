@@ -18,14 +18,12 @@ import { WatchModel } from "../models/WatchModel";
 import {
   getExperimentMetric,
   getExperimentResults,
-  getExperimentUsers,
   QueryMap,
   startRun,
 } from "./queries";
 import {
   ExperimentResults,
   ExperimentMetricResult,
-  ExperimentUsersResult,
   PastExperimentResult,
   Dimension,
 } from "../types/Integration";
@@ -226,36 +224,31 @@ export async function getManualSnapshotData(
     Object.keys(metrics).map((m) => {
       const metric = metricMap.get(m);
       if (!metric) return;
+      const baselineStats = metrics[m][0];
       return Promise.all(
         experiment.variations.map(async (v, i) => {
-          const valueCR = getValueCR(
-            metric,
-            metrics[m][i].mean * metrics[m][i].count,
-            metrics[m][i].count,
-            users[i]
-          );
+          const stats = metrics[m][i];
+          const { denominator, value, cr } = getValueCR(metric, stats);
 
           // Baseline
           if (!i) {
             variations[i].metrics[m] = {
-              ...valueCR,
-              stats: metrics[m][i],
+              value,
+              cr,
+              users: denominator,
+              stats: stats,
             };
           }
           // Variation
           else {
-            const result = await abtest(
-              metric,
-              users[0],
-              metrics[m][0],
-              users[i],
-              metrics[m][i]
-            );
+            const result = await abtest(metric, baselineStats, stats);
 
             variations[i].metrics[m] = {
-              ...valueCR,
+              value,
+              cr,
+              users: denominator,
               ...result,
-              stats: metrics[m][i],
+              stats,
             };
           }
         })
@@ -362,10 +355,7 @@ function sortAndMergeDimensions(
 
   const res: MergedDimension[] = [];
 
-  const otherMetrics: Map<
-    string,
-    { users: number[]; values: MetricStats[] }[]
-  > = new Map();
+  const otherMetrics: Map<string, MetricStats[][]> = new Map();
   const otherUsers: number[] = [];
   let hasOverflow = false;
 
@@ -384,13 +374,7 @@ function sortAndMergeDimensions(
     else {
       hasOverflow = true;
       Object.keys(data.metrics).forEach((m) => {
-        otherMetrics.set(m, [
-          ...(otherMetrics.get(m) || []),
-          {
-            users: data.users,
-            values: data.metrics[m],
-          },
-        ]);
+        otherMetrics.set(m, [...(otherMetrics.get(m) || []), data.metrics[m]]);
       });
       data.users.forEach((u, i) => {
         otherUsers[i] = otherUsers[i] || 0;
@@ -413,11 +397,11 @@ function sortAndMergeDimensions(
         for (let i = 0; i < numVariations; i++) {
           // If there's no old value, just use the new one (if it exists)
           if (!merged[i]) {
-            if (current.values[i]) merged[i] = current.values[i];
+            if (current[i]) merged[i] = current[i];
           }
           // Merge the old and new values together
-          else if (current.values[i]) {
-            merged[i] = mergeMetricStats(merged[i], current.values[i]);
+          else if (current[i]) {
+            merged[i] = mergeMetricStats(merged[i], current[i]);
           }
         }
         return merged;
@@ -473,27 +457,25 @@ export async function processSnapshotData(
   }
   // Spread out over multiple queries (SQL sources)
   else {
-    // User counts
-    const usersResult: ExperimentUsersResult = queryData.get("users")
-      ?.result as ExperimentUsersResult;
-    if (!usersResult) return { dimensions: [], unknownVariations: [] };
-    usersResult.dimensions.forEach((d) => {
-      combined[d.dimension] = { users: [], metrics: {} };
-      d.variations.forEach((v) => {
-        combined[d.dimension].users[v.variation] = v.users;
-      });
-    });
-
-    unknownVariations = usersResult.unknownVariations || [];
-
     // Raw metric numbers
     queryData.forEach((obj, key) => {
       if (!metricMap.has(key)) return;
       const data = obj.result as ExperimentMetricResult;
+
+      unknownVariations = unknownVariations.concat(data.unknownVariations);
+
       data.dimensions.forEach((d) => {
-        if (!combined[d.dimension]) return;
+        combined[d.dimension] = combined[d.dimension] || {
+          metrics: {},
+          users: [],
+        };
+
         combined[d.dimension].metrics[key] = [];
         d.variations.forEach((v) => {
+          combined[d.dimension].users[v.variation] = Math.max(
+            combined[d.dimension].users[v.variation] || 0,
+            v.stats.users
+          );
           combined[d.dimension].metrics[key][v.variation] = v.stats;
         });
       });
@@ -533,17 +515,15 @@ export async function processSnapshotData(
 
                   const metric = metricMap.get(k);
                   if (!metric) return;
-                  const value = success;
+
+                  const { denominator, cr, value } = getValueCR(metric, data);
 
                   // Don't do stats for the baseline
                   if (!i) {
                     variations[i].metrics[k] = {
-                      ...getValueCR(
-                        metric,
-                        value,
-                        data.count,
-                        variations[i].users
-                      ),
+                      users: denominator,
+                      value,
+                      cr,
                       stats: data,
                     };
                     return;
@@ -560,22 +540,13 @@ export async function processSnapshotData(
                       expected: 0,
                     };
                   } else {
-                    result = await abtest(
-                      metric,
-                      variations[0].users,
-                      v[0],
-                      variations[i].users,
-                      data
-                    );
+                    result = await abtest(metric, v[0], data);
                   }
 
                   variations[i].metrics[k] = {
-                    ...getValueCR(
-                      metric,
-                      value,
-                      data.count,
-                      variations[i].users
-                    ),
+                    users: denominator,
+                    value,
+                    cr,
                     ...result,
                     stats: data,
                   };
@@ -612,7 +583,7 @@ export async function processSnapshotData(
   }
 
   return {
-    unknownVariations,
+    unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };
 }
@@ -683,13 +654,6 @@ export async function createSnapshot(
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
-    queryDocs["users"] = getExperimentUsers(integration, {
-      experiment,
-      dimension,
-      activationMetric,
-      phase,
-      segment,
-    });
     selectedMetrics.forEach((m) => {
       queryDocs[m.id] = getExperimentMetric(integration, {
         metric: m,

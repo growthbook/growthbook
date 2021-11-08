@@ -9,10 +9,8 @@ import {
   UsersQueryParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
-  ExperimentUsersQueryParams,
   PastExperimentParams,
   PastExperimentResponse,
-  ExperimentUsersQueryResponse,
   ExperimentMetricQueryResponse,
   UsersQueryResponse,
   MetricValueQueryResponse,
@@ -467,25 +465,13 @@ export default abstract class SqlIntegration
     );
   }
 
-  async runExperimentUsersQuery(
-    query: string
-  ): Promise<ExperimentUsersQueryResponse> {
-    const rows = await this.runQuery(query);
-    return rows.map((row) => {
-      return {
-        dimension: row.dimension || "",
-        variation: row.variation ?? "",
-        users: parseInt(row.users),
-      };
-    });
-  }
-
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
     const rows = await this.runQuery(query);
     return rows.map((row) => {
       return {
+        users: parseInt(row.users) || 0,
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         count: parseFloat(row.count) || 0,
@@ -662,116 +648,6 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string {
-    const { experiment, phase, dimension, activationMetric, segment } = params;
-
-    const userId = experiment.userIdType === "user";
-
-    const activationDimension =
-      activationMetric && dimension?.type === "activation";
-
-    return format(
-      `-- Number of users in experiment
-    WITH
-      ${this.getIdentifiesCTE(userId, {
-        from: phase.dateStarted,
-        to: phase.dateEnded,
-        dimension: dimension?.type === "user",
-        segment: !!experiment.segment,
-        metrics: [activationMetric],
-      })}
-      __rawExperiment as (${getExperimentQuery(
-        this.settings,
-        this.getSchema()
-      )}),
-      __experiment as (${this.getExperimentCTE({
-        experiment,
-        phase,
-        conversionWindowHours: activationMetric?.conversionWindowHours || 0,
-        experimentDimension:
-          dimension?.type === "experiment" ? dimension.id : null,
-      })})
-      ${
-        segment
-          ? `, __segment as (${this.getSegmentCTE(
-              segment.sql,
-              segment.name,
-              userId
-            )})`
-          : ""
-      }
-      ${
-        dimension?.type === "user"
-          ? `, __dimension as (${this.getDimensionCTE(
-              dimension.dimension,
-              userId
-            )})`
-          : ""
-      }
-      ${
-        activationMetric
-          ? `, __activationMetric as (${this.getMetricCTE(
-              activationMetric,
-              DEFAULT_CONVERSION_WINDOW_HOURS,
-              userId
-            )})
-            , __activatedUsers as (${this.getActivatedUsersCTE()})`
-          : ""
-      }
-      , __distinctUsers as (
-        -- One row per user/dimension/variation
-        SELECT
-          e.user_id,
-          e.variation,
-          ${
-            dimension?.type === "user"
-              ? "d.value"
-              : dimension?.type === "experiment"
-              ? "e.dimension"
-              : dimension?.type === "date"
-              ? this.formatDate(this.dateTrunc("e.actual_start"))
-              : activationDimension
-              ? this.ifElse(
-                  "a.user_id IS NULL",
-                  "'Not Activated'",
-                  "'Activated'"
-                )
-              : "'All'"
-          } as dimension
-        FROM
-          __experiment e
-          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
-          ${
-            dimension?.type === "user"
-              ? "JOIN __dimension d ON (d.user_id = e.user_id)"
-              : ""
-          }
-          ${
-            activationMetric
-              ? `
-          ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
-            a.user_id = e.user_id
-          )`
-              : ""
-          }
-        GROUP BY
-          variation, dimension, e.user_id
-      )
-    -- Count of distinct users in experiment per variation/dimension
-    SELECT
-      variation,
-      dimension,
-      COUNT(*) as users
-    FROM
-      __distinctUsers
-    GROUP BY
-      variation,
-      dimension
-    `,
-      this.getFormatOptions()
-    );
-  }
-
   private getActivatedUsersCTE() {
     return `
       SELECT
@@ -934,18 +810,45 @@ export default abstract class SqlIntegration
         GROUP BY
           variation, dimension, d.user_id
       )
-    -- Sum all user metrics together to get a total per variation/dimension
+      , __overallUsers as (
+        -- Number of users in each variation
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as users
+        FROM
+          __distinctUsers
+        GROUP BY
+          variation,
+          dimension
+      )
+      , __stats as (    
+        -- Sum all user metrics together to get a total per variation/dimension
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as count,
+          ${this.avg("value")} as mean,
+          ${this.stddev("value")} as stddev
+        FROM
+          __userMetric
+        GROUP BY
+          variation,
+          dimension
+      )
     SELECT
-      variation,
-      dimension,
-      COUNT(*) as count,
-      ${this.avg("value")} as mean,
-      ${this.stddev("value")} as stddev
+      s.variation,
+      s.dimension,
+      s.count,
+      s.mean,
+      s.stddev,
+      u.users
     FROM
-      __userMetric
-    GROUP BY
-      variation,
-      dimension
+      __stats s
+      JOIN __overallUsers u ON (
+        s.variation = u.variation 
+        AND s.dimension = u.dimension
+      )
     `,
       this.getFormatOptions()
     );

@@ -12,7 +12,6 @@ import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
-  ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
   MetricValueQueryResponse,
@@ -64,13 +63,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       },
     };
   }
-  getExperimentUsersQuery(): string {
-    throw new Error("Method not implemented.");
-  }
   getExperimentMetricQuery(): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -305,6 +298,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         metrics: metrics.map((m) => {
           return {
             metric: m.id,
+            users,
             count: m.count,
             mean: m.mean,
             stddev: m.stddev,

@@ -4,7 +4,6 @@ import {
   ImpactEstimationResult,
   UsersQueryParams,
   MetricValueParams,
-  ExperimentUsersQueryResponse,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
   UsersQueryResponse,
@@ -63,13 +62,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     );
     this.settings = {};
   }
-  getExperimentUsersQuery(): string {
-    throw new Error("Method not implemented.");
-  }
   getExperimentMetricQuery(): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -334,6 +327,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
           return {
             metric: metric.id,
+            users,
             count: users,
             mean,
             stddev,

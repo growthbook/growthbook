@@ -3,10 +3,7 @@ import {
   UsersQueryParams,
   MetricValueParams,
   SourceIntegrationInterface,
-  ExperimentUsersQueryParams,
   ExperimentMetricQueryParams,
-  ExperimentUsersQueryResponse,
-  ExperimentUsersResult,
   ExperimentMetricQueryResponse,
   ExperimentMetricResult,
   UsersQueryResponse,
@@ -211,19 +208,6 @@ export async function getExperimentResults(
   );
 }
 
-export async function getExperimentUsers(
-  integration: SourceIntegrationInterface,
-  params: ExperimentUsersQueryParams
-): Promise<QueryDocument> {
-  return getQueryDoc(
-    integration,
-    integration.getExperimentUsersQuery(params),
-    (query) => integration.runExperimentUsersQuery(query),
-    (rows) => processExperimentUsersResponse(params.experiment, rows),
-    false
-  );
-}
-
 export async function getExperimentMetric(
   integration: SourceIntegrationInterface,
   params: ExperimentMetricQueryParams
@@ -267,12 +251,16 @@ export function processExperimentMetricQueryResponse(
 ): ExperimentMetricResult {
   const ret: ExperimentMetricResult = {
     dimensions: [],
+    unknownVariations: [],
   };
 
   const variationMap = getVariationMap(experiment);
 
+  const unknownVariations: Map<string, number> = new Map();
+  let totalUsers = 0;
+
   const dimensionMap = new Map<string, number>();
-  rows.forEach(({ variation, dimension, count, mean, stddev }) => {
+  rows.forEach(({ variation, dimension, count, mean, stddev, users }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
       i = dimensionMap.get(dimension) || 0;
@@ -285,23 +273,36 @@ export function processExperimentMetricQueryResponse(
       dimensionMap.set(dimension, i);
     }
 
+    const numUsers = users || 0;
+    totalUsers += numUsers;
+
     const varIndex = variationMap.get(variation + "");
     if (
       typeof varIndex === "undefined" ||
       varIndex < 0 ||
       varIndex >= experiment.variations.length
     ) {
+      unknownVariations.set(variation, numUsers);
       return;
     }
 
     ret.dimensions[i].variations.push({
       variation: varIndex,
       stats: {
+        users,
         mean,
         count,
         stddev,
       },
     });
+  });
+
+  unknownVariations.forEach((users, variation) => {
+    // Ignore unknown variations with an insignificant number of users
+    // This protects against random typos causing false positives
+    if (totalUsers > 0 && users / totalUsers >= 0.02) {
+      ret.unknownVariations.push(variation);
+    }
   });
 
   return ret;
@@ -358,64 +359,6 @@ export function processExperimentResultsResponse(
       variation: varIndex,
       users: numUsers,
       metrics: metricData,
-    });
-  });
-
-  unknownVariations.forEach((users, variation) => {
-    // Ignore unknown variations with an insignificant number of users
-    // This protects against random typos causing false positives
-    if (totalUsers > 0 && users / totalUsers >= 0.02) {
-      ret.unknownVariations.push(variation);
-    }
-  });
-
-  return ret;
-}
-
-export function processExperimentUsersResponse(
-  experiment: ExperimentInterface,
-  rows: ExperimentUsersQueryResponse
-): ExperimentUsersResult {
-  const ret: ExperimentUsersResult = {
-    dimensions: [],
-    unknownVariations: [],
-  };
-
-  const variationMap = getVariationMap(experiment);
-
-  const unknownVariations: Map<string, number> = new Map();
-  let totalUsers = 0;
-
-  const dimensionMap = new Map<string, number>();
-  rows.forEach(({ variation, dimension, users }) => {
-    let i = 0;
-    if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension) || 0;
-    } else {
-      i = ret.dimensions.length;
-      ret.dimensions.push({
-        dimension,
-        variations: [],
-      });
-      dimensionMap.set(dimension, i);
-    }
-
-    const numUsers = users || 0;
-    totalUsers += numUsers;
-
-    const varIndex = variationMap.get(variation + "");
-    if (
-      typeof varIndex === "undefined" ||
-      varIndex < 0 ||
-      varIndex >= experiment.variations.length
-    ) {
-      unknownVariations.set(variation, numUsers);
-      return;
-    }
-
-    ret.dimensions[i].variations.push({
-      variation: varIndex,
-      users: numUsers,
     });
   });
 
