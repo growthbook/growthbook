@@ -14,7 +14,6 @@ const gb = new GrowthBook({
   trackingCallback: (exp, res) => {
     console.log("track", exp, res);
   },
-  persistForcedVariations: true,
 });
 
 const Headline = () => {

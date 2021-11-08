@@ -47,8 +47,6 @@ export interface Context {
   url?: string;
   overrides?: Record<string, ExperimentOverride>;
   forcedVariations?: Record<string, number>;
-  persistForcedVariations?: boolean;
-  persistForcedVariationsKeyPrefix?: string;
   qaMode?: boolean;
   // eslint-disable-next-line
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;

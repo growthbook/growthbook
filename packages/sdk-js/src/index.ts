@@ -8,7 +8,6 @@ import {
   getQueryStringOverride,
   inNamespace,
 } from "./util";
-import { getCookies, setCookie } from "./cookies";
 
 export type { Context, Experiment, Result, ExperimentOverride } from "./types";
 
@@ -36,9 +35,6 @@ class GrowthBook {
 
     if (isBrowser) {
       window._growthbook = this;
-      if (this.context.persistForcedVariations) {
-        this.forceVariationsFromCookies();
-      }
     }
   }
 
@@ -74,12 +70,6 @@ class GrowthBook {
 
     this.context.forcedVariations = this.context.forcedVariations || {};
     this.context.forcedVariations[key] = variation;
-
-    if (isBrowser && this.context.persistForcedVariations) {
-      const prefix = this.context.persistForcedVariationsKeyPrefix ?? "gbv";
-      const cookieKey = `${prefix}_${key}`;
-      setCookie(cookieKey, JSON.stringify(variation), 7); // todo: parametize TTL?
-    }
 
     if (this._renderer) {
       this._renderer();
@@ -337,31 +327,6 @@ class GrowthBook {
       if (groups[expGroups[i]]) return true;
     }
     return false;
-  }
-
-  private forceVariationsFromCookies(): void {
-    const prefix = this.context.persistForcedVariationsKeyPrefix ?? "gbv";
-    let cookies: { [key: string]: string } = {};
-    try {
-      cookies = getCookies(prefix);
-    } catch (e) {
-      console.error(e);
-      return;
-    }
-
-    this.context.forcedVariations = this.context.forcedVariations || {};
-    for (const key in cookies) {
-      try {
-        const value = parseInt(cookies[key]);
-        this.context.forcedVariations[key] = value;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    if (this._renderer) {
-      this._renderer();
-    }
   }
 }
 
