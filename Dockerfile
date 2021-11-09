@@ -1,5 +1,33 @@
-FROM python:3.9-slim
+# Build the python gbstats package
+FROM python:3.9-slim AS pybuild
+WORKDIR /usr/local/src/app
+COPY ./packages/stats .
+RUN \
+  pip3 install poetry \
+  && poetry install --no-root --no-dev --no-interaction --no-ansi \
+  && poetry build
 
+
+# Build the nodejs app
+FROM node:14-slim AS nodebuild
+WORKDIR /usr/local/src/app
+COPY . /usr/local/src/app
+RUN \
+  # Install app with dev dependencies
+  yarn install --frozen-lockfile --ignore-optional \
+  # Build the app
+  && yarn build \
+  # Then do a clean install with only production dependencies
+  && rm -rf node_modules \
+  && rm -rf packages/back-end/node_modules \
+  && rm -rf packages/front-end/node_modules \
+  && rm -rf packages/front-end/.next/cache \
+  && yarn install --frozen-lockfile --production=true --ignore-optional
+
+
+# Package the full app together
+FROM python:3.9-slim
+WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 && \
   echo "deb https://deb.nodesource.com/node_14.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
@@ -11,34 +39,19 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   pip3 install \
-    gbstats \
     nbformat \
     numpy \
     pandas \
-    scipy
-
-WORKDIR /usr/local/src/app
-
-# Copy only the required files
-COPY . /usr/local/src/app
-
-RUN \
-  # Install app with dev dependencies
-  yarn install --frozen-lockfile --ignore-optional \
-  # Build the app
-  && yarn build \
-  # Then do a clean install with only production dependencies
-  && rm -rf node_modules \
-  && rm -rf packages/back-end/node_modules \
-  && rm -rf packages/front-end/node_modules \
-  && rm -rf packages/front-end/.next/cache \
-  && yarn install --frozen-lockfile --production=true --ignore-optional \
-  # Clear the yarn cache
-  && yarn cache clean
-
+    scipy \
+  && rm -rf /root/.cache/pip
+COPY --from=nodebuild /usr/local/src/app/packages ./packages
+COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
+COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
+RUN pip3 install /usr/local/src/gbstats/*.whl
 # The front-end app (NextJS)
 EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
-
+# Start both front-end and back-end at once
 CMD ["yarn","start"]
