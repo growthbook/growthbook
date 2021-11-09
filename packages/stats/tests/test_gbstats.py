@@ -6,7 +6,6 @@ import pandas as pd
 from gbstats.gbstats import (
     check_srm,
     get_adjusted_stats,
-    process_user_rows,
     process_metric_rows,
     run_analysis,
 )
@@ -46,40 +45,17 @@ def test_adjusted_stats_ignore_nulls():
     assert adjusted["stddev"] == 3
     assert adjusted["total"] == 5000
 
-
-def test_process_users():
-    vars = {"zero": 0, "one": 1}
-    rows = pd.DataFrame(
-        [{"variation": "one", "users": 120}, {"variation": "zero", "users": 100}]
-    )
-    users, unknown_variations = process_user_rows(rows, vars)
-
-    assert users == [100, 120]
-    assert unknown_variations == []
-
-
-def test_process_users_unknown_vars():
-    var_id_map = {"zero": 0, "one": 1}
-    rows = pd.DataFrame(
-        [{"variation": "one", "users": 120}, {"variation": "zeros", "users": 100}]
-    )
-    users, unknown_variations = process_user_rows(rows, var_id_map)
-
-    assert users == [0, 120]
-    assert unknown_variations == ["zeros"]
-
-
 def test_process_metrics():
     rows = pd.DataFrame(
         [
-            {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1},
-            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1},
+            {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
+            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
         ]
     )
     var_id_map = {"zero": 0, "one": 1}
-    users = [1000, 1010]
 
-    res = process_metric_rows(rows, var_id_map, users, False, "revenue")
+    res, unknown_var_ids = process_metric_rows(rows, var_id_map, False, "revenue")
+    assert unknown_var_ids == []
     assert res.loc[0].at["users"] == 1000
     assert res.loc[0].at["count"] == 100
     assert res.loc[0].at["mean"] == 0.27
@@ -89,19 +65,33 @@ def test_process_metrics():
 def test_process_metrics_ignore_nulls():
     rows = pd.DataFrame(
         [
-            {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1},
-            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1},
+            {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
+            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
         ]
     )
     var_id_map = {"zero": 0, "one": 1}
-    users = [1000, 1010]
 
-    res = process_metric_rows(rows, var_id_map, users, True, "revenue")
+    res, unknown_var_ids = process_metric_rows(rows, var_id_map, True, "revenue")
+    assert unknown_var_ids == []
     assert res.loc[0].at["users"] == 100
     assert res.loc[0].at["count"] == 100
     assert res.loc[0].at["mean"] == 2.7
     assert round_(res.loc[0].at["stddev"]) == 1.1
 
+def test_unknown_variations():
+    rows = pd.DataFrame(
+        [
+            {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
+            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
+        ]
+    )
+    var_id_map = {"baseline": 0, "one": 1}
+    res, unknown_var_ids = process_metric_rows(rows, var_id_map, True, "revenue")
+    assert unknown_var_ids == ["zero"]
+    assert res.loc[0].at["users"] == 0
+    assert res.loc[0].at["count"] == 0
+    assert res.loc[0].at["mean"] == 0
+    assert round_(res.loc[0].at["stddev"]) == 0
 
 def test_binomial_analysis():
     metric = pd.DataFrame(
