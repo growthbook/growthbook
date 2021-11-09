@@ -45,11 +45,18 @@ def test_adjusted_stats_ignore_nulls():
     assert adjusted["stddev"] == 3
     assert adjusted["total"] == 5000
 
+
 def test_process_metrics():
     rows = pd.DataFrame(
         [
             {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
-            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
+            {
+                "variation": "zero",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1000,
+            },
         ]
     )
     var_id_map = {"zero": 0, "one": 1}
@@ -66,7 +73,13 @@ def test_process_metrics_ignore_nulls():
     rows = pd.DataFrame(
         [
             {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
-            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
+            {
+                "variation": "zero",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1000,
+            },
         ]
     )
     var_id_map = {"zero": 0, "one": 1}
@@ -78,11 +91,18 @@ def test_process_metrics_ignore_nulls():
     assert res.loc[0].at["mean"] == 2.7
     assert round_(res.loc[0].at["stddev"]) == 1.1
 
+
 def test_unknown_variations():
     rows = pd.DataFrame(
         [
             {"variation": "one", "count": 120, "mean": 2.5, "stddev": 1, "users": 1010},
-            {"variation": "zero", "count": 100, "mean": 2.7, "stddev": 1.1, "users": 1000},
+            {
+                "variation": "zero",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1000,
+            },
         ]
     )
     var_id_map = {"baseline": 0, "one": 1}
@@ -92,6 +112,7 @@ def test_unknown_variations():
     assert res.loc[0].at["count"] == 0
     assert res.loc[0].at["mean"] == 0
     assert round_(res.loc[0].at["stddev"]) == 0
+
 
 def test_binomial_analysis():
     metric = pd.DataFrame(

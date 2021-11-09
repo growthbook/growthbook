@@ -45,8 +45,7 @@ def create_notebook(
         ),
         # Notebook Setup
         nbf.new_code_cell(
-            "from gbstats.gbstats import process_user_rows, "
-            "check_srm, process_metric_rows, run_analysis\n\n"
+            "from gbstats.gbstats import check_srm, process_metric_rows, run_analysis\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
             "# Display names of variations\n"
@@ -91,7 +90,7 @@ def create_notebook(
             code_cell_df(
                 df=processed,
                 source=(
-                    "# Sort rows, correct means and std devs (if needed), identify unknown variation ids"
+                    "# Sort rows, correct means and stddevs, identify unknown variation ids\n"
                     f"m{i}, unknown_var_ids = process_metric_rows(\n"
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map,\n"
