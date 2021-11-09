@@ -51,4 +51,5 @@ export interface ExperimentSnapshotInterface {
   queryFilter?: string;
   segment?: string;
   activationMetric?: string;
+  skipPartialData?: boolean;
 }

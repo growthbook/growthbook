@@ -247,6 +247,7 @@ const Results: FC<{
             !snapshot.dimension &&
             hasData &&
             snapshot.hasRawQueries &&
+            "skipPartialData" in snapshot &&
             datasource?.settings?.notebookRunQuery && (
               <div className="col-auto">
                 <Button

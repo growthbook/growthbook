@@ -471,9 +471,9 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
     return rows.map((row) => {
       return {
-        users: parseInt(row.users) || 0,
         variation: row.variation ?? "",
         dimension: row.dimension || "",
+        users: parseInt(row.users) || 0,
         count: parseFloat(row.count) || 0,
         mean: parseFloat(row.mean) || 0,
         stddev: parseFloat(row.stddev) || 0,
@@ -921,6 +921,37 @@ export default abstract class SqlIntegration
     `;
   }
 
+  // Only include users who entered the experiment before this timestamp
+  private getExperimentEndDate(
+    experiment: ExperimentInterface,
+    phase: ExperimentPhase,
+    conversionWindowHours: number
+  ): Date | null {
+    // If we need to wait until users have had a chance to full convert
+    if (experiment.skipPartialData) {
+      // The last date allowed to give enough time for users to convert
+      const conversionWindowEndDate = new Date();
+      conversionWindowEndDate.setHours(
+        conversionWindowEndDate.getHours() - conversionWindowHours
+      );
+
+      // Use the earliest of either the conversion end date or the phase end date
+      return new Date(
+        Math.min(
+          phase?.dateEnded?.getTime() ?? Date.now(),
+          conversionWindowEndDate.getTime()
+        )
+      );
+    }
+    // If the phase is ended, use that as the end date
+    else if (phase.dateEnded) {
+      return phase.dateEnded;
+    }
+
+    // Otherwise, there is no end date for analysis
+    return null;
+  }
+
   private getExperimentCTE({
     experiment,
     phase,
@@ -938,6 +969,12 @@ export default abstract class SqlIntegration
     const userIdCol =
       experiment.userIdType === "user" ? "e.user_id" : "e.anonymous_id";
 
+    const endDate = this.getExperimentEndDate(
+      experiment,
+      phase,
+      conversionWindowHours
+    );
+
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
@@ -951,11 +988,7 @@ export default abstract class SqlIntegration
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
         AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
-        ${
-          phase.dateEnded
-            ? `AND e.timestamp <= ${this.toTimestamp(phase.dateEnded)}`
-            : ""
-        }
+        ${endDate ? `AND e.timestamp <= ${this.toTimestamp(endDate)}` : ""}
         ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
     `;
   }

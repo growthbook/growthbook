@@ -15,7 +15,7 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
-function isDifferent(val1?: string, val2?: string) {
+function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
@@ -32,6 +32,12 @@ function isOutdated(
     return true;
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
+    return true;
+  }
+  if (experiment.datasource && !("skipPartialData" in snapshot)) {
+    return true;
+  }
+  if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return true;
   }
 

@@ -67,6 +67,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   queryFilter: String,
   segment: String,
   activationMetric: String,
+  skipPartialData: Boolean,
 });
 experimentSnapshotSchema.index({
   experiment: 1,

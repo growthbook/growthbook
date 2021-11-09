@@ -698,6 +698,7 @@ export async function createSnapshot(
     activationMetric: experiment.activationMetric || "",
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
+    skipPartialData: experiment.skipPartialData || false,
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);

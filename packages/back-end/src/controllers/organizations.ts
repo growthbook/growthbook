@@ -174,7 +174,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       "Making the buttons green on the pricing page will increase conversions",
     previewURL: "",
     targetURLRegex: "",
-    sqlOverride: new Map(),
     variations: [
       {
         name: "Control",
