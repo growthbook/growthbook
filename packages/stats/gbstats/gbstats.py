@@ -24,10 +24,11 @@ def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
 
 
 # Transform raw SQL result for metrics into a list of stats per variation
-def process_metric_rows(rows, var_id_map, users, ignore_nulls=False, type="binomial"):
+def process_metric_rows(rows, var_id_map, ignore_nulls=False, type="binomial"):
     stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0, "total": 0}] * len(
         var_id_map.keys()
     )
+    unknown_var_ids = []
     for row in rows.itertuples(index=False):
         id = str(row.variation)
         if id in var_id_map:
@@ -36,25 +37,13 @@ def process_metric_rows(rows, var_id_map, users, ignore_nulls=False, type="binom
                 x=row.mean,
                 sx=row.stddev,
                 c=row.count,
-                n=users[variation],
+                n=row.users,
                 ignore_nulls=ignore_nulls,
                 type=type,
             )
-    return pd.DataFrame(stats)
-
-
-# Transform raw SQL result for users into a list of num_users per variation
-def process_user_rows(rows, var_id_map):
-    users = [0] * len(var_id_map.keys())
-    unknown_var_ids = []
-    for row in rows.itertuples(index=False):
-        id = str(row.variation)
-        if id in var_id_map:
-            variation = var_id_map[id]
-            users[variation] = row.users
         else:
             unknown_var_ids.append(id)
-    return users, unknown_var_ids
+    return pd.DataFrame(stats), unknown_var_ids
 
 
 # Run A/B test analysis for a metric

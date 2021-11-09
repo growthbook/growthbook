@@ -1,5 +1,4 @@
-from .gbstats import process_metric_rows, process_user_rows, run_analysis, check_srm
-import pandas as pd
+from .gbstats import process_metric_rows, run_analysis, check_srm
 import nbformat
 from nbformat import v4 as nbf
 from nbformat.v4.nbjson import from_dict
@@ -34,13 +33,8 @@ def create_notebook(
     var_names=[],
     weights=[],
     run_query="",
-    users_sql="",
-    user_rows=None,
     metrics=[],
 ):
-    users, unknown_var_ids = process_user_rows(user_rows, var_id_map)
-    srm_p = check_srm(users, weights)
-
     cells = [
         # Intro
         nbf.new_markdown_cell(
@@ -62,49 +56,6 @@ def create_notebook(
         ),
         # runQuery definition
         nbf.new_code_cell("# User defined runQuery function\n" f"{run_query}"),
-        # Users in Experiment
-        nbf.new_markdown_cell("## Users in Experiment\n" "### Query"),
-        # Users Query
-        code_cell_df(
-            user_rows,
-            source=(
-                f'users_sql = """{users_sql}"""\n'
-                "user_rows = runQuery(users_sql)\n"
-                "display(user_rows)"
-            ),
-        ),
-        nbf.new_markdown_cell("### Data Quality Checks"),
-        code_cell_plain(
-            source=(
-                "# Process raw user rows\n"
-                "users, unknown_var_ids = process_user_rows(user_rows, var_id_map)\n\n"
-                "# Users in each variation\n"
-                'print("Users in each variation:", users)\n\n'
-                "# Any variation ids returned from the query that we were not expecting\n"
-                'print("Unknown variation ids:", unknown_var_ids)'
-            ),
-            text=(
-                f"Users in each variation:"
-                f"{str(users)}\n"
-                "Unknown variation ids:"
-                f"{str(unknown_var_ids)}"
-            ),
-        ),
-        code_cell_plain(
-            source=(
-                "# Sample Ratio Mismatch (SRM) Check\n"
-                "srm_p = check_srm(users, weights)\n\n"
-                'print("SRM P-value:", srm_p)\n\n'
-                "if srm_p < 0.001:\n"
-                '    print("***WARNING: Sample Ratio Mismatch Detected***")\n'
-                "else:\n"
-                '    print("Ok, no SRM detected")'
-            ),
-            text=(
-                f"SRM P-value: {srm_p}\n"
-                f'{"***WARNING: Sample Ratio Mismatch Detected***" if srm_p < 0.001 else "Ok, no SRM detected"}'
-            ),
-        ),
     ]
 
     for i, metric in enumerate(metrics):
@@ -122,31 +73,61 @@ def create_notebook(
                 ),
             )
         )
-        cells.append(nbf.new_markdown_cell("### Preparation"))
+        cells.append(nbf.new_markdown_cell("### Processing and Data Quality Checks"))
 
         type = metric["type"]
         ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
-        processed = process_metric_rows(
+        processed, unknown_var_ids = process_metric_rows(
             rows=metric["rows"],
             var_id_map=var_id_map,
-            users=users,
             ignore_nulls=ignore_nulls,
             type=type,
         )
+
+        srm_p = check_srm(processed["users"].tolist(), weights)
 
         cells.append(
             code_cell_df(
                 df=processed,
                 source=(
-                    f"m{i} = process_metric_rows(\n"
+                    "# Sort rows, correct means and std devs (if needed), identify unknown variation ids"
+                    f"m{i}, unknown_var_ids = process_metric_rows(\n"
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map,\n"
-                    f"    users=users,\n"
                     f"    ignore_nulls={ignore_nulls},\n"
                     f'    type="{type}"\n'
                     f")\n"
                     f"display(m{i})"
+                ),
+            )
+        )
+
+        cells.append(
+            code_cell_plain(
+                source=(
+                    "# Any variation ids returned from the query that we were not expecting\n"
+                    'print("Unknown variation ids:", unknown_var_ids)'
+                ),
+                text=("Unknown variation ids:" + (str(unknown_var_ids))),
+            )
+        )
+
+        cells.append(
+            code_cell_plain(
+                source=(
+                    "# Sample Ratio Mismatch (SRM) Check\n"
+                    f"srm_p = check_srm(m{i}['users'].tolist(), weights)\n\n"
+                    'print("SRM P-value:", srm_p)\n\n'
+                    'print("***WARNING: SRM Detected***" if srm_p < 0.001 else "Ok, no SRM detected")'
+                ),
+                text=(
+                    f"SRM P-value: {srm_p}\n"
+                    + (
+                        "***WARNING: SRM Detected***"
+                        if srm_p < 0.001
+                        else "Ok, no SRM detected"
+                    )
                 ),
             )
         )
