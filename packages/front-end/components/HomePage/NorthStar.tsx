@@ -110,7 +110,7 @@ const NorthStar: FC = () => {
         <Modal
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
-          autoFocusInput={false}
+          autoFocusSelector={""}
           submit={form.handleSubmit(async (value) => {
             const settings = { ...orgData.organization.settings };
             if (!settings.northStar)
