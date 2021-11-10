@@ -23,9 +23,7 @@ const SegmentForm: FC<{
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
     },
   });
-  const filteredDatasources = datasources.filter(
-    (d) => d.type !== "google_analytics"
-  );
+  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
@@ -54,17 +52,17 @@ const SegmentForm: FC<{
         }))}
       />
       <Field
-        label={datasource?.type === "mixpanel" ? "Event Condition" : "SQL"}
+        label={datasource?.properties?.events ? "Event Condition" : "SQL"}
         required
         textarea
         {...form.register("sql")}
         placeholder={
-          datasource?.type === "mixpanel"
+          datasource?.properties?.events
             ? "event.properties.$browser === 'Chrome'"
             : "SELECT user_id, date FROM mytable"
         }
         helpText={
-          datasource?.type === "mixpanel" ? (
+          datasource?.properties?.events ? (
             <>
               Javascript condition used to filter events. Has access to an{" "}
               <code>event</code> variable.

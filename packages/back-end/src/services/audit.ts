@@ -90,5 +90,5 @@ export async function getWatchedAudits(
     .sort({
       dateCreated: -1,
     })
-    .limit(options.limit || 50);
+    .limit(options?.limit || 50);
 }

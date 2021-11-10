@@ -4,7 +4,7 @@ import { AuditInterface } from "../../types/audit";
 import { Permissions } from "../../types/organization";
 
 // eslint-disable-next-line
-export type AuthRequest<T = any> = Request<null, null, T> & {
+export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
   email: string;
   userId?: string;
   name?: string;

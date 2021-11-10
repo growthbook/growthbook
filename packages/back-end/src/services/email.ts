@@ -51,8 +51,10 @@ async function sendMail({
   to: string;
   text: string;
 }) {
-  if (!isEmailEnabled()) {
-    throw new Error("Email server not configured");
+  if (!isEmailEnabled() || !transporter) {
+    throw new Error(
+      "Email server not configured. Check server logs for reset link."
+    );
   }
 
   try {

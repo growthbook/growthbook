@@ -10,18 +10,27 @@ import { SegmentInterface } from "../../types/segment";
 export type VariationMetricResult = MetricStats & {
   metric: string;
 };
-export interface VariationResult {
-  variation: number;
+
+export type ExperimentResults = {
+  dimensions: {
+    dimension: string;
+    variations: {
+      variation: number;
+      users: number;
+      metrics: {
+        [key: string]: MetricStats;
+      };
+    }[];
+  }[];
+  unknownVariations: string[];
+};
+
+export type ExperimentQueryResponses = {
+  dimension: string;
+  variation: string;
   users: number;
   metrics: VariationMetricResult[];
-}
-
-export interface DimensionResult {
-  dimension: string;
-  variations: VariationResult[];
-}
-
-export type ExperimentResults = DimensionResult[];
+}[];
 
 export interface ExperimentUsersResult {
   dimensions: {
@@ -31,7 +40,7 @@ export interface ExperimentUsersResult {
       users: number;
     }[];
   }[];
-  unknownVariations?: string[];
+  unknownVariations: string[];
 }
 export interface ExperimentMetricResult {
   dimensions: {
@@ -50,12 +59,32 @@ export interface ImpactEstimationResult {
   value: number;
 }
 
+export type UserDimension = {
+  type: "user";
+  dimension: DimensionInterface;
+};
+export type ExperimentDimension = {
+  type: "experiment";
+  id: string;
+};
+export type DateDimension = {
+  type: "date";
+};
+export type ActivationDimension = {
+  type: "activation";
+};
+export type Dimension =
+  | UserDimension
+  | ExperimentDimension
+  | DateDimension
+  | ActivationDimension;
+
 export type ExperimentUsersQueryParams = {
   experiment: ExperimentInterface;
   phase: ExperimentPhase;
   activationMetric: MetricInterface | null;
-  userDimension?: DimensionInterface | null;
-  experimentDimension?: string | null;
+  dimension: Dimension | null;
+  segment: SegmentInterface | null;
 };
 
 export type ExperimentMetricQueryParams = {
@@ -63,8 +92,8 @@ export type ExperimentMetricQueryParams = {
   phase: ExperimentPhase;
   metric: MetricInterface;
   activationMetric: MetricInterface | null;
-  userDimension?: DimensionInterface | null;
-  experimentDimension?: string | null;
+  dimension: Dimension | null;
+  segment: SegmentInterface | null;
 };
 
 export type PastExperimentParams = {
@@ -93,7 +122,7 @@ export type MetricValueParams = {
   from: Date;
   to: Date;
   metric: MetricInterface;
-  name?: string;
+  name: string;
   userIdType?: "anonymous" | "user" | "either";
   segmentQuery?: string;
   segmentName?: string;
@@ -104,15 +133,15 @@ export type MetricValueParams = {
 
 export type MetricValueResultDate = {
   date: string;
-  count?: number;
-  mean?: number;
-  stddev?: number;
+  count: number;
+  mean: number;
+  stddev: number;
 };
 
 export type MetricValueResult = {
-  count?: number;
-  stddev?: number;
-  mean?: number;
+  count: number;
+  stddev: number;
+  mean: number;
   percentiles?: {
     [key: string]: number;
   };
@@ -189,7 +218,7 @@ export interface SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
-  ): Promise<ExperimentResults>;
+  ): Promise<ExperimentQueryResponses>;
   testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
   getImpactEstimation(

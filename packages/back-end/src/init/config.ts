@@ -2,7 +2,16 @@ import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
-import { ENVIRONMENT, IS_CLOUD } from "../util/secrets";
+import {
+  EMAIL_ENABLED,
+  ENVIRONMENT,
+  IS_CLOUD,
+  EMAIL_FROM,
+  EMAIL_HOST,
+  EMAIL_HOST_PASSWORD,
+  EMAIL_HOST_USER,
+  EMAIL_PORT,
+} from "../util/secrets";
 import {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
@@ -53,7 +62,7 @@ const CONFIG_FILE = path.join(
 );
 
 let configFileTime: number;
-let config: ConfigFile;
+let config: ConfigFile | null = null;
 
 function loadConfig(initial = false) {
   if (IS_CLOUD) return;
@@ -85,6 +94,29 @@ function loadConfig(initial = false) {
       );
     }
   }
+
+  if (EMAIL_ENABLED) {
+    if (!EMAIL_HOST)
+      console.error(
+        "Email is enabled, but missing required EMAIL_HOST env variable"
+      );
+    if (!EMAIL_PORT)
+      console.error(
+        "Email is enabled, but missing required EMAIL_PORT env variable"
+      );
+    if (!EMAIL_HOST_USER)
+      console.error(
+        "Email is enabled, but missing required EMAIL_HOST_USER env variable"
+      );
+    if (!EMAIL_HOST_PASSWORD)
+      console.error(
+        "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable"
+      );
+    if (!EMAIL_FROM)
+      console.error(
+        "Email is enabled, but missing required EMAIL_FROM env variable"
+      );
+  }
 }
 loadConfig(true);
 
@@ -106,9 +138,10 @@ export function getConfigDatasources(
 ): DataSourceInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
+  const datasources = config.datasources;
 
-  return Object.keys(config.datasources).map((id) => {
-    const d = config.datasources[id];
+  return Object.keys(datasources).map((id) => {
+    const d = datasources[id];
 
     return {
       id,
@@ -126,15 +159,16 @@ export function getConfigDatasources(
 export function getConfigMetrics(organization: string): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
+  const metrics = config.metrics;
 
-  return Object.keys(config.metrics).map((id) => {
-    const m = config.metrics[id];
+  return Object.keys(metrics).map((id) => {
+    const m = metrics[id];
 
     return {
       tags: [],
-      description: "",
       id,
       ...m,
+      description: m?.description || "",
       organization,
       dateCreated: null,
       dateUpdated: null,
@@ -149,9 +183,10 @@ export function getConfigDimensions(
 ): DimensionInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.dimensions) return [];
+  const dimensions = config.dimensions;
 
-  return Object.keys(config.dimensions).map((id) => {
-    const d = config.dimensions[id];
+  return Object.keys(dimensions).map((id) => {
+    const d = dimensions[id];
 
     return {
       id,

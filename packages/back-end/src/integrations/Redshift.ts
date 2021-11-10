@@ -25,4 +25,7 @@ export default class Redshift extends SqlIntegration {
   avg(col: string) {
     return `AVG(${col}::float)`;
   }
+  formatDate(col: string) {
+    return `to_char(${col}, 'YYYY-MM-DD')`;
+  }
 }

@@ -12,6 +12,14 @@ export function hashFnv32a(str: string): number {
   return hval >>> 0;
 }
 
+export function inNamespace(
+  hashValue: string,
+  namespace: [string, number, number]
+): boolean {
+  const n = (hashFnv32a(hashValue + "__" + namespace[0]) % 1000) / 1000;
+  return n >= namespace[1] && n < namespace[2];
+}
+
 export function chooseVariation(n: number, ranges: VariationRange[]): number {
   for (let i = 0; i < ranges.length; i++) {
     if (n >= ranges[i][0] && n < ranges[i][1]) {

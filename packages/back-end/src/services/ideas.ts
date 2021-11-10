@@ -16,6 +16,10 @@ export function getIdeasByOrganization(organization: string, project?: string) {
   return IdeaModel.find(query);
 }
 
+export function getIdeasByQuery(query: FilterQuery<IdeaDocument>) {
+  return IdeaModel.find(query);
+}
+
 export async function createIdea(data: Partial<IdeaInterface>) {
   const idea = await IdeaModel.create({
     // Default values that can be overridden

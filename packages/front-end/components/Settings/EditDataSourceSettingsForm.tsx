@@ -58,10 +58,6 @@ const EditDataSourceSettingsForm: FC<{
             urlProperty: "",
             ...data?.settings?.events,
           },
-          variationIdFormat:
-            data?.settings?.variationIdFormat ||
-            data?.settings?.experiments?.variationFormat ||
-            "index",
         },
       };
       setDatasource(newValue);
@@ -127,7 +123,6 @@ const EditDataSourceSettingsForm: FC<{
   > = (key) => (e) => {
     setSettings({ [e.target.name]: e.target.value }, key);
   };
-  const settingsSupported = !["google_analytics"].includes(datasource.type);
 
   return (
     <Modal
@@ -151,7 +146,7 @@ const EditDataSourceSettingsForm: FC<{
           </a>
         </div>
       )}
-      {datasource.type === "mixpanel" && (
+      {datasource.properties?.events && (
         <div>
           <h4 className="font-weight-bold">Experiments</h4>
           <div className="form-group">
@@ -188,29 +183,6 @@ const EditDataSourceSettingsForm: FC<{
               value={datasource.settings?.events?.variationIdProperty}
             />
           </div>
-
-          <div className="form-group">
-            <label>Variation Id Format</label>
-            <select
-              className="form-control"
-              name="variationFormat"
-              onChange={(e) => {
-                setDatasource({
-                  ...datasource,
-                  settings: {
-                    ...datasource.settings,
-                    variationIdFormat: e.target.value as "index" | "key",
-                  },
-                });
-                setDirty(true);
-              }}
-              required
-              value={datasource.settings?.variationIdFormat || "index"}
-            >
-              <option value="index">(0=control, 1=1st variation, ...)</option>
-              <option value="key">Unique String Keys</option>
-            </select>
-          </div>
           <hr />
           <h4 className="font-weight-bold">Page Views</h4>
           <div className="form-group">
@@ -237,7 +209,7 @@ const EditDataSourceSettingsForm: FC<{
           </div>
         </div>
       )}
-      {settingsSupported && datasource.type !== "mixpanel" && (
+      {datasource?.properties?.queryLanguage === "sql" && (
         <div>
           <div
             className="row py-2 mb-3 align-items-center bg-light border-bottom"
@@ -353,45 +325,6 @@ FROM
                 <p>
                   List any columns from the above query here that you want to
                   use as dimensions to drill down into experiment results.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Variation Id Format</label>
-                <select
-                  className="form-control"
-                  name="variationFormat"
-                  onChange={(e) => {
-                    setDatasource({
-                      ...datasource,
-                      settings: {
-                        ...datasource.settings,
-                        variationIdFormat: e.target.value as "index" | "key",
-                      },
-                    });
-                    setDirty(true);
-                  }}
-                  required
-                  value={datasource.settings?.variationIdFormat || "index"}
-                >
-                  <option value="index">Array Index</option>
-                  <option value="key">String Keys</option>
-                </select>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-3">
-                <p>
-                  <strong>Array Index</strong> (<code>0</code>, <code>1</code>,{" "}
-                  <code>2</code>, etc.)
-                </p>
-                <p>
-                  <strong>String Keys</strong> (<code>blue-buttons</code>,{" "}
-                  <code>control</code>, etc.)
                 </p>
               </div>
             </div>

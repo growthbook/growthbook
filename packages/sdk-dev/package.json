@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/dev",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -36,9 +36,7 @@
   "author": "Jeremy Dorn",
   "peerDependencies": {
     "react": "^16.8.0-0 || ^17.0.0-0",
-    "react-dom": "^16.8.0 || ^17.0.0"
-  },
-  "dependencies": {
+    "react-dom": "^16.8.0 || ^17.0.0",
     "@growthbook/growthbook-react": "^0.5.0"
   },
   "devDependencies": {

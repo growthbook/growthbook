@@ -26,7 +26,7 @@ import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../services/tag";
-import { userHasAccess } from "../services/organizations";
+import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import { WatchModel } from "../models/WatchModel";
 import {
@@ -35,17 +35,22 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
+import { Dimension } from "../types/Integration";
 import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+  Variation,
+} from "../../types/experiment";
 import {
   deleteMetricById,
   getMetricsByOrganization,
   getMetricById,
   updateMetric,
 } from "../models/MetricModel";
-import { DimensionInterface } from "../../types/dimension";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
@@ -53,17 +58,16 @@ import { queueWebhook } from "../jobs/webhooks";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
+import { getValidDate } from "../util/dates";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
-  let project: string;
+  const { org } = getOrgFromReq(req);
+  let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
 
-  const experiments = await getExperimentsByOrganization(
-    req.organization.id,
-    project
-  );
+  const experiments = await getExperimentsByOrganization(org.id, project);
 
   res.status(200).json({
     status: 200,
@@ -72,19 +76,17 @@ export async function getExperiments(req: AuthRequest, res: Response) {
 }
 
 export async function getExperimentsFrequencyMonth(
-  req: AuthRequest,
+  req: AuthRequest<null, { num: string }>,
   res: Response
 ) {
-  let project: string;
+  const { org } = getOrgFromReq(req);
+  let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
 
-  const { num }: { num: string } = req.params;
-  const experiments = await getExperimentsByOrganization(
-    req.organization.id,
-    project
-  );
+  const { num } = req.params;
+  const experiments = await getExperimentsByOrganization(org.id, project);
 
   const allData: { name: string; numExp: number }[] = [];
 
@@ -108,19 +110,19 @@ export async function getExperimentsFrequencyMonth(
 
   // now get the right number of experiments:
   experiments.forEach((e) => {
-    let dateStarted: Date;
+    let dateStarted: Date | null = null;
     if (e.status === "draft") {
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
         // get the earliest time it was main or ramp:
         if (p.phase === "main" || p.phase === "ramp") {
-          if (!dateStarted || p.dateStarted < dateStarted)
+          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
             dateStarted = p.dateStarted;
         }
       });
     }
-    const monthYear = format(new Date(dateStarted), "MMM yyy");
+    const monthYear = format(getValidDate(dateStarted), "MMM yyy");
 
     allData.forEach((md, i) => {
       if (md.name === monthYear) {
@@ -137,8 +139,11 @@ export async function getExperimentsFrequencyMonth(
   });
 }
 
-export async function getExperiment(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getExperiment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
 
   const experiment = await getExperimentById(id);
 
@@ -158,12 +163,13 @@ export async function getExperiment(req: AuthRequest, res: Response) {
     return;
   }
 
-  let idea: IdeaInterface;
+  let idea: IdeaInterface | undefined = undefined;
   if (experiment.ideaSource) {
-    idea = await IdeaModel.findOne({
-      organization: experiment.organization,
-      id: experiment.ideaSource,
-    });
+    idea =
+      (await IdeaModel.findOne({
+        organization: experiment.organization,
+        id: experiment.ideaSource,
+      })) || undefined;
   }
 
   res.status(200).json({
@@ -204,28 +210,14 @@ async function _getSnapshot(
 }
 
 export async function getSnapshotWithDimension(
-  req: AuthRequest,
+  req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
   res: Response
 ) {
-  const {
-    id,
-    phase,
-    dimension,
-  }: { id: string; phase: string; dimension: string } = req.params;
-  const snapshot = await _getSnapshot(
-    req.organization.id,
-    id,
-    phase,
-    dimension
-  );
+  const { org } = getOrgFromReq(req);
+  const { id, phase, dimension } = req.params;
+  const snapshot = await _getSnapshot(org.id, id, phase, dimension);
 
-  const latest = await _getSnapshot(
-    req.organization.id,
-    id,
-    phase,
-    dimension,
-    false
-  );
+  const latest = await _getSnapshot(org.id, id, phase, dimension, false);
 
   res.status(200).json({
     status: 200,
@@ -233,17 +225,15 @@ export async function getSnapshotWithDimension(
     latest,
   });
 }
-export async function getSnapshot(req: AuthRequest, res: Response) {
-  const { id, phase }: { id: string; phase: string } = req.params;
-  const snapshot = await _getSnapshot(req.organization.id, id, phase);
+export async function getSnapshot(
+  req: AuthRequest<null, { id: string; phase: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id, phase } = req.params;
+  const snapshot = await _getSnapshot(org.id, id, phase);
 
-  const latest = await _getSnapshot(
-    req.organization.id,
-    id,
-    phase,
-    null,
-    false
-  );
+  const latest = await _getSnapshot(org.id, id, phase, undefined, false);
 
   res.status(200).json({
     status: 200,
@@ -252,10 +242,14 @@ export async function getSnapshot(req: AuthRequest, res: Response) {
   });
 }
 
-export async function postSnapshotNotebook(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postSnapshotNotebook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
-  const notebook = await generateExperimentNotebook(id, req.organization.id);
+  const notebook = await generateExperimentNotebook(id, org.id);
 
   res.status(200).json({
     status: 200,
@@ -264,6 +258,7 @@ export async function postSnapshotNotebook(req: AuthRequest, res: Response) {
 }
 
 export async function getSnapshots(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
   const idsString = (req.query?.ids as string) || "";
   if (!idsString.length) {
     res.status(200).json({
@@ -277,7 +272,7 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
 
   let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
   snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(req.organization.id, i);
+    return await _getSnapshot(org.id, i);
   });
   const snapshots = await Promise.all(snapshotsPromises);
 
@@ -288,6 +283,14 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
   return;
 }
 
+const validateVariationIds = (variations: Variation[]) => {
+  const ids = variations.map((v, i) => v.key || i + "");
+
+  if (ids.length !== new Set(ids).size) {
+    throw new Error("Variation ids must be unique");
+  }
+};
+
 /**
  * Creates a new experiment
  * @param req
@@ -297,6 +300,7 @@ export async function postExperiments(
   req: AuthRequest<Partial<ExperimentInterface>>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   if (!req.permissions.draftExperiments) {
     return res.status(403).json({
       status: 403,
@@ -305,13 +309,10 @@ export async function postExperiments(
   }
 
   const data = req.body;
-  data.organization = req.organization.id;
+  data.organization = org.id;
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(
-      data.datasource,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(data.datasource, org.id);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -351,8 +352,8 @@ export async function postExperiments(
   const obj: Partial<ExperimentInterface> = {
     organization: data.organization,
     project: data.project,
-    owner: data.owner || req.userId,
-    trackingKey: data.trackingKey || null,
+    owner: data.owner || userId,
+    trackingKey: data.trackingKey || undefined,
     datasource: data.datasource || "",
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
@@ -363,10 +364,12 @@ export async function postExperiments(
     metrics: data.metrics || [],
     guardrails: data.guardrails || [],
     activationMetric: data.activationMetric || "",
+    segment: data.segment || "",
+    queryFilter: data.queryFilter || "",
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
-    results: data.results || null,
+    results: data.results || undefined,
     analysis: data.analysis || "",
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
@@ -374,7 +377,9 @@ export async function postExperiments(
     data: data.data || "",
     ideaSource: data.ideaSource || "",
   };
+
   try {
+    validateVariationIds(obj.variations || []);
     const experiment = await createExperiment(obj);
 
     await req.audit({
@@ -386,9 +391,9 @@ export async function postExperiments(
       details: JSON.stringify(experiment.toJSON()),
     });
 
-    await ensureWatching(req.userId, req.organization.id, experiment.id);
+    await ensureWatching(userId, org.id, experiment.id);
 
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
 
     res.status(200).json({
       status: 200,
@@ -408,11 +413,19 @@ export async function postExperiments(
  * @param res
  */
 export async function postExperiment(
-  req: AuthRequest<ExperimentInterface>,
+  req: AuthRequest<
+    ExperimentInterfaceStringDates & {
+      currentPhase?: number;
+      phaseStartDate?: string;
+      phaseEndDate?: string;
+    },
+    { id: string }
+  >,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
-  const data = req.body;
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
   const exp = await getExperimentById(id);
 
@@ -424,7 +437,7 @@ export async function postExperiment(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -444,10 +457,7 @@ export async function postExperiment(
   }
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(
-      data.datasource,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(data.datasource, org.id);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -459,7 +469,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], req.organization.id);
+      const metric = await getMetricById(data.metrics[i], org.id);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -483,6 +493,10 @@ export async function postExperiment(
     }
   }
 
+  if (data.variations) {
+    validateVariationIds(data.variations);
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -493,6 +507,8 @@ export async function postExperiment(
     "description",
     "hypothesis",
     "activationMetric",
+    "segment",
+    "queryFilter",
     "metrics",
     "guardrails",
     "variations",
@@ -537,6 +553,27 @@ export async function postExperiment(
       }
     }
   });
+
+  // If changing phase start/end dates (from "Configure Analysis" modal)
+  if (
+    exp.status !== "draft" &&
+    currentPhase !== undefined &&
+    exp.phases?.[currentPhase] &&
+    (phaseStartDate || phaseEndDate)
+  ) {
+    const phases = [...exp.toJSON().phases];
+    const phaseClone = { ...phases[currentPhase] };
+    phases[Math.floor(currentPhase * 1)] = phaseClone;
+
+    if (phaseStartDate) {
+      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
+    }
+    if (exp.status === "stopped" && phaseEndDate) {
+      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+    }
+    exp.set("phases", phases);
+  }
+
   await exp.save();
 
   await req.audit({
@@ -549,12 +586,12 @@ export async function postExperiment(
   });
 
   // If there are new tags to add
-  await addTagsDiff(req.organization.id, existing.tags || [], data.tags || []);
+  await addTagsDiff(org.id, existing.tags || [], data.tags || []);
 
-  await ensureWatching(req.userId, req.organization.id, exp.id);
+  await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
   }
 
   res.status(200).json({
@@ -563,8 +600,12 @@ export async function postExperiment(
   });
 }
 
-export async function postExperimentArchive(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postExperimentArchive(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
   const exp = await getExperimentById(id);
 
@@ -576,7 +617,7 @@ export async function postExperimentArchive(req: AuthRequest, res: Response) {
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -589,11 +630,19 @@ export async function postExperimentArchive(req: AuthRequest, res: Response) {
   try {
     await exp.save();
 
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
 
     // TODO: audit
     res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "experiment.archive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
     });
   } catch (e) {
     res.status(400).json({
@@ -603,8 +652,12 @@ export async function postExperimentArchive(req: AuthRequest, res: Response) {
   }
 }
 
-export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postExperimentUnarchive(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
   const exp = await getExperimentById(id);
 
@@ -616,7 +669,7 @@ export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -629,11 +682,19 @@ export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
   try {
     await exp.save();
 
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
 
     // TODO: audit
     res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "experiment.unarchive",
+      entity: {
+        object: "experiment",
+        id: exp.id,
+      },
     });
   } catch (e) {
     res.status(400).json({
@@ -645,10 +706,12 @@ export async function postExperimentUnarchive(req: AuthRequest, res: Response) {
 
 export async function postExperimentStop(
   req: AuthRequest<
-    { reason: string; dateEnded: string } & Partial<ExperimentInterface>
+    { reason: string; dateEnded: string } & Partial<ExperimentInterface>,
+    { id: string }
   >,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.runExperiments) {
     return res.status(403).json({
       status: 403,
@@ -656,7 +719,7 @@ export async function postExperimentStop(
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const { reason, results, analysis, winner, dateEnded } = req.body;
 
   const exp = await getExperimentById(id);
@@ -669,7 +732,7 @@ export async function postExperimentStop(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -682,7 +745,7 @@ export async function postExperimentStop(
   if (phases.length) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
-      dateEnded: new Date(dateEnded ? dateEnded + ":00Z" : undefined),
+      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
       reason,
     };
     exp.set("phases", phases);
@@ -717,7 +780,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
 
     res.status(200).json({
       status: 200,
@@ -730,7 +793,11 @@ export async function postExperimentStop(
   }
 }
 
-export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
+export async function deleteExperimentPhase(
+  req: AuthRequest<null, { id: string; phase: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.runExperiments) {
     return res.status(403).json({
       status: 403,
@@ -738,7 +805,7 @@ export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id, phase }: { id: string; phase: string } = req.params;
+  const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
   const exp = await getExperimentById(id);
@@ -751,7 +818,7 @@ export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -774,7 +841,7 @@ export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
 
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
-    organization: req.organization.id,
+    organization: org.id,
     experiment: id,
     phase: phaseIndex,
   });
@@ -782,7 +849,7 @@ export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
   // Decrement the phase index for all later phases
   await ExperimentSnapshotModel.updateMany(
     {
-      organization: req.organization.id,
+      organization: org.id,
       experiment: id,
       phase: {
         $gt: phaseIndex,
@@ -814,9 +881,10 @@ export async function deleteExperimentPhase(req: AuthRequest, res: Response) {
 }
 
 export async function postExperimentPhase(
-  req: AuthRequest<ExperimentPhase>,
+  req: AuthRequest<ExperimentPhase, { id: string }>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   if (!req.permissions.runExperiments) {
     return res.status(403).json({
       status: 403,
@@ -824,7 +892,7 @@ export async function postExperimentPhase(
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
 
   const exp = await getExperimentById(id);
@@ -837,7 +905,7 @@ export async function postExperimentPhase(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -845,7 +913,7 @@ export async function postExperimentPhase(
     return;
   }
 
-  const date = new Date(dateStarted ? dateStarted + ":00Z" : undefined);
+  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...exp.toJSON().phases];
   // Already has phases
@@ -867,7 +935,7 @@ export async function postExperimentPhase(
   phases.push({
     ...data,
     dateStarted: date,
-    dateEnded: null,
+    dateEnded: undefined,
     reason: "",
   });
 
@@ -876,7 +944,7 @@ export async function postExperimentPhase(
     exp.set("phases", phases);
     await exp.save();
 
-    await addGroupsDiff(req.organization.id, [], data.groups || []);
+    await addGroupsDiff(org.id, [], data.groups || []);
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -887,9 +955,9 @@ export async function postExperimentPhase(
       details: JSON.stringify(data),
     });
 
-    await ensureWatching(req.userId, req.organization.id, exp.id);
+    await ensureWatching(userId, org.id, exp.id);
 
-    await queueWebhook(req.organization.id);
+    await queueWebhook(org.id);
 
     res.status(200).json({
       status: 200,
@@ -902,12 +970,19 @@ export async function postExperimentPhase(
   }
 }
 
-export async function watchExperiment(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function watchExperiment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
 
   try {
     const exp = await getExperimentById(id);
-    if (exp.organization !== req.organization.id) {
+    if (!exp) {
+      throw new Error("Could not find experiment");
+    }
+    if (exp.organization !== org.id) {
       res.status(403).json({
         status: 403,
         message: "You do not have access to this experiment",
@@ -915,7 +990,7 @@ export async function watchExperiment(req: AuthRequest, res: Response) {
       return;
     }
 
-    await ensureWatching(req.userId, req.organization.id, id);
+    await ensureWatching(userId, org.id, id);
 
     return res.status(200).json({
       status: 200,
@@ -928,14 +1003,18 @@ export async function watchExperiment(req: AuthRequest, res: Response) {
   }
 }
 
-export async function unwatchExperiment(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function unwatchExperiment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
 
   try {
     await WatchModel.updateOne(
       {
-        userId: req.userId,
-        organization: req.organization.id,
+        userId: userId,
+        organization: org.id,
       },
       {
         $pull: {
@@ -955,7 +1034,11 @@ export async function unwatchExperiment(req: AuthRequest, res: Response) {
   }
 }
 
-export async function deleteMetric(req: AuthRequest, res: Response) {
+export async function deleteMetric(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.createMetrics) {
     return res.status(403).json({
       status: 403,
@@ -963,9 +1046,9 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id);
+  const metric = await getMetricById(id, org.id);
 
   if (!metric) {
     res.status(403).json({
@@ -977,7 +1060,15 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
-  await deleteMetricById(metric.id, req.organization.id);
+  await deleteMetricById(metric.id, org.id);
+
+  await req.audit({
+    event: "metric.delete",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+  });
 
   res.status(200).json({
     status: 200,
@@ -985,10 +1076,11 @@ export async function deleteMetric(req: AuthRequest, res: Response) {
 }
 
 export async function deleteExperiment(
-  req: AuthRequest<ExperimentInterface>,
+  req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
   const exp = await getExperimentById(id);
 
@@ -1000,7 +1092,7 @@ export async function deleteExperiment(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -1034,7 +1126,7 @@ export async function deleteExperiment(
     },
   });
 
-  await queueWebhook(req.organization.id);
+  await queueWebhook(org.id);
 
   res.status(200).json({
     status: 200,
@@ -1042,51 +1134,70 @@ export async function deleteExperiment(
 }
 
 export async function getMetrics(req: AuthRequest, res: Response) {
-  const metrics = await getMetricsByOrganization(req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const metrics = await getMetricsByOrganization(org.id);
   res.status(200).json({
     status: 200,
     metrics,
   });
 }
 
-export async function getMetricAnalysisStatus(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true);
+export async function getMetricAnalysisStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const metric = await getMetricById(id, org.id, true);
+  if (!metric) {
+    throw new Error("Could not get query status");
+  }
   const result = await getStatusEndpoint(
     metric,
-    req.organization.id,
+    org.id,
     (queryData) => getMetricAnalysis(metric, queryData),
     async (updates, result?: MetricAnalysis) => {
       await updateMetric(
         id,
         result ? { ...updates, analysis: result } : updates,
-        req.organization.id
+        org.id
       );
     }
   );
   return res.status(200).json(result);
 }
-export async function cancelMetricAnalysis(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id, true);
+export async function cancelMetricAnalysis(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const metric = await getMetricById(id, org.id, true);
+  if (!metric) {
+    throw new Error("Could not cancel query");
+  }
   res.status(200).json(
-    await cancelRun(metric, req.organization.id, async () => {
+    await cancelRun(metric, org.id, async () => {
       await updateMetric(
         id,
         {
           queries: [],
           runStarted: null,
         },
-        req.organization.id
+        org.id
       );
     })
   );
 }
 
-export async function postMetricAnalysis(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postMetricAnalysis(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, true);
+  const metric = await getMetricById(id, org.id, true);
 
   if (!metric) {
     return res.status(404).json({
@@ -1098,12 +1209,20 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
   try {
     await refreshMetric(
       metric,
-      req.organization.id,
+      org.id,
       req.organization?.settings?.metricAnalysisDays
     );
 
-    return res.status(200).json({
+    res.status(200).json({
       status: 200,
+    });
+
+    await req.audit({
+      event: "metric.analysis",
+      entity: {
+        object: "metric",
+        id: metric.id,
+      },
     });
   } catch (e) {
     return res.status(400).json({
@@ -1112,10 +1231,15 @@ export async function postMetricAnalysis(req: AuthRequest, res: Response) {
     });
   }
 }
-export async function getMetric(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getMetric(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
 
-  const metric = await getMetricById(id, req.organization.id, true);
+  const metric = await getMetricById(id, org.id, true);
+
   if (!metric) {
     return res.status(404).json({
       status: 404,
@@ -1125,7 +1249,7 @@ export async function getMetric(req: AuthRequest, res: Response) {
 
   const experiments = await ExperimentModel.find(
     {
-      organization: req.organization.id,
+      organization: org.id,
       $or: [
         {
           metrics: metric.id,
@@ -1163,6 +1287,7 @@ export async function postMetrics(
   req: AuthRequest<Partial<MetricInterface>>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.createMetrics) {
     return res.status(403).json({
       status: 403,
@@ -1187,6 +1312,7 @@ export async function postMetrics(
     winRisk,
     loseRisk,
     maxPercentChange,
+    minPercentChange,
     minSampleSize,
     conditions,
     datasource,
@@ -1197,10 +1323,7 @@ export async function postMetrics(
   } = req.body;
 
   if (datasource) {
-    const datasourceObj = await getDataSourceById(
-      datasource,
-      req.organization.id
-    );
+    const datasourceObj = await getDataSourceById(datasource, org.id);
     if (!datasourceObj) {
       res.status(403).json({
         status: 403,
@@ -1211,7 +1334,7 @@ export async function postMetrics(
   }
 
   const metric = await createMetric({
-    organization: req.organization.id,
+    organization: org.id,
     datasource,
     name,
     description,
@@ -1234,6 +1357,7 @@ export async function postMetrics(
     winRisk,
     loseRisk,
     maxPercentChange,
+    minPercentChange,
     minSampleSize,
   });
 
@@ -1241,12 +1365,22 @@ export async function postMetrics(
     status: 200,
     metric,
   });
+
+  await req.audit({
+    event: "metric.create",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(metric),
+  });
 }
 
 export async function putMetric(
-  req: AuthRequest<Partial<MetricInterface>>,
+  req: AuthRequest<Partial<MetricInterface>, { id: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.createMetrics) {
     return res.status(403).json({
       status: 403,
@@ -1254,8 +1388,11 @@ export async function putMetric(
     });
   }
 
-  const { id }: { id: string } = req.params;
-  const metric = await getMetricById(id, req.organization.id);
+  const { id } = req.params;
+  const metric = await getMetricById(id, org.id);
+  if (!metric) {
+    throw new Error("Could not find metric");
+  }
 
   const updates: Partial<MetricInterface> = {};
 
@@ -1274,6 +1411,7 @@ export async function putMetric(
     "winRisk",
     "loseRisk",
     "maxPercentChange",
+    "minPercentChange",
     "minSampleSize",
     "conditions",
     "dateUpdated",
@@ -1291,27 +1429,35 @@ export async function putMetric(
     }
   });
 
-  await updateMetric(metric.id, updates, req.organization.id);
+  await updateMetric(metric.id, updates, org.id);
 
-  await addTagsDiff(
-    req.organization.id,
-    metric.tags || [],
-    req.body.tags || []
-  );
+  await addTagsDiff(org.id, metric.tags || [], req.body.tags || []);
 
   res.status(200).json({
     status: 200,
   });
+
+  await req.audit({
+    event: "metric.update",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: JSON.stringify(updates),
+  });
 }
 
 export async function previewManualSnapshot(
-  req: AuthRequest<{
-    users: number[];
-    metrics: { [key: string]: MetricStats[] };
-  }>,
+  req: AuthRequest<
+    {
+      users: number[];
+      metrics: { [key: string]: MetricStats[] };
+    },
+    { id: string; phase: string }
+  >,
   res: Response
 ) {
-  const { id, phase }: { id: string; phase: string } = req.params;
+  const { id, phase } = req.params;
 
   const exp = await getExperimentById(id);
 
@@ -1351,8 +1497,12 @@ export async function previewManualSnapshot(
   }
 }
 
-export async function getSnapshotStatus(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getSnapshotStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
   const snapshot = await ExperimentSnapshotModel.findOne({ id });
   if (!snapshot) {
     return res.status(400).json({
@@ -1361,7 +1511,7 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
     });
   }
 
-  if (snapshot.organization !== req.organization?.id)
+  if (snapshot.organization !== org?.id)
     throw new Error("You don't have access to that snapshot");
 
   const experiment = await ExperimentModel.findOne({
@@ -1373,8 +1523,9 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
 
   const result = await getStatusEndpoint(
     snapshot,
-    req.organization.id,
-    (queryData) => processSnapshotData(experiment, phase, queryData),
+    org.id,
+    (queryData) =>
+      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
     async (updates, results) => {
       await ExperimentSnapshotModel.updateOne(
         {
@@ -1393,11 +1544,15 @@ export async function getSnapshotStatus(req: AuthRequest, res: Response) {
   );
   return res.status(200).json(result);
 }
-export async function cancelSnapshot(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function cancelSnapshot(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
   const snapshot = await ExperimentSnapshotModel.findOne({
     id,
-    organization: req.organization.id,
+    organization: org.id,
   });
   if (!snapshot) {
     return res.status(400).json({
@@ -1406,7 +1561,7 @@ export async function cancelSnapshot(req: AuthRequest, res: Response) {
     });
   }
   res.status(200).json(
-    await cancelRun(snapshot, req.organization.id, async () => {
+    await cancelRun(snapshot, org.id, async () => {
       await ExperimentSnapshotModel.deleteOne({
         id,
       });
@@ -1414,14 +1569,18 @@ export async function cancelSnapshot(req: AuthRequest, res: Response) {
   );
 }
 export async function postSnapshot(
-  req: AuthRequest<{
-    phase: number;
-    dimension?: string;
-    users?: number[];
-    metrics?: { [key: string]: MetricStats[] };
-  }>,
+  req: AuthRequest<
+    {
+      phase: number;
+      dimension?: string;
+      users?: number[];
+      metrics?: { [key: string]: MetricStats[] };
+    },
+    { id: string }
+  >,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.runExperiments) {
     return res.status(403).json({
       status: 403,
@@ -1433,7 +1592,7 @@ export async function postSnapshot(
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const { phase, dimension } = req.body;
   const exp = await getExperimentById(id);
 
@@ -1455,13 +1614,13 @@ export async function postSnapshot(
 
   // Manual snapshot
   if (!exp.datasource) {
+    const { users, metrics } = req.body;
+    if (!users || !metrics) {
+      throw new Error("Missing users and metric data");
+    }
+
     try {
-      const snapshot = await createManualSnapshot(
-        exp,
-        phase,
-        req.body.users,
-        req.body.metrics
-      );
+      const snapshot = await createManualSnapshot(exp, phase, users, metrics);
       res.status(200).json({
         status: 200,
         snapshot,
@@ -1490,7 +1649,7 @@ export async function postSnapshot(
     }
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -1498,10 +1657,7 @@ export async function postSnapshot(
     return;
   }
 
-  const datasource = await getDataSourceById(
-    exp.datasource,
-    req.organization.id
-  );
+  const datasource = await getDataSourceById(exp.datasource, org.id);
   if (!datasource) {
     res.status(400).json({
       status: 404,
@@ -1510,24 +1666,32 @@ export async function postSnapshot(
     return;
   }
 
-  let userDimension: DimensionInterface;
-  let experimentDimension: string;
+  let dimensionArg: Dimension | null = null;
+
   if (dimension) {
     if (dimension.match(/^exp:/)) {
-      experimentDimension = dimension.substr(4);
+      dimensionArg = {
+        type: "experiment",
+        id: dimension.substr(4),
+      };
+    } else if (dimension.substr(0, 4) === "pre:") {
+      dimensionArg = {
+        // eslint-disable-next-line
+        type: dimension.substr(4) as any,
+      };
     } else {
-      userDimension = await findDimensionById(dimension, req.organization.id);
+      const obj = await findDimensionById(dimension, org.id);
+      if (obj) {
+        dimensionArg = {
+          type: "user",
+          dimension: obj,
+        };
+      }
     }
   }
 
   try {
-    const snapshot = await createSnapshot(
-      exp,
-      phase,
-      datasource,
-      userDimension,
-      experimentDimension
-    );
+    const snapshot = await createSnapshot(exp, phase, datasource, dimensionArg);
     await req.audit({
       event: "snapshot.create.auto",
       entity: {
@@ -1553,9 +1717,10 @@ export async function postSnapshot(
 }
 
 export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }>,
+  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   if (!req.permissions.draftExperiments) {
     return res.status(403).json({
       status: 403,
@@ -1563,7 +1728,7 @@ export async function deleteScreenshot(
     });
   }
 
-  const { id, variation }: { id: string; variation: number } = req.params;
+  const { id, variation } = req.params;
 
   const { url } = req.body;
 
@@ -1577,7 +1742,7 @@ export async function deleteScreenshot(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -1622,9 +1787,10 @@ type AddScreenshotRequestBody = {
   description?: string;
 };
 export async function addScreenshot(
-  req: AuthRequest<AddScreenshotRequestBody>,
+  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   if (!req.permissions.draftExperiments) {
     return res.status(403).json({
       status: 403,
@@ -1632,7 +1798,7 @@ export async function addScreenshot(
     });
   }
 
-  const { id, variation }: { id: string; variation: number } = req.params;
+  const { id, variation } = req.params;
 
   const { url, description } = req.body;
 
@@ -1646,7 +1812,7 @@ export async function addScreenshot(
     return;
   }
 
-  if (exp.organization !== req.organization.id) {
+  if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this experiment",
@@ -1684,7 +1850,7 @@ export async function addScreenshot(
     }),
   });
 
-  await ensureWatching(req.userId, req.organization.id, exp.id);
+  await ensureWatching(userId, org.id, exp.id);
 
   res.status(200).json({
     status: 200,
@@ -1695,12 +1861,19 @@ export async function addScreenshot(
   });
 }
 
-export async function getPastExperimentStatus(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getPastExperimentStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
   const model = await PastExperimentsModel.findOne({ id });
+  if (!model) {
+    throw new Error("Could not get query status");
+  }
   const result = await getStatusEndpoint(
     model,
-    req.organization.id,
+    org.id,
     processPastExperiments,
     async (updates, experiments) => {
       await PastExperimentsModel.updateOne(
@@ -1716,14 +1889,21 @@ export async function getPastExperimentStatus(req: AuthRequest, res: Response) {
   );
   return res.status(200).json(result);
 }
-export async function cancelPastExperiments(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function cancelPastExperiments(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
   const model = await PastExperimentsModel.findOne({
     id,
-    organization: req.organization.id,
+    organization: org.id,
   });
+  if (!model) {
+    throw new Error("Could not cancel query");
+  }
   res.status(200).json(
-    await cancelRun(model, req.organization.id, async () => {
+    await cancelRun(model, org.id, async () => {
       model.set("queries", []);
       model.set("runStarted", null);
       await model.save();
@@ -1731,11 +1911,15 @@ export async function cancelPastExperiments(req: AuthRequest, res: Response) {
   );
 }
 
-export async function getPastExperimentsList(req: AuthRequest, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function getPastExperimentsList(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
   const model = await PastExperimentsModel.findOne({
     id,
-    organization: req.organization.id,
+    organization: org.id,
   });
 
   if (!model) {
@@ -1744,7 +1928,7 @@ export async function getPastExperimentsList(req: AuthRequest, res: Response) {
 
   const experiments = await ExperimentModel.find(
     {
-      organization: req.organization.id,
+      organization: org.id,
       datasource: model.datasource,
     },
     {
@@ -1778,12 +1962,10 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(
-    datasource,
-    req.organization.id
-  );
+  const datasourceObj = await getDataSourceById(datasource, org.id);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -1795,22 +1977,23 @@ export async function postPastExperiments(
 
   let model = await PastExperimentsModel.findOne({
     datasource,
-    organization: req.organization.id,
+    organization: org.id,
   });
+  let runStarted = false;
   if (!model) {
     const { queries, result } = await startRun(
       {
         experiments: getPastExperiments(
           integration,
           start,
-          req.organization?.settings?.pastExperimentsMinLength
+          org?.settings?.pastExperimentsMinLength
         ),
       },
       processPastExperiments
     );
     model = await PastExperimentsModel.create({
       id: uniqid("imp_"),
-      organization: req.organization.id,
+      organization: org.id,
       datasource: datasource,
       experiments: result || [],
       runStarted: now,
@@ -1818,13 +2001,14 @@ export async function postPastExperiments(
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
+    runStarted = true;
   } else if (force) {
     const { queries, result } = await startRun(
       {
         experiments: getPastExperiments(
           integration,
           start,
-          req.organization?.settings?.pastExperimentsMinLength
+          org?.settings?.pastExperimentsMinLength
         ),
       },
       processPastExperiments
@@ -1835,10 +2019,21 @@ export async function postPastExperiments(
       model.set("experiments", result);
     }
     await model.save();
+    runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
     id: model.id,
   });
+
+  if (runStarted) {
+    await req.audit({
+      event: "datasource.import",
+      entity: {
+        object: "datasource",
+        id: datasource,
+      },
+    });
+  }
 }

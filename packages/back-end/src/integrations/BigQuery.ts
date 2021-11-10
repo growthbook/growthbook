@@ -2,6 +2,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import * as bq from "@google-cloud/bigquery";
 import SqlIntegration from "./SqlIntegration";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
+import { getValidDate } from "../util/dates";
 
 export default class BigQuery extends SqlIntegration {
   params: BigQueryConnectionParams;
@@ -47,12 +48,15 @@ export default class BigQuery extends SqlIntegration {
     )})]`;
   }
   convertDate(fromDB: bq.BigQueryDatetime) {
-    return new Date(fromDB.value + "Z");
+    return getValidDate(fromDB.value + "Z");
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff(${endCol}, ${startCol}, DAY)`;
+  }
+  formatDate(col: string): string {
+    return `format_date("%F", ${col})`;
   }
 }

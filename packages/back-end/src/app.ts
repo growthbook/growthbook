@@ -44,7 +44,8 @@ import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
 
 // Wrap every controller function in asyncHandler to catch errors properly
-function wrapController(controller: Record<string, RequestHandler>): void {
+// eslint-disable-next-line
+function wrapController(controller: Record<string, RequestHandler<any>>): void {
   Object.keys(controller).forEach((key) => {
     if (typeof controller[key] === "function") {
       controller[key] = asyncHandler(controller[key]);
@@ -227,6 +228,7 @@ if (!IS_CLOUD) {
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
@@ -415,11 +417,14 @@ app.post(
 app.get("/segments", segmentsController.getAllSegments);
 app.post("/segments", segmentsController.postSegments);
 app.put("/segments/:id", segmentsController.putSegment);
+app.delete("/segments/:id", segmentsController.deleteSegment);
+app.get("/segments/:id/usage", segmentsController.getSegmentUsage);
 
 // Dimensions
 app.get("/dimensions", dimensionsController.getAllDimensions);
 app.post("/dimensions", dimensionsController.postDimensions);
 app.put("/dimensions/:id", dimensionsController.putDimension);
+app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 
 // Projects
 app.post("/projects", projectsController.postProjects);

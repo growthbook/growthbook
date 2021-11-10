@@ -9,7 +9,7 @@ export default async () => {
   try {
     let uri = MONGODB_URI;
     if (process.env.NODE_ENV === "test") {
-      uri = process.env.MONGO_URL;
+      uri = process.env.MONGO_URL || "";
     }
 
     return await mongoose.connect(uri, {

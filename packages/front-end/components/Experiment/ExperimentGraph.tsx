@@ -9,6 +9,7 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { getValidDate } from "../../services/dates";
 
 export default function ExperimentGraph({
   resolution = "month",
@@ -49,8 +50,8 @@ export default function ExperimentGraph({
     return <div>no data to show</div>;
   }
 
-  const firstMonth = new Date(graphData[0].name);
-  const lastMonth = new Date(graphData[graphData.length - 1].name);
+  const firstMonth = getValidDate(graphData[0].name);
+  const lastMonth = getValidDate(graphData[graphData.length - 1].name);
 
   return (
     <ParentSizeModern>
@@ -83,7 +84,7 @@ export default function ExperimentGraph({
                 width={xMax + barWidth / 2}
               />
               {graphData.map((d, i) => {
-                const barX = xScale(new Date(d.name)) - barWidth / 2;
+                const barX = xScale(getValidDate(d.name)) - barWidth / 2;
                 const barHeight = yMax - (yScale(d.numExp) ?? 0);
                 const barY = yMax - barHeight;
                 return (

@@ -44,4 +44,7 @@ export default class Mysql extends SqlIntegration {
   dateTrunc(col: string) {
     return `DATE(${col})`;
   }
+  formatDate(col: string): string {
+    return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
+  }
 }

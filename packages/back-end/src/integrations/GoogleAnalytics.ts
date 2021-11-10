@@ -1,16 +1,15 @@
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
-  ExperimentResults,
   ImpactEstimationResult,
   UsersQueryParams,
   MetricValueParams,
-  VariationResult,
   ExperimentUsersQueryResponse,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
   UsersQueryResponse,
   MetricValueQueryResponse,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -33,6 +32,22 @@ export function getOauth2Client() {
     GOOGLE_OAUTH_CLIENT_SECRET,
     `${APP_ORIGIN}/oauth/google`
   );
+}
+
+// Transforms YYYYMMDD to ISO format (or empty string)
+function convertDate(rawDate: string): string {
+  if (rawDate.match(/^[0-9]{8}$/)) {
+    return (
+      rawDate.slice(0, 4) +
+      "-" +
+      rawDate.slice(4, 6) +
+      "-" +
+      rawDate.slice(6, 8) +
+      "T12:00:00Z"
+    );
+  }
+
+  return "";
 }
 
 const GoogleAnalytics: SourceIntegrationConstructor = class
@@ -123,13 +138,17 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
   async runUsersQuery(query: string): Promise<UsersQueryResponse> {
     const { rows } = await this.runQuery(query);
+    if (!rows) return [];
 
     let totalUsers = 0;
     const correctedRows = rows.map((row) => {
-      const users = parseFloat(row.metrics[0].values[0]);
+      const users = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
       totalUsers += users;
+
+      const date = convertDate(row.dimensions?.[0] || "");
+
       return {
-        date: row.dimensions[0] + "T12:00:00Z",
+        date,
         users,
       };
     });
@@ -153,12 +172,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           metric
         );
       rows.forEach((row) => {
-        const date = row.dimensions[0] + "T12:00:00Z";
-        const value = parseFloat(row.metrics[0].values[0]);
-        const users = parseInt(row.metrics[1].values[0]);
+        const date = convertDate(row.dimensions?.[0] || "");
+        const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
+        const users = parseInt(row.metrics?.[1]?.values?.[0] || "") || 0;
 
-        let count;
-        let mean;
+        let count: number;
+        let mean: number;
         let stddev = 0;
 
         if (metric === "ga:bounceRate") {
@@ -201,21 +220,16 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
     return {
       metrics: (
-        result?.data?.reports[0]?.columnHeader?.metricHeader
+        result?.data?.reports?.[0]?.columnHeader?.metricHeader
           ?.metricHeaderEntries || []
       ).map((m) => m.name),
-      rows: result?.data?.reports[0]?.data?.rows,
+      rows: result?.data?.reports?.[0]?.data?.rows,
     };
   }
 
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "api",
       queryLanguage: "json",
-      metricCaps: false,
-      separateExperimentResultQueries: false,
     };
   }
 
@@ -278,7 +292,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
     metrics: MetricInterface[]
-  ): Promise<ExperimentResults> {
+  ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(experiment, phase, metrics);
 
     const result = await google.analyticsreporting("v4").reports.batchGet({
@@ -288,31 +302,35 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       },
     });
 
-    const rows: VariationResult[] = [];
-    const raw = result?.data?.reports[0]?.data?.rows;
-    if (!raw) {
+    const rows = result?.data?.reports?.[0]?.data?.rows;
+    if (!rows) {
       throw new Error("Failed to update");
     }
 
-    raw.forEach((row, i) => {
-      if (i >= experiment.variations.length) return;
-      row.dimensions[0] = `myexp:${i}`;
-      const users = parseInt(row.metrics[0].values[0]);
-      rows.push({
-        variation: parseInt(row.dimensions[0].split(":", 2)[1]),
-        users,
+    return rows.map((row) => {
+      const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
+      return {
+        dimension: "",
+        variation: (row.dimensions?.[0] || "").split(":", 2)[1] || "",
+        users: users || 0,
         metrics: metrics.map((metric, j) => {
-          let value = parseFloat(row.metrics[0].values[j + 1]);
+          let value = parseFloat(row.metrics?.[0]?.values?.[j + 1] || "") || 0;
           if (metric.table === "ga:bounceRate") {
             value = (users * value) / 100;
-          } else if (metric.table.match(/^ga:avg/)) {
+          } else if (metric.table?.match(/^ga:avg/)) {
             value = users * value;
           }
 
           const mean = Math.round(value) / users;
 
-          // If the metric is duration, we can assume an exponential distribution and the stddev equals the mean
-          const stddev = metric.type === "duration" ? mean : 0;
+          // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
+          // If the metric is count, we can assume a poisson distribution where the variance equals the mean
+          const stddev =
+            metric.type === "duration"
+              ? mean
+              : metric.type === "count"
+              ? Math.sqrt(mean)
+              : 0;
 
           return {
             metric: metric.id,
@@ -321,15 +339,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             stddev,
           };
         }),
-      });
+      };
     });
-
-    return [
-      {
-        dimension: "All",
-        variations: rows,
-      },
-    ];
   }
 };
 export default GoogleAnalytics;

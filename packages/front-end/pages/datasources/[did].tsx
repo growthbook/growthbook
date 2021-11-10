@@ -51,8 +51,8 @@ const DataSourcePage: FC = () => {
     );
   }
 
-  const supportsSQL = !["google_analytics", "mixpanel"].includes(d.type);
-  const supportsEvents = d.type === "mixpanel";
+  const supportsSQL = d.properties?.queryLanguage === "sql";
+  const supportsEvents = d.properties?.events || false;
 
   return (
     <div className="container mt-3 pagecontents">
@@ -118,10 +118,9 @@ const DataSourcePage: FC = () => {
               </div>
             )}
           </div>
-          {d.type === "google_analytics" && (
+          {!d.properties?.hasSettings && (
             <div className="alert alert-info">
-              Google Analytics data sources do not require any additional
-              configuration.
+              This data source does not require any additional configuration.
             </div>
           )}
           {supportsEvents && (
@@ -164,19 +163,8 @@ const DataSourcePage: FC = () => {
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
                 />
-                <div className="mt-2">
-                  <div>
-                    <strong>Variation Id Format:</strong>{" "}
-                    {d.settings?.variationIdFormat === "key" ? (
-                      "String Keys"
-                    ) : (
-                      <>
-                        Array Index (<code>0</code> = control, <code>1</code> =
-                        1st variation, etc.)
-                      </>
-                    )}
-                  </div>
-                  {d.settings?.experimentDimensions?.length > 0 && (
+                {d.settings?.experimentDimensions?.length > 0 && (
+                  <div className="mt-2">
                     <div>
                       <strong>Dimension Columns:</strong>{" "}
                       {d.settings.experimentDimensions.map((d) => (
@@ -185,8 +173,8 @@ const DataSourcePage: FC = () => {
                         </code>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div className="mb-4">
                 <h3>Pageviews Query</h3>

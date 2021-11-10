@@ -1,6 +1,9 @@
 import Agenda, { Job } from "agenda";
 import { OrganizationModel } from "../models/OrganizationModel";
-import { refreshMetric } from "../services/experiments";
+import {
+  refreshMetric,
+  DEFAULT_METRIC_ANALYSIS_DAYS,
+} from "../services/experiments";
 import pino from "pino";
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
@@ -28,16 +31,16 @@ export default async function (agenda: Agenda) {
       },
     });
     for (let i = 0; i < orgsWithNorthStars.length; i++) {
-      for (
-        let j = 0;
-        j < orgsWithNorthStars[i].settings.northStar.metricIds.length;
-        j++
-      ) {
-        await queueMetricUpdate(
-          orgsWithNorthStars[i].settings.northStar.metricIds[j],
-          orgsWithNorthStars[i].id,
-          orgsWithNorthStars[i].settings
-        );
+      if (orgsWithNorthStars[i]?.settings?.northStar?.metricIds) {
+        const thisOrgsNorthStarMetricIds =
+          orgsWithNorthStars[i]?.settings?.northStar?.metricIds || [];
+        for (let j = 0; j < thisOrgsNorthStarMetricIds.length; j++) {
+          await queueMetricUpdate(
+            thisOrgsNorthStarMetricIds[j],
+            orgsWithNorthStars[i].id,
+            orgsWithNorthStars[i]?.settings || {}
+          );
+        }
       }
     }
   });
@@ -81,7 +84,9 @@ export default async function (agenda: Agenda) {
 }
 
 async function updateSingleMetric(job: UpdateSingleMetricJob) {
-  const { metricId, orgId, orgSettings } = job.attrs.data;
+  const metricId = job.attrs.data?.metricId;
+  const orgId = job.attrs.data?.orgId;
+  const orgSettings = job.attrs.data?.orgSettings;
 
   const logger = parentLogger.child({
     cron: "updateSingleMetric",
@@ -89,6 +94,10 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
     orgId,
   });
 
+  if (!metricId || !orgId) {
+    logger.error("Error getting metricId from job");
+    return false;
+  }
   const metric = await getMetricById(metricId, orgId, true);
 
   if (!metric) {
@@ -98,7 +107,9 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
 
   try {
     logger.info("Start Refreshing Metric: " + metricId);
-    await refreshMetric(metric, orgId, orgSettings.metricAnalysisDays);
+    const days =
+      orgSettings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS;
+    await refreshMetric(metric, orgId, days);
   } catch (e) {
     logger.error("Error refreshing metric: " + e.message);
   }

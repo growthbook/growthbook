@@ -8,7 +8,9 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "typeRoots": ["node_modules/@types", "./typings"]
+    "typeRoots": ["node_modules/@types", "./typings"],
+    "strictNullChecks": true,
+    "strictBindCallApply": true
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

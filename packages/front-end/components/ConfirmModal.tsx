@@ -10,6 +10,7 @@ type props = {
   modalState: boolean;
   setModalState: (state: boolean) => void;
   onConfirm: () => void;
+  children?: React.ReactNode;
 };
 
 const ConfirmModal = ({
@@ -21,6 +22,7 @@ const ConfirmModal = ({
   modalState,
   setModalState,
   onConfirm,
+  children,
 }: props): React.ReactElement => {
   const closeModal = () => {
     setModalState(false);
@@ -36,7 +38,7 @@ const ConfirmModal = ({
           { [styles.modalhide]: !modalState }
         )}
         onClick={closeModal}
-      ></div>
+      />
       <div
         className={clsx(
           styles.modalwrap,
@@ -65,6 +67,7 @@ const ConfirmModal = ({
             </div>
             <div className={`modal-body ${styles.confirmbody}`}>
               {subtitle !== "" && <div>{subtitle}</div>}
+              {children}
               <div>
                 <button
                   className="btn btn-outline-secondary no"

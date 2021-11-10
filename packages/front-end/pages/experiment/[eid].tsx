@@ -528,12 +528,7 @@ const ExperimentPage = (): ReactElement => {
                         <strong>{v.name}</strong>{" "}
                       </div>
                       <div className="mb-1">
-                        <small className="text-muted">
-                          id:{" "}
-                          {(datasource?.settings?.variationIdFormat === "key" &&
-                            v.key) ||
-                            i}
-                        </small>
+                        <small className="text-muted">id: {v.key || i}</small>
                       </div>
                       {v.description && <p>{v.description}</p>}
                       {v.value && experiment.implementation !== "visual" && (
@@ -676,11 +671,6 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setMetricsModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                {experiment.activationMetric && (
-                  <RightRailSectionGroup title="Activation Metric" type="badge">
-                    {getMetricById(experiment.activationMetric)?.name}
-                  </RightRailSectionGroup>
-                )}
                 <RightRailSectionGroup title="Goals" type="custom">
                   {experiment.metrics.map((m) => {
                     return (
@@ -712,7 +702,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setTargetingModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                {datasource?.type !== "mixpanel" && (
+                {datasource?.properties?.userIds && (
                   <RightRailSectionGroup title="Login State" type="badge">
                     {experiment.userIdType === "user" ? "User" : "Anonymous"}
                   </RightRailSectionGroup>
@@ -760,12 +750,14 @@ const ExperimentPage = (): ReactElement => {
           anchor="results"
           lazy={true}
           visible={experiment.status !== "draft"}
+          padding={false}
         >
           <div className="position-relative">
             <Results
               experiment={experiment}
               editMetrics={() => setMetricsModalOpen(true)}
               editResult={() => setStopModalOpen(true)}
+              mutateExperiment={mutate}
             />
           </div>
         </Tab>

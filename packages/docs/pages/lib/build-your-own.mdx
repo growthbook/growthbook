@@ -95,13 +95,14 @@ There are a bunch of ordered steps to run an experiment:
 5.  If `context.forcedVariations[experiment.key]` is defined, return immediately (not in experiment, forced variation)
 6.  If `experiment.status` is "draft", return immediately (not in experiment, variationId `0`)
 7.  Get the user hash attribute and value (`context.user[experiment.hashAttribute || "id"]`) and if empty, return immediately (not in experiment, variationId `0`)
-8.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
-9.  If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
-10. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
-11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
-12. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
-13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-14. Default variation weights and coverage if not specified
+8.  If `experiment.namespace` is set, check if hash value is included in the range and if not, return immediately (not in experiment, variationId `0`)
+9.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
+10. If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
+11. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
+12. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
+13. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
+14. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
+15. Default variation weights and coverage if not specified
 
     ```js
     // Default weights to an even split between all variations
@@ -113,10 +114,10 @@ There are a bunch of ordered steps to run an experiment:
     }
 
     // Default coverage to 1 (100%)
-    coverage = experiment.coverage ?? 1
+    coverage = experiment.coverage ?? 1;
     ```
 
-15. Calculate bucket ranges for the variations
+16. Calculate bucket ranges for the variations
 
     ```js
     // Convert weights/coverage to ranges
@@ -130,21 +131,17 @@ There are a bunch of ordered steps to run an experiment:
     });
     ```
 
-16. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
+17. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
 
     ```js
     n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
-    ```
 
-17. Assign a variation based on the hash and bucket ranges
-
-    ```js
-    assigned = -1
+    assigned = -1;
     ranges.forEach((range, i) => {
       if (n >= range[0] && n < range[1]) {
         assigned = i;
       }
-    })
+    });
     ```
 
 18. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)

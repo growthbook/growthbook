@@ -63,7 +63,7 @@ const GetStarted = ({
       <div className="container-fluid mt-3 pagecontents getstarted">
         {dataSourceQueriesOpen &&
           datasources?.[0] &&
-          datasources[0].type !== "google_analytics" && (
+          datasources[0].properties?.hasSettings && (
             <EditDataSourceSettingsForm
               firstTime={true}
               data={datasources[0]}

@@ -7,26 +7,27 @@ import {
   findDimensionById,
   findDimensionsByOrganization,
   updateDimension,
+  deleteDimensionById,
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
+import { getOrgFromReq } from "../services/organizations";
 
 export async function getAllDimensions(req: AuthRequest, res: Response) {
-  const dimensions = await findDimensionsByOrganization(req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const dimensions = await findDimensionsByOrganization(org.id);
   res.status(200).json({
     status: 200,
     dimensions,
   });
 }
 export async function postDimensions(
-  req: AuthRequest<Partial<DimensionInterface>>,
+  req: AuthRequest<DimensionInterface>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(
-    datasource,
-    req.organization.id
-  );
+  const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -38,7 +39,7 @@ export async function postDimensions(
     id: uniqid("dim_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    organization: req.organization.id,
+    organization: org.id,
   });
 
   res.status(200).json({
@@ -47,11 +48,12 @@ export async function postDimensions(
   });
 }
 export async function putDimension(
-  req: AuthRequest<Partial<DimensionInterface>>,
+  req: AuthRequest<DimensionInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
-  const dimension = await findDimensionById(id, req.organization.id);
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const dimension = await findDimensionById(id, org.id);
 
   if (!dimension) {
     throw new Error("Could not find dimension");
@@ -59,15 +61,12 @@ export async function putDimension(
 
   const { datasource, name, sql } = req.body;
 
-  const datasourceDoc = await getDataSourceById(
-    datasource,
-    req.organization.id
-  );
+  const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  await updateDimension(id, req.organization.id, {
+  await updateDimension(id, org.id, {
     datasource,
     name,
     sql,
@@ -77,5 +76,30 @@ export async function putDimension(
   res.status(200).json({
     status: 200,
     dimension,
+  });
+}
+
+export async function deleteDimension(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const dimension = await findDimensionById(id, org.id);
+
+  if (!dimension) {
+    throw new Error("Could not find dimension");
+  }
+  try {
+    await deleteDimensionById(id, org.id);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
   });
 }

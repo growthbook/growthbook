@@ -21,6 +21,7 @@ import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import { getValidDate } from "../../services/dates";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -79,7 +80,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [step, setStep] = useState(initialStep || 0);
 
   const {
-    metrics,
     datasources,
     getDatasourceById,
     refreshTags,
@@ -91,12 +91,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? [
         {
           coverage: 1,
-          dateStarted: new Date(
-            initialValue.phases?.[0]?.dateStarted || Date.now()
-          )
+          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
-          dateEnded: new Date(initialValue.phases?.[0]?.dateEnded || Date.now())
+          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
           phase: "main",
@@ -146,9 +144,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
-  const variationKeys =
-    (datasource?.settings?.variationIdFormat ||
-      datasource?.settings?.experiments?.variationFormat) === "key";
 
   const { apiCall } = useAuth();
 
@@ -327,13 +322,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     label={i === 0 ? "Control Name" : `Variation ${i} Name`}
                     {...form.register(`variations.${i}.name`)}
                   />
-                  {variationKeys && (
-                    <Field
-                      label="Id"
-                      {...form.register(`variations.${i}.key`)}
-                      placeholder={i + ""}
-                    />
-                  )}
+                  <Field
+                    label="Id"
+                    {...form.register(`variations.${i}.key`)}
+                    placeholder={i + ""}
+                  />
                   <Field
                     label="Description"
                     {...form.register(`variations.${i}.description`)}
@@ -427,31 +420,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Activation Metric</label>
-            <div className="mb-1 font-italic">
-              Users must complete this metric before being included in the
-              analysis.
-            </div>
-            <select
-              {...form.register("activationMetric")}
-              className="form-control"
-            >
-              <option value="">None</option>
-              {metrics
-                .filter((m) => m.datasource === datasource?.id)
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-            </select>
-            <small className="form-text text-muted">
-              This is for advanced use cases only.
-            </small>
-          </div>
-
-          {datasource?.type !== "mixpanel" && (
+          {datasource?.properties?.userIds && (
             <Field
               label="Login State"
               {...form.register("userIdType")}

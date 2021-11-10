@@ -3,7 +3,7 @@ import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment } from "react";
 import { formatConversionRate } from "../../services/metrics";
-import { date } from "../../services/dates";
+import { date, getValidDate } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -55,7 +55,7 @@ function correctStddev(
   const t = n + m;
 
   return Math.sqrt(
-    ((n - 1) * s2x + (m - 1) * s2y) / (t + 1) +
+    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
       (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
   );
 }
@@ -106,8 +106,8 @@ const DateGraph: FC<{
             { d, v, u, s }
           ) => {
             const key = (groupby === "day"
-              ? new Date(d)
-              : setDay(new Date(d), 0)
+              ? getValidDate(d)
+              : setDay(getValidDate(d), 0)
             ).getTime();
 
             const users = u || 1;
@@ -553,16 +553,22 @@ const DateGraph: FC<{
                   </p>
                   <p className="mb-1">
                     {date(highlightExp.dateStarted)} -{" "}
-                    {date(highlightExp.dateEnded)}
+                    {highlightExp.status === "running"
+                      ? ""
+                      : date(highlightExp.dateEnded)}
                   </p>
                   <p className="mb-1">
-                    Result:{" "}
                     {highlightExp.status === "running" ? (
-                      <i>
-                        <strong>{highlightExp.status}</strong>
-                      </i>
+                      <>
+                        Status:{" "}
+                        <i>
+                          <strong>{highlightExp.status}</strong>
+                        </i>
+                      </>
                     ) : (
-                      <strong>{highlightExp.result}</strong>
+                      <>
+                        Result: <strong>{highlightExp.result}</strong>
+                      </>
                     )}
                   </p>
                   <p className="mb-1">{highlightExp.analysis}</p>

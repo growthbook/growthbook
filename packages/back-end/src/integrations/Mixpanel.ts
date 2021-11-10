@@ -10,9 +10,8 @@ import { SegmentInterface } from "../../types/segment";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
-  DimensionResult,
   ExperimentMetricQueryResponse,
-  ExperimentResults,
+  ExperimentQueryResponses,
   ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
@@ -55,7 +54,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
       encryptedParams
     );
     this.settings = {
-      variationIdFormat: "index",
       events: {
         experimentEvent: "$experiment_started",
         experimentIdProperty: "Experiment name",
@@ -170,7 +168,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             )}) {
               state.inExperiment = true;
               state.variation = ${this.getPropertyColumn(
-                this.settings.events.variationIdProperty || "Variant name",
+                this.settings.events?.variationIdProperty || "Variant name",
                 "e"
               )};
               ${
@@ -275,7 +273,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
-  ): Promise<ExperimentResults> {
+  ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
       experiment,
       phase,
@@ -299,35 +297,21 @@ export default class Mixpanel implements SourceIntegrationInterface {
       }[]
     >(this.params, query);
 
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensions: { [key: string]: DimensionResult } = {};
-
-    result.forEach((row) => {
-      dimensions[row.dimension] = dimensions[row.dimension] || {
-        dimension: row.dimension,
-        variations: [],
+    return result.map(({ variation, dimension, users, metrics }) => {
+      return {
+        dimension,
+        variation,
+        users,
+        metrics: metrics.map((m) => {
+          return {
+            metric: m.id,
+            count: m.count,
+            mean: m.mean,
+            stddev: m.stddev,
+          };
+        }),
       };
-
-      dimensions[row.dimension].variations.push({
-        variation:
-          this.settings.variationIdFormat === "key"
-            ? variationKeyMap.get(row.variation)
-            : parseInt(row.variation),
-        users: row.users || 0,
-        metrics: row.metrics.map((m) => ({
-          metric: m.id,
-          count: m.count,
-          mean: m.mean,
-          stddev: m.stddev,
-        })),
-      });
     });
-
-    return Object.values(dimensions);
   }
   async testConnection(): Promise<boolean> {
     const today = new Date().toISOString().substr(0, 10);
@@ -343,12 +327,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "api",
       queryLanguage: "javascript",
       metricCaps: true,
-      separateExperimentResultQueries: false,
+      segments: true,
+      dimensions: true,
+      hasSettings: true,
+      events: true,
     };
   }
 
@@ -373,7 +357,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       from: start,
       to: end,
       includeByDate: false,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
       conversionWindowHours,
     };
 
@@ -381,7 +365,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ...baseSettings,
       name: "Traffic - Selected Pages and Segment",
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
     const metricQuery = this.getMetricValueQuery({
@@ -396,7 +380,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       metric,
       includePercentiles: false,
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
 
@@ -758,13 +742,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidPageCondition(urlRegex?: string, event: string = "event") {
     if (urlRegex && urlRegex !== ".*") {
-      const urlCol = this.settings.events.urlProperty;
+      const urlCol = this.settings.events?.urlProperty;
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }" && ${event}.properties["${urlCol}"] && ${event}.properties["${urlCol}"].match(/${urlRegex}/)`;
     } else {
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }"`;
     }
   }
@@ -820,9 +804,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     end?: Date
   ) {
     const experimentEvent =
-      this.settings.events.experimentEvent || "$experiment_started";
+      this.settings.events?.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
-      this.settings.events.experimentIdProperty || "Experiment name",
+      this.settings.events?.experimentIdProperty || "Experiment name",
       event
     );
     let timeCheck = `${event}.time >= ${start.getTime()}`;

@@ -1,4 +1,4 @@
-import { FC, useContext, useState } from "react";
+import React, { FC, useContext, useState } from "react";
 import { FaPlus, FaPencilAlt } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
@@ -10,6 +10,8 @@ import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
 import { UserContext } from "../../components/ProtectedPage";
+import DeleteButton from "../../components/DeleteButton";
+import { useAuth } from "../../services/auth";
 
 const DimensionsPage: FC = () => {
   const {
@@ -18,6 +20,7 @@ const DimensionsPage: FC = () => {
     getDatasourceById,
     ready,
     error,
+    mutateDefinitions,
   } = useDefinitions();
 
   const { permissions } = useContext(UserContext);
@@ -27,12 +30,14 @@ const DimensionsPage: FC = () => {
     setDimensionForm,
   ] = useState<null | Partial<DimensionInterface>>(null);
 
+  const { apiCall } = useAuth();
+
   if (!error && !ready) {
     return <LoadingOverlay />;
   }
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.type !== "google_analytics"
+    (d) => d.properties?.dimensions
   )[0];
 
   if (!hasValidDataSources) {
@@ -88,7 +93,7 @@ const DimensionsPage: FC = () => {
       </div>
       {dimensions.length > 0 && (
         <div className="row mb-4">
-          <div className="col-auto">
+          <div className="col-12">
             <p>
               User Dimensions are attributes of your users - for example,
               &quot;subscription plan&quot; or &quot;age group&quot;. In Growth
@@ -116,7 +121,7 @@ const DimensionsPage: FC = () => {
                       {getDatasourceById(s.datasource)?.name}
                     </td>
                     <td className="d-none d-lg-table-cell">
-                      {getDatasourceById(s.datasource)?.type === "mixpanel" ? (
+                      {getDatasourceById(s.datasource)?.properties?.events ? (
                         <div>
                           Event property: <code>{s.sql}</code>
                         </div>
@@ -129,7 +134,8 @@ const DimensionsPage: FC = () => {
                       <td>
                         <a
                           href="#"
-                          className="tr-hover text-primary"
+                          className="tr-hover text-primary mr-3"
+                          title="Edit this dimension"
                           onClick={(e) => {
                             e.preventDefault();
                             setDimensionForm(s);
@@ -137,6 +143,18 @@ const DimensionsPage: FC = () => {
                         >
                           <FaPencilAlt />
                         </a>
+                        <DeleteButton
+                          link={true}
+                          className={"tr-hover text-primary"}
+                          displayName={s.name}
+                          title="Delete this dimension"
+                          onClick={async () => {
+                            await apiCall(`/dimensions/${s.id}`, {
+                              method: "DELETE",
+                            });
+                            await mutateDefinitions({});
+                          }}
+                        />
                       </td>
                     )}
                   </tr>
@@ -175,7 +193,7 @@ const DimensionsPage: FC = () => {
         </p>
 
         {permissions.organizationSettings && (
-          <Link href="/settings/datasources">
+          <Link href="/datasources">
             <a className="btn btn-outline-primary">View Data Sources</a>
           </Link>
         )}

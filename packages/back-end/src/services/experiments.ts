@@ -14,7 +14,8 @@ import {
   ABTestStats,
   abtest,
   getValueCR,
-  getAdjustedStats,
+  mergeMetricStats,
+  addNonconvertingUsersToStats,
 } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
@@ -29,12 +30,13 @@ import {
   startRun,
 } from "./queries";
 import {
-  DimensionResult,
+  ExperimentResults,
   ExperimentMetricResult,
   ExperimentUsersResult,
   MetricValueParams,
   MetricValueResult,
   PastExperimentResult,
+  Dimension,
   UsersQueryParams,
   UsersResult,
 } from "../types/Integration";
@@ -48,15 +50,18 @@ import {
   MetricStats,
 } from "../../types/metric";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { PastExperiment } from "../../types/past-experiments";
 import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
+import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
+import { SegmentInterface } from "../../types/segment";
 
-const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
+export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
+const MAX_DIMENSIONS = 20;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -133,7 +138,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
     dateUpdated: new Date(),
   });
 
-  if (data.tags) {
+  if (data.tags && data.organization) {
     await addTags(data.organization, data.tags);
   }
 
@@ -150,6 +155,9 @@ export async function refreshMetric(
       metric.datasource,
       metric.organization
     );
+    if (!datasource) {
+      throw new Error("Could not load metric datasource");
+    }
     const integration = getSourceIntegrationObject(datasource);
 
     let segmentQuery = "";
@@ -182,7 +190,7 @@ export async function refreshMetric(
       includeByDate: true,
       segmentName,
       segmentQuery,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
     };
 
     const updates: Partial<MetricInterface> = {};
@@ -217,7 +225,12 @@ export async function getMetricAnalysis(
   metric: MetricInterface,
   queryData: QueryMap
 ): Promise<MetricAnalysis> {
-  const metricData: MetricValueResult = queryData.get("metric")?.result || {};
+  const metricData: MetricValueResult = (queryData.get("metric")
+    ?.result as MetricValueResult) || {
+    count: 0,
+    mean: 0,
+    stddev: 0,
+  };
   const usersData: UsersResult = (queryData.get("users")
     ?.result as UsersResult) || { users: 0 };
 
@@ -239,7 +252,10 @@ export async function getMetricAnalysis(
     metricData.dates.forEach((d) => {
       const { mean, stddev } = metric.ignoreNulls
         ? { mean: d.mean, stddev: d.stddev }
-        : getAdjustedStats(d as MetricStats, userDateMap.get(d.date + "") || 0);
+        : addNonconvertingUsersToStats(
+            d as MetricStats,
+            userDateMap.get(d.date + "") || 0
+          );
 
       const averageBase =
         (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
@@ -247,7 +263,7 @@ export async function getMetricAnalysis(
       total += dateTotal;
       count += d.count || 0;
       dates.push({
-        d: new Date(d.date),
+        d: getValidDate(d.date),
         v: mean,
         u: averageBase,
         s: stddev,
@@ -269,7 +285,7 @@ export async function getMetricAnalysis(
       ? Object.keys(metricData.percentiles).map((k) => {
           return {
             p: parseInt(k) / 100,
-            v: metricData.percentiles[k],
+            v: metricData.percentiles?.[k] || 0,
           };
         })
       : [],
@@ -302,6 +318,10 @@ function generateTrackingKey(name: string, n: number): string {
 }
 
 export async function createExperiment(data: Partial<ExperimentInterface>) {
+  if (!data.organization) {
+    throw new Error("Missing organization");
+  }
+
   if (data.trackingKey) {
     // Make sure id is unique
     const existing = await getExperimentByTrackingKey(
@@ -318,7 +338,7 @@ export async function createExperiment(data: Partial<ExperimentInterface>) {
     let n = 1;
     let found = null;
     while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name, n);
+      const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(data.organization, key))) {
         found = key;
       }
@@ -370,6 +390,7 @@ export async function getManualSnapshotData(
   await Promise.all(
     Object.keys(metrics).map((m) => {
       const metric = metricMap.get(m);
+      if (!metric) return;
       return Promise.all(
         experiment.variations.map(async (v, i) => {
           const valueCR = getValueCR(
@@ -439,6 +460,7 @@ export async function createManualSnapshot(
     id: uniqid("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
+    dimension: null,
     phase: phaseIndex,
     queries: [],
     runStarted: new Date(),
@@ -458,6 +480,21 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
+type RawDimensionData = {
+  [key: string]: {
+    users: number[];
+    metrics: {
+      [key: string]: MetricStats[];
+    };
+  };
+};
+type MergedDimension = {
+  dimension: string;
+  users: number[];
+  metrics: {
+    [key: string]: MetricStats[];
+  };
+};
 type ProcessedSnapshotDimension = {
   name: string;
   srm: number;
@@ -468,10 +505,101 @@ type ProcessedSnapshotData = {
   unknownVariations: string[];
 };
 
+function sortAndMergeDimensions(
+  dimensions: RawDimensionData,
+  numVariations: number,
+  ignoreDimensionLimits: boolean = false
+): MergedDimension[] {
+  // Sort dimensions so the ones with the most overall users are first
+  const usersPerDimension = Object.keys(dimensions).map((key) => {
+    return {
+      dimension: key,
+      users: dimensions[key].users.reduce((sum, u) => sum + u, 0),
+    };
+  });
+  usersPerDimension.sort((a, b) => b.users - a.users);
+
+  // Wait until the "(other)" category will have at least 2 dimension values
+  const numDimensions = usersPerDimension.length;
+  if (numDimensions === MAX_DIMENSIONS + 1) {
+    ignoreDimensionLimits = true;
+  }
+
+  const res: MergedDimension[] = [];
+
+  const otherMetrics: Map<
+    string,
+    { users: number[]; values: MetricStats[] }[]
+  > = new Map();
+  const otherUsers: number[] = [];
+  let hasOverflow = false;
+
+  usersPerDimension.forEach(({ dimension }, i) => {
+    const data = dimensions[dimension];
+    if (!data) return;
+
+    // For the first few dimension values, keep them as-is
+    if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
+      res.push({
+        dimension,
+        ...data,
+      });
+    }
+    // For the rest, queue them up to be merged together into an "other" category
+    else {
+      hasOverflow = true;
+      Object.keys(data.metrics).forEach((m) => {
+        otherMetrics.set(m, [
+          ...(otherMetrics.get(m) || []),
+          {
+            users: data.users,
+            values: data.metrics[m],
+          },
+        ]);
+      });
+      data.users.forEach((u, i) => {
+        otherUsers[i] = otherUsers[i] || 0;
+        otherUsers[i] += u;
+      });
+    }
+  });
+
+  if (hasOverflow) {
+    const otherDimension: MergedDimension = {
+      dimension: "(other)",
+      users: otherUsers,
+      metrics: {},
+    };
+    // Merge dimension values together for each metric
+    otherMetrics.forEach((metricStats, m) => {
+      otherDimension.metrics[m] = metricStats.reduce((old, current) => {
+        const merged = [...old];
+
+        for (let i = 0; i < numVariations; i++) {
+          // If there's no old value, just use the new one (if it exists)
+          if (!merged[i]) {
+            if (current.values[i]) merged[i] = current.values[i];
+          }
+          // Merge the old and new values together
+          else if (current.values[i]) {
+            merged[i] = mergeMetricStats(merged[i], current.values[i]);
+          }
+        }
+        return merged;
+      }, [] as MetricStats[]);
+    });
+
+    res.push(otherDimension);
+  }
+
+  return res;
+}
+
 export async function processSnapshotData(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
-  queryData: QueryMap
+  queryData: QueryMap,
+  dimension: string | null = null
 ): Promise<ProcessedSnapshotData> {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -480,21 +608,19 @@ export async function processSnapshotData(
   });
 
   // Combine user and metric data into a single data structure
-  const combined: {
-    [key: string]: {
-      users: number[];
-      metrics: {
-        [key: string]: MetricStats[];
-      };
-    };
-  } = {};
+  const combined: RawDimensionData = {};
 
   let unknownVariations: string[] = [];
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   if (queryData.has("results")) {
-    const data = queryData.get("results").result as DimensionResult[];
-    data.forEach((row) => {
+    const results = queryData.get("results");
+    if (!results) throw new Error("Empty experiment results");
+    const data = results.result as ExperimentResults;
+
+    unknownVariations = data.unknownVariations;
+
+    data.dimensions.forEach((row) => {
       combined[row.dimension] = {
         users: [],
         metrics: {},
@@ -502,7 +628,8 @@ export async function processSnapshotData(
       const d = combined[row.dimension];
       row.variations.forEach((v) => {
         d.users[v.variation] = v.users;
-        v.metrics.forEach(({ metric, ...stats }) => {
+        Object.keys(v.metrics).forEach((metric) => {
+          const stats = v.metrics[metric];
           if (!d.metrics[metric]) d.metrics[metric] = [];
           d.metrics[metric][v.variation] = stats;
         });
@@ -538,86 +665,107 @@ export async function processSnapshotData(
     });
   }
 
+  // Don't merge when breaking down by date dimension
+  const merged = sortAndMergeDimensions(
+    combined,
+    experiment.variations.length,
+    dimension === "pre:date"
+  );
+
   const dimensions: ProcessedSnapshotDimension[] = [];
 
-  await Promise.all(
-    Object.keys(combined).map(async (dimension) => {
-      const row = combined[dimension];
-      // One doc per variation
-      const variations: SnapshotVariation[] = experiment.variations.map(
-        (v, i) => ({
-          users: row.users[i] || 0,
-          metrics: {},
-        })
-      );
-
-      // Calculate metric stats
-      const metricPromises: Promise<void[]>[] = [];
-      Object.keys(row.metrics).forEach((k) => {
-        const v = row.metrics[k];
-        const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
-
-        metricPromises.push(
-          Promise.all(
-            v.map(async (data, i) => {
-              const success = data.count * data.mean;
-
-              const metric = metricMap.get(k);
-              const value = success;
-
-              // Don't do stats for the baseline
-              if (!i) {
-                variations[i].metrics[k] = {
-                  ...getValueCR(metric, value, data.count, variations[i].users),
-                  stats: data,
-                };
-                return;
-              }
-
-              let result: ABTestStats;
-              // Short cut if either the baseline or variation has no data
-              if (!baselineSuccess || !success) {
-                result = {
-                  buckets: [],
-                  chanceToWin: 0,
-                  ci: [0, 0],
-                  risk: [0, 0],
-                  expected: 0,
-                };
-              } else {
-                result = await abtest(
-                  metric,
-                  variations[0].users,
-                  v[0],
-                  variations[i].users,
-                  data
-                );
-              }
-
-              variations[i].metrics[k] = {
-                ...getValueCR(metric, value, data.count, variations[i].users),
-                ...result,
-                stats: data,
-              };
-            })
-          )
+  await promiseAllChunks(
+    merged.map(({ dimension, metrics, users }) => {
+      return async () => {
+        // One doc per variation
+        const variations: SnapshotVariation[] = experiment.variations.map(
+          (v, i) => ({
+            users: users[i] || 0,
+            metrics: {},
+          })
         );
-      });
-      await Promise.all(metricPromises);
 
-      // Check to see if the observed number of samples per variation matches what we expect
-      // This returns a p-value and a small value indicates the results are untrustworthy
-      const sampleRatioMismatch = srm(
-        variations.map((v) => v.users),
-        phase.variationWeights
-      );
+        // Calculate metric stats
+        await promiseAllChunks(
+          Object.keys(metrics).map((k) => {
+            return async () => {
+              const v = metrics[k];
+              const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
 
-      dimensions.push({
-        name: dimension,
-        srm: sampleRatioMismatch,
-        variations,
-      });
-    })
+              await Promise.all(
+                v.map(async (data, i) => {
+                  const success = data.count * data.mean;
+
+                  const metric = metricMap.get(k);
+                  if (!metric) return;
+                  const value = success;
+
+                  // Don't do stats for the baseline
+                  if (!i) {
+                    variations[i].metrics[k] = {
+                      ...getValueCR(
+                        metric,
+                        value,
+                        data.count,
+                        variations[i].users
+                      ),
+                      stats: data,
+                    };
+                    return;
+                  }
+
+                  let result: ABTestStats;
+                  // Short cut if either the baseline or variation has no data
+                  if (!baselineSuccess || !success) {
+                    result = {
+                      buckets: [],
+                      chanceToWin: 0,
+                      ci: [0, 0],
+                      risk: [0, 0],
+                      expected: 0,
+                    };
+                  } else {
+                    result = await abtest(
+                      metric,
+                      variations[0].users,
+                      v[0],
+                      variations[i].users,
+                      data
+                    );
+                  }
+
+                  variations[i].metrics[k] = {
+                    ...getValueCR(
+                      metric,
+                      value,
+                      data.count,
+                      variations[i].users
+                    ),
+                    ...result,
+                    stats: data,
+                  };
+                })
+              );
+            };
+          }),
+          2
+        );
+
+        // Check to see if the observed number of samples per variation matches what we expect
+        // This returns a p-value and a small value indicates the results are untrustworthy
+        const sampleRatioMismatch = srm(
+          variations.map((v) => v.users),
+          phase.variationWeights
+        );
+
+        dimensions.push({
+          name: dimension,
+          srm: sampleRatioMismatch,
+          variations,
+        });
+      };
+    }),
+    2
   );
 
   if (!dimensions.length) {
@@ -638,8 +786,7 @@ export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
   datasource: DataSourceInterface,
-  userDimension?: DimensionInterface,
-  experimentDimension?: string
+  dimension: Dimension | null
 ) {
   const metrics = await getMetricsByOrganization(experiment.organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -647,19 +794,29 @@ export async function createSnapshot(
     metricMap.set(m.id, m);
   });
 
-  const activationMetric = metricMap.get(experiment.activationMetric) || null;
+  const activationMetric =
+    metricMap.get(experiment.activationMetric || "") || null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
     new Set(experiment.metrics.concat(experiment.guardrails || []))
   )
     .map((m) => metricMap.get(m))
-    .filter((m) => m);
+    .filter((m) => m) as MetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
 
   const phase = experiment.phases[phaseIndex];
+
+  let segment: SegmentInterface | null = null;
+  if (experiment.segment) {
+    segment =
+      (await SegmentModel.findOne({
+        id: experiment.segment,
+        organization: experiment.organization,
+      })) || null;
+  }
 
   // Update lastSnapshotAttempt
   experiment.lastSnapshotAttempt = new Date();
@@ -686,38 +843,44 @@ export async function createSnapshot(
       phase,
       selectedMetrics,
       activationMetric,
-      userDimension
+      dimension?.type === "user" ? dimension.dimension : null
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     queryDocs["users"] = getExperimentUsers(integration, {
       experiment,
-      userDimension,
-      experimentDimension,
+      dimension,
       activationMetric,
       phase,
+      segment,
     });
     selectedMetrics.forEach((m) => {
       queryDocs[m.id] = getExperimentMetric(integration, {
         metric: m,
         experiment,
-        userDimension,
-        experimentDimension,
+        dimension,
         activationMetric,
         phase,
+        segment,
       });
     });
   }
 
+  const dimensionId =
+    (!dimension
+      ? null
+      : dimension.type === "user"
+      ? dimension.dimension.id
+      : dimension.type === "experiment"
+      ? "exp:" + dimension.id
+      : "pre:" + dimension.type) || null;
+
   const { queries, result: results } = await startRun(
     queryDocs,
-    async (queryData) => processSnapshotData(experiment, phase, queryData)
+    async (queryData) =>
+      processSnapshotData(experiment, phase, queryData, dimensionId)
   );
-
-  const dimensionId =
-    userDimension?.id ||
-    (experimentDimension ? "exp:" + experimentDimension : null);
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -730,9 +893,12 @@ export async function createSnapshot(
     queries,
     hasRawQueries: true,
     queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimensionId,
+    dimension: dimensionId || null,
     results: results?.dimensions,
     unknownVariations: results?.unknownVariations || [],
+    activationMetric: experiment.activationMetric || "",
+    segment: experiment.segment || "",
+    queryFilter: experiment.queryFilter || "",
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);
@@ -790,7 +956,7 @@ export async function processPastExperiments(
 
   const experimentMap = new Map<string, PastExperiment>();
   experiments.forEach((e) => {
-    let el: PastExperiment = experimentMap.get(e.experiment_id);
+    let el = experimentMap.get(e.experiment_id);
     if (!el) {
       el = {
         endDate: e.end_date,

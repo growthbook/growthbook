@@ -78,6 +78,16 @@ pre {
     border-top: none;
     border-radius: 0 0 5px 5px;
   }
+
+  .activesort {
+    opacity: 1;
+  }
+  .inactivesort {
+    opacity: 0.2;
+    &:hover {
+      opacity: 1;
+    }
+  }
 }
 .flex-1 {
   flex: 1;
@@ -279,6 +289,61 @@ pre {
   }
 }
 
+.toggle-switch {
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: middle;
+  height: 25px;
+  width: 50px;
+  position: relative;
+
+  input[type="checkbox"] {
+    height: 0;
+    width: 0;
+    visibility: hidden;
+  }
+
+  label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+    text-indent: -9999px;
+    width: 50px;
+    height: 25px;
+    background: $gray-300;
+    display: block;
+    border-radius: 100px;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  label:after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 21px;
+    height: 21px;
+    background: #fff;
+    border-radius: 90px;
+    transition: 0.3s;
+  }
+
+  input:checked + label {
+    background: $purple;
+  }
+
+  input:checked + label:after {
+    left: calc(100% - 2px);
+    transform: translateX(-100%);
+  }
+
+  label:active:after {
+    width: 30px;
+  }
+}
+
 .experiment-compact {
   border-spacing: 0;
   border: 1px solid #ddd;
@@ -344,7 +409,7 @@ pre {
     }
   }
 
-  td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+  td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
     opacity: 0.6;
   }
 
@@ -353,7 +418,7 @@ pre {
   }
 
   &.aligned-graph {
-    td.variation:not(.value):not(.won):not(.lost):not(.warning) {
+    td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
       opacity: 1;
       color: #999;
     }
@@ -436,6 +501,7 @@ pre {
 
   td.won,
   td.lost,
+  td.draw,
   td.warning {
     opacity: 1;
     .change-container {
@@ -465,6 +531,10 @@ pre {
   }
   td.warning {
     background-color: rgba(#eddca6, 0.3);
+  }
+  td.draw {
+    background-color: rgba(#d7c9e2, 0.3);
+    color: $dark-purple;
   }
 
   .metricname:hover {

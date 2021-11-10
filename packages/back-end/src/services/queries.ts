@@ -15,6 +15,8 @@ import {
   MetricValueResult,
   PastExperimentResponse,
   PastExperimentResult,
+  ExperimentResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import {
@@ -24,13 +26,13 @@ import {
   QueryStatus,
 } from "../../types/query";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
-import { DataSourceSettings } from "../../types/datasource";
+import { getValidDate } from "../util/dates";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
-  runStarted: Date;
+  runStarted: Date | null;
   queries: Queries;
   organization: string;
 };
@@ -80,7 +82,7 @@ async function createNewQuery(
   const data: QueryInterface = {
     createdAt: new Date(),
     datasource: integration.datasource,
-    finishedAt: result || error ? new Date() : null,
+    finishedAt: result || error ? new Date() : undefined,
     heartbeat: new Date(),
     id: uniqid("qry_"),
     language: integration.getSourceProperties().queryLanguage,
@@ -88,8 +90,8 @@ async function createNewQuery(
     query,
     startedAt: new Date(),
     status: result ? "succeeded" : error ? "failed" : "running",
-    result,
-    error,
+    result: result || undefined,
+    error: error || undefined,
   };
   return await QueryModel.create(data);
 }
@@ -204,7 +206,7 @@ export async function getExperimentResults(
         activationMetric,
         dimension
       ),
-    (rows) => rows,
+    (rows) => processExperimentResultsResponse(experiment, rows),
     false
   );
 }
@@ -217,12 +219,7 @@ export async function getExperimentUsers(
     integration,
     integration.getExperimentUsersQuery(params),
     (query) => integration.runExperimentUsersQuery(query),
-    (rows) =>
-      processExperimentUsersResponse(
-        params.experiment,
-        rows,
-        integration.settings
-      ),
+    (rows) => processExperimentUsersResponse(params.experiment, rows),
     false
   );
 }
@@ -235,12 +232,7 @@ export async function getExperimentMetric(
     integration,
     integration.getExperimentMetricQuery(params),
     (query) => integration.runExperimentMetricQuery(query),
-    (rows) =>
-      processExperimentMetricQueryResponse(
-        params.experiment,
-        rows,
-        integration.settings
-      ),
+    (rows) => processExperimentMetricQueryResponse(params.experiment, rows),
     false
   );
 }
@@ -254,47 +246,36 @@ export function processPastExperimentQueryResponse(
         users: row.users,
         experiment_id: row.experiment_id,
         variation_id: row.variation_id,
-        end_date: new Date(row.end_date),
-        start_date: new Date(row.start_date),
+        end_date: getValidDate(row.end_date),
+        start_date: getValidDate(row.start_date),
       };
     }),
   };
 }
 
-function getVariationMap(
-  experiment: ExperimentInterface,
-  settings?: DataSourceSettings
-) {
+function getVariationMap(experiment: ExperimentInterface) {
   const variationMap = new Map<string, number>();
   experiment.variations.forEach((v, i) => {
-    if (
-      (settings?.variationIdFormat ||
-        settings?.experiments?.variationFormat) === "key"
-    ) {
-      variationMap.set(v.key?.length > 0 ? v.key : i + "", i);
-    } else {
-      variationMap.set(i + "", i);
-    }
+    variationMap.set(v.key || i + "", i);
   });
   return variationMap;
 }
 
 export function processExperimentMetricQueryResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentMetricQueryResponse,
-  settings?: DataSourceSettings
+  rows: ExperimentMetricQueryResponse
 ): ExperimentMetricResult {
   const ret: ExperimentMetricResult = {
     dimensions: [],
   };
 
-  const variationMap = getVariationMap(experiment, settings);
+  const variationMap = getVariationMap(experiment);
 
   const dimensionMap = new Map<string, number>();
   rows.forEach(({ variation, dimension, count, mean, stddev }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension);
+      i = dimensionMap.get(dimension) || 0;
     } else {
       i = ret.dimensions.length;
       ret.dimensions.push({
@@ -326,17 +307,81 @@ export function processExperimentMetricQueryResponse(
   return ret;
 }
 
+export function processExperimentResultsResponse(
+  experiment: ExperimentInterface,
+  rows: ExperimentQueryResponses
+): ExperimentResults {
+  const ret: ExperimentResults = {
+    dimensions: [],
+    unknownVariations: [],
+  };
+
+  const variationMap = getVariationMap(experiment);
+
+  const unknownVariations: Map<string, number> = new Map();
+  let totalUsers = 0;
+
+  const dimensionMap = new Map<string, number>();
+
+  rows.forEach(({ dimension, metrics, users, variation }) => {
+    let i = 0;
+    if (dimensionMap.has(dimension)) {
+      i = dimensionMap.get(dimension) || 0;
+    } else {
+      i = ret.dimensions.length;
+      ret.dimensions.push({
+        dimension,
+        variations: [],
+      });
+      dimensionMap.set(dimension, i);
+    }
+
+    const numUsers = users || 0;
+    totalUsers += numUsers;
+
+    const varIndex = variationMap.get(variation + "");
+    if (
+      typeof varIndex === "undefined" ||
+      varIndex < 0 ||
+      varIndex >= experiment.variations.length
+    ) {
+      unknownVariations.set(variation, numUsers);
+      return;
+    }
+
+    const metricData: { [key: string]: MetricStats } = {};
+    metrics.forEach(({ metric, ...stats }) => {
+      metricData[metric] = stats;
+    });
+
+    ret.dimensions[i].variations.push({
+      variation: varIndex,
+      users: numUsers,
+      metrics: metricData,
+    });
+  });
+
+  unknownVariations.forEach((users, variation) => {
+    // Ignore unknown variations with an insignificant number of users
+    // This protects against random typos causing false positives
+    if (totalUsers > 0 && users / totalUsers >= 0.02) {
+      ret.unknownVariations.push(variation);
+    }
+  });
+
+  return ret;
+}
+
 export function processExperimentUsersResponse(
   experiment: ExperimentInterface,
-  rows: ExperimentUsersQueryResponse,
-  settings?: DataSourceSettings
+  rows: ExperimentUsersQueryResponse
 ): ExperimentUsersResult {
   const ret: ExperimentUsersResult = {
     dimensions: [],
     unknownVariations: [],
   };
 
-  const variationMap = getVariationMap(experiment, settings);
+  const variationMap = getVariationMap(experiment);
 
   const unknownVariations: Map<string, number> = new Map();
   let totalUsers = 0;
@@ -345,7 +390,7 @@ export function processExperimentUsersResponse(
   rows.forEach(({ variation, dimension, users }) => {
     let i = 0;
     if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension);
+      i = dimensionMap.get(dimension) || 0;
     } else {
       i = ret.dimensions.length;
       ret.dimensions.push({
@@ -616,7 +661,9 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   return {
     status: 200,
     queryStatus: status,
-    elapsed: Math.floor((Date.now() - doc?.runStarted?.getTime()) / 1000),
+    elapsed: Math.floor(
+      (Date.now() - (doc?.runStarted?.getTime() || 0)) / 1000
+    ),
     finished: doc.queries.filter((q) => q.status === "succeeded").length,
     total: doc.queries.length,
   };
