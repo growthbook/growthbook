@@ -140,6 +140,56 @@ def test_reduce_dimensionality():
     assert reduced.at[1, "baseline_total"] == 1010
 
 
+def test_analyze_metric_df():
+    rows = pd.DataFrame(
+        [
+            {
+                "dimension": "one",
+                "variation": "one",
+                "count": 120,
+                "mean": 2.5,
+                "stddev": 1,
+                "users": 1000,
+            },
+            {
+                "dimension": "one",
+                "variation": "zero",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1100,
+            },
+            {
+                "dimension": "two",
+                "variation": "one",
+                "count": 220,
+                "mean": 3.5,
+                "stddev": 2,
+                "users": 2000,
+            },
+            {
+                "dimension": "two",
+                "variation": "zero",
+                "count": 200,
+                "mean": 3.7,
+                "stddev": 2.1,
+                "users": 2100,
+            },
+        ]
+    )
+    df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue")
+    result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
+
+    assert len(result.index) == 2
+    assert result.at[0, "dimension"] == "one"
+    assert round_(result.at[0, "baseline_cr"]) == 0.245454545
+    assert round_(result.at[0, "baseline_risk"]) == 0.186006962
+    assert round_(result.at[0, "v1_cr"]) == 0.3
+    assert round_(result.at[0, "v1_risk"]) == 0.00418878
+    assert round_(result.at[0, "v1_uplift"]) == 0.222222222
+    assert round_(result.at[0, "v1_prob_beat_baseline"]) == 0.925127213
+
+
 def test_adjusted_stats():
     adjusted = get_adjusted_stats(5, 3, 1000, 2000, False, "revenue")
     print(adjusted)
