@@ -244,7 +244,6 @@ const Results: FC<{
             </div>
           )}
           {snapshot &&
-            !snapshot.dimension &&
             hasData &&
             snapshot.hasRawQueries &&
             "skipPartialData" in snapshot &&

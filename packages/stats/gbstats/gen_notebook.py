@@ -1,4 +1,10 @@
-from .gbstats import process_metric_rows, run_analysis, check_srm
+from nbformat.v4.nbbase import new_markdown_cell
+from .gbstats import (
+    detect_unknown_variations,
+    analyze_metric_df,
+    get_metric_df,
+    reduce_dimensionality,
+)
 import nbformat
 from nbformat import v4 as nbf
 from nbformat.v4.nbjson import from_dict
@@ -35,65 +41,100 @@ def create_notebook(
     run_query="",
     metrics=[],
 ):
+    summary_cols = [
+        "dimension",
+        "baseline_name",
+        "baseline_users",
+        "baseline_cr",
+        "baseline_risk",
+    ]
+    for i in range(1, len(var_names)):
+        summary_cols.append(f"v{i}_name")
+        summary_cols.append(f"v{i}_users")
+        summary_cols.append(f"v{i}_cr")
+        summary_cols.append(f"v{i}_risk")
+        summary_cols.append(f"v{i}_uplift")
+        summary_cols.append(f"v{i}_prob_beat_baseline")
+
     cells = [
-        # Intro
         nbf.new_markdown_cell(
             f"# {name}\n"
             f"[View on GrowthBook]({url})\n\n"
-            f"**Hypothesis:** {hypothesis}\n\n"
-            "## Notebook Setup"
+            f"**Hypothesis:** {hypothesis}"
         ),
-        # Notebook Setup
+        nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
-            "from gbstats.gbstats import check_srm, process_metric_rows, run_analysis\n\n"
+            "from gbstats.gbstats import (\n"
+            "  detect_unknown_variations,\n"
+            "  analyze_metric_df,\n"
+            "  get_metric_df,\n"
+            "  reduce_dimensionality\n"
+            ")\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
             "# Display names of variations\n"
             f"var_names = {str(var_names)}\n\n"
             "# Expected traffic split between variations\n"
-            f"weights = {str(weights)}"
+            f"weights = {str(weights)}\n"
+            f"# Columns to show in the result summary\n"
+            f"summary_cols = {str(summary_cols)}"
         ),
-        # runQuery definition
         nbf.new_code_cell("# User defined runQuery function\n" f"{run_query}"),
     ]
 
     for i, metric in enumerate(metrics):
         name = metric["name"]
-        cells.append(nbf.new_markdown_cell(f"## Metric - {name}\n" "### Query"))
+        cells.append(nbf.new_markdown_cell(f"## Metric - {name}"))
+        cells.append(nbf.new_markdown_cell("### Query"))
         sql = metric["sql"]
         cells.append(
             code_cell_df(
                 df=metric["rows"],
                 source=(
-                    "# Get aggregate metric values per variation\n"
+                    "# Get aggregate metric values per dimension/variation\n"
                     f'm{i}_sql = """{sql}"""\n\n'
                     f"m{i}_rows = runQuery(m{i}_sql)\n"
                     f"display(m{i}_rows)"
                 ),
             )
         )
-        cells.append(nbf.new_markdown_cell("### Processing and Data Quality Checks"))
+        cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
 
         type = metric["type"]
         ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
-        processed, unknown_var_ids = process_metric_rows(
+
+        unknown_var_ids = detect_unknown_variations(metric["rows"], var_id_map)
+        cells.append(
+            code_cell_plain(
+                source=(
+                    "# Identify any variation ids returned from SQL that we aren't expecting\n"
+                    f"unknown_var_ids = detect_unknown_variations(\n"
+                    f"    rows=m{i}_rows,\n"
+                    f"    var_id_map=var_id_map\n"
+                    f")\n"
+                    'print("Unknown variation ids: ", unknown_var_ids)'
+                ),
+                text=("Unknown variation ids:" + (str(unknown_var_ids))),
+            )
+        )
+
+        df = get_metric_df(
             rows=metric["rows"],
             var_id_map=var_id_map,
+            var_names=var_names,
             ignore_nulls=ignore_nulls,
             type=type,
         )
-
-        srm_p = check_srm(processed["users"].tolist(), weights)
-
         cells.append(
             code_cell_df(
-                df=processed,
+                df=df,
                 source=(
-                    "# Sort rows, correct means and stddevs, identify unknown variation ids\n"
-                    f"m{i}, unknown_var_ids = process_metric_rows(\n"
+                    "# Process raw SQL rows into a usable dataframe for analysis\n"
+                    f"m{i} = get_metric_df(\n"
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map,\n"
+                    f"    var_names=var_names,\n"
                     f"    ignore_nulls={ignore_nulls},\n"
                     f'    type="{type}"\n'
                     f")\n"
@@ -102,52 +143,38 @@ def create_notebook(
             )
         )
 
+        df = reduce_dimensionality(df, max=20)
         cells.append(
-            code_cell_plain(
+            code_cell_df(
+                df=df,
                 source=(
-                    "# Any variation ids returned from the query that we were not expecting\n"
-                    'print("Unknown variation ids:", unknown_var_ids)'
-                ),
-                text=("Unknown variation ids:" + (str(unknown_var_ids))),
-            )
-        )
-
-        cells.append(
-            code_cell_plain(
-                source=(
-                    "# Sample Ratio Mismatch (SRM) Check\n"
-                    f"srm_p = check_srm(m{i}['users'].tolist(), weights)\n\n"
-                    'print("SRM P-value:", srm_p)\n\n'
-                    'print("***WARNING: SRM Detected***" if srm_p < 0.001 else "Ok, no SRM detected")'
-                ),
-                text=(
-                    f"SRM P-value: {srm_p}\n"
-                    + (
-                        "***WARNING: SRM Detected***"
-                        if srm_p < 0.001
-                        else "Ok, no SRM detected"
-                    )
+                    "# If there are too many dimensions, marge the smaller ones together\n"
+                    f"m{i}_reduced = reduce_dimensionality(m{i}, max=20)\n"
+                    f"display(m{i}_reduced)"
                 ),
             )
         )
 
         cells.append(nbf.new_markdown_cell("### Result"))
 
-        result = run_analysis(
-            metric=processed, var_names=var_names, type=type, inverse=inverse
+        result = analyze_metric_df(
+            df=df,
+            weights=weights,
+            type=type,
+            inverse=inverse,
         )
-
         cells.append(
             code_cell_df(
-                df=result,
+                df=result[summary_cols].T,
                 source=(
-                    f"m{i}_result = run_analysis(\n"
-                    f"    metric=m{i},\n"
-                    f"    var_names=var_names,\n"
+                    "# Run the analysis and show a summary of results\n"
+                    f"m{i}_result = analyze_metric_df(\n"
+                    f"    df=m{i}_reduced,\n"
+                    f"    weights=weights,\n"
                     f'    type="{type}",\n'
                     f"    inverse={inverse}\n"
                     f")\n"
-                    f"display(m{i}_result)"
+                    f"display(m{i}_result[summary_cols].T)"
                 ),
             )
         )
