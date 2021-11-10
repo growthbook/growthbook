@@ -16,6 +16,7 @@ type ModalProps = {
   inline?: boolean;
   overflowAuto?: boolean;
   autoCloseOnSubmit?: boolean;
+  autoFocusInput?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
   submit?: () => Promise<void>;
@@ -33,6 +34,7 @@ const Modal: FC<ModalProps> = ({
   size = "md",
   className = "",
   autoCloseOnSubmit = true,
+  autoFocusInput = true,
   inline = false,
   overflowAuto = true,
   solidOverlay = false,
@@ -52,7 +54,7 @@ const Modal: FC<ModalProps> = ({
         const input = bodyRef.current.querySelector<
           HTMLInputElement | HTMLTextAreaElement
         >("input,textarea,select");
-        if (input) {
+        if (input && autoFocusInput) {
           input.focus();
           if (input.select) {
             input.select();

@@ -71,7 +71,7 @@ const NorthStar: FC = () => {
 
   return (
     <>
-      {hasNorthStar ? (
+      {hasNorthStar && (
         <div
           className="list-group activity-box mb-4"
           style={{ position: "relative" }}
@@ -105,22 +105,12 @@ const NorthStar: FC = () => {
             </div>
           ))}
         </div>
-      ) : (
-        <a
-          className="cursor-pointer"
-          style={{ position: "absolute", top: "-20px", right: "15px" }}
-          onClick={(e) => {
-            e.preventDefault();
-            setOpenNorthStarModal(true);
-          }}
-        >
-          <BsGear />
-        </a>
       )}
       {openNorthStarModal && (
         <Modal
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
+          autoFocusInput={false}
           submit={form.handleSubmit(async (value) => {
             const settings = { ...orgData.organization.settings };
             if (!settings.northStar)

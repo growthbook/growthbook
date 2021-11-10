@@ -1,7 +1,7 @@
 import Link from "next/link";
 import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
-import { FC, useState, useMemo } from "react";
+import { FC, useState, useMemo, Fragment } from "react";
 import { formatConversionRate } from "../../services/metrics";
 import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
@@ -65,7 +65,9 @@ type ExperimentDisplayData = {
   name: string;
   dateStarted?: string;
   dateEnded?: string;
+  status?: string;
   result?: string;
+  analysis?: string;
   color?: string;
   band?: number;
   opacity?: number;
@@ -230,9 +232,14 @@ const DateGraph: FC<{
           color: "rgb(136, 132, 216)",
           band: 0,
           result: e.results,
+          status: e.status,
+          analysis: e.analysis,
           opacity: highlightExp && highlightExp.id === e.id ? 1 : 0.35,
         };
 
+        if (e.status === "running") {
+          expLines.color = "rgb(206,181,20)";
+        }
         if (e.results === "won") {
           expLines.color = "rgba(20,206,134)";
         } else if (e.results === "lost") {
@@ -251,7 +258,14 @@ const DateGraph: FC<{
           }
         });
 
-        experimentDates.push(expLines);
+        // if an experiment is still running, it won't have an end date,
+        // but we can still show it by setting the endDate to now.
+        if (e.status === "running" && !expLines.dateEnded) {
+          expLines.dateEnded = new Date().toISOString();
+        }
+        if (expLines.dateStarted && expLines.dateEnded) {
+          experimentDates.push(expLines);
+        }
       }
     });
     // get all the experiments in order of start date.
@@ -390,6 +404,7 @@ const DateGraph: FC<{
                       if (highlightExp && e.id === highlightExp.id) {
                         return (
                           <rect
+                            key={e.id}
                             fill={e.color}
                             x={xScale(new Date(e.dateStarted).getTime())}
                             y={0}
@@ -468,25 +483,25 @@ const DateGraph: FC<{
                   top={graphHeight + axisHeight + margin[0]}
                 >
                   {experimentDates.map((e, i) => {
+                    const rectWidth =
+                      xScale(new Date(e.dateEnded).getTime()) -
+                      xScale(new Date(e.dateStarted).getTime());
                     e.tipPosition = {
                       top: height,
-                      left: xScale(
-                        new Date(e.dateStarted).getTime() +
-                          (new Date(e.dateEnded).getTime() -
-                            new Date(e.dateStarted).getTime()) /
-                            2
-                      ),
+                      left:
+                        xScale(new Date(e.dateStarted).getTime()) +
+                        Math.min(150, rectWidth / 2),
                     };
+
+                    // as this is loading, xScale may return negative numbers, which throws errors in <rect>.
+                    if (rectWidth <= 0) return <Fragment key={i} />;
                     return (
                       <rect
                         key={i}
                         fill={e.color}
                         x={xScale(new Date(e.dateStarted).getTime())}
                         y={e.band * (expBarHeight + expBarMargin)}
-                        width={
-                          xScale(new Date(e.dateEnded).getTime()) -
-                          xScale(new Date(e.dateStarted).getTime())
-                        }
+                        width={rectWidth}
                         style={{ opacity: e.opacity }}
                         rx={4}
                         height={expBarHeight}
@@ -526,12 +541,11 @@ const DateGraph: FC<{
                   );
                 }}
               >
-                <div style={{ color: "#fff", fontSize: "12px" }}>
+                <div
+                  style={{ color: "#fff", fontSize: "12px", maxWidth: "250px" }}
+                >
                   <p className="mb-1">
-                    <Link
-                      href="/experiment/[eid]"
-                      as={`/experiment/${highlightExp.id}`}
-                    >
+                    <Link href={`/experiment/${highlightExp.id}`}>
                       <a style={{ color: "#b3e8ff", fontSize: "12px" }}>
                         <strong>{highlightExp.name}</strong>
                       </a>
@@ -542,8 +556,16 @@ const DateGraph: FC<{
                     {date(highlightExp.dateEnded)}
                   </p>
                   <p className="mb-1">
-                    Result: <strong>{highlightExp.result}</strong>
+                    Result:{" "}
+                    {highlightExp.status === "running" ? (
+                      <i>
+                        <strong>{highlightExp.status}</strong>
+                      </i>
+                    ) : (
+                      <strong>{highlightExp.result}</strong>
+                    )}
                   </p>
+                  <p className="mb-1">{highlightExp.analysis}</p>
                 </div>
               </Tooltip>
             )}
