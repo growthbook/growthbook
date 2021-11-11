@@ -37,8 +37,8 @@ RUN apt-get update && \
   apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/* && \
-  pip3 install \
+  rm -rf /var/lib/apt/lists/*
+RUN pip3 install \
     nbformat \
     numpy \
     pandas \
