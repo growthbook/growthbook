@@ -59,6 +59,9 @@ export default function ExperimentGraph({
         const margin = [15, 40, 30, 30];
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
+        const maxYValue = Math.ceil(
+          Math.max(...graphData.map((d) => d.numExp), 1)
+        );
 
         const barWidth = Math.round(xMax / (graphData.length + 1));
         const xScale = scaleTime({
@@ -67,10 +70,7 @@ export default function ExperimentGraph({
           round: true,
         });
         const yScale = scaleLinear<number>({
-          domain: [
-            Math.min(...graphData.map((d) => d.numExp)),
-            Math.max(...graphData.map((d) => d.numExp)),
-          ],
+          domain: [0, maxYValue],
           range: [yMax, 0],
           round: true,
         });
@@ -112,7 +112,11 @@ export default function ExperimentGraph({
                   return format(v as Date, "LLL yyyy");
                 }}
               />
-              <AxisLeft scale={yScale} numTicks={5} hideAxisLine />
+              <AxisLeft
+                scale={yScale}
+                numTicks={Math.min(maxYValue, 5)}
+                hideAxisLine
+              />
             </Group>
           </svg>
         );
