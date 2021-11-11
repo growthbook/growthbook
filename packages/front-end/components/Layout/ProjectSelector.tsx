@@ -46,8 +46,8 @@ export default function ProjectSelector() {
   return (
     <li
       style={{
-        marginTop: -10,
-        marginBottom: 5,
+        marginTop: 0,
+        marginBottom: "26px",
         textTransform: "none",
         maxWidth: 240,
         padding: "0 10px",

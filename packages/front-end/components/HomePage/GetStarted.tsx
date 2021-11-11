@@ -146,14 +146,15 @@ const GetStarted = ({
                     } ${hasDataSource ? "step-done" : ""}`}
                   >
                     <div className="row">
-                      <div className="col-4">
+                      <div className="col-4 d-none d-sm-block">
                         <img
                           className=""
                           style={{ width: "100%", maxWidth: "200px" }}
                           src="/images/getstarted-step1.svg"
+                          alt=""
                         />
                       </div>
-                      <div className="col-8">
+                      <div className="col-12 col-sm-8">
                         <div className="card-title">
                           <h3 className="">
                             1. Connect to your data source(s)
@@ -215,7 +216,7 @@ const GetStarted = ({
                     } ${hasMetrics ? "step-done" : ""}`}
                   >
                     <div className="row">
-                      <div className="col-8">
+                      <div className="col-12 col-sm-8">
                         <div className="card-title">
                           <h3 className="">2. Define metrics</h3>
                         </div>
@@ -245,11 +246,12 @@ const GetStarted = ({
                           <FiArrowRight />
                         </a>
                       </div>
-                      <div className="col-4">
+                      <div className="col-4 d-none d-sm-block">
                         <img
                           className=""
                           style={{ width: "100%", maxWidth: "200px" }}
                           src="/images/getstarted-step2.svg"
+                          alt=""
                         />
                       </div>
                     </div>
@@ -261,14 +263,15 @@ const GetStarted = ({
                     } ${hasExperiments ? "step-done" : ""}`}
                   >
                     <div className="row">
-                      <div className="col-4">
+                      <div className="col-4 d-none d-sm-block">
                         <img
                           className=""
                           style={{ width: "100%", maxWidth: "200px" }}
                           src="/images/getstarted-step3.svg"
+                          alt=""
                         />
                       </div>
-                      <div className="col-8">
+                      <div className="col-12 col-sm-8">
                         <div className="card-title">
                           <h3 className="">3. Create an experiment</h3>
                         </div>
@@ -314,7 +317,9 @@ const GetStarted = ({
                   <div className="card-body">
                     <div className="d-flex flex-row">
                       <div className="">
-                        <h4>Want to understand how it works?</h4>
+                        <h4 style={{ paddingRight: "100px" }}>
+                          Want to understand how it works?
+                        </h4>
                         <p
                           className="card-text"
                           style={{ paddingRight: "105px" }}

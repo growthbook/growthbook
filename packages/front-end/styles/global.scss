@@ -196,6 +196,9 @@ pre {
     opacity: 1;
   }
 }
+.nav-link {
+  padding: 0.3rem 0.8rem;
+}
 .nav-underlined .nav-link.active,
 .nav-underlined .show > .nav-link {
   border-bottom: 2px solid #029dd1;
