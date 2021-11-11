@@ -39,7 +39,7 @@ const ProjectsPage: FC = () => {
         things organized and easy to manage.
       </p>
       {projects.length > 0 && (
-        <table className="table">
+        <table className="table appbox table-hover">
           <thead>
             <tr>
               <th>Project Name</th>

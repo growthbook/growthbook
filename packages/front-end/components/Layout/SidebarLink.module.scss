@@ -5,20 +5,21 @@ $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;
 
 .link {
-  width: $sidebarwidth;
   display: block;
   transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  margin-bottom: 14px;
+  border-radius: 4px;
 
   a {
     display: block;
-    padding: 8px 15px 8px;
-    min-height: 60px;
+    padding: 0px 6px 0px;
     transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
 
     .icon {
       font-size: 1.5em;
-      width: 40px;
-      margin-right: 16px;
+      width: 28px;
+      margin-right: 10px;
+      margin-bottom: 2px;
     }
 
     span {
@@ -41,24 +42,34 @@ $topbarheight: 60px;
     background-color: scale-color($dark-purple, $lightness: +12%);
 
     a {
-      margin-left: 2px;
+      margin-left: 0px;
       text-decoration: none !important;
     }
     /*border-left: 2px solid #fff;*/
   }
   &.selected {
-    background: scale-color($dark-purple, $lightness: +20%);
+    //background: scale-color($dark-purple, $lightness: +20%);
+    background-color: $highlight-purple;
+    font-weight: 600;
     a {
-      margin-left: 2px;
+      margin-left: 0px;
     }
   }
+  &.submenusection {
+    margin-bottom: 6px;
+    background-color: inherit;
+  }
+  &.sublinks {
+  }
   &.sublink {
-    border-left: 2px solid scale-color($dark-purple, $lightness: +25%);
-    background: scale-color($dark-purple, $lightness: +12%);
+    //border-left: 2px solid scale-color($dark-purple, $lightness: +25%);
+    //background: scale-color($dark-blue, $lightness: +12%);
+    margin-bottom: 6px;
     &.selected {
-      background: scale-color($dark-purple, $lightness: +25%);
+      //background: scale-color($dark-purple, $lightness: +25%);
+      background-color: $highlight-purple;
       a {
-        margin-left: 2px;
+        margin-left: 0px;
       }
     }
     &:hover {
@@ -66,20 +77,26 @@ $topbarheight: 60px;
     }
     .icon {
       font-size: 1.3em;
-      width: 40px;
+      width: 28px;
       margin-right: 11px;
       margin-left: 0px;
+      margin-bottom: 2px;
     }
     a {
-      padding: 2px 15px 2px 30px;
-      min-height: 40px;
+      padding: 0 0 0 20px;
     }
   }
 }
 .divider {
-  margin-top: 0px;
-  border-top: 1px solid rgba(0, 0, 0, 0.5);
-  a {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-  }
+  margin-top: 3em;
+}
+.menuSection {
+  font-size: 0.8em;
+  color: $gray2;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding-left: 10px;
+  margin-bottom: 5px;
+  letter-spacing: 0.05em;
+  line-height: 20px;
 }

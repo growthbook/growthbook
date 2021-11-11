@@ -5,11 +5,8 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
 import {
-  FaBook,
   FaUserLock,
   FaUsers,
-  FaChartLine,
-  FaShapes,
   FaKey,
   FaDatabase,
   FaCreditCard,
@@ -18,62 +15,71 @@ import {
   FaBolt,
   FaFolder,
 } from "react-icons/fa";
+import {
+  GBHome,
+  GBIdea,
+  GBDimensions,
+  GBExperiment,
+  GBMetrics,
+  GBPresentations,
+  GBSegments,
+  GBSettings,
+} from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { BsGear } from "react-icons/bs";
 import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
 
 const navlinks: SidebarLinkProps[] = [
   {
+    name: "Home",
+    href: "/",
+    Icon: GBHome,
+    path: /^$/,
+    divider: true,
+  },
+  {
     name: "Ideas",
     href: "/ideas",
-    icon: "ideas.svg",
+    Icon: GBIdea,
     path: /^idea/,
   },
   {
     name: "Experiments",
     href: "/experiments",
-    icon: "experiments.svg",
+    Icon: GBExperiment,
     path: /^experiment/,
   },
   {
     name: "Presentations",
     href: "/presentations",
-    icon: "present.svg",
+    Icon: GBPresentations,
     path: /^presentations/,
   },
   {
-    name: "Definitions",
+    name: "Metrics",
     href: "/metrics",
-    Icon: FaBook,
+    Icon: GBMetrics,
     divider: true,
-    path: /^(metric|segment|dimension)/,
-    subLinks: [
-      {
-        name: "Metrics",
-        href: "/metrics",
-        Icon: FaChartLine,
-        path: /^metric/,
-      },
-      {
-        name: "Segments",
-        href: "/segments",
-        Icon: FaUsers,
-        path: /^segment/,
-      },
-      {
-        name: "Dimensions",
-        href: "/dimensions",
-        Icon: FaShapes,
-        path: /^dimension/,
-      },
-    ],
+    sectionTitle: "Definitions",
+    path: /^metric/,
+  },
+  {
+    name: "Segments",
+    href: "/segments",
+    Icon: GBSegments,
+    path: /^segment/,
+  },
+  {
+    name: "Dimensions",
+    href: "/dimensions",
+    Icon: GBDimensions,
+    path: /^dimension/,
   },
   {
     name: "Settings",
     href: "/settings",
-    Icon: BsGear,
+    Icon: GBSettings,
     divider: true,
     path: /^(settings|admin|datasources)/,
     settingsPermission: true,

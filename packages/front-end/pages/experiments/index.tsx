@@ -142,7 +142,7 @@ const ExperimentsPage = (): React.ReactElement => {
     <>
       <div className="contents experiments container-fluid pagecontents">
         {permissions.draftExperiments && byStatus.myDrafts.length > 0 && (
-          <div className="mb-5 pb-3 position-relative">
+          <div className="mb-3 pb-3 position-relative">
             {!draftsExpanded && byStatus.myDrafts.length > 3 && (
               <div
                 className="position-absolute text-center p-4"

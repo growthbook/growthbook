@@ -15,6 +15,8 @@ export type SidebarLinkProps = {
   icon?: string;
   Icon?: IconType;
   divider?: boolean;
+  sectionTitle?: string;
+  className?: string;
   superAdmin?: boolean;
   cloudOnly?: boolean;
   selfHostedOnly?: boolean;
@@ -44,12 +46,21 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   return (
     <>
+      {props.divider && (
+        <li
+          className={clsx(styles.menuSection, {
+            [styles.divider]: props.divider,
+          })}
+        >
+          {props.sectionTitle}
+        </li>
+      )}
       <li
         key={props.href}
-        className={clsx("sidebarlink", styles.link, {
-          [styles.divider]: props.divider,
+        className={clsx("sidebarlink", props.className, styles.link, {
           [styles.selected]: selected,
           selected: selected,
+          [styles.submenusection]: selected && props.subLinks,
         })}
       >
         <Link href={props.href}>
@@ -73,50 +84,52 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           </a>
         </Link>
       </li>
-      {selected &&
-        props.subLinks &&
-        props.subLinks.map((l) => {
-          if (l.superAdmin && !admin) return null;
-          if (l.settingsPermission && !permissions.organizationSettings)
-            return null;
-          if (l.cloudOnly && !isCloud()) {
-            return null;
-          }
-          if (l.selfHostedOnly && isCloud()) {
-            return null;
-          }
+      {selected && props.subLinks && (
+        <ul className={styles.sublinks}>
+          {props.subLinks.map((l) => {
+            if (l.superAdmin && !admin) return null;
+            if (l.settingsPermission && !permissions.organizationSettings)
+              return null;
+            if (l.cloudOnly && !isCloud()) {
+              return null;
+            }
+            if (l.selfHostedOnly && isCloud()) {
+              return null;
+            }
 
-          return (
-            <li
-              key={l.href}
-              className={clsx(
-                "sidebarlink sublink",
-                styles.link,
-                styles.sublink,
-                {
-                  [styles.selected]: l.path.test(path),
-                  selected: l.path.test(path),
-                }
-              )}
-            >
-              <Link href={l.href}>
-                <a className="align-middle">
-                  {showSubMenuIcons && (
-                    <>
-                      {l.Icon && <l.Icon className={styles.icon} />}
-                      {l.icon && (
-                        <span>
-                          <img src={`/icons/${l.icon}`} />
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {l.name}
-                </a>
-              </Link>
-            </li>
-          );
-        })}
+            return (
+              <li
+                key={l.href}
+                className={clsx(
+                  "sidebarlink sublink",
+                  styles.link,
+                  styles.sublink,
+                  {
+                    [styles.selected]: l.path.test(path),
+                    selected: l.path.test(path),
+                  }
+                )}
+              >
+                <Link href={l.href}>
+                  <a className="align-middle">
+                    {showSubMenuIcons && (
+                      <>
+                        {l.Icon && <l.Icon className={styles.icon} />}
+                        {l.icon && (
+                          <span>
+                            <img src={`/icons/${l.icon}`} />
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {l.name}
+                  </a>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </>
   );
 };
