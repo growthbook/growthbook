@@ -120,7 +120,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       rows.forEach((row) => {
         const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-        const users = parseInt(row.metrics?.[1]?.values?.[0] || "") || 0;
+        const users = parseInt(row.metrics?.[0]?.values?.[1] || "") || 0;
 
         let count: number;
         let mean: number;
