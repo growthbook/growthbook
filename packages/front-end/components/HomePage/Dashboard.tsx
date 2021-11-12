@@ -9,6 +9,7 @@ import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
 import { UserContext } from "../ProtectedPage";
+import IdeasFeed from "./IdeasFeed";
 
 const Dashboard: FC = () => {
   const { data, error } = useApi<{
@@ -35,41 +36,53 @@ const Dashboard: FC = () => {
       <div className={"container-fluid dashboard p-3 " + styles.container}>
         <h1>Hello {name}</h1>
         <div className="row">
-          <div className="col-md-12">
-            <h4>Experiments by month</h4>
-            <div className="list-group activity-box overflow-auto mb-4">
+          <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
+            <div className="list-group activity-box fixed-height overflow-auto">
+              <h4 className="mb-3">Experiments by month</h4>
               <ExperimentGraph
                 resolution={"month"}
                 num={12}
                 status={"all"}
-                height={200}
+                height={220}
               />
             </div>
           </div>
-        </div>
-        <div className="row">
-          <div className="col-lg-4 mb-4">
-            <h4>Running Experiments</h4>
-            <div className="list-group activity-box fixed-height overflow-auto mb-4">
+          <div className="col-xl-4 col-md-6 mb-3">
+            <div className="list-group activity-box fixed-height overflow-auto">
+              <h4>
+                Running Experiments
+                <Link href={`/experiments`}>
+                  <a className="float-right h6">See all</a>
+                </Link>
+              </h4>
               <ExperimentList num={5} status={"running"} />
             </div>
           </div>
-          <div className="col-lg-4 mb-4">
-            <h4>Recent discussions</h4>
-            <div className="list-group activity-box fixed-height overflow-auto mb-2">
+          <div className="col-xl-4 col-md-6 mb-3">
+            <div className="list-group activity-box fixed-height overflow-auto ">
+              <h4>
+                Recent Ideas{" "}
+                <Link href={`/ideas`}>
+                  <a className="float-right h6">See all</a>
+                </Link>
+              </h4>
+              <IdeasFeed num={5} />
+            </div>
+          </div>
+          <div className="col-xl-4 col-md-6 mb-3">
+            <div className="list-group activity-box fixed-height overflow-auto">
+              <h4 className="mb-3">Recent discussions</h4>
               <DiscussionFeed num={5} />
             </div>
           </div>
-          <div className="col-lg-4 mb-4">
-            <h4 className="">
-              Recent activity{" "}
-              <small>
-                <Link href="/activity">
-                  <a className="small">(See all activity)</a>
-                </Link>
-              </small>
-            </h4>
+          <div className="col-xl-4 col-md-6 mb-4">
             <div className="list-group activity-box fixed-height overflow-auto">
+              <h4 className="">
+                Recent activity{" "}
+                <Link href="/activity">
+                  <a className="float-right h6">See all</a>
+                </Link>
+              </h4>
               <ActivityList num={3} />
             </div>
             <div className="text-center"></div>

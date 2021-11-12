@@ -7,6 +7,7 @@ $h3-font-size: $font-size-base * 1.45 !default;
 $h4-font-size: $font-size-base * 1.2 !default;
 $h5-font-size: $font-size-base * 1.1 !default;
 $h6-font-size: $font-size-base !default;
+$grid-gutter-width: 16px !default;
 
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
@@ -38,6 +39,10 @@ body {
   &.present {
     padding: 0;
   }
+  & > .container-fluid,
+  & > .pagecontents {
+    padding: 15px;
+  }
 }
 .contents {
   padding: 15px;
@@ -52,7 +57,7 @@ pre {
   color: $second-blue;
 }
 .text-purple {
-  color: $purple;
+  color: $highlight-purple;
 }
 .text-indigo {
   color: $indigo;
@@ -700,14 +705,53 @@ li.reports a span img {
 }
 
 .dashboard {
-  .activity-box {
-    background-color: #f8fbff;
-    border: 1px solid #dadee3;
-    padding: 10px;
+  .simple-divider {
+    margin-top: -0.7rem;
+    li {
+      padding-bottom: 0.7rem;
+      padding-top: 0.7rem;
+    }
+    li:not(:last-child) {
+      border-bottom: 1px solid #e0e2eb;
+    }
   }
-  @media (min-width: 992px) {
+  .semi-bold {
+    font-weight: 500;
+  }
+  .speech-bubble {
+    background-color: rgba(124, 69, 234, 0.08);
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+  .activity-box {
+    background-color: #fff;
+    border: 1px solid #e0e2eb;
+    padding: 20px;
+    border-radius: 4px;
+    h4 {
+      margin-bottom: 1em;
+    }
+  }
+  .purple-circle {
+    background-color: rgba(124, 69, 234, 0.1);
+    padding: 4px;
+    font-weight: 500;
+    color: $highlight-purple;
+    border-radius: 100px;
+  }
+  .no-link-color {
+    color: $main-black;
+    text-decoration: none;
+  }
+  .hover-highlight {
+    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    &:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
+  @media (min-width: 720px) {
     .fixed-height {
-      height: 375px;
+      height: 310px;
     }
   }
 }
