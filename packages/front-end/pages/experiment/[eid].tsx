@@ -675,7 +675,7 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.metrics.map((m) => {
                     return (
                       <Link href={`/metric/${m}`} key={m}>
-                        <a className="badge badge-secondary mr-2">
+                        <a className="badge badge-primary mr-2">
                           {getMetricById(m)?.name}
                         </a>
                       </Link>
@@ -687,7 +687,7 @@ const ExperimentPage = (): ReactElement => {
                     {experiment.guardrails.map((m) => {
                       return (
                         <Link href={`/metric/${m}`} key={m}>
-                          <a className="badge badge-secondary mr-2">
+                          <a className="badge badge-primary mr-2">
                             {getMetricById(m)?.name}
                           </a>
                         </Link>
@@ -726,7 +726,7 @@ const ExperimentPage = (): ReactElement => {
                           <small>Impact Score</small>
                         </div>
                         <div
-                          className="badge badge-secondary"
+                          className="badge badge-primary"
                           style={{ fontSize: "1.2em" }}
                         >
                           {data.idea.impactScore}

@@ -64,7 +64,7 @@ const Dropdown: FC<{
         {toggle}
       </div>
       <div
-        className={clsx("dropdown-menu", className, {
+        className={clsx("dropdown-menu", styles.dropdownmenu, className, {
           "dropdown-menu-right": right,
           show: open,
         })}

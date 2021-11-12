@@ -1,13 +1,18 @@
 @import "colors.scss";
 
-$font-size-base: 0.9rem !default;
-$h1-font-size: $font-size-base * 2 !default;
-$h2-font-size: $font-size-base * 1.7 !default;
-$h3-font-size: $font-size-base * 1.45 !default;
-$h4-font-size: $font-size-base * 1.2 !default;
-$h5-font-size: $font-size-base * 1.1 !default;
+$font-size-base: 0.875rem !default; // change the default from 16px to 14px.
+$h1-font-size: 1.5rem !default; //24px
+$h2-font-size: 1.25rem !default; //20px
+$h3-font-size: 1.125rem !default; //18px
+$h4-font-size: 1rem !default; //16px
+$h5-font-size: 0.875rem !default; //14px
 $h6-font-size: $font-size-base !default;
+$headings-font-weight: 600 !default;
+$font-weight-bold: 600 !default;
+
 $grid-gutter-width: 16px !default;
+$badge-padding-y: 0.25em !default; // 3px for default size
+$badge-padding-x: 0.584em !default; // 7px for default size
 
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
@@ -35,7 +40,7 @@ body {
 .main {
   padding-left: 240px;
   padding-top: 60px;
-
+  //font-size: 14px;
   &.present {
     padding: 0;
   }
@@ -63,6 +68,8 @@ pre {
   color: $indigo;
 }
 
+// default bootstrap overrides:
+
 .btn-primary {
   @include button-variant(
     $highlight-purple,
@@ -83,6 +90,23 @@ pre {
     $highlight-purple
   );
 }
+.badge {
+  line-height: 1.2em;
+  font-size: 85.72%; //12px
+}
+.badge-primary {
+  @include badge-variant(#00ace5);
+  border: 1px solid rgba(23, 18, 33, 0.1);
+  font-weight: 700;
+}
+
+.hover-highlight {
+  transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  &:hover {
+    background-color: rgba(124, 69, 234, 0.06);
+  }
+}
+
 .app-sidebar-header {
   .selected {
     background-color: $purple;
@@ -100,6 +124,10 @@ pre {
   border: 1px solid $app-border;
   margin-bottom: 1em;
   border-radius: 5px;
+
+  td {
+    vertical-align: middle;
+  }
 
   &.tabbed {
     border-top: none;
@@ -684,13 +712,13 @@ li.reports a span img {
 }
 
 .watchaction {
-  color: $yellow;
+  color: $highlight-purple;
   text-decoration: none;
   &.notwatching {
     color: $gray-500;
   }
   &:hover {
-    color: $primary;
+    color: lighten($highlight-purple, 5%);
   }
   &.watch-icon {
     &.notwatching {
@@ -743,15 +771,10 @@ li.reports a span img {
     color: $main-black;
     text-decoration: none;
   }
-  .hover-highlight {
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
-    &:hover {
-      background-color: rgba(124, 69, 234, 0.06);
-    }
-  }
+
   @media (min-width: 720px) {
     .fixed-height {
-      height: 310px;
+      height: 320px;
     }
   }
 }
@@ -765,7 +788,7 @@ li.reports a span img {
 .experiments {
   .experiment-table {
     border: 1px solid $app-border;
-    font-size: 15px;
+    //font-size: 15px;
     color: $gray-600;
 
     h1,
@@ -810,8 +833,8 @@ li.reports a span img {
     }
   }
   .testname {
-    font-weight: bold;
-    font-size: 1.1em;
+    font-weight: 500;
+    font-size: 14px;
     color: $primary;
   }
   .hypothesis {

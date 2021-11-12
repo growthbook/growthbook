@@ -4,7 +4,16 @@ const RightRailSectionGroup: FC<{
   title?: string;
   type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom";
   empty?: string;
-}> = ({ children, title = "", type = "custom", empty = "None" }) => {
+  badgeStyle?: string;
+  className?: string;
+}> = ({
+  children,
+  title = "",
+  type = "custom",
+  empty = "None",
+  badgeStyle = "",
+  className = "",
+}) => {
   let hasChildren = type === "onoff" || !!children;
   if (Array.isArray(children)) {
     hasChildren =
@@ -12,7 +21,7 @@ const RightRailSectionGroup: FC<{
   }
 
   return (
-    <div className={"mb-2"}>
+    <div className={`mb-2 ${className}`}>
       {title && (
         <small className="mr-2">
           <em>{title}:</em>
@@ -24,7 +33,12 @@ const RightRailSectionGroup: FC<{
             Children.map(children, (child, i) => {
               if (child === null || child === undefined) return "";
               return (
-                <span className="badge badge-secondary mr-2" key={i}>
+                <span
+                  className={`badge ${
+                    badgeStyle === "" ? "badge-primary" : badgeStyle
+                  } mr-2`}
+                  key={i}
+                >
                   {child}
                 </span>
               );

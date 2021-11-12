@@ -265,7 +265,7 @@ const MetricPage: FC = () => {
                         {segment?.name ? (
                           <>
                             Segment applied:{" "}
-                            <span className="badge badge-secondary mr-1">
+                            <span className="badge badge-primary mr-1">
                               {segment?.name || "Everyone"}
                             </span>
                           </>

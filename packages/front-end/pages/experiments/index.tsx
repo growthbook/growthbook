@@ -184,18 +184,15 @@ const ExperimentsPage = (): React.ReactElement => {
                   .slice(0, draftsExpanded ? 20 : 3)
                   .map((e) => {
                     return (
-                      <tr key={e.id}>
+                      <tr key={e.id} className="hover-highlight">
                         <td
                           onClick={() => {
                             router.push(`/experiment/${e.id}`);
                           }}
+                          className="cursor-pointer"
                         >
                           <div className="d-flex">
-                            <h4 className="testname">
-                              <Link href={`/experiment/${e.id}`}>
-                                <a>{e.name}</a>
-                              </Link>
-                            </h4>
+                            <span className="font-weight-bold">{e.name}</span>
                             {e.implementation === "visual" && (
                               <small className="text-muted ml-2">
                                 <FaPalette /> Visual
@@ -206,7 +203,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         <td className="nowrap">
                           {Object.values(e.tags).map((col) => (
                             <span
-                              className="tag badge badge-secondary mr-2"
+                              className="tag badge badge-primary mr-2"
                               key={col}
                             >
                               {col}
@@ -295,7 +292,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         if (!phase) return null;
 
                         return (
-                          <tr key={e.id}>
+                          <tr key={e.id} className="hover-highlight">
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
                             </td>
@@ -303,13 +300,12 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="font-weight-bold">
+                                  {e.name}
+                                </span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -320,7 +316,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -394,7 +390,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -484,7 +480,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -561,7 +557,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           <td className="nowrap">
                             {Object.values(e.tags).map((col) => (
                               <span
-                                className="tag badge badge-secondary mr-2"
+                                className="tag badge badge-primary mr-2"
                                 key={col}
                               >
                                 {col}
