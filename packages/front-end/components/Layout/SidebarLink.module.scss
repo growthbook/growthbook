@@ -62,8 +62,7 @@ $topbarheight: 60px;
   &.sublinks {
   }
   &.sublink {
-    //border-left: 2px solid scale-color($dark-purple, $lightness: +25%);
-    //background: scale-color($dark-blue, $lightness: +12%);
+    padding-left: 24px;
     margin-bottom: 6px;
     &.selected {
       //background: scale-color($dark-purple, $lightness: +25%);

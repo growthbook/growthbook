@@ -4,17 +4,7 @@ import { useState, useContext } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import {
-  FaUserLock,
-  FaUsers,
-  FaKey,
-  FaDatabase,
-  FaCreditCard,
-  FaBookOpen,
-  FaArrowRight,
-  FaBolt,
-  FaFolder,
-} from "react-icons/fa";
+import { FaArrowRight } from "react-icons/fa";
 import {
   GBHome,
   GBIdea,
@@ -26,7 +16,6 @@ import {
   GBSettings,
 } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
 
@@ -87,50 +76,42 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "General",
         href: "/settings",
-        Icon: GoSettings,
         path: /^settings$/,
       },
       {
         name: "Team",
         href: "/settings/team",
-        Icon: FaUsers,
         path: /^settings\/team/,
       },
       {
         name: "Projects",
         href: "/settings/projects",
-        Icon: FaFolder,
         path: /^settings\/projects/,
       },
       {
         name: "Billing",
         href: "/settings/billing",
-        Icon: FaCreditCard,
         path: /^settings\/billing/,
         cloudOnly: true,
       },
       {
         name: "API Keys",
         href: "/settings/keys",
-        Icon: FaKey,
         path: /^settings\/keys/,
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
-        Icon: FaBolt,
         path: /^settings\/webhooks/,
       },
       {
         name: "Data Sources",
         href: "/datasources",
-        Icon: FaDatabase,
         path: /^datasources/,
       },
       {
         name: "Admin",
         href: "/admin",
-        Icon: FaUserLock,
         path: /^admin/,
         cloudOnly: true,
         divider: true,
@@ -313,8 +294,7 @@ const Layout = (): React.ReactElement => {
             target="_blank"
             rel="noreferrer"
           >
-            <FaBookOpen className="mr-2" /> View Docs{" "}
-            <FaArrowRight className="ml-2" />
+            View Docs <FaArrowRight className="ml-2" />
           </a>
         </div>
       </div>
