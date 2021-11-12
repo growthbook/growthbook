@@ -1,4 +1,3 @@
-from nbformat.v4.nbbase import new_markdown_cell
 from .gbstats import (
     detect_unknown_variations,
     analyze_metric_df,
