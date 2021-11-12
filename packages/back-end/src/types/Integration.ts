@@ -32,17 +32,6 @@ export type ExperimentQueryResponses = {
   metrics: VariationMetricResult[];
 }[];
 
-export interface ExperimentMetricResult {
-  dimensions: {
-    dimension: string;
-    variations: {
-      variation: number;
-      stats: MetricStats;
-    }[];
-  }[];
-  unknownVariations: string[];
-}
-
 export interface ImpactEstimationResult {
   query: string;
   metricTotal: number;

@@ -1323,6 +1323,7 @@ export async function postMetricAnalysis(
       const updates: Partial<MetricInterface> = {};
 
       updates.runStarted = new Date();
+      updates.analysisError = "";
 
       const { queries, result } = await startRun(
         {
@@ -2130,6 +2131,7 @@ export async function postPastExperiments(
       datasource: datasource,
       experiments: result || [],
       runStarted: now,
+      error: "",
       queries,
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -2147,6 +2149,7 @@ export async function postPastExperiments(
       processPastExperiments
     );
     model.set("runStarted", now);
+    model.set("error", "");
     model.set("queries", queries);
     if (result) {
       model.set("experiments", result);

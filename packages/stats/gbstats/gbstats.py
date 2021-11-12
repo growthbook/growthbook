@@ -130,11 +130,11 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
     df["srm_p"] = 0
     for i in range(num_variations):
         if i == 0:
-            df["baseline_cr"] = df["baseline_total"] / df["baseline_users"]
+            df["baseline_cr"] = 0
             df["baseline_risk"] = 0
         else:
-            df[f"v{i}_cr"] = df[f"v{i}_total"] / df[f"v{i}_users"]
-            df[f"v{i}_expected"] = df[f"v{i}_cr"] / df["baseline_cr"] - 1
+            df[f"v{i}_cr"] = 0
+            df[f"v{i}_expected"] = 0
             df[f"v{i}_risk"] = 0
             df[f"v{i}_prob_beat_baseline"] = 0
             df[f"v{i}_uplift"] = None
@@ -146,6 +146,9 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
         m_a = s["baseline_mean"]
         x_a = s["baseline_count"]
         s_a = s["baseline_stddev"]
+        cr_a = s["baseline_total"] / n_a if n_a > 0 else 0
+
+        s["baseline_cr"] = cr_a
 
         # List of users in each variation (used for SRM check)
         users = [0] * num_variations
@@ -159,7 +162,10 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
             m_b = s[f"v{i}_mean"]
             x_b = s[f"v{i}_count"]
             s_b = s[f"v{i}_stddev"]
-            cr_b = s[f"v{i}_cr"]
+            cr_b = s[f"v{i}_total"] / n_b if n_b > 0 else 0
+
+            s[f"v{i}_cr"] = cr_b
+            s[f"v{i}_expected"] = (cr_b / cr_a) - 1 if cr_a > 0 else 0
 
             users[i] = n_b
 
@@ -175,8 +181,8 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
             ctw = res["chance_to_win"] if not inverse else 1 - res["chance_to_win"]
 
             # Turn risk into relative risk
-            risk0 = risk0 / cr_b
-            risk1 = risk1 / cr_b
+            risk0 = risk0 / cr_b if cr_b > 0 else 0
+            risk1 = risk1 / cr_b if cr_b > 0 else 0
 
             # The baseline risk is the max risk of any of the variation A/B tests
             if risk0 > baseline_risk:

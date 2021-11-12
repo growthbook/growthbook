@@ -360,7 +360,7 @@ export async function processSnapshotData(
 
       metricRows.push({
         metric: key,
-        rows: query.rawResult as ExperimentMetricQueryResponse,
+        rows: query.result as ExperimentMetricQueryResponse,
       });
     });
   }
@@ -519,6 +519,7 @@ export async function createSnapshot(
     organization: experiment.organization,
     experiment: experiment.id,
     runStarted: new Date(),
+    error: "",
     dateCreated: new Date(),
     phase: phaseIndex,
     manual: false,

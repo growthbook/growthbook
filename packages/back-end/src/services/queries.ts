@@ -3,8 +3,6 @@ import {
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
-  ExperimentMetricQueryResponse,
-  ExperimentMetricResult,
   MetricValueQueryResponse,
   MetricValueResult,
   PastExperimentResponse,
@@ -202,7 +200,7 @@ export async function getExperimentMetric(
     integration,
     integration.getExperimentMetricQuery(params),
     (query) => integration.runExperimentMetricQuery(query),
-    (rows) => processExperimentMetricQueryResponse(params.experiment, rows),
+    (rows) => rows,
     false
   );
 }
@@ -229,69 +227,6 @@ function getVariationMap(experiment: ExperimentInterface) {
     variationMap.set(v.key || i + "", i);
   });
   return variationMap;
-}
-
-export function processExperimentMetricQueryResponse(
-  experiment: ExperimentInterface,
-  rows: ExperimentMetricQueryResponse
-): ExperimentMetricResult {
-  const ret: ExperimentMetricResult = {
-    dimensions: [],
-    unknownVariations: [],
-  };
-
-  const variationMap = getVariationMap(experiment);
-
-  const unknownVariations: Map<string, number> = new Map();
-  let totalUsers = 0;
-
-  const dimensionMap = new Map<string, number>();
-  rows.forEach(({ variation, dimension, count, mean, stddev, users }) => {
-    let i = 0;
-    if (dimensionMap.has(dimension)) {
-      i = dimensionMap.get(dimension) || 0;
-    } else {
-      i = ret.dimensions.length;
-      ret.dimensions.push({
-        dimension,
-        variations: [],
-      });
-      dimensionMap.set(dimension, i);
-    }
-
-    const numUsers = users || 0;
-    totalUsers += numUsers;
-
-    const varIndex = variationMap.get(variation + "");
-    if (
-      typeof varIndex === "undefined" ||
-      varIndex < 0 ||
-      varIndex >= experiment.variations.length
-    ) {
-      unknownVariations.set(variation, numUsers);
-      return;
-    }
-
-    ret.dimensions[i].variations.push({
-      variation: varIndex,
-      stats: {
-        users,
-        mean,
-        count,
-        stddev,
-      },
-    });
-  });
-
-  unknownVariations.forEach((users, variation) => {
-    // Ignore unknown variations with an insignificant number of users
-    // This protects against random typos causing false positives
-    if (totalUsers > 0 && users / totalUsers >= 0.02) {
-      ret.unknownVariations.push(variation);
-    }
-  });
-
-  return ret;
 }
 
 export function processExperimentResultsResponse(
@@ -423,7 +358,8 @@ export async function updateQueryStatuses(
   queries: Queries,
   organization: string,
   onUpdate: (queries: Queries) => Promise<void>,
-  onSuccess: (queries: Queries, data: QueryMap) => Promise<void>
+  onSuccess: (queries: Queries, data: QueryMap) => Promise<void>,
+  currentError?: string
 ): Promise<QueryStatus> {
   // Group queries by status
   const byStatus: Record<QueryStatus, QueryPointer[]> = {
@@ -437,7 +373,7 @@ export async function updateQueryStatuses(
   });
 
   // If there's at least 1 failed query, the overall status is failed
-  if (byStatus.failed.length > 0) {
+  if (currentError || byStatus.failed.length > 0) {
     return "failed";
   }
 
@@ -575,12 +511,9 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
         error = e.message;
       }
       await onSave({ queries }, results, error);
-    }
+    },
+    currentError
   );
-
-  if (status === "succeeded" && currentError) {
-    await onSave({}, undefined, "");
-  }
 
   return {
     status: 200,

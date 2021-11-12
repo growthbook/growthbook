@@ -102,7 +102,7 @@ result = analyze_metric_df(
 print(json.dumps({
   'unknownVariations': list(unknown_var_ids),
   'dimensions': format_results(result)
-}))`,
+}, allow_nan=False))`,
     {}
   );
 
