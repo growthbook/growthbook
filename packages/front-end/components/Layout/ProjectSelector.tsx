@@ -19,7 +19,10 @@ function ProjectName({
   caret?: boolean;
 }) {
   return (
-    <div className={clsx(className, "d-flex align-items-center")}>
+    <div
+      className={clsx(className, "d-flex align-items-center")}
+      style={{ padding: "10px" }}
+    >
       <LetterAvatar name={avatarName} defaultInitials="ALL" />
       <div
         style={{
@@ -47,10 +50,9 @@ export default function ProjectSelector() {
     <li
       style={{
         marginTop: 0,
-        marginBottom: "26px",
+        marginBottom: "20px",
         textTransform: "none",
         maxWidth: 240,
-        padding: "0 10px",
       }}
     >
       <Dropdown
@@ -58,6 +60,7 @@ export default function ProjectSelector() {
         caret={false}
         right={false}
         width={220}
+        className={"p-0"}
         toggle={
           <ProjectName
             caret
@@ -70,7 +73,7 @@ export default function ProjectSelector() {
           onClick={() => {
             setProject("");
           }}
-          className="px-2"
+          className="p-0"
         >
           <ProjectName
             className="text-dark"
@@ -82,7 +85,7 @@ export default function ProjectSelector() {
         {projects.map((p) => {
           return (
             <DropdownLink
-              className="px-2"
+              className="p-0"
               key={p.id}
               onClick={() => {
                 setProject(p.id);
