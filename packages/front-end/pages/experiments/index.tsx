@@ -13,7 +13,6 @@ import { FaPalette, FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Link from "next/link";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 
@@ -142,7 +141,7 @@ const ExperimentsPage = (): React.ReactElement => {
     <>
       <div className="contents experiments container-fluid pagecontents">
         {permissions.draftExperiments && byStatus.myDrafts.length > 0 && (
-          <div className="mb-5 pb-3 position-relative">
+          <div className="mb-3 pb-3 position-relative">
             {!draftsExpanded && byStatus.myDrafts.length > 3 && (
               <div
                 className="position-absolute text-center p-4"
@@ -184,18 +183,15 @@ const ExperimentsPage = (): React.ReactElement => {
                   .slice(0, draftsExpanded ? 20 : 3)
                   .map((e) => {
                     return (
-                      <tr key={e.id}>
+                      <tr key={e.id} className="hover-highlight">
                         <td
                           onClick={() => {
                             router.push(`/experiment/${e.id}`);
                           }}
+                          className="cursor-pointer"
                         >
                           <div className="d-flex">
-                            <h4 className="testname">
-                              <Link href={`/experiment/${e.id}`}>
-                                <a>{e.name}</a>
-                              </Link>
-                            </h4>
+                            <span className="testname">{e.name}</span>
                             {e.implementation === "visual" && (
                               <small className="text-muted ml-2">
                                 <FaPalette /> Visual
@@ -206,7 +202,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         <td className="nowrap">
                           {Object.values(e.tags).map((col) => (
                             <span
-                              className="tag badge badge-secondary mr-2"
+                              className="tag badge badge-primary mr-2"
                               key={col}
                             >
                               {col}
@@ -295,7 +291,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         if (!phase) return null;
 
                         return (
-                          <tr key={e.id}>
+                          <tr key={e.id} className="hover-highlight">
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
                             </td>
@@ -303,13 +299,10 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -320,7 +313,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -369,7 +362,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       )
                       .map((e) => {
                         return (
-                          <tr key={e.id}>
+                          <tr key={e.id} className="hover-highlight">
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
                             </td>
@@ -377,13 +370,10 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -394,7 +384,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -459,6 +449,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             onClick={() => {
                               router.push(`/experiment/${e.id}`);
                             }}
+                            className="hover-highlight"
                           >
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
@@ -467,13 +458,10 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -484,7 +472,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <td className="nowrap">
                               {Object.values(e.tags).map((col) => (
                                 <span
-                                  className="tag badge badge-secondary mr-2"
+                                  className="tag badge badge-primary mr-2"
                                   key={col}
                                 >
                                   {col}
@@ -539,18 +527,16 @@ const ExperimentsPage = (): React.ReactElement => {
                           onClick={() => {
                             router.push(`/experiment/${e.id}`);
                           }}
+                          className="hover-highlight"
                         >
                           <td
                             onClick={() => {
                               router.push(`/experiment/${e.id}`);
                             }}
+                            className="cursor-pointer"
                           >
                             <div className="d-flex">
-                              <h4 className="testname">
-                                <Link href={`/experiment/${e.id}`}>
-                                  <a>{e.name}</a>
-                                </Link>
-                              </h4>
+                              <span className="testname">{e.name}</span>
                               {e.implementation === "visual" && (
                                 <small className="text-muted ml-2">
                                   <FaPalette /> Visual
@@ -561,7 +547,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           <td className="nowrap">
                             {Object.values(e.tags).map((col) => (
                               <span
-                                className="tag badge badge-secondary mr-2"
+                                className="tag badge badge-primary mr-2"
                                 key={col}
                               >
                                 {col}

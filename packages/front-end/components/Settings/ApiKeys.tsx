@@ -35,7 +35,7 @@ const ApiKeys: FC = () => {
       </p>
 
       {data.keys.length > 0 && (
-        <table className="table mb-3">
+        <table className="table mb-3 appbox table-hover">
           <thead>
             <tr>
               <th>Key</th>

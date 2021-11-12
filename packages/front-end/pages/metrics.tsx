@@ -313,15 +313,15 @@ const MetricsPage = (): React.ReactElement => {
               style={{ cursor: "pointer" }}
             >
               <td>
-                <Link href="/metric/[mid]" as={`/metric/${metric.id}`}>
-                  <a className="text-dark">{metric.name}</a>
+                <Link href={`/metric/${metric.id}`}>
+                  <a className="text-dark font-weight-bold">{metric.name}</a>
                 </Link>
               </td>
               <td>{metric.type}</td>
 
               <td className="nowrap">
                 {Object.values(metric.tags).map((col) => (
-                  <span className="tag badge badge-secondary mr-2" key={col}>
+                  <span className="tag badge badge-primary mr-2" key={col}>
                     {col}
                   </span>
                 ))}

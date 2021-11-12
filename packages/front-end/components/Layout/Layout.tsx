@@ -4,76 +4,70 @@ import { useState, useContext } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
+import { FaArrowRight } from "react-icons/fa";
 import {
-  FaBook,
-  FaUserLock,
-  FaUsers,
-  FaChartLine,
-  FaShapes,
-  FaKey,
-  FaDatabase,
-  FaCreditCard,
-  FaBookOpen,
-  FaArrowRight,
-  FaBolt,
-  FaFolder,
-} from "react-icons/fa";
+  GBHome,
+  GBIdea,
+  GBDimensions,
+  GBExperiment,
+  GBMetrics,
+  GBPresentations,
+  GBSegments,
+  GBSettings,
+} from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { BsGear } from "react-icons/bs";
-import { GoSettings } from "react-icons/go";
 import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
 
 const navlinks: SidebarLinkProps[] = [
   {
+    name: "Home",
+    href: "/",
+    Icon: GBHome,
+    path: /^$/,
+  },
+  {
     name: "Ideas",
     href: "/ideas",
-    icon: "ideas.svg",
+    Icon: GBIdea,
     path: /^idea/,
   },
   {
     name: "Experiments",
     href: "/experiments",
-    icon: "experiments.svg",
+    Icon: GBExperiment,
     path: /^experiment/,
   },
   {
     name: "Presentations",
     href: "/presentations",
-    icon: "present.svg",
+    Icon: GBPresentations,
     path: /^presentations/,
   },
   {
-    name: "Definitions",
+    name: "Metrics",
     href: "/metrics",
-    Icon: FaBook,
+    Icon: GBMetrics,
     divider: true,
-    path: /^(metric|segment|dimension)/,
-    subLinks: [
-      {
-        name: "Metrics",
-        href: "/metrics",
-        Icon: FaChartLine,
-        path: /^metric/,
-      },
-      {
-        name: "Segments",
-        href: "/segments",
-        Icon: FaUsers,
-        path: /^segment/,
-      },
-      {
-        name: "Dimensions",
-        href: "/dimensions",
-        Icon: FaShapes,
-        path: /^dimension/,
-      },
-    ],
+    sectionTitle: "Definitions",
+    path: /^metric/,
+  },
+  {
+    name: "Segments",
+    href: "/segments",
+    Icon: GBSegments,
+    path: /^segment/,
+  },
+  {
+    name: "Dimensions",
+    href: "/dimensions",
+    Icon: GBDimensions,
+    path: /^dimension/,
   },
   {
     name: "Settings",
     href: "/settings",
-    Icon: BsGear,
+    Icon: GBSettings,
     divider: true,
     path: /^(settings|admin|datasources)/,
     settingsPermission: true,
@@ -82,50 +76,42 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "General",
         href: "/settings",
-        Icon: GoSettings,
         path: /^settings$/,
       },
       {
         name: "Team",
         href: "/settings/team",
-        Icon: FaUsers,
         path: /^settings\/team/,
       },
       {
         name: "Projects",
         href: "/settings/projects",
-        Icon: FaFolder,
         path: /^settings\/projects/,
       },
       {
         name: "Billing",
         href: "/settings/billing",
-        Icon: FaCreditCard,
         path: /^settings\/billing/,
         cloudOnly: true,
       },
       {
         name: "API Keys",
         href: "/settings/keys",
-        Icon: FaKey,
         path: /^settings\/keys/,
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
-        Icon: FaBolt,
         path: /^settings\/webhooks/,
       },
       {
         name: "Data Sources",
         href: "/datasources",
-        Icon: FaDatabase,
         path: /^datasources/,
       },
       {
         name: "Admin",
         href: "/admin",
-        Icon: FaUserLock,
         path: /^admin/,
         cloudOnly: true,
         divider: true,
@@ -308,8 +294,7 @@ const Layout = (): React.ReactElement => {
             target="_blank"
             rel="noreferrer"
           >
-            <FaBookOpen className="mr-2" /> View Docs{" "}
-            <FaArrowRight className="ml-2" />
+            View Docs <FaArrowRight className="ml-2" />
           </a>
         </div>
       </div>

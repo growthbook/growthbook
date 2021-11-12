@@ -1,17 +1,22 @@
 @import "colors.scss";
 
-$font-size-base: 0.9rem !default;
-$h1-font-size: $font-size-base * 2 !default;
-$h2-font-size: $font-size-base * 1.7 !default;
-$h3-font-size: $font-size-base * 1.45 !default;
-$h4-font-size: $font-size-base * 1.2 !default;
-$h5-font-size: $font-size-base * 1.1 !default;
+$font-size-base: 0.875rem !default; // change the default from 16px to 14px.
+$h1-font-size: 1.5rem !default; //24px
+$h2-font-size: 1.25rem !default; //20px
+$h3-font-size: 1.125rem !default; //18px
+$h4-font-size: 1rem !default; //16px
+$h5-font-size: 0.875rem !default; //14px
 $h6-font-size: $font-size-base !default;
+$headings-font-weight: 600 !default;
+$font-weight-bold: 600 !default;
+
+$grid-gutter-width: 16px !default;
+$badge-padding-y: 0.25em !default; // 3px for default size
+$badge-padding-x: 0.584em !default; // 7px for default size
 
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
-@import url("https://fonts.googleapis.com/css?family=Roboto:400,600,700,300");
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 html,
 body,
@@ -21,9 +26,11 @@ main {
 }
 
 body {
-  font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
   background-color: $main-background;
+  color: $main-black;
 }
 
 #block-menu-container {
@@ -36,6 +43,10 @@ body {
 
   &.present {
     padding: 0;
+  }
+  & > .container-fluid,
+  & > .pagecontents {
+    padding: 15px;
   }
 }
 .contents {
@@ -51,11 +62,52 @@ pre {
   color: $second-blue;
 }
 .text-purple {
-  color: $purple;
+  color: $highlight-purple;
 }
 .text-indigo {
   color: $indigo;
 }
+
+// default bootstrap overrides:
+
+.btn-primary {
+  @include button-variant(
+    $highlight-purple,
+    darken($highlight-purple, 7.5%),
+    darken($highlight-purple, 10%),
+    lighten($highlight-purple, 5%),
+    lighten($highlight-purple, 10%),
+    darken($highlight-purple, 30%)
+  );
+}
+
+.btn-outline-primary {
+  //button-outline-variant($color, $color-hover: color-yiq($color), $active-background: $color, $active-border: $color
+  @include button-outline-variant(
+    $highlight-purple,
+    #fff,
+    lighten($highlight-purple, 0%),
+    $highlight-purple
+  );
+}
+.badge {
+  line-height: 1em;
+  font-size: 85.72%; //12px
+  margin-bottom: 2px;
+}
+.badge-primary {
+  @include badge-variant(#00ace5);
+  border: 1px solid rgba(23, 18, 33, 0.1);
+  font-weight: 700;
+}
+
+.hover-highlight {
+  transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  &:hover {
+    background-color: rgba(124, 69, 234, 0.06);
+  }
+}
+
 .app-sidebar-header {
   .selected {
     background-color: $purple;
@@ -73,6 +125,10 @@ pre {
   border: 1px solid $app-border;
   margin-bottom: 1em;
   border-radius: 5px;
+
+  td {
+    vertical-align: middle;
+  }
 
   &.tabbed {
     border-top: none;
@@ -173,6 +229,9 @@ pre {
     display: block;
     opacity: 1;
   }
+}
+.nav-link {
+  padding: 0.3rem 0.8rem;
 }
 .nav-underlined .nav-link.active,
 .nav-underlined .show > .nav-link {
@@ -357,6 +416,7 @@ pre {
     th {
       background: #f4f4f4;
       color: #555;
+      font-weight: 600;
 
       &.metric {
         border-bottom: 7px solid #999;
@@ -402,7 +462,7 @@ pre {
     }
     td,
     th {
-      vertical-align: top;
+      vertical-align: middle;
     }
     th:first-child {
       background: #fff;
@@ -653,13 +713,13 @@ li.reports a span img {
 }
 
 .watchaction {
-  color: $yellow;
+  color: $highlight-purple;
   text-decoration: none;
   &.notwatching {
     color: $gray-500;
   }
   &:hover {
-    color: $primary;
+    color: lighten($highlight-purple, 5%);
   }
   &.watch-icon {
     &.notwatching {
@@ -674,14 +734,48 @@ li.reports a span img {
 }
 
 .dashboard {
-  .activity-box {
-    background-color: #f8fbff;
-    border: 1px solid #dadee3;
-    padding: 10px;
+  .simple-divider {
+    margin-top: -0.7rem;
+    li {
+      padding-bottom: 0.7rem;
+      padding-top: 0.7rem;
+    }
+    li:not(:last-child) {
+      border-bottom: 1px solid #e0e2eb;
+    }
   }
-  @media (min-width: 992px) {
+  .semi-bold {
+    font-weight: 500;
+  }
+  .speech-bubble {
+    background-color: rgba(124, 69, 234, 0.08);
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+  .activity-box {
+    background-color: #fff;
+    border: 1px solid #e0e2eb;
+    padding: 20px;
+    border-radius: 4px;
+    h4 {
+      margin-bottom: 1em;
+    }
+  }
+  .purple-circle {
+    background-color: rgba(124, 69, 234, 0.1);
+    padding: 4px;
+    font-weight: 500;
+    color: $highlight-purple;
+    border-radius: 100px;
+  }
+  .no-link-color {
+    color: $main-black;
+    text-decoration: none;
+  }
+
+  @media (min-width: 720px) {
     .fixed-height {
-      height: 375px;
+      height: 320px;
     }
   }
 }
@@ -695,7 +789,6 @@ li.reports a span img {
 .experiments {
   .experiment-table {
     border: 1px solid $app-border;
-    font-size: 15px;
     color: $gray-600;
 
     h1,
@@ -740,9 +833,8 @@ li.reports a span img {
     }
   }
   .testname {
-    font-weight: bold;
-    font-size: 1.1em;
-    color: $primary;
+    font-weight: 400;
+    color: $main-black;
   }
   .hypothesis {
     font-size: 1em;
@@ -1088,6 +1180,14 @@ li.reports a span img {
 }
 
 .getstarted {
+  .gsbox {
+    .card-body.extra-padding {
+      padding: 2.25rem;
+    }
+    .active-step {
+      border: 1px solid rgba(29, 99, 234, 0.76) !important;
+    }
+  }
   .boxlink {
     &:hover {
       text-decoration: none;
@@ -1096,14 +1196,36 @@ li.reports a span img {
       color: $gray-900;
     }
   }
-  .gsbox {
-    img {
-      width: 55px;
+  .secondary-box {
+    background: linear-gradient(
+        0deg,
+        rgba(124, 69, 234, 0.06),
+        rgba(124, 69, 234, 0.06)
+      ),
+      #ffffff;
+    box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
+    border-radius: 3px;
+
+    & > div {
+      background-image: url("/images/getstarted-explore.svg");
+      background-repeat: no-repeat;
+      background-position: bottom right;
+      min-height: 110px;
     }
   }
   .step-done {
-    h3 {
-      text-decoration: line-through;
+    .checkmark {
+      color: #089635;
+      svg {
+        background-color: rgba(89, 197, 123, 0.2);
+        padding: 6px;
+        border-radius: 15px;
+        width: 26px;
+        height: 26px;
+      }
+    }
+    .complete {
+      display: inline-block !important;
     }
   }
   .action-link {
