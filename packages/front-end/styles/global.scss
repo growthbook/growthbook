@@ -40,7 +40,7 @@ body {
 .main {
   padding-left: 240px;
   padding-top: 60px;
-  //font-size: 14px;
+
   &.present {
     padding: 0;
   }
@@ -91,8 +91,9 @@ pre {
   );
 }
 .badge {
-  line-height: 1.2em;
+  line-height: 1em;
   font-size: 85.72%; //12px
+  margin-bottom: 2px;
 }
 .badge-primary {
   @include badge-variant(#00ace5);
@@ -788,7 +789,6 @@ li.reports a span img {
 .experiments {
   .experiment-table {
     border: 1px solid $app-border;
-    //font-size: 15px;
     color: $gray-600;
 
     h1,
@@ -1181,7 +1181,6 @@ li.reports a span img {
 
 .getstarted {
   .gsbox {
-    overflow: hidden;
     .card-body.extra-padding {
       padding: 2.25rem;
     }
@@ -1215,8 +1214,18 @@ li.reports a span img {
     }
   }
   .step-done {
-    h3 {
-      text-decoration: line-through;
+    .checkmark {
+      color: #089635;
+      svg {
+        background-color: rgba(89, 197, 123, 0.2);
+        padding: 6px;
+        border-radius: 15px;
+        width: 26px;
+        height: 26px;
+      }
+    }
+    .complete {
+      display: inline-block !important;
     }
   }
   .action-link {

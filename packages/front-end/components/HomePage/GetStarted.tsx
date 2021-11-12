@@ -8,7 +8,7 @@ import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import { FaChevronRight, FaDesktop } from "react-icons/fa";
+import { FaCheck, FaChevronRight, FaDesktop } from "react-icons/fa";
 import Button from "../Button";
 import Tooltip from "../Tooltip";
 import { useAuth } from "../../services/auth";
@@ -139,7 +139,7 @@ const GetStarted = ({
             )}
             <div className="row mb-3">
               <div className="col">
-                <div className={`card gsbox`}>
+                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
                   <div
                     className={`card-body extra-padding ${
                       currentStep === 1 ? "active-step" : ""
@@ -158,6 +158,9 @@ const GetStarted = ({
                         <div className="card-title">
                           <h3 className="">
                             1. Connect to your data source(s)
+                            <span className="h3 mb-0 ml-3 complete checkmark d-none">
+                              <FaCheck /> Completed
+                            </span>
                           </h3>
                         </div>
                         <p className="card-text">
@@ -218,7 +221,12 @@ const GetStarted = ({
                     <div className="row">
                       <div className="col-12 col-sm-8">
                         <div className="card-title">
-                          <h3 className="">2. Define metrics</h3>
+                          <h3 className="">
+                            2. Define metrics
+                            <span className="h3 mb-0 ml-3 complete checkmark d-none">
+                              <FaCheck /> Completed
+                            </span>
+                          </h3>
                         </div>
                         <p className="card-text">
                           Create a library of metrics to experiment against. You
@@ -273,7 +281,12 @@ const GetStarted = ({
                       </div>
                       <div className="col-12 col-sm-8">
                         <div className="card-title">
-                          <h3 className="">3. Create an experiment</h3>
+                          <h3 className="">
+                            3. Create an experiment
+                            <span className="h3 mb-0 ml-3 complete checkmark d-none">
+                              <FaCheck /> Completed
+                            </span>
+                          </h3>
                         </div>
                         <p className="card-text">
                           Create a draft experiment, implement using our Client
