@@ -186,7 +186,7 @@ def test_analyze_metric_df():
     assert round_(result.at[0, "baseline_risk"]) == 0.186006962
     assert round_(result.at[0, "v1_cr"]) == 0.3
     assert round_(result.at[0, "v1_risk"]) == 0.00418878
-    assert round_(result.at[0, "v1_uplift"]) == 0.222222222
+    assert round_(result.at[0, "v1_expected"]) == 0.222222222
     assert round_(result.at[0, "v1_prob_beat_baseline"]) == 0.925127213
 
 

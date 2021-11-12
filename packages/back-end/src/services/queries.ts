@@ -499,7 +499,7 @@ export async function updateQueryStatuses(
 
     if (status !== q.status) {
       needsUpdate = true;
-      q.status = latest.status;
+      q.status = status;
     }
   });
 
@@ -579,7 +579,12 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   doc: T,
   organization: string,
   processResults: (data: QueryMap) => Promise<R>,
-  onSave: (data: Partial<InterfaceWithQueries>, result?: R) => Promise<void>
+  onSave: (
+    data: Partial<InterfaceWithQueries>,
+    result?: R,
+    error?: string
+  ) => Promise<void>,
+  currentError?: string
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -596,10 +601,20 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
       await onSave({ queries });
     },
     async (queries: Queries, data: QueryMap) => {
-      const results = await processResults(data);
-      await onSave({ queries }, results);
+      let error = "";
+      let results: R | undefined = undefined;
+      try {
+        results = await processResults(data);
+      } catch (e) {
+        error = e.message;
+      }
+      await onSave({ queries }, results, error);
     }
   );
+
+  if (status === "succeeded" && currentError) {
+    await onSave({}, undefined, "");
+  }
 
   return {
     status: 200,

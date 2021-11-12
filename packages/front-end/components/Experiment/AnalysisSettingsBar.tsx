@@ -100,7 +100,7 @@ export default function AnalysisSettingsBar({
     });
   }
 
-  const status = getQueryStatus(latest?.queries || []);
+  const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   return (
     <div>
@@ -233,6 +233,7 @@ export default function AnalysisSettingsBar({
               <div className="col-auto pb-3">
                 <ViewAsyncQueriesButton
                   queries={latest.queries.map((q) => q.query)}
+                  error={latest.error}
                   color={clsx(
                     {
                       danger: status === "failed",

@@ -33,6 +33,7 @@ export interface ExperimentSnapshotInterface {
   id: string;
   organization: string;
   experiment: string;
+  error?: string;
   phase: number;
   dateCreated: Date;
   runStarted: Date | null;

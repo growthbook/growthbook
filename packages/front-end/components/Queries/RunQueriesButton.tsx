@@ -26,7 +26,9 @@ function getTimeoutLength(seconds: number): number {
   return 0;
 }
 
-export function getQueryStatus(queries: Queries): QueryStatus {
+export function getQueryStatus(queries: Queries, error?: string): QueryStatus {
+  if (error) return "failed";
+
   let running = false;
   for (let i = 0; i < queries.length; i++) {
     if (queries[i].status === "failed") return "failed";

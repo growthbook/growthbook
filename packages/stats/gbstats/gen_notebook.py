@@ -53,7 +53,8 @@ def create_notebook(
         summary_cols.append(f"v{i}_users")
         summary_cols.append(f"v{i}_cr")
         summary_cols.append(f"v{i}_risk")
-        summary_cols.append(f"v{i}_uplift")
+        summary_cols.append(f"v{i}_expected")
+        summary_cols.append(f"v{i}_ci")
         summary_cols.append(f"v{i}_prob_beat_baseline")
 
     cells = [

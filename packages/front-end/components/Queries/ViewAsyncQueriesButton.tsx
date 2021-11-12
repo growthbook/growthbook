@@ -5,15 +5,20 @@ import { FaDatabase } from "react-icons/fa";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
+  error?: string;
   display?: string;
   color?: string;
-}> = ({ queries, display = "View Queries", color = "link" }) => {
+}> = ({ queries, display = "View Queries", color = "link", error }) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       {open && queries.length > 0 && (
-        <AsyncQueriesModal close={() => setOpen(false)} queries={queries} />
+        <AsyncQueriesModal
+          close={() => setOpen(false)}
+          queries={queries}
+          error={error}
+        />
       )}
       <button
         className={clsx("btn", `btn-${color}`, {

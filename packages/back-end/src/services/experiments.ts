@@ -5,13 +5,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
 import uniqid from "uniqid";
-import {
-  srm,
-  ABTestStats,
-  abtest,
-  getValueCR,
-  mergeMetricStats,
-} from "./stats";
+import { analyzeExperimentMetric } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
@@ -23,9 +17,9 @@ import {
 } from "./queries";
 import {
   ExperimentResults,
-  ExperimentMetricResult,
   PastExperimentResult,
   Dimension,
+  ExperimentMetricQueryResponse,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
@@ -41,7 +35,7 @@ import { promiseAllChunks } from "../util/promise";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 
-const MAX_DIMENSIONS = 20;
+const MAX_DIMENSIONS = 3;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -206,12 +200,6 @@ export async function getManualSnapshotData(
     [key: string]: MetricStats[];
   }
 ) {
-  // Default variation values, override from SQL results if available
-  const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
-    users: users[i],
-    metrics: {},
-  }));
-
   const phase = experiment.phases[phaseIndex];
 
   const metricMap = new Map<string, MetricInterface>();
@@ -220,51 +208,46 @@ export async function getManualSnapshotData(
     metricMap.set(m.id, m);
   });
 
-  await Promise.all(
+  // Default variation values, override from SQL results if available
+  const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
+    users: users[i],
+    metrics: {},
+  }));
+  let srm = 0;
+
+  await promiseAllChunks(
     Object.keys(metrics).map((m) => {
+      const stats = metrics[m];
       const metric = metricMap.get(m);
-      if (!metric) return;
-      const baselineStats = metrics[m][0];
-      return Promise.all(
-        experiment.variations.map(async (v, i) => {
-          const stats = metrics[m][i];
-          const { denominator, value, cr } = getValueCR(metric, stats);
-
-          // Baseline
-          if (!i) {
-            variations[i].metrics[m] = {
-              value,
-              cr,
-              users: denominator,
-              stats: stats,
-            };
-          }
-          // Variation
-          else {
-            const result = await abtest(metric, baselineStats, stats);
-
-            variations[i].metrics[m] = {
-              value,
-              cr,
-              users: denominator,
-              ...result,
-              stats,
-            };
-          }
-        })
-      );
-    })
-  );
-
-  // Check to see if the observed number of samples per variation matches what we expect
-  // This returns a p-value and a small value indicates the results are untrustworthy
-  const sampleRatioMismatch = srm(
-    variations.map((v) => v.users),
-    phase.variationWeights
+      return async () => {
+        if (!metric) return;
+        const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
+          return {
+            ...s,
+            dimension: "All",
+            variation: experiment.variations[i].key || i + "",
+          };
+        });
+        const res = await analyzeExperimentMetric(
+          experiment,
+          phase,
+          metric,
+          rows,
+          20
+        );
+        const data = res.dimensions[0];
+        if (!data) return;
+        data.variations.map((v, i) => {
+          variations[i].metrics[m] = v;
+        });
+        srm = data.srm;
+      };
+    }),
+    3
   );
 
   return {
-    srm: sampleRatioMismatch,
+    srm,
     variations,
   };
 }
@@ -308,21 +291,6 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
-type RawDimensionData = {
-  [key: string]: {
-    users: number[];
-    metrics: {
-      [key: string]: MetricStats[];
-    };
-  };
-};
-type MergedDimension = {
-  dimension: string;
-  users: number[];
-  metrics: {
-    [key: string]: MetricStats[];
-  };
-};
 type ProcessedSnapshotDimension = {
   name: string;
   srm: number;
@@ -332,87 +300,6 @@ type ProcessedSnapshotData = {
   dimensions: ProcessedSnapshotDimension[];
   unknownVariations: string[];
 };
-
-function sortAndMergeDimensions(
-  dimensions: RawDimensionData,
-  numVariations: number,
-  ignoreDimensionLimits: boolean = false
-): MergedDimension[] {
-  // Sort dimensions so the ones with the most overall users are first
-  const usersPerDimension = Object.keys(dimensions).map((key) => {
-    return {
-      dimension: key,
-      users: dimensions[key].users.reduce((sum, u) => sum + u, 0),
-    };
-  });
-  usersPerDimension.sort((a, b) => b.users - a.users);
-
-  // Wait until the "(other)" category will have at least 2 dimension values
-  const numDimensions = usersPerDimension.length;
-  if (numDimensions === MAX_DIMENSIONS + 1) {
-    ignoreDimensionLimits = true;
-  }
-
-  const res: MergedDimension[] = [];
-
-  const otherMetrics: Map<string, MetricStats[][]> = new Map();
-  const otherUsers: number[] = [];
-  let hasOverflow = false;
-
-  usersPerDimension.forEach(({ dimension }, i) => {
-    const data = dimensions[dimension];
-    if (!data) return;
-
-    // For the first few dimension values, keep them as-is
-    if (ignoreDimensionLimits || i < MAX_DIMENSIONS) {
-      res.push({
-        dimension,
-        ...data,
-      });
-    }
-    // For the rest, queue them up to be merged together into an "other" category
-    else {
-      hasOverflow = true;
-      Object.keys(data.metrics).forEach((m) => {
-        otherMetrics.set(m, [...(otherMetrics.get(m) || []), data.metrics[m]]);
-      });
-      data.users.forEach((u, i) => {
-        otherUsers[i] = otherUsers[i] || 0;
-        otherUsers[i] += u;
-      });
-    }
-  });
-
-  if (hasOverflow) {
-    const otherDimension: MergedDimension = {
-      dimension: "(other)",
-      users: otherUsers,
-      metrics: {},
-    };
-    // Merge dimension values together for each metric
-    otherMetrics.forEach((metricStats, m) => {
-      otherDimension.metrics[m] = metricStats.reduce((old, current) => {
-        const merged = [...old];
-
-        for (let i = 0; i < numVariations; i++) {
-          // If there's no old value, just use the new one (if it exists)
-          if (!merged[i]) {
-            if (current[i]) merged[i] = current[i];
-          }
-          // Merge the old and new values together
-          else if (current[i]) {
-            merged[i] = mergeMetricStats(merged[i], current[i]);
-          }
-        }
-        return merged;
-      }, [] as MetricStats[]);
-    });
-
-    res.push(otherDimension);
-  }
-
-  return res;
-}
 
 export async function processSnapshotData(
   experiment: ExperimentInterface,
@@ -426,12 +313,15 @@ export async function processSnapshotData(
     metricMap.set(m.id, m);
   });
 
-  // Combine user and metric data into a single data structure
-  const combined: RawDimensionData = {};
+  const metricRows: {
+    metric: string;
+    rows: ExperimentMetricQueryResponse;
+  }[] = [];
 
   let unknownVariations: string[] = [];
 
   // Everything done in a single query (Mixpanel, Google Analytics)
+  // Need to convert to the same format as SQL rows
   if (queryData.has("results")) {
     const results = queryData.get("results");
     if (!results) throw new Error("Empty experiment results");
@@ -439,141 +329,84 @@ export async function processSnapshotData(
 
     unknownVariations = data.unknownVariations;
 
+    const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
     data.dimensions.forEach((row) => {
-      combined[row.dimension] = {
-        users: [],
-        metrics: {},
-      };
-      const d = combined[row.dimension];
       row.variations.forEach((v) => {
-        d.users[v.variation] = v.users;
         Object.keys(v.metrics).forEach((metric) => {
           const stats = v.metrics[metric];
-          if (!d.metrics[metric]) d.metrics[metric] = [];
-          d.metrics[metric][v.variation] = stats;
+          byMetric[metric] = byMetric[metric] || [];
+          byMetric[metric].push({
+            ...stats,
+            dimension: row.dimension,
+            variation:
+              experiment.variations[v.variation].key || v.variation + "",
+          });
         });
       });
     });
+
+    Object.keys(byMetric).forEach((metric) => {
+      metricRows.push({
+        metric,
+        rows: byMetric[metric],
+      });
+    });
   }
-  // Spread out over multiple queries (SQL sources)
+  // One query for each metric, can just use the rows directly from the query
   else {
-    // Raw metric numbers
-    queryData.forEach((obj, key) => {
-      if (!metricMap.has(key)) return;
-      const data = obj.result as ExperimentMetricResult;
+    queryData.forEach((query, key) => {
+      const metric = metricMap.get(key);
+      if (!metric) return;
 
-      unknownVariations = unknownVariations.concat(data.unknownVariations);
-
-      data.dimensions.forEach((d) => {
-        combined[d.dimension] = combined[d.dimension] || {
-          metrics: {},
-          users: [],
-        };
-
-        combined[d.dimension].metrics[key] = [];
-        d.variations.forEach((v) => {
-          combined[d.dimension].users[v.variation] = Math.max(
-            combined[d.dimension].users[v.variation] || 0,
-            v.stats.users
-          );
-          combined[d.dimension].metrics[key][v.variation] = v.stats;
-        });
+      metricRows.push({
+        metric: key,
+        rows: query.rawResult as ExperimentMetricQueryResponse,
       });
     });
   }
 
-  // Don't merge when breaking down by date dimension
-  const merged = sortAndMergeDimensions(
-    combined,
-    experiment.variations.length,
-    dimension === "pre:date"
-  );
-
-  const dimensions: ProcessedSnapshotDimension[] = [];
-
+  const dimensionMap: Map<string, ProcessedSnapshotDimension> = new Map();
   await promiseAllChunks(
-    merged.map(({ dimension, metrics, users }) => {
+    metricRows.map((data) => {
+      const metric = metricMap.get(data.metric);
       return async () => {
-        // One doc per variation
-        const variations: SnapshotVariation[] = experiment.variations.map(
-          (v, i) => ({
-            users: users[i] || 0,
-            metrics: {},
-          })
+        if (!metric) return;
+        const result = await analyzeExperimentMetric(
+          experiment,
+          phase,
+          metric,
+          data.rows,
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
         );
+        unknownVariations = unknownVariations.concat(result.unknownVariations);
 
-        // Calculate metric stats
-        await promiseAllChunks(
-          Object.keys(metrics).map((k) => {
-            return async () => {
-              const v = metrics[k];
-              const baselineSuccess = v[0]?.count * v[0]?.mean || 0;
+        result.dimensions.forEach((row) => {
+          const dim = dimensionMap.get(row.dimension) || {
+            name: row.dimension,
+            srm: row.srm,
+            variations: [],
+          };
 
-              await Promise.all(
-                v.map(async (data, i) => {
-                  const success = data.count * data.mean;
-
-                  const metric = metricMap.get(k);
-                  if (!metric) return;
-
-                  const { denominator, cr, value } = getValueCR(metric, data);
-
-                  // Don't do stats for the baseline
-                  if (!i) {
-                    variations[i].metrics[k] = {
-                      users: denominator,
-                      value,
-                      cr,
-                      stats: data,
-                    };
-                    return;
-                  }
-
-                  let result: ABTestStats;
-                  // Short cut if either the baseline or variation has no data
-                  if (!baselineSuccess || !success) {
-                    result = {
-                      buckets: [],
-                      chanceToWin: 0,
-                      ci: [0, 0],
-                      risk: [0, 0],
-                      expected: 0,
-                    };
-                  } else {
-                    result = await abtest(metric, v[0], data);
-                  }
-
-                  variations[i].metrics[k] = {
-                    users: denominator,
-                    value,
-                    cr,
-                    ...result,
-                    stats: data,
-                  };
-                })
-              );
+          row.variations.forEach((v, i) => {
+            const data = dim.variations[i] || {
+              users: v.users,
+              metrics: {},
             };
-          }),
-          2
-        );
+            data.metrics[metric.id] = {
+              ...v,
+              buckets: [],
+            };
+            dim.variations[i] = data;
+          });
 
-        // Check to see if the observed number of samples per variation matches what we expect
-        // This returns a p-value and a small value indicates the results are untrustworthy
-        const sampleRatioMismatch = srm(
-          variations.map((v) => v.users),
-          phase.variationWeights
-        );
-
-        dimensions.push({
-          name: dimension,
-          srm: sampleRatioMismatch,
-          variations,
+          dimensionMap.set(row.dimension, dim);
         });
       };
     }),
-    2
+    3
   );
 
+  const dimensions = Array.from(dimensionMap.values());
   if (!dimensions.length) {
     dimensions.push({
       name: "All",

@@ -8,8 +8,9 @@ import ExpandableQuery from "./ExpandableQuery";
 const AsyncQueriesModal: FC<{
   queries: string[];
   close: () => void;
-}> = ({ queries, close }) => {
-  const { data, error } = useApi<{ queries: QueryInterface[] }>(
+  error?: string;
+}> = ({ queries, close, error }) => {
+  const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
     `/queries/${queries.join(",")}`
   );
 
@@ -21,8 +22,16 @@ const AsyncQueriesModal: FC<{
       size="lg"
       closeCta="Close"
     >
-      {!data && !error && <LoadingOverlay />}
-      {error && <div className="alert alert-danger">{error.message}</div>}
+      {!data && !apiError && <LoadingOverlay />}
+      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {error && (
+        <div className="alert alert-danger">
+          <div>
+            <strong>Error Processing Query Results</strong>
+          </div>
+          {error}
+        </div>
+      )}
       {data && data.queries.filter((q) => q === null).length > 0 && (
         <div className="alert alert-danger">
           Could not fetch information about one or more of these queries. Try

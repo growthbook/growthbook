@@ -110,7 +110,7 @@ const MetricPage: FC = () => {
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
-  const status = getQueryStatus(metric.queries || []);
+  const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   return (
@@ -305,7 +305,10 @@ const MetricPage: FC = () => {
                         <RunQueriesButton
                           icon="refresh"
                           cta={analysis ? "Refresh Data" : "Run Analysis"}
-                          initialStatus={getQueryStatus(metric.queries || [])}
+                          initialStatus={getQueryStatus(
+                            metric.queries || [],
+                            metric.analysisError
+                          )}
                           statusEndpoint={`/metric/${metric.id}/analysis/status`}
                           cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                           onReady={() => {
@@ -416,6 +419,7 @@ const MetricPage: FC = () => {
                         <ViewAsyncQueriesButton
                           queries={metric.queries.map((q) => q.query)}
                           color={status === "failed" ? "danger" : "info"}
+                          error={metric.analysisError}
                         />
                       </div>
                     </div>

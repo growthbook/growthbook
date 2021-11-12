@@ -134,10 +134,10 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
             df["baseline_risk"] = 0
         else:
             df[f"v{i}_cr"] = df[f"v{i}_total"] / df[f"v{i}_users"]
-            df[f"v{i}_uplift"] = df[f"v{i}_cr"] / df["baseline_cr"] - 1
+            df[f"v{i}_expected"] = df[f"v{i}_cr"] / df["baseline_cr"] - 1
             df[f"v{i}_risk"] = 0
             df[f"v{i}_prob_beat_baseline"] = 0
-            df[f"v{i}_ci"] = None
+            df[f"v{i}_uplift"] = None
 
     def analyze_row(s):
         s = s.copy()
@@ -184,13 +184,58 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
 
             s[f"v{i}_risk"] = risk1
             s[f"v{i}_prob_beat_baseline"] = ctw
-            s[f"v{i}_ci"] = res["uplift"]
+            s.at[f"v{i}_ci"] = res["ci"]
+            s.at[f"v{i}_rawrisk"] = res["risk"]
+            s.at[f"v{i}_uplift"] = res["uplift"]
 
         s["baseline_risk"] = baseline_risk
         s["srm_p"] = check_srm(users, weights)
         return s
 
     return df.apply(analyze_row, axis=1)
+
+
+# Convert final experiment results to a structure that can be easily
+# serialized and used to display results in the GrowthBook front-end
+def format_results(df):
+    num_variations = df.at[0, "variations"]
+    results = []
+    rows = df.to_dict("records")
+    for row in rows:
+        dim = {"dimension": row["dimension"], "srm": row["srm_p"], "variations": []}
+        for v in range(num_variations):
+            prefix = f"v{v}" if v > 0 else "baseline"
+            stats = {
+                "users": row[f"{prefix}_users"],
+                "count": row[f"{prefix}_count"],
+                "stddev": row[f"{prefix}_stddev"],
+                "mean": row[f"{prefix}_mean"],
+            }
+            if v == 0:
+                dim["variations"].append(
+                    {
+                        "cr": row[f"{prefix}_cr"],
+                        "value": row[f"{prefix}_total"],
+                        "users": row[f"{prefix}_users"],
+                        "stats": stats,
+                    }
+                )
+            else:
+                dim["variations"].append(
+                    {
+                        "cr": row[f"{prefix}_cr"],
+                        "value": row[f"{prefix}_total"],
+                        "users": row[f"{prefix}_users"],
+                        "expected": row[f"{prefix}_expected"],
+                        "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
+                        "uplift": row[f"{prefix}_uplift"],
+                        "ci": row[f"{prefix}_ci"],
+                        "risk": row[f"{prefix}_rawrisk"],
+                        "stats": stats,
+                    }
+                )
+        results.append(dim)
+    return results
 
 
 # Adjust metric stats to account for unconverted users

@@ -51,6 +51,7 @@ export interface MetricInterface {
   queries: Queries;
   runStarted: Date | null;
   analysis?: MetricAnalysis;
+  analysisError?: string;
   sql?: string;
   // Query Builder Props (alternative to sql)
   table?: string;
