@@ -13,7 +13,6 @@ import { FaPalette, FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Link from "next/link";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 
@@ -192,7 +191,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           className="cursor-pointer"
                         >
                           <div className="d-flex">
-                            <span className="font-weight-bold">{e.name}</span>
+                            <span className="testname">{e.name}</span>
                             {e.implementation === "visual" && (
                               <small className="text-muted ml-2">
                                 <FaPalette /> Visual
@@ -303,9 +302,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <span className="font-weight-bold">
-                                  {e.name}
-                                </span>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -365,7 +362,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       )
                       .map((e) => {
                         return (
-                          <tr key={e.id}>
+                          <tr key={e.id} className="hover-highlight">
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
                             </td>
@@ -373,13 +370,10 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -455,6 +449,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             onClick={() => {
                               router.push(`/experiment/${e.id}`);
                             }}
+                            className="hover-highlight"
                           >
                             <td>
                               <WatchButton experiment={e.id} type="icon" />
@@ -463,13 +458,10 @@ const ExperimentsPage = (): React.ReactElement => {
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="cursor-pointer"
                             >
                               <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
+                                <span className="testname">{e.name}</span>
                                 {e.implementation === "visual" && (
                                   <small className="text-muted ml-2">
                                     <FaPalette /> Visual
@@ -535,18 +527,16 @@ const ExperimentsPage = (): React.ReactElement => {
                           onClick={() => {
                             router.push(`/experiment/${e.id}`);
                           }}
+                          className="hover-highlight"
                         >
                           <td
                             onClick={() => {
                               router.push(`/experiment/${e.id}`);
                             }}
+                            className="cursor-pointer"
                           >
                             <div className="d-flex">
-                              <h4 className="testname">
-                                <Link href={`/experiment/${e.id}`}>
-                                  <a>{e.name}</a>
-                                </Link>
-                              </h4>
+                              <span className="testname">{e.name}</span>
                               {e.implementation === "visual" && (
                                 <small className="text-muted ml-2">
                                   <FaPalette /> Visual
