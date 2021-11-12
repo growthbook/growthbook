@@ -1,22 +1,120 @@
-import { jStat } from "jstat";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
 import { promisify } from "util";
+import { ExperimentMetricQueryResponse } from "../types/Integration";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 
-export interface ABTestStats {
-  expected: number;
-  chanceToWin: number;
-  uplift?: {
-    dist: string;
-    mean?: number;
-    stddev?: number;
-  };
-  ci: [number, number];
-  risk?: [number, number];
-  buckets: {
-    x: number;
-    y: number;
+export interface StatsEngineDimensionResponse {
+  dimension: string;
+  srm: number;
+  variations: {
+    cr: number;
+    value: number;
+    users: number;
+    stats: MetricStats;
+    expected?: number;
+    chanceToWin?: number;
+    uplift?: {
+      dist: string;
+      mean?: number;
+      stddev?: number;
+    };
+    ci?: [number, number];
+    risk?: [number, number];
   }[];
+}
+
+export interface ExperimentMetricAnalysis {
+  unknownVariations: string[];
+  dimensions: StatsEngineDimensionResponse[];
+}
+
+export async function analyzeExperimentMetric(
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  metric: MetricInterface,
+  rows: ExperimentMetricQueryResponse,
+  maxDimensions: number
+): Promise<ExperimentMetricAnalysis> {
+  const variationIdMap: { [key: string]: number } = {};
+  experiment.variations.map((v, i) => {
+    variationIdMap[v.key || i + ""] = i;
+  });
+
+  const result = await promisify(PythonShell.runString)(
+    `
+from gbstats.gbstats import (
+  detect_unknown_variations,
+  analyze_metric_df,
+  get_metric_df,
+  reduce_dimensionality,
+  format_results
+)
+import pandas as pd
+import json
+
+data = json.loads("""${JSON.stringify({
+      var_id_map: variationIdMap,
+      var_names: experiment.variations.map((v) => v.name),
+      weights: phase.variationWeights,
+      type: metric.type,
+      ignore_nulls: !!metric.ignoreNulls,
+      inverse: !!metric.inverse,
+      max_dimensions: maxDimensions,
+      rows,
+    }).replace(/\\/g, "\\\\")}""", strict=False)
+
+var_id_map = data['var_id_map']
+var_names = data['var_names']
+ignore_nulls = data['ignore_nulls']
+inverse = data['inverse']
+type = data['type']
+weights = data['weights']
+max_dimensions = data['max_dimensions']
+
+rows = pd.DataFrame(data['rows'])
+
+unknown_var_ids = detect_unknown_variations(
+  rows=rows,
+  var_id_map=var_id_map
+)
+
+df = get_metric_df(
+  rows=rows,
+  var_id_map=var_id_map,
+  var_names=var_names,
+  ignore_nulls=ignore_nulls,
+  type=type,
+)
+
+reduced = reduce_dimensionality(
+  df=df, 
+  max=max_dimensions
+)
+
+result = analyze_metric_df(
+  df=reduced,
+  weights=weights,
+  type=type,
+  inverse=inverse,
+)
+
+print(json.dumps({
+  'unknownVariations': list(unknown_var_ids),
+  'dimensions': format_results(result)
+}, allow_nan=False))`,
+    {}
+  );
+
+  let parsed: ExperimentMetricAnalysis;
+  try {
+    parsed = JSON.parse(result?.[0]);
+  } catch (e) {
+    console.error("Failed to run stats model", result);
+    throw e;
+  }
+
+  return parsed;
 }
 
 /**
@@ -51,172 +149,13 @@ function correctMean(n: number, x: number, m: number, y: number) {
 }
 
 /**
- * This combines two sets of count/mean/stddev into one
- * using the necessary statistical corrections
- */
-export function mergeMetricStats(a: MetricStats, b: MetricStats): MetricStats {
-  return {
-    count: a.count + b.count,
-    mean: correctMean(a.count, a.mean, b.count, b.mean),
-    stddev: correctStddev(a.count, a.mean, a.stddev, b.count, b.mean, b.stddev),
-  };
-}
-
-/**
  * This takes a mean/stddev from only converted users and
  * adjusts them to include non-converted users
  */
-export function addNonconvertingUsersToStats(
-  stats: MetricStats,
-  users: number
-) {
-  const m = users - stats.count;
+export function addNonconvertingUsersToStats(stats: MetricStats) {
+  const m = stats.users - stats.count;
   return {
     mean: correctMean(stats.count, stats.mean, m, 0),
     stddev: correctStddev(stats.count, stats.mean, stats.stddev, m, 0, 0),
   };
-}
-
-export async function abtest(
-  metric: MetricInterface,
-  aUsers: number,
-  aStats: MetricStats,
-  bUsers: number,
-  bStats: MetricStats
-): Promise<ABTestStats> {
-  if (metric.ignoreNulls) {
-    aUsers = aStats.count;
-    bUsers = bStats.count;
-  } else {
-    aStats = {
-      ...aStats,
-      ...addNonconvertingUsersToStats(aStats, aUsers),
-    };
-
-    bStats = {
-      ...bStats,
-      ...addNonconvertingUsersToStats(bStats, bUsers),
-    };
-  }
-
-  // Don't call the stats engine if the input data is invalid
-  // This avoids divide by zero errors and square roots of negatives
-  let validData = true;
-  if (metric.type !== "binomial") {
-    if (aStats.stddev <= 0 || bStats.stddev <= 0) {
-      validData = false;
-    } else if (aUsers <= 1 || bUsers <= 1) {
-      validData = false;
-    }
-  } else {
-    if (aStats.count < 1 || bStats.count < 1) {
-      validData = false;
-    }
-  }
-  if (!validData) {
-    return {
-      expected: 0,
-      chanceToWin: 0,
-      ci: [0, 0],
-      risk: [0, 0],
-      uplift: {
-        dist: "lognormal",
-        mean: 0,
-        stddev: 0,
-      },
-      buckets: [],
-    };
-  }
-
-  const func =
-    metric.type === "binomial" ? "binomial_ab_test" : "gaussian_ab_test";
-
-  const args =
-    metric.type === "binomial"
-      ? "x_a=xa, n_a=na, x_b=xb, n_b=nb"
-      : "m_a=ma, s_a=sa, n_a=na, m_b=mb, s_b=sb, n_b=nb";
-
-  const result = await promisify(PythonShell.runString)(
-    `
-from gbstats.bayesian.main import ${func}
-import json
-
-data = json.loads("""${JSON.stringify({
-      users: [aUsers, bUsers],
-      count: [aStats.count, bStats.count],
-      mean: [aStats.mean, bStats.mean],
-      stddev: [aStats.stddev, bStats.stddev],
-    })}""", strict=False)
-
-xa, xb = data['count']
-na, nb = data['users']
-ma, mb = data['mean']
-sa, sb = data['stddev']
-
-print(json.dumps(${func}(${args})))`,
-    {}
-  );
-
-  let parsed: {
-    chance_to_win: number;
-    expected: number;
-    ci: [number, number];
-    risk: [number, number];
-    uplift: {
-      dist: string;
-      mean?: number;
-      stddev?: number;
-    };
-  };
-  try {
-    parsed = JSON.parse(result?.[0]);
-  } catch (e) {
-    console.error("Failed to run stats model", result);
-    throw e;
-  }
-
-  return {
-    expected: parsed.expected,
-    chanceToWin: metric.inverse
-      ? 1 - parsed.chance_to_win
-      : parsed.chance_to_win,
-    ci: parsed.ci,
-    risk: parsed.risk,
-    uplift: parsed.uplift,
-    buckets: [],
-  };
-}
-
-export function getValueCR(
-  metric: MetricInterface,
-  value: number,
-  count: number,
-  users: number
-) {
-  const base = metric.ignoreNulls ? count : users;
-  return {
-    value,
-    users: base,
-    cr: base > 0 ? value / base : 0,
-  };
-}
-
-// Sample Ratio Mismatch test
-export function srm(users: number[], weights: number[]): number {
-  // Convert count of users into ratios
-  let totalObserved = 0;
-  users.forEach((o) => {
-    totalObserved += o;
-  });
-  if (totalObserved <= 1) {
-    return 1;
-  }
-
-  let x = 0;
-  users.forEach((o, i) => {
-    const e = weights[i] * totalObserved;
-    x += e ? Math.pow(o - e, 2) / e : 0;
-  });
-
-  return 1 - jStat.chisquare.cdf(x, users.length - 1) || 0;
 }

@@ -79,7 +79,7 @@ const Results: FC<{
     });
   }
 
-  const status = getQueryStatus(latest?.queries || []);
+  const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
@@ -244,9 +244,9 @@ const Results: FC<{
             </div>
           )}
           {snapshot &&
-            !snapshot.dimension &&
             hasData &&
             snapshot.hasRawQueries &&
+            "skipPartialData" in snapshot &&
             datasource?.settings?.notebookRunQuery && (
               <div className="col-auto">
                 <Button
@@ -291,6 +291,7 @@ const Results: FC<{
               {snapshot.queries?.length > 0 ? (
                 <ViewAsyncQueriesButton
                   queries={snapshot.queries.map((q) => q.query)}
+                  error={snapshot.error}
                 />
               ) : (
                 // From old query engine

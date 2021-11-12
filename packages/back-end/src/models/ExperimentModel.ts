@@ -27,10 +27,7 @@ const experimentSchema = new mongoose.Schema({
   activationMetric: String,
   segment: String,
   queryFilter: String,
-  sqlOverride: {
-    type: Map,
-    of: String,
-  },
+  skipPartialData: Boolean,
   archived: Boolean,
   status: String,
   results: String,

@@ -34,6 +34,7 @@ const AnalysisForm: FC<{
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
+      skipPartialData: experiment.skipPartialData ? "strict" : "loose",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
@@ -55,7 +56,7 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, ...values } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -65,6 +66,7 @@ const AnalysisForm: FC<{
           ...values,
           currentPhase: phase,
           phaseStartDate: dateStarted,
+          skipPartialData: skipPartialData === "strict",
         };
 
         if (experiment.status === "stopped") {
@@ -179,6 +181,24 @@ const AnalysisForm: FC<{
             };
           })}
           helpText="Only users in this segment will be included"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Metric Conversion Windows"
+          labelClassName="font-weight-bold"
+          {...form.register("skipPartialData")}
+          options={[
+            {
+              display: "Include In-Progress Conversions",
+              value: "loose",
+            },
+            {
+              display: "Exclude In-Progress Conversions",
+              value: "strict",
+            },
+          ]}
+          helpText="How to treat users who have not had the full time to convert yet"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

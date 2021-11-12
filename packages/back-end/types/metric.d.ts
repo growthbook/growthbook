@@ -4,6 +4,7 @@ export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 
 export interface MetricStats {
+  users: number;
   count: number;
   stddev: number;
   mean: number;
@@ -50,6 +51,7 @@ export interface MetricInterface {
   queries: Queries;
   runStarted: Date | null;
   analysis?: MetricAnalysis;
+  analysisError?: string;
   sql?: string;
   // Query Builder Props (alternative to sql)
   table?: string;

@@ -51,6 +51,7 @@ const metricSchema = new mongoose.Schema({
   ],
   queries: queriesSchema,
   runStarted: Date,
+  analysisError: String,
   analysis: {
     createdAt: Date,
     segment: String,
@@ -158,6 +159,7 @@ export async function getMetricById(
       const metric = await MetricModel.findOne({ id, organization });
       doc.queries = metric?.queries || [];
       doc.analysis = metric?.analysis || undefined;
+      doc.analysisError = metric?.analysisError || undefined;
       doc.runStarted = metric?.runStarted || null;
     }
 
@@ -189,6 +191,13 @@ export async function getMetricsUsingSegment(
   });
 }
 
+const ALLOWED_UPDATE_FIELDS = [
+  "analysis",
+  "analysisError",
+  "queries",
+  "runStarted",
+];
+
 export async function updateMetric(
   id: string,
   updates: Partial<MetricInterface>,
@@ -197,9 +206,8 @@ export async function updateMetric(
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
-      Object.keys(updates).filter(
-        (k) => !["analysis", "queries", "runStarted"].includes(k)
-      ).length > 0
+      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
+        .length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
     }
@@ -237,9 +245,8 @@ export async function updateMetricsByQuery(
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
-      Object.keys(updates).filter(
-        (k) => !["analysis", "queries", "runStarted"].includes(k)
-      ).length > 0
+      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
+        .length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
     }

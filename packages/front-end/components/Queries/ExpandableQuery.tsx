@@ -51,9 +51,11 @@ const ExpandableQuery: FC<{
           click to {queryOpen ? "minimize" : "expand"}
         </div>
       </div>
-      {query.status === "failed" && (
+      {query.error && (
         <div className="alert alert-danger">
-          <pre>{query.error}</pre>
+          <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
+            {query.error}
+          </pre>
         </div>
       )}
       {query.status === "succeeded" && (

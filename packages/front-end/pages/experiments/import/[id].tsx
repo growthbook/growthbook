@@ -36,7 +36,10 @@ const ImportPage: FC = () => {
     existing: Record<string, string>;
   }>(`/experiments/import/${id}`);
 
-  const status = getQueryStatus(data?.experiments?.queries || []);
+  const status = getQueryStatus(
+    data?.experiments?.queries || [],
+    data?.experiments?.error
+  );
   const experiments = data?.experiments?.experiments || [];
 
   const {
@@ -92,7 +95,10 @@ const ImportPage: FC = () => {
           >
             <RunQueriesButton
               cta="Refresh List"
-              initialStatus={getQueryStatus(data.experiments.queries || [])}
+              initialStatus={getQueryStatus(
+                data.experiments.queries || [],
+                data.experiments.error
+              )}
               statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
               cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
               onReady={() => {
@@ -108,6 +114,7 @@ const ImportPage: FC = () => {
                 ? data.experiments.queries.map((q) => q.query)
                 : []
             }
+            error={data.experiments.error}
           />
         </div>
       </div>

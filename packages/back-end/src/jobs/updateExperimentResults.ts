@@ -141,18 +141,20 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               queryData
             );
           },
-          async (updates, results) => {
+          async (updates, results, error) => {
             await ExperimentSnapshotModel.updateOne(
               { id: currentSnapshot.id },
               {
                 $set: {
                   ...updates,
                   unknownVariations: results?.unknownVariations || [],
-                  results: results?.dimensions,
+                  results: results?.dimensions || currentSnapshot.results,
+                  error,
                 },
               }
             );
-          }
+          },
+          currentSnapshot.error
         );
         if (res.queryStatus === "succeeded") {
           resolve();

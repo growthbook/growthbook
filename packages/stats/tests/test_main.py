@@ -28,6 +28,11 @@ class TestBinom(TestCase):
             ex = [round_(x) for x in ex] if isinstance(ex, list) else round_(ex)
             self.assertEqual(res, ex)
 
+    def test_missing_data(self):
+        result = binomial_ab_test(0, 0, 0, 0)
+        self.assertEqual(result["chance_to_win"], 0.5)
+        self.assertEqual(result["expected"], 0)
+
 
 class TestNorm(TestCase):
     def test_gaussian_ab_test(self):
@@ -49,6 +54,11 @@ class TestNorm(TestCase):
             res = [round_(x) for x in res] if isinstance(res, list) else round_(res)
             ex = [round_(x) for x in ex] if isinstance(ex, list) else round_(ex)
             self.assertEqual(res, ex)
+
+    def test_missing_data(self):
+        result = gaussian_ab_test(0, 0, 0, 0, 0, 0)
+        self.assertEqual(result["chance_to_win"], 0.5)
+        self.assertEqual(result["expected"], 0)
 
 
 if __name__ == "__main__":
