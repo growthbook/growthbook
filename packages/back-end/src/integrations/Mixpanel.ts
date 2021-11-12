@@ -393,6 +393,54 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
 
+  getUsersQuery(params: MetricValueParams): string {
+    return formatQuery(`
+      // ${params.name} - Number of Users
+      return ${this.getEvents(params.from, params.to)}
+        .filter(function(event) {
+          ${
+            params.segmentQuery
+              ? `// Limit to Segment - ${params.segmentName}
+          if(!(${params.segmentQuery})) return false;`
+              : ""
+          }
+          // Valid page view
+          if(${this.getValidPageCondition(params.urlRegex)}) return true;
+          return false;
+        })
+        // One event per user
+        .groupByUser(mixpanel.reducer.min("time"))
+        .reduce([
+          // Overall count of users
+          mixpanel.reducer.count()${
+            params.includeByDate
+              ? `,
+          // Count of users per day
+          (prevs, events) => {
+            const dates = {};
+            prevs.forEach(prev => {
+              prev.dates.forEach(d=>dates[d.date] = (dates[d.date] || 0) + d.users)
+            });
+            events.forEach(e=>{
+              const date = (new Date(e.value)).toISOString().substr(0,10);
+              dates[date] = (dates[date] || 0) + 1;
+            });
+            return {
+              type: "byDate",
+              dates: Object.keys(dates).map(d => ({
+                date: d,
+                users: dates[d]
+              }))
+            };
+          }`
+              : ""
+          }
+        ])
+        // Transform into easy-to-use objects
+        .map(vals => vals.map(val => !val.type ? {type:"overall",users:val} : val))
+    `);
+  }
+
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
 
@@ -510,54 +558,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
           return val;
         }));
         `) +
-      "/*USERS_QUERY_BELOW*/" +
-      formatQuery(`
-        // ${params.name} - Number of Users
-        return ${this.getEvents(params.from, params.to)}
-          .filter(function(event) {
-            ${
-              params.segmentQuery
-                ? `// Limit to Segment - ${params.segmentName}
-            if(!(${params.segmentQuery})) return false;`
-                : ""
-            }
-            // Valid page view
-            if(${this.getValidPageCondition(params.urlRegex)}) return true;
-            return false;
-          })
-          // One event per user
-          .groupByUser(mixpanel.reducer.min("time"))
-          .reduce([
-            // Overall count of users
-            mixpanel.reducer.count()${
-              params.includeByDate
-                ? `,
-            // Count of users per day
-            (prevs, events) => {
-              const dates = {};
-              prevs.forEach(prev => {
-                prev.dates.forEach(d=>dates[d.date] = (dates[d.date] || 0) + d.users)
-              });
-              events.forEach(e=>{
-                const date = (new Date(e.value)).toISOString().substr(0,10);
-                dates[date] = (dates[date] || 0) + 1;
-              });
-  
-              return {
-                type: "byDate",
-                dates: Object.keys(dates).map(d => ({
-                  date: d,
-                  users: dates[d]
-                }))
-              };
-            }`
-                : ""
-            }
-          ])
-          // Transform into easy-to-use objects
-          .map(vals => vals.map(val => !val.type ? {type:"overall",users:val} : val))
-
-    `)
+      "\n/*USERS_QUERY_BELOW*/\n" +
+      this.getUsersQuery(params)
     );
   }
   async runUsersQuery(query: string): Promise<{ [key: string]: number }> {
