@@ -2,11 +2,9 @@ import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
   ImpactEstimationResult,
-  UsersQueryParams,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
-  UsersQueryResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
 } from "../types/Integration";
@@ -74,32 +72,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   runPastExperimentQuery(): Promise<PastExperimentResponse> {
     throw new Error("Method not implemented.");
   }
-  getUsersQuery(params: UsersQueryParams): string {
-    // TODO: support segments and url regex
-    return JSON.stringify(
-      {
-        viewId: this.params.viewId,
-        dateRanges: [
-          {
-            startDate: params.from.toISOString().substr(0, 10),
-            endDate: params.to.toISOString().substr(0, 10),
-          },
-        ],
-        metrics: [
-          {
-            expression: "ga:users",
-          },
-        ],
-        dimensions: [
-          {
-            name: "ga:date",
-          },
-        ],
-      },
-      null,
-      2
-    );
-  }
   getMetricValueQuery(params: MetricValueParams): string {
     // TODO: support segments and url regex
     return JSON.stringify(
@@ -128,25 +100,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       null,
       2
     );
-  }
-  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
-    const { rows } = await this.runQuery(query);
-    if (!rows) return [];
-
-    let totalUsers = 0;
-    const correctedRows = rows.map((row) => {
-      const users = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-      totalUsers += users;
-
-      const date = convertDate(row.dimensions?.[0] || "");
-
-      return {
-        date,
-        users,
-      };
-    });
-
-    return [{ date: "", users: totalUsers }, ...correctedRows];
   }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
@@ -193,6 +146,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
         dates.push({
           date,
+          users,
           count,
           mean,
           stddev,

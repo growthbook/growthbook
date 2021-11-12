@@ -28,7 +28,6 @@ import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import { WatchModel } from "../models/WatchModel";
 import {
-  getUsers,
   QueryMap,
   getMetricValue,
   getStatusEndpoint,
@@ -36,11 +35,7 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import {
-  Dimension,
-  MetricValueResult,
-  UsersResult,
-} from "../types/Integration";
+import { Dimension, MetricValueResult } from "../types/Integration";
 import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
@@ -1156,38 +1151,33 @@ async function getMetricAnalysis(
   queryData: QueryMap
 ): Promise<MetricAnalysis> {
   const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
+    users: 0,
     count: 0,
     mean: 0,
     stddev: 0,
   };
-  const usersData: UsersResult = (queryData.get("users")
-    ?.result as UsersResult) || { users: 0 };
 
   let total = (metricData.count || 0) * (metricData.mean || 0);
   let count = metricData.count || 0;
+  let users = metricData.users || 0;
   const dates: { d: Date; v: number; s: number; u: number }[] = [];
 
   // Calculate total from dates
-  if (metricData.dates && usersData.dates) {
+  if (metricData.dates) {
     total = 0;
     count = 0;
-
-    // Map of date to user count
-    const userDateMap: Map<string, number> = new Map();
-    usersData.dates.forEach((u) => {
-      userDateMap.set(u.date + "", u.users);
-    });
+    users = 0;
 
     metricData.dates.forEach((d) => {
       const { mean, stddev } = metric.ignoreNulls
         ? { mean: d.mean, stddev: d.stddev }
-        : addNonconvertingUsersToStats({ ...d, users } as MetricStats);
+        : addNonconvertingUsersToStats(d);
 
-      const averageBase =
-        (metric.ignoreNulls ? d.count : userDateMap.get(d.date + "")) || 0;
+      const averageBase = (metric.ignoreNulls ? d.count : d.users) || 0;
       const dateTotal = (d.count || 0) * (d.mean || 0);
       total += dateTotal;
       count += d.count || 0;
+      users += d.users || 0;
       dates.push({
         d: getValidDate(d.date),
         v: mean,
@@ -1197,7 +1187,6 @@ async function getMetricAnalysis(
     });
   }
 
-  const users = usersData.users || 0;
   const averageBase = metric.ignoreNulls ? count : users;
   const average = averageBase > 0 ? total / averageBase : 0;
 
@@ -1337,7 +1326,6 @@ export async function postMetricAnalysis(
 
       const { queries, result } = await startRun(
         {
-          users: getUsers(integration, baseParams),
           metric: getMetricValue(integration, {
             ...baseParams,
             metric,

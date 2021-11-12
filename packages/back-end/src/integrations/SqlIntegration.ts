@@ -6,13 +6,11 @@ import {
 import {
   ImpactEstimationResult,
   MetricValueParams,
-  UsersQueryParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   PastExperimentParams,
   PastExperimentResponse,
   ExperimentMetricQueryResponse,
-  UsersQueryResponse,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
@@ -22,10 +20,7 @@ import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import {
-  processMetricValueQueryResponse,
-  processUsersQueryResponse,
-} from "../services/queries";
+import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
 
 const percentileNumbers = [
@@ -337,6 +332,33 @@ export default abstract class SqlIntegration
           GROUP BY
             d.user_id
         )
+        , __overallUsers as (
+          -- Number of users overall
+          SELECT
+            COUNT(*) as users
+          FROM
+            __distinctUsers
+        )
+        , __overall as (
+          SELECT
+            COUNT(*) as count,
+            ${this.avg("value")} as mean,
+            ${this.stddev("value")} as stddev
+            ${
+              params.includePercentiles && params.metric.type !== "binomial"
+                ? `,${percentileNumbers
+                    .map(
+                      (n) =>
+                        `${this.percentile("value", n)} as p${Math.floor(
+                          n * 100
+                        )}`
+                    )
+                    .join("\n      ,")}`
+                : ""
+            }
+          from
+            __userMetric
+        )
         ${
           params.includeByDate
             ? `
@@ -358,105 +380,55 @@ export default abstract class SqlIntegration
             GROUP BY
               ${this.dateTrunc("d.actual_start")},
               d.user_id
+          )
+          , __usersByDate as (
+            -- Number of users by date
+            SELECT
+              ${this.dateTrunc("actual_start")} as date,
+              COUNT(*) as users
+            FROM
+              __distinctUsers
+            GROUP BY
+              ${this.dateTrunc("actual_start")}
+          )
+          , __byDateOverall as (
+            SELECT
+              date,
+              COUNT(*) as count,
+              ${this.avg("value")} as mean,
+              ${this.stddev("value")} as stddev
+              ${
+                params.includePercentiles && params.metric.type !== "binomial"
+                  ? `,${percentileNumbers
+                      .map((n) => `0 as p${Math.floor(n * 100)}`)
+                      .join("\n      ,")}`
+                  : ""
+              }
+            FROM
+              __userMetricDates d
+            GROUP BY
+              date
           )`
             : ""
         }
       SELECT
         ${params.includeByDate ? "null as date," : ""}
-        COUNT(*) as count,
-        ${this.avg("value")} as mean,
-        ${this.stddev("value")} as stddev
-        ${
-          params.includePercentiles && params.metric.type !== "binomial"
-            ? `,${percentileNumbers
-                .map(
-                  (n) =>
-                    `${this.percentile("value", n)} as p${Math.floor(n * 100)}`
-                )
-                .join("\n      ,")}`
-            : ""
-        }
-      from
-        __userMetric
+        o.*,
+        u.users
+      FROM
+        __overall o
+        JOIN __overallUsers u ON (1=1)
       ${
         params.includeByDate
           ? `
         UNION ALL SELECT
-          date,
-          COUNT(*) as count,
-          ${this.avg("value")} as mean,
-          ${this.stddev("value")} as stddev
-          ${
-            params.includePercentiles && params.metric.type !== "binomial"
-              ? `,${percentileNumbers
-                  .map((n) => `0 as p${Math.floor(n * 100)}`)
-                  .join("\n      ,")}`
-              : ""
-          }
+          o.*,
+          u.users
         FROM
-          __userMetricDates d
-        GROUP BY
-          date
+          __byDateOverall o
+          JOIN __usersByDate u ON (o.date = u.date)
         ORDER BY
           date ASC
-      `
-          : ""
-      }
-      `,
-      this.getFormatOptions()
-    );
-  }
-
-  getUsersQuery(params: UsersQueryParams): string {
-    const userId = params.userIdType === "user";
-
-    return format(
-      `-- ${params.name} - Number of Users
-      WITH
-        ${this.getIdentifiesCTE(userId, {
-          from: params.from,
-          to: params.to,
-          segment: !!params.segmentQuery,
-        })}
-        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
-        __users as (${this.getPageUsersCTE(params, userId)})
-        ${
-          params.segmentQuery
-            ? `, __segment as (${this.getSegmentCTE(
-                params.segmentQuery,
-                params.segmentName || "",
-                userId
-              )})`
-            : ""
-        }
-      SELECT
-        ${params.includeByDate ? "null as date," : ""}
-        COUNT(DISTINCT u.user_id) as users
-      FROM
-        __users u
-        ${
-          params.segmentQuery
-            ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
-            : ""
-        }
-
-      ${
-        params.includeByDate
-          ? `
-        UNION ALL SELECT
-          ${this.dateTrunc("u.actual_start")} as date,
-          COUNT(DISTINCT u.user_id) as users
-        FROM
-          __users u
-          ${
-            params.segmentQuery
-              ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
-              : ""
-          }
-        GROUP BY
-          ${this.dateTrunc("u.actual_start")}
-        ORDER BY
-          date asc
       `
           : ""
       }
@@ -481,26 +453,16 @@ export default abstract class SqlIntegration
     });
   }
 
-  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
-    const rows = await this.runQuery(query);
-
-    return rows.map((row) => {
-      return {
-        date: row.date ? this.convertDate(row.date).toISOString() : "",
-        users: parseInt(row.users) || 0,
-      };
-    });
-  }
-
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, stddev, ...percentiles } = row;
+      const { date, count, mean, users, stddev, ...percentiles } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
-        count: parseInt(count) || 0,
+        users: parseInt(users) || 0,
+        count: parseFloat(count) || 0,
         mean: parseFloat(mean) || 0,
         stddev: parseFloat(stddev) || 0,
       };
@@ -546,13 +508,6 @@ export default abstract class SqlIntegration
       conversionWindowHours,
     };
 
-    const usersSql = this.getUsersQuery({
-      ...baseSettings,
-      name: "Traffic - Selected Pages and Segment",
-      urlRegex,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
-    });
     const metricSql = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Entire Site",
@@ -569,28 +524,25 @@ export default abstract class SqlIntegration
       segmentName: segment?.name,
     });
 
-    const [usersResponse, metricTotalResponse, valueResponse]: [
-      UsersQueryResponse,
+    const [metricTotalResponse, valueResponse]: [
       MetricValueQueryResponse,
       MetricValueQueryResponse
     ] = await Promise.all([
-      this.runUsersQuery(usersSql),
       this.runMetricValueQuery(metricSql),
       this.runMetricValueQuery(valueSql),
     ]);
 
-    const users = processUsersQueryResponse(usersResponse);
     const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
     const value = processMetricValueQueryResponse(valueResponse);
 
     const formatted =
-      [usersSql, metricSql, valueSql]
+      [metricSql, valueSql]
         .map((sql) => format(sql, this.getFormatOptions()))
         .join(";\n\n") + ";";
 
     return {
       query: formatted,
-      users: users.users,
+      users: value.users,
       value: (value.count * value.mean) / numDays,
       metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
     };
@@ -1032,7 +984,7 @@ export default abstract class SqlIntegration
   }
 
   private getPageUsersCTE(
-    params: MetricValueParams | UsersQueryParams,
+    params: MetricValueParams,
     userId: boolean = true,
     conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS
   ): string {

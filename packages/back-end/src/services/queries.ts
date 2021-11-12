@@ -1,13 +1,10 @@
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
-  UsersQueryParams,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   ExperimentMetricQueryResponse,
   ExperimentMetricResult,
-  UsersQueryResponse,
-  UsersResult,
   MetricValueQueryResponse,
   MetricValueResult,
   PastExperimentResponse,
@@ -153,17 +150,6 @@ export async function getPastExperiments(
   );
 }
 
-export async function getUsers(
-  integration: SourceIntegrationInterface,
-  params: UsersQueryParams
-): Promise<QueryDocument> {
-  return getQueryDoc(
-    integration,
-    integration.getUsersQuery(params),
-    (query) => integration.runUsersQuery(query),
-    processUsersQueryResponse
-  );
-}
 export async function getMetricValue(
   integration: SourceIntegrationInterface,
   params: MetricValueParams
@@ -373,41 +359,20 @@ export function processExperimentResultsResponse(
   return ret;
 }
 
-export function processUsersQueryResponse(
-  rows: UsersQueryResponse
-): UsersResult {
-  const ret: UsersResult = {
-    users: 0,
-  };
-  rows.forEach((row) => {
-    const { users, date } = row;
-    if (date) {
-      ret.dates = ret.dates || [];
-      ret.dates.push({
-        date,
-        users,
-      });
-    } else {
-      ret.users = users || 0;
-    }
-  });
-
-  return ret;
-}
-
 export function processMetricValueQueryResponse(
   rows: MetricValueQueryResponse
 ): MetricValueResult {
-  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
+  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0, users: 0 };
 
   rows.forEach((row) => {
-    const { date, count, mean, stddev, ...percentiles } = row;
+    const { date, count, mean, stddev, users, ...percentiles } = row;
 
     // Row for each date
     if (date) {
       ret.dates = ret.dates || [];
       ret.dates.push({
         date,
+        users,
         count,
         mean,
         stddev,
@@ -418,6 +383,7 @@ export function processMetricValueQueryResponse(
       ret.count = count;
       ret.mean = mean;
       ret.stddev = stddev;
+      ret.users = users;
 
       if (percentiles) {
         Object.keys(percentiles).forEach((p) => {
