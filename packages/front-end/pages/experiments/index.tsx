@@ -203,7 +203,7 @@ const ExperimentsPage = (): React.ReactElement => {
             >
               {byStatus.running.length > 0 ? (
                 <>
-                  <table className="table experiment-table gbtable">
+                  <table className="table experiment-table gbtable responsive-table">
                     <thead>
                       <tr>
                         <th></th>
@@ -321,7 +321,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <>
                   {byStatus.myDrafts.length > 0 && (
                     <>
-                      <table className="table experiment-table gbtable">
+                      <table className="table experiment-table gbtable responsive-table">
                         <thead>
                           <tr>
                             <th style={{ width: "99%" }}>
@@ -394,7 +394,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <>
                   {byStatus.draft.length > 0 ? (
                     <>
-                      <table className="table experiment-table gbtable">
+                      <table className="table experiment-table gbtable responsive-table">
                         <thead>
                           <tr>
                             <th></th>
@@ -516,7 +516,7 @@ const ExperimentsPage = (): React.ReactElement => {
             >
               {byStatus.stopped.length > 0 ? (
                 <>
-                  <table className="table table-hover experiment-table gbtable">
+                  <table className="table table-hover experiment-table gbtable responsive-table">
                     <thead>
                       <tr>
                         <th></th>
@@ -635,7 +635,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 count={byStatus.archived.length}
               >
                 <>
-                  <table className="table table-hover experiment-table gbtable">
+                  <table className="table table-hover experiment-table gbtable responsive-table">
                     <thead>
                       <tr>
                         <th style={{ width: "99%" }}>Experiment</th>
