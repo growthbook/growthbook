@@ -188,7 +188,7 @@ pre {
     }
 
     tr {
-      border: 1px solid $gray2;
+      border: 1px solid $gray4;
       margin-bottom: 1em;
       background-color: white;
     }
@@ -196,10 +196,12 @@ pre {
     td {
       /* Behave  like a "row" */
       border: none;
-      border-bottom: 1px solid $gray4;
       position: relative;
       min-height: 42px;
       background-color: white;
+    }
+    tr td:not(:last-child) {
+      border-bottom: 1px solid $gray4;
     }
 
     &.experiment-table {
