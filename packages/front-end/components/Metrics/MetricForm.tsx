@@ -588,7 +588,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
           </div>
           {supportsSQL && (
-            <div className="col-lg bg-light border-left pt-2">
+            <div className="col-lg pt-2">
               {sqlInput ? (
                 <div>
                   Example SQL

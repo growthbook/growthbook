@@ -51,8 +51,11 @@ $topbarheight: 60px;
   }
   ul {
     list-style-type: none;
-    margin: 0;
+    margin: 2px 0 0 0;
     padding: 0;
+    .first {
+      margin-top: 10px;
+    }
   }
 }
 

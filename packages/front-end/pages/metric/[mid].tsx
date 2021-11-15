@@ -114,7 +114,7 @@ const MetricPage: FC = () => {
   const hasQueries = metric.queries?.length > 0;
 
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid pagecontents">
       {editModalOpen !== false && (
         <MetricForm
           current={metric}
@@ -180,7 +180,7 @@ const MetricPage: FC = () => {
         )}
       </div>
 
-      <Tabs>
+      <Tabs newStyle={true}>
         <Tab display="Info" anchor="info" lazy={true}>
           <div className="row">
             <div className="col-md-9">

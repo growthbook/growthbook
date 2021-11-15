@@ -15,6 +15,8 @@ const Tabs: FC<{
   navClassName?: string;
   tabContentsClassName?: string;
   defaultTab?: string;
+  newStyle?: boolean;
+  navExtra?: ReactElement;
 }> = ({
   children,
   orientation,
@@ -22,6 +24,8 @@ const Tabs: FC<{
   tabContentsClassName,
   navClassName,
   defaultTab,
+  newStyle = false,
+  navExtra,
 }) => {
   const [active, setActive] = useState<string | null>(defaultTab || null);
 
@@ -56,7 +60,17 @@ const Tabs: FC<{
   if (!activeChosen) {
     activeChosen = backupActive;
   }
+
+  const hash = window.location.hash.replace(/^#/, "");
+  const display = anchorMap.get(hash);
+  if (display && display !== active) {
+    setActive(display);
+  }
+
   let contentsPadding = true;
+  const numTabs = Children.toArray(children).filter((c) => {
+    return !!c;
+  }).length;
 
   Children.forEach(children, (child, i) => {
     if (!isValidElement(child)) return;
@@ -77,11 +91,11 @@ const Tabs: FC<{
     if (isActive && padding === false) {
       contentsPadding = false;
     }
-
     tabs.push(
       <a
         className={clsx("nav-item nav-link", {
           active: isActive,
+          last: i === numTabs - 1,
         })}
         key={i}
         role="tab"
@@ -96,11 +110,7 @@ const Tabs: FC<{
       >
         {display}
         {!isActive && (count === 0 || count > 0) ? (
-          <span
-            className={`badge badge-${count > 0 ? "info" : "secondary"} ml-2`}
-          >
-            {count}
-          </span>
+          <span className={`badge badge-gray ml-2`}>{count}</span>
         ) : (
           ""
         )}
@@ -133,10 +143,13 @@ const Tabs: FC<{
   }, [active]);
 
   useEffect(() => {
+    console.log("use effect triggered");
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "");
       const display = anchorMap.get(hash);
+      console.log(display, hash);
       if (display) {
+        console.log("setting active");
         setActive(display);
       }
     };
@@ -149,6 +162,7 @@ const Tabs: FC<{
     <div
       className={clsx(className, {
         row: orientation === "vertical",
+        buttontabs: newStyle,
       })}
     >
       <nav
@@ -165,18 +179,16 @@ const Tabs: FC<{
           role="tablist"
         >
           {tabs}
+          {navExtra && navExtra}
         </div>
       </nav>
       <div
-        className={clsx(
-          "tab-content bg-white border border-top-0",
-          tabContentsClassName,
-          {
-            "col-md-9": orientation === "vertical",
-            "p-3": contentsPadding,
-            "p-0": !contentsPadding,
-          }
-        )}
+        className={clsx("tab-content bg-white border", tabContentsClassName, {
+          "col-md-9": orientation === "vertical",
+          "p-3": contentsPadding,
+          "p-0": !contentsPadding,
+          "border-top-0": !newStyle,
+        })}
       >
         {contents}
       </div>

@@ -17,6 +17,7 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
 import { useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
+import { GBAddCircle } from "../components/Icons";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -176,12 +177,15 @@ const MetricsPage = (): React.ReactElement => {
                 })
               }
             >
-              <FaPlus /> Add Metric
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Metric
             </button>
           </div>
         )}
       </div>
-      <table className="table appbox table-hover">
+      <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
             <th>

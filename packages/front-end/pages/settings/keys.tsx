@@ -5,7 +5,7 @@ import ApiKeys from "../../components/Settings/ApiKeys";
 
 const ApiKeysPage: FC = () => {
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid pagecontents">
       <div className="mb-2">
         <Link href="/settings">
           <a>

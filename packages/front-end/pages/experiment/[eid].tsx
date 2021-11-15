@@ -14,7 +14,6 @@ import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import Carousel from "../../components/Carousel";
 import {
-  FaAngleLeft,
   FaStop,
   FaPlay,
   FaPencilAlt,
@@ -57,6 +56,7 @@ import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
+import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -141,7 +141,7 @@ const ExperimentPage = (): ReactElement => {
 
   const currentPhase = experiment.phases[experiment.phases.length - 1];
 
-  let wrapClasses = `container-fluid mt-3 experiment-details exp-vars-${experiment.variations.length}`;
+  let wrapClasses = `container-fluid experiment-details exp-vars-${experiment.variations.length}`;
   if (experiment.variations.length <= 2) {
     wrapClasses += " pagecontents";
   } else if (experiment.variations.length > 2) {
@@ -279,34 +279,15 @@ const ExperimentPage = (): ReactElement => {
           </a>
         </div>
       )}
-      <div className="mb-2">
-        <Link href="/experiments">
-          <a>
-            <FaAngleLeft /> All Experiments
-          </a>
-        </Link>
-      </div>
-      <div className="row align-items-center mb-3">
-        <h1 className="col-auto">{experiment.name}</h1>
+      <div className="row mb-2">
         <div className="col-auto">
-          <StatusIndicator
-            status={experiment.status}
-            archived={experiment.archived}
-          />
+          <Link href="/experiments">
+            <a>
+              <GBCircleArrowLeft /> Back to all experiments
+            </a>
+          </Link>
         </div>
-
-        {experiment.status === "stopped" && experiment.results && (
-          <div className="col-auto">
-            <ResultsIndicator results={experiment.results} />
-          </div>
-        )}
         <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <WatchButton experiment={experiment.id} />
-        </div>
-        {permissions.runExperiments && ctaButton && (
-          <div className="experiment-actions col-auto">{ctaButton}</div>
-        )}
         {canEdit && (
           <div className="col-auto">
             <MoreMenu id="experiment-more-menu">
@@ -399,21 +380,47 @@ const ExperimentPage = (): ReactElement => {
             </MoreMenu>
           </div>
         )}
+        {permissions.runExperiments && ctaButton && (
+          <div className="experiment-actions col-auto">{ctaButton}</div>
+        )}
       </div>
-      <div className="row mb-3 align-items-center">
+      <div className="row align-items-center mb-3">
+        <h2 className="col-auto">
+          {experiment.name}
+          {canEdit && !experiment.archived && (
+            <a
+              className="ml-2 cursor-pointer"
+              onClick={() => setEditModalOpen(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </h2>
+        <StatusIndicator
+          status={experiment.status}
+          archived={experiment.archived}
+          showBubble={true}
+          className="ml-3 h4"
+        />
+        {experiment.status === "stopped" && experiment.results && (
+          <div className="col-auto">
+            <ResultsIndicator results={experiment.results} />
+          </div>
+        )}
+        <div style={{ flex: 1 }} />
         {currentPhase && experiment.status === "running" && (
-          <div className="col-auto mb-2">
+          <div className="col-auto">
             {permissions.runExperiments ? (
-              <button
-                className="btn btn-outline-secondary"
+              <div
                 onClick={(e) => {
                   e.preventDefault();
                   setPhaseModalOpen(true);
                 }}
+                className="cursor-pointer"
               >
                 <span className="mr-2">{phaseSummary(currentPhase)}</span>
                 <FaPencilAlt />
-              </button>
+              </div>
             ) : (
               <span className="text-muted">{phaseSummary(currentPhase)}</span>
             )}
@@ -421,7 +428,7 @@ const ExperimentPage = (): ReactElement => {
         )}
 
         {experiment.status === "draft" ? (
-          <div className="col-auto mb-2">
+          <div className="col-auto">
             <span className="statuslabel">Created: </span>{" "}
             <span className="" title={datetime(experiment.dateCreated)}>
               {ago(experiment.dateCreated)}
@@ -429,7 +436,7 @@ const ExperimentPage = (): ReactElement => {
           </div>
         ) : (
           <>
-            <div className="col-auto mb-2">
+            <div className="col-auto">
               <span className="statuslabel">Started: </span>{" "}
               <span className="" title={datetime(currentPhase?.dateStarted)}>
                 {ago(currentPhase?.dateStarted)}
@@ -454,8 +461,11 @@ const ExperimentPage = (): ReactElement => {
             )}
           </>
         )}
+        <div className="col-auto">
+          <WatchButton experiment={experiment.id} type="link" />
+        </div>
       </div>
-      <Tabs>
+      <Tabs newStyle={true}>
         <Tab display="Info" anchor="info">
           {experiment.id.match(/^exp_sample_/) && (
             <div className="alert alert-info">
