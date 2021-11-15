@@ -438,7 +438,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             .map((e) => {
                               return (
                                 <tr key={e.id} className="hover-highlight">
-                                  <td data-title="Watching status:">
+                                  <td
+                                    data-title="Watching status:"
+                                    className="watching"
+                                  >
                                     <WatchButton
                                       experiment={e.id}
                                       type="icon"
