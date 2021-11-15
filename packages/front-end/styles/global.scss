@@ -135,6 +135,8 @@ pre {
 .gbtable {
   color: $main-black;
   margin-bottom: 0;
+  background-color: $white;
+  border: 1px solid $gray4;
   thead {
     th {
       font-size: 11px;
@@ -161,7 +163,7 @@ pre {
   .responsive-table {
     display: block;
     border: 0;
-    background-color: none;
+    background-color: unset;
 
     /* Force table to not be like tables anymore */
     table,
@@ -188,6 +190,7 @@ pre {
     tr {
       border: 1px solid $gray2;
       margin-bottom: 1em;
+      background-color: white;
     }
 
     td {
@@ -195,8 +198,8 @@ pre {
       border: none;
       border-bottom: 1px solid $gray4;
       position: relative;
-      padding-left: 30%;
       min-height: 42px;
+      background-color: white;
     }
 
     &.experiment-table {
@@ -210,15 +213,14 @@ pre {
 
     td:before {
       /* Now like a table header */
-      position: absolute;
+      //position: absolute;
       /* Top/left values mimic padding */
       top: 12px;
       left: 6px;
-      width: 45%;
       padding-right: 10px;
       white-space: nowrap;
       content: attr(data-title);
-      font-style: italic;
+      color: $gray1;
     }
   }
 }
@@ -369,7 +371,6 @@ pre {
       }
       &:last-of-type {
         width: auto !important;
-        min-width: 24%;
       }
     }
   }

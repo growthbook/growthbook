@@ -183,7 +183,7 @@ const Tabs: FC<{
         </div>
       </nav>
       <div
-        className={clsx("tab-content bg-white border", tabContentsClassName, {
+        className={clsx("tab-content", tabContentsClassName, {
           "col-md-9": orientation === "vertical",
           "p-3": contentsPadding,
           "p-0": !contentsPadding,
