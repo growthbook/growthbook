@@ -1282,6 +1282,22 @@ li.reports a span img {
     background-color: $lighter-red;
     border-color: #f0d5ce;
   }
+  .image-blank {
+    background-size: contain;
+    background: #fafafa url("/images/image-blank.png") no-repeat 50% 50%;
+    min-height: 300px;
+    border-top: 1px solid $gray4;
+    border-bottom: 1px solid $gray4;
+  }
+  .experiment-image {
+    height: 300px;
+    width: 100%;
+    object-fit: scale-down;
+    object-position: 50% 50%;
+    background: $gray1;
+    border-top: 1px solid $gray4;
+    border-bottom: 1px solid $gray4;
+  }
   .results-table {
     font-size: 14px;
     color: #444;

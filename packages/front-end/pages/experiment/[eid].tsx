@@ -500,7 +500,7 @@ const ExperimentPage = (): ReactElement => {
               />
 
               <div className="mb-4">
-                <h5>Hypothesis</h5>
+                <h4>Hypothesis</h4>
                 {experiment.hypothesis || (
                   <p>
                     <a
@@ -516,7 +516,7 @@ const ExperimentPage = (): ReactElement => {
                 )}
               </div>
               <div className="mb-4">
-                <h5>Variations</h5>
+                <h4>Variations</h4>
                 {experiment.implementation === "visual" && (
                   <div className="alert alert-info">
                     <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
@@ -530,28 +530,30 @@ const ExperimentPage = (): ReactElement => {
                 <div className="row mb-3">
                   {experiment.variations.map((v, i) => (
                     <div
-                      className="col-md border mx-3 p-3 text-center position-relative d-flex flex-column"
+                      className="col-md border rounded mx-2 mb-3 p-0 text-center position-relative d-flex flex-column"
                       key={i}
                       style={{ maxWidth: 600 }}
                     >
-                      <div>
-                        <strong>{v.name}</strong>{" "}
+                      <div className="p-3">
+                        <div>
+                          <strong>{v.name}</strong>{" "}
+                        </div>
+                        <div className="mb-1">
+                          <small className="text-muted">id: {v.key || i}</small>
+                        </div>
+                        {v.description && <p>{v.description}</p>}
+                        {v.value && experiment.implementation !== "visual" && (
+                          <Code language="json" code={v.value} />
+                        )}
+                        {experiment.implementation === "visual" && (
+                          <VisualCode
+                            dom={v.dom || []}
+                            css={v.css || ""}
+                            experimentId={experiment.id}
+                            control={i === 0}
+                          />
+                        )}
                       </div>
-                      <div className="mb-1">
-                        <small className="text-muted">id: {v.key || i}</small>
-                      </div>
-                      {v.description && <p>{v.description}</p>}
-                      {v.value && experiment.implementation !== "visual" && (
-                        <Code language="json" code={v.value} />
-                      )}
-                      {experiment.implementation === "visual" && (
-                        <VisualCode
-                          dom={v.dom || []}
-                          css={v.css || ""}
-                          experimentId={experiment.id}
-                          control={i === 0}
-                        />
-                      )}
                       {v.screenshots.length > 0 ? (
                         <Carousel
                           deleteImage={
@@ -584,29 +586,24 @@ const ExperimentPage = (): ReactElement => {
                         >
                           {v.screenshots.map((s) => (
                             <img
-                              className="border bg-dark"
+                              className="experiment-image"
                               key={s.path}
                               src={s.path}
-                              style={{
-                                height: 300,
-                                width: "100%",
-                                objectFit: "scale-down",
-                                objectPosition: "50% 50%",
-                                background: "#444",
-                              }}
                             />
                           ))}
                         </Carousel>
                       ) : (
-                        ""
+                        <div className="image-blank" />
                       )}
                       <div style={{ flex: 1 }} />
                       {permissions.draftExperiments && !experiment.archived && (
-                        <ScreenshotUpload
-                          experiment={experiment.id}
-                          variation={i}
-                          onSuccess={onScreenshotUpload}
-                        />
+                        <div className="p-3">
+                          <ScreenshotUpload
+                            experiment={experiment.id}
+                            variation={i}
+                            onSuccess={onScreenshotUpload}
+                          />
+                        </div>
                       )}
                     </div>
                   ))}
