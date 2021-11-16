@@ -385,7 +385,7 @@ const ExperimentPage = (): ReactElement => {
         )}
       </div>
       <div className="row align-items-center mb-3">
-        <h2 className="col-auto">
+        <h2 className="col-auto mb-0">
           {experiment.name}
           {canEdit && !experiment.archived && (
             <a
@@ -400,7 +400,7 @@ const ExperimentPage = (): ReactElement => {
           status={experiment.status}
           archived={experiment.archived}
           showBubble={true}
-          className="ml-3 h4"
+          className="mx-3 h4 mb-0"
         />
         {experiment.status === "stopped" && experiment.results && (
           <div className="col-auto">
@@ -445,7 +445,7 @@ const ExperimentPage = (): ReactElement => {
               </span>
             </div>
             {experiment.status !== "running" ? (
-              <div className="col-auto mb-2">
+              <div className="col-auto">
                 <span className="statuslabel">Ended: </span>{" "}
                 <span
                   className=""
@@ -685,7 +685,9 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.metrics.map((m) => {
                     return (
                       <Link href={`/metric/${m}`} key={m}>
-                        <a className="mr-2">{getMetricById(m)?.name}</a>
+                        <a className="mr-2 font-weight-bold">
+                          {getMetricById(m)?.name}
+                        </a>
                       </Link>
                     );
                   })}
@@ -695,7 +697,9 @@ const ExperimentPage = (): ReactElement => {
                     {experiment.guardrails.map((m) => {
                       return (
                         <Link href={`/metric/${m}`} key={m}>
-                          <a className="mr-2">{getMetricById(m)?.name}</a>
+                          <a className="mr-2 font-weight-bold">
+                            {getMetricById(m)?.name}
+                          </a>
                         </Link>
                       );
                     })}
