@@ -30,8 +30,10 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(true);
         }}
       >
-        <FaDatabase /> {display}{" "}
-        {queries.length > 0 ? `(${queries.length})` : ""}
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <FaDatabase />
+        </span>{" "}
+        {display} {queries.length > 0 ? `(${queries.length})` : ""}
       </button>
     </>
   );

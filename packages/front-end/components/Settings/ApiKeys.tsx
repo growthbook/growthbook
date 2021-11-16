@@ -35,7 +35,7 @@ const ApiKeys: FC = () => {
       </p>
 
       {data.keys.length > 0 && (
-        <table className="table mb-3 appbox table-hover">
+        <table className="table mb-3 appbox gbtable table-hover">
           <thead>
             <tr>
               <th>Key</th>
@@ -65,7 +65,7 @@ const ApiKeys: FC = () => {
       )}
 
       <button
-        className="btn btn-success"
+        className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);

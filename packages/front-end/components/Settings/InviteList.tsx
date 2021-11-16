@@ -106,7 +106,7 @@ const InviteList: FC<{
       />
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <table className="table appbox table-hover">
+      <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
             <th>Email</th>

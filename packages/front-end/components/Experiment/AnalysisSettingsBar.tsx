@@ -211,7 +211,7 @@ export default function AnalysisSettingsBar({
                     mutate();
                   }}
                   icon="refresh"
-                  color="primary"
+                  color="outline-primary"
                 />
               </form>
             ) : (
@@ -239,7 +239,7 @@ export default function AnalysisSettingsBar({
                       danger: status === "failed",
                       info: status === "running",
                     },
-                    "btn-sm ml-3"
+                    " "
                   )}
                   display={
                     status === "failed"

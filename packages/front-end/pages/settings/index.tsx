@@ -138,7 +138,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   };
 
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid pagecontents">
       {editOpen && (
         <EditOrganizationForm
           name={data.organization.name}

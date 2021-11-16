@@ -25,6 +25,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/",
     Icon: GBHome,
     path: /^$/,
+    className: styles.first,
   },
   {
     name: "Ideas",

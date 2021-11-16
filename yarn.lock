@@ -10593,6 +10593,13 @@ react-overlays@^4.1.1:
     uncontrollable "^7.0.0"
     warning "^4.0.3"
 
+react-paginate@^8.0.0:
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/react-paginate/-/react-paginate-8.0.0.tgz#b03b4ec221bffd8ecb16dd4c1295c33f8c6fd3df"
+  integrity sha512-l5uNYWqVIhFBljQoyLuMnZ8ykCdoTz6aYfg9+fUdtWy/H9rELBgVBPEA99jVpTsBxqAxXKBZ/sdDrdN4b0hsvg==
+  dependencies:
+    prop-types "^15.6.1"
+
 react-popper@^1.0.0:
   version "1.3.11"
   resolved "https://registry.yarnpkg.com/react-popper/-/react-popper-1.3.11.tgz#a2cc3f0a67b75b66cfa62d2c409f9dd1fcc71ffd"

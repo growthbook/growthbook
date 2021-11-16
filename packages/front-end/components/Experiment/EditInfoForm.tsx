@@ -1,5 +1,4 @@
 import { FC, useContext } from "react";
-import { FaPlus, FaTrash } from "react-icons/fa";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
@@ -12,6 +11,8 @@ import dJSON from "dirty-json";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import { MdDeleteForever } from "react-icons/md";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -145,30 +146,14 @@ const EditInfoForm: FC<{
       />
       <div className="mb-3">
         <label>Variations</label>
-        <div className="row align-items-top">
+        <div className="row">
           {variations.fields.map((v, i) => (
             <div
-              className="col-lg-4 col-md-6 mb-2"
+              className=" col-lg-6 col-md-6 mb-2"
               key={i}
               style={{ minWidth: 200 }}
             >
-              <div className="border p-2 bg-white">
-                <div>
-                  {experiment.status === "draft" &&
-                  variations.fields.length > 2 ? (
-                    <button
-                      className="btn btn-outline-danger btn-sm float-right"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        variations.remove(i);
-                      }}
-                    >
-                      <FaTrash />
-                    </button>
-                  ) : (
-                    ""
-                  )}
-                </div>
+              <div className="graybox">
                 <Field
                   label={i === 0 ? "Control Name" : `Variation ${i} Name`}
                   {...form.register(`variations.${i}.name`)}
@@ -194,17 +179,36 @@ const EditInfoForm: FC<{
                     helpText="Optional, use to parameterize experiment data."
                   />
                 )}
+                <div className="text-right">
+                  {experiment.status === "draft" &&
+                  variations.fields.length > 2 ? (
+                    <a
+                      className="text-danger cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        variations.remove(i);
+                      }}
+                    >
+                      <MdDeleteForever /> Delete
+                    </a>
+                  ) : (
+                    ""
+                  )}
+                </div>
               </div>
             </div>
           ))}
           {experiment.status === "draft" && (
             <div
-              className="col-lg-4 col-md-6 mb-2 text-center"
+              className="col-lg-6 col-md-6 mb-2 text-center"
               style={{ minWidth: 200 }}
             >
-              <div className="p-3" style={{ border: "3px dotted #dee2e6" }}>
+              <div
+                className="p-3 h-100 d-flex align-items-center justify-content-center"
+                style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
+              >
                 <button
-                  className="btn btn-outline-success"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     variations.append({
@@ -216,7 +220,10 @@ const EditInfoForm: FC<{
                     });
                   }}
                 >
-                  <FaPlus /> Variation
+                  <span className="h4 pr-2 m-0 d-inline-block">
+                    <GBAddCircle />
+                  </span>{" "}
+                  Add Variation
                 </button>
               </div>
             </div>

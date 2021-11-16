@@ -18,7 +18,7 @@ const ProjectsPage: FC = () => {
   );
 
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid  pagecontents">
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -38,8 +38,8 @@ const ProjectsPage: FC = () => {
         Group your ideas and experiments into <strong>Projects</strong> to keep
         things organized and easy to manage.
       </p>
-      {projects.length > 0 && (
-        <table className="table appbox table-hover">
+      {projects.length > 0 ? (
+        <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
               <th>Project Name</th>
@@ -78,10 +78,11 @@ const ProjectsPage: FC = () => {
             ))}
           </tbody>
         </table>
+      ) : (
+        <p>Click the button below to create your first project!</p>
       )}
-      <p>Click the green button below to create your first project!</p>
       <button
-        className="btn btn-success"
+        className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
           setModalOpen({});
