@@ -290,7 +290,7 @@ const MetricPage: FC = () => {
                             Last updated on {date(analysis?.createdAt)}
                           </div>
                         )}
-                        <div className="col-auto">
+                        <div className="col-auto mt-3">
                           <form
                             onSubmit={async (e) => {
                               e.preventDefault();

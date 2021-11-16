@@ -90,6 +90,7 @@ pre {
     lighten($highlight-purple, 10%),
     darken($highlight-purple, 30%)
   );
+  white-space: nowrap;
 }
 
 .btn-outline-primary {

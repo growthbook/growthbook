@@ -129,48 +129,50 @@ const RunQueriesButton: FC<{
   }
 
   return (
-    <div className="d-flex">
-      {status === "running" && (
+    <>
+      <div className="d-flex">
+        {status === "running" && (
+          <div>
+            <button
+              className="btn btn-link text-danger"
+              onClick={async (e) => {
+                e.preventDefault();
+                await apiCall(cancelEndpoint, { method: "POST" });
+                onReady();
+              }}
+            >
+              cancel
+            </button>
+          </div>
+        )}
         <div>
           <button
-            className="btn btn-link text-danger"
-            onClick={async (e) => {
-              e.preventDefault();
-              await apiCall(cancelEndpoint, { method: "POST" });
-              onReady();
-            }}
+            className={clsx("btn font-weight-bold", `btn-${color}`, {
+              disabled: status === "running",
+            })}
+            type="submit"
           >
-            cancel
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              {buttonIcon}
+            </span>
+            {status === "running"
+              ? `${loadingText} (${getTimeDisplay(counter)})...`
+              : cta}
           </button>
+          {status === "running" && data?.total > 0 && (
+            <div
+              style={{
+                width:
+                  Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
+                height: 5,
+              }}
+              className="bg-info"
+            />
+          )}
         </div>
-      )}
-      <div>
-        <button
-          className={clsx("btn font-weight-bold", `btn-${color}`, {
-            disabled: status === "running",
-          })}
-          type="submit"
-        >
-          <span className="h4 pr-2 m-0 d-inline-block align-top">
-            {buttonIcon}
-          </span>
-          {status === "running"
-            ? `${loadingText} (${getTimeDisplay(counter)})...`
-            : cta}
-        </button>
-        {status === "running" && data?.total > 0 && (
-          <div
-            style={{
-              width:
-                Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
-              height: 5,
-            }}
-            className="bg-info"
-          ></div>
-        )}
       </div>
-      {error && <div className="text-danger">{error.message}</div>}
-    </div>
+      {error && <div className="text-danger mt-2">{error.message}</div>}
+    </>
   );
 };
 export default RunQueriesButton;
