@@ -17,10 +17,6 @@ import {
   FaStop,
   FaPlay,
   FaPencilAlt,
-  FaArchive,
-  FaTrash,
-  FaCopy,
-  FaUndo,
   FaCode,
   FaPalette,
   FaExternalLinkAlt,
@@ -119,7 +115,10 @@ const ExperimentPage = (): ReactElement => {
           setPhaseModalOpen(true);
         }}
       >
-        <FaPlay /> Start
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <FaPlay />
+        </span>{" "}
+        Start
       </button>
     );
   } else if (experiment.status === "running") {
@@ -133,7 +132,10 @@ const ExperimentPage = (): ReactElement => {
             setStopModalOpen(true);
           }}
         >
-          <FaStop /> Stop Experiment
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <FaStop />
+          </span>{" "}
+          Stop Experiment
         </button>
       </>
     );
@@ -297,7 +299,7 @@ const ExperimentPage = (): ReactElement => {
                   setDuplicateModalOpen(true);
                 }}
               >
-                <FaCopy /> duplicate
+                duplicate
               </button>
               {!experiment.archived && (
                 <button
@@ -314,7 +316,7 @@ const ExperimentPage = (): ReactElement => {
                     }
                   }}
                 >
-                  <FaArchive /> archive
+                  archive
                 </button>
               )}
               {experiment.archived && (
@@ -332,7 +334,7 @@ const ExperimentPage = (): ReactElement => {
                     }
                   }}
                 >
-                  <FaArchive /> unarchive
+                  unarchive
                 </button>
               )}
               {experiment.status !== "draft" && !experiment.archived && (
@@ -363,9 +365,7 @@ const ExperimentPage = (): ReactElement => {
                   cta="Reset to Draft"
                   ctaColor="danger"
                 >
-                  <button className="dropdown-item">
-                    <FaUndo /> reset to draft
-                  </button>
+                  <button className="dropdown-item">reset to draft</button>
                 </ConfirmButton>
               )}
               <button
@@ -375,7 +375,7 @@ const ExperimentPage = (): ReactElement => {
                   setDeleteOpen(true);
                 }}
               >
-                <FaTrash /> delete
+                delete
               </button>
             </MoreMenu>
           </div>
@@ -418,7 +418,9 @@ const ExperimentPage = (): ReactElement => {
                 }}
                 className="cursor-pointer"
               >
-                <span className="mr-2">{phaseSummary(currentPhase)}</span>
+                <span className="mr-2 purple-phase">
+                  {phaseSummary(currentPhase)}
+                </span>
                 <FaPencilAlt />
               </div>
             ) : (
@@ -477,7 +479,7 @@ const ExperimentPage = (): ReactElement => {
             <div className="col-md-9">
               {canEdit && !experiment.archived && (
                 <button
-                  className="btn btn-sm btn-outline-secondary ml-2 float-right"
+                  className="btn btn-sm btn-outline-primary ml-2 float-right font-weight-bold"
                   onClick={() => setEditModalOpen(true)}
                 >
                   Edit
@@ -618,7 +620,7 @@ const ExperimentPage = (): ReactElement => {
                     open={() => setProjectModalOpen(true)}
                     canOpen={canEdit}
                   >
-                    <RightRailSectionGroup empty="None" type="badge">
+                    <RightRailSectionGroup empty="None" type="commaList">
                       {getProjectById(experiment.project)?.name}
                     </RightRailSectionGroup>
                   </RightRailSection>
@@ -637,6 +639,7 @@ const ExperimentPage = (): ReactElement => {
                             e.preventDefault();
                             setInstructionsModalOpen(true);
                           }}
+                          className="text-purple"
                         >
                           <FaCode /> Get Code
                         </a>
@@ -660,7 +663,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setDataSourceModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                <RightRailSectionGroup title="Data Source" type="badge">
+                <RightRailSectionGroup title="Data Source" type="commaList">
                   {experiment.datasource ? datasource?.name : "Manual"}
                 </RightRailSectionGroup>
                 <RightRailSectionGroup title="Tracking Key">
@@ -682,9 +685,7 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.metrics.map((m) => {
                     return (
                       <Link href={`/metric/${m}`} key={m}>
-                        <a className="badge badge-primary mr-2">
-                          {getMetricById(m)?.name}
-                        </a>
+                        <a className="mr-2">{getMetricById(m)?.name}</a>
                       </Link>
                     );
                   })}
@@ -694,9 +695,7 @@ const ExperimentPage = (): ReactElement => {
                     {experiment.guardrails.map((m) => {
                       return (
                         <Link href={`/metric/${m}`} key={m}>
-                          <a className="badge badge-primary mr-2">
-                            {getMetricById(m)?.name}
-                          </a>
+                          <a className="mr-2">{getMetricById(m)?.name}</a>
                         </Link>
                       );
                     })}
@@ -710,7 +709,7 @@ const ExperimentPage = (): ReactElement => {
                 canOpen={canEdit && !experiment.archived}
               >
                 {datasource?.properties?.userIds && (
-                  <RightRailSectionGroup title="Login State" type="badge">
+                  <RightRailSectionGroup title="Login State" type="commaList">
                     {experiment.userIdType === "user" ? "User" : "Anonymous"}
                   </RightRailSectionGroup>
                 )}
@@ -718,7 +717,7 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.targetURLRegex}
                 </RightRailSectionGroup>
                 {currentPhase?.groups?.length > 0 && (
-                  <RightRailSectionGroup title="User Groups" type="badge">
+                  <RightRailSectionGroup title="User Groups" type="commaList">
                     {currentPhase?.groups}
                   </RightRailSectionGroup>
                 )}

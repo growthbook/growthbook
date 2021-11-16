@@ -96,6 +96,7 @@ const Tabs: FC<{
         className={clsx("nav-item nav-link", {
           active: isActive,
           last: i === numTabs - 1,
+          "nav-button-item": newStyle,
         })}
         key={i}
         role="tab"
@@ -143,13 +144,10 @@ const Tabs: FC<{
   }, [active]);
 
   useEffect(() => {
-    console.log("use effect triggered");
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "");
       const display = anchorMap.get(hash);
-      console.log(display, hash);
       if (display) {
-        console.log("setting active");
         setActive(display);
       }
     };
@@ -171,11 +169,14 @@ const Tabs: FC<{
         })}
       >
         <div
-          className={
-            orientation === "vertical"
-              ? "nav nav-pills flex-column"
-              : "nav nav-tabs"
-          }
+          className={clsx(
+            `${
+              orientation === "vertical"
+                ? "nav nav-pills flex-column"
+                : "nav nav-tabs"
+            }`,
+            { "nav-button-tabs": newStyle }
+          )}
           role="tablist"
         >
           {tabs}

@@ -1,8 +1,9 @@
 import { Children, FC } from "react";
+import styles from "./RightRailSectionGroup.module.scss";
 
 const RightRailSectionGroup: FC<{
   title?: string;
-  type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom";
+  type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom" | "commaList";
   empty?: string;
   badgeStyle?: string;
   className?: string;
@@ -22,11 +23,7 @@ const RightRailSectionGroup: FC<{
 
   return (
     <div className={`mb-2 ${className}`}>
-      {title && (
-        <small className="mr-2">
-          <em>{title}:</em>
-        </small>
-      )}
+      {title && <span className={`mr-2 ${styles.title}`}>{title}:</span>}
       {hasChildren ? (
         <>
           {type === "badge" &&
@@ -64,6 +61,17 @@ const RightRailSectionGroup: FC<{
           )}
           {type === "code" && <code className="border p-1">{children}</code>}
           {type === "custom" && children}
+          {type === "commaList" && (
+            <span className="commalist">
+              {Children.map(children, (child, i) => {
+                return (
+                  <span className="font-weight-bold" key={i}>
+                    {child}
+                  </span>
+                );
+              })}
+            </span>
+          )}
         </>
       ) : (
         <em>{empty}</em>

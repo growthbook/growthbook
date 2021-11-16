@@ -67,7 +67,18 @@ pre {
 .text-indigo {
   color: $indigo;
 }
-
+.text-gray {
+  color: $gray1;
+}
+.font-weight-semibold {
+  font-weight: 500;
+}
+.uppercase-title {
+  color: $gray1;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+}
 // default bootstrap overrides:
 
 .btn-primary {
@@ -263,7 +274,7 @@ pre {
   }
 }
 .buttontabs {
-  .nav-tabs {
+  .nav-button-tabs {
     margin-bottom: 20px;
     border: 0;
 
@@ -272,7 +283,7 @@ pre {
       height: 38px;
     }
   }
-  .nav-item {
+  .nav-button-item {
     font-weight: 500;
     font-size: 15px;
     line-height: 22px;
@@ -401,6 +412,15 @@ pre {
     }
   }
 }
+
+.commaList {
+  span:not(:last-child) {
+    &:after {
+      content: ", ";
+    }
+  }
+}
+
 .appbox {
   background-color: #fff;
   border: 1px solid $app-border;
@@ -1156,12 +1176,12 @@ li.reports a span img {
   }
 }
 
-.experiment-details {
+.experiment-details,
+.metric {
   .tab-content {
     background-color: #fff;
     padding: 1rem;
-    border: 1px solid $gray-300;
-    border-top: none;
+    border: 1px solid $gray4;
   }
 
   h5 {
@@ -1198,6 +1218,12 @@ li.reports a span img {
           padding-bottom: 10px;
         }
       }
+    }
+  }
+  .purple-phase {
+    .percent-traffic,
+    .split {
+      color: $highlight-purple;
     }
   }
   .contents {
