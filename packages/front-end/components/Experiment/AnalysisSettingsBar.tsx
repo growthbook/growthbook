@@ -7,7 +7,7 @@ import { FaCog } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { phaseSummary } from "../../services/utils";
+import { phaseSummaryText } from "../../services/utils";
 import Field from "../Forms/Field";
 import { UserContext } from "../ProtectedPage";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
@@ -123,7 +123,7 @@ export default function AnalysisSettingsBar({
                 setPhase(parseInt(e.target.value));
               }}
               options={experiment.phases.map((phase, i) => ({
-                display: `${i + 1}: ${phaseSummary(phase)}`,
+                display: `${i + 1}: ${phaseSummaryText(phase)}`,
                 value: i,
               }))}
             />

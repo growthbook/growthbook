@@ -7,6 +7,12 @@ export function formatTrafficSplit(weights: number[]): string {
     .join("/");
 }
 
+export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
+  return `${phase.phase === "main" ? "" : phase.phase + ", "}${Math.floor(
+    phase.coverage * 100
+  )}% traffic, ${formatTrafficSplit(phase.variationWeights)} split`;
+}
+
 export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
