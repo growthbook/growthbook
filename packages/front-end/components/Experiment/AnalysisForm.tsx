@@ -98,7 +98,13 @@ const AnalysisForm: FC<{
         <label className="font-weight-bold">Variation Ids</label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
-            <div className="col-auto" key={i}>
+            <div
+              className={`col-${Math.max(
+                Math.round(12 / variations.fields.length),
+                3
+              )} mb-2`}
+              key={i}
+            >
               <Field
                 label={v.name}
                 labelClassName="mb-0"
