@@ -296,39 +296,40 @@ const MetricPage: FC = () => {
                           </form>
                         </div>
                       </div>
-                      <div className="row">
+                      <div className="row justify-content-between">
+                        <div className="col-auto">
+                          {segments.length > 0 && (
+                            <>
+                              {segment?.name ? (
+                                <>
+                                  Segment applied:{" "}
+                                  <span className="badge badge-primary mr-1">
+                                    {segment?.name || "Everyone"}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="mr-1">No segment applied</span>
+                              )}
+                              <a
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setSegmentOpen(true);
+                                }}
+                                href="#"
+                              >
+                                <BsGear />
+                              </a>
+                            </>
+                          )}
+                        </div>
                         {analysis && (
                           <div className="col-auto text-muted">
-                            Last updated on {date(analysis?.createdAt)}
+                            <small>
+                              Last updated on {date(analysis?.createdAt)}
+                            </small>
                           </div>
                         )}
                       </div>
-                      <div className="row">
-                        {segments.length > 0 && (
-                          <div className="col-auto">
-                            {segment?.name ? (
-                              <>
-                                Segment applied:{" "}
-                                <span className="badge badge-primary mr-1">
-                                  {segment?.name || "Everyone"}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="mr-1">No segment applied</span>
-                            )}
-                            <a
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setSegmentOpen(true);
-                              }}
-                              href="#"
-                            >
-                              <BsGear />
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
                       {hasQueries && status === "failed" && (
                         <div className="alert alert-danger my-3">
                           Error running the analysis. View Queries for more info

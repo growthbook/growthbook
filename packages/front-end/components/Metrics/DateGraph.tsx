@@ -177,7 +177,7 @@ const DateGraph: FC<{
   } = useTooltip<TooltipData>();
 
   const height = 220;
-  const margin = [15, 15, 30, 80];
+  const margin = [15, 20, 30, 40];
   const min = Math.min(...data.map((d) => d.d));
   const max = Math.max(...data.map((d) => d.d));
 
