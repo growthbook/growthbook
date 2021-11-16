@@ -257,8 +257,8 @@ const SegmentPage: FC = () => {
       )}
       {segments.length === 0 && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet. Click the green button
-          above to create your first one.
+          You don&apos;t have any segments defined yet. Click the button above
+          to create your first one.
         </div>
       )}
     </div>

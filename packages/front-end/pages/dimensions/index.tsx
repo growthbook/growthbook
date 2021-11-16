@@ -174,7 +174,7 @@ const DimensionsPage: FC = () => {
         !hasFileConfig() &&
         permissions.createMetrics && (
           <div className="alert alert-info">
-            You don&apos;t have any user dimensions defined yet. Click the green
+            You don&apos;t have any user dimensions defined yet. Click the
             button above to create your first one.
           </div>
         )}
