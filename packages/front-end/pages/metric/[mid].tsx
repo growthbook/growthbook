@@ -260,8 +260,50 @@ const MetricPage: FC = () => {
                   <hr />
                   {!!datasource && (
                     <div>
-                      <h3>Data Preview</h3>
-                      <div className="row mb-3 align-items-center">
+                      <div className="row mb-1 align-items-center">
+                        <div className="col-auto">
+                          <h3 className="d-inline-block mb-0">Data Preview</h3>
+                        </div>
+                        <div style={{ flex: 1 }} />
+                        <div className="col-auto">
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              try {
+                                await apiCall(`/metric/${metric.id}/analysis`, {
+                                  method: "POST",
+                                });
+                                mutate();
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            <RunQueriesButton
+                              icon="refresh"
+                              cta={analysis ? "Refresh Data" : "Run Analysis"}
+                              initialStatus={getQueryStatus(
+                                metric.queries || [],
+                                metric.analysisError
+                              )}
+                              statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                              color="outline-primary"
+                              onReady={() => {
+                                mutate();
+                              }}
+                            />
+                          </form>
+                        </div>
+                      </div>
+                      <div className="row">
+                        {analysis && (
+                          <div className="col-auto text-muted">
+                            Last updated on {date(analysis?.createdAt)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="row">
                         {segments.length > 0 && (
                           <div className="col-auto">
                             {segment?.name ? (
@@ -285,40 +327,6 @@ const MetricPage: FC = () => {
                             </a>
                           </div>
                         )}
-                        {analysis && (
-                          <div className="col-auto text-muted">
-                            Last updated on {date(analysis?.createdAt)}
-                          </div>
-                        )}
-                        <div className="col-auto mt-3">
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
-                              try {
-                                await apiCall(`/metric/${metric.id}/analysis`, {
-                                  method: "POST",
-                                });
-                                mutate();
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                          >
-                            <RunQueriesButton
-                              icon="refresh"
-                              cta={analysis ? "Refresh Data" : "Run Analysis"}
-                              initialStatus={getQueryStatus(
-                                metric.queries || [],
-                                metric.analysisError
-                              )}
-                              statusEndpoint={`/metric/${metric.id}/analysis/status`}
-                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                              onReady={() => {
-                                mutate();
-                              }}
-                            />
-                          </form>
-                        </div>
                       </div>
 
                       {hasQueries && status === "failed" && (

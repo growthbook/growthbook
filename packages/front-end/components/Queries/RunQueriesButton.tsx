@@ -130,7 +130,7 @@ const RunQueriesButton: FC<{
 
   return (
     <>
-      <div className="d-flex">
+      <div className="d-flex justify-content-end">
         {status === "running" && (
           <div>
             <button
@@ -171,7 +171,7 @@ const RunQueriesButton: FC<{
           )}
         </div>
       </div>
-      {error && <div className="text-danger mt-2">{error.message}</div>}
+      {error && <div className="text-danger mt-2 mb-2">{error.message}</div>}
     </>
   );
 };
