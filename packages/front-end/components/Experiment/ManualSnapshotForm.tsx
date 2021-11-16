@@ -43,7 +43,7 @@ const ManualSnapshotForm: FC<{
   const initialValue: {
     users: number[];
     metrics: {
-      [key: string]: MetricStats[];
+      [key: string]: Omit<MetricStats, "users">[];
     };
   } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
   if (lastSnapshot?.results?.[0]) {
@@ -86,24 +86,28 @@ const ManualSnapshotForm: FC<{
       ret[key] = values.metrics[key].map((v, i) => {
         if (m.type === "binomial") {
           return {
+            users: values.users[i],
             count: v.count,
             mean: 1,
             stddev: 1,
           };
         } else if (m.type === "count") {
           return {
+            users: values.users[i],
             count: values.users[i],
             mean: v.mean,
             stddev: Math.sqrt(v.mean),
           };
         } else if (m.type === "revenue") {
           return {
+            users: values.users[i],
             count: v.count,
             mean: v.mean,
             stddev: v.stddev,
           };
         } else {
           return {
+            users: values.users[i],
             count: values.users[i],
             mean: v.mean,
             stddev: v.stddev,

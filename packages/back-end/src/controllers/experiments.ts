@@ -366,6 +366,7 @@ export async function postExperiments(
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
+    skipPartialData: !!data.skipPartialData,
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
@@ -509,6 +510,7 @@ export async function postExperiment(
     "activationMetric",
     "segment",
     "queryFilter",
+    "skipPartialData",
     "metrics",
     "guardrails",
     "variations",
@@ -1156,13 +1158,18 @@ export async function getMetricAnalysisStatus(
     metric,
     org.id,
     (queryData) => getMetricAnalysis(metric, queryData),
-    async (updates, result?: MetricAnalysis) => {
-      await updateMetric(
-        id,
-        result ? { ...updates, analysis: result } : updates,
-        org.id
-      );
-    }
+    async (updates, result?: MetricAnalysis, error?: string) => {
+      const metricUpdates: Partial<MetricInterface> = {
+        ...updates,
+        analysisError: error,
+      };
+      if (result) {
+        metricUpdates.analysis = result;
+      }
+
+      await updateMetric(id, metricUpdates, org.id);
+    },
+    metric.analysisError
   );
   return res.status(200).json(result);
 }
@@ -1526,7 +1533,7 @@ export async function getSnapshotStatus(
     org.id,
     (queryData) =>
       processSnapshotData(experiment, phase, queryData, snapshot.dimension),
-    async (updates, results) => {
+    async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
         {
           id,
@@ -1537,10 +1544,12 @@ export async function getSnapshotStatus(
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
             results: results?.dimensions || snapshot.results,
+            error,
           },
         }
       );
-    }
+    },
+    snapshot.error
   );
   return res.status(200).json(result);
 }
@@ -1875,17 +1884,19 @@ export async function getPastExperimentStatus(
     model,
     org.id,
     processPastExperiments,
-    async (updates, experiments) => {
+    async (updates, experiments, error) => {
       await PastExperimentsModel.updateOne(
         { id },
         {
           $set: {
             ...updates,
-            experiments,
+            experiments: experiments || model.experiments,
+            error,
           },
         }
       );
-    }
+    },
+    model.error
   );
   return res.status(200).json(result);
 }
@@ -1997,6 +2008,7 @@ export async function postPastExperiments(
       datasource: datasource,
       experiments: result || [],
       runStarted: now,
+      error: "",
       queries,
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -2014,6 +2026,7 @@ export async function postPastExperiments(
       processPastExperiments
     );
     model.set("runStarted", now);
+    model.set("error", "");
     model.set("queries", queries);
     if (result) {
       model.set("experiments", result);

@@ -14,14 +14,9 @@ import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import Carousel from "../../components/Carousel";
 import {
-  FaAngleLeft,
   FaStop,
   FaPlay,
   FaPencilAlt,
-  FaArchive,
-  FaTrash,
-  FaCopy,
-  FaUndo,
   FaCode,
   FaPalette,
   FaExternalLinkAlt,
@@ -57,6 +52,7 @@ import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
+import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -119,7 +115,10 @@ const ExperimentPage = (): ReactElement => {
           setPhaseModalOpen(true);
         }}
       >
-        <FaPlay /> Start
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <FaPlay />
+        </span>{" "}
+        Start
       </button>
     );
   } else if (experiment.status === "running") {
@@ -133,7 +132,10 @@ const ExperimentPage = (): ReactElement => {
             setStopModalOpen(true);
           }}
         >
-          <FaStop /> Stop Experiment
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <FaStop />
+          </span>{" "}
+          Stop Experiment
         </button>
       </>
     );
@@ -141,7 +143,7 @@ const ExperimentPage = (): ReactElement => {
 
   const currentPhase = experiment.phases[experiment.phases.length - 1];
 
-  let wrapClasses = `container-fluid mt-3 experiment-details exp-vars-${experiment.variations.length}`;
+  let wrapClasses = `container-fluid experiment-details exp-vars-${experiment.variations.length}`;
   if (experiment.variations.length <= 2) {
     wrapClasses += " pagecontents";
   } else if (experiment.variations.length > 2) {
@@ -279,34 +281,15 @@ const ExperimentPage = (): ReactElement => {
           </a>
         </div>
       )}
-      <div className="mb-2">
-        <Link href="/experiments">
-          <a>
-            <FaAngleLeft /> All Experiments
-          </a>
-        </Link>
-      </div>
-      <div className="row align-items-center mb-3">
-        <h1 className="col-auto">{experiment.name}</h1>
+      <div className="row mb-2">
         <div className="col-auto">
-          <StatusIndicator
-            status={experiment.status}
-            archived={experiment.archived}
-          />
+          <Link href="/experiments">
+            <a>
+              <GBCircleArrowLeft /> Back to all experiments
+            </a>
+          </Link>
         </div>
-
-        {experiment.status === "stopped" && experiment.results && (
-          <div className="col-auto">
-            <ResultsIndicator results={experiment.results} />
-          </div>
-        )}
         <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <WatchButton experiment={experiment.id} />
-        </div>
-        {permissions.runExperiments && ctaButton && (
-          <div className="experiment-actions col-auto">{ctaButton}</div>
-        )}
         {canEdit && (
           <div className="col-auto">
             <MoreMenu id="experiment-more-menu">
@@ -316,7 +299,7 @@ const ExperimentPage = (): ReactElement => {
                   setDuplicateModalOpen(true);
                 }}
               >
-                <FaCopy /> duplicate
+                duplicate
               </button>
               {!experiment.archived && (
                 <button
@@ -333,7 +316,7 @@ const ExperimentPage = (): ReactElement => {
                     }
                   }}
                 >
-                  <FaArchive /> archive
+                  archive
                 </button>
               )}
               {experiment.archived && (
@@ -351,7 +334,7 @@ const ExperimentPage = (): ReactElement => {
                     }
                   }}
                 >
-                  <FaArchive /> unarchive
+                  unarchive
                 </button>
               )}
               {experiment.status !== "draft" && !experiment.archived && (
@@ -382,9 +365,7 @@ const ExperimentPage = (): ReactElement => {
                   cta="Reset to Draft"
                   ctaColor="danger"
                 >
-                  <button className="dropdown-item">
-                    <FaUndo /> reset to draft
-                  </button>
+                  <button className="dropdown-item">reset to draft</button>
                 </ConfirmButton>
               )}
               <button
@@ -394,26 +375,54 @@ const ExperimentPage = (): ReactElement => {
                   setDeleteOpen(true);
                 }}
               >
-                <FaTrash /> delete
+                delete
               </button>
             </MoreMenu>
           </div>
         )}
+        {permissions.runExperiments && ctaButton && (
+          <div className="experiment-actions col-auto">{ctaButton}</div>
+        )}
       </div>
-      <div className="row mb-3 align-items-center">
+      <div className="row align-items-center mb-3">
+        <h2 className="col-auto mb-0">
+          {experiment.name}
+          {canEdit && !experiment.archived && (
+            <a
+              className="ml-2 cursor-pointer"
+              onClick={() => setEditModalOpen(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </h2>
+        <StatusIndicator
+          status={experiment.status}
+          archived={experiment.archived}
+          showBubble={true}
+          className="mx-3 h4 mb-0"
+        />
+        {experiment.status === "stopped" && experiment.results && (
+          <div className="col-auto">
+            <ResultsIndicator results={experiment.results} />
+          </div>
+        )}
+        <div style={{ flex: 1 }} />
         {currentPhase && experiment.status === "running" && (
-          <div className="col-auto mb-2">
+          <div className="col-auto">
             {permissions.runExperiments ? (
-              <button
-                className="btn btn-outline-secondary"
+              <div
                 onClick={(e) => {
                   e.preventDefault();
                   setPhaseModalOpen(true);
                 }}
+                className="cursor-pointer"
               >
-                <span className="mr-2">{phaseSummary(currentPhase)}</span>
+                <span className="mr-2 purple-phase">
+                  {phaseSummary(currentPhase)}
+                </span>
                 <FaPencilAlt />
-              </button>
+              </div>
             ) : (
               <span className="text-muted">{phaseSummary(currentPhase)}</span>
             )}
@@ -421,7 +430,7 @@ const ExperimentPage = (): ReactElement => {
         )}
 
         {experiment.status === "draft" ? (
-          <div className="col-auto mb-2">
+          <div className="col-auto">
             <span className="statuslabel">Created: </span>{" "}
             <span className="" title={datetime(experiment.dateCreated)}>
               {ago(experiment.dateCreated)}
@@ -429,14 +438,14 @@ const ExperimentPage = (): ReactElement => {
           </div>
         ) : (
           <>
-            <div className="col-auto mb-2">
+            <div className="col-auto">
               <span className="statuslabel">Started: </span>{" "}
               <span className="" title={datetime(currentPhase?.dateStarted)}>
                 {ago(currentPhase?.dateStarted)}
               </span>
             </div>
             {experiment.status !== "running" ? (
-              <div className="col-auto mb-2">
+              <div className="col-auto">
                 <span className="statuslabel">Ended: </span>{" "}
                 <span
                   className=""
@@ -454,8 +463,11 @@ const ExperimentPage = (): ReactElement => {
             )}
           </>
         )}
+        <div className="col-auto">
+          <WatchButton experiment={experiment.id} type="link" />
+        </div>
       </div>
-      <Tabs>
+      <Tabs newStyle={true}>
         <Tab display="Info" anchor="info">
           {experiment.id.match(/^exp_sample_/) && (
             <div className="alert alert-info">
@@ -467,7 +479,7 @@ const ExperimentPage = (): ReactElement => {
             <div className="col-md-9">
               {canEdit && !experiment.archived && (
                 <button
-                  className="btn btn-sm btn-outline-secondary ml-2 float-right"
+                  className="btn btn-sm btn-outline-primary ml-2 float-right font-weight-bold"
                   onClick={() => setEditModalOpen(true)}
                 >
                   Edit
@@ -490,7 +502,7 @@ const ExperimentPage = (): ReactElement => {
               />
 
               <div className="mb-4">
-                <h5>Hypothesis</h5>
+                <h4>Hypothesis</h4>
                 {experiment.hypothesis || (
                   <p>
                     <a
@@ -506,7 +518,7 @@ const ExperimentPage = (): ReactElement => {
                 )}
               </div>
               <div className="mb-4">
-                <h5>Variations</h5>
+                <h4>Variations</h4>
                 {experiment.implementation === "visual" && (
                   <div className="alert alert-info">
                     <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
@@ -520,28 +532,30 @@ const ExperimentPage = (): ReactElement => {
                 <div className="row mb-3">
                   {experiment.variations.map((v, i) => (
                     <div
-                      className="col-md border mx-3 p-3 text-center position-relative d-flex flex-column"
+                      className="col-md border rounded mx-2 mb-3 p-0 text-center position-relative d-flex flex-column"
                       key={i}
                       style={{ maxWidth: 600 }}
                     >
-                      <div>
-                        <strong>{v.name}</strong>{" "}
+                      <div className="p-3">
+                        <div>
+                          <strong>{v.name}</strong>{" "}
+                        </div>
+                        <div className="mb-1">
+                          <small className="text-muted">id: {v.key || i}</small>
+                        </div>
+                        {v.description && <p>{v.description}</p>}
+                        {v.value && experiment.implementation !== "visual" && (
+                          <Code language="json" code={v.value} />
+                        )}
+                        {experiment.implementation === "visual" && (
+                          <VisualCode
+                            dom={v.dom || []}
+                            css={v.css || ""}
+                            experimentId={experiment.id}
+                            control={i === 0}
+                          />
+                        )}
                       </div>
-                      <div className="mb-1">
-                        <small className="text-muted">id: {v.key || i}</small>
-                      </div>
-                      {v.description && <p>{v.description}</p>}
-                      {v.value && experiment.implementation !== "visual" && (
-                        <Code language="json" code={v.value} />
-                      )}
-                      {experiment.implementation === "visual" && (
-                        <VisualCode
-                          dom={v.dom || []}
-                          css={v.css || ""}
-                          experimentId={experiment.id}
-                          control={i === 0}
-                        />
-                      )}
                       {v.screenshots.length > 0 ? (
                         <Carousel
                           deleteImage={
@@ -574,29 +588,24 @@ const ExperimentPage = (): ReactElement => {
                         >
                           {v.screenshots.map((s) => (
                             <img
-                              className="border bg-dark"
+                              className="experiment-image"
                               key={s.path}
                               src={s.path}
-                              style={{
-                                height: 300,
-                                width: "100%",
-                                objectFit: "scale-down",
-                                objectPosition: "50% 50%",
-                                background: "#444",
-                              }}
                             />
                           ))}
                         </Carousel>
                       ) : (
-                        ""
+                        <div className="image-blank" />
                       )}
                       <div style={{ flex: 1 }} />
                       {permissions.draftExperiments && !experiment.archived && (
-                        <ScreenshotUpload
-                          experiment={experiment.id}
-                          variation={i}
-                          onSuccess={onScreenshotUpload}
-                        />
+                        <div className="p-3">
+                          <ScreenshotUpload
+                            experiment={experiment.id}
+                            variation={i}
+                            onSuccess={onScreenshotUpload}
+                          />
+                        </div>
                       )}
                     </div>
                   ))}
@@ -611,7 +620,7 @@ const ExperimentPage = (): ReactElement => {
                     open={() => setProjectModalOpen(true)}
                     canOpen={canEdit}
                   >
-                    <RightRailSectionGroup empty="None" type="badge">
+                    <RightRailSectionGroup empty="None" type="commaList">
                       {getProjectById(experiment.project)?.name}
                     </RightRailSectionGroup>
                   </RightRailSection>
@@ -630,6 +639,7 @@ const ExperimentPage = (): ReactElement => {
                             e.preventDefault();
                             setInstructionsModalOpen(true);
                           }}
+                          className="text-purple"
                         >
                           <FaCode /> Get Code
                         </a>
@@ -653,7 +663,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setDataSourceModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                <RightRailSectionGroup title="Data Source" type="badge">
+                <RightRailSectionGroup title="Data Source" type="commaList">
                   {experiment.datasource ? datasource?.name : "Manual"}
                 </RightRailSectionGroup>
                 <RightRailSectionGroup title="Tracking Key">
@@ -675,7 +685,7 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.metrics.map((m) => {
                     return (
                       <Link href={`/metric/${m}`} key={m}>
-                        <a className="badge badge-secondary mr-2">
+                        <a className="mr-2 font-weight-bold">
                           {getMetricById(m)?.name}
                         </a>
                       </Link>
@@ -687,7 +697,7 @@ const ExperimentPage = (): ReactElement => {
                     {experiment.guardrails.map((m) => {
                       return (
                         <Link href={`/metric/${m}`} key={m}>
-                          <a className="badge badge-secondary mr-2">
+                          <a className="mr-2 font-weight-bold">
                             {getMetricById(m)?.name}
                           </a>
                         </Link>
@@ -703,7 +713,7 @@ const ExperimentPage = (): ReactElement => {
                 canOpen={canEdit && !experiment.archived}
               >
                 {datasource?.properties?.userIds && (
-                  <RightRailSectionGroup title="Login State" type="badge">
+                  <RightRailSectionGroup title="Login State" type="commaList">
                     {experiment.userIdType === "user" ? "User" : "Anonymous"}
                   </RightRailSectionGroup>
                 )}
@@ -711,7 +721,7 @@ const ExperimentPage = (): ReactElement => {
                   {experiment.targetURLRegex}
                 </RightRailSectionGroup>
                 {currentPhase?.groups?.length > 0 && (
-                  <RightRailSectionGroup title="User Groups" type="badge">
+                  <RightRailSectionGroup title="User Groups" type="commaList">
                     {currentPhase?.groups}
                   </RightRailSectionGroup>
                 )}
@@ -726,7 +736,7 @@ const ExperimentPage = (): ReactElement => {
                           <small>Impact Score</small>
                         </div>
                         <div
-                          className="badge badge-secondary"
+                          className="badge badge-primary"
                           style={{ fontSize: "1.2em" }}
                         >
                           {data.idea.impactScore}

@@ -9,6 +9,7 @@ import {
 } from "react";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
+import styles from "./Dropdown.module.scss";
 
 const Dropdown: FC<{
   uuid: string;
@@ -17,6 +18,7 @@ const Dropdown: FC<{
   caret?: boolean;
   right?: boolean;
   width?: number | string;
+  className?: string;
 }> = ({
   uuid,
   toggle,
@@ -25,6 +27,7 @@ const Dropdown: FC<{
   caret = true,
   right = true,
   width = "auto",
+  className = "",
 }) => {
   const [open, setOpen] = useState(false);
   useGlobalMenu(`.${uuid}`, () => setOpen(false));
@@ -45,7 +48,11 @@ const Dropdown: FC<{
   });
 
   return (
-    <div className={clsx("dropdown", uuid)}>
+    <div
+      className={clsx("dropdown", uuid, styles.dropdownwrap, {
+        [styles.open]: open,
+      })}
+    >
       <div
         className={clsx({ "dropdown-toggle": caret })}
         onClick={(e) => {
@@ -57,7 +64,7 @@ const Dropdown: FC<{
         {toggle}
       </div>
       <div
-        className={clsx("dropdown-menu", {
+        className={clsx("dropdown-menu", styles.dropdownmenu, className, {
           "dropdown-menu-right": right,
           show: open,
         })}

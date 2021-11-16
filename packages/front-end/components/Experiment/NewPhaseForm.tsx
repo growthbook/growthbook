@@ -89,7 +89,7 @@ const NewPhaseForm: FC<{
       <div className="row">
         {!firstPhase && (
           <Field
-            containerClassName="col-lg"
+            containerClassName="col-12"
             label="Reason for Starting New Phase"
             textarea
             {...form.register("reason")}
@@ -97,7 +97,7 @@ const NewPhaseForm: FC<{
           />
         )}
         <Field
-          containerClassName="col-lg-auto"
+          containerClassName="col-12"
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
@@ -129,7 +129,13 @@ const NewPhaseForm: FC<{
           <label>Traffic Split</label>
           <div className="row">
             {experiment.variations.map((v, i) => (
-              <div className="col-auto mb-2" key={i}>
+              <div
+                className={`col-${Math.max(
+                  Math.round(12 / experiment.variations.length - 1),
+                  3
+                )} mb-2`}
+                key={i}
+              >
                 <Field
                   type="number"
                   min="0"
@@ -142,9 +148,9 @@ const NewPhaseForm: FC<{
                 />
               </div>
             ))}
-            <div className="col-auto">
+            <div className="col">
               <button
-                className="btn btn-outline-secondary"
+                className="btn btn-outline-primary w-100"
                 onClick={(e) => {
                   e.preventDefault();
                   form.setValue(

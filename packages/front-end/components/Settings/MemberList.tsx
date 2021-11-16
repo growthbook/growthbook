@@ -1,11 +1,12 @@
-import { FC, useState, useContext } from "react";
-import { FaPlus, FaPencilAlt } from "react-icons/fa";
+import React, { FC, useState, useContext } from "react";
+import { FaPencilAlt } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { useAuth, MemberRole } from "../../services/auth";
 import { UserContext } from "../ProtectedPage";
 import DeleteButton from "../DeleteButton";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
+import { GBAddCircle } from "../Icons";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -52,7 +53,7 @@ const MemberList: FC<{
           <RoleSelector role={role} setRole={setRole} />
         </Modal>
       )}
-      <table className="table appbox table-hover">
+      <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
             <th>Name</th>
@@ -99,8 +100,11 @@ const MemberList: FC<{
           ))}
         </tbody>
       </table>
-      <button className="btn btn-success mt-3" onClick={onInvite}>
-        <FaPlus /> Invite Member
+      <button className="btn btn-primary mt-3" onClick={onInvite}>
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <GBAddCircle />
+        </span>
+        Invite Member
       </button>
     </div>
   );

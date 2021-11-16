@@ -16,10 +16,15 @@ const getColor = (status: "draft" | "running" | "stopped") => {
 const StatusIndicator: FC<{
   status: "draft" | "running" | "stopped";
   archived: boolean;
-}> = ({ status, archived }) => {
+  showBubble?: boolean;
+  className?: string;
+}> = ({ status, archived, className = "", showBubble = true }) => {
   if (archived) {
     return (
-      <div className="badge badge-secondary" style={{ fontSize: "1.1em" }}>
+      <div
+        className={`badge badge-secondary ${className}`}
+        style={{ fontSize: "1.1em" }}
+      >
         Archived
       </div>
     );
@@ -28,8 +33,8 @@ const StatusIndicator: FC<{
   const color = getColor(status);
 
   return (
-    <div className={clsx(styles.container, `text-${color}`)}>
-      <div className={clsx(styles.bubble, `bg-${color}`)} />
+    <div className={clsx(styles.container, className, `text-${color}`)}>
+      {showBubble && <div className={clsx(styles.bubble, `bg-${color}`)} />}
       {status}
     </div>
   );

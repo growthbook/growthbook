@@ -1,5 +1,5 @@
 import React, { FC, useContext, useState } from "react";
-import { FaPlus, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
 import Button from "../../components/Button";
@@ -12,6 +12,7 @@ import Link from "next/link";
 import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
+import { GBAddCircle } from "../../components/Icons";
 
 const DimensionsPage: FC = () => {
   const {
@@ -78,15 +79,19 @@ const DimensionsPage: FC = () => {
         <div className="col-auto">
           <h3>User Dimensions</h3>
         </div>
+        <div style={{ flex: 1 }}></div>
         {!hasFileConfig() && permissions.createMetrics && (
           <div className="col-auto">
             <Button
-              color="success"
+              color="primary"
               onClick={async () => {
                 setDimensionForm({});
               }}
             >
-              <FaPlus /> New User Dimension
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>{" "}
+              New User Dimension
             </Button>
           </div>
         )}
@@ -100,7 +105,7 @@ const DimensionsPage: FC = () => {
               Book, you can use these to drill down into experiment results.
             </p>
             <table
-              className={clsx("table appbox", {
+              className={clsx("table appbox gbtable", {
                 "table-hover": !hasFileConfig(),
               })}
             >
@@ -169,7 +174,7 @@ const DimensionsPage: FC = () => {
         !hasFileConfig() &&
         permissions.createMetrics && (
           <div className="alert alert-info">
-            You don&apos;t have any user dimensions defined yet. Click the green
+            You don&apos;t have any user dimensions defined yet. Click the
             button above to create your first one.
           </div>
         )}

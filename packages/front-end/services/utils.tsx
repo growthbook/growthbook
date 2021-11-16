@@ -1,4 +1,5 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import React from "react";
 
 export function formatTrafficSplit(weights: number[]): string {
   return weights
@@ -6,10 +7,30 @@ export function formatTrafficSplit(weights: number[]): string {
     .join("/");
 }
 
-export function phaseSummary(phase: ExperimentPhaseStringDates): string {
+export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
   return `${phase.phase === "main" ? "" : phase.phase + ", "}${Math.floor(
     phase.coverage * 100
   )}% traffic, ${formatTrafficSplit(phase.variationWeights)} split`;
+}
+
+export function phaseSummary(
+  phase: ExperimentPhaseStringDates
+): React.ReactElement {
+  return (
+    <>
+      <span className="phase">
+        {phase.phase === "main" ? "" : phase.phase + ", "}
+      </span>
+      <span className="percent-traffic">
+        {Math.floor(phase.coverage * 100)}%
+      </span>{" "}
+      traffic,{" "}
+      <span className="split">
+        {formatTrafficSplit(phase.variationWeights)}
+      </span>{" "}
+      split
+    </>
+  );
 }
 
 export function getEvenSplit(n: number) {

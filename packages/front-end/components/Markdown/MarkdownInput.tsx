@@ -206,7 +206,7 @@ const MarkdownInput: FC<{
                 </button>
               )}
               {cta && (
-                <button type="submit" className="btn btn-success">
+                <button type="submit" className="btn btn-primary">
                   {cta}
                 </button>
               )}

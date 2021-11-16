@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { BsGear } from "react-icons/bs";
 
 const RightRailSection: FC<{
   open?: () => void;
@@ -11,16 +10,16 @@ const RightRailSection: FC<{
       {open && canOpen && (
         <a
           href="#"
-          className="float-right"
+          className="float-right text-purple font-weight-semibold"
           onClick={(e) => {
             e.preventDefault();
             open();
           }}
         >
-          <BsGear />
+          Edit
         </a>
       )}
-      <strong className="mb-2">{title}</strong>
+      <h4>{title}</h4>
       {children}
     </div>
   );

@@ -32,26 +32,6 @@ export type ExperimentQueryResponses = {
   metrics: VariationMetricResult[];
 }[];
 
-export interface ExperimentUsersResult {
-  dimensions: {
-    dimension: string;
-    variations: {
-      variation: number;
-      users: number;
-    }[];
-  }[];
-  unknownVariations: string[];
-}
-export interface ExperimentMetricResult {
-  dimensions: {
-    dimension: string;
-    variations: {
-      variation: number;
-      stats: MetricStats;
-    }[];
-  }[];
-}
-
 export interface ImpactEstimationResult {
   query: string;
   metricTotal: number;
@@ -79,14 +59,6 @@ export type Dimension =
   | DateDimension
   | ActivationDimension;
 
-export type ExperimentUsersQueryParams = {
-  experiment: ExperimentInterface;
-  phase: ExperimentPhase;
-  activationMetric: MetricInterface | null;
-  dimension: Dimension | null;
-  segment: SegmentInterface | null;
-};
-
 export type ExperimentMetricQueryParams = {
   experiment: ExperimentInterface;
   phase: ExperimentPhase;
@@ -101,23 +73,6 @@ export type PastExperimentParams = {
   minLength?: number;
 };
 
-export type UsersQueryParams = {
-  name: string;
-  userIdType: "anonymous" | "user" | "either";
-  segmentQuery?: string;
-  segmentName?: string;
-  urlRegex?: string;
-  from: Date;
-  to: Date;
-  includeByDate?: boolean;
-};
-export type UsersResult = {
-  users: number;
-  dates?: {
-    date: string;
-    users: number;
-  }[];
-};
 export type MetricValueParams = {
   from: Date;
   to: Date;
@@ -133,6 +88,7 @@ export type MetricValueParams = {
 
 export type MetricValueResultDate = {
   date: string;
+  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -142,6 +98,7 @@ export type MetricValueResult = {
   count: number;
   stddev: number;
   mean: number;
+  users: number;
   percentiles?: {
     [key: string]: number;
   };
@@ -158,12 +115,9 @@ export type PastExperimentResult = {
   }[];
 };
 
-export type UsersQueryResponse = {
-  date: string;
-  users: number;
-}[];
 export type MetricValueQueryResponseRow = {
   date: string;
+  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -178,14 +132,10 @@ export type PastExperimentResponse = {
   end_date: string;
   users: number;
 }[];
-export type ExperimentUsersQueryResponse = {
-  dimension: string;
-  variation: string;
-  users: number;
-}[];
 export type ExperimentMetricQueryResponse = {
   dimension: string;
   variation: string;
+  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -226,14 +176,10 @@ export interface SourceIntegrationInterface {
     metric: MetricInterface,
     segment?: SegmentInterface
   ): Promise<ImpactEstimationResult>;
-  getUsersQuery(params: UsersQueryParams): string;
   getMetricValueQuery(params: MetricValueParams): string;
-  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  runUsersQuery(query: string): Promise<UsersQueryResponse>;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
-  runExperimentUsersQuery(query: string): Promise<ExperimentUsersQueryResponse>;
   runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse>;

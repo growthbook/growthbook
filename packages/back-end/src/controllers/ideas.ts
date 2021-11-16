@@ -5,6 +5,7 @@ import {
   createIdea,
   getIdeaById,
   deleteIdeaById,
+  getIdeasByQuery,
 } from "../services/ideas";
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../services/tag";
@@ -17,6 +18,8 @@ import {
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
+import { FilterQuery } from "mongoose";
+import { IdeaDocument } from "../models/IdeasModel";
 
 export async function getIdeas(
   // eslint-disable-next-line
@@ -314,5 +317,42 @@ export async function postVote(
       message: e.message,
     });
     console.error(e);
+  }
+}
+
+export async function getRecentIdeas(
+  req: AuthRequest<null, { num: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { num } = req.params;
+  let intNum = parseInt(num);
+  if (intNum > 100) intNum = 100;
+
+  try {
+    const query: FilterQuery<IdeaDocument> = {
+      organization: org.id,
+    };
+    if (typeof req.query.project === "string" && req.query.project) {
+      query.project = req.query.project;
+    }
+
+    // since deletes can update the dateUpdated, we want to give ourselves a bit of buffer.
+    const ideas = await getIdeasByQuery(query)
+      .sort({ dateUpdated: -1 })
+      .limit(intNum + 5);
+
+    const recentIdeas = ideas.sort(
+      (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
+    );
+    res.status(200).json({
+      status: 200,
+      ideas: recentIdeas.slice(0, intNum),
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 }

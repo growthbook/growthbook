@@ -331,6 +331,7 @@ app.delete("/idea/:id", ideasController.deleteIdea);
 app.post("/idea/:id/vote", ideasController.postVote);
 app.post("/ideas/impact", ideasController.getEstimatedImpact);
 app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
+app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
 app.get("/metrics", experimentsController.getMetrics);

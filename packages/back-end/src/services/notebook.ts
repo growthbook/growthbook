@@ -109,8 +109,6 @@ export async function generateExperimentNotebook(
     var_names: experiment.variations.map((v) => v.name),
     weights: experiment.phases[snapshot.phase].variationWeights,
     run_query: datasource.settings.notebookRunQuery,
-    users_sql: queries.get("users")?.query || "",
-    user_rows: queries.get("users")?.rawResult || [],
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
@@ -121,7 +119,6 @@ import json
 
 data = json.loads("""${data}""", strict=False)
 
-user_rows=pd.DataFrame(data['user_rows'])
 metrics=[]
 for metric in data['metrics']:
     metrics.append({
@@ -134,7 +131,6 @@ for metric in data['metrics']:
     })
 
 print(create_notebook(
-    user_rows=user_rows,
     metrics=metrics,
     url=data['url'],
     hypothesis=data['hypothesis'],
@@ -142,8 +138,7 @@ print(create_notebook(
     var_id_map=data['var_id_map'],
     var_names=data['var_names'],
     weights=data['weights'],
-    run_query=data['run_query'],
-    users_sql=data['users_sql']
+    run_query=data['run_query']
 ))`,
     {}
   );

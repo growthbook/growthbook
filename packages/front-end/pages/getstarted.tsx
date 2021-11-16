@@ -25,7 +25,7 @@ const getStartedPage = (): React.ReactElement => {
 
   return (
     <>
-      <div className="container-fluid mt-3 pagecontents getstarted">
+      <div className="container-fluid pagecontents getstarted">
         <GetStarted experiments={data.experiments} mutate={mutate} />
       </div>
     </>

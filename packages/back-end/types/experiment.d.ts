@@ -66,7 +66,7 @@ export interface ExperimentInterface {
   activationMetric?: string;
   segment?: string;
   queryFilter?: string;
-  sqlOverride: Map<string, string>;
+  skipPartialData?: boolean;
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;

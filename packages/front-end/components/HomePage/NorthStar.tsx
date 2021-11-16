@@ -73,7 +73,7 @@ const NorthStar: FC = () => {
     <>
       {hasNorthStar && (
         <div
-          className="list-group activity-box mb-4"
+          className="list-group activity-box mb-3"
           style={{ position: "relative" }}
         >
           {permissions.organizationSettings && (
