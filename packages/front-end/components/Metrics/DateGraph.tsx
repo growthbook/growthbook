@@ -223,7 +223,7 @@ const DateGraph: FC<{
   const bands = new Map();
   const toolTipDelay = 600;
 
-  if (experiments) {
+  if (experiments && experiments.length > 0) {
     experiments.forEach((e) => {
       if (e.status !== "draft") {
         const expLines: ExperimentDisplayData = {
@@ -247,17 +247,18 @@ const DateGraph: FC<{
         }
         // get the earliest start date, and the latest end date - this might not be what we want,
         // we may want to only look at the 'main' phase, or ignore the holdouts.
-        e.phases.forEach((p) => {
-          if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
-          else if (p.dateStarted < expLines.dateStarted) {
-            expLines.dateStarted = p.dateStarted;
-          }
-          if (!expLines.dateEnded) expLines.dateEnded = p.dateEnded;
-          else if (p.dateEnded > expLines.dateEnded) {
-            expLines.dateEnded = p.dateEnded;
-          }
-        });
-
+        if (e?.phases) {
+          e?.phases.forEach((p) => {
+            if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
+            else if (p.dateStarted < expLines.dateStarted) {
+              expLines.dateStarted = p.dateStarted;
+            }
+            if (!expLines.dateEnded) expLines.dateEnded = p.dateEnded;
+            else if (p.dateEnded > expLines.dateEnded) {
+              expLines.dateEnded = p.dateEnded;
+            }
+          });
+        }
         // if an experiment is still running, it won't have an end date,
         // but we can still show it by setting the endDate to now.
         if (e.status === "running" && !expLines.dateEnded) {
