@@ -68,14 +68,13 @@ export default function InlineForm({
         cancel,
       })}
       <div
-        className="bg-dark text-center py-3"
+        className="text-center py-3"
         style={{
           position: "sticky",
           bottom: 0,
           left: 0,
           right: 0,
           zIndex: 330,
-          boxShadow: "rgb(0 0 0 / 30%) 0px -1px 8px 1px",
         }}
       >
         <div>
@@ -90,7 +89,7 @@ export default function InlineForm({
             {saving && <LoadingSpinner />} Save Changes
           </button>
           <button
-            className="btn btn-link text-light"
+            className="btn btn-link "
             onClick={(e) => {
               e.preventDefault();
               cancel();
