@@ -152,10 +152,10 @@ export async function getExperimentsScript(
       }
 
       if (exp.status === "stopped") {
-        if (exp.results === "won" || exp.results === "lost") {
+        if (exp.results === "won") {
           data.force = exp.winner;
         } else {
-          return;
+          data.force = 0;
         }
       }
 
