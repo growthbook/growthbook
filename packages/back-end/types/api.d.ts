@@ -7,8 +7,24 @@ export interface ExperimentOverride {
   url?: string;
 }
 
+export interface FeatureDefinition {
+  // eslint-disable-next-line
+  values: any[];
+  default: number;
+  rules?: {
+    type: "rollout" | "force" | "experiment";
+    weights?: number[];
+    // eslint-disable-next-line
+    condition?: any;
+    value?: number;
+    experiment?: string;
+    variations?: number[];
+  }[];
+}
+
 export interface ExperimentOverridesResponse {
   status: 200;
+  features: Record<string, FeatureDefinition>;
   overrides: Record<string, ExperimentOverride>;
 }
 

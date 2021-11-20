@@ -5,8 +5,13 @@ import fs from "fs";
 import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
-import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
+import {
+  ErrorResponse,
+  ExperimentOverridesResponse,
+  FeatureDefinition,
+} from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
+import { getAllFeatures } from "../models/FeatureModel";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -36,11 +41,31 @@ export async function getExperimentConfig(
     }
 
     const overrides = await getExperimentOverrides(organization);
+    const flags = await getAllFeatures(organization);
+
+    const features: Record<string, FeatureDefinition> = {};
+    flags.forEach((flag) => {
+      features[flag.id] = {
+        defaultValue: flag.defaultValue,
+        values: flag.values.map((v) => JSON.parse(v.value)),
+        rules:
+          flag.rules
+            ?.filter((r) => r.enabled)
+            ?.map((r) => {
+              const rule = { ...r };
+              if (rule.condition) {
+                rule.condition = JSON.parse(rule.condition);
+              }
+              return rule;
+            }) ?? [],
+      };
+    });
 
     // TODO: add cache headers?
     res.status(200).json({
       status: 200,
       overrides,
+      features,
     });
   } catch (e) {
     console.error(e);

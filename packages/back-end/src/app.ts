@@ -38,6 +38,7 @@ import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
+import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
@@ -63,6 +64,7 @@ wrapController(stripeController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
+wrapController(featuresController);
 wrapController(slackController);
 
 const app = express();
@@ -431,6 +433,12 @@ app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 app.post("/projects", projectsController.postProjects);
 app.put("/projects/:id", projectsController.putProject);
 app.delete("/projects/:id", projectsController.deleteProject);
+
+// Features
+app.get("/feature", featuresController.getFeatures);
+app.post("/feature", featuresController.postFeatures);
+app.put("/feature/:id", featuresController.putFeature);
+app.delete("/feature/:id", featuresController.deleteFeatureById);
 
 // Reports
 /*
