@@ -10,7 +10,7 @@ export interface ExperimentOverride {
 export interface FeatureDefinition {
   // eslint-disable-next-line
   values: any[];
-  default: number;
+  defaultValue: number;
   rules?: {
     type: "rollout" | "force" | "experiment";
     weights?: number[];
