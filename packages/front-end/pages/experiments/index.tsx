@@ -252,12 +252,20 @@ const ExperimentsPage = (): React.ReactElement => {
                                 className="cursor-pointer"
                                 data-title="Experiment name:"
                               >
-                                <div className="d-flex">
+                                <div className="d-flex flex-column">
                                   <span className="testname">{e.name}</span>
                                   {e.implementation === "visual" && (
                                     <small className="text-muted ml-2">
                                       <FaPalette /> Visual
                                     </small>
+                                  )}
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -356,12 +364,20 @@ const ExperimentsPage = (): React.ReactElement => {
                                     className="cursor-pointer"
                                     data-title="Experiment name:"
                                   >
-                                    <div className="d-flex">
+                                    <div className="d-flex flex-column">
                                       <span className="testname">{e.name}</span>
                                       {e.implementation === "visual" && (
                                         <small className="text-muted ml-2">
                                           <FaPalette /> Visual
                                         </small>
+                                      )}
+                                      {isFiltered && e.trackingKey && (
+                                        <span
+                                          className="testid text-muted small"
+                                          title="Tracking key"
+                                        >
+                                          {e.trackingKey}
+                                        </span>
                                       )}
                                     </div>
                                   </td>
@@ -454,12 +470,20 @@ const ExperimentsPage = (): React.ReactElement => {
                                     className="cursor-pointer"
                                     data-title="Experiment name:"
                                   >
-                                    <div className="d-flex">
+                                    <div className="d-flex flex-column">
                                       <span className="testname">{e.name}</span>
                                       {e.implementation === "visual" && (
                                         <small className="text-muted ml-2">
                                           <FaPalette /> Visual
                                         </small>
+                                      )}
+                                      {isFiltered && e.trackingKey && (
+                                        <span
+                                          className="testid text-muted small"
+                                          title="Tracking key"
+                                        >
+                                          {e.trackingKey}
+                                        </span>
                                       )}
                                     </div>
                                   </td>
@@ -574,12 +598,20 @@ const ExperimentsPage = (): React.ReactElement => {
                                 className="cursor-pointer"
                                 data-title="Experiment name:"
                               >
-                                <div className="d-flex">
+                                <div className="d-flex flex-column">
                                   <span className="testname">{e.name}</span>
                                   {e.implementation === "visual" && (
                                     <small className="text-muted ml-2">
                                       <FaPalette /> Visual
                                     </small>
+                                  )}
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -674,12 +706,20 @@ const ExperimentsPage = (): React.ReactElement => {
                                 }}
                                 className="cursor-pointer"
                               >
-                                <div className="d-flex">
+                                <div className="d-flex flex-column">
                                   <span className="testname">{e.name}</span>
                                   {e.implementation === "visual" && (
                                     <small className="text-muted ml-2">
                                       <FaPalette /> Visual
                                     </small>
+                                  )}
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
                                   )}
                                 </div>
                               </td>
