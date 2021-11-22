@@ -2,7 +2,9 @@ import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
 import { promisify } from "util";
 import { ExperimentMetricQueryResponse } from "../types/Integration";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { ExperimentReportVariation } from "../../types/report";
+
+export const MAX_DIMENSIONS = 20;
 
 export interface StatsEngineDimensionResponse {
   dimension: string;
@@ -30,15 +32,14 @@ export interface ExperimentMetricAnalysis {
 }
 
 export async function analyzeExperimentMetric(
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
+  variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number
 ): Promise<ExperimentMetricAnalysis> {
   const variationIdMap: { [key: string]: number } = {};
-  experiment.variations.map((v, i) => {
-    variationIdMap[v.key || i + ""] = i;
+  variations.map((v, i) => {
+    variationIdMap[v.id] = i;
   });
 
   const result = await promisify(PythonShell.runString)(
@@ -55,8 +56,8 @@ import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
-      var_names: experiment.variations.map((v) => v.name),
-      weights: phase.variationWeights,
+      var_names: variations.map((v) => v.name),
+      weights: variations.map((v) => v.weight),
       type: metric.type,
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,

@@ -6,7 +6,6 @@ import {
   createSnapshot,
   getExperimentWatchers,
   getLatestSnapshot,
-  processSnapshotData,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import pino from "pino";
@@ -18,6 +17,7 @@ import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import { analyzeExperimentResults } from "../services/reports";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -125,19 +125,26 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
-      datasource,
       null
     );
 
     await new Promise<void>((resolve, reject) => {
       const check = async () => {
+        const phase = experiment.phases[experiment.phases.length - 1];
         const res = await getStatusEndpoint(
           currentSnapshot,
           currentSnapshot.organization,
           (queryData) => {
-            return processSnapshotData(
-              experiment,
-              experiment.phases[experiment.phases.length - 1],
+            return analyzeExperimentResults(
+              experiment.organization,
+              experiment.variations.map((v, i) => {
+                return {
+                  id: v.key || i + "",
+                  name: v.name,
+                  weight: phase.variationWeights[i] || 0,
+                };
+              }),
+              undefined,
               queryData
             );
           },
