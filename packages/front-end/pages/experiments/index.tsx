@@ -9,7 +9,7 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPalette, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -253,12 +253,14 @@ const ExperimentsPage = (): React.ReactElement => {
                                 data-title="Experiment name:"
                               >
                                 <div className="d-flex flex-column">
-                                  <span className="testname">{e.name}</span>
-                                  {e.implementation === "visual" && (
-                                    <small className="text-muted ml-2">
-                                      <FaPalette /> Visual
-                                    </small>
-                                  )}
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
                                   {isFiltered && e.trackingKey && (
                                     <span
                                       className="testid text-muted small"
@@ -365,12 +367,16 @@ const ExperimentsPage = (): React.ReactElement => {
                                     data-title="Experiment name:"
                                   >
                                     <div className="d-flex flex-column">
-                                      <span className="testname">{e.name}</span>
-                                      {e.implementation === "visual" && (
-                                        <small className="text-muted ml-2">
-                                          <FaPalette /> Visual
-                                        </small>
-                                      )}
+                                      <div>
+                                        <span className="testname">
+                                          {e.name}
+                                        </span>
+                                        {e.implementation === "visual" && (
+                                          <small className="text-muted ml-2">
+                                            (visual)
+                                          </small>
+                                        )}
+                                      </div>
                                       {isFiltered && e.trackingKey && (
                                         <span
                                           className="testid text-muted small"
@@ -471,12 +477,16 @@ const ExperimentsPage = (): React.ReactElement => {
                                     data-title="Experiment name:"
                                   >
                                     <div className="d-flex flex-column">
-                                      <span className="testname">{e.name}</span>
-                                      {e.implementation === "visual" && (
-                                        <small className="text-muted ml-2">
-                                          <FaPalette /> Visual
-                                        </small>
-                                      )}
+                                      <div>
+                                        <span className="testname">
+                                          {e.name}
+                                        </span>
+                                        {e.implementation === "visual" && (
+                                          <small className="text-muted ml-2">
+                                            (visual)
+                                          </small>
+                                        )}
+                                      </div>
                                       {isFiltered && e.trackingKey && (
                                         <span
                                           className="testid text-muted small"
@@ -599,12 +609,14 @@ const ExperimentsPage = (): React.ReactElement => {
                                 data-title="Experiment name:"
                               >
                                 <div className="d-flex flex-column">
-                                  <span className="testname">{e.name}</span>
-                                  {e.implementation === "visual" && (
-                                    <small className="text-muted ml-2">
-                                      <FaPalette /> Visual
-                                    </small>
-                                  )}
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
                                   {isFiltered && e.trackingKey && (
                                     <span
                                       className="testid text-muted small"
@@ -707,12 +719,14 @@ const ExperimentsPage = (): React.ReactElement => {
                                 className="cursor-pointer"
                               >
                                 <div className="d-flex flex-column">
-                                  <span className="testname">{e.name}</span>
-                                  {e.implementation === "visual" && (
-                                    <small className="text-muted ml-2">
-                                      <FaPalette /> Visual
-                                    </small>
-                                  )}
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
                                   {isFiltered && e.trackingKey && (
                                     <span
                                       className="testid text-muted small"
