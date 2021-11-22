@@ -18,6 +18,7 @@ import {
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
+import { BsFlag } from "react-icons/bs";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -38,6 +39,12 @@ const navlinks: SidebarLinkProps[] = [
     href: "/experiments",
     Icon: GBExperiment,
     path: /^experiment/,
+  },
+  {
+    name: "Features",
+    href: "/features",
+    Icon: BsFlag,
+    path: /^features/,
   },
   {
     name: "Presentations",
