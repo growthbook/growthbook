@@ -31,7 +31,7 @@
     "js-yaml": "^4.1.0",
     "json-stringify-pretty-compact": "^3.0.0",
     "jstat": "^1.9.3",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.21",
     "markdown-it": "^11.0.0",
     "markdown-it-sanitizer": "^0.4.3",
     "md5": "^2.3.0",
