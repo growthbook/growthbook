@@ -40,6 +40,8 @@ export async function startExperimentAnalysis({
   dimension,
   trackingKey,
   queryFilter,
+  userIdType,
+  skipPartialData,
 }: {
   organization: string;
   datasource: string;
@@ -53,6 +55,8 @@ export async function startExperimentAnalysis({
   dimension?: string;
   trackingKey: string;
   queryFilter?: string;
+  skipPartialData?: boolean;
+  userIdType?: "user" | "anonymous";
 }) {
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -97,13 +101,22 @@ export async function startExperimentAnalysis({
     variationWeights: variations.map((v) => v.weight),
   };
   const experimentObj: ExperimentInterface = {
+    userIdType,
+    organization,
+    skipPartialData,
+    trackingKey,
+    datasource,
+    segment,
+    queryFilter,
+    activationMetric,
+    metrics,
+    guardrails,
     id: "",
     name: "",
     dateCreated: new Date(),
     dateUpdated: new Date(),
     tags: [],
     autoAssign: false,
-    organization: organization,
     owner: "",
     implementation: "code",
     previewURL: "",
@@ -119,13 +132,6 @@ export async function startExperimentAnalysis({
         screenshots: [],
       };
     }),
-    trackingKey: trackingKey,
-    datasource: datasource,
-    segment: segment,
-    queryFilter: queryFilter,
-    activationMetric: activationMetric,
-    metrics: metrics,
-    guardrails: guardrails,
   };
   const dimensionObj = await parseDimensionId(dimension, organization);
 

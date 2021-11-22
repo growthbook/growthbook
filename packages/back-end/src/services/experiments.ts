@@ -19,12 +19,11 @@ import {
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
 import { MetricInterface, MetricStats } from "../../types/metric";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { ExperimentReportArgs } from "../../types/report";
 import { startExperimentAnalysis } from "./reports";
 
 export function getExperimentsByOrganization(
@@ -287,47 +286,6 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
-export function getExperimentReportArgs(
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
-  dimension: string | null
-): ExperimentReportArgs {
-  const {
-    trackingKey,
-    metrics,
-    guardrails,
-    queryFilter,
-    segment,
-    activationMetric,
-    datasource,
-    userIdType,
-    skipPartialData,
-  } = experiment;
-  const { dateStarted, dateEnded, variationWeights } = phase;
-
-  return {
-    trackingKey,
-    userIdType,
-    metrics,
-    skipPartialData,
-    guardrails,
-    queryFilter,
-    segment,
-    activationMetric,
-    datasource,
-    dimension: dimension || undefined,
-    endDate: dateEnded,
-    startDate: dateStarted,
-    variations: experiment.variations.map((v, i) => {
-      return {
-        id: v.key || i + "",
-        name: v.name,
-        weight: variationWeights[i] || 0,
-      };
-    }),
-  };
-}
-
 export async function parseDimensionId(
   dimension: string | undefined,
   organization: string
@@ -361,13 +319,40 @@ export async function createSnapshot(
   phaseIndex: number,
   dimensionId: string | null
 ) {
+  const {
+    trackingKey,
+    metrics,
+    guardrails,
+    queryFilter,
+    segment,
+    activationMetric,
+    datasource,
+    userIdType,
+    skipPartialData,
+  } = experiment;
+  const { dateStarted, dateEnded, variationWeights } = phase;
+
   const { queries, results } = await startExperimentAnalysis({
     organization: experiment.organization,
-    ...getExperimentReportArgs(
-      experiment,
-      experiment.phases[phaseIndex],
-      dimensionId
-    ),
+    trackingKey,
+    userIdType,
+    metrics,
+    skipPartialData,
+    guardrails,
+    queryFilter,
+    segment,
+    activationMetric,
+    datasource,
+    dimension: dimension || undefined,
+    endDate: dateEnded,
+    startDate: dateStarted,
+    variations: experiment.variations.map((v, i) => {
+      return {
+        id: v.key || i + "",
+        name: v.name,
+        weight: variationWeights[i] || 0,
+      };
+    }),
   });
 
   const data: ExperimentSnapshotInterface = {
