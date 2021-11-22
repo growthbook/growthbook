@@ -229,7 +229,7 @@ export default function AnalysisSettingsBar({
       {permissions.runExperiments && datasource && (
         <div className="px-3">
           <div className="row">
-            {snapshot && status !== "succeeded" && (
+            {latest && status !== "succeeded" && (
               <div className="col-auto pb-3">
                 <ViewAsyncQueriesButton
                   queries={latest.queries.map((q) => q.query)}
