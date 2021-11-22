@@ -363,8 +363,6 @@ pre {
       }
     }
     &.completed {
-      .step-title {
-      }
       .step-number {
         background-color: $highlight-purple;
         color: $white;
@@ -997,9 +995,6 @@ pre {
 /* layout overrides: */
 li.metrics a span img {
   max-width: 28px !important;
-}
-li.reports a span img {
-  margin-top: -10px;
 }
 
 .leftBar {
