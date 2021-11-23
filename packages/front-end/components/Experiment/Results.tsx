@@ -93,6 +93,14 @@ const Results: FC<{
   const phaseAgeMinutes =
     (Date.now() - getValidDate(phaseObj?.dateStarted).getTime()) / (1000 * 60);
 
+  const variations = experiment.variations.map((v, i) => {
+    return {
+      id: v.key || i + "",
+      name: v.name,
+      weight: phaseObj?.variationWeights?.[i] || 0,
+    };
+  });
+
   return (
     <>
       {experiment.status === "stopped" && (
@@ -175,11 +183,24 @@ const Results: FC<{
       {hasData &&
         snapshot.dimension &&
         (snapshot.dimension === "pre:date" ? (
-          <DateResults snapshot={snapshot} experiment={experiment} />
+          <DateResults
+            metrics={experiment.metrics}
+            guardrails={experiment.guardrails}
+            results={snapshot.results}
+            variations={variations}
+          />
         ) : (
           <BreakDownResults
-            snapshot={snapshot}
-            experiment={experiment}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            metrics={experiment.metrics}
+            reportDate={snapshot.dateCreated}
+            results={snapshot.results}
+            status={experiment.status}
+            startDate={phaseObj?.dateStarted}
+            dimensionId={snapshot.dimension}
+            activationMetric={experiment.activationMetric}
+            guardrails={experiment.guardrails}
+            variations={variations}
             key={snapshot.dimension}
           />
         ))}
@@ -194,13 +215,7 @@ const Results: FC<{
             status={experiment.status}
             startDate={phaseObj?.dateStarted}
             unknownVariations={snapshot.unknownVariations || []}
-            variations={experiment.variations.map((v, i) => {
-              return {
-                id: v.key || i + "",
-                name: v.name,
-                weight: phaseObj?.variationWeights?.[i] || 0,
-              };
-            })}
+            variations={variations}
             isUpdating={status === "running"}
             editMetrics={editMetrics}
           />
@@ -227,13 +242,13 @@ const Results: FC<{
                   const metric = getMetricById(g);
                   if (!metric) return "";
 
-                  const variations = snapshot.results[0]?.variations;
-                  if (!variations) return "";
+                  const data = snapshot.results[0]?.variations;
+                  if (!data) return "";
 
                   return (
                     <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
                       <GuardrailResults
-                        experiment={experiment}
+                        data={data}
                         variations={variations}
                         metric={metric}
                       />

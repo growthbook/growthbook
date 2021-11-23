@@ -177,8 +177,9 @@ export async function runReport(report: ReportInterface) {
       ...report.args,
     });
     updates.queries = queries;
-    updates.results = results;
+    updates.results = results || report.results;
     updates.runStarted = new Date();
+    updates.error = "";
   } else {
     throw new Error("Unsupported report type");
   }

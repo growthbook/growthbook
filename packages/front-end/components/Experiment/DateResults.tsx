@@ -1,6 +1,4 @@
 import { FC, useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { MetricInterface } from "back-end/types/metric";
 import ExperimentDateGraph, {
@@ -10,6 +8,10 @@ import { formatConversionRate } from "../../services/metrics";
 import { useState } from "react";
 import Toggle from "../Forms/Toggle";
 import { getValidDate } from "../../services/dates";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "../../../back-end/types/report";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -25,9 +27,11 @@ type Metric = {
 };
 
 const DateResults: FC<{
-  snapshot: ExperimentSnapshotInterface;
-  experiment: ExperimentInterfaceStringDates;
-}> = ({ snapshot, experiment }) => {
+  variations: ExperimentReportVariation[];
+  results: ExperimentReportResultDimension[];
+  metrics: string[];
+  guardrails?: string[];
+}> = ({ results, variations, metrics, guardrails }) => {
   const { getMetricById } = useDefinitions();
 
   const [cumulative, setCumulative] = useState(false);
@@ -36,7 +40,7 @@ const DateResults: FC<{
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const sortedResults = [...snapshot.results];
+    const sortedResults = [...results];
     sortedResults.sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
@@ -44,7 +48,7 @@ const DateResults: FC<{
     return sortedResults.map((d) => {
       return {
         d: getValidDate(d.name),
-        variations: experiment.variations.map((v, i) => {
+        variations: variations.map((v, i) => {
           const users = d.variations[i]?.users || 0;
           total[i] = total[i] || 0;
           total[i] += users;
@@ -56,20 +60,18 @@ const DateResults: FC<{
         }),
       };
     });
-  }, [snapshot, cumulative]);
+  }, [results, cumulative]);
 
   // Data for the metric graphs
-  const metrics = useMemo<Metric[]>(() => {
-    const sortedResults = [...snapshot.results];
+  const metricSections = useMemo<Metric[]>(() => {
+    const sortedResults = [...results];
     sortedResults.sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     // Merge goal and guardrail metrics
     return (
-      Array.from(
-        new Set(experiment.metrics.concat(experiment.guardrails || []))
-      )
+      Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
           const metric = getMetricById(metricId);
           // Keep track of cumulative users and value for each variation
@@ -79,7 +81,7 @@ const DateResults: FC<{
           const datapoints = sortedResults.map((d) => {
             return {
               d: getValidDate(d.name),
-              variations: experiment.variations.map((v, i) => {
+              variations: variations.map((v, i) => {
                 const stats = d.variations[i]?.metrics?.[metricId];
                 const uplift = stats?.uplift;
 
@@ -132,14 +134,14 @@ const DateResults: FC<{
 
           return {
             metric,
-            isGuardrail: !experiment.metrics.includes(metricId),
+            isGuardrail: !metrics.includes(metricId),
             datapoints,
           };
         })
         // Filter out any edge cases when the metric is undefined
         .filter((table) => table.metric)
     );
-  }, [snapshot, cumulative]);
+  }, [results, cumulative]);
 
   return (
     <div className="mb-4 mx-3 pb-4">
@@ -163,10 +165,10 @@ const DateResults: FC<{
           datapoints={users}
           label="Users"
           tickFormat={(v) => numberFormatter.format(v)}
-          variationNames={experiment.variations.map((v) => v.name)}
+          variationNames={variations.map((v) => v.name)}
         />
       </div>
-      {metrics.map(({ metric, isGuardrail, datapoints }) => (
+      {metricSections.map(({ metric, isGuardrail, datapoints }) => (
         <div className="mb-5" key={metric.id}>
           <h3>
             {metric.name}{" "}
@@ -178,7 +180,7 @@ const DateResults: FC<{
             datapoints={datapoints}
             label="Relative Uplift"
             tickFormat={(v) => percentFormatter.format(v)}
-            variationNames={experiment.variations.map((v) => v.name)}
+            variationNames={variations.map((v) => v.name)}
           />
         </div>
       ))}

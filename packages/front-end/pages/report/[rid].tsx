@@ -3,12 +3,36 @@ import { ReportInterface } from "back-end/types/report";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import { useContext, useState } from "react";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "../../components/Queries/RunQueriesButton";
+import { ago, getValidDate } from "../../services/dates";
+import { UserContext } from "../../components/ProtectedPage";
+import DateResults from "../../components/Experiment/DateResults";
+import BreakDownResults from "../../components/Experiment/BreakDownResults";
+import CompactResults from "../../components/Experiment/CompactResults";
+import GuardrailResults from "../../components/Experiment/GuardrailResult";
+import Button from "../../components/Button";
+import { useAuth } from "../../services/auth";
+import { FaFileDownload } from "react-icons/fa";
+import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesButton";
+import ControlledTabs from "../../components/Tabs/ControlledTabs";
+import Tab from "../../components/Tabs/Tab";
 
 export default function ReportPage() {
   const router = useRouter();
   const { rid } = router.query;
 
-  const { data, error } = useApi<{ report: ReportInterface }>(`/report/${rid}`);
+  const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
+  const { data, error, mutate } = useApi<{ report: ReportInterface }>(
+    `/report/${rid}`
+  );
+  const { permissions } = useContext(UserContext);
+  const [active, setActive] = useState<string | null>("results");
+
+  const { apiCall } = useAuth();
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -19,14 +43,222 @@ export default function ReportPage() {
 
   const report = data.report;
 
+  const variations = report.args.variations;
+
+  const filteredDimensions: { id: string; name: string }[] = dimensions.filter(
+    (d) => d.datasource === report.args.datasource
+  );
+
+  const datasource = getDatasourceById(report.args.datasource);
+  if (datasource?.settings?.experimentDimensions?.length > 0) {
+    datasource.settings.experimentDimensions.forEach((d) => {
+      filteredDimensions.push({
+        id: "exp:" + d,
+        name: d,
+      });
+    });
+  }
+
+  const status = getQueryStatus(report.queries || [], report.error);
+
+  const hasData = report.results?.dimensions?.[0]?.variations?.length > 0;
+
+  const phaseAgeMinutes =
+    (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
+
   return (
-    <div className="container-fluid pagecontents">
-      <h1>{report.title}</h1>
-      {report.description && (
-        <div className="mb-3">
-          <Markdown>{report.description}</Markdown>
-        </div>
-      )}
+    <div className="container-fluid pagecontents experiment-details">
+      <div className="mb-3">
+        <h1>{report.title}</h1>
+        {report.description && (
+          <div className="mb-3">
+            <Markdown>{report.description}</Markdown>
+          </div>
+        )}
+      </div>
+
+      <ControlledTabs active={active} setActive={setActive} newStyle={true}>
+        <Tab key="results" anchor="results" display="Results" padding={false}>
+          <div className="p-3">
+            <div className="row">
+              {report.args.metrics.length === 0 && (
+                <div className="col">
+                  <div className="alert alert-info">
+                    Add at least 1 metric to view results.
+                  </div>
+                </div>
+              )}
+              {!hasData &&
+                status !== "running" &&
+                report.args.metrics.length > 0 && (
+                  <div className="col">
+                    <div className="alert alert-info">
+                      No data yet.{" "}
+                      {report.results &&
+                        phaseAgeMinutes >= 120 &&
+                        "Make sure your experiment is tracking properly."}
+                      {report.results &&
+                        phaseAgeMinutes < 120 &&
+                        "It was just started " +
+                          ago(report.args.startDate) +
+                          ". Give it a little longer and click the 'Refresh' button to check again."}
+                      {!report.results &&
+                        permissions.runExperiments &&
+                        `Click the "Refresh" button.`}
+                    </div>
+                  </div>
+                )}
+              <div className="col-auto ml-auto">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      await apiCall(`/report/${report.id}/refresh`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                >
+                  <RunQueriesButton
+                    icon="refresh"
+                    cta="Refresh Data"
+                    initialStatus={status}
+                    statusEndpoint={`/report/${report.id}/status`}
+                    cancelEndpoint={`/report/${report.id}/cancel`}
+                    color="outline-primary"
+                    onReady={() => {
+                      mutate();
+                    }}
+                  />
+                </form>
+              </div>
+            </div>
+          </div>
+          {hasData &&
+            report.args.dimension &&
+            (report.args.dimension === "pre:date" ? (
+              <DateResults
+                metrics={report.args.metrics}
+                guardrails={report.args.guardrails}
+                results={report.results.dimensions}
+                variations={variations}
+              />
+            ) : (
+              <BreakDownResults
+                isLatestPhase={true}
+                metrics={report.args.metrics}
+                reportDate={report.dateCreated}
+                results={report.results?.dimensions}
+                status={"stopped"}
+                startDate={getValidDate(report.args.startDate).toISOString()}
+                dimensionId={report.args.dimension}
+                activationMetric={report.args.activationMetric}
+                guardrails={report.args.guardrails}
+                variations={variations}
+                key={report.args.dimension}
+              />
+            ))}
+          {hasData && !report.args.dimension && (
+            <>
+              <CompactResults
+                id={report.id}
+                isLatestPhase={true}
+                metrics={report.args.metrics}
+                reportDate={report.dateCreated}
+                results={report.results?.dimensions?.[0]}
+                status={"stopped"}
+                startDate={getValidDate(report.args.startDate).toISOString()}
+                unknownVariations={report.results?.unknownVariations || []}
+                variations={variations}
+                isUpdating={status === "running"}
+              />
+              {report.args.guardrails?.length > 0 && (
+                <div className="mb-3 p-3">
+                  <h3 className="mb-3">Guardrails</h3>
+                  <div className="row mt-3">
+                    {report.args.guardrails.map((g) => {
+                      const metric = getMetricById(g);
+                      if (!metric) return "";
+
+                      const data = report.results?.dimensions?.[0]?.variations;
+                      if (!data) return "";
+
+                      return (
+                        <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
+                          <GuardrailResults
+                            data={data}
+                            variations={variations}
+                            metric={metric}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          <div className="px-3">
+            <div className="row mb-3">
+              {hasData && datasource?.settings?.notebookRunQuery && (
+                <div className="col-auto">
+                  <Button
+                    color="outline-info"
+                    onClick={async () => {
+                      const res = await apiCall<{ notebook: string }>(
+                        `/report/${report.id}/notebook`,
+                        {
+                          method: "POST",
+                        }
+                      );
+
+                      const url = URL.createObjectURL(
+                        new Blob([res.notebook], {
+                          type: "application/json",
+                        })
+                      );
+
+                      const name = report.title
+                        .replace(/[^a-zA-Z0-9_-]+/g, "")
+                        .replace(/[-]+/g, "_")
+                        .replace(/[_]{2,}/g, "_");
+
+                      const d = new Date()
+                        .toISOString()
+                        .slice(0, 10)
+                        .replace(/-/g, "_");
+
+                      const el = document.createElement("a");
+                      el.href = url;
+                      el.download = `${name}_${d}.ipynb`;
+                      el.click();
+                    }}
+                  >
+                    <FaFileDownload /> Download Notebook
+                  </Button>
+                </div>
+              )}
+
+              {report.queries?.length > 0 && (
+                <div className="col-auto">
+                  <ViewAsyncQueriesButton
+                    queries={report.queries.map((q) => q.query)}
+                    error={report.error}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </Tab>
+        <Tab
+          key="configuration"
+          anchor="configuration"
+          display="Configuration"
+        ></Tab>
+      </ControlledTabs>
     </div>
   );
 }
