@@ -274,10 +274,6 @@ app.use(
   }
 );
 
-// Event Tracking
-//app.get("/events", eventsController.getEvents);
-//app.post("/events/sync", eventsController.postEventsSync);
-
 // Logged-in auth requests
 // Managed cloud deployment uses Auth0 instead
 if (!IS_CLOUD) {
@@ -440,14 +436,6 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
-
-// Reports
-/*
-app.get("/reports", reportsController.getReports);
-app.post("/reports", reportsController.postReports);
-app.get("/report/:id", reportsController.getReport);
-app.put("/report/:id", reportsController.putReport);
-*/
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);

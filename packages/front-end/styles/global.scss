@@ -70,6 +70,9 @@ pre {
 .text-gray {
   color: $gray1;
 }
+.text-light-gray {
+  color: $gray2;
+}
 .font-weight-semibold {
   font-weight: 500;
 }
@@ -363,8 +366,6 @@ pre {
       }
     }
     &.completed {
-      .step-title {
-      }
       .step-number {
         background-color: $highlight-purple;
         color: $white;
@@ -997,9 +998,6 @@ pre {
 /* layout overrides: */
 li.metrics a span img {
   max-width: 28px !important;
-}
-li.reports a span img {
-  margin-top: -10px;
 }
 
 .leftBar {
