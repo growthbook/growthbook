@@ -1,8 +1,8 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
+import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentTableRow, useDomain } from "../../services/experiments";
 import Tooltip from "../Tooltip";
 import AlignedGraph from "./AlignedGraph";
@@ -13,7 +13,10 @@ import RiskColumn from "./RiskColumn";
 
 export type ResultsTableProps = {
   id: string;
-  experiment: ExperimentInterfaceStringDates;
+  variations: ExperimentReportVariation[];
+  status: "running" | "draft" | "stopped";
+  isLatestPhase: boolean;
+  startDate: string;
   rows: ExperimentTableRow[];
   users?: number[];
   labelHeader: string;
@@ -21,7 +24,6 @@ export type ResultsTableProps = {
     label: string,
     metric: MetricInterface
   ) => string | ReactElement;
-  phase: number;
   dateCreated: Date;
   hasRisk: boolean;
   fullStats?: boolean;
@@ -37,19 +39,21 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ResultsTable({
   id,
-  experiment,
+  isLatestPhase,
+  status,
   rows,
   labelHeader,
   users,
+  variations,
+  startDate,
   renderLabelColumn,
-  phase,
   dateCreated,
   fullStats = true,
   hasRisk,
   riskVariation,
   setRiskVariation,
 }: ResultsTableProps) {
-  const domain = useDomain(experiment, rows);
+  const domain = useDomain(variations, rows);
 
   return (
     <table
@@ -83,7 +87,7 @@ export default function ResultsTable({
                     setRiskVariation(parseInt(e.target.value));
                   }}
                 >
-                  {experiment.variations.map((v, i) => (
+                  {variations.map((v, i) => (
                     <option key={v.name} value={i}>
                       {i}: {v.name}
                     </option>
@@ -92,7 +96,7 @@ export default function ResultsTable({
               </div>
             </th>
           )}
-          {experiment.variations.map((v, i) => (
+          {variations.map((v, i) => (
             <th colSpan={i ? (fullStats ? 3 : 2) : 1} className="value" key={i}>
               <span className="text-muted font-weight-normal">{i}:</span>
               &nbsp;{v.name}
@@ -100,7 +104,7 @@ export default function ResultsTable({
           ))}
         </tr>
         <tr>
-          {experiment.variations.map((v, i) => (
+          {variations.map((v, i) => (
             <React.Fragment key={i}>
               <th className={clsx("value", `variation${i} text-center`)}>
                 Value
@@ -131,7 +135,7 @@ export default function ResultsTable({
         <tr>
           <th>{users ? "Users" : ""}</th>
           {hasRisk && fullStats && <th className="empty-td"></th>}
-          {experiment.variations.map((v, i) => (
+          {variations.map((v, i) => (
             <React.Fragment key={i}>
               <td className="value">
                 {users ? numberFormatter.format(users[i] || 0) : ""}
@@ -183,7 +187,7 @@ export default function ResultsTable({
               {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />
               )}
-              {experiment.variations.map((v, i) => {
+              {variations.map((v, i) => {
                 const stats = row.variations[i] || {
                   value: 0,
                   cr: 0,
@@ -201,9 +205,10 @@ export default function ResultsTable({
                       <ChanceToWinColumn
                         baseline={baseline}
                         stats={stats}
-                        experiment={experiment}
+                        status={status}
+                        isLatestPhase={isLatestPhase}
+                        startDate={startDate}
                         metric={row.metric}
-                        phase={phase}
                         snapshotDate={dateCreated}
                       />
                     )}

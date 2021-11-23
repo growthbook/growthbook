@@ -8,7 +8,7 @@ import {
   useRiskVariation,
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip";
 
@@ -81,9 +81,11 @@ const BreakDownResults: FC<{
   }, [snapshot]);
 
   const risk = useRiskVariation(
-    experiment,
+    experiment.variations.length,
     [].concat(...tables.map((t) => t.rows))
   );
+
+  const phase = experiment.phases[snapshot.phase];
 
   return (
     <div className="mb-3">
@@ -187,10 +189,18 @@ const BreakDownResults: FC<{
           <div className="experiment-compact-holder">
             <ResultsTable
               dateCreated={snapshot.dateCreated}
-              experiment={experiment}
+              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              startDate={phase.dateStarted}
+              status={experiment.status}
+              variations={experiment.variations.map((v, i) => {
+                return {
+                  id: v.key || i + "",
+                  name: v.name,
+                  weight: phase.variationWeights[i] || 0,
+                };
+              })}
               id={table.metric.id}
               labelHeader={dimension}
-              phase={snapshot.phase}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
               fullStats={fullStats}

@@ -3,6 +3,7 @@ import { FC, useState, useContext } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
+import { ReportInterface } from "back-end/types/report";
 import { UserContext } from "../ProtectedPage";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
 import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
@@ -19,6 +20,8 @@ import Button from "../Button";
 import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
+import { MdExplore } from "react-icons/md";
+import { useRouter } from "next/router";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -35,6 +38,8 @@ const Results: FC<{
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
+
+  const router = useRouter();
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
@@ -83,10 +88,10 @@ const Results: FC<{
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
+  const phaseObj = experiment.phases?.[phase];
+
   const phaseAgeMinutes =
-    (Date.now() -
-      getValidDate(experiment.phases?.[phase]?.dateStarted).getTime()) /
-    (1000 * 60);
+    (Date.now() - getValidDate(phaseObj?.dateStarted).getTime()) / (1000 * 60);
 
   return (
     <>
@@ -181,9 +186,21 @@ const Results: FC<{
       {hasData && !snapshot.dimension && (
         <>
           <CompactResults
-            snapshot={snapshot}
-            experiment={experiment}
-            phase={experiment.phases?.[phase]}
+            id={experiment.id}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            metrics={experiment.metrics}
+            reportDate={snapshot.dateCreated}
+            results={snapshot.results?.[0]}
+            status={experiment.status}
+            startDate={phaseObj?.dateStarted}
+            unknownVariations={snapshot.unknownVariations || []}
+            variations={experiment.variations.map((v, i) => {
+              return {
+                id: v.key || i + "",
+                name: v.name,
+                weight: phaseObj?.variationWeights?.[i] || 0,
+              };
+            })}
             isUpdating={status === "running"}
             editMetrics={editMetrics}
           />
@@ -282,6 +299,32 @@ const Results: FC<{
                   }}
                 >
                   <FaFileDownload /> Download Notebook
+                </Button>
+              </div>
+            )}
+          {snapshot &&
+            hasData &&
+            snapshot.hasRawQueries &&
+            "skipPartialData" in snapshot && (
+              <div className="col-auto">
+                <Button
+                  color="outline-info"
+                  onClick={async () => {
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
+
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
+                    }
+
+                    await router.push(`/report/${res.report.id}`);
+                  }}
+                >
+                  <MdExplore /> Explore Results
                 </Button>
               </div>
             )}

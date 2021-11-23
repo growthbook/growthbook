@@ -411,12 +411,12 @@ app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
 );
-
-// Reports
 app.post(
-  "/reports/snapshot/:snapshot",
+  "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );
+
+// Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
 app.get("/report/:id/status", reportsController.getReportStatus);

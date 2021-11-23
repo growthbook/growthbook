@@ -178,7 +178,11 @@ const Presentation = ({
       // const numMetrics = e.experiment.metrics.length;
       const result = e.experiment.results;
 
-      if (result)
+      if (result) {
+        const experiment = e.experiment;
+        const snapshot = e.snapshot;
+        const phase = experiment.phases[snapshot.phase];
+
         expSlides.push(
           <Slide key={`s-${expSlides.length}`}>
             <Heading className="m-0 p-0">Results</Heading>
@@ -211,10 +215,27 @@ const Presentation = ({
                 fontSize: "95%",
               }}
             >
-              <CompactResults snapshot={e.snapshot} experiment={e.experiment} />
+              <CompactResults
+                id={experiment.id}
+                isLatestPhase={phase === experiment.phases.length - 1}
+                metrics={experiment.metrics}
+                reportDate={snapshot.dateCreated}
+                results={snapshot.results?.[0]}
+                status={experiment.status}
+                startDate={phase?.dateStarted}
+                unknownVariations={snapshot.unknownVariations || []}
+                variations={experiment.variations.map((v, i) => {
+                  return {
+                    id: v.key || i + "",
+                    name: v.name,
+                    weight: phase?.variationWeights?.[i] || 0,
+                  };
+                })}
+              />
             </div>
           </Slide>
         );
+      }
     }
   });
 
