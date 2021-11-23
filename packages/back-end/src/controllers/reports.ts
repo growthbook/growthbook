@@ -44,14 +44,7 @@ export async function postReportFromSnapshot(
 
   const doc = await createReport(org.id, {
     title: `New Report - ${experiment.name}`,
-    description: "",
-    links: [
-      {
-        href: `/experiment/${snapshot.experiment}#results`,
-        display: "Back to experiment results",
-        external: false,
-      },
-    ],
+    description: `[Back to experiment results](/experiment/${snapshot.experiment}#results)`,
     type: "experiment",
     args: {
       trackingKey: experiment.trackingKey,

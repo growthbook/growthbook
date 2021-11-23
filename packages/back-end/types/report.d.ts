@@ -6,11 +6,6 @@ export interface ReportInterfaceBase {
   dateCreated: Date;
   dateUpdated: Date;
   organization: string;
-  links: {
-    href: string;
-    display: string;
-    external: boolean;
-  }[];
   title: string;
   description: string;
   runStarted: Date | null;

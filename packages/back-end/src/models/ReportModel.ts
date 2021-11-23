@@ -8,14 +8,6 @@ const reportSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   organization: String,
-  links: [
-    {
-      _id: false,
-      href: String,
-      display: String,
-      external: Boolean,
-    },
-  ],
   title: String,
   description: String,
   runStarted: Date,
