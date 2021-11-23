@@ -5,13 +5,47 @@ import { AuditInterface } from "back-end/types/audit";
 import Modal from "./Modal";
 import { ago, datetime } from "../services/dates";
 import Code from "./Code";
+import Link from "next/link";
+
+function EventDetails({
+  event,
+  setModal,
+}: {
+  event: AuditInterface;
+  setModal: (contents: string) => void;
+}) {
+  if (event.event === "experiment.analysis" && event.details) {
+    const details = JSON.parse(event.details);
+    if (details && details.report) {
+      return (
+        <Link href={`/report/${details.report}`}>
+          <a>View Report</a>
+        </Link>
+      );
+    }
+  }
+  // TODO: More special actions depending on event type
+  if (event.details) {
+    return (
+      <button
+        className="btn btn-link btn-sm"
+        onClick={(e) => {
+          e.preventDefault();
+          setModal(event.details);
+        }}
+      >
+        View Details
+      </button>
+    );
+  }
+
+  return null;
+}
 
 const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
   id,
   type,
 }) => {
-  // TODO: Special actions for some event types (e.g. delete manual snapshot)
-
   const [modal, setModal] = useState(null);
 
   const { data, error } = useApi<{ events: AuditInterface[] }>(
@@ -54,19 +88,7 @@ const HistoryTable: FC<{ type: "experiment" | "metric"; id: string }> = ({
               <td>{event.user.name || event.user.email}</td>
               <td>{event.event}</td>
               <td>
-                {event.details ? (
-                  <button
-                    className="btn btn-link btn-sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setModal(event.details);
-                    }}
-                  >
-                    View Details
-                  </button>
-                ) : (
-                  ""
-                )}
+                <EventDetails event={event} setModal={setModal} />
               </td>
             </tr>
           ))}

@@ -330,7 +330,9 @@ export async function createSnapshot(
     userIdType,
     skipPartialData,
   } = experiment;
-  const { dateStarted, dateEnded, variationWeights } = phase;
+  const { dateStarted, dateEnded, variationWeights } = experiment.phases[
+    phaseIndex
+  ];
 
   const { queries, results } = await startExperimentAnalysis({
     organization: experiment.organization,
@@ -343,7 +345,7 @@ export async function createSnapshot(
     segment,
     activationMetric,
     datasource,
-    dimension: dimension || undefined,
+    dimension: dimensionId || undefined,
     endDate: dateEnded,
     startDate: dateStarted,
     variations: experiment.variations.map((v, i) => {

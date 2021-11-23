@@ -85,6 +85,17 @@ export async function postReportFromSnapshot(
     error: snapshot.error,
   });
 
+  await req.audit({
+    event: "experiment.analysis",
+    entity: {
+      object: "experiment",
+      id: snapshot.experiment,
+    },
+    details: JSON.stringify({
+      report: doc.id,
+    }),
+  });
+
   res.status(200).json({
     status: 200,
     report: doc,
