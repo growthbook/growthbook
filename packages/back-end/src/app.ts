@@ -436,6 +436,7 @@ app.delete("/projects/:id", projectsController.deleteProject);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
+app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
