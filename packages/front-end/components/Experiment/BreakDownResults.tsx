@@ -67,7 +67,7 @@ const BreakDownResults: FC<{
   status,
   reportDate,
 }) => {
-  const { getDimensionById, getMetricById } = useDefinitions();
+  const { getDimensionById, getMetricById, ready } = useDefinitions();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -79,6 +79,7 @@ const BreakDownResults: FC<{
   const fullStats = !tooManyDimensions || fullStatsToggle;
 
   const tables = useMemo<TableDef[]>(() => {
+    if (!ready) return [];
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
@@ -97,7 +98,7 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, guardrails]);
+  }, [results, metrics, guardrails, ready]);
 
   const risk = useRiskVariation(
     variations.length,

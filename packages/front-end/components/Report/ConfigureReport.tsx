@@ -1,10 +1,11 @@
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
+import { getValidDate } from "../../services/dates";
 
 export default function ConfigureReport({
   report,
@@ -17,7 +18,13 @@ export default function ConfigureReport({
 }) {
   const { apiCall } = useAuth();
   const form = useForm({
-    defaultValues: report.args,
+    defaultValues: {
+      ...report.args,
+      startDate: getValidDate(report.args.startDate)
+        .toISOString()
+        .substr(0, 16),
+      endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
+    },
   });
 
   const { metrics, segments, dimensions, getDatasourceById } = useDefinitions();
@@ -46,14 +53,31 @@ export default function ConfigureReport({
     name: "variations",
   });
 
+  const builtInDimensions = [
+    {
+      display: "Date",
+      value: "pre:date",
+    },
+  ];
+  if (
+    datasource?.properties?.activationDimension &&
+    form.watch("activationMetric")
+  ) {
+    builtInDimensions.push({
+      display: "Activation status",
+      value: "pre:activation",
+    });
+  }
+
   return (
     <Modal
       inline={true}
       header=""
       size="fill"
       open={true}
+      className="border-0"
       submit={form.handleSubmit(async (value) => {
-        const args: ExperimentReportArgs = {
+        const args = {
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
@@ -191,39 +215,17 @@ export default function ConfigureReport({
         />
       </div>
       {(filteredDimensions.length > 0 || supportsSql) && (
-        <div className="col-auto form-inline">
-          <label className="mr-2">Dimension</label>{" "}
-          <select
-            className="form-control"
-            value={form.watch("dimension")}
-            onChange={(e) => {
-              form.setValue("dimension", e.target.value);
-            }}
-          >
-            <option value="">None</option>
-            {supportsSql && (
-              <optgroup label="Built-in">
-                <option value="pre:date">Date</option>
-                {datasource?.properties?.activationDimension &&
-                  report.args.activationMetric && (
-                    <option value="pre:activation">Activation Status</option>
-                  )}
-              </optgroup>
-            )}
-            {filteredDimensions.length > 0 && (
-              <optgroup label="Custom">
-                {filteredDimensions.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.display}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-          <small className="form-text text-muted">
-            Break down results for each metric by a dimension
-          </small>
-        </div>
+        <Field
+          label="Dimension"
+          labelClassName="font-weight-bold"
+          initialOption="None"
+          optionGroups={{
+            "Built-in": builtInDimensions,
+            Custom: filteredDimensions,
+          }}
+          {...form.register("dimension")}
+          helpText="Break down results for each metric by a dimension"
+        />
       )}
 
       <Field
@@ -258,15 +260,18 @@ export default function ConfigureReport({
         <Field
           label="Metric Conversion Windows"
           labelClassName="font-weight-bold"
-          {...form.register("skipPartialData")}
+          value={form.watch("skipPartialData") ? "strict" : "loose"}
+          onChange={(e) => {
+            form.setValue("skipPartialData", e.target.value === "strict");
+          }}
           options={[
             {
               display: "Include In-Progress Conversions",
-              value: false,
+              value: "loose",
             },
             {
               display: "Exclude In-Progress Conversions",
-              value: true,
+              value: "strict",
             },
           ]}
           helpText="How to treat users who have not had the full time to convert yet"

@@ -24,6 +24,7 @@ export type BaseFieldProps = {
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
+  optionGroups?: { [key: string]: SelectOptions };
   initialOption?: string;
   minRows?: number;
   maxRows?: number;
@@ -37,6 +38,44 @@ export type FieldProps = BaseFieldProps &
     React.InputHTMLAttributes<HTMLInputElement>,
     HTMLInputElement
   >;
+
+function Options({ options }: { options: SelectOptions }) {
+  if (Array.isArray(options)) {
+    return (
+      <>
+        {options.map((o) => {
+          if (o === null || o === undefined) return null;
+          if (typeof o === "object") {
+            return (
+              <option key={o.value + ""} value={o.value + ""}>
+                {o.display}
+              </option>
+            );
+          } else {
+            return (
+              <option key={o + ""} value={o + ""}>
+                {o}
+              </option>
+            );
+          }
+        })}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {" "}
+      {Object.keys(options).map((k) => {
+        return (
+          <option key={k} value={k}>
+            {options[k]}
+          </option>
+        );
+      })}
+    </>
+  );
+}
 
 const Field = forwardRef(
   (
@@ -55,6 +94,7 @@ const Field = forwardRef(
       minRows,
       maxRows,
       options,
+      optionGroups,
       type = "text",
       initialOption,
       ...otherProps
@@ -82,7 +122,7 @@ const Field = forwardRef(
           maxRows={maxRows || 6}
         />
       );
-    } else if (options) {
+    } else if (options || optionGroups) {
       component = (
         <select
           {...(otherProps as unknown)}
@@ -91,30 +131,15 @@ const Field = forwardRef(
           className={cn}
         >
           {initialOption && <option value="">{initialOption}</option>}
-          {Array.isArray(options)
-            ? options.map((o) => {
-                if (o === null || o === undefined) return null;
-                if (typeof o === "object") {
-                  return (
-                    <option key={o.value + ""} value={o.value + ""}>
-                      {o.display}
-                    </option>
-                  );
-                } else {
-                  return (
-                    <option key={o + ""} value={o + ""}>
-                      {o}
-                    </option>
-                  );
-                }
-              })
-            : Object.keys(options).map((k) => {
-                return (
-                  <option key={k} value={k}>
-                    {options[k]}
-                  </option>
-                );
-              })}
+          {options && <Options options={options} />}
+          {optionGroups &&
+            Object.keys(optionGroups).map((k) => {
+              return (
+                <optgroup label={k} key={k}>
+                  <Options options={optionGroups[k]} />
+                </optgroup>
+              );
+            })}
         </select>
       );
     } else {

@@ -32,7 +32,7 @@ const DateResults: FC<{
   metrics: string[];
   guardrails?: string[];
 }> = ({ results, variations, metrics, guardrails }) => {
-  const { getMetricById } = useDefinitions();
+  const { getMetricById, ready } = useDefinitions();
 
   const [cumulative, setCumulative] = useState(false);
 
@@ -64,6 +64,8 @@ const DateResults: FC<{
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
+    if (!ready) return [];
+
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
@@ -141,7 +143,7 @@ const DateResults: FC<{
         // Filter out any edge cases when the metric is undefined
         .filter((table) => table.metric)
     );
-  }, [results, cumulative]);
+  }, [results, cumulative, ready]);
 
   return (
     <div className="mb-4 mx-3 pb-4">

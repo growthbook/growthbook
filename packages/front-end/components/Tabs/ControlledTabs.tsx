@@ -63,12 +63,6 @@ const ControlledTabs: FC<{
     activeChosen = backupActive;
   }
 
-  const hash = window.location.hash.replace(/^#/, "");
-  const display = anchorMap.get(hash);
-  if (display && display !== active) {
-    setActive(display);
-  }
-
   let contentsPadding = true;
   const numTabs = Children.toArray(children).filter((c) => {
     return !!c;

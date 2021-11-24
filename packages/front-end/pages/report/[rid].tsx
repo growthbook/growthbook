@@ -35,7 +35,7 @@ export default function ReportPage() {
     `/report/${rid}`
   );
   const { permissions } = useContext(UserContext);
-  const [active, setActive] = useState<string | null>("results");
+  const [active, setActive] = useState<string | null>("Results");
 
   const { apiCall } = useAuth();
 
@@ -83,12 +83,14 @@ export default function ReportPage() {
       <div className="mb-3">
         <h1>
           {report.title}{" "}
-          <a
-            className="ml-2 cursor-pointer"
-            onClick={() => setEditModalOpen(true)}
-          >
-            <GBEdit />
-          </a>
+          {permissions.runExperiments && (
+            <a
+              className="ml-2 cursor-pointer"
+              onClick={() => setEditModalOpen(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
         </h1>
         {report.description && (
           <div className="mb-3">
@@ -97,38 +99,18 @@ export default function ReportPage() {
         )}
       </div>
 
-      <ControlledTabs active={active} setActive={setActive} newStyle={true}>
+      <ControlledTabs
+        active={active}
+        setActive={setActive}
+        newStyle={true}
+        navClassName={permissions.runExperiments ? "" : "d-none"}
+      >
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
-            <h2>Results</h2>
             <div className="row">
-              {report.args.metrics.length === 0 && (
-                <div className="col">
-                  <div className="alert alert-info">
-                    Add at least 1 metric to view results.
-                  </div>
-                </div>
-              )}
-              {!hasData &&
-                status !== "running" &&
-                report.args.metrics.length > 0 && (
-                  <div className="col">
-                    <div className="alert alert-info">
-                      No data yet.{" "}
-                      {report.results &&
-                        phaseAgeMinutes >= 120 &&
-                        "Make sure your experiment is tracking properly."}
-                      {report.results &&
-                        phaseAgeMinutes < 120 &&
-                        "It was just started " +
-                          ago(report.args.startDate) +
-                          ". Give it a little longer and click the 'Refresh' button to check again."}
-                      {!report.results &&
-                        permissions.runExperiments &&
-                        `Click the "Refresh" button.`}
-                    </div>
-                  </div>
-                )}
+              <div className="col">
+                <h2>Results</h2>
+              </div>
               <div className="col-auto ml-auto">
                 <form
                   onSubmit={async (e) => {
@@ -157,6 +139,27 @@ export default function ReportPage() {
                 </form>
               </div>
             </div>
+            {report.args.metrics.length === 0 && (
+              <div className="alert alert-info">
+                Add at least 1 metric to view results.
+              </div>
+            )}
+            {!hasData &&
+              status !== "running" &&
+              report.args.metrics.length > 0 && (
+                <div className="alert alert-info">
+                  No data yet.{" "}
+                  {report.results &&
+                    phaseAgeMinutes >= 120 &&
+                    "Make sure your experiment is tracking properly."}
+                  {report.results &&
+                    phaseAgeMinutes < 120 &&
+                    "It was just started " +
+                      ago(report.args.startDate) +
+                      ". Give it a little longer and click the 'Refresh' button to check again."}
+                  {!report.results && `Click the "Refresh" button.`}
+                </div>
+              )}
           </div>
           {hasData &&
             report.args.dimension &&
@@ -274,12 +277,17 @@ export default function ReportPage() {
             </div>
           </div>
         </Tab>
-        <Tab key="configuration" anchor="configuration" display="Configuration">
-          <h2></h2>
+        <Tab
+          key="configuration"
+          anchor="configuration"
+          display="Configuration"
+          visible={permissions.runExperiments}
+        >
+          <h2>Configuration</h2>
           <ConfigureReport
             mutate={mutate}
             report={report}
-            viewResults={() => setActive("results")}
+            viewResults={() => setActive("Results")}
           />
         </Tab>
       </ControlledTabs>

@@ -39,10 +39,10 @@ const CompactResults: FC<{
   metrics,
   id,
 }) => {
-  const { getMetricById } = useDefinitions();
+  const { getMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    if (!results || !results.variations) return [];
+    if (!results || !results.variations || !ready) return [];
     return metrics
       .map((m) => {
         const metric = getMetricById(m);
@@ -56,7 +56,7 @@ const CompactResults: FC<{
         };
       })
       .filter((row) => row.metric);
-  }, [results]);
+  }, [results, ready]);
 
   const users = useMemo(() => {
     const vars = results?.variations;
