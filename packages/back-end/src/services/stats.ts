@@ -36,6 +36,13 @@ export async function analyzeExperimentMetric(
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number
 ): Promise<ExperimentMetricAnalysis> {
+  if (!rows || !rows.length) {
+    return {
+      unknownVariations: [],
+      dimensions: [],
+    };
+  }
+
   const variationIdMap: { [key: string]: number } = {};
   experiment.variations.map((v, i) => {
     variationIdMap[v.key || i + ""] = i;
