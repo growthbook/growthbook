@@ -20,10 +20,14 @@ import { FaFileDownload } from "react-icons/fa";
 import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesButton";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import Tab from "../../components/Tabs/Tab";
+import { GBEdit } from "../../components/Icons";
+import EditTitleDescription from "../../components/Report/EditTitleDescription";
 
 export default function ReportPage() {
   const router = useRouter();
   const { rid } = router.query;
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
@@ -68,8 +72,23 @@ export default function ReportPage() {
 
   return (
     <div className="container-fluid pagecontents experiment-details">
+      {editModalOpen && (
+        <EditTitleDescription
+          report={report}
+          cancel={() => setEditModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
       <div className="mb-3">
-        <h1>{report.title}</h1>
+        <h1>
+          {report.title}{" "}
+          <a
+            className="ml-2 cursor-pointer"
+            onClick={() => setEditModalOpen(true)}
+          >
+            <GBEdit />
+          </a>
+        </h1>
         {report.description && (
           <div className="mb-3">
             <Markdown>{report.description}</Markdown>
