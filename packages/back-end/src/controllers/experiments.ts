@@ -57,9 +57,11 @@ import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
-import { addNonconvertingUsersToStats } from "../services/stats";
+import {
+  addNonconvertingUsersToStats,
+  analyzeExperimentResults,
+} from "../services/stats";
 import { getValidDate } from "../util/dates";
-import { analyzeExperimentResults } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);

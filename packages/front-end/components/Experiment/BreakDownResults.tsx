@@ -12,7 +12,7 @@ import Tooltip from "../Tooltip";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "../../../back-end/types/report";
+} from "back-end/types/report";
 
 const FULL_STATS_LIMIT = 5;
 

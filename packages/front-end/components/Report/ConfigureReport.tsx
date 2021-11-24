@@ -1,8 +1,5 @@
 import { useFieldArray, useForm } from "react-hook-form";
-import {
-  ExperimentReportArgs,
-  ReportInterface,
-} from "../../../back-end/types/report";
+import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import MetricsSelector from "../Experiment/MetricsSelector";

@@ -11,7 +11,7 @@ import { getValidDate } from "../../services/dates";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "../../../back-end/types/report";
+} from "back-end/types/report";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

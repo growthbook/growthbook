@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import MetricValueColumn from "./MetricValueColumn";
-import { ExperimentReportVariation } from "../../../back-end/types/report";
+import { ExperimentReportVariation } from "back-end/types/report";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;

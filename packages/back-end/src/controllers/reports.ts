@@ -10,7 +10,8 @@ import {
 } from "../models/ReportModel";
 import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { analyzeExperimentResults, runReport } from "../services/reports";
+import { runReport } from "../services/reports";
+import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 import { getValidDate } from "../util/dates";
 

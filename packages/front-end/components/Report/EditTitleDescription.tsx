@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { ReportInterface } from "../../../back-end/types/report";
+import { ReportInterface } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
 import MarkdownInput from "../Markdown/MarkdownInput";
