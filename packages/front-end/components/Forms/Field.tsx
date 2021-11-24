@@ -6,9 +6,10 @@ export type SelectOptions =
   | (
       | string
       | number
+      | boolean
       | null
       | {
-          value: string | number;
+          value: string | number | boolean;
           display: string;
         }
     )[]
@@ -95,13 +96,13 @@ const Field = forwardRef(
                 if (o === null || o === undefined) return null;
                 if (typeof o === "object") {
                   return (
-                    <option key={o.value} value={o.value}>
+                    <option key={o.value + ""} value={o.value + ""}>
                       {o.display}
                     </option>
                   );
                 } else {
                   return (
-                    <option key={o} value={o}>
+                    <option key={o + ""} value={o + ""}>
                       {o}
                     </option>
                   );

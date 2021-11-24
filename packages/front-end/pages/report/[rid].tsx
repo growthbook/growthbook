@@ -22,6 +22,7 @@ import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import Tab from "../../components/Tabs/Tab";
 import { GBEdit } from "../../components/Icons";
 import EditTitleDescription from "../../components/Report/EditTitleDescription";
+import ConfigureReport from "../../components/Report/ConfigureReport";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -99,6 +100,7 @@ export default function ReportPage() {
       <ControlledTabs active={active} setActive={setActive} newStyle={true}>
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
+            <h2>Results</h2>
             <div className="row">
               {report.args.metrics.length === 0 && (
                 <div className="col">
@@ -272,11 +274,14 @@ export default function ReportPage() {
             </div>
           </div>
         </Tab>
-        <Tab
-          key="configuration"
-          anchor="configuration"
-          display="Configuration"
-        ></Tab>
+        <Tab key="configuration" anchor="configuration" display="Configuration">
+          <h2></h2>
+          <ConfigureReport
+            mutate={mutate}
+            report={report}
+            viewResults={() => setActive("results")}
+          />
+        </Tab>
       </ControlledTabs>
     </div>
   );

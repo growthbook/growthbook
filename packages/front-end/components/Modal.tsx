@@ -12,7 +12,7 @@ type ModalProps = {
   closeCta?: string;
   ctaEnabled?: boolean;
   error?: string;
-  size?: "md" | "lg" | "max";
+  size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
   autoFocusSelector?: string;
   autoCloseOnSubmit?: boolean;
@@ -64,7 +64,10 @@ const Modal: FC<ModalProps> = ({
   }, [open, autoFocusSelector]);
 
   const contents = (
-    <div className={`modal-content ${className}`} style={{ maxHeight: "93vh" }}>
+    <div
+      className={`modal-content ${className}`}
+      style={{ maxHeight: size === "fill" ? "" : "93vh" }}
+    >
       {loading && <LoadingOverlay />}
       {header ? (
         <div className="modal-header">
@@ -160,61 +163,69 @@ const Modal: FC<ModalProps> = ({
       }
     : null;
 
-  return (
-    <Portal>
-      {!inline && (
-        <div
-          className={clsx("modal-backdrop fade", {
-            show: open,
-            "d-none": !open,
-            "bg-dark": solidOverlay,
-          })}
-          style={overlayStyle}
-        />
-      )}
+  const modalHtml = (
+    <div
+      className={clsx("modal", { show: open })}
+      style={{
+        display: open ? "block" : "none",
+        position: inline ? "relative" : undefined,
+        zIndex: inline ? 1 : undefined,
+      }}
+    >
       <div
-        className={clsx("modal", { show: open })}
-        style={{
-          display: open ? "block" : "none",
-          position: inline ? "relative" : undefined,
-          zIndex: inline ? 1 : undefined,
-        }}
+        className={`modal-dialog modal-${size}`}
+        style={
+          size === "max"
+            ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
+            : size === "fill"
+            ? { width: "100%", maxWidth: "100%" }
+            : null
+        }
       >
-        <div
-          className={`modal-dialog modal-${size}`}
-          style={
-            size === "max"
-              ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
-              : null
-          }
-        >
-          {submit ? (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (loading) return;
-                setError(null);
-                setLoading(true);
-                try {
-                  await submit();
-                  if (close && autoCloseOnSubmit) {
-                    close();
-                  } else {
-                    setLoading(false);
-                  }
-                } catch (e) {
-                  setError(e.message);
+        {submit ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (loading) return;
+              setError(null);
+              setLoading(true);
+              try {
+                await submit();
+                if (close && autoCloseOnSubmit) {
+                  close();
+                } else {
                   setLoading(false);
                 }
-              }}
-            >
-              {contents}
-            </form>
-          ) : (
-            contents
-          )}
-        </div>
+              } catch (e) {
+                setError(e.message);
+                setLoading(false);
+              }
+            }}
+          >
+            {contents}
+          </form>
+        ) : (
+          contents
+        )}
       </div>
+    </div>
+  );
+
+  if (inline) {
+    return modalHtml;
+  }
+
+  return (
+    <Portal>
+      <div
+        className={clsx("modal-backdrop fade", {
+          show: open,
+          "d-none": !open,
+          "bg-dark": solidOverlay,
+        })}
+        style={overlayStyle}
+      />
+      {modalHtml}
     </Portal>
   );
 };

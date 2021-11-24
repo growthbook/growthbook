@@ -12,6 +12,7 @@ import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
 import { analyzeExperimentResults, runReport } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
+import { getValidDate } from "../util/dates";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -152,6 +153,9 @@ export async function putReport(
       ...report.args,
       ...req.body.args,
     };
+
+    updates.args.startDate = getValidDate(updates.args.startDate);
+    updates.args.endDate = getValidDate(updates.args.endDate || new Date());
     needsRun = true;
   }
   if ("title" in req.body) updates.title = req.body.title;
