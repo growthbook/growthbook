@@ -1176,6 +1176,12 @@ li.metrics a span img {
   }
 }
 
+.purple-phase {
+  .percent-traffic,
+  .split {
+    color: $highlight-purple;
+  }
+}
 .experiment-details,
 .metric {
   .tab-content {
@@ -1218,12 +1224,6 @@ li.metrics a span img {
           padding-bottom: 10px;
         }
       }
-    }
-  }
-  .purple-phase {
-    .percent-traffic,
-    .split {
-      color: $highlight-purple;
     }
   }
   .contents {
