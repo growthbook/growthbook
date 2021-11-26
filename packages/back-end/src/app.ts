@@ -422,6 +422,7 @@ app.put("/report/:id", reportsController.putReport);
 app.get("/report/:id/status", reportsController.getReportStatus);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
+app.post("/report/:id/notebook", reportsController.postNotebook);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);

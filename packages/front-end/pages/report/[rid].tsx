@@ -8,7 +8,7 @@ import { useContext, useState } from "react";
 import RunQueriesButton, {
   getQueryStatus,
 } from "../../components/Queries/RunQueriesButton";
-import { ago, getValidDate } from "../../services/dates";
+import { ago, datetime, getValidDate } from "../../services/dates";
 import { UserContext } from "../../components/ProtectedPage";
 import DateResults from "../../components/Experiment/DateResults";
 import BreakDownResults from "../../components/Experiment/BreakDownResults";
@@ -107,11 +107,23 @@ export default function ReportPage() {
       >
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
-            <div className="row">
+            <div className="row align-items-center">
               <div className="col">
                 <h2>Results</h2>
               </div>
               <div className="col-auto ml-auto">
+                {report.runStarted && status !== "running" ? (
+                  <small
+                    className="text-muted"
+                    title={datetime(report.runStarted)}
+                  >
+                    updated {ago(report.runStarted)}
+                  </small>
+                ) : (
+                  ""
+                )}
+              </div>
+              <div className="col-auto">
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();

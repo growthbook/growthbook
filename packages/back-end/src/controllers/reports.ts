@@ -8,9 +8,10 @@ import {
   getReportById,
   updateReport,
 } from "../models/ReportModel";
+import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { runReport } from "../services/reports";
+import { runReport, reportArgsFromSnapshot } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 import { getValidDate } from "../util/dates";
@@ -48,27 +49,7 @@ export async function postReportFromSnapshot(
     title: `New Report - ${experiment.name}`,
     description: `[Back to experiment results](/experiment/${snapshot.experiment}#results)`,
     type: "experiment",
-    args: {
-      trackingKey: experiment.trackingKey,
-      datasource: experiment.datasource,
-      userIdType: experiment.userIdType,
-      startDate: phase.dateStarted,
-      endDate: phase.dateEnded || undefined,
-      dimension: snapshot.dimension || undefined,
-      variations: experiment.variations.map((v, i) => {
-        return {
-          id: v.key || i + "",
-          name: v.name,
-          weight: phase.variationWeights[i] || 0,
-        };
-      }),
-      segment: snapshot.segment,
-      metrics: experiment.metrics,
-      guardrails: experiment.guardrails,
-      activationMetric: snapshot.activationMetric,
-      queryFilter: snapshot.queryFilter,
-      skipPartialData: snapshot.skipPartialData,
-    },
+    args: reportArgsFromSnapshot(experiment, snapshot),
     results: snapshot.results
       ? {
           dimensions: snapshot.results,
@@ -233,4 +214,19 @@ export async function cancelReport(
       );
     })
   );
+}
+
+export async function postNotebook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const notebook = await generateReportNotebook(id, org.id);
+
+  res.status(200).json({
+    status: 200,
+    notebook,
+  });
 }

@@ -1,5 +1,9 @@
 import { MetricInterface } from "../../types/metric";
-import { ExperimentReportVariation, ReportInterface } from "../../types/report";
+import {
+  ExperimentReportArgs,
+  ExperimentReportVariation,
+  ReportInterface,
+} from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "./datasource";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
@@ -11,6 +15,38 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { parseDimensionId } from "./experiments";
 import { updateReport } from "../models/ReportModel";
 import { analyzeExperimentResults } from "./stats";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+
+export function reportArgsFromSnapshot(
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface
+): ExperimentReportArgs {
+  const phase = experiment.phases[snapshot.phase];
+  if (!phase) {
+    throw new Error("Unknown experiment phase");
+  }
+  return {
+    trackingKey: experiment.trackingKey,
+    datasource: experiment.datasource,
+    userIdType: experiment.userIdType,
+    startDate: phase.dateStarted,
+    endDate: phase.dateEnded || undefined,
+    dimension: snapshot.dimension || undefined,
+    variations: experiment.variations.map((v, i) => {
+      return {
+        id: v.key || i + "",
+        name: v.name,
+        weight: phase.variationWeights[i] || 0,
+      };
+    }),
+    segment: snapshot.segment,
+    metrics: experiment.metrics,
+    guardrails: experiment.guardrails,
+    activationMetric: snapshot.activationMetric,
+    queryFilter: snapshot.queryFilter,
+    skipPartialData: snapshot.skipPartialData,
+  };
+}
 
 export async function startExperimentAnalysis({
   organization,
