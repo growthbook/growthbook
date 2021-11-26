@@ -14,15 +14,13 @@ import DateResults from "../../components/Experiment/DateResults";
 import BreakDownResults from "../../components/Experiment/BreakDownResults";
 import CompactResults from "../../components/Experiment/CompactResults";
 import GuardrailResults from "../../components/Experiment/GuardrailResult";
-import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
-import { FaFileDownload } from "react-icons/fa";
-import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesButton";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import Tab from "../../components/Tabs/Tab";
 import { GBEdit } from "../../components/Icons";
 import EditTitleDescription from "../../components/Report/EditTitleDescription";
 import ConfigureReport from "../../components/Report/ConfigureReport";
+import ResultMoreMenu from "../../components/Experiment/ResultMoreMenu";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -150,6 +148,21 @@ export default function ReportPage() {
                   />
                 </form>
               </div>
+              <div className="col-auto">
+                <ResultMoreMenu
+                  id={report.id}
+                  hasData={hasData}
+                  supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                  configure={() => setActive("Configuration")}
+                  editMetrics={() => setActive("Configuration")}
+                  generateReport={false}
+                  hasUserQuery={false}
+                  notebookUrl={`/report/${report.id}/notebook`}
+                  notebookFilename={report.title}
+                  queries={report.queries}
+                  queryError={report.error}
+                />
+              </div>
             </div>
             {report.args.metrics.length === 0 && (
               <div className="alert alert-info">
@@ -237,57 +250,6 @@ export default function ReportPage() {
               )}
             </>
           )}
-          <div className="px-3">
-            <div className="row mb-3">
-              {hasData && datasource?.settings?.notebookRunQuery && (
-                <div className="col-auto">
-                  <Button
-                    color="outline-info"
-                    onClick={async () => {
-                      const res = await apiCall<{ notebook: string }>(
-                        `/report/${report.id}/notebook`,
-                        {
-                          method: "POST",
-                        }
-                      );
-
-                      const url = URL.createObjectURL(
-                        new Blob([res.notebook], {
-                          type: "application/json",
-                        })
-                      );
-
-                      const name = report.title
-                        .replace(/[^a-zA-Z0-9_-]+/g, "")
-                        .replace(/[-]+/g, "_")
-                        .replace(/[_]{2,}/g, "_");
-
-                      const d = new Date()
-                        .toISOString()
-                        .slice(0, 10)
-                        .replace(/-/g, "_");
-
-                      const el = document.createElement("a");
-                      el.href = url;
-                      el.download = `${name}_${d}.ipynb`;
-                      el.click();
-                    }}
-                  >
-                    <FaFileDownload /> Download Notebook
-                  </Button>
-                </div>
-              )}
-
-              {report.queries?.length > 0 && (
-                <div className="col-auto">
-                  <ViewAsyncQueriesButton
-                    queries={report.queries.map((q) => q.query)}
-                    error={report.error}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
         </Tab>
         <Tab
           key="configuration"

@@ -3,25 +3,18 @@ import { FC, useState, useContext } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
-import { ReportInterface } from "back-end/types/report";
 import { UserContext } from "../ProtectedPage";
-import ViewQueryButton from "../Metrics/ViewQueryButton";
-import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import GuardrailResults from "./GuardrailResult";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
-import { useAuth } from "../../services/auth";
 import { ago, getValidDate } from "../../services/dates";
-import Button from "../Button";
 import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
-import { MdExplore } from "react-icons/md";
-import { useRouter } from "next/router";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -34,12 +27,8 @@ const Results: FC<{
 }> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
   const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
 
-  const { apiCall } = useAuth();
-
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
-
-  const router = useRouter();
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
@@ -158,6 +147,7 @@ const Results: FC<{
         setDimension={setDimension}
         setPhase={setPhase}
         latest={latest}
+        editMetrics={editMetrics}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
@@ -260,109 +250,11 @@ const Results: FC<{
           )}
         </>
       )}
-      <div className="px-3">
-        <div className="row mb-3">
-          {permissions.runExperiments && editMetrics && (
-            <div className="col-auto">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={() => {
-                  editMetrics();
-                }}
-              >
-                Add{experiment.metrics?.length > 0 ? "/Remove" : ""} Metrics
-              </button>
-            </div>
-          )}
-          {snapshot &&
-            hasData &&
-            snapshot.hasRawQueries &&
-            "skipPartialData" in snapshot &&
-            datasource?.settings?.notebookRunQuery && (
-              <div className="col-auto">
-                <Button
-                  color="outline-info"
-                  onClick={async () => {
-                    const res = await apiCall<{ notebook: string }>(
-                      `/experiments/notebook/${snapshot.id}`,
-                      {
-                        method: "POST",
-                      }
-                    );
-
-                    const url = URL.createObjectURL(
-                      new Blob([res.notebook], {
-                        type: "application/json",
-                      })
-                    );
-
-                    const name = experiment.trackingKey
-                      .replace(/[^a-zA-Z0-9_-]+/g, "")
-                      .replace(/[-]+/g, "_")
-                      .replace(/[_]{2,}/g, "_");
-
-                    const d = new Date()
-                      .toISOString()
-                      .slice(0, 10)
-                      .replace(/-/g, "_");
-
-                    const el = document.createElement("a");
-                    el.href = url;
-                    el.download = `${name}_${d}.ipynb`;
-                    el.click();
-                  }}
-                >
-                  <FaFileDownload /> Download Notebook
-                </Button>
-              </div>
-            )}
-          {snapshot &&
-            hasData &&
-            snapshot.hasRawQueries &&
-            "skipPartialData" in snapshot && (
-              <div className="col-auto">
-                <Button
-                  color="outline-info"
-                  onClick={async () => {
-                    const res = await apiCall<{ report: ReportInterface }>(
-                      `/experiments/report/${snapshot.id}`,
-                      {
-                        method: "POST",
-                      }
-                    );
-
-                    if (!res.report) {
-                      throw new Error("Failed to create report");
-                    }
-
-                    await router.push(`/report/${res.report.id}`);
-                  }}
-                >
-                  <MdExplore /> Explore Results
-                </Button>
-              </div>
-            )}
-
-          {snapshot && (
-            <div className="col-auto">
-              {snapshot.queries?.length > 0 ? (
-                <ViewAsyncQueriesButton
-                  queries={snapshot.queries.map((q) => q.query)}
-                  error={snapshot.error}
-                />
-              ) : (
-                // From old query engine
-                snapshot.query && (
-                  <ViewQueryButton
-                    queries={[snapshot.query]}
-                    language={snapshot.queryLanguage}
-                  />
-                )
-              )}
-            </div>
-          )}
-        </div>
+      <div className="px-3 mb-3">
+        <span className="text-muted">
+          Click the 3 dots next to the Update button above to configure this
+          report, download as a Jupyter notebook, and more.
+        </span>
       </div>
     </>
   );
