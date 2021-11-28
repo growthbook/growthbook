@@ -85,8 +85,7 @@ export default function Welcome({
       <p>Welcome back, lets get started with some experiments</p>
     ) : state === "register" ? (
       <p>
-        Let&apos;s get started with some experimentation. Enter your information
-        to get started.
+        Let&apos;s run some experiments! Enter your information to get started.
       </p>
     ) : state === "forgot" ? (
       <p>Happens to the best of us</p>
