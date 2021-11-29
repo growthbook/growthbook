@@ -234,12 +234,12 @@ export default function AnalysisSettingsBar({
             id={snapshot?.id || ""}
             configure={() => setModalOpen(true)}
             editMetrics={editMetrics}
-            notebookUrl={`/experiments/notebook/${snapshot.id}`}
+            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
             generateReport={true}
             queries={snapshot?.queries}
             queryError={snapshot?.error}
-            hasUserQuery={!("skipPartialData" in snapshot)}
+            hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
           />
