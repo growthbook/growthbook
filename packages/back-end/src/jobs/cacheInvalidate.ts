@@ -17,6 +17,7 @@ export default function (ag: Agenda) {
 
   // Fire webhooks
   agenda.define(INVALIDATE_JOB_NAME, async (job: InvalidateJob) => {
+    if (!job.attrs.data) return;
     const { url } = job.attrs.data;
 
     if (!url) return;
