@@ -662,13 +662,10 @@ export async function processPastExperiments(
 }
 
 //
-export async function experimentUpdated(
-  organizationId: string,
-  experiment: ExperimentInterface
-) {
+export async function experimentUpdated(experiment: ExperimentInterface) {
   // fire the webhook:
-  await queueWebhook(organizationId);
+  await queueWebhook(experiment.organization);
 
   // invalidate the CDN
-  await queueCDNInvalidate(organizationId, experiment);
+  await queueCDNInvalidate(experiment.organization, experiment);
 }

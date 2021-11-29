@@ -397,7 +397,7 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id);
 
-    await experimentUpdated(org.id, experiment);
+    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -596,7 +596,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await experimentUpdated(org.id, exp);
+    await experimentUpdated(exp);
   }
 
   res.status(200).json({
@@ -635,7 +635,7 @@ export async function postExperimentArchive(
   try {
     await exp.save();
 
-    await experimentUpdated(org.id, exp);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -687,7 +687,7 @@ export async function postExperimentUnarchive(
   try {
     await exp.save();
 
-    await experimentUpdated(org.id, exp);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -785,7 +785,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await experimentUpdated(org.id, exp);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -962,7 +962,7 @@ export async function postExperimentPhase(
 
     await ensureWatching(userId, org.id, exp.id);
 
-    await experimentUpdated(org.id, exp);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -1131,7 +1131,7 @@ export async function deleteExperiment(
     },
   });
 
-  await experimentUpdated(org.id, exp);
+  await experimentUpdated(exp);
 
   res.status(200).json({
     status: 200,
