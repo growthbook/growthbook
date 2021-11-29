@@ -24,7 +24,7 @@ export default function ResultMoreMenu({
   hasUserQuery,
 }: {
   editMetrics?: () => void;
-  configure?: () => void;
+  configure: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
@@ -81,38 +81,45 @@ export default function ResultMoreMenu({
         </Button>
       )}
 
-      {hasData && !hasUserQuery && supportsNotebooks && (
-        <Button
-          color="outline-info"
-          className="dropdown-item py-2"
-          onClick={async () => {
-            const res = await apiCall<{ notebook: string }>(notebookUrl, {
-              method: "POST",
-            });
+      {hasData &&
+        !hasUserQuery &&
+        supportsNotebooks &&
+        notebookUrl &&
+        notebookFilename && (
+          <Button
+            color="outline-info"
+            className="dropdown-item py-2"
+            onClick={async () => {
+              const res = await apiCall<{ notebook: string }>(notebookUrl, {
+                method: "POST",
+              });
 
-            const url = URL.createObjectURL(
-              new Blob([res.notebook], {
-                type: "application/json",
-              })
-            );
+              const url = URL.createObjectURL(
+                new Blob([res.notebook], {
+                  type: "application/json",
+                })
+              );
 
-            const name = notebookFilename
-              .replace(/[^a-zA-Z0-9_-]+/g, "")
-              .replace(/[-]+/g, "_")
-              .replace(/[_]{2,}/g, "_");
+              const name = notebookFilename
+                .replace(/[^a-zA-Z0-9_-]+/g, "")
+                .replace(/[-]+/g, "_")
+                .replace(/[_]{2,}/g, "_");
 
-            const d = new Date().toISOString().slice(0, 10).replace(/-/g, "_");
+              const d = new Date()
+                .toISOString()
+                .slice(0, 10)
+                .replace(/-/g, "_");
 
-            const el = document.createElement("a");
-            el.href = url;
-            el.download = `${name}_${d}.ipynb`;
-            el.click();
-          }}
-        >
-          <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-          Download Notebook
-        </Button>
-      )}
+              const el = document.createElement("a");
+              el.href = url;
+              el.download = `${name}_${d}.ipynb`;
+              el.click();
+            }}
+          >
+            <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
+            Download Notebook
+          </Button>
+        )}
 
       {permissions.runExperiments && editMetrics && (
         <button

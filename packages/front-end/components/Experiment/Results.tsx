@@ -184,7 +184,7 @@ const Results: FC<{
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
             reportDate={snapshot.dateCreated}
-            results={snapshot.results}
+            results={snapshot.results || []}
             status={experiment.status}
             startDate={phaseObj?.dateStarted}
             dimensionId={snapshot.dimension}

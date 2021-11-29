@@ -200,7 +200,7 @@ export default function ReportPage() {
                 isLatestPhase={true}
                 metrics={report.args.metrics}
                 reportDate={report.dateCreated}
-                results={report.results?.dimensions}
+                results={report.results?.dimensions || []}
                 status={"stopped"}
                 startDate={getValidDate(report.args.startDate).toISOString()}
                 dimensionId={report.args.dimension}
