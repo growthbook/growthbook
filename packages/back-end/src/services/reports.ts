@@ -17,6 +17,19 @@ import { updateReport } from "../models/ReportModel";
 import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
+export function getReportVariations(
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase
+): ExperimentReportVariation[] {
+  return experiment.variations.map((v, i) => {
+    return {
+      id: v.key || i + "",
+      name: v.name,
+      weight: phase.variationWeights[i] || 0,
+    };
+  });
+}
+
 export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface
@@ -32,13 +45,7 @@ export function reportArgsFromSnapshot(
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || undefined,
     dimension: snapshot.dimension || undefined,
-    variations: experiment.variations.map((v, i) => {
-      return {
-        id: v.key || i + "",
-        name: v.name,
-        weight: phase.variationWeights[i] || 0,
-      };
-    }),
+    variations: getReportVariations(experiment, phase),
     segment: snapshot.segment,
     metrics: experiment.metrics,
     guardrails: experiment.guardrails,
@@ -48,52 +55,28 @@ export function reportArgsFromSnapshot(
   };
 }
 
-export async function startExperimentAnalysis({
-  organization,
-  datasource,
-  activationMetric,
-  metrics,
-  guardrails,
-  segment,
-  startDate,
-  endDate,
-  variations,
-  dimension,
-  trackingKey,
-  queryFilter,
-  userIdType,
-  skipPartialData,
-}: {
-  organization: string;
-  datasource: string;
-  activationMetric?: string;
-  metrics: string[];
-  guardrails?: string[];
-  segment?: string;
-  startDate: Date;
-  endDate?: Date;
-  variations: ExperimentReportVariation[];
-  dimension?: string;
-  trackingKey: string;
-  queryFilter?: string;
-  skipPartialData?: boolean;
-  userIdType?: "user" | "anonymous";
-}) {
+export async function startExperimentAnalysis(
+  organization: string,
+  args: ExperimentReportArgs
+) {
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metricObjs.forEach((m) => {
     metricMap.set(m.id, m);
   });
 
-  const datasourceObj = await getDataSourceById(datasource, organization);
+  const datasourceObj = await getDataSourceById(args.datasource, organization);
   if (!datasourceObj) {
     throw new Error("Missing datasource for report");
   }
 
-  const activationMetricObj = metricMap.get(activationMetric || "") || null;
+  const activationMetricObj =
+    metricMap.get(args.activationMetric || "") || null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(new Set(metrics.concat(guardrails || [])))
+  const selectedMetrics = Array.from(
+    new Set(args.metrics.concat(args.guardrails || []))
+  )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as MetricInterface[];
   if (!selectedMetrics.length) {
@@ -101,10 +84,10 @@ export async function startExperimentAnalysis({
   }
 
   let segmentObj: SegmentInterface | null = null;
-  if (segment) {
+  if (args.segment) {
     segmentObj =
       (await SegmentModel.findOne({
-        id: segment,
+        id: args.segment,
         organization,
       })) || null;
   }
@@ -114,24 +97,24 @@ export async function startExperimentAnalysis({
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
   const experimentPhaseObj: ExperimentPhase = {
-    dateStarted: startDate,
-    dateEnded: endDate,
+    dateStarted: args.startDate,
+    dateEnded: args.endDate,
     phase: "main",
     coverage: 1,
     reason: "",
-    variationWeights: variations.map((v) => v.weight),
+    variationWeights: args.variations.map((v) => v.weight),
   };
   const experimentObj: ExperimentInterface = {
-    userIdType,
+    userIdType: args.userIdType,
     organization,
-    skipPartialData,
-    trackingKey,
-    datasource,
-    segment,
-    queryFilter,
-    activationMetric,
-    metrics,
-    guardrails,
+    skipPartialData: args.skipPartialData,
+    trackingKey: args.trackingKey,
+    datasource: args.datasource,
+    segment: args.segment,
+    queryFilter: args.queryFilter,
+    activationMetric: args.activationMetric,
+    metrics: args.metrics,
+    guardrails: args.guardrails,
     id: "",
     name: "",
     dateCreated: new Date(),
@@ -146,7 +129,7 @@ export async function startExperimentAnalysis({
     autoSnapshots: false,
     targetURLRegex: "",
     archived: false,
-    variations: variations.map((v) => {
+    variations: args.variations.map((v) => {
       return {
         name: v.name,
         key: v.id,
@@ -154,7 +137,7 @@ export async function startExperimentAnalysis({
       };
     }),
   };
-  const dimensionObj = await parseDimensionId(dimension, organization);
+  const dimensionObj = await parseDimensionId(args.dimension, organization);
 
   // Run it as a single synchronous task (non-sql datasources and legacy code)
   if (!integration.getSourceProperties().separateExperimentResultQueries) {
@@ -184,7 +167,12 @@ export async function startExperimentAnalysis({
   const { queries, result: results } = await startRun(
     queryDocs,
     async (queryData) =>
-      analyzeExperimentResults(organization, variations, dimension, queryData)
+      analyzeExperimentResults(
+        organization,
+        args.variations,
+        args.dimension,
+        queryData
+      )
   );
   return { queries, results };
 }
@@ -193,10 +181,10 @@ export async function runReport(report: ReportInterface) {
   const updates: Partial<ReportInterface> = {};
 
   if (report.type === "experiment") {
-    const { queries, results } = await startExperimentAnalysis({
-      organization: report.organization,
-      ...report.args,
-    });
+    const { queries, results } = await startExperimentAnalysis(
+      report.organization,
+      report.args
+    );
     updates.queries = queries;
     updates.results = results || report.results;
     updates.runStarted = new Date();

@@ -18,6 +18,7 @@ import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
+import { getReportVariations } from "../services/reports";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -137,13 +138,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           (queryData) => {
             return analyzeExperimentResults(
               experiment.organization,
-              experiment.variations.map((v, i) => {
-                return {
-                  id: v.key || i + "",
-                  name: v.name,
-                  weight: phase.variationWeights[i] || 0,
-                };
-              }),
+              getReportVariations(experiment, phase),
               undefined,
               queryData
             );

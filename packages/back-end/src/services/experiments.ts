@@ -26,7 +26,11 @@ import { queueWebhook } from "../jobs/webhooks";
 import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { startExperimentAnalysis } from "./reports";
+import {
+  getReportVariations,
+  reportArgsFromSnapshot,
+  startExperimentAnalysis,
+} from "./reports";
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -221,13 +225,7 @@ export async function getManualSnapshotData(
         });
 
         const res = await analyzeExperimentMetric(
-          experiment.variations.map((v, i) => {
-            return {
-              id: v.key || i + "",
-              weight: phase.variationWeights[i] || 0,
-              name: v.name,
-            };
-          }),
+          getReportVariations(experiment, phase),
           metric,
           rows,
           20
@@ -321,43 +319,10 @@ export async function createSnapshot(
   phaseIndex: number,
   dimensionId: string | null
 ) {
-  const {
-    trackingKey,
-    metrics,
-    guardrails,
-    queryFilter,
-    segment,
-    activationMetric,
-    datasource,
-    userIdType,
-    skipPartialData,
-  } = experiment;
-  const { dateStarted, dateEnded, variationWeights } = experiment.phases[
-    phaseIndex
-  ];
-
-  const { queries, results } = await startExperimentAnalysis({
-    organization: experiment.organization,
-    trackingKey,
-    userIdType,
-    metrics,
-    skipPartialData,
-    guardrails,
-    queryFilter,
-    segment,
-    activationMetric,
-    datasource,
-    dimension: dimensionId || undefined,
-    endDate: dateEnded,
-    startDate: dateStarted,
-    variations: experiment.variations.map((v, i) => {
-      return {
-        id: v.key || i + "",
-        name: v.name,
-        weight: variationWeights[i] || 0,
-      };
-    }),
-  });
+  const phase = experiment.phases[phaseIndex];
+  if (!phase) {
+    throw new Error("Invalid snapshot phase");
+  }
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -368,17 +333,26 @@ export async function createSnapshot(
     dateCreated: new Date(),
     phase: phaseIndex,
     manual: false,
-    queries,
+    queries: [],
     hasRawQueries: true,
     queryLanguage: "sql",
     dimension: dimensionId,
-    results: results?.dimensions,
-    unknownVariations: results?.unknownVariations || [],
+    results: undefined,
+    unknownVariations: [],
     activationMetric: experiment.activationMetric || "",
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
   };
+
+  const { queries, results } = await startExperimentAnalysis(
+    experiment.organization,
+    reportArgsFromSnapshot(experiment, data)
+  );
+
+  data.queries = queries;
+  data.results = results?.dimensions;
+  data.unknownVariations = results?.unknownVariations || [];
 
   const snapshot = await ExperimentSnapshotModel.create(data);
 

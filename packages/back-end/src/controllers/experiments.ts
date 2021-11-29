@@ -63,6 +63,7 @@ import {
   analyzeExperimentResults,
 } from "../services/stats";
 import { getValidDate } from "../util/dates";
+import { getReportVariations } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -1659,13 +1660,7 @@ export async function getSnapshotStatus(
     (queryData) =>
       analyzeExperimentResults(
         org.id,
-        experiment.variations.map((v, i) => {
-          return {
-            id: v.key || i + "",
-            name: v.name,
-            weight: phase.variationWeights[i] || 0,
-          };
-        }),
+        getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData
       ),
