@@ -6,10 +6,9 @@ export type SelectOptions =
   | (
       | string
       | number
-      | boolean
       | null
       | {
-          value: string | number | boolean;
+          value: string | number;
           display: string;
         }
     )[]
@@ -65,7 +64,6 @@ function Options({ options }: { options: SelectOptions }) {
 
   return (
     <>
-      {" "}
       {Object.keys(options).map((k) => {
         return (
           <option key={k} value={k}>

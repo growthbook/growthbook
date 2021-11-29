@@ -28,7 +28,7 @@ export default function ReportPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
+  const { getMetricById, getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
@@ -48,19 +48,7 @@ export default function ReportPage() {
 
   const variations = report.args.variations;
 
-  const filteredDimensions: { id: string; name: string }[] = dimensions.filter(
-    (d) => d.datasource === report.args.datasource
-  );
-
   const datasource = getDatasourceById(report.args.datasource);
-  if (datasource?.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
-      filteredDimensions.push({
-        id: "exp:" + d,
-        name: d,
-      });
-    });
-  }
 
   const status = getQueryStatus(report.queries || [], report.error);
 

@@ -53,6 +53,15 @@ export default function ConfigureReport({
     name: "variations",
   });
 
+  if (datasource?.settings?.experimentDimensions?.length > 0) {
+    datasource.settings.experimentDimensions.forEach((d) => {
+      filteredDimensions.push({
+        display: d,
+        value: "exp:" + d,
+      });
+    });
+  }
+
   const builtInDimensions = [
     {
       display: "Date",

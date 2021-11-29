@@ -2,7 +2,6 @@ import { Response } from "express";
 import { ReportInterface } from "../../types/report";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
-import { getMetricById, updateMetric } from "../models/MetricModel";
 import {
   createReport,
   getReportById,
@@ -108,7 +107,6 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  // TODO: start refreshing results
   await runReport(report);
 
   return res.status(200).json({
@@ -198,20 +196,16 @@ export async function cancelReport(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const metric = await getMetricById(id, org.id, true);
-  if (!metric) {
+  const report = await getReportById(org.id, id);
+  if (!report) {
     throw new Error("Could not cancel query");
   }
   res.status(200).json(
-    await cancelRun(metric, org.id, async () => {
-      await updateMetric(
-        id,
-        {
-          queries: [],
-          runStarted: null,
-        },
-        org.id
-      );
+    await cancelRun(report, org.id, async () => {
+      await updateReport(org.id, id, {
+        queries: [],
+        runStarted: null,
+      });
     })
   );
 }
