@@ -13,6 +13,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const CompactResults: FC<{
   isUpdating?: boolean;
@@ -23,7 +24,7 @@ const CompactResults: FC<{
   reportDate: Date;
   startDate: string;
   isLatestPhase: boolean;
-  status: "running" | "draft" | "stopped";
+  status: ExperimentStatus;
   metrics: string[];
   id: string;
 }> = ({

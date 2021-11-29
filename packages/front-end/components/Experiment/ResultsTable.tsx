@@ -10,11 +10,12 @@ import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 export type ResultsTableProps = {
   id: string;
   variations: ExperimentReportVariation[];
-  status: "running" | "draft" | "stopped";
+  status: ExperimentStatus;
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];

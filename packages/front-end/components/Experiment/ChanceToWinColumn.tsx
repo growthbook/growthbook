@@ -9,6 +9,7 @@ import {
 } from "../../services/experiments";
 import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -25,7 +26,7 @@ export default function ChanceToWinColumn({
   stats,
 }: {
   metric: MetricInterface;
-  status: "draft" | "running" | "stopped";
+  status: ExperimentStatus;
   isLatestPhase: boolean;
   startDate: string;
   snapshotDate: Date;

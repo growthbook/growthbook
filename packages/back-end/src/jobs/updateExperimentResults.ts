@@ -132,6 +132,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     await new Promise<void>((resolve, reject) => {
       const check = async () => {
         const phase = experiment.phases[experiment.phases.length - 1];
+        if (!phase) {
+          reject("Invalid phase");
+          return;
+        }
         const res = await getStatusEndpoint(
           currentSnapshot,
           currentSnapshot.organization,

@@ -13,6 +13,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const FULL_STATS_LIMIT = 5;
 
@@ -54,7 +55,7 @@ const BreakDownResults: FC<{
   startDate: string;
   reportDate: Date;
   activationMetric?: string;
-  status: "running" | "draft" | "stopped";
+  status: ExperimentStatus;
 }> = ({
   dimensionId,
   results,
