@@ -22,6 +22,8 @@ import { MetricInterface, MetricStats } from "../../types/metric";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
+import { queueWebhook } from "../jobs/webhooks";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { startExperimentAnalysis } from "./reports";
@@ -500,4 +502,13 @@ export async function processPastExperiments(
   return Array.from(experimentMap.values()).filter(
     (e) => e.numVariations > 1 && e.numVariations < 10
   );
+}
+
+//
+export async function experimentUpdated(experiment: ExperimentInterface) {
+  // fire the webhook:
+  await queueWebhook(experiment.organization);
+
+  // invalidate the CDN
+  await queueCDNInvalidate(experiment);
 }

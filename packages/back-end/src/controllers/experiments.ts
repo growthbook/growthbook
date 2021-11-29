@@ -12,6 +12,7 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
+  experimentUpdated,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -52,7 +53,7 @@ import {
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { queueWebhook } from "../jobs/webhooks";
+
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
@@ -397,7 +398,7 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -596,7 +597,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
   }
 
   res.status(200).json({
@@ -635,7 +636,7 @@ export async function postExperimentArchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -687,7 +688,7 @@ export async function postExperimentUnarchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -785,7 +786,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -962,7 +963,7 @@ export async function postExperimentPhase(
 
     await ensureWatching(userId, org.id, exp.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -1131,7 +1132,7 @@ export async function deleteExperiment(
     },
   });
 
-  await queueWebhook(org.id);
+  await experimentUpdated(exp);
 
   res.status(200).json({
     status: 200,
