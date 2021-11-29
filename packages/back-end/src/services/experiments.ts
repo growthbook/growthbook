@@ -667,5 +667,5 @@ export async function experimentUpdated(experiment: ExperimentInterface) {
   await queueWebhook(experiment.organization);
 
   // invalidate the CDN
-  await queueCDNInvalidate(experiment.organization, experiment);
+  await queueCDNInvalidate(experiment);
 }
