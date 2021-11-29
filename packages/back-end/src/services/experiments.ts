@@ -3,22 +3,31 @@ import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
+import {
+  getMetricsByOrganization,
+  insertMetric,
+  updateMetric,
+} from "../models/MetricModel";
 import uniqid from "uniqid";
-import { analyzeExperimentMetric } from "./stats";
+import { addNonconvertingUsersToStats, analyzeExperimentMetric } from "./stats";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
-import { QueryMap } from "./queries";
+import { getMetricValue, QueryMap, startRun } from "./queries";
 import {
   PastExperimentResult,
   Dimension,
   ExperimentMetricQueryResponse,
+  MetricValueResult,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import {
+  MetricInterface,
+  MetricStats,
+  MetricAnalysis,
+} from "../../types/metric";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
@@ -31,6 +40,12 @@ import {
   reportArgsFromSnapshot,
   startExperimentAnalysis,
 } from "./reports";
+import { getValidDate } from "../util/dates";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { getSourceIntegrationObject } from "./datasource";
+import { SegmentModel } from "../models/SegmentModel";
+
+export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -112,6 +127,142 @@ export async function createMetric(data: Partial<MetricInterface>) {
   }
 
   return metric;
+}
+
+export async function getMetricAnalysis(
+  metric: MetricInterface,
+  queryData: QueryMap
+): Promise<MetricAnalysis> {
+  const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
+    users: 0,
+    count: 0,
+    mean: 0,
+    stddev: 0,
+  };
+
+  let total = (metricData.count || 0) * (metricData.mean || 0);
+  let count = metricData.count || 0;
+  let users = metricData.users || 0;
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
+
+  // Calculate total from dates
+  if (metricData.dates) {
+    total = 0;
+    count = 0;
+    users = 0;
+
+    metricData.dates.forEach((d) => {
+      const { mean, stddev } = metric.ignoreNulls
+        ? { mean: d.mean, stddev: d.stddev }
+        : addNonconvertingUsersToStats(d);
+
+      const averageBase = (metric.ignoreNulls ? d.count : d.users) || 0;
+      const dateTotal = (d.count || 0) * (d.mean || 0);
+      total += dateTotal;
+      count += d.count || 0;
+      users += d.users || 0;
+      dates.push({
+        d: getValidDate(d.date),
+        v: mean,
+        u: averageBase,
+        s: stddev,
+      });
+    });
+  }
+
+  const averageBase = metric.ignoreNulls ? count : users;
+  const average = averageBase > 0 ? total / averageBase : 0;
+
+  return {
+    createdAt: new Date(),
+    average,
+    users,
+    dates,
+    segment: metric.segment || "",
+    percentiles: metricData.percentiles
+      ? Object.keys(metricData.percentiles).map((k) => {
+          return {
+            p: parseInt(k) / 100,
+            v: metricData.percentiles?.[k] || 0,
+          };
+        })
+      : [],
+  };
+}
+
+export async function refreshMetric(
+  metric: MetricInterface,
+  orgId: string,
+  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
+) {
+  if (metric.datasource) {
+    const datasource = await getDataSourceById(
+      metric.datasource,
+      metric.organization
+    );
+    if (!datasource) {
+      throw new Error("Could not load metric datasource");
+    }
+    const integration = getSourceIntegrationObject(datasource);
+
+    let segmentQuery = "";
+    let segmentName = "";
+    if (metric.segment) {
+      const segment = await SegmentModel.findOne({
+        id: metric.segment,
+        datasource: metric.datasource,
+      });
+      if (!segment) {
+        throw new Error("Invalid user segment chosen");
+      }
+      segmentQuery = segment.sql;
+      segmentName = segment.name;
+    }
+
+    let days = metricAnalysisDays;
+    if (days < 1 || days > 400) {
+      days = DEFAULT_METRIC_ANALYSIS_DAYS;
+    }
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const to = new Date();
+
+    const baseParams = {
+      from,
+      to,
+      name: "Site-Wide",
+      includeByDate: true,
+      segmentName,
+      segmentQuery,
+      userIdType: metric.userIdType || "either",
+    };
+
+    const updates: Partial<MetricInterface> = {};
+
+    updates.runStarted = new Date();
+    updates.analysisError = "";
+
+    const { queries, result } = await startRun(
+      {
+        metric: getMetricValue(integration, {
+          ...baseParams,
+          metric,
+          includePercentiles: true,
+        }),
+      },
+      (queryData) => getMetricAnalysis(metric, queryData)
+    );
+
+    updates.queries = queries;
+    if (result) {
+      updates.analysis = result;
+    }
+
+    await updateMetric(metric.id, updates, orgId);
+  } else {
+    throw new Error("Cannot analyze manual metrics");
+  }
 }
 
 function generateTrackingKey(name: string, n: number): string {
