@@ -1,9 +1,4 @@
 import React, { FC } from "react";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip";
@@ -14,20 +9,42 @@ import {
 } from "../../services/experiments";
 import { useMemo } from "react";
 import ResultsTable from "./ResultsTable";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const CompactResults: FC<{
-  snapshot: ExperimentSnapshotInterface;
-  experiment: ExperimentInterfaceStringDates;
-  phase?: ExperimentPhaseStringDates;
   isUpdating?: boolean;
   editMetrics?: () => void;
-}> = ({ snapshot, experiment, phase, isUpdating, editMetrics }) => {
-  const { getMetricById } = useDefinitions();
+  variations: ExperimentReportVariation[];
+  unknownVariations: string[];
+  results: ExperimentReportResultDimension;
+  reportDate: Date;
+  startDate: string;
+  isLatestPhase: boolean;
+  status: ExperimentStatus;
+  metrics: string[];
+  id: string;
+}> = ({
+  results,
+  variations,
+  isUpdating,
+  unknownVariations,
+  editMetrics,
+  reportDate,
+  startDate,
+  status,
+  isLatestPhase,
+  metrics,
+  id,
+}) => {
+  const { getMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    const results = snapshot.results[0];
-    if (!results || !results.variations) return [];
-    return experiment.metrics
+    if (!results || !results.variations || !ready) return [];
+    return metrics
       .map((m) => {
         const metric = getMetricById(m);
         return {
@@ -40,22 +57,22 @@ const CompactResults: FC<{
         };
       })
       .filter((row) => row.metric);
-  }, [snapshot]);
+  }, [results, ready]);
 
   const users = useMemo(() => {
-    const vars = snapshot.results?.[0]?.variations;
-    return experiment.variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [snapshot]);
+    const vars = results?.variations;
+    return variations.map((v, i) => vars?.[i]?.users || 0);
+  }, [results]);
 
-  const risk = useRiskVariation(experiment, rows);
+  const risk = useRiskVariation(variations.length, rows);
 
   return (
     <>
       <div className="px-3">
         <DataQualityWarning
-          experiment={experiment}
-          snapshot={snapshot}
-          phase={phase}
+          results={results}
+          unknownVariations={unknownVariations}
+          variations={variations}
           isUpdating={isUpdating}
         />
         <h3 className="mb-3">
@@ -77,12 +94,14 @@ const CompactResults: FC<{
       </div>
       <div className="mb-3 experiment-compact-holder">
         <ResultsTable
-          dateCreated={snapshot.dateCreated}
-          experiment={experiment}
-          id={experiment.id}
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          variations={variations}
+          id={id}
           {...risk}
           labelHeader="Metric"
-          phase={snapshot.phase}
           users={users}
           renderLabelColumn={(label, metric) => {
             if (!metric.inverse) return label;

@@ -1,12 +1,12 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   defaultMaxPercentChange,
   defaultMinPercentChange,
   defaultMinSampleSize,
 } from "./metrics";
+import { ExperimentReportVariation } from "back-end/types/report";
 
 export type ExperimentTableRow = {
   label: string;
@@ -98,12 +98,12 @@ export function getRisk(riskVariation: number, row: ExperimentTableRow) {
 }
 
 export function useRiskVariation(
-  experiment: ExperimentInterfaceStringDates,
+  numVariations: number,
   rows: ExperimentTableRow[]
 ) {
   const [riskVariation, setRiskVariation] = useState(() => {
     // Calculate the total risk for each variation across all metrics
-    const sums: number[] = Array(experiment.variations.length).fill(0);
+    const sums: number[] = Array(numVariations).fill(0);
     rows.forEach((row) => {
       const baseline = row.variations[0];
       if (!baseline || !baseline.cr) return;
@@ -141,14 +141,14 @@ export function useRiskVariation(
   return { hasRisk, riskVariation, setRiskVariation };
 }
 export function useDomain(
-  experiment: ExperimentInterfaceStringDates,
+  variations: ExperimentReportVariation[],
   rows: ExperimentTableRow[]
 ): [number, number] {
   let lowerBound: number, upperBound: number;
   rows.forEach((row) => {
     const baseline = row.variations[0];
     if (!baseline) return;
-    experiment.variations?.forEach((v, i) => {
+    variations?.forEach((v, i) => {
       // Skip for baseline
       if (!i) return;
 

@@ -2,6 +2,7 @@ import Agenda, { AgendaConfig } from "agenda";
 import mongoose from "mongoose";
 import addExperimentResultsJob from "../jobs/updateExperimentResults";
 import addWebhooksJob from "../jobs/webhooks";
+import addCacheInvalidateJob from "../jobs/cacheInvalidate";
 
 let agenda: Agenda;
 export async function queueInit() {
@@ -13,6 +14,7 @@ export async function queueInit() {
 
   addExperimentResultsJob(agenda);
   addWebhooksJob(agenda);
+  addCacheInvalidateJob(agenda);
 
   await agenda.start();
 }
