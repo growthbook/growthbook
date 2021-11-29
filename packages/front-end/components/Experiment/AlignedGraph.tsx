@@ -71,18 +71,9 @@ const AlignedGraph: FC<Props> = ({
     } as const);
 
   // add some spacing around the graph
-  const leftDomain =
-    Math.abs(domain[0]) > 0.02
-      ? domain[0] > 0
-        ? domain[0] * 0.8 // left side is over zero, add padding by making it smaller
-        : domain[0] * 1.2 // left side less than zero, make larger
-      : domain[0] - 0.02;
-  const rightDomain =
-    Math.abs(domain[1]) > 0.02
-      ? domain[1] < 0
-        ? domain[1] * 0.8
-        : domain[1] * 1.2
-      : domain[1] + 0.02;
+  const domainPadding = (domain[1] - domain[0]) * 0.1;
+  const leftDomain = domain[0] - domainPadding;
+  const rightDomain = domain[1] + domainPadding;
   domain = [leftDomain, rightDomain];
   const tickFormat = (v: number) => {
     return " " + Math.round(v * 100) + "%";
