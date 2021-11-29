@@ -42,7 +42,7 @@ export default function (ag: Agenda) {
     await new Promise<void>((resolve, reject) => {
       cloudfront.createInvalidation(params, function (err) {
         if (err) {
-          console.error("Error invalidating CDN", err);
+          console.error("Error invalidating CDN", url, err);
           reject(err);
         } else {
           resolve();
