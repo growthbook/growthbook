@@ -221,7 +221,7 @@ export async function refreshMetric(
 
     let days = metricAnalysisDays;
     if (days < 1 || days > 400) {
-      days = 90;
+      days = DEFAULT_METRIC_ANALYSIS_DAYS;
     }
 
     const from = new Date();
