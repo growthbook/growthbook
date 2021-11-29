@@ -1602,6 +1602,7 @@ export async function postMetrics(
     conversionWindowHours,
     userIdType,
     sql,
+    status: "active",
     userIdColumn,
     anonymousIdColumn,
     timestampColumn,
