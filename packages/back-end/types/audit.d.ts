@@ -23,6 +23,7 @@ export type EventType =
   | "metric.create"
   | "metric.update"
   | "metric.delete"
+  | "metric.archived"
   | "metric.analysis"
   | "datasource.create"
   | "datasource.update"

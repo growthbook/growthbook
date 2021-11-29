@@ -29,10 +29,12 @@ const ImpactModal: FC<{
     },
   });
 
-  const possibleMetrics = metrics.filter(
-    // TODO: support non-binomial and manual metrics
-    (m) => m.type === "binomial" && m.datasource
-  );
+  const possibleMetrics = metrics
+    .filter(
+      // TODO: support non-binomial and manual metrics
+      (m) => m.type === "binomial" && m.datasource
+    )
+    .filter((m) => m.status !== "archived");
 
   const metric = getMetricById(form.watch("metric"));
 
@@ -41,7 +43,7 @@ const ImpactModal: FC<{
 
   return (
     <Modal
-      header="Impact Score Paramters"
+      header="Impact Score Parameters"
       open={true}
       submit={form.handleSubmit(async (value) => {
         // Need an API call to get an updated estimate

@@ -74,6 +74,19 @@ export async function getExperimentsByIds(ids: string[]) {
   });
 }
 
+export async function getExperimentsByQuery(
+  query: FilterQuery<ExperimentDocument>
+) {
+  return ExperimentModel.find(query);
+}
+
+export function removeMetricFromExperiments(metricId: string, orgId: string) {
+  return ExperimentModel.updateMany(
+    { organization: orgId, metrics: metricId },
+    { $pull: { metrics: metricId } }
+  );
+}
+
 export function deleteExperimentById(id: string) {
   return ExperimentModel.deleteOne({
     id,

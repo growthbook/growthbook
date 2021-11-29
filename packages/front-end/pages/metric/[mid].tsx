@@ -2,9 +2,12 @@ import { useRouter } from "next/router";
 import useApi from "../../hooks/useApi";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import { FC, useContext, useState, useEffect } from "react";
+import React, { FC, useContext, useState, useEffect, Fragment } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
 import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
@@ -47,6 +50,7 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
 import clsx from "clsx";
+import { IdeaInterface } from "back-end/types/idea";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -113,6 +117,115 @@ const MetricPage: FC = () => {
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  const getMetricUsage = (metric: MetricInterface) => {
+    return async () => {
+      try {
+        const res = await apiCall<{
+          status: number;
+          ideas?: IdeaInterface[];
+          experiments?: ExperimentInterface[];
+          total?: number;
+        }>(`/metric/${metric.id}/usage`, {
+          method: "GET",
+        });
+
+        const experimentLinks = [];
+        const ideaLinks = [];
+        let subtitleText = "This metric is not referenced anywhere else.";
+        if (res.total) {
+          subtitleText = "This metric is referenced in ";
+          const refs = [];
+          if (res.experiments.length) {
+            refs.push(
+              res.experiments.length === 1
+                ? "1 experiment"
+                : res.experiments.length + " experiments"
+            );
+            res.experiments.forEach((e) => {
+              experimentLinks.push(
+                <Link href={`/experiment/${e.id}`}>
+                  <a className="">{e.name}</a>
+                </Link>
+              );
+            });
+          }
+          if (res.ideas.length) {
+            refs.push(
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+            );
+            res.ideas.forEach((i) => {
+              ideaLinks.push(
+                <Link href={`/idea/${i.id}`}>
+                  <a>{i.text}</a>
+                </Link>
+              );
+            });
+          }
+          subtitleText += refs.join(" and ");
+
+          return (
+            <div>
+              <p>{subtitleText}</p>
+              {res.total > 0 && (
+                <>
+                  <div
+                    className="row mx-1 mb-2 mt-1 py-2"
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    {experimentLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Experiments:{" "}
+                        <ul className="mb-0 pl-3">
+                          {experimentLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {ideaLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Ideas:{" "}
+                        <ul className="mb-0 pl-3">
+                          {ideaLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mb-0">
+                    Deleting this metric will remove these references.
+                  </p>
+                </>
+              )}
+              <p>This delete action cannot be undone. </p>
+              <p>
+                If you would rather keep existing references, but prevent this
+                metric from being used in the future, you can archive this
+                metric instead.
+              </p>
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        return (
+          <div className="alert alert-danger">
+            An error occurred getting the segment usage
+          </div>
+        );
+      }
+    };
+  };
+
   return (
     <div className="container-fluid pagecontents">
       {editModalOpen !== false && (
@@ -161,21 +274,62 @@ const MetricPage: FC = () => {
       </div>
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">{metric.name}</h1>
+        <h1 className="col-auto">
+          {metric.name}{" "}
+          {metric.status === "archived" && (
+            <small className="text-muted">(archived)</small>
+          )}
+        </h1>
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <DeleteButton
-              className="ml-2"
-              onClick={async () => {
-                await apiCall(`/metric/${metric.id}`, {
-                  method: "DELETE",
-                });
-                mutateDefinitions({});
-                router.push("/metrics");
-              }}
-              displayName={"Metric '" + metric.name + "'"}
-            />
+            {metric.status === "archived" ? (
+              <DeleteButton
+                className="ml-2"
+                text="Delete/unarchive"
+                title="Delete/unarchive this metric"
+                getConfirmationContent={getMetricUsage(metric)}
+                secondaryAction="un-archive"
+                secondaryActionClick={async () => {
+                  await apiCall(`/metric/${metric.id}/status?status=active`, {
+                    method: "PUT",
+                  });
+                  mutateDefinitions({});
+                  router.push("/metrics");
+                }}
+                onClick={async () => {
+                  await apiCall(`/metric/${metric.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDefinitions({});
+                  router.push("/metrics");
+                }}
+                displayName={"Metric '" + metric.name + "'"}
+              />
+            ) : (
+              <DeleteButton
+                className="ml-2"
+                text="Delete/archive"
+                title="Delete/archive this metric"
+                getConfirmationContent={getMetricUsage(metric)}
+                secondaryAction="Archive"
+                secondaryActionClick={async () => {
+                  await apiCall(`/metric/${metric.id}/status?status=archived`, {
+                    method: "PUT",
+                  });
+                  mutateDefinitions({});
+                  router.push("/metrics");
+                }}
+                onClick={async () => {
+                  await apiCall(`/metric/${metric.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDefinitions({});
+                  router.push("/metrics");
+                }}
+                displayName={"Metric '" + metric.name + "'"}
+              />
+            )}
           </div>
         )}
       </div>

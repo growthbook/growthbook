@@ -2,6 +2,7 @@ import { Queries } from "./query";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
+export type MetricStatus = "active" | "archived";
 
 export interface MetricStats {
   users: number;
@@ -52,6 +53,7 @@ export interface MetricInterface {
   runStarted: Date | null;
   analysis?: MetricAnalysis;
   analysisError?: string;
+  status?: MetricStatus;
   sql?: string;
   // Query Builder Props (alternative to sql)
   table?: string;
