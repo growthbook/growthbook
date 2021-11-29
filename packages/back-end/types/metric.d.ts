@@ -4,6 +4,7 @@ export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 
 export interface MetricStats {
+  users: number;
   count: number;
   stddev: number;
   mean: number;
@@ -11,12 +12,13 @@ export interface MetricStats {
 
 export interface MetricAnalysis {
   createdAt: Date;
+  segment?: string;
   users: number;
   average: number;
   stddev?: number;
   count?: number;
   percentiles: { p: number; v: number }[];
-  dates: { d: Date; v: number }[];
+  dates: { d: Date; v: number; s?: number; u?: number }[];
 }
 
 export interface Condition {
@@ -39,12 +41,17 @@ export interface MetricInterface {
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;
-  dateCreated: Date;
-  dateUpdated: Date;
+  maxPercentChange?: number;
+  minPercentChange?: number;
+  minSampleSize?: number;
+  segment?: string;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   userIdType?: "anonymous" | "user" | "either";
   queries: Queries;
-  runStarted: Date;
+  runStarted: Date | null;
   analysis?: MetricAnalysis;
+  analysisError?: string;
   sql?: string;
   // Query Builder Props (alternative to sql)
   table?: string;

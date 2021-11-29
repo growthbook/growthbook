@@ -1,13 +1,23 @@
-import { IdeaModel } from "../models/IdeasModel";
+import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
 import uniqid from "uniqid";
 import { addTags } from "./tag";
 import { IdeaInterface } from "../../types/idea";
-//import {query} from "../config/postgres";
+import { FilterQuery } from "mongoose";
 
-export function getIdeasByOrganization(organization: string) {
-  return IdeaModel.find({
+export function getIdeasByOrganization(organization: string, project?: string) {
+  const query: FilterQuery<IdeaDocument> = {
     organization,
-  });
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  return IdeaModel.find(query);
+}
+
+export function getIdeasByQuery(query: FilterQuery<IdeaDocument>) {
+  return IdeaModel.find(query);
 }
 
 export async function createIdea(data: Partial<IdeaInterface>) {

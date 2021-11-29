@@ -8,6 +8,7 @@ const Tab: FC<{
   visible?: boolean;
   action?: ReactElement;
   className?: string;
+  padding?: boolean;
 }> = ({ children }) => {
   return <>{children}</>;
 };

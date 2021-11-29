@@ -25,6 +25,7 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { PresentationSlide } from "../../types/presentation";
+import { processPastExperimentQueryResponse } from "../services/queries";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -65,6 +66,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   }
 
   // Change organization settings (allow all kinds of experiments)
+  org.settings = org.settings || {};
   org.settings.visualEditorEnabled = true;
   await updateOrganization(id, {
     settings: org.settings,
@@ -87,26 +89,17 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     user_id as anonymous_id,
     received_at as timestamp,
     experiment_id,
-    variation_id,
-    '' as url,
-    '' as user_agent
+    variation_id
   FROM
     experiment_viewed`,
         pageviewsQuery: `SELECT
     user_id,
     user_id as anonymous_id,
     received_at as timestamp,
-    '' as url,
-    '' as user_agent
+    '' as url
   FROM
     pages`,
-        usersQuery: `SELECT
-    user_id,
-    user_id as anonymous_id
-  FROM
-    identifies`,
       },
-      variationIdFormat: "index",
     }
   );
   const integration = getSourceIntegrationObject(datasource);
@@ -209,8 +202,11 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   // Import experiments
   const yearago = new Date();
   yearago.setDate(yearago.getDate() - 365);
-  const pastExperimentsResult = await integration.runPastExperimentQuery(
+  const pastExperimentsResponse = await integration.runPastExperimentQuery(
     integration.getPastExperimentQuery({ from: yearago })
+  );
+  const pastExperimentsResult = processPastExperimentQueryResponse(
+    pastExperimentsResponse
   );
   const sharedFields: Partial<ExperimentInterface> = {
     description: "",
@@ -247,11 +243,13 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     }
     const data = experiments[imp.experiment_id];
 
-    if (data.phases[0].dateStarted > imp.start_date) {
-      data.phases[0].dateStarted = imp.start_date;
-    }
-    if (data.phases[0].dateEnded < imp.end_date) {
-      data.phases[0].dateEnded = imp.end_date;
+    if (data.phases && data.phases[0]) {
+      if (data.phases[0].dateStarted > imp.start_date) {
+        data.phases[0].dateStarted = imp.start_date;
+      }
+      if (data.phases[0].dateEnded && data.phases[0].dateEnded < imp.end_date) {
+        data.phases[0].dateEnded = imp.end_date;
+      }
     }
 
     if (imp.experiment_id === "green_buttons") {
@@ -358,12 +356,16 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       const exp = await createExperiment(data);
 
       // Add a few experiments to evidence
-      if (["simple_registration", "green_buttons"].includes(data.trackingKey)) {
+      if (
+        ["simple_registration", "green_buttons"].includes(
+          data.trackingKey || ""
+        )
+      ) {
         evidence.push(exp.id);
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, datasource);
+      await createSnapshot(exp, 0, datasource, null);
     })
   );
 

@@ -51,17 +51,17 @@ if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
 
 export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
 export const EMAIL_HOST = process.env.EMAIL_HOST;
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT) || 587;
+export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_USE_TLS = !!process.env.EMAIL_USE_TLS;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
-export const STRIPE_SECRET = process.env.STRIPE_SECRET;
-export const STRIPE_PRICE = process.env.STRIPE_PRICE;
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON;
+export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
+export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
@@ -73,7 +73,7 @@ export const AWS_CLOUDFRONT_DISTRIBUTION_ID =
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
-  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY) || 6;
+  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS) || 72;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || 72;

@@ -4,26 +4,24 @@ import {
   DataSourceProperties,
 } from "../../types/datasource";
 import {
-  ExperimentResults,
   ImpactEstimationResult,
   MetricValueParams,
-  UsersQueryParams,
-  MetricValueResult,
-  UsersResult,
   SourceIntegrationInterface,
-  VariationMetricResult,
-  PastExperimentResult,
   ExperimentMetricQueryParams,
-  ExperimentMetricResult,
-  ExperimentUsersQueryParams,
-  ExperimentUsersResult,
   PastExperimentParams,
+  PastExperimentResponse,
+  ExperimentMetricQueryResponse,
+  MetricValueQueryResponse,
+  MetricValueQueryResponseRow,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { processMetricValueQueryResponse } from "../services/queries";
+import { getValidDate } from "../util/dates";
 
 const percentileNumbers = [
   0.01,
@@ -40,36 +38,6 @@ const percentileNumbers = [
   0.95,
   0.99,
 ];
-
-type UsersQueryResponse = {
-  date?: string;
-  users: string;
-}[];
-type MetricValueQueryResponse = {
-  date?: string;
-  count: string;
-  mean: string;
-  stddev: string;
-}[];
-type PastExperimentResponse = {
-  experiment_id: string;
-  variation_id: string;
-  start_date: string;
-  end_date: string;
-  users: string;
-}[];
-type ExperimentUsersQueryResponse = {
-  dimension?: string;
-  variation: string;
-  users: string;
-}[];
-type ExperimentMetricQueryResponse = {
-  dimension?: string;
-  variation: string;
-  count: string;
-  mean: string;
-  stddev: string;
-}[];
 
 export function getExperimentQuery(
   settings: DataSourceSettings,
@@ -98,36 +66,10 @@ export function getExperimentQuery(
   ${
     settings?.experiments?.experimentIdColumn || "experiment_id"
   } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id,
-  '' as url,
-  '' as user_agent
+  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
 FROM 
   ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
     settings?.experiments?.table || "experiment_viewed"
-  }`;
-}
-export function getUsersQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.usersQuery) {
-    return settings.queries.usersQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.identifies?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.identifies?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id
-FROM 
-  ${schema && !settings?.identifies?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.identifies?.table || "identifies"
   }`;
 }
 
@@ -155,8 +97,7 @@ export function getPageviewsQuery(
     settings?.default?.timestampColumn ||
     "received_at"
   } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url,
-  '' as user_agent
+  ${settings?.pageviews?.urlColumn || "path"} as url
 FROM 
   ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
     settings?.pageviews?.table || "pages"
@@ -168,27 +109,31 @@ export default abstract class SqlIntegration
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
+  // eslint-disable-next-line
+  params: any;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
   abstract percentile(col: string, percentile: number): string;
-  // eslint-disable-next-line
-  abstract getNonSensitiveParams(): any;
+  abstract getSensitiveParamKeys(): string[];
+
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     this.setParams(encryptedParams);
     this.settings = {
       ...settings,
     };
   }
-
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "database",
       queryLanguage: "sql",
       metricCaps: true,
+      segments: true,
+      dimensions: true,
       separateExperimentResultQueries: true,
+      hasSettings: true,
+      userIds: true,
+      experimentSegments: true,
+      activationDimension: true,
     };
   }
 
@@ -220,10 +165,19 @@ export default abstract class SqlIntegration
   }
   // eslint-disable-next-line
   convertDate(fromDB: any): Date {
-    return new Date(fromDB);
+    return getValidDate(fromDB);
   }
   stddev(col: string) {
     return `STDDEV(${col})`;
+  }
+  avg(col: string) {
+    return `AVG(${col})`;
+  }
+  formatDate(col: string): string {
+    return col;
+  }
+  ifElse(condition: string, ifTrue: string, ifFalse: string) {
+    return `(CASE WHEN ${condition} THEN ${ifTrue} ELSE ${ifFalse} END)`;
   }
 
   getPastExperimentQuery(params: PastExperimentParams) {
@@ -299,20 +253,18 @@ export default abstract class SqlIntegration
       this.getFormatOptions()
     );
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {
-    const rows: PastExperimentResponse = await this.runQuery(query);
+  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
+    const rows = await this.runQuery(query);
 
-    return {
-      experiments: rows.map((r) => {
-        return {
-          users: parseInt(r.users),
-          end_date: this.convertDate(r.end_date),
-          start_date: this.convertDate(r.start_date),
-          experiment_id: r.experiment_id,
-          variation_id: r.variation_id,
-        };
-      }),
-    };
+    return rows.map((row) => {
+      return {
+        experiment_id: row.experiment_id,
+        variation_id: row.variation_id ?? "",
+        users: parseInt(row.users) || 0,
+        end_date: this.convertDate(row.end_date).toISOString(),
+        start_date: this.convertDate(row.start_date).toISOString(),
+      };
+    });
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
@@ -322,6 +274,8 @@ export default abstract class SqlIntegration
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
         ${this.getIdentifiesCTE(userId, {
+          from: params.from,
+          to: params.to,
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
@@ -335,7 +289,7 @@ export default abstract class SqlIntegration
           params.segmentQuery
             ? `, segment as (${this.getSegmentCTE(
                 params.segmentQuery,
-                params.segmentName,
+                params.segmentName || "",
                 userId
               )})`
             : ""
@@ -378,6 +332,33 @@ export default abstract class SqlIntegration
           GROUP BY
             d.user_id
         )
+        , __overallUsers as (
+          -- Number of users overall
+          SELECT
+            COUNT(*) as users
+          FROM
+            __distinctUsers
+        )
+        , __overall as (
+          SELECT
+            COUNT(*) as count,
+            ${this.avg("value")} as mean,
+            ${this.stddev("value")} as stddev
+            ${
+              params.includePercentiles && params.metric.type !== "binomial"
+                ? `,${percentileNumbers
+                    .map(
+                      (n) =>
+                        `${this.percentile("value", n)} as p${Math.floor(
+                          n * 100
+                        )}`
+                    )
+                    .join("\n      ,")}`
+                : ""
+            }
+          from
+            __userMetric
+        )
         ${
           params.includeByDate
             ? `
@@ -399,45 +380,53 @@ export default abstract class SqlIntegration
             GROUP BY
               ${this.dateTrunc("d.actual_start")},
               d.user_id
+          )
+          , __usersByDate as (
+            -- Number of users by date
+            SELECT
+              ${this.dateTrunc("actual_start")} as date,
+              COUNT(*) as users
+            FROM
+              __distinctUsers
+            GROUP BY
+              ${this.dateTrunc("actual_start")}
+          )
+          , __byDateOverall as (
+            SELECT
+              date,
+              COUNT(*) as count,
+              ${this.avg("value")} as mean,
+              ${this.stddev("value")} as stddev
+              ${
+                params.includePercentiles && params.metric.type !== "binomial"
+                  ? `,${percentileNumbers
+                      .map((n) => `0 as p${Math.floor(n * 100)}`)
+                      .join("\n      ,")}`
+                  : ""
+              }
+            FROM
+              __userMetricDates d
+            GROUP BY
+              date
           )`
             : ""
         }
       SELECT
         ${params.includeByDate ? "null as date," : ""}
-        COUNT(*) as count,
-        AVG(value) as mean,
-        ${this.stddev("value")} as stddev
-        ${
-          params.includePercentiles && params.metric.type !== "binomial"
-            ? `,${percentileNumbers
-                .map(
-                  (n) =>
-                    `${this.percentile("value", n)} as p${Math.floor(n * 100)}`
-                )
-                .join("\n      ,")}`
-            : ""
-        }
-      from
-        __userMetric
+        o.*,
+        u.users
+      FROM
+        __overall o
+        JOIN __overallUsers u ON (1=1)
       ${
         params.includeByDate
           ? `
         UNION ALL SELECT
-          date,
-          COUNT(*) as count,
-          AVG(value) as mean,
-          ${this.stddev("value")} as stddev
-          ${
-            params.includePercentiles && params.metric.type !== "binomial"
-              ? `,${percentileNumbers
-                  .map((n) => `0 as p${Math.floor(n * 100)}`)
-                  .join("\n      ,")}`
-              : ""
-          }
+          o.*,
+          u.users
         FROM
-          __userMetricDates d
-        GROUP BY
-          date
+          __byDateOverall o
+          JOIN __usersByDate u ON (o.date = u.date)
         ORDER BY
           date ASC
       `
@@ -448,219 +437,44 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUsersQuery(params: UsersQueryParams): string {
-    const userId = params.userIdType === "user";
-
-    return format(
-      `-- ${params.name} - Number of Users
-      WITH
-        ${this.getIdentifiesCTE(userId, {
-          segment: !!params.segmentQuery,
-        })}
-        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
-        __users as (${this.getPageUsersCTE(params, userId)})
-        ${
-          params.segmentQuery
-            ? `, __segment as (${this.getSegmentCTE(
-                params.segmentQuery,
-                params.segmentName,
-                userId
-              )})`
-            : ""
-        }
-      SELECT
-        ${params.includeByDate ? "null as date," : ""}
-        COUNT(DISTINCT u.user_id) as users
-      FROM
-        __users u
-        ${
-          params.segmentQuery
-            ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
-            : ""
-        }
-
-      ${
-        params.includeByDate
-          ? `
-        UNION ALL SELECT
-          ${this.dateTrunc("u.actual_start")} as date,
-          COUNT(DISTINCT u.user_id) as users
-        FROM
-          __users u
-          ${
-            params.segmentQuery
-              ? "JOIN __segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
-              : ""
-          }
-        GROUP BY
-          ${this.dateTrunc("u.actual_start")}
-        ORDER BY
-          date asc
-      `
-          : ""
-      }
-      `,
-      this.getFormatOptions()
-    );
-  }
-
-  async runExperimentUsersQuery(
-    experiment: ExperimentInterface,
-    query: string
-  ): Promise<ExperimentUsersResult> {
-    const rows: ExperimentUsersQueryResponse = await this.runQuery(query);
-    const ret: ExperimentUsersResult = {
-      dimensions: [],
-      unknownVariations: [],
-    };
-
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensionMap = new Map<string, number>();
-    rows.forEach(({ variation, dimension, users }) => {
-      let i = 0;
-      if (dimensionMap.has(dimension)) {
-        i = dimensionMap.get(dimension);
-      } else {
-        i = ret.dimensions.length;
-        ret.dimensions.push({
-          dimension,
-          variations: [],
-        });
-        dimensionMap.set(dimension, i);
-      }
-
-      const varIndex =
-        (this.settings?.variationIdFormat ||
-          this.settings?.experiments?.variationFormat) === "key"
-          ? variationKeyMap.get(variation)
-          : parseInt(variation);
-      if (
-        typeof varIndex === "undefined" ||
-        varIndex < 0 ||
-        varIndex >= experiment.variations.length
-      ) {
-        ret.unknownVariations.push(variation);
-        return;
-      }
-
-      ret.dimensions[i].variations.push({
-        variation: varIndex,
-        users: parseInt(users) || 0,
-      });
-    });
-
-    return ret;
-  }
   async runExperimentMetricQuery(
-    experiment: ExperimentInterface,
     query: string
-  ): Promise<ExperimentMetricResult> {
-    const rows: ExperimentMetricQueryResponse = await this.runQuery(query);
-    const ret: ExperimentMetricResult = {
-      dimensions: [],
-    };
-
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
+  ): Promise<ExperimentMetricQueryResponse> {
+    const rows = await this.runQuery(query);
+    return rows.map((row) => {
+      return {
+        variation: row.variation ?? "",
+        dimension: row.dimension || "",
+        users: parseInt(row.users) || 0,
+        count: parseFloat(row.count) || 0,
+        mean: parseFloat(row.mean) || 0,
+        stddev: parseFloat(row.stddev) || 0,
+      };
     });
-
-    const dimensionMap = new Map<string, number>();
-    rows.forEach(({ variation, dimension, count, mean, stddev }) => {
-      let i = 0;
-      if (dimensionMap.has(dimension)) {
-        i = dimensionMap.get(dimension);
-      } else {
-        i = ret.dimensions.length;
-        ret.dimensions.push({
-          dimension,
-          variations: [],
-        });
-        dimensionMap.set(dimension, i);
-      }
-
-      const varIndex =
-        (this.settings?.variationIdFormat ||
-          this.settings?.experiments?.variationFormat) === "key"
-          ? variationKeyMap.get(variation)
-          : parseInt(variation);
-      if (varIndex < 0 || varIndex >= experiment.variations.length) {
-        console.log("Unexpected variation", variation);
-        return;
-      }
-
-      ret.dimensions[i].variations.push({
-        variation: varIndex,
-        stats: {
-          mean: parseFloat(mean) || 0,
-          count: parseFloat(count) || 0,
-          stddev: parseFloat(stddev) || 0,
-        },
-      });
-    });
-
-    return ret;
   }
 
-  async runUsersQuery(query: string): Promise<UsersResult> {
-    const rows: UsersQueryResponse = await this.runQuery(query);
-    const ret: UsersResult = {
-      users: 0,
-    };
-    rows.forEach((row) => {
-      const { users, date } = row;
-      if (date) {
-        ret.dates = ret.dates || [];
-        ret.dates.push({
-          date: this.convertDate(date).toISOString(),
-          users: parseInt(users) || 0,
-        });
-      } else {
-        ret.users = parseInt(users) || 0;
-      }
-    });
-
-    return ret;
-  }
-  async runMetricValueQuery(query: string): Promise<MetricValueResult> {
+  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const rows = await this.runQuery(query);
 
-    const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
+    return rows.map((row) => {
+      const { date, count, mean, users, stddev, ...percentiles } = row;
 
-    rows.forEach((row) => {
-      const { date, count, mean, stddev, ...percentiles } = row;
+      const ret: MetricValueQueryResponseRow = {
+        date: date ? this.convertDate(date).toISOString() : "",
+        users: parseInt(users) || 0,
+        count: parseFloat(count) || 0,
+        mean: parseFloat(mean) || 0,
+        stddev: parseFloat(stddev) || 0,
+      };
 
-      // Row for each date
-      if (date) {
-        ret.dates = ret.dates || [];
-        ret.dates.push({
-          date: this.convertDate(date).toISOString(),
-          count: parseInt(count) || 0,
-          mean: parseFloat(mean) || 0,
-          stddev: parseFloat(stddev) || 0,
+      if (percentiles) {
+        Object.keys(percentiles).forEach((p) => {
+          ret[p] = parseFloat(percentiles[p]) || 0;
         });
       }
-      // Overall numbers
-      else {
-        ret.count = parseInt(count) || 0;
-        ret.mean = parseFloat(mean) || 0;
-        ret.stddev = parseFloat(stddev) || 0;
 
-        if (percentiles) {
-          Object.keys(percentiles).forEach((p) => {
-            ret.percentiles = ret.percentiles || {};
-            ret.percentiles[p.replace(/^p/, "")] =
-              parseInt(percentiles[p]) || 0;
-          });
-        }
-      }
+      return ret;
     });
-
-    return ret;
   }
 
   getFormatOptions(): FormatOptions {
@@ -690,17 +504,10 @@ export default abstract class SqlIntegration
       from: start,
       to: end,
       includeByDate: false,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
       conversionWindowHours,
     };
 
-    const usersSql = this.getUsersQuery({
-      ...baseSettings,
-      name: "Traffic - Selected Pages and Segment",
-      urlRegex,
-      segmentQuery: segment?.sql || null,
-      segmentName: segment?.name,
-    });
     const metricSql = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Entire Site",
@@ -713,75 +520,70 @@ export default abstract class SqlIntegration
       metric,
       includePercentiles: false,
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
 
-    const [users, metricTotal, value]: [
-      UsersQueryResponse,
+    const [metricTotalResponse, valueResponse]: [
       MetricValueQueryResponse,
       MetricValueQueryResponse
     ] = await Promise.all([
-      this.runQuery(usersSql),
-      this.runQuery(metricSql),
-      this.runQuery(valueSql),
+      this.runMetricValueQuery(metricSql),
+      this.runMetricValueQuery(valueSql),
     ]);
 
+    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
+    const value = processMetricValueQueryResponse(valueResponse);
+
     const formatted =
-      [usersSql, metricSql, valueSql]
+      [metricSql, valueSql]
         .map((sql) => format(sql, this.getFormatOptions()))
         .join(";\n\n") + ";";
 
-    if (
-      users &&
-      metricTotal &&
-      value &&
-      users[0] &&
-      metricTotal[0] &&
-      value[0]
-    ) {
-      return {
-        query: formatted,
-        users: (parseInt(users[0].users) || 0) / numDays,
-        value:
-          (parseInt(value[0].count) * parseFloat(value[0].mean) || 0) / numDays,
-        metricTotal:
-          (parseInt(metricTotal[0].count) * parseFloat(metricTotal[0].mean) ||
-            0) / numDays,
-      };
-    }
-
     return {
       query: formatted,
-      users: 0,
-      value: 0,
-      metricTotal: 0,
+      users: value.users,
+      value: (value.count * value.mean) / numDays,
+      metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
     };
   }
 
   private getIdentifiesCTE(
     userId: boolean,
     {
+      from,
+      to,
       metrics,
       dimension,
       segment,
     }: {
-      metrics?: MetricInterface[];
+      from: Date;
+      to?: Date;
+      metrics?: (MetricInterface | null)[];
       dimension?: boolean;
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (${getUsersQuery(
-      this.settings,
-      this.getSchema()
-    )}),`;
+    const select = `__identities as (
+      SELECT
+        user_id,
+        anonymous_id
+      FROM
+        (${getPageviewsQuery(this.settings, this.getSchema())}) i
+      WHERE
+        i.timestamp >= ${this.toTimestamp(from)}
+        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+      GROUP BY
+        user_id, 
+        anonymous_id
+    ),`;
 
     if (metrics) {
       for (let i = 0; i < metrics.length; i++) {
         if (!metrics[i]) continue;
-        if (userId && metrics[i].userIdType === "anonymous") {
+        if (userId && metrics[i]?.userIdType === "anonymous") {
           return select;
-        } else if (!userId && metrics[i].userIdType === "user") {
+        } else if (!userId && metrics[i]?.userIdType === "user") {
           return select;
         }
       }
@@ -798,120 +600,86 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  getExperimentUsersQuery(params: ExperimentUsersQueryParams): string {
-    const { experiment, phase, dimension, activationMetric } = params;
-
-    const userId = experiment.userIdType === "user";
-
-    return format(
-      `-- Number of users in experiment
-    WITH
-      ${this.getIdentifiesCTE(userId, {
-        dimension: !!dimension,
-        metrics: [activationMetric],
-      })}
-      __rawExperiment as (${getExperimentQuery(
-        this.settings,
-        this.getSchema()
-      )}),
-      __experiment as (${this.getExperimentCTE(
-        experiment,
-        phase,
-        activationMetric?.conversionWindowHours,
-        userId
-      )})
-      ${
-        dimension
-          ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
-          : ""
-      }
-      ${
-        activationMetric
-          ? `, __activationMetric as (${this.getMetricCTE(
-              activationMetric,
-              DEFAULT_CONVERSION_WINDOW_HOURS,
-              userId
-            )})`
-          : ""
-      }
-      , __distinctUsers as (
-        -- One row per user/dimension/variation
-        SELECT
-          e.user_id,
-          e.variation,
-          ${dimension ? "d.value" : "'All'"} as dimension
-        FROM
-          __experiment e
-          ${dimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""}
-          ${
-            activationMetric
-              ? `
-          JOIN __activationMetric a ON (
-            a.user_id = e.user_id
-          ) WHERE
-            a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end`
-              : ""
-          }
-        GROUP BY
-          variation, dimension, e.user_id
-      )
-    -- Count of distinct users in experiment per variation/dimension
-    SELECT
-      variation,
-      dimension,
-      COUNT(*) as users
-    FROM
-      __distinctUsers
-    GROUP BY
-      variation,
-      dimension
-    `,
-      this.getFormatOptions()
-    );
-  }
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { metric, experiment, phase, dimension, activationMetric } = params;
-    if (experiment.sqlOverride && experiment.sqlOverride.has(metric.id)) {
-      return experiment.sqlOverride
-        .get(metric.id)
-        .replace(/{{\s*dateStart\s*}}/g, this.toTimestamp(phase.dateStarted))
-        .replace(
-          /{{\s*dateEnd\s*}}/g,
-          this.toTimestamp(phase.dateEnded || new Date())
+  private getActivatedUsersCTE() {
+    return `
+      SELECT
+        e.user_id,
+        a.actual_start,
+        a.session_start,
+        a.conversion_end
+      FROM
+        __experiment e
+        JOIN __activationMetric a ON (
+          a.user_id = e.user_id
         )
-        .replace(/{{\s*experimentKey\s*}}/g, `'${experiment.trackingKey}'`);
-    }
+      WHERE
+        a.actual_start >= e.actual_start
+        AND a.actual_start <= e.conversion_end`;
+  }
+
+  private ifNullFallback(nullable: string | null, fallback: string) {
+    if (!nullable) return fallback;
+    return `COALESCE(${nullable}, ${fallback})`;
+  }
+
+  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
+    const {
+      metric,
+      experiment,
+      phase,
+      dimension,
+      activationMetric,
+      segment,
+    } = params;
 
     const userId = experiment.userIdType === "user";
+
+    const activationDimension =
+      activationMetric && dimension?.type === "activation";
 
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
       ${this.getIdentifiesCTE(userId, {
-        dimension: !!dimension,
+        from: phase.dateStarted,
+        to: phase.dateEnded,
+        dimension: dimension?.type === "user",
         metrics: [metric, activationMetric],
       })}
       __rawExperiment as (${getExperimentQuery(
         this.settings,
         this.getSchema()
       )}),
-      __experiment as (${this.getExperimentCTE(
+      __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
-        activationMetric
-          ? activationMetric.conversionWindowHours
-          : metric.conversionWindowHours,
-        userId
-      )})
+        conversionWindowHours:
+          (activationMetric
+            ? activationMetric.conversionWindowHours
+            : metric.conversionWindowHours) || 0,
+        experimentDimension:
+          dimension?.type === "experiment" ? dimension.id : null,
+      })})
       , __metric as (${this.getMetricCTE(
         metric,
         DEFAULT_CONVERSION_WINDOW_HOURS,
         userId
       )})
       ${
-        dimension
-          ? `, __dimension as (${this.getDimensionCTE(dimension, userId)})`
+        segment
+          ? `, __segment as (${this.getSegmentCTE(
+              segment.sql,
+              segment.name,
+              userId
+            )})`
+          : ""
+      }
+      ${
+        dimension?.type === "user"
+          ? `, __dimension as (${this.getDimensionCTE(
+              dimension.dimension,
+              userId
+            )})`
           : ""
       }
       ${
@@ -920,7 +688,8 @@ export default abstract class SqlIntegration
               activationMetric,
               metric.conversionWindowHours,
               userId
-            )})`
+            )})
+            , __activatedUsers as (${this.getActivatedUsersCTE()})`
           : ""
       }
       , __distinctUsers as (
@@ -928,21 +697,47 @@ export default abstract class SqlIntegration
         SELECT
           e.user_id,
           e.variation,
-          ${dimension ? "d.value" : "'All'"} as dimension,
-          MIN(${activationMetric ? "a" : "e"}.actual_start) as actual_start,
-          MIN(${activationMetric ? "a" : "e"}.session_start) as session_start,
-          MIN(${activationMetric ? "a" : "e"}.conversion_end) as conversion_end
+          ${
+            dimension?.type === "user"
+              ? "d.value"
+              : dimension?.type === "experiment"
+              ? "e.dimension"
+              : dimension?.type === "date"
+              ? this.formatDate(this.dateTrunc("e.actual_start"))
+              : activationDimension
+              ? this.ifElse(
+                  "a.user_id IS NULL",
+                  "'Not Activated'",
+                  "'Activated'"
+                )
+              : "'All'"
+          } as dimension,
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.actual_start" : null,
+            "e.actual_start"
+          )}) as actual_start,
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.session_start" : null,
+            "e.session_start"
+          )}) as session_start,
+          MIN(${this.ifNullFallback(
+            activationMetric ? "a.conversion_end" : null,
+            "e.conversion_end"
+          )}) as conversion_end
         FROM
           __experiment e
-          ${dimension ? "JOIN __dimension d ON (d.user_id = e.user_id)" : ""}
+          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
+          ${
+            dimension?.type === "user"
+              ? "JOIN __dimension d ON (d.user_id = e.user_id)"
+              : ""
+          }
           ${
             activationMetric
               ? `
-          JOIN __activationMetric a ON (
+          ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
             a.user_id = e.user_id
-          ) WHERE
-            a.actual_start >= e.actual_start
-            AND a.actual_start <= e.conversion_end`
+          )`
               : ""
           }
         GROUP BY
@@ -967,175 +762,54 @@ export default abstract class SqlIntegration
         GROUP BY
           variation, dimension, d.user_id
       )
-    -- Sum all user metrics together to get a total per variation/dimension
+      , __overallUsers as (
+        -- Number of users in each variation
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as users
+        FROM
+          __distinctUsers
+        GROUP BY
+          variation,
+          dimension
+      )
+      , __stats as (    
+        -- Sum all user metrics together to get a total per variation/dimension
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as count,
+          ${this.avg("value")} as mean,
+          ${this.stddev("value")} as stddev
+        FROM
+          __userMetric
+        GROUP BY
+          variation,
+          dimension
+      )
     SELECT
-      variation,
-      dimension,
-      COUNT(*) as count,
-      AVG(value) as mean,
-      ${this.stddev("value")} as stddev
+      s.variation,
+      s.dimension,
+      s.count,
+      s.mean,
+      s.stddev,
+      u.users
     FROM
-      __userMetric
-    GROUP BY
-      variation,
-      dimension
+      __stats s
+      JOIN __overallUsers u ON (
+        s.variation = u.variation 
+        AND s.dimension = u.dimension
+      )
     `,
       this.getFormatOptions()
     );
   }
-  getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
-  ): string {
-    const query: string[] = [];
-
-    // Users query
-    query.push(
-      this.getExperimentUsersQuery({
-        experiment,
-        phase,
-        activationMetric,
-        dimension,
-      })
-    );
-    metrics.forEach((m) => {
-      const sql = this.getExperimentMetricQuery({
-        metric: m,
-        experiment,
-        phase,
-        activationMetric,
-        dimension,
-      });
-      query.push(sql);
-    });
-
-    return (
-      query.map((q) => format(q, this.getFormatOptions())).join(";\n\n") + ";"
-    );
+  getExperimentResultsQuery(): string {
+    throw new Error("Not implemented");
   }
-
-  async getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
-    dimension: DimensionInterface | null
-  ): Promise<ExperimentResults> {
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensionMap = new Map<
-      string,
-      { variation: number; users: number; metrics: VariationMetricResult[] }[]
-    >();
-
-    const query: string[] = [];
-
-    const getDimensionData = (key: string, variation: number) => {
-      let obj = dimensionMap.get(key);
-      if (!obj) {
-        obj = [];
-        dimensionMap.set(key, obj);
-      }
-
-      if (!obj[variation]) {
-        obj[variation] = {
-          variation,
-          users: 0,
-          metrics: [],
-        };
-      }
-
-      return obj[variation];
-    };
-
-    const promises = metrics.map(async (m) => {
-      const sql = this.getExperimentMetricQuery({
-        metric: m,
-        experiment,
-        phase,
-        activationMetric,
-        dimension,
-      });
-      query.push(sql);
-      const rows: {
-        variation: string;
-        dimension: string;
-        count: string;
-        mean: string;
-        stddev: string;
-      }[] = await this.runQuery(sql);
-
-      rows.forEach(({ variation, dimension, count, mean, stddev }) => {
-        const varIndex =
-          (this.settings?.variationIdFormat ||
-            this.settings?.experiments?.variationFormat) === "key"
-            ? variationKeyMap.get(variation)
-            : parseInt(variation);
-
-        if (varIndex < 0 || varIndex >= experiment.variations.length) {
-          console.log("Unexpected variation", variation);
-          return;
-        }
-
-        const data = getDimensionData(dimension, varIndex);
-        data.metrics.push({
-          metric: m.id,
-          count: parseInt(count) || 0,
-          mean: parseFloat(mean) || 0,
-          stddev: parseFloat(stddev) || 0,
-        });
-      });
-    });
-
-    // Users query
-    promises.push(
-      (async () => {
-        const sql = this.getExperimentUsersQuery({
-          experiment,
-          phase,
-          activationMetric,
-          dimension,
-        });
-        query.push(sql);
-        const rows: {
-          variation: string;
-          users: string;
-          dimension: string;
-        }[] = await this.runQuery(sql);
-        rows.forEach(({ variation, dimension, users }) => {
-          const varIndex =
-            (this.settings?.variationIdFormat ||
-              this.settings?.experiments?.variationFormat) === "key"
-              ? variationKeyMap.get(variation)
-              : parseInt(variation);
-          if (varIndex < 0 || varIndex >= experiment.variations.length) {
-            console.log("Unexpected variation", variation);
-            return;
-          }
-
-          const data = getDimensionData(dimension, varIndex);
-          data.users = parseInt(users) || 0;
-        });
-      })()
-    );
-
-    await Promise.all(promises);
-
-    const results: ExperimentResults = [];
-
-    dimensionMap.forEach((variations, k) => {
-      results.push({
-        dimension: k,
-        variations,
-      });
-    });
-    return results;
+  async getExperimentResults(): Promise<ExperimentQueryResponses> {
+    throw new Error("Not implemented");
   }
 
   private getMetricCTE(
@@ -1155,7 +829,7 @@ export default abstract class SqlIntegration
     }
     // Need to use anonymousId, but metric is user only
     else if (!userId && metric.userIdType === "user") {
-      userIdCol = "i.user_id";
+      userIdCol = "i.anonymous_id";
       join = this.getIdentifiesJoinSql(
         "m." + this.getUserIdColumn(metric),
         true
@@ -1185,8 +859,8 @@ export default abstract class SqlIntegration
         ${
           metric.sql
             ? `(${metric.sql})`
-            : (schema && !metric.table.match(/\./) ? schema + "." : "") +
-              metric.table
+            : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
+              (metric.table || "")
         } m
         ${join}
       ${
@@ -1198,47 +872,76 @@ export default abstract class SqlIntegration
       }
     `;
   }
-  private getExperimentCTE(
+
+  // Only include users who entered the experiment before this timestamp
+  private getExperimentEndDate(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    userId: boolean = true
-  ) {
-    let userIdCol: string;
-    let join = "";
-    // Need to use userId, but experiment is anonymous only
-    if (userId && experiment.userIdType === "anonymous") {
-      userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql("e.anonymous_id", false);
+    conversionWindowHours: number
+  ): Date | null {
+    // If we need to wait until users have had a chance to full convert
+    if (experiment.skipPartialData) {
+      // The last date allowed to give enough time for users to convert
+      const conversionWindowEndDate = new Date();
+      conversionWindowEndDate.setHours(
+        conversionWindowEndDate.getHours() - conversionWindowHours
+      );
+
+      // Use the earliest of either the conversion end date or the phase end date
+      return new Date(
+        Math.min(
+          phase?.dateEnded?.getTime() ?? Date.now(),
+          conversionWindowEndDate.getTime()
+        )
+      );
     }
-    // Need to use anonymousId, but experiment is user only
-    else if (!userId && experiment.userIdType === "user") {
-      userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql("e.user_id", true);
+    // If the phase is ended, use that as the end date
+    else if (phase.dateEnded) {
+      return phase.dateEnded;
     }
-    // Otherwise, can query the experiment directly
-    else {
-      userIdCol = userId ? "e.user_id" : "e.anonymous_id";
-    }
+
+    // Otherwise, there is no end date for analysis
+    return null;
+  }
+
+  private getExperimentCTE({
+    experiment,
+    phase,
+    conversionWindowHours = 0,
+    experimentDimension = null,
+  }: {
+    experiment: ExperimentInterface;
+    phase: ExperimentPhase;
+    conversionWindowHours: number;
+    experimentDimension: string | null;
+  }) {
+    conversionWindowHours =
+      conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+
+    const userIdCol =
+      experiment.userIdType === "user" ? "e.user_id" : "e.anonymous_id";
+
+    const endDate = this.getExperimentEndDate(
+      experiment,
+      phase,
+      conversionWindowHours
+    );
 
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
       e.variation_id as variation,
       e.timestamp as actual_start,
+      ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
       ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
       ${this.subtractHalfHour("e.timestamp")} as session_start
     FROM
         __rawExperiment e
-      ${join}
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
         AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
-        ${
-          phase.dateEnded
-            ? `AND e.timestamp <= ${this.toTimestamp(phase.dateEnded)}`
-            : ""
-        }
+        ${endDate ? `AND e.timestamp <= ${this.toTimestamp(endDate)}` : ""}
+        ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
@@ -1246,7 +949,7 @@ export default abstract class SqlIntegration
     if (!userId) {
       return `-- Segment (${name})
       SELECT
-        i.user_id,
+        i.anonymous_id as user_id,
         s.date
       FROM
         (${sql}) s
@@ -1267,7 +970,7 @@ export default abstract class SqlIntegration
     if (!userId) {
       return `-- Dimension (${dimension.name})
       SELECT
-        i.user_id,
+        i.anonymous_id as user_id,
         d.value
       FROM
         (${dimension.sql}) d
@@ -1281,7 +984,7 @@ export default abstract class SqlIntegration
   }
 
   private getPageUsersCTE(
-    params: MetricValueParams | UsersQueryParams,
+    params: MetricValueParams,
     userId: boolean = true,
     conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS
   ): string {
@@ -1323,7 +1026,7 @@ export default abstract class SqlIntegration
     return date;
   }
 
-  private capValue(cap: number, value: string) {
+  private capValue(cap: number | undefined, value: string) {
     if (!cap) {
       return value;
     }

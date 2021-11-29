@@ -10,11 +10,8 @@ export default class Postgres extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<PostgresConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   runQuery(sql: string) {
     return runPostgresQuery(this.params, sql);
@@ -27,5 +24,11 @@ export default class Postgres extends SqlIntegration {
   }
   dateDiff(startCol: string, endCol: string) {
     return `${endCol}::DATE - ${startCol}::DATE`;
+  }
+  avg(col: string) {
+    return `AVG(${col}::float)`;
+  }
+  formatDate(col: string) {
+    return `to_char(${col}, 'YYYY-MM-DD')`;
   }
 }

@@ -1,15 +1,30 @@
 # Build and test artifacts
 .git
 .github
-node_modules
-packages/front-end/.next
-packages/back-end/coverage
+.gitignore
+Dockerfile
+docker-compose.yml
+.dockerignore
+.eslint*
+.prettier*
+.husky
+*.md
+**/node_modules
+**/coverage
+**/.next
 **/dist
 **/*.log
+**/dummy
 
-# Docs package
+# Other packages
 packages/docs
+packages/sdk-**
 
 # Secrets / private data
 **/*.env.local
+**/config.yml
 packages/back-end/uploads
+
+# Python notebooks and caches
+packages/stats/**/.pytest_cache
+packages/stats/**/__pycache__

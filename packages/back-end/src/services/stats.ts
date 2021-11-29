@@ -1,123 +1,168 @@
-import { jStat } from "jstat";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
-import path from "path";
 import { promisify } from "util";
+import { ExperimentMetricQueryResponse } from "../types/Integration";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 
-export interface ABTestStats {
-  expected: number;
-  chanceToWin: number;
-  uplift?: {
-    dist: string;
-    mean?: number;
-    stddev?: number;
-  };
-  ci: [number, number];
-  risk?: [number, number];
-  buckets: {
-    x: number;
-    y: number;
-  }[];
-}
-
-export async function abtest(
-  metric: MetricInterface,
-  aUsers: number,
-  aStats: MetricStats,
-  bUsers: number,
-  bStats: MetricStats
-): Promise<ABTestStats> {
-  if (metric.ignoreNulls) {
-    aUsers = aStats.count;
-    bUsers = bStats.count;
-  } else {
-    aStats = {
-      ...aStats,
-      mean: (aStats.mean * aStats.count) / aUsers,
-      stddev: (aStats.stddev * Math.sqrt(aStats.count)) / Math.sqrt(aUsers),
-    };
-    bStats = {
-      ...bStats,
-      mean: (bStats.mean * bStats.count) / bUsers,
-      stddev: (bStats.stddev * Math.sqrt(bStats.count)) / Math.sqrt(bUsers),
-    };
-  }
-
-  const args = [
-    metric.type,
-    JSON.stringify({
-      users: [aUsers, bUsers],
-      count: [aStats.count, bStats.count],
-      mean: [aStats.mean, bStats.mean],
-      stddev: [aStats.stddev, bStats.stddev],
-    }),
-  ];
-
-  const result = await promisify(PythonShell.run)("bayesian.main", {
-    cwd: path.join(__dirname, "..", "python"),
-    pythonOptions: ["-m"],
-    args,
-  });
-  let parsed: {
-    chance_to_win: number;
-    expected: number;
-    ci: [number, number];
-    risk: [number, number];
-    uplift: {
+export interface StatsEngineDimensionResponse {
+  dimension: string;
+  srm: number;
+  variations: {
+    cr: number;
+    value: number;
+    users: number;
+    stats: MetricStats;
+    expected?: number;
+    chanceToWin?: number;
+    uplift?: {
       dist: string;
       mean?: number;
       stddev?: number;
     };
-  };
+    ci?: [number, number];
+    risk?: [number, number];
+  }[];
+}
+
+export interface ExperimentMetricAnalysis {
+  unknownVariations: string[];
+  dimensions: StatsEngineDimensionResponse[];
+}
+
+export async function analyzeExperimentMetric(
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  metric: MetricInterface,
+  rows: ExperimentMetricQueryResponse,
+  maxDimensions: number
+): Promise<ExperimentMetricAnalysis> {
+  if (!rows || !rows.length) {
+    return {
+      unknownVariations: [],
+      dimensions: [],
+    };
+  }
+
+  const variationIdMap: { [key: string]: number } = {};
+  experiment.variations.map((v, i) => {
+    variationIdMap[v.key || i + ""] = i;
+  });
+
+  const result = await promisify(PythonShell.runString)(
+    `
+from gbstats.gbstats import (
+  detect_unknown_variations,
+  analyze_metric_df,
+  get_metric_df,
+  reduce_dimensionality,
+  format_results
+)
+import pandas as pd
+import json
+
+data = json.loads("""${JSON.stringify({
+      var_id_map: variationIdMap,
+      var_names: experiment.variations.map((v) => v.name),
+      weights: phase.variationWeights,
+      type: metric.type,
+      ignore_nulls: !!metric.ignoreNulls,
+      inverse: !!metric.inverse,
+      max_dimensions: maxDimensions,
+      rows,
+    }).replace(/\\/g, "\\\\")}""", strict=False)
+
+var_id_map = data['var_id_map']
+var_names = data['var_names']
+ignore_nulls = data['ignore_nulls']
+inverse = data['inverse']
+type = data['type']
+weights = data['weights']
+max_dimensions = data['max_dimensions']
+
+rows = pd.DataFrame(data['rows'])
+
+unknown_var_ids = detect_unknown_variations(
+  rows=rows,
+  var_id_map=var_id_map
+)
+
+df = get_metric_df(
+  rows=rows,
+  var_id_map=var_id_map,
+  var_names=var_names,
+  ignore_nulls=ignore_nulls,
+  type=type,
+)
+
+reduced = reduce_dimensionality(
+  df=df, 
+  max=max_dimensions
+)
+
+result = analyze_metric_df(
+  df=reduced,
+  weights=weights,
+  type=type,
+  inverse=inverse,
+)
+
+print(json.dumps({
+  'unknownVariations': list(unknown_var_ids),
+  'dimensions': format_results(result)
+}, allow_nan=False))`,
+    {}
+  );
+
+  let parsed: ExperimentMetricAnalysis;
   try {
-    parsed = JSON.parse(result[0]);
+    parsed = JSON.parse(result?.[0]);
   } catch (e) {
-    console.error("Failed to run stats model", args, result);
+    console.error("Failed to run stats model", result);
     throw e;
   }
 
-  return {
-    expected: parsed.expected,
-    chanceToWin: metric.inverse
-      ? 1 - parsed.chance_to_win
-      : parsed.chance_to_win,
-    ci: parsed.ci,
-    risk: parsed.risk,
-    uplift: parsed.uplift,
-    buckets: [],
-  };
+  return parsed;
 }
 
-export function getValueCR(
-  metric: MetricInterface,
-  value: number,
-  count: number,
-  users: number
+/**
+ * Calculates a combined standard deviation of two sets of data
+ * From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+ */
+function correctStddev(
+  n: number,
+  x: number,
+  sx: number,
+  m: number,
+  y: number,
+  sy: number
 ) {
-  const base = metric.ignoreNulls ? count : users;
-  return {
-    value,
-    users: base,
-    cr: base > 0 ? value / base : 0,
-  };
+  const vx = Math.pow(sx, 2);
+  const vy = Math.pow(sy, 2);
+  const t = n + m;
+
+  if (t <= 1) return 0;
+
+  return Math.sqrt(
+    ((n - 1) * vx + (m - 1) * vy) / (t - 1) +
+      (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
+  );
 }
 
-// Sample Ratio Mismatch test
-export function srm(users: number[], weights: number[]): number {
-  // Convert count of users into ratios
-  let totalObserved = 0;
-  users.forEach((o) => {
-    totalObserved += o;
-  });
-  if (!totalObserved) {
-    return 1;
-  }
+// Combines two means together with proper weighting
+function correctMean(n: number, x: number, m: number, y: number) {
+  if (n + m < 1) return 0;
 
-  let x = 0;
-  users.forEach((o, i) => {
-    const e = weights[i] * totalObserved;
-    x += Math.pow(o - e, 2) / e;
-  });
+  return (n * x + m * y) / (n + m);
+}
 
-  return 1 - jStat.chisquare.cdf(x, users.length - 1) || 0;
+/**
+ * This takes a mean/stddev from only converted users and
+ * adjusts them to include non-converted users
+ */
+export function addNonconvertingUsersToStats(stats: MetricStats) {
+  const m = stats.users - stats.count;
+  return {
+    mean: correctMean(stats.count, stats.mean, m, 0),
+    stddev: correctStddev(stats.count, stats.mean, stats.stddev, m, 0, 0),
+  };
 }

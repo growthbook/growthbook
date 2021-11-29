@@ -55,7 +55,7 @@ const MetricsSelector: FC<{
     metricTags.forEach((mArr, tagName) => {
       selectMetricFromTag.push(
         <a
-          className={`badge badge-secondary mx-2 cursor-pointer ${
+          className={`badge badge-primary mx-2 cursor-pointer ${
             usedTags.includes(tagName) ? "badge-used" : ""
           }`}
           onClick={(e) => {

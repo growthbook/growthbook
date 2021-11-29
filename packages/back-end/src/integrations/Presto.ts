@@ -14,11 +14,8 @@ export default class Presto extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<PrestoConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
@@ -81,5 +78,8 @@ export default class Presto extends SqlIntegration {
   }
   percentile(col: string, percentile: number) {
     return `approx_percentile(${col}, ${percentile})`;
+  }
+  formatDate(col: string): string {
+    return `substr(to_iso8601(${col}),0,10)`;
   }
 }

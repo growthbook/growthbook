@@ -2,21 +2,23 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FC, useState, useContext } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
-import RefreshSnapshotButton from "./RefreshSnapshotButton";
-import { phaseSummary } from "../../services/utils";
 import clsx from "clsx";
 import { UserContext } from "../ProtectedPage";
 import ViewQueryButton from "../Metrics/ViewQueryButton";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import GuardrailResults from "./GuardrailResult";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
+import { getQueryStatus } from "../Queries/RunQueriesButton";
 import { useAuth } from "../../services/auth";
-import { ago, datetime } from "../../services/dates";
+import { ago, getValidDate } from "../../services/dates";
+import Button from "../Button";
+import { useEffect } from "react";
+import DateResults from "./DateResults";
+import AnalysisSettingsBar from "./AnalysisSettingsBar";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -25,13 +27,18 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   editMetrics: () => void;
   editResult: () => void;
-}> = ({ experiment, editMetrics, editResult }) => {
-  const { dimensions, getMetricById } = useDefinitions();
+  mutateExperiment: () => void;
+}> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
+  const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
+
+  useEffect(() => {
+    setPhase(experiment.phases.length - 1);
+  }, [experiment.phases.length]);
 
   const { permissions } = useContext(UserContext);
 
@@ -44,7 +51,7 @@ const Results: FC<{
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <div className="alert alert-danger m-3">{error.message}</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -58,24 +65,34 @@ const Results: FC<{
   const variationsPlural =
     experiment.variations.length > 2 ? "variations" : "variation";
 
-  const filteredDimensions = dimensions.filter(
+  const filteredDimensions: { id: string; name: string }[] = dimensions.filter(
     (d) => d.datasource === experiment.datasource
   );
 
-  const status = getQueryStatus(latest?.queries || []);
+  const datasource = getDatasourceById(experiment.datasource);
+  if (datasource?.settings?.experimentDimensions?.length > 0) {
+    datasource.settings.experimentDimensions.forEach((d) => {
+      filteredDimensions.push({
+        id: "exp:" + d,
+        name: d,
+      });
+    });
+  }
+
+  const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
   const phaseAgeMinutes =
     (Date.now() -
-      new Date(experiment.phases?.[phase]?.dateStarted || 0).getTime()) /
+      getValidDate(experiment.phases?.[phase]?.dateStarted).getTime()) /
     (1000 * 60);
 
   return (
     <>
       {experiment.status === "stopped" && (
         <div
-          className={clsx("alert", {
+          className={clsx("alert mb-0", {
             "alert-success": result === "won",
             "alert-danger": result === "lost",
             "alert-info": !result || result === "inconclusive",
@@ -118,140 +135,24 @@ const Results: FC<{
           )}
         </div>
       )}
-
-      <div className="row mb-3">
-        {experiment.phases && experiment.phases.length > 1 && (
-          <div className="col-auto mb-2">
-            <div className="input-group">
-              <div className="input-group-prepend">
-                <div className="input-group-text">Phase</div>
-              </div>
-              <select
-                className="form-control"
-                value={phase}
-                onChange={(e) => {
-                  setPhase(parseInt(e.target.value));
-                }}
-              >
-                {experiment.phases.map((phase, i) => (
-                  <option key={i} value={i}>
-                    {i + 1}: {phaseSummary(phase)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-        {filteredDimensions.length > 0 && (
-          <div className="col-auto">
-            <div className="input-group">
-              <div className="input-group-prepend">
-                <div className="input-group-text">Dimension</div>
-              </div>
-              <select
-                className="form-control"
-                value={dimension}
-                onChange={(e) => {
-                  setDimension(e.target.value);
-                }}
-              >
-                <option value="">None</option>
-                {filteredDimensions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-        <div style={{ flex: 1 }} />
-        {snapshot && (
-          <div
-            className="col-auto text-muted font-italic"
-            style={{ paddingTop: 6 }}
-            title={datetime(snapshot.dateCreated)}
-          >
-            <small>last updated {ago(snapshot.dateCreated)}</small>
-          </div>
-        )}
-        {permissions.runExperiments && experiment.metrics.length > 0 && (
-          <div className="col-auto">
-            {experiment.datasource && latest && latest.queries?.length > 0 ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  apiCall(`/experiment/${experiment.id}/snapshot`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      phase,
-                      dimension,
-                    }),
-                  })
-                    .then(() => {
-                      mutate();
-                    })
-                    .catch((e) => {
-                      console.error(e);
-                    });
-                }}
-              >
-                <RunQueriesButton
-                  cta="Update Data"
-                  initialStatus={status}
-                  statusEndpoint={`/snapshot/${latest.id}/status`}
-                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                  onReady={() => {
-                    mutate();
-                  }}
-                  icon="refresh"
-                  color="outline-primary"
-                />
-              </form>
-            ) : (
-              <RefreshSnapshotButton
-                mutate={mutate}
-                phase={phase}
-                experiment={experiment}
-                lastSnapshot={snapshot}
-                dimension={dimension}
-              />
-            )}
-          </div>
-        )}
-      </div>
-      {status === "failed" && (
-        <div className="alert alert-danger">
-          The most recent update ({ago(latest.dateCreated)}) failed.
-          <ViewAsyncQueriesButton
-            queries={latest.queries.map((q) => q.query)}
-            color="danger btn-sm ml-3"
-          />
-        </div>
-      )}
-      {status === "running" && (
-        <div className="alert alert-info">
-          Results are being updated now.
-          {snapshot && (
-            <>
-              The data below is from the previous run (
-              {ago(snapshot.dateCreated)}).
-            </>
-          )}
-          <ViewAsyncQueriesButton
-            queries={latest.queries.map((q) => q.query)}
-            color="info btn-sm ml-3"
-            display="View Running Queries"
-          />
-        </div>
-      )}
+      <AnalysisSettingsBar
+        experiment={experiment}
+        snapshot={snapshot}
+        dimension={dimension}
+        mutate={mutate}
+        mutateExperiment={mutateExperiment}
+        phase={phase}
+        setDimension={setDimension}
+        setPhase={setPhase}
+        latest={latest}
+      />
       {experiment.metrics.length === 0 && (
-        <div className="alert alert-info">
+        <div className="alert alert-info m-3">
           Add at least 1 metric to view results.
         </div>
       )}
-      {!hasData && experiment.metrics.length > 0 && (
-        <div className="alert alert-info">
+      {!hasData && status !== "running" && experiment.metrics.length > 0 && (
+        <div className="alert alert-info m-3">
           No data yet.{" "}
           {snapshot &&
             phaseAgeMinutes >= 120 &&
@@ -266,16 +167,44 @@ const Results: FC<{
             `Click the "Update" button above.`}
         </div>
       )}
-      {hasData && snapshot.dimension && (
-        <BreakDownResults snapshot={snapshot} experiment={experiment} />
-      )}
+      {hasData &&
+        snapshot.dimension &&
+        (snapshot.dimension === "pre:date" ? (
+          <DateResults snapshot={snapshot} experiment={experiment} />
+        ) : (
+          <BreakDownResults
+            snapshot={snapshot}
+            experiment={experiment}
+            key={snapshot.dimension}
+          />
+        ))}
       {hasData && !snapshot.dimension && (
         <>
-          <CompactResults snapshot={snapshot} experiment={experiment} />
+          <CompactResults
+            snapshot={snapshot}
+            experiment={experiment}
+            phase={experiment.phases?.[phase]}
+            isUpdating={status === "running"}
+            editMetrics={editMetrics}
+          />
           {experiment.guardrails?.length > 0 && (
-            <div className="mb-3">
-              <hr />
-              <h2 className="mt-4">Guardrails</h2>
+            <div className="mb-3 p-3">
+              <h3 className="mb-3">
+                Guardrails
+                {editMetrics && (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editMetrics();
+                    }}
+                    className="ml-2"
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    Add/Remove Guardrails
+                  </a>
+                )}
+              </h3>
               <div className="row mt-3">
                 {experiment.guardrails.map((g) => {
                   const metric = getMetricById(g);
@@ -299,35 +228,84 @@ const Results: FC<{
           )}
         </>
       )}
-      {snapshot && (
-        <div>
+      <div className="px-3">
+        <div className="row mb-3">
           {permissions.runExperiments && editMetrics && (
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => {
-                editMetrics();
-              }}
-            >
-              Add/Remove Metrics
-            </button>
+            <div className="col-auto">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => {
+                  editMetrics();
+                }}
+              >
+                Add{experiment.metrics?.length > 0 ? "/Remove" : ""} Metrics
+              </button>
+            </div>
           )}
+          {snapshot &&
+            hasData &&
+            snapshot.hasRawQueries &&
+            "skipPartialData" in snapshot &&
+            datasource?.settings?.notebookRunQuery && (
+              <div className="col-auto">
+                <Button
+                  color="outline-info"
+                  onClick={async () => {
+                    const res = await apiCall<{ notebook: string }>(
+                      `/experiments/notebook/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
 
-          {snapshot.queries?.length > 0 ? (
-            <ViewAsyncQueriesButton
-              queries={snapshot.queries.map((q) => q.query)}
-            />
-          ) : (
-            // From old query engine
-            snapshot.query && (
-              <ViewQueryButton
-                queries={[snapshot.query]}
-                language={snapshot.queryLanguage}
-              />
-            )
+                    const url = URL.createObjectURL(
+                      new Blob([res.notebook], {
+                        type: "application/json",
+                      })
+                    );
+
+                    const name = experiment.trackingKey
+                      .replace(/[^a-zA-Z0-9_-]+/g, "")
+                      .replace(/[-]+/g, "_")
+                      .replace(/[_]{2,}/g, "_");
+
+                    const d = new Date()
+                      .toISOString()
+                      .slice(0, 10)
+                      .replace(/-/g, "_");
+
+                    const el = document.createElement("a");
+                    el.href = url;
+                    el.download = `${name}_${d}.ipynb`;
+                    el.click();
+                  }}
+                >
+                  <FaFileDownload /> Download Notebook
+                </Button>
+              </div>
+            )}
+
+          {snapshot && (
+            <div className="col-auto">
+              {snapshot.queries?.length > 0 ? (
+                <ViewAsyncQueriesButton
+                  queries={snapshot.queries.map((q) => q.query)}
+                  error={snapshot.error}
+                />
+              ) : (
+                // From old query engine
+                snapshot.query && (
+                  <ViewQueryButton
+                    queries={[snapshot.query]}
+                    language={snapshot.queryLanguage}
+                  />
+                )
+              )}
+            </div>
           )}
         </div>
-      )}
+      </div>
     </>
   );
 };

@@ -1,0 +1,32 @@
+@import "../../styles/colors.scss";
+
+.droparea {
+  z-index: 910;
+  margin-bottom: 15px;
+  position: relative;
+
+  .message {
+    display: none;
+    position: absolute;
+    padding-left: 10px;
+    top: 50%;
+    line-height: 30px;
+    margin-top: -15px;
+    left: 0;
+    right: 0;
+    font-size: 1.2em;
+    color: $green;
+  }
+}
+.droparea.dragging {
+  background: rgba(255, 255, 255, 0.9);
+  border: 3px dashed $green;
+
+  .message {
+    display: block;
+  }
+
+  button {
+    visibility: hidden;
+  }
+}

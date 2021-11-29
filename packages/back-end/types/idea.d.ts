@@ -8,10 +8,11 @@ export interface IdeaInterface {
   text: string;
   archived: boolean;
   details?: string;
-  userId: string;
+  userId: string | null;
   userName?: string;
   source?: IdeaSource;
   organization: string;
+  project?: string;
   tags: string[];
   votes?: Vote[];
   dateCreated: Date;

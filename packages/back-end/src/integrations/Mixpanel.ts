@@ -10,19 +10,17 @@ import { SegmentInterface } from "../../types/segment";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
-  DimensionResult,
-  ExperimentMetricResult,
-  ExperimentResults,
-  ExperimentUsersResult,
+  ExperimentMetricQueryResponse,
+  ExperimentQueryResponses,
   ImpactEstimationResult,
   MetricValueParams,
-  MetricValueResult,
-  PastExperimentResult,
+  MetricValueQueryResponse,
+  MetricValueQueryResponseRow,
+  PastExperimentResponse,
   SourceIntegrationInterface,
-  UsersQueryParams,
-  UsersResult,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { processMetricValueQueryResponse } from "../services/queries";
 
 const percentileNumbers = [
   0.01,
@@ -50,28 +48,20 @@ export default class Mixpanel implements SourceIntegrationInterface {
       encryptedParams
     );
     this.settings = {
-      variationIdFormat: "index",
       events: {
         experimentEvent: "$experiment_started",
         experimentIdProperty: "Experiment name",
         variationIdProperty: "Variant name",
         pageviewEvent: "Page view",
         urlProperty: "$current_url",
-        userAgentProperty: "",
         ...settings.events,
       },
     };
   }
-  getExperimentUsersQuery(): string {
-    throw new Error("Method not implemented.");
-  }
   getExperimentMetricQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentUsersQuery(): Promise<ExperimentUsersResult> {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentMetricQuery(): Promise<ExperimentMetricResult> {
+  runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getExperimentResultsQuery(
@@ -123,7 +113,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
         )}
         .filter(function(e) {
           if(${this.getValidExperimentCondition(
-            experiment.trackingKey
+            experiment.trackingKey,
+            "e",
+            phase.dateStarted,
+            phase.dateEnded
           )}) return true;
           ${
             activationMetric
@@ -156,11 +149,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
             const e = events[i];
             // User is put into the experiment
             if(!state.inExperiment && ${this.getValidExperimentCondition(
-              experiment.trackingKey
+              experiment.trackingKey,
+              "e",
+              phase.dateStarted,
+              phase.dateEnded
             )}) {
               state.inExperiment = true;
               state.variation = ${this.getPropertyColumn(
-                this.settings.events.variationIdProperty || "Variant name",
+                this.settings.events?.variationIdProperty || "Variant name",
                 "e"
               )};
               ${
@@ -265,7 +261,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
-  ): Promise<ExperimentResults> {
+  ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
       experiment,
       phase,
@@ -289,35 +285,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
       }[]
     >(this.params, query);
 
-    const variationKeyMap = new Map<string, number>();
-    experiment.variations.forEach((v, i) => {
-      variationKeyMap.set(v.key, i);
-    });
-
-    const dimensions: { [key: string]: DimensionResult } = {};
-
-    result.forEach((row) => {
-      dimensions[row.dimension] = dimensions[row.dimension] || {
-        dimension: row.dimension,
-        variations: [],
+    return result.map(({ variation, dimension, users, metrics }) => {
+      return {
+        dimension,
+        variation,
+        users,
+        metrics: metrics.map((m) => {
+          return {
+            metric: m.id,
+            users,
+            count: m.count,
+            mean: m.mean,
+            stddev: m.stddev,
+          };
+        }),
       };
-
-      dimensions[row.dimension].variations.push({
-        variation:
-          this.settings.variationIdFormat === "key"
-            ? variationKeyMap.get(row.variation)
-            : parseInt(row.variation),
-        users: row.users || 0,
-        metrics: row.metrics.map((m) => ({
-          metric: m.id,
-          count: m.count,
-          mean: m.mean,
-          stddev: m.stddev,
-        })),
-      });
     });
-
-    return Object.values(dimensions);
   }
   async testConnection(): Promise<boolean> {
     const today = new Date().toISOString().substr(0, 10);
@@ -333,12 +316,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getSourceProperties(): DataSourceProperties {
     return {
-      includeInConfig: true,
-      readonlyFields: [],
-      type: "api",
       queryLanguage: "javascript",
       metricCaps: true,
-      separateExperimentResultQueries: false,
+      segments: true,
+      dimensions: true,
+      hasSettings: true,
+      events: true,
     };
   }
 
@@ -363,17 +346,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
       from: start,
       to: end,
       includeByDate: false,
-      userIdType: metric.userIdType,
+      userIdType: metric.userIdType || "either",
       conversionWindowHours,
     };
 
-    const usersQuery = this.getUsersQuery({
-      ...baseSettings,
-      name: "Traffic - Selected Pages and Segment",
-      urlRegex,
-      segmentQuery: segment?.sql || null,
-      segmentName: segment?.name,
-    });
     const metricQuery = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Entire Site",
@@ -386,25 +362,24 @@ export default class Mixpanel implements SourceIntegrationInterface {
       metric,
       includePercentiles: false,
       urlRegex,
-      segmentQuery: segment?.sql || null,
+      segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
 
-    const [users, metricTotal, value] = await Promise.all([
-      this.runUsersQuery(usersQuery),
+    const [metricTotalResponse, valueResponse] = await Promise.all([
       this.runMetricValueQuery(metricQuery),
       this.runMetricValueQuery(valueQuery),
     ]);
 
-    const formatted =
-      [usersQuery, metricQuery, valueQuery]
-        .map((code) => formatQuery(code))
-        .join("\n\n\n") + ";";
+    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
+    const value = processMetricValueQueryResponse(valueResponse);
 
-    if (users && metricTotal && value) {
+    const formatted = [metricQuery, valueQuery].join("\n\n\n") + ";";
+
+    if (metricTotal && value) {
       return {
         query: formatted,
-        users: users.users / numDays || 0,
+        users: value.users / numDays || 0,
         value: (value.count * value.mean) / numDays || 0,
         metricTotal: (metricTotal.count * metricTotal.mean) / numDays || 0,
       };
@@ -418,7 +393,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
 
-  getUsersQuery(params: UsersQueryParams): string {
+  getUsersQuery(params: MetricValueParams): string {
     return formatQuery(`
       // ${params.name} - Number of Users
       return ${this.getEvents(params.from, params.to)}
@@ -450,7 +425,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
               const date = (new Date(e.value)).toISOString().substr(0,10);
               dates[date] = (dates[date] || 0) + 1;
             });
-
             return {
               type: "byDate",
               dates: Object.keys(dates).map(d => ({
@@ -470,7 +444,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
 
-    return formatQuery(`
+    return (
+      formatQuery(`
       // ${params.name} - Metric value (${metric.name})
       return ${this.getEvents(params.from, params.to)}
         .filter(function(event) {
@@ -566,15 +541,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }`
               : ""
           }${
-      params.includePercentiles && metric.type !== "binomial"
-        ? `,
+        params.includePercentiles && metric.type !== "binomial"
+          ? `,
           // Percentile breakdown
           mixpanel.reducer.numeric_percentiles(
             "value.metricValue",
             ${JSON.stringify(percentileNumbers.map((n) => n * 100))}
           )`
-        : ""
-    }
+          : ""
+      }
         ])
         // Transform into easy-to-use objects
         .map(vals => vals.map(val => {
@@ -582,9 +557,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(val.count) return {type: "overall", ...val};
           return val;
         }));
-    `);
+        `) +
+      "\n/*USERS_QUERY_BELOW*/\n" +
+      this.getUsersQuery(params)
+    );
   }
-  async runUsersQuery(query: string): Promise<UsersResult> {
+  async runUsersQuery(query: string): Promise<{ [key: string]: number }> {
     const rows = await runQuery<
       [
         (
@@ -603,21 +581,26 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: UsersResult = { users: 0 };
+    const result: { [key: string]: number } = {};
+
     rows &&
       rows[0] &&
       rows[0].forEach((row) => {
         if (row.type === "overall") {
-          result.users = row.users;
+          result[""] = row.users;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
-          result.dates = row.dates;
+          row.dates.forEach((d) => {
+            result[d.date] = d.users;
+          });
         }
       });
 
     return result;
   }
-  async runMetricValueQuery(query: string): Promise<MetricValueResult> {
+  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
+    const [metricQuery, usersQuery] = query.split("/*USERS_QUERY_BELOW*/", 2);
+
     const rows = await runQuery<
       [
         (
@@ -645,48 +628,56 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }
         )[]
       ]
-    >(this.params, query);
+    >(this.params, metricQuery);
 
-    const result: MetricValueResult = {};
+    const usersDateMap = await this.runUsersQuery(usersQuery);
+
+    const result: MetricValueQueryResponse = [];
+    const overall: MetricValueQueryResponseRow = {
+      date: "",
+      users: 0,
+      mean: 0,
+      stddev: 0,
+      count: 0,
+    };
+
     rows &&
       rows[0] &&
       rows[0].forEach((row) => {
         if (row.type === "overall") {
-          result.count = row.count;
-          result.mean = row.avg;
-          result.stddev = row.stddev;
+          overall.count = row.count;
+          overall.mean = row.avg;
+          overall.stddev = row.stddev;
+          overall.users = usersDateMap[""] || row.count;
         } else if (row.type === "byDate") {
-          result.dates = [];
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
           row.dates.forEach(({ date, count, sum }) => {
-            result.dates.push({
+            result.push({
               date,
+              users: usersDateMap[date] || count,
               count,
               mean: count > 0 ? sum / count : 0,
+              stddev: 0,
             });
           });
         } else if (row.type === "percentile") {
-          result.percentiles = {};
           row.percentiles.forEach(({ percentile, value }) => {
-            result.percentiles[percentile + ""] = value;
+            overall["p" + percentile] = value;
           });
         }
       });
 
-    return result;
+    return [overall, ...result];
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResult> {
+  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
     console.log(query);
     throw new Error("Method not implemented.");
   }
-  getNonSensitiveParams(): Partial<MixpanelConnectionParams> {
-    return {
-      ...this.params,
-      secret: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["secret"];
   }
 
   private getMetricValueCode(
@@ -728,13 +719,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidPageCondition(urlRegex?: string, event: string = "event") {
     if (urlRegex && urlRegex !== ".*") {
-      const urlCol = this.settings.events.urlProperty;
+      const urlCol = this.settings.events?.urlProperty;
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }" && ${event}.properties["${urlCol}"] && ${event}.properties["${urlCol}"].match(/${urlRegex}/)`;
     } else {
       return `${event}.name === "${
-        this.settings.events.pageviewEvent || "Page view"
+        this.settings.events?.pageviewEvent || "Page view"
       }"`;
     }
   }
@@ -783,13 +774,22 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return checks.join(" && ");
   }
-  private getValidExperimentCondition(id: string, event: string = "e") {
+  private getValidExperimentCondition(
+    id: string,
+    event: string = "e",
+    start: Date,
+    end?: Date
+  ) {
     const experimentEvent =
-      this.settings.events.experimentEvent || "$experiment_started";
+      this.settings.events?.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
-      this.settings.events.experimentIdProperty || "Experiment name",
+      this.settings.events?.experimentIdProperty || "Experiment name",
       event
     );
-    return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}"`;
+    let timeCheck = `${event}.time >= ${start.getTime()}`;
+    if (end) {
+      timeCheck += ` && ${event}.time <= ${end.getTime()}`;
+    }
+    return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}" && ${timeCheck}`;
   }
 }

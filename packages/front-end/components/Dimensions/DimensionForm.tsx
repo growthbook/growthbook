@@ -1,10 +1,10 @@
 import { FC } from "react";
 import Modal from "../Modal";
-import useForm from "../../hooks/useForm";
-import TextareaAutosize from "react-textarea-autosize";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -16,23 +16,24 @@ const DimensionForm: FC<{
     datasources,
     mutateDefinitions,
   } = useDefinitions();
-  const [value, inputProps] = useForm(
-    {
+  const form = useForm({
+    defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
     },
-    current.id
-  );
+  });
 
-  const dsType = getDatasourceById(value.datasource)?.type || null;
+  const datasource = form.watch("datasource");
+
+  const dsProps = getDatasourceById(datasource)?.properties;
 
   return (
     <Modal
       close={close}
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         await apiCall(
           current.id ? `/dimensions/${current.id}` : `/dimensions`,
           {
@@ -41,47 +42,36 @@ const DimensionForm: FC<{
           }
         );
         mutateDefinitions();
-      }}
+      })}
     >
-      <div className="form-group">
-        Name
-        <input
-          type="text"
-          required
-          className="form-control"
-          {...inputProps.name}
-        />
-      </div>
-      <div className="form-group">
-        Data Source
-        <select className="form-control" required {...inputProps.datasource}>
-          <option value="">Choose one...</option>
-          {datasources.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        {dsType === "mixpanel" ? "Event Property" : "SQL"}
-        <TextareaAutosize
-          className="form-control"
-          required
-          {...inputProps.sql}
-          minRows={3}
-          placeholder={
-            dsType === "mixpanel"
-              ? "$browser"
-              : "SELECT user_id, browser as value FROM users"
-          }
-        />
-        {dsType !== "mixpanel" && (
-          <small className="form-text text-muted">
-            Select two columns named <code>user_id</code> and <code>value</code>
-          </small>
-        )}
-      </div>
+      <Field label="Name" required {...form.register("name")} />
+      <Field
+        label="Data Source"
+        required
+        {...form.register("datasource")}
+        initialOption="Choose one..."
+        options={datasources.map((d) => ({ value: d.id, display: d.name }))}
+      />
+      <Field
+        label={dsProps?.events ? "Event Property" : "SQL"}
+        required
+        {...form.register("sql")}
+        textarea
+        minRows={3}
+        placeholder={
+          dsProps?.events
+            ? "$browser"
+            : "SELECT user_id, browser as value FROM users"
+        }
+        helpText={
+          dsProps?.queryLanguage === "sql" ? (
+            <>
+              Select two columns named <code>user_id</code> and{" "}
+              <code>value</code>
+            </>
+          ) : null
+        }
+      />
       <p>
         <strong>Important:</strong> Please limit dimensions to at most 50 unique
         values.

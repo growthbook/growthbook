@@ -10,11 +10,8 @@ export default class Redshift extends SqlIntegration {
       encryptedParams
     );
   }
-  getNonSensitiveParams(): Partial<PostgresConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   runQuery(sql: string) {
     return runPostgresQuery(this.params, sql);
@@ -24,5 +21,11 @@ export default class Redshift extends SqlIntegration {
   }
   percentile(col: string, percentile: number) {
     return `APPROXIMATE  PERCENTILE_DISC ( ${percentile} ) WITHIN GROUP (ORDER BY ${col})`;
+  }
+  avg(col: string) {
+    return `AVG(${col}::float)`;
+  }
+  formatDate(col: string) {
+    return `to_char(${col}, 'YYYY-MM-DD')`;
   }
 }

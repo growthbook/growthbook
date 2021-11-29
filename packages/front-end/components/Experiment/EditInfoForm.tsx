@@ -1,6 +1,5 @@
 import { FC, useContext } from "react";
-import { FaPlus, FaTrash } from "react-icons/fa";
-import useForm from "../../hooks/useForm";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
   ExperimentInterfaceStringDates,
@@ -9,10 +8,11 @@ import {
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
-import TextareaAutosize from "react-textarea-autosize";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
+import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import { MdDeleteForever } from "react-icons/md";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -23,11 +23,8 @@ const EditInfoForm: FC<{
     settings: { visualEditorEnabled },
   } = useContext(UserContext);
 
-  const { getDatasourceById } = useDefinitions();
-  const [value, inputProps, manualUpdate] = useForm<
-    Partial<ExperimentInterfaceStringDates>
-  >(
-    {
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+    defaultValues: {
       name: experiment.name || "",
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
@@ -59,42 +56,15 @@ const EditInfoForm: FC<{
             },
           ],
     },
-    experiment.id,
-    {
-      className: "form-control",
-    }
-  );
+  });
   const { apiCall } = useAuth();
 
-  const datasource = getDatasourceById(experiment.datasource);
-  const variationKeys =
-    (datasource?.settings?.variationIdFormat ||
-      datasource?.settings?.experiments?.variationFormat) === "key";
+  const variations = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
 
-  const deleteVariation = (i: number) => {
-    const variations = [...value.variations];
-    variations.splice(i, 1);
-
-    const updates: Partial<ExperimentInterfaceStringDates> = { variations };
-
-    manualUpdate(updates);
-  };
-  const addVariation = () => {
-    const variations = [
-      ...value.variations,
-      {
-        name: `Variation ${value.variations.length}`,
-        description: "",
-        key: "",
-        value: "",
-        screenshots: [],
-      },
-    ];
-
-    const updates: Partial<ExperimentInterfaceStringDates> = { variations };
-
-    manualUpdate(updates);
-  };
+  const implementation = form.watch("implementation");
 
   return (
     <Modal
@@ -102,7 +72,7 @@ const EditInfoForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      submit={async () => {
+      submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
 
@@ -126,125 +96,134 @@ const EditInfoForm: FC<{
           body: JSON.stringify(data),
         });
         mutate();
-      }}
+      })}
       cta="Save"
     >
-      <div className="form-group">
-        <label>Name</label>
-        <input type="text" {...inputProps.name} />
-      </div>
+      <Field label="Name" {...form.register("name")} />
       {visualEditorEnabled && (
-        <div className="form-group">
-          <label>Type</label>
-          <RadioSelector
-            name="implementationType"
-            value={value.implementation}
-            setValue={(implementation: ImplementationType) =>
-              manualUpdate({ implementation })
-            }
-            options={[
-              {
-                key: "code",
-                display: "Code",
-                description:
-                  "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
-              },
-              {
-                key: "visual",
-                display: "Visual",
-                description: "Using our point & click Visual Editor",
-              },
-            ]}
-          />
-        </div>
+        <Field
+          label="Type"
+          render={() => (
+            <RadioSelector
+              value={form.watch("implementation")}
+              setValue={(val: ImplementationType) =>
+                form.setValue("implementation", val)
+              }
+              name="implementation"
+              options={[
+                {
+                  key: "code",
+                  display: "Code",
+                  description:
+                    "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
+                },
+                {
+                  key: "visual",
+                  display: "Visual",
+                  description: "Using our point & click Visual Editor",
+                },
+              ]}
+            />
+          )}
+        />
       )}
-      <div className="form-group">
-        <label>Description</label>
-        <MarkdownInput
-          value={value.description}
-          setValue={(description) => manualUpdate({ description })}
-          placeholder="Background info, what's changing, etc."
-        />
-      </div>
-      <div className="form-group">
-        <label>Hypothesis</label>
-        <textarea
-          rows={3}
-          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-          {...inputProps.hypothesis}
-        />
-      </div>
+      <Field
+        label="Description"
+        render={(id) => (
+          <MarkdownInput
+            value={form.watch("description")}
+            setValue={(val) => form.setValue("description", val)}
+            id={id}
+            placeholder="Background info, what's changing, etc."
+          />
+        )}
+      />
+      <Field
+        label="Hypothesis"
+        {...form.register("hypothesis")}
+        placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+        textarea
+      />
       <div className="mb-3">
         <label>Variations</label>
-        <div className="row align-items-top">
-          {value.variations.map((v, i) => (
+        <div className="row">
+          {variations.fields.map((v, i) => (
             <div
-              className="col-lg-4 col-md-6 mb-2"
+              className=" col-lg-6 col-md-6 mb-2"
               key={i}
               style={{ minWidth: 200 }}
             >
-              <div className="border p-2 bg-white">
-                <div>
+              <div className="graybox">
+                <Field
+                  label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                  {...form.register(`variations.${i}.name`)}
+                />
+                <Field
+                  label="Id"
+                  {...form.register(`variations.${i}.key`)}
+                  placeholder={i + ""}
+                />
+                <Field
+                  label="Description"
+                  textarea
+                  {...form.register(`variations.${i}.description`)}
+                />
+                {implementation !== "visual" && (
+                  <Field
+                    label="JSON Value"
+                    textarea
+                    minRows={1}
+                    maxRows={10}
+                    placeholder='e.g. {"color": "red"}'
+                    {...form.register(`variations.${i}.value`)}
+                    helpText="Optional, use to parameterize experiment data."
+                  />
+                )}
+                <div className="text-right">
                   {experiment.status === "draft" &&
-                  value.variations.length > 2 ? (
-                    <button
-                      className="btn btn-outline-danger btn-sm float-right"
+                  variations.fields.length > 2 ? (
+                    <a
+                      className="text-danger cursor-pointer"
                       onClick={(e) => {
                         e.preventDefault();
-                        deleteVariation(i);
+                        variations.remove(i);
                       }}
                     >
-                      <FaTrash />
-                    </button>
+                      <MdDeleteForever /> Delete
+                    </a>
                   ) : (
                     ""
                   )}
                 </div>
-                <div className="form-group">
-                  <label>{i === 0 ? "Control" : `Variation ${i}`} Name</label>
-                  <input type="text" {...inputProps.variations[i].name} />
-                </div>
-                {variationKeys && (
-                  <div className="form-group">
-                    <label>Id</label>
-                    <input type="text" {...inputProps.variations[i].key} />
-                  </div>
-                )}
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea {...inputProps.variations[i].description} />
-                </div>
-                {value.implementation !== "visual" && (
-                  <div className="form-group">
-                    <label>JSON Value</label>
-                    <TextareaAutosize
-                      {...inputProps.variations[i].value}
-                      minRows={1}
-                      maxRows={10}
-                      placeholder='e.g. {"color": "red"}'
-                    />
-                    <small className="form-text text-muted">
-                      Optional, use to parameterize experiment data.
-                    </small>
-                  </div>
-                )}
               </div>
             </div>
           ))}
           {experiment.status === "draft" && (
             <div
-              className="col-lg-4 col-md-6 mb-2 text-center"
+              className="col-lg-6 col-md-6 mb-2 text-center"
               style={{ minWidth: 200 }}
             >
-              <div className="p-3" style={{ border: "3px dotted #dee2e6" }}>
+              <div
+                className="p-3 h-100 d-flex align-items-center justify-content-center"
+                style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
+              >
                 <button
-                  className="btn btn-outline-success"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
-                    addVariation();
+                    variations.append({
+                      name: `Variation ${variations.fields.length}`,
+                      description: "",
+                      key: "",
+                      value: "",
+                      screenshots: [],
+                    });
                   }}
                 >
-                  <FaPlus /> Variation
+                  <span className="h4 pr-2 m-0 d-inline-block">
+                    <GBAddCircle />
+                  </span>{" "}
+                  Add Variation
                 </button>
               </div>
             </div>

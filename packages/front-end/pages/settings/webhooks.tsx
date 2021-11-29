@@ -5,7 +5,7 @@ import Webhooks from "../../components/Settings/Webhooks";
 
 const WebhooksPage: FC = () => {
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid pagecontents">
       <div className="mb-2">
         <Link href="/settings">
           <a>

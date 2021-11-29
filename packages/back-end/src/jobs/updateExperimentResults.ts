@@ -95,7 +95,8 @@ export default async function (agenda: Agenda) {
 }
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
-  const { experimentId } = job.attrs.data;
+  const experimentId = job.attrs.data?.experimentId;
+  if (!experimentId) return;
 
   const logger = parentLogger.child({
     cron: "updateSingleExperiment",
@@ -105,6 +106,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experiment = await ExperimentModel.findOne({
     id: experimentId,
   });
+  if (!experiment) return;
 
   let lastSnapshot: ExperimentSnapshotDocument;
   let currentSnapshot: ExperimentSnapshotDocument;
@@ -112,9 +114,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   try {
     logger.info("Start Refreshing Results");
     const datasource = await getDataSourceById(
-      experiment.datasource,
+      experiment.datasource || "",
       experiment.organization
     );
+    if (!datasource) return;
     lastSnapshot = await getLatestSnapshot(
       experiment.id,
       experiment.phases.length - 1
@@ -122,7 +125,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
-      datasource
+      datasource,
+      null
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -137,18 +141,20 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               queryData
             );
           },
-          async (updates, results) => {
+          async (updates, results, error) => {
             await ExperimentSnapshotModel.updateOne(
               { id: currentSnapshot.id },
               {
                 $set: {
                   ...updates,
                   unknownVariations: results?.unknownVariations || [],
-                  results: results?.dimensions,
+                  results: results?.dimensions || currentSnapshot.results,
+                  error,
                 },
               }
             );
-          }
+          },
+          currentSnapshot.error
         );
         if (res.queryStatus === "succeeded") {
           resolve();
@@ -197,6 +203,10 @@ async function sendSignificanceEmail(
     return;
   }
 
+  if (!currentSnapshot?.results?.[0]?.variations) {
+    return;
+  }
+
   try {
     // get the org confidence level settings:
     const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
@@ -206,20 +216,23 @@ async function sendSignificanceEmail(
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
     for (let i = 1; i < currentSnapshot.results[0].variations.length; i++) {
-      const curVar = currentSnapshot.results[0].variations[i];
-      const lastVar = lastSnapshot.results[0].variations[i];
+      const curVar = currentSnapshot.results?.[0]?.variations?.[i];
+      const lastVar = lastSnapshot.results?.[0]?.variations?.[i];
 
       for (const m in curVar.metrics) {
+        const curMetric = curVar?.metrics?.[m];
+        const lastMetric = lastVar?.metrics?.[m];
+
         // sanity checks:
         if (
-          lastVar.metrics[m] &&
-          lastVar.metrics[m].chanceToWin &&
-          curVar.metrics[m].value > 150
+          lastMetric?.chanceToWin &&
+          curMetric?.chanceToWin &&
+          curMetric?.value > 150
         ) {
           // checks to see if anything changed:
           if (
-            curVar.metrics[m].chanceToWin > ciUpper &&
-            lastVar.metrics[m].chanceToWin < ciUpper
+            curMetric.chanceToWin > ciUpper &&
+            lastMetric.chanceToWin < ciUpper
           ) {
             // this test variation has gone significant, and won
             experimentChanges.push(
@@ -228,12 +241,12 @@ async function sendSignificanceEmail(
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
-                (curVar.metrics[m].chanceToWin * 100).toFixed(1) +
+                (curMetric.chanceToWin * 100).toFixed(1) +
                 "% chance to beat baseline"
             );
           } else if (
-            curVar.metrics[m].chanceToWin < ciLower &&
-            lastVar.metrics[m].chanceToWin > ciLower
+            curMetric.chanceToWin < ciLower &&
+            lastMetric.chanceToWin > ciLower
           ) {
             // this test variation has gone significant, and lost
             experimentChanges.push(
@@ -242,7 +255,7 @@ async function sendSignificanceEmail(
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +
-                (curVar.metrics[m].chanceToWin * 100).toFixed(1) +
+                (curMetric.chanceToWin * 100).toFixed(1) +
                 " chance to beat the baseline"
             );
           }

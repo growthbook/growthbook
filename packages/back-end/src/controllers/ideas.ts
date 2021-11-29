@@ -5,11 +5,12 @@ import {
   createIdea,
   getIdeaById,
   deleteIdeaById,
+  getIdeasByQuery,
 } from "../services/ideas";
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../services/tag";
 import { Vote } from "../../types/vote";
-import { userHasAccess } from "../services/organizations";
+import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
@@ -17,8 +18,21 @@ import {
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
-export async function getIdeas(req: AuthRequest, res: Response) {
-  const ideas = await getIdeasByOrganization(req.organization.id);
+import { FilterQuery } from "mongoose";
+import { IdeaDocument } from "../models/IdeasModel";
+
+export async function getIdeas(
+  // eslint-disable-next-line
+  req: AuthRequest<any, any, { project?: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query.project === "string") {
+    project = req.query.project;
+  }
+
+  const ideas = await getIdeasByOrganization(org.id, project);
 
   res.status(200).json({
     status: 200,
@@ -26,18 +40,14 @@ export async function getIdeas(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getEstimatedImpact(req: AuthRequest, res: Response) {
-  const {
-    regex,
-    metric,
-    segment,
-  }: { regex: string; metric: string; segment?: string } = req.body;
-  const estimate = await getImpactEstimate(
-    req.organization.id,
-    metric,
-    regex,
-    segment
-  );
+export async function getEstimatedImpact(
+  req: AuthRequest<{ regex: string; metric: string; segment?: string }>,
+  res: Response
+) {
+  const { regex, metric, segment } = req.body;
+
+  const { org } = getOrgFromReq(req);
+  const estimate = await getImpactEstimate(org.id, metric, regex, segment);
 
   res.status(200).json({
     status: 200,
@@ -46,13 +56,18 @@ export async function getEstimatedImpact(req: AuthRequest, res: Response) {
 }
 
 export async function postEstimatedImpactManual(
-  req: AuthRequest<Partial<ImpactEstimateInterface>>,
+  req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   const { value, metricTotal, users, metric, regex } = req.body;
 
+  if (!metric) {
+    throw new Error("Missing required metric.");
+  }
+
   const estimate = await createImpactEstimate(
-    req.organization.id,
+    org.id,
     metric,
     null,
     regex,
@@ -76,10 +91,11 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
+  const { org, userId } = getOrgFromReq(req);
   const data = req.body;
-  data.organization = req.organization.id;
+  data.organization = org.id;
   data.source = "web";
-  data.userId = req.userId;
+  data.userId = userId;
   const idea = await createIdea(data);
 
   res.status(200).json({
@@ -154,10 +170,14 @@ export async function getIdea(
  * @param req
  * @param res
  */
-export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postIdea(
+  req: AuthRequest<IdeaInterface, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
+  const { org } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -167,7 +187,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
     return;
   }
 
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -179,6 +199,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
 
   data.text && idea.set("text", data.text);
   "details" in data && idea.set("details", data.details);
+  "project" in data && idea.set("project", data.project);
   "tags" in data && idea.set("tags", data.tags);
   "archived" in data && idea.set("archived", data.archived);
   data.votes && idea.set("votes", data.votes);
@@ -189,7 +210,7 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
   await idea.save();
 
   if (data.tags && data.tags.length > 0) {
-    await addTagsDiff(req.organization.id, existing.tags || [], data.tags);
+    await addTagsDiff(org.id, existing.tags || [], data.tags);
   }
 
   res.status(200).json({
@@ -199,11 +220,12 @@ export async function postIdea(req: AuthRequest<IdeaInterface>, res: Response) {
 }
 
 export async function deleteIdea(
-  req: AuthRequest<IdeaInterface>,
+  req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   const idea = await getIdeaById(id);
+  const { org } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -213,7 +235,7 @@ export async function deleteIdea(
     return;
   }
 
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -231,10 +253,15 @@ export async function deleteIdea(
   });
 }
 
-export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
-  const { id }: { id: string } = req.params;
+export async function postVote(
+  req: AuthRequest<Partial<Vote>, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
   const data = req.body;
   const idea = await getIdeaById(id);
+
+  const { org, userId } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -243,7 +270,7 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
     });
     return;
   }
-  if (idea.organization !== req.organization.id) {
+  if (idea.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this idea",
@@ -252,12 +279,12 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
   }
 
   try {
-    const newVote = data.dir > 0 ? 1 : -1;
+    const newVote = (data.dir || 1) > 0 ? 1 : -1;
     let found = false;
     if (idea.votes) {
       // you can only vote once, see if they've already voted
       idea.votes.map((v) => {
-        if (v.userId === req.userId) {
+        if (v.userId === userId) {
           // they have changed their vote, or are voting again
           v.dir = newVote;
           v.dateUpdated = new Date();
@@ -268,12 +295,13 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
     if (!found) {
       // add the vote:
       const v: Vote = {
-        userId: req.userId,
+        userId: userId,
         dir: newVote,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       };
 
+      idea.votes = idea.votes || [];
       idea.votes.push(v);
     }
 
@@ -289,5 +317,42 @@ export async function postVote(req: AuthRequest<Partial<Vote>>, res: Response) {
       message: e.message,
     });
     console.error(e);
+  }
+}
+
+export async function getRecentIdeas(
+  req: AuthRequest<null, { num: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { num } = req.params;
+  let intNum = parseInt(num);
+  if (intNum > 100) intNum = 100;
+
+  try {
+    const query: FilterQuery<IdeaDocument> = {
+      organization: org.id,
+    };
+    if (typeof req.query.project === "string" && req.query.project) {
+      query.project = req.query.project;
+    }
+
+    // since deletes can update the dateUpdated, we want to give ourselves a bit of buffer.
+    const ideas = await getIdeasByQuery(query)
+      .sort({ dateUpdated: -1 })
+      .limit(intNum + 5);
+
+    const recentIdeas = ideas.sort(
+      (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
+    );
+    res.status(200).json({
+      status: 200,
+      ideas: recentIdeas.slice(0, intNum),
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 }

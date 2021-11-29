@@ -15,7 +15,7 @@ const RadioSelector: FC<{
   value: string;
   labelWidth?: number;
   setValue: (value: string) => void;
-}> = ({ name, options, value, labelWidth = 100, setValue }) => {
+}> = ({ name, options, value, labelWidth = 70, setValue }) => {
   return (
     <div>
       {options.map(({ key, display, description, sub, tooltip, enabled }) => (
@@ -23,22 +23,13 @@ const RadioSelector: FC<{
           className={clsx("list-group", { "d-none": enabled === false })}
           key={key}
         >
-          <label
-            className="list-group-item list-group-item-action m-0"
-            style={
-              value === key
-                ? {
-                    backgroundColor: "lightblue",
-                  }
-                : null
-            }
-          >
+          <label className="list-group-item list-group-item-action border-0 m-0 px-1 py-2">
             <div className="d-flex w-100">
               <input
                 type="radio"
                 name={name}
                 value={key}
-                className="m-1"
+                className="m-1 mr-2"
                 checked={value === key}
                 onChange={(e) => {
                   if (e.target.checked) {

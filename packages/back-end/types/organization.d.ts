@@ -31,6 +31,7 @@ export interface OrganizationSettings {
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
+  metricAnalysisDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
@@ -44,7 +45,7 @@ export interface OrganizationInterface {
   subscription?: {
     id: string;
     qty: number;
-    trialEnd: Date;
+    trialEnd: Date | null;
     status:
       | "incomplete"
       | "incomplete_expired"

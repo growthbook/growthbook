@@ -4,12 +4,12 @@ import Page from "../Modal/Page";
 import { useState } from "react";
 import { useSearch } from "../../services/search";
 import { UserContext } from "../ProtectedPage";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import Preview from "./Preview";
-import { ago, datetime } from "../../services/dates";
+import { ago, datetime, getValidDate } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
@@ -183,10 +183,8 @@ const ShareModal = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { getUserDisplay } = useContext(UserContext);
-  const [value, inputProps, manualUpdate] = useForm<
-    Partial<PresentationInterface>
-  >(
-    {
+  const form = useForm<Partial<PresentationInterface>>({
+    defaultValues: {
       title: existing?.title || "A/B Test Review",
       description: existing?.description || date(new Date()),
       theme: existing?.theme || defaultTheme,
@@ -199,8 +197,7 @@ const ShareModal = ({
       slides: existing?.slides || [],
       sharable: existing?.sharable || true,
     },
-    existing?.id
-  );
+  });
 
   const {
     list: experiments,
@@ -223,7 +220,7 @@ const ShareModal = ({
 
   const { apiCall } = useAuth();
 
-  const submitForm = async () => {
+  const submitForm = form.handleSubmit(async (value) => {
     if (loading) return;
     setLoading(true);
     setSaveError(null);
@@ -253,7 +250,7 @@ const ShareModal = ({
       setSaveError(e.message);
       setLoading(false);
     }
-  };
+  });
 
   if (!data) {
     // still loading...
@@ -301,6 +298,13 @@ const ShareModal = ({
   });
 
   const selectedExperiments = new Map();
+  const value = {
+    slides: form.watch("slides"),
+    theme: form.watch("theme"),
+    customTheme: form.watch("customTheme"),
+    title: form.watch("title"),
+    description: form.watch("description"),
+  };
   value.slides.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });
@@ -316,11 +320,7 @@ const ShareModal = ({
     Array.from(selectedExperiments.keys()).forEach((e) => {
       exps.push({ id: e, type: "experiment" });
     });
-    const tmp = {
-      ...value,
-      slides: exps,
-    };
-    manualUpdate(tmp);
+    form.setValue("slides", exps);
   };
 
   const reorder = (slides, startIndex, endIndex) => {
@@ -335,15 +335,10 @@ const ShareModal = ({
     if (!result.destination) {
       return;
     }
-    const tmp = {
-      ...value,
-      slides: reorder(
-        value.slides,
-        result.source.index,
-        result.destination.index
-      ),
-    };
-    manualUpdate(tmp);
+    form.setValue(
+      "slides",
+      reorder(value.slides, result.source.index, result.destination.index)
+    );
   };
   const grid = 4;
   const getItemStyle = (isDragging, draggableStyle) => ({
@@ -387,10 +382,12 @@ const ShareModal = ({
               {byStatus[status]
                 .sort(
                   (a, b) =>
-                    new Date(
+                    getValidDate(
                       b.phases[b.phases.length - 1]?.dateEnded
                     ).getTime() -
-                    new Date(a.phases[a.phases.length - 1]?.dateEnded).getTime()
+                    getValidDate(
+                      a.phases[a.phases.length - 1]?.dateEnded
+                    ).getTime()
                 )
                 .map((e: ExperimentInterfaceStringDates) => {
                   const phase = e.phases[e.phases.length - 1];
@@ -683,7 +680,7 @@ const ShareModal = ({
                   className="form-control"
                   id="inputtitle"
                   placeholder=""
-                  {...inputProps.title}
+                  {...form.register("title")}
                 />
               </div>
             </div>
@@ -700,7 +697,7 @@ const ShareModal = ({
                   className="form-control"
                   id="inputdesc"
                   placeholder=""
-                  {...inputProps.description}
+                  {...form.register("description")}
                 />
               </div>
             </div>
@@ -741,7 +738,7 @@ const ShareModal = ({
                 Presentation theme
               </label>
               <div className="col-sm-8">
-                <select className="form-control" {...inputProps.theme}>
+                <select className="form-control" {...form.register("theme")}>
                   {presThemes.map((opt) => {
                     return opt;
                   })}
@@ -759,9 +756,10 @@ const ShareModal = ({
                       className="form-control"
                       value={value.customTheme?.headingFont}
                       onChange={(e) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["headingFont"] = e.target.value;
-                        manualUpdate(tmp);
+                        form.setValue(
+                          "customTheme.headingFont",
+                          e.target.value
+                        );
                       }}
                     >
                       {fontOptions}
@@ -777,9 +775,7 @@ const ShareModal = ({
                       className="form-control"
                       value={value.customTheme?.bodyFont}
                       onChange={(e) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["bodyFont"] = e.target.value;
-                        manualUpdate(tmp);
+                        form.setValue("customTheme.bodyFont", e.target.value);
                       }}
                     >
                       {fontOptions}
@@ -793,9 +789,7 @@ const ShareModal = ({
                     </label>
                     <HexColorPicker
                       onChange={(c) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["backgroundColor"] = c;
-                        manualUpdate(tmp);
+                        form.setValue("customTheme.backgroundColor", c);
                       }}
                       style={{ margin: "0 auto" }}
                       color={value.customTheme?.backgroundColor || ""}
@@ -808,9 +802,7 @@ const ShareModal = ({
                     </label>
                     <HexColorPicker
                       onChange={(c) => {
-                        const tmp = { ...value };
-                        tmp.customTheme["textColor"] = c;
-                        manualUpdate(tmp);
+                        form.setValue("customTheme.textColor", c);
                       }}
                       style={{ margin: "0 auto" }}
                       color={value.customTheme?.textColor || ""}

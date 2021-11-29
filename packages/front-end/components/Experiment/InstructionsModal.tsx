@@ -5,16 +5,16 @@ import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import { getEvenSplit } from "../../services/utils";
 import stringify from "json-stringify-pretty-compact";
-import useForm from "../../hooks/useForm";
+import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import {
   generateJavascriptSnippet,
   getUrlRegex,
   TrackingType,
 } from "../../services/codegen";
-import TextareaAutosize from "react-textarea-autosize";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Code from "../Code";
+import Field from "../Forms/Field";
 
 type Experiment = {
   key: string;
@@ -94,18 +94,26 @@ const InstructionsModal: FC<{
 
   const phase = phases?.[0];
 
-  const [value, inputProps] = useForm<{
+  const form = useForm<{
     tracking: TrackingType;
     funcs: string[];
     gaDimension: number;
     mixpanelProjectId: string;
   }>({
-    tracking: "segment",
-    funcs: variations.slice(1).map((v) => `console.log("${v.name}")`),
-    gaDimension: 1,
-    mixpanelProjectId: "",
+    defaultValues: {
+      tracking: "segment",
+      funcs: variations.slice(1).map((v) => `console.log("${v.name}")`),
+      gaDimension: 1,
+      mixpanelProjectId: "",
+    },
   });
   const [codegen, setCodegen] = useState("");
+  const value = {
+    tracking: form.watch("tracking"),
+    funcs: variations.slice(1).map((v, i) => form.watch(`funcs.${i}`)),
+    gaDimension: form.watch("gaDimension"),
+    mixpanelProjectId: form.watch("mixpanelProjectId"),
+  };
   useEffect(() => {
     setCodegen(
       generateJavascriptSnippet(
@@ -119,7 +127,7 @@ const InstructionsModal: FC<{
           : ""
       )
     );
-  }, [value]);
+  }, [value.funcs, value.tracking, value.gaDimension, value.mixpanelProjectId]);
 
   const expDef: Experiment = {
     key: trackingKey,
@@ -187,7 +195,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.com/growthbook/growthbook-js"
+              href="https://docs.growthbook.io/lib/js"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -212,7 +220,7 @@ const InstructionsModal: FC<{
           <p>
             Install our{" "}
             <a
-              href="https://github.com/growthbook/growthbook-react"
+              href="https://docs.growthbook.io/lib/react"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -324,58 +332,57 @@ const InstructionsModal: FC<{
           <form onSubmit={(e) => e.preventDefault()}>
             <div className="row">
               <div className="col">
-                <div className="form-group">
-                  Event Tracking System
-                  <select className="form-control" {...inputProps.tracking}>
-                    <option value="segment">Segment</option>
-                    <option value="mixpanel">Mixpanel</option>
-                    <option value="ga">Google Analytics</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </div>
+                <Field
+                  label="Event Tracking System"
+                  {...form.register("tracking")}
+                  options={[
+                    { display: "Segment", value: "segment" },
+                    { display: "Mixpanel", value: "mixpanel" },
+                    { display: "Google Analytics", value: "ga" },
+                    { display: "Custom", value: "custom" },
+                  ]}
+                />
               </div>
               {value.tracking === "ga" && (
                 <div className="col">
-                  <div className="form-group">
-                    GA Custom Dimension
-                    <input
-                      type="number"
-                      className="form-control"
-                      {...inputProps.gaDimension}
-                      min={1}
-                      max={100}
-                    />
-                  </div>
+                  <Field
+                    label="GA Custom Dimension"
+                    type="number"
+                    {...form.register("gaDimension", { valueAsNumber: true })}
+                    min={1}
+                    max={100}
+                  />
                 </div>
               )}
               {value.tracking === "mixpanel" && (
                 <div className="col">
-                  <div className="form-group">
-                    Mixpanel Project Token
-                    <input
-                      type="text"
-                      className="form-control"
-                      {...inputProps.mixpanelProjectId}
-                    />
-                  </div>
+                  <Field
+                    label="Mixpanel Project Token"
+                    {...form.register("mixpanelProjectId")}
+                  />
                 </div>
               )}
             </div>
             {variations.slice(1).map((v, i) => (
-              <div className="form-group" key={v.name}>
-                <strong>Javascript:</strong> {v.name}
-                <TextareaAutosize
-                  className="form-control"
-                  placeholder={`console.log("${v.name}")`}
-                  minRows={1}
-                  maxRows={6}
-                  {...inputProps.funcs[i]}
-                />
-                <small className="form-text text-muted">
-                  Will be executed if user is assigned variation:{" "}
-                  <code>{v.name}</code>
-                </small>
-              </div>
+              <Field
+                key={i}
+                label={
+                  <>
+                    <strong>Javascript:</strong> {v.name}
+                  </>
+                }
+                placeholder={`console.log("${v.name}")`}
+                textarea
+                minRows={1}
+                maxRows={6}
+                {...form.register(`funcs.${i}`)}
+                helpText={
+                  <>
+                    Will be executed if user is assigned variation:{" "}
+                    <code>{v.name}</code>
+                  </>
+                }
+              />
             ))}
           </form>
           <Code language="html" code={codegen} />

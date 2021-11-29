@@ -13,7 +13,6 @@ import Code from "../../components/Code";
 import {
   getExperimentQuery,
   getPageviewsQuery,
-  getUsersQuery,
 } from "../../services/datasources";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
@@ -52,8 +51,8 @@ const DataSourcePage: FC = () => {
     );
   }
 
-  const supportsSQL = !["google_analytics", "mixpanel"].includes(d.type);
-  const supportsEvents = d.type === "mixpanel";
+  const supportsSQL = d.properties?.queryLanguage === "sql";
+  const supportsEvents = d.properties?.events || false;
 
   return (
     <div className="container mt-3 pagecontents">
@@ -114,15 +113,14 @@ const DataSourcePage: FC = () => {
                     setEditSettings(true);
                   }}
                 >
-                  <FaCode /> Edit {supportsSQL ? "Queries" : "Query Settings"}
+                  <FaCode /> Edit Query Settings
                 </a>
               </div>
             )}
           </div>
-          {d.type === "google_analytics" && (
+          {!d.properties?.hasSettings && (
             <div className="alert alert-info">
-              Google Analytics data sources do not require any additional
-              configuration.
+              This data source does not require any additional configuration.
             </div>
           )}
           {supportsEvents && (
@@ -145,14 +143,19 @@ const DataSourcePage: FC = () => {
                   })}
                 </tbody>
               </table>
-              <ul></ul>
             </>
           )}
           {supportsSQL && (
             <>
               <div className="mb-4">
-                <h3>Experiments SQL</h3>
-                <div>Used to pull experiment results.</div>
+                <h3>Experiments Query</h3>
+                <div>
+                  Returns variation assignment data for all experiments -{" "}
+                  <em className="text-muted">
+                    which users were in which experiments, what variation did
+                    they see, and when?
+                  </em>
+                </div>
                 <Code
                   language="sql"
                   code={getExperimentQuery(
@@ -160,25 +163,31 @@ const DataSourcePage: FC = () => {
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
                 />
-              </div>
-              <div className="mb-4">
-                <h3>Users Query</h3>
-                <div>
-                  Used to join users to anonymous sessions before they logged
-                  in.
-                </div>
-                <Code
-                  language="sql"
-                  code={getUsersQuery(
-                    d.settings,
-                    (d.params as PostgresConnectionParams)?.defaultSchema
-                  )}
-                />
+                {d.settings?.experimentDimensions?.length > 0 && (
+                  <div className="mt-2">
+                    <div>
+                      <strong>Dimension Columns:</strong>{" "}
+                      {d.settings.experimentDimensions.map((d) => (
+                        <code key={d} className="mx-2">
+                          {d}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="mb-4">
                 <h3>Pageviews Query</h3>
                 <div>
-                  Used to predict running time before an experiment starts.
+                  Returns all historical browsing activity on your website or
+                  app -{" "}
+                  <em className="text-muted">
+                    which pages/screens did each user view and when
+                  </em>
+                </div>
+                <div className="mt-2">
+                  This is used to predict ahead of time how much traffic an
+                  experiment will get and how long it will take to finish.
                 </div>
                 <Code
                   language="sql"
@@ -186,6 +195,24 @@ const DataSourcePage: FC = () => {
                     d.settings,
                     (d.params as PostgresConnectionParams)?.defaultSchema
                   )}
+                />
+              </div>
+              <div className="mb-4">
+                <h3>Jupyter Notebook Query Runner</h3>
+                <div>
+                  Defines a Python <code>runQuery</code> function that executes
+                  a SQL query and returns a pandas data frame.
+                </div>
+                <div className="mt-2">
+                  Used to generate Jupyter Notebooks for experiments in this
+                  data source.
+                </div>
+                <Code
+                  code={
+                    d.settings?.notebookRunQuery ||
+                    "def runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
+                  }
+                  language="python"
                 />
               </div>
             </>
@@ -198,7 +225,7 @@ const DataSourcePage: FC = () => {
                 <h2>Import Past Experiments</h2>
                 <p>
                   If you have past experiments already in your data source, you
-                  can import them to Growth Book.
+                  can import them to GrowthBook.
                 </p>
                 <Button
                   color="outline-primary"

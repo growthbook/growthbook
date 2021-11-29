@@ -1,6 +1,7 @@
 import { FC, useRef, useEffect, useState, ReactElement } from "react";
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
+import Portal from "./Modal/Portal";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -13,6 +14,7 @@ type ModalProps = {
   error?: string;
   size?: "md" | "lg" | "max";
   inline?: boolean;
+  autoFocusSelector?: string;
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
@@ -32,28 +34,34 @@ const Modal: FC<ModalProps> = ({
   className = "",
   autoCloseOnSubmit = true,
   inline = false,
+  autoFocusSelector = "input,textarea,select",
   solidOverlay = false,
   error: externalError,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setError(externalError);
   }, [externalError]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>();
   useEffect(() => {
-    if (open && bodyRef.current) {
-      const input = bodyRef.current.querySelector<
-        HTMLInputElement | HTMLTextAreaElement
-      >("input,textarea");
-      if (input) {
-        input.focus();
-        input.select();
+    setTimeout(() => {
+      if (!autoFocusSelector) return;
+      if (open && bodyRef.current) {
+        const input = bodyRef.current.querySelector<
+          HTMLInputElement | HTMLTextAreaElement
+        >(autoFocusSelector);
+        if (input) {
+          input.focus();
+          if (input.select) {
+            input.select();
+          }
+        }
       }
-    }
-  }, [open]);
+    }, 70);
+  }, [open, autoFocusSelector]);
 
   const contents = (
     <div className={`modal-content ${className}`} style={{ maxHeight: "93vh" }}>
@@ -63,7 +71,7 @@ const Modal: FC<ModalProps> = ({
           <h5 className="modal-title">
             {header === "logo" ? (
               <img
-                alt="Growth Book"
+                alt="GrowthBook"
                 src="/logo/growthbook-logo.png"
                 style={{ height: 40 }}
               />
@@ -107,7 +115,16 @@ const Modal: FC<ModalProps> = ({
       </div>
       {submit || close ? (
         <div className="modal-footer">
-          {error && <div className="alert alert-danger mr-auto">{error}</div>}
+          {error && (
+            <div className="alert alert-danger mr-auto">
+              {error
+                .split("\n")
+                .filter((v) => !!v.trim())
+                .map((s, i) => (
+                  <div key={i}>{s}</div>
+                ))}
+            </div>
+          )}
           {submit ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
@@ -144,7 +161,7 @@ const Modal: FC<ModalProps> = ({
     : null;
 
   return (
-    <>
+    <Portal>
       {!inline && (
         <div
           className={clsx("modal-backdrop fade", {
@@ -198,7 +215,7 @@ const Modal: FC<ModalProps> = ({
           )}
         </div>
       </div>
-    </>
+    </Portal>
   );
 };
 

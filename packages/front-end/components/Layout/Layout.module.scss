@@ -5,7 +5,7 @@ $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;
 
 .sidebar {
-  background-color: $dark-purple;
+  background-color: $dark-blue;
   width: $sidebarwidth;
   flex-direction: column;
   display: flex;
@@ -15,19 +15,20 @@ $topbarheight: 60px;
   color: #fff;
   overflow: hidden;
   overflow-y: auto;
+  font-family: Poppins, sans-serif;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
   width: $sidebarwidth;
-  height: 60px;
+  height: 56px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
 }
 .logo {
-  width: 36px;
+  width: 32px;
 }
 .logotext {
-  width: 145px;
-  margin-left: 8px;
+  width: 125px;
+  margin-left: 4px;
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
 }
 .userlogo {
@@ -39,20 +40,22 @@ $topbarheight: 60px;
 }
 .mainmenu {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
+  padding: 10px 10px;
   overflow: hidden;
   font-size: 14px;
   font-weight: 400;
-  line-height: 48px;
-  text-transform: uppercase;
+  line-height: 32px;
 
   a {
     color: #fff;
   }
   ul {
     list-style-type: none;
-    margin: 0;
+    margin: 2px 0 0 0;
     padding: 0;
+    .first {
+      margin-top: 10px;
+    }
   }
 }
 
@@ -66,7 +69,7 @@ $topbarheight: 60px;
   .mainmenu {
     ul {
       li {
-        width: $expandedwidth;
+        //width: $expandedwidth;
       }
     }
   }

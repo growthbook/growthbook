@@ -1,6 +1,6 @@
-# Self Hosting Growth Book
+# Self Hosting GrowthBook
 
-Growth Book consists of a NextJS front-end, an ExpressJS API, and a Python stats engine. Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
+GrowthBook consists of a NextJS front-end, an ExpressJS API, and a Python stats engine. Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
 
 In addition to the app itself, you will also need a MongoDB instance to store login credentials, cached experiment results, and metadata.
 
@@ -18,7 +18,7 @@ In addition to the app itself, you will also need a MongoDB instance to store lo
   </div>
   <div>
     Don't want to install or host the app yourself?{" "}
-    <a href="https://app.growthbook.io">Growth Book Cloud</a> is a fully managed
+    <a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed
     version that's free to get started.
   </div>
   <div className="text-yellow-500 pt-1 ml-3">
@@ -66,7 +66,7 @@ Then, just run `docker-compose up -d` to start everything and view the app at [h
 
 ## Docker Tags
 
-Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch.  The most recent commit is tagged with `latest`. 
+Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
 
 GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
 
@@ -79,5 +79,5 @@ If you are using docker-compose, and assuming you specify the growthbook contain
 ```bash
 docker-compose pull growthbook
 docker-compose stop growthbook
-docker-compose up -d --no-deps growthbook
+docker-compose up -d growthbook
 ```

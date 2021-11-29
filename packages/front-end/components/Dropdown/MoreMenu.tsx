@@ -6,11 +6,12 @@ import useGlobalMenu from "../../services/useGlobalMenu";
 const MoreMenu: FC<{
   id: string;
   autoCloseOnClick?: boolean;
-}> = ({ children, id, autoCloseOnClick = true }) => {
+  className?: string;
+}> = ({ children, id, autoCloseOnClick = true, className = "" }) => {
   const [open, setOpen] = useState(false);
   useGlobalMenu(`#${id}`, () => setOpen(false));
   return (
-    <div className="dropdown" id={id}>
+    <div className={`dropdown ${className}`} id={id}>
       <a
         href="#"
         className="text-dark"

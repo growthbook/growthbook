@@ -25,7 +25,7 @@ export interface Variation {
 }
 
 export interface ExperimentPhase {
-  dateStarted?: Date;
+  dateStarted: Date;
   dateEnded?: Date;
   phase: "ramp" | "main" | "holdout";
   reason: string;
@@ -46,6 +46,7 @@ export interface ExperimentInterface {
   id: string;
   trackingKey: string;
   organization: string;
+  project?: string;
   owner: string;
   datasource: string;
   implementation: ImplementationType;
@@ -63,7 +64,9 @@ export interface ExperimentInterface {
   metrics: string[];
   guardrails?: string[];
   activationMetric?: string;
-  sqlOverride: Map<string, string>;
+  segment?: string;
+  queryFilter?: string;
+  skipPartialData?: boolean;
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;

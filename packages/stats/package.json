@@ -1,0 +1,9 @@
+{
+  "name": "stats",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "pytest",
+    "lint": "black gbstats tests && flake8"
+  }
+}

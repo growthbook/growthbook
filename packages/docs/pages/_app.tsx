@@ -50,6 +50,10 @@ const navLinks = [
         name: "Experiments",
       },
       {
+        href: "/app/dimensions",
+        name: "Dimensions",
+      },
+      {
         href: "/app/visual",
         name: "Visual Editor",
         beta: true,
@@ -154,8 +158,8 @@ function App({
   return (
     <div className="h-screen dark:bg-gray-800">
       <Head>
-        <title>Growth Book Docs</title>
-        <meta name="robots" content="noindex, nofollow" />
+        <title>GrowthBook Docs</title>
+        <meta name="robots" content="index, follow" />
         <link
           rel="preload"
           href="https://cdn.jsdelivr.net/npm/prism-themes@1.7.0/themes/prism-dracula.css"

@@ -1,10 +1,14 @@
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
-  UsersQueryParams,
   MetricValueParams,
   SourceIntegrationInterface,
-  ExperimentUsersQueryParams,
   ExperimentMetricQueryParams,
+  MetricValueQueryResponse,
+  MetricValueResult,
+  PastExperimentResponse,
+  PastExperimentResult,
+  ExperimentResults,
+  ExperimentQueryResponses,
 } from "../types/Integration";
 import uniqid from "uniqid";
 import {
@@ -14,12 +18,13 @@ import {
   QueryStatus,
 } from "../../types/query";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
+import { getValidDate } from "../util/dates";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
-  runStarted: Date;
+  runStarted: Date | null;
   queries: Queries;
   organization: string;
 };
@@ -69,7 +74,7 @@ async function createNewQuery(
   const data: QueryInterface = {
     createdAt: new Date(),
     datasource: integration.datasource,
-    finishedAt: result || error ? new Date() : null,
+    finishedAt: result || error ? new Date() : undefined,
     heartbeat: new Date(),
     id: uniqid("qry_"),
     language: integration.getSourceProperties().queryLanguage,
@@ -77,16 +82,17 @@ async function createNewQuery(
     query,
     startedAt: new Date(),
     status: result ? "succeeded" : error ? "failed" : "running",
-    result,
-    error,
+    result: result || undefined,
+    error: error || undefined,
   };
   return await QueryModel.create(data);
 }
 
-async function getQueryDoc<T>(
+async function getQueryDoc<T, P>(
   integration: SourceIntegrationInterface,
   query: string,
   run: (query: string) => Promise<T>,
+  process: (rows: T) => P,
   useExisting: boolean = true
 ): Promise<QueryDocument> {
   // Re-use recent identical query
@@ -107,11 +113,12 @@ async function getQueryDoc<T>(
 
   // Run the query in the background
   run(query)
-    .then((res) => {
+    .then((rows) => {
       clearInterval(timer);
       doc.set("finishedAt", new Date());
       doc.set("status", "succeeded");
-      doc.set("result", res);
+      doc.set("rawResult", rows);
+      doc.set("result", process(rows));
       doc.save();
     })
     .catch((e) => {
@@ -136,20 +143,11 @@ export async function getPastExperiments(
       from,
       minLength,
     }),
-    (query: string) => integration.runPastExperimentQuery(query)
+    (query) => integration.runPastExperimentQuery(query),
+    processPastExperimentQueryResponse
   );
 }
 
-export async function getUsers(
-  integration: SourceIntegrationInterface,
-  params: UsersQueryParams
-): Promise<QueryDocument> {
-  return getQueryDoc(
-    integration,
-    integration.getUsersQuery(params),
-    (query: string) => integration.runUsersQuery(query)
-  );
-}
 export async function getMetricValue(
   integration: SourceIntegrationInterface,
   params: MetricValueParams
@@ -157,7 +155,8 @@ export async function getMetricValue(
   return getQueryDoc(
     integration,
     integration.getMetricValueQuery(params),
-    (query: string) => integration.runMetricValueQuery(query)
+    (query) => integration.runMetricValueQuery(query),
+    processMetricValueQueryResponse
   );
 }
 
@@ -188,19 +187,7 @@ export async function getExperimentResults(
         activationMetric,
         dimension
       ),
-    false
-  );
-}
-
-export async function getExperimentUsers(
-  integration: SourceIntegrationInterface,
-  params: ExperimentUsersQueryParams
-): Promise<QueryDocument> {
-  return getQueryDoc(
-    integration,
-    integration.getExperimentUsersQuery(params),
-    (query: string) =>
-      integration.runExperimentUsersQuery(params.experiment, query),
+    (rows) => processExperimentResultsResponse(experiment, rows),
     false
   );
 }
@@ -212,10 +199,137 @@ export async function getExperimentMetric(
   return getQueryDoc(
     integration,
     integration.getExperimentMetricQuery(params),
-    (query: string) =>
-      integration.runExperimentMetricQuery(params.experiment, query),
+    (query) => integration.runExperimentMetricQuery(query),
+    (rows) => rows,
     false
   );
+}
+
+export function processPastExperimentQueryResponse(
+  rows: PastExperimentResponse
+): PastExperimentResult {
+  return {
+    experiments: rows.map((row) => {
+      return {
+        users: row.users,
+        experiment_id: row.experiment_id,
+        variation_id: row.variation_id,
+        end_date: getValidDate(row.end_date),
+        start_date: getValidDate(row.start_date),
+      };
+    }),
+  };
+}
+
+function getVariationMap(experiment: ExperimentInterface) {
+  const variationMap = new Map<string, number>();
+  experiment.variations.forEach((v, i) => {
+    variationMap.set(v.key || i + "", i);
+  });
+  return variationMap;
+}
+
+export function processExperimentResultsResponse(
+  experiment: ExperimentInterface,
+  rows: ExperimentQueryResponses
+): ExperimentResults {
+  const ret: ExperimentResults = {
+    dimensions: [],
+    unknownVariations: [],
+  };
+
+  const variationMap = getVariationMap(experiment);
+
+  const unknownVariations: Map<string, number> = new Map();
+  let totalUsers = 0;
+
+  const dimensionMap = new Map<string, number>();
+
+  rows.forEach(({ dimension, metrics, users, variation }) => {
+    let i = 0;
+    if (dimensionMap.has(dimension)) {
+      i = dimensionMap.get(dimension) || 0;
+    } else {
+      i = ret.dimensions.length;
+      ret.dimensions.push({
+        dimension,
+        variations: [],
+      });
+      dimensionMap.set(dimension, i);
+    }
+
+    const numUsers = users || 0;
+    totalUsers += numUsers;
+
+    const varIndex = variationMap.get(variation + "");
+    if (
+      typeof varIndex === "undefined" ||
+      varIndex < 0 ||
+      varIndex >= experiment.variations.length
+    ) {
+      unknownVariations.set(variation, numUsers);
+      return;
+    }
+
+    const metricData: { [key: string]: MetricStats } = {};
+    metrics.forEach(({ metric, ...stats }) => {
+      metricData[metric] = stats;
+    });
+
+    ret.dimensions[i].variations.push({
+      variation: varIndex,
+      users: numUsers,
+      metrics: metricData,
+    });
+  });
+
+  unknownVariations.forEach((users, variation) => {
+    // Ignore unknown variations with an insignificant number of users
+    // This protects against random typos causing false positives
+    if (totalUsers > 0 && users / totalUsers >= 0.02) {
+      ret.unknownVariations.push(variation);
+    }
+  });
+
+  return ret;
+}
+
+export function processMetricValueQueryResponse(
+  rows: MetricValueQueryResponse
+): MetricValueResult {
+  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0, users: 0 };
+
+  rows.forEach((row) => {
+    const { date, count, mean, stddev, users, ...percentiles } = row;
+
+    // Row for each date
+    if (date) {
+      ret.dates = ret.dates || [];
+      ret.dates.push({
+        date,
+        users,
+        count,
+        mean,
+        stddev,
+      });
+    }
+    // Overall numbers
+    else {
+      ret.count = count;
+      ret.mean = mean;
+      ret.stddev = stddev;
+      ret.users = users;
+
+      if (percentiles) {
+        Object.keys(percentiles).forEach((p) => {
+          ret.percentiles = ret.percentiles || {};
+          ret.percentiles[p.replace(/^p/, "")] = percentiles[p];
+        });
+      }
+    }
+  });
+
+  return ret;
 }
 
 export async function getQueryData(
@@ -244,7 +358,8 @@ export async function updateQueryStatuses(
   queries: Queries,
   organization: string,
   onUpdate: (queries: Queries) => Promise<void>,
-  onSuccess: (queries: Queries, data: QueryMap) => Promise<void>
+  onSuccess: (queries: Queries, data: QueryMap) => Promise<void>,
+  currentError?: string
 ): Promise<QueryStatus> {
   // Group queries by status
   const byStatus: Record<QueryStatus, QueryPointer[]> = {
@@ -258,7 +373,7 @@ export async function updateQueryStatuses(
   });
 
   // If there's at least 1 failed query, the overall status is failed
-  if (byStatus.failed.length > 0) {
+  if (currentError || byStatus.failed.length > 0) {
     return "failed";
   }
 
@@ -286,7 +401,7 @@ export async function updateQueryStatuses(
 
     if (status !== q.status) {
       needsUpdate = true;
-      q.status = latest.status;
+      q.status = status;
     }
   });
 
@@ -366,7 +481,12 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   doc: T,
   organization: string,
   processResults: (data: QueryMap) => Promise<R>,
-  onSave: (data: Partial<InterfaceWithQueries>, result?: R) => Promise<void>
+  onSave: (
+    data: Partial<InterfaceWithQueries>,
+    result?: R,
+    error?: string
+  ) => Promise<void>,
+  currentError?: string
 ) {
   if (!doc) {
     throw new Error("Could not find document");
@@ -383,15 +503,24 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
       await onSave({ queries });
     },
     async (queries: Queries, data: QueryMap) => {
-      const results = await processResults(data);
-      await onSave({ queries }, results);
-    }
+      let error = "";
+      let results: R | undefined = undefined;
+      try {
+        results = await processResults(data);
+      } catch (e) {
+        error = e.message;
+      }
+      await onSave({ queries }, results, error);
+    },
+    currentError
   );
 
   return {
     status: 200,
     queryStatus: status,
-    elapsed: Math.floor((Date.now() - doc?.runStarted?.getTime()) / 1000),
+    elapsed: Math.floor(
+      (Date.now() - (doc?.runStarted?.getTime() || 0)) / 1000
+    ),
     finished: doc.queries.filter((q) => q.status === "succeeded").length,
     total: doc.queries.length,
   };

@@ -34,30 +34,36 @@ export type DataSourceParams =
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
 export interface DataSourceProperties {
-  type: "manual" | "database" | "api";
   queryLanguage: QueryLanguage;
-  includeInConfig: boolean;
-  readonlyFields: string[];
-  metricCaps: boolean;
-  separateExperimentResultQueries: boolean;
+  metricCaps?: boolean;
+  segments?: boolean;
+  experimentSegments?: boolean;
+  dimensions?: boolean;
+  hasSettings?: boolean;
+  activationDimension?: boolean;
+  events?: boolean;
+  userIds?: boolean;
+  separateExperimentResultQueries?: boolean;
 }
 
-type WithParams<B, P> = Omit<B, "params"> & { params: P };
+type WithParams<B, P> = Omit<B, "params"> & {
+  params: P;
+  properties?: DataSourceProperties;
+};
 
 export type DataSourceSettings = {
-  variationIdFormat?: "key" | "index";
+  experimentDimensions?: string[];
+  notebookRunQuery?: string;
   queries?: {
-    usersQuery: string;
-    experimentsQuery: string;
-    pageviewsQuery: string;
+    experimentsQuery?: string;
+    pageviewsQuery?: string;
   };
   events?: {
-    experimentEvent: string;
-    experimentIdProperty: string;
-    variationIdProperty: string;
-    pageviewEvent: string;
-    urlProperty: string;
-    userAgentProperty: string;
+    experimentEvent?: string;
+    experimentIdProperty?: string;
+    variationIdProperty?: string;
+    pageviewEvent?: string;
+    urlProperty?: string;
   };
   default?: {
     timestampColumn?: string;
@@ -71,7 +77,6 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     experimentIdColumn?: string;
     variationColumn?: string;
-    variationFormat?: "index" | "key";
   };
   users?: {
     table?: string;
@@ -95,8 +100,8 @@ interface DataSourceBase {
   id: string;
   name: string;
   organization: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   params: string;
   settings: DataSourceSettings;
 }

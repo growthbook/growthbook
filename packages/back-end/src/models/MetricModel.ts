@@ -1,7 +1,14 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { queriesSchema } from "./QueryModel";
+
+export const ALLOWED_METRIC_TYPES = [
+  "binomial",
+  "count",
+  "duration",
+  "revenue",
+];
 
 const metricSchema = new mongoose.Schema({
   id: String,
@@ -22,9 +29,13 @@ const metricSchema = new mongoose.Schema({
   conversionWindowHours: Number,
   winRisk: Number,
   loseRisk: Number,
+  maxPercentChange: Number,
+  minPercentChange: Number,
+  minSampleSize: Number,
   dateCreated: Date,
   dateUpdated: Date,
   userIdColumn: String,
+  segment: String,
   anonymousIdColumn: String,
   userIdType: String,
   sql: String,
@@ -40,8 +51,10 @@ const metricSchema = new mongoose.Schema({
   ],
   queries: queriesSchema,
   runStarted: Date,
+  analysisError: String,
   analysis: {
     createdAt: Date,
+    segment: String,
     users: Number,
     average: Number,
     stddev: Number,
@@ -58,16 +71,18 @@ const metricSchema = new mongoose.Schema({
         _id: false,
         d: Date,
         v: Number,
+        s: Number,
+        u: Number,
       },
     ],
   },
 });
+metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
-  if (!doc) return null;
   return doc.toJSON();
 }
 
@@ -78,12 +93,13 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function deleteMetricById(id: string) {
+export async function deleteMetricById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
   }
   await MetricModel.deleteOne({
     id,
+    organization,
   });
 }
 
@@ -113,6 +129,7 @@ export async function getMetricsByDatasource(
 
   const docs = await MetricModel.find({
     datasource,
+    organization,
   });
   return docs.map(toInterface);
 }
@@ -130,7 +147,6 @@ export async function hasSampleMetric(organization: string) {
 export async function getMetricById(
   id: string,
   organization: string,
-  requireMatchingOrgs: boolean = true,
   includeAnalysis: boolean = false
 ) {
   // If using config.yml, immediately return the from there
@@ -142,25 +158,45 @@ export async function getMetricById(
     if (includeAnalysis) {
       const metric = await MetricModel.findOne({ id, organization });
       doc.queries = metric?.queries || [];
-      doc.analysis = metric?.analysis || null;
+      doc.analysis = metric?.analysis || undefined;
+      doc.analysisError = metric?.analysisError || undefined;
       doc.runStarted = metric?.runStarted || null;
     }
 
     return doc;
   }
 
-  const res = toInterface(
-    await MetricModel.findOne({
-      id,
-    })
-  );
+  const res = await MetricModel.findOne({
+    id,
+    organization,
+  });
 
-  if (res && requireMatchingOrgs && res.organization !== organization) {
-    throw new Error("You do not have access to that metric");
+  return res ? toInterface(res) : null;
+}
+
+export async function getMetricsUsingSegment(
+  segment: string,
+  organization: string
+) {
+  // If using config.yml, immediately return the from there
+  if (usingFileConfig()) {
+    return (
+      getConfigMetrics(organization).filter((m) => m.segment === segment) || []
+    );
   }
 
-  return res;
+  return MetricModel.find({
+    organization,
+    segment,
+  });
 }
+
+const ALLOWED_UPDATE_FIELDS = [
+  "analysis",
+  "analysisError",
+  "queries",
+  "runStarted",
+];
 
 export async function updateMetric(
   id: string,
@@ -170,9 +206,8 @@ export async function updateMetric(
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
-      Object.keys(updates).filter(
-        (k) => !["analysis", "queries", "runStarted"].includes(k)
-      ).length > 0
+      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
+        .length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
     }
@@ -195,9 +230,40 @@ export async function updateMetric(
   await MetricModel.updateOne(
     {
       id,
+      organization,
     },
     {
       $set: updates,
     }
   );
+}
+
+export async function updateMetricsByQuery(
+  query: FilterQuery<MetricDocument>,
+  updates: Partial<MetricInterface>
+) {
+  if (usingFileConfig()) {
+    // Trying to update unsupported properties
+    if (
+      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
+        .length > 0
+    ) {
+      throw new Error("Cannot update. Metrics managed by config.yml");
+    }
+
+    await MetricModel.updateMany(
+      query,
+      {
+        $set: updates,
+      },
+      {
+        upsert: true,
+      }
+    );
+    return;
+  }
+
+  await MetricModel.updateMany(query, {
+    $set: updates,
+  });
 }

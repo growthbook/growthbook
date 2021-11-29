@@ -15,8 +15,9 @@ export interface PastExperimentsInterface {
   organization: string;
   datasource: string;
   experiments?: PastExperiment[];
-  runStarted: Date;
+  runStarted: Date | null;
   queries: Queries;
+  error?: string;
   dateCreated: Date;
   dateUpdated: Date;
 }

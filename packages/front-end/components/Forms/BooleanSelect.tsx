@@ -1,0 +1,47 @@
+import clsx from "clsx";
+import { Controller, Control } from "react-hook-form";
+
+export default function BooleanSelect(
+  // eslint-disable-next-line
+  props: { name: string, control: Control<any>, falseLabel: string, trueLabel: string } & React.DetailedHTMLProps<
+    React.SelectHTMLAttributes<HTMLSelectElement>,
+    HTMLSelectElement
+  >
+) {
+  const {
+    name,
+    control,
+    className,
+    falseLabel,
+    trueLabel,
+    ...passThrough
+  } = props;
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        return (
+          <select
+            className={clsx(className, "form-control")}
+            {...passThrough}
+            value={field.value ? "true" : "false"}
+            onChange={(e) => {
+              field.onChange({
+                ...e,
+                target: {
+                  ...e.target,
+                  value: e.target.value === "true",
+                },
+              });
+            }}
+          >
+            <option value="false">{falseLabel}</option>
+            <option value="true">{trueLabel}</option>
+          </select>
+        );
+      }}
+    />
+  );
+}

@@ -1,18 +1,29 @@
-# Configuring Growth Book
+# Configuring GrowthBook
 
-The default configuration in Growth Book is optimized for trying things out quickly on a local dev machine.
+The default configuration in GrowthBook is optimized for trying things out quickly on a local dev machine.
 Beyond that, you can customize behavior with Environment Variables and optionally a config yaml file.
 
 ## Environment Variables
 
-The Growth Book docker container supports a number of environment variables:
+The GrowthBook docker container supports a number of environment variables:
 
 ### Domains and Ports
 
-This is used to generate links to Growth Book and enable CORS access to the API.
+This is used to generate links to GrowthBook and enable CORS access to the API.
 
 - **APP_ORIGIN** - default http://localhost:3000
 - **API_HOST** - default http://localhost:3100
+
+If you want to run GrowthBook on a different host than localhost, you need to add the above environment
+variables to your `docker-compose.yml` file.
+
+```yml
+growthbook:
+  ...
+  environment:
+    - APP_ORIGIN=http://<my ip>:3000
+    - API_HOST=http://<my ip>:3100
+```
 
 If you need to change the ports on your local dev environment (e.g. if `3000` is already being used),
 you need to update the above variables AND change the port mapping in `docker-compose.yml`:
@@ -22,6 +33,10 @@ growthbook:
   ports:
     - "4000:3000" # example: use 4000 instead of 3000 for the app
     - "4100:3100" # example: use 4100 instead of 3100 for the api
+  ...
+  environment:
+    - APP_ORIGIN=http://<my ip or url>:4000
+    - API_HOST=http://<my ip or url>:4100
 ```
 
 ### Production Settings
@@ -40,6 +55,7 @@ This is required in order to send experiment alerts and team member invites.
 - **EMAIL_PORT**
 - **EMAIL_HOST_USER**
 - **EMAIL_HOST_PASSWORD**
+- **EMAIL_FROM**
 - **EMAIL_USE_TLS** ("true" or "false")
 
 ### Google OAuth Settings
@@ -51,7 +67,7 @@ Only required if using Google Analytics as a data source
 
 ### S3 File Uploads
 
-Optional. If not specified, Growth Book will use the local file system to store uploads.
+Optional. If not specified, GrowthBook will use the local file system to store uploads.
 
 - **UPLOAD_METHOD** (set to "s3" instead of default value "local")
 - **S3_BUCKET**
@@ -64,13 +80,13 @@ Optional. If not specified, Growth Book will use the local file system to store 
 
 - **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
 - **DEFAULT_CONVERSION_WINDOW_HOURS** - How many hours after being put into an experiment does a user have to convert. Can be overridden on a per-metric basis. (default `72`)
-- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve Growth Book. Set to "true" to disable.
+- **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve GrowthBook. Set to "true" to disable.
 
 ## Config.yml
 
-In order to use Growth Book, you need to connect to a data source and define metrics (and optionally dimensions). There are two ways to do this.
+In order to use GrowthBook, you need to connect to a data source and define metrics (and optionally dimensions). There are two ways to do this.
 
-The default way to define these is by filling out forms in the Growth Book UI, which persists them to MongoDB.
+The default way to define these is by filling out forms in the GrowthBook UI, which persists them to MongoDB.
 
 The other option is to create a `config.yml` file. In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`. Below is an example file:
 
@@ -89,17 +105,13 @@ datasources:
     # How to query the data (same for all SQL sources)
     settings:
       queries:
-        usersQuery: >
-          SELECT user_id, anonymous_id FROM identifies
         experimentsQuery: >
           SELECT
             user_id,
             anonymous_id,
             received_at as timestamp,
             experiment_id,
-            variation_id,
-            context_page_path as url,
-            context_user_agent as user_agent
+            variation_id
           FROM
             experiment_viewed
         pageviewsQuery: >
@@ -107,8 +119,7 @@ datasources:
             user_id,
             anonymous_id,
             received_at as timestamp,
-            path as url,
-            context_user_agent as user_agent
+            path as url
           FROM
             pages
 metrics:
@@ -210,24 +221,21 @@ params:
 
 #### Google Analytics
 
-Unfortunately at this time there is no way to connect to Google Analytics in `config.yml`. You must connect via the Growth Book UI, where we use OAuth and a browser redirect.
+Unfortunately at this time there is no way to connect to Google Analytics in `config.yml`. You must connect via the GrowthBook UI, where we use OAuth and a browser redirect.
 
 ### Data Source Settings
 
-The settings tell Growth Book how to query your data.
+The settings tell GrowthBook how to query your data.
 
 #### SQL Data Sources
 
-For data sources that support SQL, there are 3 queries you need to define:
+For data sources that support SQL, there are 2 queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
 
 ```yml
 type: postgres
 params: ...
 settings:
   queries:
-    # This query maps between logged-in and logged-out (anonymous) users
-    usersQuery: >
-      SELECT user_id, anonymous_id FROM identifies
     # This query returns experiment variation assignment info
     # One row every time a user was put into an experiment
     experimentsQuery: >
@@ -236,9 +244,7 @@ settings:
         anonymous_id,
         received_at as timestamp,
         experiment_id,
-        variation_id,
-        context_page_path as url,
-        context_user_agent as user_agent
+        variation_id
       FROM
         experiment_viewed
     # This query returns one row for every page view on your site
@@ -248,10 +254,24 @@ settings:
         user_id,
         anonymous_id,
         received_at as timestamp,
-        path as url,
-        context_user_agent as user_agent
+        path as url
       FROM
         pages
+  # Used when exporting experiment results to a Jupyter notebook
+  # Define a `runQuery(sql)` function that returns a pandas data frame
+  notebookRunQuery: >
+    import os
+    import psycopg2
+    import pandas as pd
+    from sqlalchemy import create_engine, text
+
+    # Use environment variables or similar for passwords!
+    password = os.getenv('POSTGRES_PW')
+    connStr = f'postgresql+psycopg2://user:{password}@localhost'
+    dbConnection = create_engine(connStr).connect();
+
+    def runQuery(sql):
+      return pd.read_sql(text(sql), dbConnection)
 ```
 
 #### Mixpanel
@@ -268,7 +288,6 @@ settings:
     variationIdProperty: variation_id
     pageviewEvent: Page View
     urlProperty: url
-    userAgentProperty: user_agent
 ```
 
 ### Metrics
@@ -305,13 +324,24 @@ conversionWindowHours: 72
 # Otherwise, it's highlighted yellow.
 winRisk: 0.0025
 loseRisk: 0.0125
+# Min number of conversions for an experiment variation before we reveal results
+minSampleSize: 150
+# The "suspicious" threshold. If the percent change for a variation is above this,
+#   we hide the result and label it as suspicious.
+# Default 0.5 = 50% change
+maxPercentChange: 0.50
+# The minimum change required for a result to considered a win or loss. If the percent
+# change for a variation is below this threshold, we will consider an otherwise conclusive
+# test a draw.
+# Default 0.005 = 0.5% change
+minPercentChange: 0.005
 # Arbitrary tags used to group related metrics
 tags:
   - revenue
   - core
 ```
 
-In addition to all of those settings, you also need to tell Growth Book how to query the metric.
+In addition to all of those settings, you also need to tell GrowthBook how to query the metric.
 
 #### SQL Data Sources
 
@@ -401,4 +431,7 @@ organization:
     visualEditorEnabled: true
     # Minimum experiment length (in days) when importing past experiments. Default `6`
     pastExperimentsMinLength: 3
+    # Number of days of historical data to use when analyzing metrics
+    # (must be between 1 and 400, default `90`)
+    metricAnalysisDays: 90
 ```

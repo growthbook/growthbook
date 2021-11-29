@@ -16,6 +16,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   manual: Boolean,
   query: String,
   queryLanguage: String,
+  error: String,
   queries: queriesSchema,
   dimension: String,
   unknownVariations: [String],
@@ -42,6 +43,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 stddev: Number,
               },
               stats: {
+                users: Number,
                 mean: Number,
                 count: Number,
                 stddev: Number,
@@ -62,6 +64,11 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  hasRawQueries: Boolean,
+  queryFilter: String,
+  segment: String,
+  activationMetric: String,
+  skipPartialData: Boolean,
 });
 experimentSnapshotSchema.index({
   experiment: 1,

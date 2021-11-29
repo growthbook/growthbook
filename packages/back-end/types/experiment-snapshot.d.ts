@@ -33,18 +33,24 @@ export interface ExperimentSnapshotInterface {
   id: string;
   organization: string;
   experiment: string;
+  error?: string;
   phase: number;
   dateCreated: Date;
-  runStarted: Date;
+  runStarted: Date | null;
   manual: boolean;
   query?: string;
   queryLanguage?: QueryLanguage;
   queries: Queries;
-  dimension?: string;
+  dimension: string | null;
   unknownVariations?: string[];
   results?: {
     name: string;
     srm: number;
     variations: SnapshotVariation[];
   }[];
+  hasRawQueries?: boolean;
+  queryFilter?: string;
+  segment?: string;
+  activationMetric?: string;
+  skipPartialData?: boolean;
 }

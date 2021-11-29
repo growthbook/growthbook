@@ -4,6 +4,7 @@ import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
 import Code from "../Code";
 import clsx from "clsx";
+import { getValidDate } from "../../services/dates";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -11,7 +12,6 @@ const ExpandableQuery: FC<{
   total: number;
 }> = ({ query, i, total }) => {
   const [queryOpen, setQueryOpen] = useState(false);
-  const [resultsOpen, setResultsOpen] = useState(false);
 
   return (
     <div className="mb-4">
@@ -51,46 +51,63 @@ const ExpandableQuery: FC<{
           click to {queryOpen ? "minimize" : "expand"}
         </div>
       </div>
-      {query.status === "failed" && (
+      {query.error && (
         <div className="alert alert-danger">
-          <pre>{query.error}</pre>
+          <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
+            {query.error}
+          </pre>
         </div>
       )}
       {query.status === "succeeded" && (
-        <div
-          className={clsx("alert alert-success expandable-container mb-1", {
-            expanded: resultsOpen,
-          })}
-          onClick={() => !resultsOpen && setResultsOpen(true)}
-        >
-          <pre>{JSON.stringify(query.result, null, 2)}</pre>
-          <div
-            className="fader"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(212,237,218,0) 0%,rgba(212,237,218,0.8) 60%)",
-            }}
-            onClick={(e) => {
-              if (!resultsOpen) return;
-              setResultsOpen(false);
-
-              const pre = (e.target as HTMLDivElement).previousElementSibling;
-              if (pre) {
-                pre.scrollTo({ top: 0 });
-              }
-            }}
-          >
-            click to {resultsOpen ? "minimize" : "expand"}
-          </div>
-        </div>
+        <>
+          {query.rawResult?.[0] ? (
+            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+              <table className="table table-bordered table-sm">
+                <thead>
+                  <tr
+                    style={{ position: "sticky", top: 0 }}
+                    className="bg-light"
+                  >
+                    <th></th>
+                    {Object.keys(query.rawResult[0]).map((k) => {
+                      return <th key={k}>{k}</th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {query.rawResult.map((row, i) => {
+                    return (
+                      <tr key={i}>
+                        <th>{i}</th>
+                        {Object.keys(query.rawResult[0]).map((k) => {
+                          return (
+                            <td key={k}>
+                              {JSON.stringify(row[k]) ?? (
+                                <em className="text-muted">null</em>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className={clsx("alert alert-info mb-1")}>
+              <em>No rows returned</em>
+            </div>
+          )}
+        </>
       )}
       {query.status === "succeeded" && (
         <small>
           <em>
             Took{" "}
             {formatDistanceStrict(
-              new Date(query.startedAt),
-              new Date(query.finishedAt)
+              getValidDate(query.startedAt),
+              getValidDate(query.finishedAt)
             )}
           </em>
         </small>
@@ -99,7 +116,7 @@ const ExpandableQuery: FC<{
         <div className="alert alert-info">
           <em>
             Running for{" "}
-            {formatDistanceStrict(new Date(query.startedAt), new Date())}
+            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
           </em>
         </div>
       )}

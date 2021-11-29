@@ -37,13 +37,15 @@ import * as adminController from "./controllers/admin";
 import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
+import * as projectsController from "./controllers/projects";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
 
 // Wrap every controller function in asyncHandler to catch errors properly
-function wrapController(controller: Record<string, RequestHandler>): void {
+// eslint-disable-next-line
+function wrapController(controller: Record<string, RequestHandler<any>>): void {
   Object.keys(controller).forEach((key) => {
     if (typeof controller[key] === "function") {
       controller[key] = asyncHandler(controller[key]);
@@ -60,6 +62,7 @@ wrapController(adminController);
 wrapController(stripeController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
+wrapController(projectsController);
 wrapController(slackController);
 
 const app = express();
@@ -110,7 +113,7 @@ app.use(compression());
 
 app.get("/", (req, res) => {
   res.json({
-    name: "Growth Book API",
+    name: "GrowthBook API",
     production: process.env.NODE_ENV === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
@@ -225,6 +228,7 @@ if (!IS_CLOUD) {
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
@@ -244,6 +248,11 @@ if (UPLOAD_METHOD === "local") {
     organizationsController.putUpload
   );
   app.use("/upload", express.static(uploadDir));
+
+  // Stop upload requests from running any of the middlewares defined below
+  app.use("/upload", () => {
+    return;
+  });
 }
 
 // All other routes require a valid JWT
@@ -262,10 +271,6 @@ app.use(
     next();
   }
 );
-
-// Event Tracking
-//app.get("/events", eventsController.getEvents);
-//app.post("/events/sync", eventsController.postEventsSync);
 
 // Logged-in auth requests
 // Managed cloud deployment uses Auth0 instead
@@ -295,6 +300,10 @@ app.get("/history/:type/:id", organizationsController.getHistory);
 app.get("/organization", organizationsController.getOrganization);
 app.post("/organization", organizationsController.signup);
 app.put("/organization", organizationsController.putOrganization);
+app.post(
+  "/organization/config/import",
+  organizationsController.postImportConfig
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
@@ -318,6 +327,7 @@ app.delete("/idea/:id", ideasController.deleteIdea);
 app.post("/idea/:id/vote", ideasController.postVote);
 app.post("/ideas/impact", ideasController.getEstimatedImpact);
 app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
+app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
 app.get("/metrics", experimentsController.getMetrics);
@@ -361,6 +371,10 @@ app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.post("/experiment/:id/watch", experimentsController.watchExperiment);
 app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.delete(
+  "/experiment/:id/phase/:phase",
+  experimentsController.deleteExperimentPhase
+);
 app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
@@ -391,24 +405,28 @@ app.post(
   "/experiments/import/:id/cancel",
   experimentsController.cancelPastExperiments
 );
+app.post(
+  "/experiments/notebook/:id",
+  experimentsController.postSnapshotNotebook
+);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);
 app.post("/segments", segmentsController.postSegments);
 app.put("/segments/:id", segmentsController.putSegment);
+app.delete("/segments/:id", segmentsController.deleteSegment);
+app.get("/segments/:id/usage", segmentsController.getSegmentUsage);
 
 // Dimensions
 app.get("/dimensions", dimensionsController.getAllDimensions);
 app.post("/dimensions", dimensionsController.postDimensions);
 app.put("/dimensions/:id", dimensionsController.putDimension);
+app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 
-// Reports
-/*
-app.get("/reports", reportsController.getReports);
-app.post("/reports", reportsController.postReports);
-app.get("/report/:id", reportsController.getReport);
-app.put("/report/:id", reportsController.putReport);
-*/
+// Projects
+app.post("/projects", projectsController.postProjects);
+app.put("/projects/:id", projectsController.putProject);
+app.delete("/projects/:id", projectsController.deleteProject);
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);
@@ -453,7 +471,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/upload/:filetype", discussionsController.postImageUploadUrl);
+app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);

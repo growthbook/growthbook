@@ -1,8 +1,8 @@
 # Build Your Own Client Library
 
-This guide is meant for library authors looking to build a Growth Book client library in a currently unsupported language.
+This guide is meant for library authors looking to build a GrowthBook client library in a currently unsupported language.
 
-Growth Book client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
+GrowthBook client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
 
 All libraries should follow this specification as closely as the language permits to maintain consistency.
 
@@ -95,52 +95,58 @@ There are a bunch of ordered steps to run an experiment:
 5.  If `context.forcedVariations[experiment.key]` is defined, return immediately (not in experiment, forced variation)
 6.  If `experiment.status` is "draft", return immediately (not in experiment, variationId `0`)
 7.  Get the user hash attribute and value (`context.user[experiment.hashAttribute || "id"]`) and if empty, return immediately (not in experiment, variationId `0`)
-8.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
-9.  If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
-10. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
-11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
-12. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
-13. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-14. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a)
-
-
-    ```js
-    n = (fnv32_1a(id + experiment.key) % 1000) / 1000
-    ```
-
-15. Apply coverage to weights:
-
+8.  If `experiment.namespace` is set, check if hash value is included in the range and if not, return immediately (not in experiment, variationId `0`)
+9.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
+10. If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
+11. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
+12. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
+13. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
+14. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
+15. Default variation weights and coverage if not specified
 
     ```js
-    // Default weights to an even split
-    weights = experiment.weights
-    if(!weights) {
-      weights = Array(experiment.variations.length)
-        .fill(1/experiment.variations.length)
+    // Default weights to an even split between all variations
+    weights = experiment.weights;
+    if (!weights) {
+      weights = Array(experiment.variations.length).fill(
+        1 / experiment.variations.length
+      );
     }
 
-    // Multiple each weight by the coverage (or 1 if not set)
-    weights = weights.map(w => w*(experiment.coverage || 1));
+    // Default coverage to 1 (100%)
+    coverage = experiment.coverage ?? 1;
     ```
 
-16. Loop through `weights` until you reach the hash value
-
+16. Calculate bucket ranges for the variations
 
     ```js
-    cumulative = 0
-    assigned = -1
-    for (i=0; i<weights.length; i++) {
-      cumulative += weights[i]
-      if (n < cumulative) {
-        assigned = i
-        break
+    // Convert weights/coverage to ranges
+    // 50/50 split at 100% coverage == [[0, 0.5], [0.5, 1]]
+    // 20/80 split with 50% coverage == [[0, 0.1], [0.2, 0.6]]
+    cumulative = 0;
+    ranges = weights.map((w) => {
+      start = cumulative;
+      cumulative += w;
+      return [start, start + coverage * w];
+    });
+    ```
+
+17. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
+
+    ```js
+    n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
+
+    assigned = -1;
+    ranges.forEach((range, i) => {
+      if (n >= range[0] && n < range[1]) {
+        assigned = i;
       }
-    }
+    });
     ```
 
-17. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
-18. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
-19. Return (**in experiment**, assigned variation)
+18. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+19. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
+20. Return (**in experiment**, assigned variation)
 
 ## Remote Config
 
@@ -204,7 +210,8 @@ result = growthbook.run({
   groups: ["beta-testers"],
 });
 
-print(result.value.color, result.value.size); // "blue,small" OR "green,large"
+print(result.value.color, result.value.size);
+// "blue,small" OR "green,large"
 ```
 
 ### Type Hinting
@@ -276,13 +283,7 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 ## Tests
 
-We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages.
-
-1.  Copy/paste the test suite from an existing client library
-2.  Do global search/replace to fix common syntax differences (e.g. replacing `->` in php with `.` in javascript)
-3.  Manually fix the rest of the syntax errors and coding patterns
-4.  Run the tests!
-5.  Go back to step 3 a bunch of times :)
+We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages. Pick the closest existing SDK as a guide and adapt as needed.
 
 ## Getting Help
 

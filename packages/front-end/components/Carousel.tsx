@@ -56,7 +56,7 @@ const Carousel: FC<{ deleteImage?: (i: number) => Promise<void> }> = ({
           if (!isValidElement(child)) return null;
           return (
             <div
-              className={clsx("carousel-item", {
+              className={clsx("carousel-item cursor-pointer", {
                 active: i === current,
               })}
               onClick={() => setModalOpen(true)}

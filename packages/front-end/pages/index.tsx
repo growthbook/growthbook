@@ -8,15 +8,17 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 
 export default function Home(): React.ReactElement {
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
   const {
     metrics,
     ready,
     datasources,
+    project,
     error: definitionsError,
   } = useDefinitions();
+
+  const { data, error, mutate } = useApi<{
+    experiments: ExperimentInterfaceStringDates[];
+  }>(`/experiments?project=${project || ""}`);
 
   if (error || definitionsError) {
     return (
@@ -35,12 +37,12 @@ export default function Home(): React.ReactElement {
     metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
   const hasExperiments =
     data?.experiments?.filter((e) => !e.id.match(/^exp_sample/))?.length > 0;
-  const isNew = !(hasMetrics && hasExperiments && hasDataSource);
+  const isNew = !project && !(hasMetrics && hasExperiments && hasDataSource);
 
   return (
     <>
       <Head>
-        <title>Growth Book</title>
+        <title>GrowthBook</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 

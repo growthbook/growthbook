@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import Button from "../../../components/Button";
 import NewExperimentForm from "../../../components/Experiment/NewExperimentForm";
 import LoadingOverlay from "../../../components/LoadingOverlay";
@@ -10,10 +10,11 @@ import RunQueriesButton, {
 import ViewAsyncQueriesButton from "../../../components/Queries/ViewAsyncQueriesButton";
 import useApi from "../../../hooks/useApi";
 import { useAuth } from "../../../services/auth";
-import { date } from "../../../services/dates";
+import { date, getValidDate } from "../../../services/dates";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../../services/DefinitionsContext";
+import { useSearch } from "../../../services/search";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -35,6 +36,17 @@ const ImportPage: FC = () => {
     existing: Record<string, string>;
   }>(`/experiments/import/${id}`);
 
+  const status = getQueryStatus(
+    data?.experiments?.queries || [],
+    data?.experiments?.error
+  );
+  const experiments = data?.experiments?.experiments || [];
+
+  const {
+    list: filteredExperiments,
+    searchInputProps,
+  } = useSearch(experiments || [], ["trackingKey"]);
+
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
   }
@@ -42,10 +54,7 @@ const ImportPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const status = getQueryStatus(data.experiments.queries || []);
-  const experiments = data?.experiments?.experiments || [];
-
-  experiments.sort((a, b) => {
+  filteredExperiments.sort((a, b) => {
     if (a.startDate < b.startDate) return 1;
     else if (a.startDate > b.startDate) return -1;
     return 0;
@@ -86,7 +95,10 @@ const ImportPage: FC = () => {
           >
             <RunQueriesButton
               cta="Refresh List"
-              initialStatus={getQueryStatus(data.experiments.queries || [])}
+              initialStatus={getQueryStatus(
+                data.experiments.queries || [],
+                data.experiments.error
+              )}
               statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
               cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
               onReady={() => {
@@ -102,6 +114,7 @@ const ImportPage: FC = () => {
                 ? data.experiments.queries.map((q) => q.query)
                 : []
             }
+            error={data.experiments.error}
           />
         </div>
       </div>
@@ -117,6 +130,19 @@ const ImportPage: FC = () => {
             These are all of the experiments we found in your datasource for the
             past 12 months.
           </p>
+          {experiments.length > 10 && (
+            <div className="row mb-3">
+              <div className="col-lg-3 col-md-4 col-6">
+                <input
+                  type="search"
+                  className=" form-control"
+                  placeholder="Search"
+                  aria-controls="dtBasicExample"
+                  {...searchInputProps}
+                />
+              </div>
+            </div>
+          )}
           <table className="table appbox">
             <thead>
               <tr>
@@ -130,7 +156,7 @@ const ImportPage: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {experiments.map((e) => (
+              {filteredExperiments.map((e) => (
                 <tr key={e.trackingKey}>
                   <td>{e.trackingKey}</td>
                   <td>{date(e.startDate)}</td>
@@ -174,15 +200,21 @@ const ImportPage: FC = () => {
                                 reason: "",
                                 variationWeights: e.weights,
                                 dateStarted:
-                                  new Date(e.startDate)
+                                  getValidDate(e.startDate)
                                     .toISOString()
                                     .substr(0, 10) + "T00:00:00Z",
                                 dateEnded:
-                                  new Date(e.endDate)
+                                  getValidDate(e.endDate)
                                     .toISOString()
                                     .substr(0, 10) + "T23:59:59Z",
                               },
                             ],
+                            // Default to stopped if the last data was more than 3 days ago
+                            status:
+                              getValidDate(e.endDate).getTime() <
+                              Date.now() - 72 * 60 * 60 * 1000
+                                ? "stopped"
+                                : "running",
                           });
                         }}
                       >

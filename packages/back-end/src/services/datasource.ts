@@ -23,13 +23,26 @@ export function encryptParams(params: DataSourceParams): string {
   return AES.encrypt(JSON.stringify(params), ENCRYPTION_KEY).toString();
 }
 
-export function mergeAndEncryptParams(
-  newParams: Partial<DataSourceParams>,
-  existingParams: string
-): string {
-  const params = decryptDataSourceParams(existingParams);
-  Object.assign(params, newParams);
-  return encryptParams(params);
+export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
+  const ret = { ...integration.params };
+  integration.getSensitiveParamKeys().forEach((k) => {
+    if (ret[k]) {
+      ret[k] = "";
+    }
+  });
+  return ret;
+}
+
+export function mergeParams(
+  integration: SourceIntegrationInterface,
+  newParams: Partial<DataSourceParams>
+) {
+  const secretKeys = integration.getSensitiveParamKeys();
+  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+    // If a secret value is left empty, keep the original value
+    if (secretKeys.includes(k) && !newParams[k]) return;
+    integration.params[k] = newParams[k];
+  });
 }
 
 export function getSourceIntegrationObject(datasource: DataSourceInterface) {

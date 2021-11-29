@@ -75,7 +75,7 @@ export async function getImpactEstimate(
   const existing = await ImpactEstimateModel.findOne({
     organization,
     metric,
-    segment: segment || null,
+    segment: segment || undefined,
     regex,
     dateCreated: {
       $gt: lastDate,
@@ -103,7 +103,7 @@ export async function getImpactEstimate(
     throw new Error("Datasource not found");
   }
 
-  let segmentObj: SegmentInterface;
+  let segmentObj: SegmentInterface | null = null;
   if (segment) {
     segmentObj = await SegmentModel.findOne({
       id: segment,
@@ -117,7 +117,7 @@ export async function getImpactEstimate(
   const data = await integration.getImpactEstimation(
     regex,
     metricObj,
-    segmentObj
+    segmentObj || undefined
   );
 
   return createImpactEstimate(

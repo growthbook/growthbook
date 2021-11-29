@@ -9,12 +9,26 @@ import {
 } from "react";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
+import styles from "./Dropdown.module.scss";
 
 const Dropdown: FC<{
   uuid: string;
   toggle: string | ReactElement;
   header?: string | ReactElement;
-}> = ({ uuid, toggle, header, children }) => {
+  caret?: boolean;
+  right?: boolean;
+  width?: number | string;
+  className?: string;
+}> = ({
+  uuid,
+  toggle,
+  header,
+  children,
+  caret = true,
+  right = true,
+  width = "auto",
+  className = "",
+}) => {
   const [open, setOpen] = useState(false);
   useGlobalMenu(`.${uuid}`, () => setOpen(false));
 
@@ -34,9 +48,13 @@ const Dropdown: FC<{
   });
 
   return (
-    <div className={clsx("dropdown", uuid)}>
+    <div
+      className={clsx("dropdown", uuid, styles.dropdownwrap, {
+        [styles.open]: open,
+      })}
+    >
       <div
-        className="nav-link dropdown-toggle"
+        className={clsx({ "dropdown-toggle": caret })}
         onClick={(e) => {
           e.preventDefault();
           setOpen(!open);
@@ -46,9 +64,11 @@ const Dropdown: FC<{
         {toggle}
       </div>
       <div
-        className={clsx("dropdown-menu dropdown-menu-right", {
+        className={clsx("dropdown-menu", styles.dropdownmenu, className, {
+          "dropdown-menu-right": right,
           show: open,
         })}
+        style={{ width }}
       >
         {header && <div className="dropdown-header">{header}</div>}
         {content}

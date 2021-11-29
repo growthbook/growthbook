@@ -19,11 +19,8 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getNonSensitiveParams(): Partial<ClickHouseConnectionParams> {
-    return {
-      ...this.params,
-      password: undefined,
-    };
+  getSensitiveParamKeys(): string[] {
+    return ["password"];
   }
   async runQuery(sql: string) {
     const client = new ClickHouseClient({
@@ -75,5 +72,11 @@ export default class ClickHouse extends SqlIntegration {
   }
   stddev(col: string) {
     return `stddevSamp(${col})`;
+  }
+  formatDate(col: string): string {
+    return `formatDateTime(${col}, '%F')`;
+  }
+  ifElse(condition: string, ifTrue: string, ifFalse: string) {
+    return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
 }

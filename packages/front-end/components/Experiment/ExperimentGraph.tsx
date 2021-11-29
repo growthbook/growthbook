@@ -1,13 +1,15 @@
 import React from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
-import { Bar } from "@visx/shape";
+import { BarRounded } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { ParentSizeModern } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import { getValidDate } from "../../services/dates";
 
 export default function ExperimentGraph({
   resolution = "month",
@@ -20,6 +22,8 @@ export default function ExperimentGraph({
   status: "all" | "draft" | "running" | "stopped";
   height?: number;
 }): React.ReactElement {
+  const { project } = useDefinitions();
+
   const { data, error } = useApi<{
     data: {
       all: { name: string; numExp: number }[];
@@ -27,7 +31,7 @@ export default function ExperimentGraph({
       running: { name: string; numExp: number }[];
       stopped: { name: string; numExp: number }[];
     };
-  }>(`/experiments/frequency/${resolution}/${num}`);
+  }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
   if (error) {
     return (
@@ -46,27 +50,29 @@ export default function ExperimentGraph({
     return <div>no data to show</div>;
   }
 
-  const firstMonth = new Date(graphData[0].name);
-  const lastMonth = new Date(graphData[graphData.length - 1].name);
+  const firstMonth = getValidDate(graphData[0].name);
+  const lastMonth = getValidDate(graphData[graphData.length - 1].name);
 
   return (
     <ParentSizeModern>
       {({ width }) => {
-        const margin = [15, 40, 30, 30];
+        const margin = [15, 30, 30, 30];
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
+        const maxYValue = Math.ceil(
+          Math.max(...graphData.map((d) => d.numExp), 1)
+        );
 
-        const barWidth = Math.round(xMax / (graphData.length + 1));
+        const barWidth = 25;
         const xScale = scaleTime({
           domain: [firstMonth, lastMonth],
           range: [barWidth / 2, xMax],
           round: true,
+          nice: true,
+          clamp: false,
         });
         const yScale = scaleLinear<number>({
-          domain: [
-            Math.min(...graphData.map((d) => d.numExp)),
-            Math.max(...graphData.map((d) => d.numExp)),
-          ],
+          domain: [0, maxYValue],
           range: [yMax, 0],
           round: true,
         });
@@ -76,21 +82,25 @@ export default function ExperimentGraph({
             <Group left={margin[3]} top={margin[0]}>
               <GridRows
                 scale={yScale}
-                numTicks={5}
+                numTicks={Math.min(maxYValue, 5)}
                 width={xMax + barWidth / 2}
               />
               {graphData.map((d, i) => {
-                const barX = xScale(new Date(d.name)) - barWidth / 2;
-                const barHeight = yMax - (yScale(d.numExp) ?? 0);
+                const barX = xScale(getValidDate(d.name)) - barWidth / 2;
+                let barHeight = yMax - (yScale(d.numExp) ?? 0);
+                // if there are no experiments this month, show a little nub for design reasons.
+                if (barHeight === 0) barHeight = 6;
                 const barY = yMax - barHeight;
                 return (
-                  <Bar
+                  <BarRounded
                     key={d.name + i}
                     x={barX + 5}
                     y={barY}
-                    width={barWidth - 10}
+                    width={Math.max(10, barWidth - 10)}
                     height={barHeight}
-                    fill="#029dd1"
+                    fill="#73D1F0"
+                    top
+                    radius={6}
                   />
                 );
               })}
@@ -99,16 +109,27 @@ export default function ExperimentGraph({
                 top={yMax}
                 scale={xScale}
                 numTicks={
-                  width > 767
+                  width > 567
                     ? graphData.length
                     : Math.ceil(graphData.length / 2)
                 }
-                hideAxisLine={true}
+                hideAxisLine={false}
+                stroke={"#C2C5D6"}
+                hideTicks={true}
+                rangePadding={barWidth / 2}
                 tickFormat={(v) => {
                   return format(v as Date, "LLL yyyy");
                 }}
               />
-              <AxisLeft scale={yScale} numTicks={5} hideAxisLine />
+              <AxisLeft
+                scale={yScale}
+                numTicks={Math.min(maxYValue, 5)}
+                stroke={"#C2C5D6"}
+                hideTicks={true}
+                tickFormat={(v) => {
+                  return Math.round(v as number) + "";
+                }}
+              />
             </Group>
           </svg>
         );

@@ -34,7 +34,7 @@ const CreateOrganization: FC<{
           "Create New Organization"
         ) : (
           <img
-            alt="Growth Book"
+            alt="GrowthBook"
             src="/logo/growthbook-logo.png"
             style={{ height: 40 }}
           />

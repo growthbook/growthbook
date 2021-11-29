@@ -5,7 +5,7 @@ import { useWatching } from "../../services/WatchProvider";
 
 const WatchButton: FC<{
   experiment: string;
-  type?: "button" | "icon";
+  type?: "button" | "icon" | "link";
 }> = ({ experiment, type = "button" }) => {
   const { watching, refreshWatching } = useWatching();
   const { apiCall } = useAuth();
@@ -18,6 +18,8 @@ const WatchButton: FC<{
   let text = "";
   if (type === "button") {
     classNames += " btn btn-link";
+    text = isWatching ? "watching" : "watch";
+  } else if (type === "link") {
     text = isWatching ? "watching" : "watch";
   }
   if (loading) {
