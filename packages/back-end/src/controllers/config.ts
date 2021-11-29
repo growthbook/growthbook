@@ -108,12 +108,7 @@ export async function getExperimentsScript(
       const groups: string[] = [];
 
       const phase = exp.phases[exp.phases.length - 1];
-      if (
-        phase &&
-        exp.status === "running" &&
-        phase.groups &&
-        phase.groups.length > 0
-      ) {
+      if (phase && phase.groups && phase.groups.length > 0) {
         groups.push(...phase.groups);
       }
 
@@ -160,7 +155,7 @@ export async function getExperimentsScript(
         if (exp.results === "won") {
           data.force = exp.winner;
         } else {
-          return;
+          data.force = 0;
         }
       }
 

@@ -1,5 +1,4 @@
 import React, { FC } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SnapshotVariation } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import {
@@ -10,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import MetricValueColumn from "./MetricValueColumn";
+import { ExperimentReportVariation } from "back-end/types/report";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
@@ -24,18 +24,18 @@ function hasEnoughData(value1: number, value2: number): boolean {
 }
 
 const GuardrailResults: FC<{
-  variations: SnapshotVariation[];
-  experiment: ExperimentInterfaceStringDates;
+  data: SnapshotVariation[];
+  variations: ExperimentReportVariation[];
   metric: MetricInterface;
-}> = ({ variations, experiment, metric }) => {
+}> = ({ data, variations, metric }) => {
   let status: "danger" | "success" | "warning" | "secondary" = "secondary";
 
   const maxChance = Math.max(
-    ...variations.slice(1).map((v) => {
+    ...data.slice(1).map((v) => {
       if (
         !hasEnoughData(
           v.metrics[metric.id]?.value,
-          variations[0].metrics[metric.id]?.value
+          data[0].metrics[metric.id]?.value
         )
       ) {
         return -1;
@@ -80,8 +80,8 @@ const GuardrailResults: FC<{
             </tr>
           </thead>
           <tbody>
-            {experiment.variations.map((v, i) => {
-              const stats = variations[i]?.metrics?.[metric.id];
+            {variations.map((v, i) => {
+              const stats = data[i]?.metrics?.[metric.id];
               if (!stats) {
                 return (
                   <tr key={i}>
@@ -100,13 +100,13 @@ const GuardrailResults: FC<{
                   <MetricValueColumn
                     metric={metric}
                     stats={stats}
-                    users={variations[i].users}
+                    users={data[i].users}
                   />
                   {!i ? (
                     <td></td>
                   ) : hasEnoughData(
                       stats.value,
-                      variations[0].metrics[metric.id]?.value
+                      data[0].metrics[metric.id]?.value
                     ) ? (
                     <td
                       className={clsx("chance result-number align-middle", {

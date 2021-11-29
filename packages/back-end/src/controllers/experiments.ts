@@ -12,7 +12,7 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
-  processSnapshotData,
+  experimentUpdated,
   getMetricAnalysis,
   refreshMetric,
 } from "../services/experiments";
@@ -35,8 +35,6 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import { Dimension } from "../types/Integration";
-import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
@@ -54,11 +52,13 @@ import {
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { queueWebhook } from "../jobs/webhooks";
+
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
+import { analyzeExperimentResults } from "../services/stats";
 import { getValidDate } from "../util/dates";
+import { getReportVariations } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -394,7 +394,7 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -593,7 +593,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
   }
 
   res.status(200).json({
@@ -632,7 +632,7 @@ export async function postExperimentArchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -684,7 +684,7 @@ export async function postExperimentUnarchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -782,7 +782,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -959,7 +959,7 @@ export async function postExperimentPhase(
 
     await ensureWatching(userId, org.id, exp.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -1128,7 +1128,7 @@ export async function deleteExperiment(
     },
   });
 
-  await queueWebhook(org.id);
+  await experimentUpdated(exp);
 
   res.status(200).json({
     status: 200,
@@ -1532,7 +1532,12 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
+      analyzeExperimentResults(
+        org.id,
+        getReportVariations(experiment, phase),
+        snapshot.dimension || undefined,
+        queryData
+      ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
         {
@@ -1666,41 +1671,8 @@ export async function postSnapshot(
     return;
   }
 
-  const datasource = await getDataSourceById(exp.datasource, org.id);
-  if (!datasource) {
-    res.status(400).json({
-      status: 404,
-      message: "Data source not found",
-    });
-    return;
-  }
-
-  let dimensionArg: Dimension | null = null;
-
-  if (dimension) {
-    if (dimension.match(/^exp:/)) {
-      dimensionArg = {
-        type: "experiment",
-        id: dimension.substr(4),
-      };
-    } else if (dimension.substr(0, 4) === "pre:") {
-      dimensionArg = {
-        // eslint-disable-next-line
-        type: dimension.substr(4) as any,
-      };
-    } else {
-      const obj = await findDimensionById(dimension, org.id);
-      if (obj) {
-        dimensionArg = {
-          type: "user",
-          dimension: obj,
-        };
-      }
-    }
-  }
-
   try {
-    const snapshot = await createSnapshot(exp, phase, datasource, dimensionArg);
+    const snapshot = await createSnapshot(exp, phase, dimension || null);
     await req.audit({
       event: "snapshot.create.auto",
       entity: {

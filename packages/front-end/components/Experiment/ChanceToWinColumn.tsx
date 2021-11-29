@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
@@ -10,6 +9,7 @@ import {
 } from "../../services/experiments";
 import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -18,15 +18,17 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ChanceToWinColumn({
   metric,
-  experiment,
-  phase,
+  status,
+  isLatestPhase,
+  startDate,
   snapshotDate,
   baseline,
   stats,
 }: {
   metric: MetricInterface;
-  experiment: ExperimentInterfaceStringDates;
-  phase: number;
+  status: ExperimentStatus;
+  isLatestPhase: boolean;
+  startDate: string;
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
@@ -60,13 +62,13 @@ export default function ChanceToWinColumn({
         <em>no data</em>
       ) : !enoughData ? (
         <NotEnoughData
-          experimentStatus={experiment.status}
-          isLatestPhase={phase === experiment.phases.length - 1}
+          experimentStatus={status}
+          isLatestPhase={isLatestPhase}
           baselineValue={baseline?.value}
           variationValue={stats?.value}
           minSampleSize={minSampleSize}
           snapshotCreated={snapshotDate}
-          phaseStart={experiment.phases[phase]?.dateStarted}
+          phaseStart={startDate}
         />
       ) : suspiciousChange ? (
         <div>

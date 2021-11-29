@@ -70,6 +70,9 @@ pre {
 .text-gray {
   color: $gray1;
 }
+.text-light-gray {
+  color: $gray2;
+}
 .font-weight-semibold {
   font-weight: 500;
 }
@@ -144,6 +147,9 @@ pre {
     color: $highlight-purple;
     font-weight: 600;
   }
+}
+.modal-dialog.modal-fill {
+  margin: 0 auto;
 }
 .gbtable {
   color: $main-black;
@@ -363,8 +369,6 @@ pre {
       }
     }
     &.completed {
-      .step-title {
-      }
       .step-number {
         background-color: $highlight-purple;
         color: $white;
@@ -998,9 +1002,6 @@ pre {
 li.metrics a span img {
   max-width: 28px !important;
 }
-li.reports a span img {
-  margin-top: -10px;
-}
 
 .leftBar {
   background-color: $light-grey;
@@ -1178,6 +1179,12 @@ li.reports a span img {
   }
 }
 
+.purple-phase {
+  .percent-traffic,
+  .split {
+    color: $highlight-purple;
+  }
+}
 .experiment-details,
 .metric {
   .tab-content {
@@ -1220,12 +1227,6 @@ li.reports a span img {
           padding-bottom: 10px;
         }
       }
-    }
-  }
-  .purple-phase {
-    .percent-traffic,
-    .split {
-      color: $highlight-purple;
     }
   }
   .contents {

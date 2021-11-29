@@ -8,8 +8,17 @@ const ViewAsyncQueriesButton: FC<{
   error?: string;
   display?: string;
   color?: string;
-}> = ({ queries, display = "View Queries", color = "link", error }) => {
+  className?: string;
+}> = ({
+  queries,
+  display = "View Queries",
+  color = "link",
+  error,
+  className = "",
+}) => {
   const [open, setOpen] = useState(false);
+
+  if (!className) className = `btn btn-${color}`;
 
   return (
     <>
@@ -21,7 +30,7 @@ const ViewAsyncQueriesButton: FC<{
         />
       )}
       <button
-        className={clsx("btn", `btn-${color}`, {
+        className={clsx(className, {
           disabled: queries.length === 0,
         })}
         onClick={(e) => {

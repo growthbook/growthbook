@@ -30,6 +30,7 @@ import fs from "fs";
 import * as authController from "./controllers/auth";
 import * as organizationsController from "./controllers/organizations";
 import * as experimentsController from "./controllers/experiments";
+import * as reportsController from "./controllers/reports";
 import * as ideasController from "./controllers/ideas";
 import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
@@ -64,6 +65,7 @@ wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
 wrapController(slackController);
+wrapController(reportsController);
 
 const app = express();
 
@@ -272,10 +274,6 @@ app.use(
   }
 );
 
-// Event Tracking
-//app.get("/events", eventsController.getEvents);
-//app.post("/events/sync", eventsController.postEventsSync);
-
 // Logged-in auth requests
 // Managed cloud deployment uses Auth0 instead
 if (!IS_CLOUD) {
@@ -413,6 +411,18 @@ app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
 );
+app.post(
+  "/experiments/report/:snapshot",
+  reportsController.postReportFromSnapshot
+);
+
+// Reports
+app.get("/report/:id", reportsController.getReport);
+app.put("/report/:id", reportsController.putReport);
+app.get("/report/:id/status", reportsController.getReportStatus);
+app.post("/report/:id/refresh", reportsController.refreshReport);
+app.post("/report/:id/cancel", reportsController.cancelReport);
+app.post("/report/:id/notebook", reportsController.postNotebook);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);
@@ -431,14 +441,6 @@ app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 app.post("/projects", projectsController.postProjects);
 app.put("/projects/:id", projectsController.putProject);
 app.delete("/projects/:id", projectsController.deleteProject);
-
-// Reports
-/*
-app.get("/reports", reportsController.getReports);
-app.post("/reports", reportsController.postReports);
-app.get("/report/:id", reportsController.getReport);
-app.put("/report/:id", reportsController.putReport);
-*/
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);
