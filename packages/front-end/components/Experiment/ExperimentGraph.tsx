@@ -10,6 +10,7 @@ import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { getValidDate } from "../../services/dates";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 export default function ExperimentGraph({
   resolution = "month",
@@ -19,7 +20,7 @@ export default function ExperimentGraph({
 }: {
   resolution?: "month" | "day" | "year";
   num?: number;
-  status: "all" | "draft" | "running" | "stopped";
+  status: "all" | ExperimentStatus;
   height?: number;
 }): React.ReactElement {
   const { project } = useDefinitions();

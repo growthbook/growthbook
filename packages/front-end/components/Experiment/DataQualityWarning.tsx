@@ -1,11 +1,10 @@
 import { FC, Fragment } from "react";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMWarning from "./SRMWarning";
 import isEqual from "lodash/isEqual";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -25,54 +24,47 @@ const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
 };
 
 const DataQualityWarning: FC<{
-  experiment: ExperimentInterfaceStringDates;
-  snapshot: ExperimentSnapshotInterface;
-  phase?: ExperimentPhaseStringDates;
+  results: ExperimentReportResultDimension;
   isUpdating?: boolean;
-}> = ({ experiment, snapshot, phase, isUpdating }) => {
-  if (!snapshot || !phase) return null;
-  const results = snapshot.results[0];
+  variations: ExperimentReportVariation[];
+  unknownVariations: string[];
+}> = ({ isUpdating, results, variations, unknownVariations }) => {
   if (!results) return null;
-  const variations = results?.variations || [];
+  const variationResults = results?.variations || [];
 
   // Skip checks if experiment phase has extremely uneven weights
   // This causes too many false positives with the current data quality checks
-  if (phase.variationWeights.filter((x) => x < 0.02).length > 0) {
+  if (variations.filter((x) => x.weight < 0.02).length > 0) {
     return null;
   }
 
   // Minimum number of users required to do data quality checks
   let totalUsers = 0;
-  variations.forEach((v) => {
+  variationResults.forEach((v) => {
     totalUsers += v.users;
   });
-  if (
-    totalUsers < 8 * experiment.variations.length &&
-    !snapshot.unknownVariations?.length
-  ) {
+  if (totalUsers < 8 * variations.length && !unknownVariations?.length) {
     return null;
   }
 
   // Variations defined for the experiment
-  const definedVariations: string[] = experiment.variations
-    .map((v, i) => v.key || i + "")
-    .sort();
+  const definedVariations: string[] = variations.map((v) => v.id).sort();
   // Variation ids returned from the query
-  const returnedVariations: string[] = variations
+  const returnedVariations: string[] = variationResults
     .map((v, i) => {
       return {
-        variation: experiment.variations[i]?.key || i + "",
+        variation: variations[i]?.id || i + "",
         hasData: v.users > 0,
       };
     })
     .filter((v) => v.hasData)
     .map((v) => v.variation)
-    .concat(snapshot.unknownVariations || [])
+    .concat(unknownVariations)
     .sort();
 
   // Problem was fixed
   if (
-    snapshot.unknownVariations?.length > 0 &&
+    unknownVariations?.length > 0 &&
     isEqual(returnedVariations, definedVariations)
   ) {
     if (isUpdating) {
@@ -86,11 +78,11 @@ const DataQualityWarning: FC<{
   }
 
   // There are unknown variations
-  if (snapshot.unknownVariations?.length > 0) {
+  if (unknownVariations?.length > 0) {
     return (
       <div className="alert alert-warning">
-        <strong>Warning:</strong> Expected {experiment.variations.length}{" "}
-        variation ids (<CommaList vals={definedVariations} />
+        <strong>Warning:</strong> Expected {variations.length} variation ids (
+        <CommaList vals={definedVariations} />
         ), but database returned{" "}
         {returnedVariations.length === definedVariations.length
           ? "a different set"

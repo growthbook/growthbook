@@ -2,7 +2,10 @@ import Link from "next/link";
 import React from "react";
 import useApi from "../../hooks/useApi";
 import { ago, datetime } from "../../services/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+} from "back-end/types/experiment";
 import LoadingOverlay from "../LoadingOverlay";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummary } from "../../services/utils";
@@ -12,7 +15,7 @@ export default function ExperimentList({
   status,
 }: {
   num: number;
-  status: "draft" | "running" | "stopped";
+  status: ExperimentStatus;
 }): React.ReactElement {
   const { project } = useDefinitions();
   const { data, error } = useApi<{

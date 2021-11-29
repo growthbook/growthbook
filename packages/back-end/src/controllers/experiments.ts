@@ -12,7 +12,6 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
-  processSnapshotData,
   experimentUpdated,
 } from "../services/experiments";
 import uniqid from "uniqid";
@@ -36,8 +35,7 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import { Dimension, MetricValueResult } from "../types/Integration";
-import { findDimensionById } from "../models/DimensionModel";
+import { MetricValueResult } from "../types/Integration";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
@@ -60,8 +58,12 @@ import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { SegmentModel } from "../models/SegmentModel";
-import { addNonconvertingUsersToStats } from "../services/stats";
+import {
+  addNonconvertingUsersToStats,
+  analyzeExperimentResults,
+} from "../services/stats";
 import { getValidDate } from "../util/dates";
+import { getReportVariations } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -1656,7 +1658,12 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
+      analyzeExperimentResults(
+        org.id,
+        getReportVariations(experiment, phase),
+        snapshot.dimension || undefined,
+        queryData
+      ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
         {
@@ -1790,41 +1797,8 @@ export async function postSnapshot(
     return;
   }
 
-  const datasource = await getDataSourceById(exp.datasource, org.id);
-  if (!datasource) {
-    res.status(400).json({
-      status: 404,
-      message: "Data source not found",
-    });
-    return;
-  }
-
-  let dimensionArg: Dimension | null = null;
-
-  if (dimension) {
-    if (dimension.match(/^exp:/)) {
-      dimensionArg = {
-        type: "experiment",
-        id: dimension.substr(4),
-      };
-    } else if (dimension.substr(0, 4) === "pre:") {
-      dimensionArg = {
-        // eslint-disable-next-line
-        type: dimension.substr(4) as any,
-      };
-    } else {
-      const obj = await findDimensionById(dimension, org.id);
-      if (obj) {
-        dimensionArg = {
-          type: "user",
-          dimension: obj,
-        };
-      }
-    }
-  }
-
   try {
-    const snapshot = await createSnapshot(exp, phase, datasource, dimensionArg);
+    const snapshot = await createSnapshot(exp, phase, dimension || null);
     await req.audit({
       event: "snapshot.create.auto",
       entity: {

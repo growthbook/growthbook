@@ -30,6 +30,7 @@ import fs from "fs";
 import * as authController from "./controllers/auth";
 import * as organizationsController from "./controllers/organizations";
 import * as experimentsController from "./controllers/experiments";
+import * as reportsController from "./controllers/reports";
 import * as ideasController from "./controllers/ideas";
 import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
@@ -64,6 +65,7 @@ wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
 wrapController(slackController);
+wrapController(reportsController);
 
 const app = express();
 
@@ -409,6 +411,18 @@ app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
 );
+app.post(
+  "/experiments/report/:snapshot",
+  reportsController.postReportFromSnapshot
+);
+
+// Reports
+app.get("/report/:id", reportsController.getReport);
+app.put("/report/:id", reportsController.putReport);
+app.get("/report/:id/status", reportsController.getReportStatus);
+app.post("/report/:id/refresh", reportsController.refreshReport);
+app.post("/report/:id/cancel", reportsController.cancelReport);
+app.post("/report/:id/notebook", reportsController.postNotebook);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);

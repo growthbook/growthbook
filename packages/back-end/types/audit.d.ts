@@ -18,6 +18,7 @@ export type EventType =
   | "experiment.unarchive"
   | "experiment.delete"
   | "experiment.results"
+  | "experiment.analysis"
   | "experiment.screenshot.create"
   | "experiment.screenshot.delete"
   | "metric.create"

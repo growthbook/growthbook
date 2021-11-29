@@ -1,6 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import {
@@ -8,9 +6,14 @@ import {
   useRiskVariation,
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
-import { MetricInterface } from "../../../back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
+import { ExperimentStatus } from "back-end/types/experiment";
 
 const FULL_STATS_LIMIT = 5;
 
@@ -43,30 +46,48 @@ function getAllocationText(weights: number[]) {
 }
 
 const BreakDownResults: FC<{
-  snapshot: ExperimentSnapshotInterface;
-  experiment: ExperimentInterfaceStringDates;
-}> = ({ snapshot, experiment }) => {
-  const { getDimensionById, getMetricById } = useDefinitions();
+  results: ExperimentReportResultDimension[];
+  variations: ExperimentReportVariation[];
+  metrics: string[];
+  guardrails?: string[];
+  dimensionId: string;
+  isLatestPhase: boolean;
+  startDate: string;
+  reportDate: Date;
+  activationMetric?: string;
+  status: ExperimentStatus;
+}> = ({
+  dimensionId,
+  results,
+  variations,
+  metrics,
+  guardrails,
+  isLatestPhase,
+  startDate,
+  activationMetric,
+  status,
+  reportDate,
+}) => {
+  const { getDimensionById, getMetricById, ready } = useDefinitions();
 
   const dimension = useMemo(() => {
-    return getDimensionById(snapshot.dimension)?.name || "Dimension";
-  }, [getDimensionById, snapshot.dimension]);
+    return getDimensionById(dimensionId)?.name || "Dimension";
+  }, [getDimensionById, dimensionId]);
 
-  const tooManyDimensions = snapshot.results?.length > FULL_STATS_LIMIT;
+  const tooManyDimensions = results.length > FULL_STATS_LIMIT;
 
   const [fullStatsToggle, setFullStats] = useState(false);
   const fullStats = !tooManyDimensions || fullStatsToggle;
 
   const tables = useMemo<TableDef[]>(() => {
-    return Array.from(
-      new Set(experiment.metrics.concat(experiment.guardrails || []))
-    )
+    if (!ready) return [];
+    return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
         return {
           metric,
-          isGuardrail: !experiment.metrics.includes(metricId),
-          rows: snapshot.results.map((d) => {
+          isGuardrail: !metrics.includes(metricId),
+          rows: results.map((d) => {
             return {
               label: d.name,
               metric,
@@ -78,20 +99,20 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [snapshot]);
+  }, [results, metrics, guardrails, ready]);
 
   const risk = useRiskVariation(
-    experiment,
+    variations.length,
     [].concat(...tables.map((t) => t.rows))
   );
 
   return (
     <div className="mb-3">
       <div className="mb-4 px-3">
-        {snapshot.dimension === "pre:activation" && snapshot.activationMetric && (
+        {dimensionId === "pre:activation" && activationMetric && (
           <div className="alert alert-info mt-1">
             Your experiment has an Activation Metric (
-            <strong>{getMetricById(snapshot.activationMetric)?.name}</strong>
+            <strong>{getMetricById(activationMetric)?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
           </div>
@@ -101,7 +122,7 @@ const BreakDownResults: FC<{
           <thead>
             <tr>
               <th>{dimension}</th>
-              {experiment.variations.map((v, i) => (
+              {variations.map((v, i) => (
                 <th key={i}>{v.name}</th>
               ))}
               <th>Expected</th>
@@ -115,24 +136,18 @@ const BreakDownResults: FC<{
             </tr>
           </thead>
           <tbody>
-            {snapshot.results?.map((r, i) => (
+            {results?.map((r, i) => (
               <tr key={i}>
                 <td>{r.name || <em>unknown</em>}</td>
-                {experiment.variations.map((v, i) => (
+                {variations.map((v, i) => (
                   <td key={i}>
                     {numberFormatter.format(r.variations[i]?.users || 0)}
                   </td>
                 ))}
+                <td>{getAllocationText(variations.map((v) => v.weight))}</td>
                 <td>
                   {getAllocationText(
-                    experiment.phases[snapshot.phase]?.variationWeights || []
-                  )}
-                </td>
-                <td>
-                  {getAllocationText(
-                    experiment.variations.map(
-                      (v, i) => r.variations[i]?.users || 0
-                    )
+                    variations.map((v, i) => r.variations[i]?.users || 0)
                   )}
                 </td>
                 {r.srm < 0.001 ? (
@@ -186,11 +201,13 @@ const BreakDownResults: FC<{
 
           <div className="experiment-compact-holder">
             <ResultsTable
-              dateCreated={snapshot.dateCreated}
-              experiment={experiment}
+              dateCreated={reportDate}
+              isLatestPhase={isLatestPhase}
+              startDate={startDate}
+              status={status}
+              variations={variations}
               id={table.metric.id}
               labelHeader={dimension}
-              phase={snapshot.phase}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
               fullStats={fullStats}
