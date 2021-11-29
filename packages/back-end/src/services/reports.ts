@@ -25,7 +25,7 @@ export function getReportVariations(
     return {
       id: v.key || i + "",
       name: v.name,
-      weight: phase.variationWeights[i] || 0,
+      weight: phase?.variationWeights?.[i] || 0,
     };
   });
 }
