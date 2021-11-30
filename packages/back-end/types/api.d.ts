@@ -1,6 +1,8 @@
+import { ExperimentStatus } from "./experiment";
+
 export interface ExperimentOverride {
   weights?: number[];
-  status?: "draft" | "running" | "stopped";
+  status?: ExperimentStatus;
   force?: number;
   coverage?: number;
   groups?: string[];

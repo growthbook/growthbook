@@ -19,6 +19,7 @@ import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag } from "react-icons/bs";
+import { getGrowthBookBuild } from "../../services/env";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -205,6 +206,8 @@ const Layout = (): React.ReactElement => {
       `;
   }
 
+  const build = getGrowthBookBuild();
+
   return (
     <>
       {settings?.customized && (
@@ -305,6 +308,24 @@ const Layout = (): React.ReactElement => {
             View Docs <FaArrowRight className="ml-2" />
           </a>
         </div>
+        {build.sha && (
+          <div className="px-3 my-1 text-center">
+            <small>
+              <span className="text-muted">Build:</span>{" "}
+              <a
+                href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-white"
+              >
+                {build.sha.substr(0, 7)}
+              </a>{" "}
+              {build.date && (
+                <span className="text-muted">({build.date.substr(0, 10)})</span>
+              )}
+            </small>
+          </div>
+        )}
       </div>
 
       <TopNav

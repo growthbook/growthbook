@@ -3,8 +3,7 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
-import { useContext } from "react";
-import { createContext, FC } from "react";
+import { useContext, useMemo, createContext, FC } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
@@ -66,8 +65,25 @@ export const DefinitionsContext = createContext<DefinitionContextValue>(
   defaultValue
 );
 
-function getByIdFunction<T extends { id: string }>(list: T[]) {
-  return (id: string) => list.filter((l) => l.id === id)[0] || null;
+interface IndexableItem {
+  id: string;
+}
+function useGetById<T extends IndexableItem>(
+  items?: T[]
+): (id: string) => T | null {
+  return useMemo(() => {
+    if (!items) {
+      return () => null;
+    }
+
+    const m = new Map<string, T>();
+    items.forEach((item) => {
+      m.set(item.id, item);
+    });
+    return (id: string) => {
+      return m.get(id) || null;
+    };
+  }, [items]);
 }
 
 export function useDefinitions() {
@@ -81,6 +97,20 @@ export const DefinitionsProvider: FC = ({ children }) => {
 
   const [project, setProject] = useLocalStorage("gb_current_project", "");
 
+  const activeMetrics = useMemo(() => {
+    if (!data || !data.metrics) {
+      return [];
+    }
+
+    return data.metrics.filter((m) => m.status !== "archived");
+  }, [data?.metrics]);
+
+  const getMetricById = useGetById(data?.metrics);
+  const getDatasourceById = useGetById(data?.datasources);
+  const getDimensionById = useGetById(data?.dimensions);
+  const getSegmentById = useGetById(data?.segments);
+  const getProjectById = useGetById(data?.projects);
+
   let value: DefinitionContextValue;
   if (error) {
     value = { ...defaultValue, error: error?.message || "" };
@@ -89,7 +119,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
   } else {
     value = {
       ready: true,
-      metrics: data.metrics,
+      metrics: activeMetrics,
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
@@ -101,11 +131,11 @@ export const DefinitionsProvider: FC = ({ children }) => {
           ? project
           : "",
       setProject,
-      getMetricById: getByIdFunction(data.metrics),
-      getDatasourceById: getByIdFunction(data.datasources),
-      getDimensionById: getByIdFunction(data.dimensions),
-      getSegmentById: getByIdFunction(data.segments),
-      getProjectById: getByIdFunction(data.projects),
+      getMetricById,
+      getDatasourceById,
+      getDimensionById,
+      getSegmentById,
+      getProjectById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {

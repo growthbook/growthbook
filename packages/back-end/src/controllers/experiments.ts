@@ -12,7 +12,11 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
-  processSnapshotData,
+  removeMetricFromExperiments,
+  experimentUpdated,
+  getMetricAnalysis,
+  refreshMetric,
+  getExperimentsByMetric,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -28,15 +32,11 @@ import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import { WatchModel } from "../models/WatchModel";
 import {
-  QueryMap,
-  getMetricValue,
   getStatusEndpoint,
   startRun,
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import { Dimension, MetricValueResult } from "../types/Integration";
-import { findDimensionById } from "../models/DimensionModel";
 import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
@@ -54,13 +54,15 @@ import {
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { queueWebhook } from "../jobs/webhooks";
+
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { SegmentModel } from "../models/SegmentModel";
-import { addNonconvertingUsersToStats } from "../services/stats";
+import { analyzeExperimentResults } from "../services/stats";
 import { getValidDate } from "../util/dates";
+import { getIdeasByQuery } from "../services/ideas";
+import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
+import { getReportVariations } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -396,7 +398,7 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -595,7 +597,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
   }
 
   res.status(200).json({
@@ -634,7 +636,7 @@ export async function postExperimentArchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -686,7 +688,7 @@ export async function postExperimentUnarchive(
   try {
     await exp.save();
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     // TODO: audit
     res.status(200).json({
@@ -784,7 +786,7 @@ export async function postExperimentStop(
       }),
     });
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -961,7 +963,7 @@ export async function postExperimentPhase(
 
     await ensureWatching(userId, org.id, exp.id);
 
-    await queueWebhook(org.id);
+    await experimentUpdated(exp);
 
     res.status(200).json({
       status: 200,
@@ -1062,8 +1064,20 @@ export async function deleteMetric(
     return;
   }
 
-  // note: we might want to change this to change the status to
-  // 'deleted' instead of actually deleting the document.
+  // delete references:
+  // ideas (impact estimate)
+  ImpactEstimateModel.updateMany(
+    {
+      metric: metric.id,
+      organization: org.id,
+    },
+    { metric: "" }
+  );
+
+  // Experiments
+  await removeMetricFromExperiments(metric.id, org.id);
+
+  // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
 
   await req.audit({
@@ -1130,7 +1144,7 @@ export async function deleteExperiment(
     },
   });
 
-  await queueWebhook(org.id);
+  await experimentUpdated(exp);
 
   res.status(200).json({
     status: 200,
@@ -1146,65 +1160,52 @@ export async function getMetrics(req: AuthRequest, res: Response) {
   });
 }
 
-async function getMetricAnalysis(
-  metric: MetricInterface,
-  queryData: QueryMap
-): Promise<MetricAnalysis> {
-  const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
-    users: 0,
-    count: 0,
-    mean: 0,
-    stddev: 0,
-  };
+export async function getMetricUsage(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const metric = await getMetricById(id, org.id);
 
-  let total = (metricData.count || 0) * (metricData.mean || 0);
-  let count = metricData.count || 0;
-  let users = metricData.users || 0;
-  const dates: { d: Date; v: number; s: number; u: number }[] = [];
-
-  // Calculate total from dates
-  if (metricData.dates) {
-    total = 0;
-    count = 0;
-    users = 0;
-
-    metricData.dates.forEach((d) => {
-      const { mean, stddev } = metric.ignoreNulls
-        ? { mean: d.mean, stddev: d.stddev }
-        : addNonconvertingUsersToStats(d);
-
-      const averageBase = (metric.ignoreNulls ? d.count : d.users) || 0;
-      const dateTotal = (d.count || 0) * (d.mean || 0);
-      total += dateTotal;
-      count += d.count || 0;
-      users += d.users || 0;
-      dates.push({
-        d: getValidDate(d.date),
-        v: mean,
-        u: averageBase,
-        s: stddev,
-      });
+  if (!metric) {
+    res.status(403).json({
+      status: 404,
+      message: "Metric not found",
     });
+    return;
   }
 
-  const averageBase = metric.ignoreNulls ? count : users;
-  const average = averageBase > 0 ? total / averageBase : 0;
+  // metrics are used in a few places:
 
-  return {
-    createdAt: new Date(),
-    average,
-    users,
-    dates,
-    segment: metric.segment || "",
-    percentiles: metricData.percentiles
-      ? Object.keys(metricData.percentiles).map((k) => {
-          return {
-            p: parseInt(k) / 100,
-            v: metricData.percentiles?.[k] || 0,
-          };
-        })
-      : [],
-  };
+  // Ideas (impact estimate)
+  const estimates = await ImpactEstimateModel.find({
+    metric: metric.id,
+    organization: org.id,
+  });
+  const ideas: IdeaInterface[] = [];
+  if (estimates && estimates.length > 0) {
+    await Promise.all(
+      estimates.map(async (es) => {
+        const idea = await getIdeasByQuery({
+          organization: org.id,
+          "estimateParams.estimate": es.id,
+        });
+        if (idea && idea[0]) {
+          ideas.push(idea[0]);
+        }
+      })
+    );
+  }
+
+  // Experiments
+  const experiments = await getExperimentsByMetric(org.id, metric.id);
+
+  res.status(200).json({
+    ideas,
+    experiments,
+    status: 200,
+  });
 }
 
 export async function getMetricAnalysisStatus(
@@ -1277,74 +1278,11 @@ export async function postMetricAnalysis(
   }
 
   try {
-    if (metric.datasource) {
-      const datasource = await getDataSourceById(
-        metric.datasource,
-        metric.organization
-      );
-      if (!datasource) {
-        throw new Error("Could not load metric datasource");
-      }
-      const integration = getSourceIntegrationObject(datasource);
-
-      let segmentQuery = "";
-      let segmentName = "";
-      if (metric.segment) {
-        const segment = await SegmentModel.findOne({
-          id: metric.segment,
-          datasource: metric.datasource,
-        });
-        if (!segment) {
-          throw new Error("Invalid user segment chosen");
-        }
-        segmentQuery = segment.sql;
-        segmentName = segment.name;
-      }
-
-      let days = org?.settings?.metricAnalysisDays || 90;
-      if (days < 1 || days > 400) {
-        days = 90;
-      }
-
-      const from = new Date();
-      from.setDate(from.getDate() - days);
-      const to = new Date();
-
-      const baseParams = {
-        from,
-        to,
-        name: "Site-Wide",
-        includeByDate: true,
-        segmentName,
-        segmentQuery,
-        userIdType: metric.userIdType || "either",
-      };
-
-      const updates: Partial<MetricInterface> = {};
-
-      updates.runStarted = new Date();
-      updates.analysisError = "";
-
-      const { queries, result } = await startRun(
-        {
-          metric: getMetricValue(integration, {
-            ...baseParams,
-            metric,
-            includePercentiles: true,
-          }),
-        },
-        (queryData) => getMetricAnalysis(metric, queryData)
-      );
-
-      updates.queries = queries;
-      if (result) {
-        updates.analysis = result;
-      }
-
-      await updateMetric(metric.id, updates, org.id);
-    } else {
-      throw new Error("Cannot analyze manual metrics");
-    }
+    await refreshMetric(
+      metric,
+      org.id,
+      req.organization?.settings?.metricAnalysisDays
+    );
 
     res.status(200).json({
       status: 200,
@@ -1479,6 +1417,7 @@ export async function postMetrics(
     conversionWindowHours,
     userIdType,
     sql,
+    status: "active",
     userIdColumn,
     anonymousIdColumn,
     timestampColumn,
@@ -1537,6 +1476,7 @@ export async function putMetric(
     "cap",
     "conversionWindowHours",
     "sql",
+    "status",
     "tags",
     "winRisk",
     "loseRisk",
@@ -1655,7 +1595,12 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      processSnapshotData(experiment, phase, queryData, snapshot.dimension),
+      analyzeExperimentResults(
+        org.id,
+        getReportVariations(experiment, phase),
+        snapshot.dimension || undefined,
+        queryData
+      ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
         {
@@ -1789,41 +1734,8 @@ export async function postSnapshot(
     return;
   }
 
-  const datasource = await getDataSourceById(exp.datasource, org.id);
-  if (!datasource) {
-    res.status(400).json({
-      status: 404,
-      message: "Data source not found",
-    });
-    return;
-  }
-
-  let dimensionArg: Dimension | null = null;
-
-  if (dimension) {
-    if (dimension.match(/^exp:/)) {
-      dimensionArg = {
-        type: "experiment",
-        id: dimension.substr(4),
-      };
-    } else if (dimension.substr(0, 4) === "pre:") {
-      dimensionArg = {
-        // eslint-disable-next-line
-        type: dimension.substr(4) as any,
-      };
-    } else {
-      const obj = await findDimensionById(dimension, org.id);
-      if (obj) {
-        dimensionArg = {
-          type: "user",
-          dimension: obj,
-        };
-      }
-    }
-  }
-
   try {
-    const snapshot = await createSnapshot(exp, phase, datasource, dimensionArg);
+    const snapshot = await createSnapshot(exp, phase, dimension || null);
     await req.audit({
       event: "snapshot.create.auto",
       entity: {

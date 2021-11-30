@@ -1,4 +1,5 @@
 import { formatDistance } from "date-fns";
+import { ExperimentStatus } from "back-end/types/experiment";
 import { getValidDate } from "../../services/dates";
 
 export default function NotEnoughData({
@@ -12,7 +13,7 @@ export default function NotEnoughData({
 }: {
   snapshotCreated: Date;
   phaseStart: string;
-  experimentStatus: "draft" | "running" | "stopped";
+  experimentStatus: ExperimentStatus;
   isLatestPhase: boolean;
   minSampleSize: number;
   variationValue: number;

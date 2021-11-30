@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import useApi from "../../hooks/useApi";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import { FC, useContext, useState, useEffect } from "react";
+import React, { FC, useContext, useState, useEffect, Fragment } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -47,6 +47,9 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
 import clsx from "clsx";
+import { IdeaInterface } from "back-end/types/idea";
+import MoreMenu from "../../components/Dropdown/MoreMenu";
+import Button from "../../components/Button";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -113,6 +116,114 @@ const MetricPage: FC = () => {
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  const getMetricUsage = (metric: MetricInterface) => {
+    return async () => {
+      try {
+        const res = await apiCall<{
+          status: number;
+          ideas?: IdeaInterface[];
+          experiments?: { name: string; id: string }[];
+        }>(`/metric/${metric.id}/usage`, {
+          method: "GET",
+        });
+
+        const experimentLinks = [];
+        const ideaLinks = [];
+        let subtitleText = "This metric is not referenced anywhere else.";
+        if (res.ideas?.length > 0 || res.experiments?.length > 0) {
+          subtitleText = "This metric is referenced in ";
+          const refs = [];
+          if (res.experiments.length) {
+            refs.push(
+              res.experiments.length === 1
+                ? "1 experiment"
+                : res.experiments.length + " experiments"
+            );
+            res.experiments.forEach((e) => {
+              experimentLinks.push(
+                <Link href={`/experiment/${e.id}`}>
+                  <a className="">{e.name}</a>
+                </Link>
+              );
+            });
+          }
+          if (res.ideas.length) {
+            refs.push(
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+            );
+            res.ideas.forEach((i) => {
+              ideaLinks.push(
+                <Link href={`/idea/${i.id}`}>
+                  <a>{i.text}</a>
+                </Link>
+              );
+            });
+          }
+          subtitleText += refs.join(" and ");
+
+          return (
+            <div>
+              <p>{subtitleText}</p>
+              {(experimentLinks.length > 0 || ideaLinks.length > 0) && (
+                <>
+                  <div
+                    className="row mx-1 mb-2 mt-1 py-2"
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    {experimentLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Experiments:{" "}
+                        <ul className="mb-0 pl-3">
+                          {experimentLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {ideaLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Ideas:{" "}
+                        <ul className="mb-0 pl-3">
+                          {ideaLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mb-0">
+                    Deleting this metric will remove these references.
+                  </p>
+                </>
+              )}
+              <p>This delete action cannot be undone. </p>
+              <p>
+                If you would rather keep existing references, but prevent this
+                metric from being used in the future, you can archive this
+                metric instead.
+              </p>
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        return (
+          <div className="alert alert-danger">
+            An error occurred getting the metric usage
+          </div>
+        );
+      }
+    };
+  };
+
   return (
     <div className="container-fluid pagecontents">
       {editModalOpen !== false && (
@@ -160,22 +271,54 @@ const MetricPage: FC = () => {
         </Link>
       </div>
 
+      {metric.status === "archived" && (
+        <div className="alert alert-secondary mb-2">
+          <strong>This metric is archived.</strong> Existing references will
+          continue working, but you will be unable to add this metric to new
+          experiments.
+        </div>
+      )}
+
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <DeleteButton
-              className="ml-2"
-              onClick={async () => {
-                await apiCall(`/metric/${metric.id}`, {
-                  method: "DELETE",
-                });
-                mutateDefinitions({});
-                router.push("/metrics");
-              }}
-              displayName={"Metric '" + metric.name + "'"}
-            />
+            <MoreMenu id="metric-actions">
+              <DeleteButton
+                className="dropdown-item"
+                text="Delete"
+                title="Delete this metric"
+                getConfirmationContent={getMetricUsage(metric)}
+                onClick={async () => {
+                  await apiCall(`/metric/${metric.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDefinitions({});
+                  router.push("/metrics");
+                }}
+                useIcon={false}
+                displayName={"Metric '" + metric.name + "'"}
+              />
+              <Button
+                className="dropdown-item"
+                color=""
+                onClick={async () => {
+                  const newStatus =
+                    metric.status === "archived" ? "active" : "archived";
+                  await apiCall(`/metric/${metric.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      status: newStatus,
+                    }),
+                  });
+                  mutateDefinitions({});
+                  mutate();
+                }}
+              >
+                {metric.status === "archived" ? "Unarchive" : "Archive"}
+              </Button>
+            </MoreMenu>
           </div>
         )}
       </div>

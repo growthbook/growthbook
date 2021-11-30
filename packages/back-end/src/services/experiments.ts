@@ -3,39 +3,50 @@ import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { getMetricsByOrganization, insertMetric } from "../models/MetricModel";
+import {
+  getMetricsByOrganization,
+  insertMetric,
+  updateMetric,
+} from "../models/MetricModel";
 import uniqid from "uniqid";
-import { analyzeExperimentMetric } from "./stats";
-import { getSourceIntegrationObject } from "./datasource";
+import { addNonconvertingUsersToStats, analyzeExperimentMetric } from "./stats";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
+import { getMetricValue, QueryMap, startRun } from "./queries";
 import {
-  getExperimentMetric,
-  getExperimentResults,
-  QueryMap,
-  startRun,
-} from "./queries";
-import {
-  ExperimentResults,
   PastExperimentResult,
   Dimension,
   ExperimentMetricQueryResponse,
+  MetricValueResult,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { DataSourceInterface } from "../../types/datasource";
+import {
+  MetricInterface,
+  MetricStats,
+  MetricAnalysis,
+} from "../../types/metric";
+import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
-import { QueryDocument } from "../models/QueryModel";
 import { FilterQuery } from "mongoose";
+import { queueWebhook } from "../jobs/webhooks";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
+import { findDimensionById } from "../models/DimensionModel";
+import {
+  getReportVariations,
+  reportArgsFromSnapshot,
+  startExperimentAnalysis,
+} from "./reports";
+import { getValidDate } from "../util/dates";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { getSourceIntegrationObject } from "./datasource";
 import { SegmentModel } from "../models/SegmentModel";
-import { SegmentInterface } from "../../types/segment";
+import uniqBy from "lodash/uniqBy";
 
-const MAX_DIMENSIONS = 20;
+export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
 export function getExperimentsByOrganization(
   organization: string,
@@ -72,6 +83,89 @@ export async function getExperimentsByIds(ids: string[]) {
   return ExperimentModel.find({
     id: { $in: ids },
   });
+}
+
+export async function getExperimentsByMetric(
+  orgId: string,
+  metricId: string
+): Promise<{ id: string; name: string }[]> {
+  const experiments: { id: string; name: string }[] = [];
+
+  const cols = {
+    _id: false,
+    id: true,
+    name: true,
+  };
+
+  // Using as a goal metric
+  const goals = await ExperimentModel.find(
+    {
+      organization: orgId,
+      metrics: metricId,
+    },
+    cols
+  );
+  goals.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  // Using as a guardrail metric
+  const guardrails = await ExperimentModel.find(
+    {
+      organization: orgId,
+      guardrails: metricId,
+    },
+    cols
+  );
+  guardrails.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  // Using as an activation metric
+  const activations = await ExperimentModel.find(
+    {
+      organization: orgId,
+      activationMetric: metricId,
+    },
+    cols
+  );
+  activations.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  return uniqBy(experiments, "id");
+}
+
+export async function removeMetricFromExperiments(
+  metricId: string,
+  orgId: string
+) {
+  // Remove from metrics
+  await ExperimentModel.updateMany(
+    { organization: orgId, metrics: metricId },
+    { $pull: { metrics: metricId } }
+  );
+
+  // Remove from guardrails
+  await ExperimentModel.updateMany(
+    { organization: orgId, guardrails: metricId },
+    { $pull: { guardrails: metricId } }
+  );
+
+  // Remove from activationMetric
+  await ExperimentModel.updateMany(
+    { organization: orgId, activationMetric: metricId },
+    { $set: { activationMetric: "" } }
+  );
 }
 
 export function deleteExperimentById(id: string) {
@@ -117,6 +211,142 @@ export async function createMetric(data: Partial<MetricInterface>) {
   }
 
   return metric;
+}
+
+export async function getMetricAnalysis(
+  metric: MetricInterface,
+  queryData: QueryMap
+): Promise<MetricAnalysis> {
+  const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
+    users: 0,
+    count: 0,
+    mean: 0,
+    stddev: 0,
+  };
+
+  let total = (metricData.count || 0) * (metricData.mean || 0);
+  let count = metricData.count || 0;
+  let users = metricData.users || 0;
+  const dates: { d: Date; v: number; s: number; u: number }[] = [];
+
+  // Calculate total from dates
+  if (metricData.dates) {
+    total = 0;
+    count = 0;
+    users = 0;
+
+    metricData.dates.forEach((d) => {
+      const { mean, stddev } = metric.ignoreNulls
+        ? { mean: d.mean, stddev: d.stddev }
+        : addNonconvertingUsersToStats(d);
+
+      const averageBase = (metric.ignoreNulls ? d.count : d.users) || 0;
+      const dateTotal = (d.count || 0) * (d.mean || 0);
+      total += dateTotal;
+      count += d.count || 0;
+      users += d.users || 0;
+      dates.push({
+        d: getValidDate(d.date),
+        v: mean,
+        u: averageBase,
+        s: stddev,
+      });
+    });
+  }
+
+  const averageBase = metric.ignoreNulls ? count : users;
+  const average = averageBase > 0 ? total / averageBase : 0;
+
+  return {
+    createdAt: new Date(),
+    average,
+    users,
+    dates,
+    segment: metric.segment || "",
+    percentiles: metricData.percentiles
+      ? Object.keys(metricData.percentiles).map((k) => {
+          return {
+            p: parseInt(k) / 100,
+            v: metricData.percentiles?.[k] || 0,
+          };
+        })
+      : [],
+  };
+}
+
+export async function refreshMetric(
+  metric: MetricInterface,
+  orgId: string,
+  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
+) {
+  if (metric.datasource) {
+    const datasource = await getDataSourceById(
+      metric.datasource,
+      metric.organization
+    );
+    if (!datasource) {
+      throw new Error("Could not load metric datasource");
+    }
+    const integration = getSourceIntegrationObject(datasource);
+
+    let segmentQuery = "";
+    let segmentName = "";
+    if (metric.segment) {
+      const segment = await SegmentModel.findOne({
+        id: metric.segment,
+        datasource: metric.datasource,
+      });
+      if (!segment) {
+        throw new Error("Invalid user segment chosen");
+      }
+      segmentQuery = segment.sql;
+      segmentName = segment.name;
+    }
+
+    let days = metricAnalysisDays;
+    if (days < 1 || days > 400) {
+      days = DEFAULT_METRIC_ANALYSIS_DAYS;
+    }
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const to = new Date();
+
+    const baseParams = {
+      from,
+      to,
+      name: "Site-Wide",
+      includeByDate: true,
+      segmentName,
+      segmentQuery,
+      userIdType: metric.userIdType || "either",
+    };
+
+    const updates: Partial<MetricInterface> = {};
+
+    updates.runStarted = new Date();
+    updates.analysisError = "";
+
+    const { queries, result } = await startRun(
+      {
+        metric: getMetricValue(integration, {
+          ...baseParams,
+          metric,
+          includePercentiles: true,
+        }),
+      },
+      (queryData) => getMetricAnalysis(metric, queryData)
+    );
+
+    updates.queries = queries;
+    if (result) {
+      updates.analysis = result;
+    }
+
+    await updateMetric(metric.id, updates, orgId);
+  } else {
+    throw new Error("Cannot analyze manual metrics");
+  }
 }
 
 function generateTrackingKey(name: string, n: number): string {
@@ -228,9 +458,9 @@ export async function getManualSnapshotData(
             variation: experiment.variations[i].key || i + "",
           };
         });
+
         const res = await analyzeExperimentMetric(
-          experiment,
-          phase,
+          getReportVariations(experiment, phase),
           metric,
           rows,
           20
@@ -291,228 +521,43 @@ export async function createManualSnapshot(
   return snapshot;
 }
 
-type ProcessedSnapshotDimension = {
-  name: string;
-  srm: number;
-  variations: SnapshotVariation[];
-};
-type ProcessedSnapshotData = {
-  dimensions: ProcessedSnapshotDimension[];
-  unknownVariations: string[];
-};
-
-export async function processSnapshotData(
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
-  queryData: QueryMap,
-  dimension: string | null = null
-): Promise<ProcessedSnapshotData> {
-  const metrics = await getMetricsByOrganization(experiment.organization);
-  const metricMap = new Map<string, MetricInterface>();
-  metrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
-
-  const metricRows: {
-    metric: string;
-    rows: ExperimentMetricQueryResponse;
-  }[] = [];
-
-  let unknownVariations: string[] = [];
-
-  // Everything done in a single query (Mixpanel, Google Analytics)
-  // Need to convert to the same format as SQL rows
-  if (queryData.has("results")) {
-    const results = queryData.get("results");
-    if (!results) throw new Error("Empty experiment results");
-    const data = results.result as ExperimentResults;
-
-    unknownVariations = data.unknownVariations;
-
-    const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
-    data.dimensions.forEach((row) => {
-      row.variations.forEach((v) => {
-        Object.keys(v.metrics).forEach((metric) => {
-          const stats = v.metrics[metric];
-          byMetric[metric] = byMetric[metric] || [];
-          byMetric[metric].push({
-            ...stats,
-            dimension: row.dimension,
-            variation:
-              experiment.variations[v.variation].key || v.variation + "",
-          });
-        });
-      });
-    });
-
-    Object.keys(byMetric).forEach((metric) => {
-      metricRows.push({
-        metric,
-        rows: byMetric[metric],
-      });
-    });
-  }
-  // One query for each metric, can just use the rows directly from the query
-  else {
-    queryData.forEach((query, key) => {
-      const metric = metricMap.get(key);
-      if (!metric) return;
-
-      metricRows.push({
-        metric: key,
-        rows: query.result as ExperimentMetricQueryResponse,
-      });
-    });
-  }
-
-  const dimensionMap: Map<string, ProcessedSnapshotDimension> = new Map();
-  await promiseAllChunks(
-    metricRows.map((data) => {
-      const metric = metricMap.get(data.metric);
-      return async () => {
-        if (!metric) return;
-        const result = await analyzeExperimentMetric(
-          experiment,
-          phase,
-          metric,
-          data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
-        );
-        unknownVariations = unknownVariations.concat(result.unknownVariations);
-
-        result.dimensions.forEach((row) => {
-          const dim = dimensionMap.get(row.dimension) || {
-            name: row.dimension,
-            srm: row.srm,
-            variations: [],
-          };
-
-          row.variations.forEach((v, i) => {
-            const data = dim.variations[i] || {
-              users: v.users,
-              metrics: {},
-            };
-            data.metrics[metric.id] = {
-              ...v,
-              buckets: [],
-            };
-            dim.variations[i] = data;
-          });
-
-          dimensionMap.set(row.dimension, dim);
-        });
+export async function parseDimensionId(
+  dimension: string | undefined,
+  organization: string
+): Promise<Dimension | null> {
+  if (dimension) {
+    if (dimension.match(/^exp:/)) {
+      return {
+        type: "experiment",
+        id: dimension.substr(4),
       };
-    }),
-    3
-  );
-
-  const dimensions = Array.from(dimensionMap.values());
-  if (!dimensions.length) {
-    dimensions.push({
-      name: "All",
-      srm: 1,
-      variations: [],
-    });
+    } else if (dimension.substr(0, 4) === "pre:") {
+      return {
+        // eslint-disable-next-line
+        type: dimension.substr(4) as any,
+      };
+    } else {
+      const obj = await findDimensionById(dimension, organization);
+      if (obj) {
+        return {
+          type: "user",
+          dimension: obj,
+        };
+      }
+    }
   }
-
-  return {
-    unknownVariations: Array.from(new Set(unknownVariations)),
-    dimensions,
-  };
+  return null;
 }
 
 export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
-  datasource: DataSourceInterface,
-  dimension: Dimension | null
+  dimensionId: string | null
 ) {
-  const metrics = await getMetricsByOrganization(experiment.organization);
-  const metricMap = new Map<string, MetricInterface>();
-  metrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
-
-  const activationMetric =
-    metricMap.get(experiment.activationMetric || "") || null;
-
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(experiment.metrics.concat(experiment.guardrails || []))
-  )
-    .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
-  }
-
   const phase = experiment.phases[phaseIndex];
-
-  let segment: SegmentInterface | null = null;
-  if (experiment.segment) {
-    segment =
-      (await SegmentModel.findOne({
-        id: experiment.segment,
-        organization: experiment.organization,
-      })) || null;
+  if (!phase) {
+    throw new Error("Invalid snapshot phase");
   }
-
-  // Update lastSnapshotAttempt
-  experiment.lastSnapshotAttempt = new Date();
-  await ExperimentModel.updateOne(
-    {
-      id: experiment.id,
-    },
-    {
-      $set: {
-        lastSnapshotAttempt: experiment.lastSnapshotAttempt,
-      },
-    }
-  );
-
-  const integration = getSourceIntegrationObject(datasource);
-
-  const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
-
-  // Run it as a single synchronous task (non-sql datasources and legacy code)
-  if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    queryDocs["results"] = getExperimentResults(
-      integration,
-      experiment,
-      phase,
-      selectedMetrics,
-      activationMetric,
-      dimension?.type === "user" ? dimension.dimension : null
-    );
-  }
-  // Run as multiple async queries (new way for sql datasources)
-  else {
-    selectedMetrics.forEach((m) => {
-      queryDocs[m.id] = getExperimentMetric(integration, {
-        metric: m,
-        experiment,
-        dimension,
-        activationMetric,
-        phase,
-        segment,
-      });
-    });
-  }
-
-  const dimensionId =
-    (!dimension
-      ? null
-      : dimension.type === "user"
-      ? dimension.dimension.id
-      : dimension.type === "experiment"
-      ? "exp:" + dimension.id
-      : "pre:" + dimension.type) || null;
-
-  const { queries, result: results } = await startRun(
-    queryDocs,
-    async (queryData) =>
-      processSnapshotData(experiment, phase, queryData, dimensionId)
-  );
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -523,17 +568,26 @@ export async function createSnapshot(
     dateCreated: new Date(),
     phase: phaseIndex,
     manual: false,
-    queries,
+    queries: [],
     hasRawQueries: true,
-    queryLanguage: integration.getSourceProperties().queryLanguage,
-    dimension: dimensionId || null,
-    results: results?.dimensions,
-    unknownVariations: results?.unknownVariations || [],
+    queryLanguage: "sql",
+    dimension: dimensionId,
+    results: undefined,
+    unknownVariations: [],
     activationMetric: experiment.activationMetric || "",
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
   };
+
+  const { queries, results } = await startExperimentAnalysis(
+    experiment.organization,
+    reportArgsFromSnapshot(experiment, data)
+  );
+
+  data.queries = queries;
+  data.results = results?.dimensions;
+  data.unknownVariations = results?.unknownVariations || [];
 
   const snapshot = await ExperimentSnapshotModel.create(data);
 
@@ -657,4 +711,13 @@ export async function processPastExperiments(
   return Array.from(experimentMap.values()).filter(
     (e) => e.numVariations > 1 && e.numVariations < 10
   );
+}
+
+//
+export async function experimentUpdated(experiment: ExperimentInterface) {
+  // fire the webhook:
+  await queueWebhook(experiment.organization);
+
+  // invalidate the CDN
+  await queueCDNInvalidate(experiment);
 }

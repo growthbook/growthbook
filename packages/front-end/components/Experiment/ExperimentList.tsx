@@ -4,17 +4,18 @@ import useApi from "../../hooks/useApi";
 import { ago, datetime } from "../../services/dates";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhase,
+  ExperimentStatus,
 } from "back-end/types/experiment";
 import LoadingOverlay from "../LoadingOverlay";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { phaseSummary } from "../../services/utils";
 
 export default function ExperimentList({
   num,
   status,
 }: {
   num: number;
-  status: "draft" | "running" | "stopped";
+  status: ExperimentStatus;
 }): React.ReactElement {
   const { project } = useDefinitions();
   const { data, error } = useApi<{
@@ -43,30 +44,23 @@ export default function ExperimentList({
   if (exps.length > num) {
     exps = exps.slice(0, num);
   }
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
-  //console.log(exps);
+
   return (
     <ul className="list-unstyled simple-divider ">
       {exps.map((test, i) => {
         // get start and end dates by looking for min and max start dates of main and rollup phases
         let startDate = test.dateCreated,
           endDate;
-        let phase: ExperimentPhase;
+
         test.phases.forEach((p) => {
           if (p.phase === "main" || p.phase === "ramp") {
             if (!startDate || p.dateStarted < startDate) {
               startDate = p.dateStarted;
-              phase = p;
             }
             if (!endDate || p.dateEnded > endDate) endDate = p.dateEnded;
           }
         });
-        const weights = phase?.variationWeights
-          ? phase.variationWeights.map((x) => Math.round(x * 100))
-          : [];
+        const currentPhase = test.phases[test.phases.length - 1];
         return (
           <li key={i} className="w-100 hover-highlight">
             <div key={test.id} className="d-flex">
@@ -78,12 +72,9 @@ export default function ExperimentList({
                     </div>
                     <div style={{ flex: 1 }} />
                     <div className="">
-                      <span className="text-purple">
-                        {percentFormatter.format(phase?.coverage || 0)}
-                      </span>{" "}
-                      traffic,{" "}
-                      <span className="text-purple">{weights.join("/")}</span>{" "}
-                      split
+                      <span className="purple-phase">
+                        {phaseSummary(currentPhase)}
+                      </span>
                     </div>
                   </div>
                   <div className="d-flex">
@@ -93,7 +84,8 @@ export default function ExperimentList({
                     <div style={{ flex: 1 }} />
                     <div>
                       {" "}
-                      {test.variations.length} variations, {phase?.phase} phase
+                      {test.variations.length} variations, {currentPhase?.phase}{" "}
+                      phase
                     </div>
                   </div>
                 </a>

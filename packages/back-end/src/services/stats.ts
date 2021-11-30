@@ -1,8 +1,20 @@
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { PythonShell } from "python-shell";
 import { promisify } from "util";
-import { ExperimentMetricQueryResponse } from "../types/Integration";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import {
+  ExperimentMetricQueryResponse,
+  ExperimentResults,
+} from "../types/Integration";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportResults,
+  ExperimentReportVariation,
+} from "../../types/report";
+import { QueryMap } from "./queries";
+import { getMetricsByOrganization } from "../models/MetricModel";
+import { promiseAllChunks } from "../util/promise";
+
+export const MAX_DIMENSIONS = 20;
 
 export interface StatsEngineDimensionResponse {
   dimension: string;
@@ -30,15 +42,21 @@ export interface ExperimentMetricAnalysis {
 }
 
 export async function analyzeExperimentMetric(
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
+  variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number
 ): Promise<ExperimentMetricAnalysis> {
+  if (!rows || !rows.length) {
+    return {
+      unknownVariations: [],
+      dimensions: [],
+    };
+  }
+
   const variationIdMap: { [key: string]: number } = {};
-  experiment.variations.map((v, i) => {
-    variationIdMap[v.key || i + ""] = i;
+  variations.map((v, i) => {
+    variationIdMap[v.id] = i;
   });
 
   const result = await promisify(PythonShell.runString)(
@@ -55,8 +73,8 @@ import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
-      var_names: experiment.variations.map((v) => v.name),
-      weights: phase.variationWeights,
+      var_names: variations.map((v) => v.name),
+      weights: variations.map((v) => v.weight),
       type: metric.type,
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
@@ -115,6 +133,124 @@ print(json.dumps({
   }
 
   return parsed;
+}
+
+export async function analyzeExperimentResults(
+  organization: string,
+  variations: ExperimentReportVariation[],
+  dimension: string | undefined,
+  queryData: QueryMap
+): Promise<ExperimentReportResults> {
+  const metrics = await getMetricsByOrganization(organization);
+  const metricMap = new Map<string, MetricInterface>();
+  metrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
+  const metricRows: {
+    metric: string;
+    rows: ExperimentMetricQueryResponse;
+  }[] = [];
+
+  let unknownVariations: string[] = [];
+
+  // Everything done in a single query (Mixpanel, Google Analytics)
+  // Need to convert to the same format as SQL rows
+  if (queryData.has("results")) {
+    const results = queryData.get("results");
+    if (!results) throw new Error("Empty experiment results");
+    const data = results.result as ExperimentResults;
+
+    unknownVariations = data.unknownVariations;
+
+    const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
+    data.dimensions.forEach((row) => {
+      row.variations.forEach((v) => {
+        Object.keys(v.metrics).forEach((metric) => {
+          const stats = v.metrics[metric];
+          byMetric[metric] = byMetric[metric] || [];
+          byMetric[metric].push({
+            ...stats,
+            dimension: row.dimension,
+            variation: variations[v.variation].id,
+          });
+        });
+      });
+    });
+
+    Object.keys(byMetric).forEach((metric) => {
+      metricRows.push({
+        metric,
+        rows: byMetric[metric],
+      });
+    });
+  }
+  // One query for each metric, can just use the rows directly from the query
+  else {
+    queryData.forEach((query, key) => {
+      const metric = metricMap.get(key);
+      if (!metric) return;
+
+      metricRows.push({
+        metric: key,
+        rows: query.result as ExperimentMetricQueryResponse,
+      });
+    });
+  }
+
+  const dimensionMap: Map<string, ExperimentReportResultDimension> = new Map();
+  await promiseAllChunks(
+    metricRows.map((data) => {
+      const metric = metricMap.get(data.metric);
+      return async () => {
+        if (!metric) return;
+        const result = await analyzeExperimentMetric(
+          variations,
+          metric,
+          data.rows,
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
+        );
+        unknownVariations = unknownVariations.concat(result.unknownVariations);
+
+        result.dimensions.forEach((row) => {
+          const dim = dimensionMap.get(row.dimension) || {
+            name: row.dimension,
+            srm: row.srm,
+            variations: [],
+          };
+
+          row.variations.forEach((v, i) => {
+            const data = dim.variations[i] || {
+              users: v.users,
+              metrics: {},
+            };
+            data.metrics[metric.id] = {
+              ...v,
+              buckets: [],
+            };
+            dim.variations[i] = data;
+          });
+
+          dimensionMap.set(row.dimension, dim);
+        });
+      };
+    }),
+    3
+  );
+
+  const dimensions = Array.from(dimensionMap.values());
+  if (!dimensions.length) {
+    dimensions.push({
+      name: "All",
+      srm: 1,
+      variations: [],
+    });
+  }
+
+  return {
+    unknownVariations: Array.from(new Set(unknownVariations)),
+    dimensions,
+  };
 }
 
 /**

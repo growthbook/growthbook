@@ -3,7 +3,6 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { useContext } from "react";
-import { FaCog } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -14,6 +13,7 @@ import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
+import ResultMoreMenu from "./ResultMoreMenu";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -54,6 +54,7 @@ export default function AnalysisSettingsBar({
   setPhase,
   mutate,
   mutateExperiment,
+  editMetrics,
 }: {
   experiment: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -64,6 +65,7 @@ export default function AnalysisSettingsBar({
   setDimension: (dimension: string) => void;
   mutate: () => void;
   mutateExperiment: () => void;
+  editMetrics: () => void;
 }) {
   const { getDatasourceById, dimensions } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
@@ -101,6 +103,8 @@ export default function AnalysisSettingsBar({
   }
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
+
+  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
   return (
     <div>
@@ -225,6 +229,21 @@ export default function AnalysisSettingsBar({
             )}
           </div>
         )}
+        <div className="col-auto">
+          <ResultMoreMenu
+            id={snapshot?.id || ""}
+            configure={() => setModalOpen(true)}
+            editMetrics={editMetrics}
+            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+            notebookFilename={experiment.trackingKey}
+            generateReport={true}
+            queries={snapshot?.queries}
+            queryError={snapshot?.error}
+            hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
+            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+            hasData={hasData}
+          />
+        </div>
       </div>
       {permissions.runExperiments && datasource && (
         <div className="px-3">
@@ -249,18 +268,6 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
-            <div style={{ flex: 1 }} />
-            <div className="col-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen(true);
-                }}
-              >
-                <FaCog /> Configure Analysis
-              </a>
-            </div>
           </div>
         </div>
       )}

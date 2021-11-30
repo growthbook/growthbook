@@ -4,6 +4,10 @@ const env: {
   apiHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
+  build?: {
+    sha: string;
+    date: string;
+  };
 } = {
   telemetry: "enable",
   cloud: false,
@@ -35,4 +39,7 @@ export function hasFileConfig() {
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
+}
+export function getGrowthBookBuild(): { sha: string; date: string } {
+  return env.build || { sha: "", date: "" };
 }

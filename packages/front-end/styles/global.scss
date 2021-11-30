@@ -148,6 +148,9 @@ pre {
     font-weight: 600;
   }
 }
+.modal-dialog.modal-fill {
+  margin: 0 auto;
+}
 .gbtable {
   color: $main-black;
   margin-bottom: 0;
@@ -1176,6 +1179,12 @@ li.metrics a span img {
   }
 }
 
+.purple-phase {
+  .percent-traffic,
+  .split {
+    color: $highlight-purple;
+  }
+}
 .experiment-details,
 .metric {
   .tab-content {
@@ -1218,12 +1227,6 @@ li.metrics a span img {
           padding-bottom: 10px;
         }
       }
-    }
-  }
-  .purple-phase {
-    .percent-traffic,
-    .split {
-      color: $highlight-purple;
     }
   }
   .contents {

@@ -11,7 +11,9 @@ RUN \
 # Build the nodejs app
 FROM node:14-slim AS nodebuild
 WORKDIR /usr/local/src/app
-COPY . /usr/local/src/app
+COPY packages ./packages
+COPY package.json ./package.json
+COPY yarn.lock ./yarn.lock
 RUN \
   # Install app with dev dependencies
   yarn install --frozen-lockfile --ignore-optional \
@@ -47,6 +49,7 @@ RUN pip3 install \
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+COPY buildinfo ./buildinfo
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
 RUN pip3 install /usr/local/src/gbstats/*.whl
 # The front-end app (NextJS)
