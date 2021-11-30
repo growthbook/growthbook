@@ -122,7 +122,6 @@ app.get("/", (req, res) => {
       date: "",
     };
     const rootPath = path.join(__dirname, "..", "..", "..", "buildinfo");
-    console.log(rootPath);
     if (fs.existsSync(path.join(rootPath, "SHA"))) {
       build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
     }
