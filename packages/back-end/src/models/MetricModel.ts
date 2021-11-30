@@ -104,15 +104,25 @@ export async function deleteMetricById(id: string, organization: string) {
   });
 }
 
-export async function getMetricsByOrganization(organization: string) {
+export async function getMetricsByOrganization(
+  organization: string,
+  includeArchived: boolean = false
+) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigMetrics(organization);
   }
 
-  const docs = await MetricModel.find({
-    organization,
-  });
+  const docs = await MetricModel.find(
+    includeArchived
+      ? {
+          organization,
+        }
+      : {
+          organization,
+          status: "active",
+        }
+  );
 
   return docs.map(toInterface);
 }

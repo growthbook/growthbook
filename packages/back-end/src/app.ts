@@ -337,7 +337,6 @@ app.post("/metrics", experimentsController.postMetrics);
 app.get("/metric/:id", experimentsController.getMetric);
 app.put("/metric/:id", experimentsController.putMetric);
 app.delete("/metric/:id", experimentsController.deleteMetric);
-app.put("/metric/:id/status", experimentsController.putMetricStatus);
 app.get("/metric/:id/usage", experimentsController.getMetricUsage);
 app.post("/metric/:id/analysis", experimentsController.postMetricAnalysis);
 app.get(

@@ -11,9 +11,9 @@ const MetricsSelector: FC<{
 }> = ({ datasource, selected, onChange }) => {
   const { metrics, getMetricById } = useDefinitions();
 
-  const validMetrics = metrics
-    .filter((m) => !datasource || m.datasource === datasource)
-    .filter((m) => m.status !== "archived");
+  const validMetrics = metrics.filter(
+    (m) => !datasource || m.datasource === datasource
+  );
 
   const toMetricValue = (id: string) => {
     return {

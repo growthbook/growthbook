@@ -51,6 +51,8 @@ import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
 import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
+import MoreMenu from "../../components/Dropdown/MoreMenu";
+import Button from "../../components/Button";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -124,7 +126,6 @@ const MetricPage: FC = () => {
           status: number;
           ideas?: IdeaInterface[];
           experiments?: ExperimentInterface[];
-          total?: number;
         }>(`/metric/${metric.id}/usage`, {
           method: "GET",
         });
@@ -132,7 +133,7 @@ const MetricPage: FC = () => {
         const experimentLinks = [];
         const ideaLinks = [];
         let subtitleText = "This metric is not referenced anywhere else.";
-        if (res.total) {
+        if (res.ideas?.length > 0 || res.experiments?.length > 0) {
           subtitleText = "This metric is referenced in ";
           const refs = [];
           if (res.experiments.length) {
@@ -166,7 +167,7 @@ const MetricPage: FC = () => {
           return (
             <div>
               <p>{subtitleText}</p>
-              {res.total > 0 && (
+              {(experimentLinks.length > 0 || ideaLinks.length > 0) && (
                 <>
                   <div
                     className="row mx-1 mb-2 mt-1 py-2"
@@ -219,7 +220,7 @@ const MetricPage: FC = () => {
         console.error(e);
         return (
           <div className="alert alert-danger">
-            An error occurred getting the segment usage
+            An error occurred getting the metric usage
           </div>
         );
       }
@@ -283,20 +284,12 @@ const MetricPage: FC = () => {
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            {metric.status === "archived" ? (
+            <MoreMenu id="metric-actions">
               <DeleteButton
-                className="ml-2"
-                text="Delete/unarchive"
-                title="Delete/unarchive this metric"
+                className="dropdown-item"
+                text="Delete"
+                title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
-                secondaryAction="un-archive"
-                secondaryActionClick={async () => {
-                  await apiCall(`/metric/${metric.id}/status?status=active`, {
-                    method: "PUT",
-                  });
-                  mutateDefinitions({});
-                  router.push("/metrics");
-                }}
                 onClick={async () => {
                   await apiCall(`/metric/${metric.id}`, {
                     method: "DELETE",
@@ -304,32 +297,28 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
+                useIcon={false}
                 displayName={"Metric '" + metric.name + "'"}
               />
-            ) : (
-              <DeleteButton
-                className="ml-2"
-                text="Delete/archive"
-                title="Delete/archive this metric"
-                getConfirmationContent={getMetricUsage(metric)}
-                secondaryAction="Archive"
-                secondaryActionClick={async () => {
-                  await apiCall(`/metric/${metric.id}/status?status=archived`, {
-                    method: "PUT",
-                  });
-                  mutateDefinitions({});
-                  router.push("/metrics");
-                }}
+              <Button
+                className="dropdown-item"
+                color=""
                 onClick={async () => {
+                  const newStatus =
+                    metric.status === "archived" ? "active" : "archived";
                   await apiCall(`/metric/${metric.id}`, {
-                    method: "DELETE",
+                    method: "PUT",
+                    body: JSON.stringify({
+                      status: newStatus,
+                    }),
                   });
                   mutateDefinitions({});
-                  router.push("/metrics");
+                  mutate();
                 }}
-                displayName={"Metric '" + metric.name + "'"}
-              />
-            )}
+              >
+                {metric.status === "archived" ? "Unarchive" : "Archive"}
+              </Button>
+            </MoreMenu>
           </div>
         )}
       </div>

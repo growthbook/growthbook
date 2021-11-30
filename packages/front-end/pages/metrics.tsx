@@ -19,6 +19,7 @@ import { useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
+import useApi from "../hooks/useApi";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -26,14 +27,12 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const {
-    ready,
-    metrics,
-    error,
-    mutateDefinitions,
-    getDatasourceById,
-  } = useDefinitions();
+  const { mutateDefinitions, getDatasourceById } = useDefinitions();
   const router = useRouter();
+
+  const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
+    `/metrics`
+  );
 
   const { permissions } = useContext(UserContext);
 
@@ -51,18 +50,22 @@ const MetricsPage = (): React.ReactElement => {
       setMetricSort({ field, dir: 1 });
     }
   };
+
   const {
     list: filteredMetrics,
     searchInputProps,
     isFiltered,
-  } = useSearch(metrics || [], ["name", "tags", "type"]);
+  } = useSearch(data?.metrics || [], ["name", "tags", "type"]);
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <div className="alert alert-danger">An error occurred: {error}</div>;
   }
-  if (!ready) {
+  if (!data) {
     return <LoadingOverlay />;
   }
+
+  const metrics = data.metrics;
+
   const hasArchivedMetrics = filteredMetrics.find(
     (m) => m.status === "archived"
   );
@@ -79,6 +82,7 @@ const MetricsPage = (): React.ReactElement => {
   const closeModal = (refresh: boolean) => {
     if (refresh) {
       mutateDefinitions({});
+      mutate();
     }
     setModalData(null);
   };

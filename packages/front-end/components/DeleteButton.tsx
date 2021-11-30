@@ -13,8 +13,6 @@ const DeleteButton: FC<{
   text?: string;
   title?: string;
   useIcon?: boolean;
-  secondaryAction?: string;
-  secondaryActionClick?: () => void;
   deleteMessage?: string;
   additionalMessage?: string;
   getConfirmationContent?: () => Promise<string | React.ReactElement>;
@@ -28,8 +26,6 @@ const DeleteButton: FC<{
   text = "",
   title = "",
   useIcon = true,
-  secondaryAction = "",
-  secondaryActionClick,
   deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
   getConfirmationContent,
@@ -56,8 +52,6 @@ const DeleteButton: FC<{
           cta="Delete"
           submitColor="danger"
           submit={onClick}
-          secondaryAction={secondaryAction}
-          secondaryActionClick={secondaryActionClick}
         >
           {dynamicContent ? dynamicContent : <p>{deleteMessage}</p>}
           {additionalMessage && <p>{additionalMessage}</p>}

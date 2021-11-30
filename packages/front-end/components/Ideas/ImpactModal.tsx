@@ -29,12 +29,10 @@ const ImpactModal: FC<{
     },
   });
 
-  const possibleMetrics = metrics
-    .filter(
-      // TODO: support non-binomial and manual metrics
-      (m) => m.type === "binomial" && m.datasource
-    )
-    .filter((m) => m.status !== "archived");
+  const possibleMetrics = metrics.filter(
+    // TODO: support non-binomial and manual metrics
+    (m) => m.type === "binomial" && m.datasource
+  );
 
   const metric = getMetricById(form.watch("metric"));
 

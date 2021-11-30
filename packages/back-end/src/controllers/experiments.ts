@@ -12,20 +12,19 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
-  getExperimentsByQuery,
   removeMetricFromExperiments,
   experimentUpdated,
   getMetricAnalysis,
   refreshMetric,
+  getExperimentsByMetric,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
   MetricAnalysis,
   MetricInterface,
   MetricStats,
-  MetricStatus,
 } from "../../types/metric";
-import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
+import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../services/tag";
@@ -53,7 +52,7 @@ import {
   updateMetric,
 } from "../models/MetricModel";
 import { addGroupsDiff } from "../services/group";
-import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
+import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
@@ -61,7 +60,6 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
 import { getValidDate } from "../util/dates";
-import { FilterQuery } from "mongoose";
 import { getIdeasByQuery } from "../services/ideas";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { getReportVariations } from "../services/reports";
@@ -1042,50 +1040,6 @@ export async function unwatchExperiment(
   }
 }
 
-export async function putMetricStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.createMetrics) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { id } = req.params;
-  let status: MetricStatus = "active";
-  if (typeof req.query?.status === "string") {
-    status = req.query.status;
-  }
-
-  const metric = await getMetricById(id, org.id);
-
-  if (!metric) {
-    res.status(403).json({
-      status: 404,
-      message: "Metric not found",
-    });
-    return;
-  }
-
-  await updateMetric(metric.id, { status }, org.id);
-
-  await req.audit({
-    event: "metric.archived",
-    entity: {
-      object: "metric",
-      id: metric.id,
-    },
-    details: JSON.stringify({ status }),
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1121,7 +1075,7 @@ export async function deleteMetric(
   );
 
   // Experiments
-  removeMetricFromExperiments(metric.id, org.id);
+  await removeMetricFromExperiments(metric.id, org.id);
 
   // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
@@ -1199,7 +1153,7 @@ export async function deleteExperiment(
 
 export async function getMetrics(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const metrics = await getMetricsByOrganization(org.id);
+  const metrics = await getMetricsByOrganization(org.id, true);
   res.status(200).json({
     status: 200,
     metrics,
@@ -1210,13 +1164,6 @@ export async function getMetricUsage(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  if (!req.permissions.createMetrics) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const metric = await getMetricById(id, org.id);
@@ -1231,7 +1178,7 @@ export async function getMetricUsage(
 
   // metrics are used in a few places:
 
-  // ideas (impact estimate)
+  // Ideas (impact estimate)
   const estimates = await ImpactEstimateModel.find({
     metric: metric.id,
     organization: org.id,
@@ -1240,11 +1187,10 @@ export async function getMetricUsage(
   if (estimates && estimates.length > 0) {
     await Promise.all(
       estimates.map(async (es) => {
-        const query: FilterQuery<IdeaDocument> = {
+        const idea = await getIdeasByQuery({
           organization: org.id,
           "estimateParams.estimate": es.id,
-        };
-        const idea = await getIdeasByQuery(query);
+        });
         if (idea && idea[0]) {
           ideas.push(idea[0]);
         }
@@ -1253,16 +1199,11 @@ export async function getMetricUsage(
   }
 
   // Experiments
-  const query: FilterQuery<ExperimentDocument> = {
-    organization: org.id,
-    metrics: metric.id,
-  };
-  const experiments = await getExperimentsByQuery(query);
+  const experiments = await getExperimentsByMetric(org.id, metric.id);
 
   res.status(200).json({
     ideas,
     experiments,
-    total: ideas.length + experiments.length,
     status: 200,
   });
 }

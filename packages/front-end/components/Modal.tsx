@@ -11,8 +11,6 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
-  secondaryAction?: string;
-  secondaryActionClick?: () => void;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
@@ -32,8 +30,6 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
-  secondaryAction = "",
-  secondaryActionClick,
   size = "md",
   className = "",
   autoCloseOnSubmit = true,
@@ -142,20 +138,6 @@ const Modal: FC<ModalProps> = ({
             </button>
           ) : (
             ""
-          )}
-          {secondaryAction && (
-            <button
-              className={`btn btn-outline-${
-                ctaEnabled ? submitColor : "secondary"
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                secondaryActionClick();
-              }}
-              disabled={!ctaEnabled}
-            >
-              {secondaryAction}
-            </button>
           )}
           {close && (
             <button
