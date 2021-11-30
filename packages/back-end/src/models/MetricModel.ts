@@ -38,6 +38,7 @@ const metricSchema = new mongoose.Schema({
   segment: String,
   anonymousIdColumn: String,
   userIdType: String,
+  status: String,
   sql: String,
   timestampColumn: String,
   tags: [String],

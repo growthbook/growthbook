@@ -41,7 +41,7 @@ const ImpactModal: FC<{
 
   return (
     <Modal
-      header="Impact Score Paramters"
+      header="Impact Score Parameters"
       open={true}
       submit={form.handleSubmit(async (value) => {
         // Need an API call to get an updated estimate

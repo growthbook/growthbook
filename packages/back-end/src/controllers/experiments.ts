@@ -12,9 +12,11 @@ import {
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
+  removeMetricFromExperiments,
   experimentUpdated,
   getMetricAnalysis,
   refreshMetric,
+  getExperimentsByMetric,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -58,6 +60,8 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
 import { getValidDate } from "../util/dates";
+import { getIdeasByQuery } from "../services/ideas";
+import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { getReportVariations } from "../services/reports";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
@@ -1060,8 +1064,20 @@ export async function deleteMetric(
     return;
   }
 
-  // note: we might want to change this to change the status to
-  // 'deleted' instead of actually deleting the document.
+  // delete references:
+  // ideas (impact estimate)
+  ImpactEstimateModel.updateMany(
+    {
+      metric: metric.id,
+      organization: org.id,
+    },
+    { metric: "" }
+  );
+
+  // Experiments
+  await removeMetricFromExperiments(metric.id, org.id);
+
+  // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
 
   await req.audit({
@@ -1141,6 +1157,54 @@ export async function getMetrics(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     metrics,
+  });
+}
+
+export async function getMetricUsage(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const metric = await getMetricById(id, org.id);
+
+  if (!metric) {
+    res.status(403).json({
+      status: 404,
+      message: "Metric not found",
+    });
+    return;
+  }
+
+  // metrics are used in a few places:
+
+  // Ideas (impact estimate)
+  const estimates = await ImpactEstimateModel.find({
+    metric: metric.id,
+    organization: org.id,
+  });
+  const ideas: IdeaInterface[] = [];
+  if (estimates && estimates.length > 0) {
+    await Promise.all(
+      estimates.map(async (es) => {
+        const idea = await getIdeasByQuery({
+          organization: org.id,
+          "estimateParams.estimate": es.id,
+        });
+        if (idea && idea[0]) {
+          ideas.push(idea[0]);
+        }
+      })
+    );
+  }
+
+  // Experiments
+  const experiments = await getExperimentsByMetric(org.id, metric.id);
+
+  res.status(200).json({
+    ideas,
+    experiments,
+    status: 200,
   });
 }
 
@@ -1353,6 +1417,7 @@ export async function postMetrics(
     conversionWindowHours,
     userIdType,
     sql,
+    status: "active",
     userIdColumn,
     anonymousIdColumn,
     timestampColumn,
@@ -1411,6 +1476,7 @@ export async function putMetric(
     "cap",
     "conversionWindowHours",
     "sql",
+    "status",
     "tags",
     "winRisk",
     "loseRisk",

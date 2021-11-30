@@ -44,6 +44,7 @@ import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getSourceIntegrationObject } from "./datasource";
 import { SegmentModel } from "../models/SegmentModel";
+import uniqBy from "lodash/uniqBy";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -82,6 +83,89 @@ export async function getExperimentsByIds(ids: string[]) {
   return ExperimentModel.find({
     id: { $in: ids },
   });
+}
+
+export async function getExperimentsByMetric(
+  orgId: string,
+  metricId: string
+): Promise<{ id: string; name: string }[]> {
+  const experiments: { id: string; name: string }[] = [];
+
+  const cols = {
+    _id: false,
+    id: true,
+    name: true,
+  };
+
+  // Using as a goal metric
+  const goals = await ExperimentModel.find(
+    {
+      organization: orgId,
+      metrics: metricId,
+    },
+    cols
+  );
+  goals.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  // Using as a guardrail metric
+  const guardrails = await ExperimentModel.find(
+    {
+      organization: orgId,
+      guardrails: metricId,
+    },
+    cols
+  );
+  guardrails.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  // Using as an activation metric
+  const activations = await ExperimentModel.find(
+    {
+      organization: orgId,
+      activationMetric: metricId,
+    },
+    cols
+  );
+  activations.forEach((exp) => {
+    experiments.push({
+      id: exp.id,
+      name: exp.name,
+    });
+  });
+
+  return uniqBy(experiments, "id");
+}
+
+export async function removeMetricFromExperiments(
+  metricId: string,
+  orgId: string
+) {
+  // Remove from metrics
+  await ExperimentModel.updateMany(
+    { organization: orgId, metrics: metricId },
+    { $pull: { metrics: metricId } }
+  );
+
+  // Remove from guardrails
+  await ExperimentModel.updateMany(
+    { organization: orgId, guardrails: metricId },
+    { $pull: { guardrails: metricId } }
+  );
+
+  // Remove from activationMetric
+  await ExperimentModel.updateMany(
+    { organization: orgId, activationMetric: metricId },
+    { $set: { activationMetric: "" } }
+  );
 }
 
 export function deleteExperimentById(id: string) {

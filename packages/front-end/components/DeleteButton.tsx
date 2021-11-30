@@ -12,6 +12,7 @@ const DeleteButton: FC<{
   displayName: string;
   text?: string;
   title?: string;
+  useIcon?: boolean;
   deleteMessage?: string;
   additionalMessage?: string;
   getConfirmationContent?: () => Promise<string | React.ReactElement>;
@@ -24,6 +25,7 @@ const DeleteButton: FC<{
   link = false,
   text = "",
   title = "",
+  useIcon = true,
   deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
   getConfirmationContent,
@@ -72,7 +74,7 @@ const DeleteButton: FC<{
           setConfirming(true);
         }}
       >
-        <FaTrash /> {text}
+        {useIcon && <FaTrash />} {text}
       </a>
     </>
   );
