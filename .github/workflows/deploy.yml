@@ -29,6 +29,10 @@ jobs:
 
       - name: Build, tag, and push image to Docker Hub
         run: |
+          # Store current git hash and date in files
+          echo "${GITHUB_SHA}" > BUILD_SHA
+          printf '%(%Y-%m-%dT%H:%M:%SZ)T\n' > BUILD_DATE
+
           # Build and push the docker image
           docker build -t growthbook/growthbook:latest -t growthbook/growthbook:git-${GITHUB_SHA::7} .
           docker push -a growthbook/growthbook

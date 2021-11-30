@@ -47,6 +47,8 @@ RUN pip3 install \
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+COPY ./BUILD_SHA /usr/local/src/app/BUILD_SHA
+COPY ./BUILD_DATE /usr/local/src/app/BUILD_DATE
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
 RUN pip3 install /usr/local/src/gbstats/*.whl
 # The front-end app (NextJS)

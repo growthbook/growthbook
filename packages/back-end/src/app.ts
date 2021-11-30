@@ -25,6 +25,7 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getJWTCheck, processJWT } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
+import path from "path";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -113,7 +114,29 @@ app.get("/favicon.ico", (req, res) => {
 
 app.use(compression());
 
+let build: { sha: string; date: string };
 app.get("/", (req, res) => {
+  if (!build) {
+    build = {
+      sha: "",
+      date: "",
+    };
+    const rootPath = path.join(__dirname, "..", "..", "..");
+    console.log(rootPath);
+    if (fs.existsSync(path.join(rootPath, "BUILD_SHA"))) {
+      build.sha = fs
+        .readFileSync(path.join(rootPath, "BUILD_SHA"))
+        .toString()
+        .trim();
+    }
+    if (fs.existsSync(path.join(rootPath, "BUILD_DATE"))) {
+      build.date = fs
+        .readFileSync(path.join(rootPath, "BUILD_DATE"))
+        .toString()
+        .trim();
+    }
+  }
+
   res.json({
     name: "GrowthBook API",
     production: process.env.NODE_ENV === "production",
@@ -121,6 +144,7 @@ app.get("/", (req, res) => {
     app_origin: APP_ORIGIN,
     config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
+    build,
   });
 });
 
