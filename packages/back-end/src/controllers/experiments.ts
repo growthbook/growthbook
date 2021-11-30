@@ -1153,7 +1153,7 @@ export async function deleteExperiment(
 
 export async function getMetrics(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const metrics = await getMetricsByOrganization(org.id, true);
+  const metrics = await getMetricsByOrganization(org.id);
   res.status(200).json({
     status: 200,
     metrics,

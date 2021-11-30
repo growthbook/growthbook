@@ -271,13 +271,16 @@ const MetricPage: FC = () => {
         </Link>
       </div>
 
+      {metric.status === "archived" && (
+        <div className="alert alert-secondary mb-2">
+          <strong>This metric is archived.</strong> Existing references will
+          continue working, but you will be unable to add this metric to new
+          experiments.
+        </div>
+      )}
+
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">
-          {metric.name}{" "}
-          {metric.status === "archived" && (
-            <small className="text-muted">(archived)</small>
-          )}
-        </h1>
+        <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
