@@ -121,17 +121,14 @@ app.get("/", (req, res) => {
       sha: "",
       date: "",
     };
-    const rootPath = path.join(__dirname, "..", "..", "..");
+    const rootPath = path.join(__dirname, "..", "..", "..", "buildinfo");
     console.log(rootPath);
-    if (fs.existsSync(path.join(rootPath, "BUILD_SHA"))) {
-      build.sha = fs
-        .readFileSync(path.join(rootPath, "BUILD_SHA"))
-        .toString()
-        .trim();
+    if (fs.existsSync(path.join(rootPath, "SHA"))) {
+      build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
     }
-    if (fs.existsSync(path.join(rootPath, "BUILD_DATE"))) {
+    if (fs.existsSync(path.join(rootPath, "DATE"))) {
       build.date = fs
-        .readFileSync(path.join(rootPath, "BUILD_DATE"))
+        .readFileSync(path.join(rootPath, "DATE"))
         .toString()
         .trim();
     }

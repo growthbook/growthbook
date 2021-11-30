@@ -21,11 +21,15 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     sha: "",
     date: "",
   };
-  if (fs.existsSync(path.join(rootPath, "BUILD_SHA"))) {
-    build.sha = fs.readFileSync(path.join(rootPath, "BUILD_SHA")).toString();
+  if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
+    build.sha = fs
+      .readFileSync(path.join(rootPath, "buildinfo", "SHA"))
+      .toString();
   }
-  if (fs.existsSync(path.join(rootPath, "BUILD_DATE"))) {
-    build.date = fs.readFileSync(path.join(rootPath, "BUILD_DATE")).toString();
+  if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
+    build.date = fs
+      .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
+      .toString();
   }
   res.status(200).json({
     apiHost: API_HOST || "http://localhost:3100",
