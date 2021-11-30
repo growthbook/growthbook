@@ -85,14 +85,6 @@ export async function getExperimentsByIds(ids: string[]) {
   });
 }
 
-export async function getExperimentsByQuery(
-  query: FilterQuery<ExperimentDocument>,
-  // eslint-disable-next-line
-  cols: any,
-) {
-  return ExperimentModel.find(query, cols);
-}
-
 export async function getExperimentsByMetric(
   orgId: string,
   metricId: string
@@ -106,7 +98,7 @@ export async function getExperimentsByMetric(
   };
 
   // Using as a goal metric
-  const goals = await getExperimentsByQuery(
+  const goals = await ExperimentModel.find(
     {
       organization: orgId,
       metrics: metricId,
@@ -121,7 +113,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as a guardrail metric
-  const guardrails = await getExperimentsByQuery(
+  const guardrails = await ExperimentModel.find(
     {
       organization: orgId,
       guardrails: metricId,
@@ -136,7 +128,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as an activation metric
-  const activations = await getExperimentsByQuery(
+  const activations = await ExperimentModel.find(
     {
       organization: orgId,
       activationMetric: metricId,

@@ -4,10 +4,7 @@ import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import React, { FC, useContext, useState, useEffect, Fragment } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
 import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
@@ -125,7 +122,7 @@ const MetricPage: FC = () => {
         const res = await apiCall<{
           status: number;
           ideas?: IdeaInterface[];
-          experiments?: ExperimentInterface[];
+          experiments?: { name: string; id: string }[];
         }>(`/metric/${metric.id}/usage`, {
           method: "GET",
         });
