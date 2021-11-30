@@ -16,6 +16,7 @@ packages/back-end/dummy
 config.yml
 .vscode
 packages/stats/notebooks
+buildinfo/
 
 # Python compiled files
 __pycache__/
