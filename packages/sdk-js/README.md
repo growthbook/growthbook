@@ -18,13 +18,13 @@ Powerful feature flagging and A/B testing for Javascript.
 
 ## Installation
 
-```sh
+```
 yarn add @growthbook/growthbook
 ```
 
 or
 
-```sh
+```
 npm install --save @growthbook/growthbook
 ```
 
