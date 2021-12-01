@@ -74,6 +74,16 @@ export async function getExperimentsByIds(ids: string[]) {
   });
 }
 
+export async function getExperimentsUsingSegment(id: string, orgId: string) {
+  return ExperimentModel.find(
+    {
+      organization: orgId,
+      segment: id,
+    },
+    { id: 1, name: 1 }
+  );
+}
+
 export function deleteExperimentById(id: string) {
   return ExperimentModel.deleteOne({
     id,

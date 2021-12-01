@@ -11,7 +11,6 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import { useAuth } from "../../services/auth";
-import { ExperimentInterface } from "back-end/types/experiment";
 
 const SegmentPage: FC = () => {
   const {
@@ -41,7 +40,7 @@ const SegmentPage: FC = () => {
           status: number;
           ideas?: IdeaInterface[];
           metrics?: MetricInterface[];
-          experiments?: ExperimentInterface[];
+          experiments?: { id: string; name: string }[];
           total?: number;
         }>(`/segments/${s.id}/usage`, {
           method: "GET",
