@@ -21,7 +21,7 @@ export interface Member {
   role: MemberRole;
 }
 
-export interface northStarMetric {
+export interface NorthStarMetric {
   //enabled: boolean;
   title: string;
   metricIds: string[];
@@ -38,7 +38,7 @@ export interface OrganizationSettings {
   logoPath?: string;
   primaryColor?: string;
   secondaryColor?: string;
-  northStar?: northStarMetric;
+  northStar?: NorthStarMetric;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;

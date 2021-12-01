@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { OrganizationModel } from "../models/OrganizationModel";
+import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
   refreshMetric,
   DEFAULT_METRIC_ANALYSIS_DAYS,
@@ -24,12 +24,7 @@ const parentLogger = pino();
 // currently only updating northstar metrics
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_METRIC_UPDATES, async () => {
-    const orgsWithNorthStars = await OrganizationModel.find({
-      "settings.northStar.metricIds": {
-        $exists: true,
-        $ne: [],
-      },
-    });
+    const orgsWithNorthStars = await getOrganizationsWithNorthStars();
     for (let i = 0; i < orgsWithNorthStars.length; i++) {
       if (orgsWithNorthStars[i]?.settings?.northStar?.metricIds) {
         const thisOrgsNorthStarMetricIds =

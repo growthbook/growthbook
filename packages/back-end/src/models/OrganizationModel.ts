@@ -47,7 +47,7 @@ organizationSchema.index({ "members.id": 1 });
 
 type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
-export const OrganizationModel = mongoose.model<OrganizationDocument>(
+const OrganizationModel = mongoose.model<OrganizationDocument>(
   "Organization",
   organizationSchema
 );
@@ -162,4 +162,14 @@ export async function getOrganizationFromSlackTeam(teamId: string) {
   }
 
   return toInterface(organization);
+}
+
+export async function getOrganizationsWithNorthStars() {
+  const withNorthStars = await OrganizationModel.find({
+    "settings.northStar.metricIds": {
+      $exists: true,
+      $ne: [],
+    },
+  });
+  return withNorthStars.map(toInterface);
 }
