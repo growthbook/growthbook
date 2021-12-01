@@ -14,6 +14,7 @@ type ModalProps = {
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
+  overflowAuto?: boolean;
   autoFocusSelector?: string;
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
@@ -34,6 +35,7 @@ const Modal: FC<ModalProps> = ({
   className = "",
   autoCloseOnSubmit = true,
   inline = false,
+  overflowAuto = true,
   autoFocusSelector = "input,textarea,select",
   solidOverlay = false,
   error: externalError,
@@ -113,7 +115,11 @@ const Modal: FC<ModalProps> = ({
           )}
         </>
       )}
-      <div className="modal-body" ref={bodyRef} style={{ overflowY: "auto" }}>
+      <div
+        className="modal-body"
+        ref={bodyRef}
+        style={overflowAuto ? { overflowY: "auto" } : {}}
+      >
         {children}
       </div>
       {submit || close ? (

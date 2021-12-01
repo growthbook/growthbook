@@ -1338,6 +1338,9 @@ export async function getMetric(
       id: true,
       name: true,
       status: true,
+      phases: true,
+      results: true,
+      analysis: true,
     }
   )
     .sort({

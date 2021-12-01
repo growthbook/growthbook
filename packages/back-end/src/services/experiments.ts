@@ -10,6 +10,7 @@ import {
 } from "../models/MetricModel";
 import uniqid from "uniqid";
 import { addNonconvertingUsersToStats, analyzeExperimentMetric } from "./stats";
+import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
 import { getMetricValue, QueryMap, startRun } from "./queries";
@@ -42,7 +43,6 @@ import {
 } from "./reports";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { getSourceIntegrationObject } from "./datasource";
 import { SegmentModel } from "../models/SegmentModel";
 import uniqBy from "lodash/uniqBy";
 
