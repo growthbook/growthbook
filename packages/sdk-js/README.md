@@ -1,16 +1,15 @@
 # GrowthBook Javascript Client Library
 
-Powerful A/B testing and feature flagging for Javascript.
+Powerful feature flagging and A/B testing for Javascript.
 
 ![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.66KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
-- **No HTTP requests** everything is defined and evaluated locally
 - Supports both **browsers and nodejs**
-- **No flickering or blocking calls**
+- All targeting and assignment happens locally, **no HTTP requests**
+- **No flickering** when running A/B tests
 - Written in **Typescript** with 100% test coverage
-- Flexible **targeting**
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to adjust targeting and weights without deploying new code
@@ -19,11 +18,15 @@ Powerful A/B testing and feature flagging for Javascript.
 
 ## Installation
 
-`yarn add @growthbook/growthbook`
+```sh
+yarn add @growthbook/growthbook
+```
 
 or
 
-`npm install --save @growthbook/growthbook`
+```sh
+npm install --save @growthbook/growthbook
+```
 
 or use directly in your HTML without installing first:
 
@@ -54,7 +57,7 @@ const growthbook = new GrowthBook({
   // Called when a user is put into an experiment
   trackingCallback: (experiment, result) => {
     analytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
+      experimentId: experiment.trackingKey,
       variationId: result.variationId,
     });
   },
@@ -75,25 +78,26 @@ const color = growthbook.feature("button-color").value || "blue";
 The return value of `growthbook.feature(key)` is an object with a few properties:
 
 - **value** - the JSON value of the feature
-- **on** - the JSON value cast to a boolean (just to make your code a little cleaner)
-- **off** - the inverse of `on` (just to make your code a little cleaner)
 - **source** - why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
+- **on** and **off** which are simply the JSON value cast to booleans
 
 ## Feature Definitions
 
 Each feature consist of a unique key, a list of possible values, and rules for how to assign values to users. These definitions live in a single JSON object and there are two ways to load this JSON into the context.
 
-You can use the `configEndpoint` setting to have the SDK fetch the JSON contents from a remote URL and deal with caching. When doing this, you'll need to wait before using features. If you don't wait, no errors will be thrown, you just may get back null for all feature checks until the JSON is loaded.
+You can use the `configEndpoint` setting to automatically fetch the JSON contents from a remote URL and deal with caching. When doing this, you'll need to wait before using features. If you don't wait, no errors will be thrown, you just may get back `null` for all feature checks until the JSON is loaded.
 
 ```ts
 // Async/await
 await growthbook.ready();
 
 // Callback
-growthbook.ready(() => {});
+growthbook.ready(() => {
+  // use features here
+});
 ```
 
-If you want to avoid HTTP requests and dealing with asynchronous code, you can pass the inline JSON contents directly into the context instead with the `features` setting:
+If you want to avoid HTTP requests and dealing with asynchronous code, you can pass the JSON directly into the context instead with the `features` setting:
 
 ```js
 // Same JSON format as the configEndpoint
@@ -111,13 +115,33 @@ If you are using the GrowthBook App to generate the features JSON, you can **sto
 
 ### Basic Feature
 
-The most basic feature just has a default value that is assigned to everyone:
+An empty feature has two possible values (`false` and `true`) and everyone gets assigned the value `false`.
 
 ```js
 {
+  "my-feature": {}
+}
+```
+
+You can set your own possible values with the `values` property. You can have as many values as you want and they can be whatever data type you want - booleans, strings, arrays, objects.
+
+```js
+// Everyone gets assigned "blue" (array index 0)
+{
   "my-feature": {
-    values: ["blue", "green"],
-    defaultValue: 0 // array index of values (0 = "blue")
+    values: ["blue", "green", "red"]
+  }
+}
+```
+
+You can change the default assigned value with the `defaultValue` property, which is a pointer to a specific array index in `values`.
+
+```js
+// Everyone gets assigned "green" (array index 1)
+{
+  "my-feature": {
+    values: ["blue", "green", "red"],
+    defaultValue: 1
   }
 }
 ```
@@ -401,9 +425,9 @@ Below are examples for a few popular event tracking tools:
 #### Google Analytics
 
 ```ts
-ga("send", "event", "experiment", experiment.key, result.variationId, {
+ga("send", "event", "experiment", experiment.trackingKey, result.variationId, {
   // Custom dimension for easier analysis
-  dimension1: `${experiment.key}::${result.variationId}`,
+  dimension1: `${experiment.trackingKey}::${result.variationId}`,
 });
 ```
 
@@ -411,7 +435,7 @@ ga("send", "event", "experiment", experiment.key, result.variationId, {
 
 ```ts
 analytics.track("Experiment Viewed", {
-  experimentId: experiment.key,
+  experimentId: experiment.trackingKey,
   variationId: result.variationId,
 });
 ```
@@ -420,7 +444,7 @@ analytics.track("Experiment Viewed", {
 
 ```ts
 mixpanel.track("$experiment_started", {
-  "Experiment name": experiment.key,
+  "Experiment name": experiment.trackingKey,
   "Variant name": result.variationId,
 });
 ```
