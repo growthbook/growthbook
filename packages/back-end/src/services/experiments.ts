@@ -552,7 +552,8 @@ export async function parseDimensionId(
 export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
-  dimensionId: string | null
+  dimensionId: string | null,
+  useCache: boolean = false
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -582,7 +583,8 @@ export async function createSnapshot(
 
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
-    reportArgsFromSnapshot(experiment, data)
+    reportArgsFromSnapshot(experiment, data),
+    useCache
   );
 
   data.queries = queries;

@@ -21,6 +21,7 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { getValidDate } from "../util/dates";
+import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -33,18 +34,20 @@ async function getExistingQuery(
   integration: SourceIntegrationInterface,
   query: string
 ): Promise<QueryDocument | null> {
-  const lasthour = new Date();
-  lasthour.setHours(lasthour.getHours() - 1);
+  // Only re-use queries that were started recently
+  const earliestDate = new Date();
+  earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
 
-  const twoMinutesAgo = new Date();
-  twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
+  // Only re-use running queries if they've had a heartbeat recently
+  const lastHeartbeat = new Date();
+  lastHeartbeat.setMinutes(lastHeartbeat.getMinutes() - 2);
 
   const existing = await QueryModel.find({
     organization: integration.organization,
     datasource: integration.datasource,
     query,
     createdAt: {
-      $gt: lasthour,
+      $gt: earliestDate,
     },
     status: {
       $in: ["running", "succeeded"],
@@ -56,7 +59,7 @@ async function getExistingQuery(
     if (existing[i].status === "succeeded") {
       return existing[i];
     }
-    if (existing[i].heartbeat >= twoMinutesAgo) {
+    if (existing[i].heartbeat >= lastHeartbeat) {
       return existing[i];
     }
   }
@@ -194,14 +197,15 @@ export async function getExperimentResults(
 
 export async function getExperimentMetric(
   integration: SourceIntegrationInterface,
-  params: ExperimentMetricQueryParams
+  params: ExperimentMetricQueryParams,
+  useCache: boolean
 ): Promise<QueryDocument> {
   return getQueryDoc(
     integration,
     integration.getExperimentMetricQuery(params),
     (query) => integration.runExperimentMetricQuery(query),
     (rows) => rows,
-    false
+    useCache
   );
 }
 

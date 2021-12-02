@@ -232,6 +232,24 @@ export default function AnalysisSettingsBar({
         <div className="col-auto">
           <ResultMoreMenu
             id={snapshot?.id || ""}
+            forceRefresh={async () => {
+              await apiCall(
+                `/experiment/${experiment.id}/snapshot?force=true`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    phase,
+                    dimension,
+                  }),
+                }
+              )
+                .then(() => {
+                  mutate();
+                })
+                .catch((e) => {
+                  console.error(e);
+                });
+            }}
             configure={() => setModalOpen(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}

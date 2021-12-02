@@ -126,7 +126,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
-      null
+      null,
+      false
     );
 
     await new Promise<void>((resolve, reject) => {

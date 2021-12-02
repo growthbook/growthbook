@@ -1668,6 +1668,8 @@ export async function postSnapshot(
     });
   }
 
+  const useCache = !req.query["force"];
+
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
@@ -1738,7 +1740,12 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(exp, phase, dimension || null);
+    const snapshot = await createSnapshot(
+      exp,
+      phase,
+      dimension || null,
+      useCache
+    );
     await req.audit({
       event: "snapshot.create.auto",
       entity: {
