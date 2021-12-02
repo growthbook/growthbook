@@ -2,7 +2,7 @@
 
 Powerful feature flagging and A/B testing for Javascript.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-1.66KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.75KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -80,6 +80,7 @@ The return value of `growthbook.feature(key)` is an object with a few properties
 - **value** - the JSON value of the feature
 - **source** - why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
 - **on** and **off** which are simply the JSON value cast to booleans
+- **tracked** - true if an experiment was used to determine the value and your trackingCallback was called
 
 ## Feature Definitions
 

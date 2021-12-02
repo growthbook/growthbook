@@ -1,10 +1,3 @@
-import {
-  getQueryStringOverride,
-  getBucketRanges,
-  chooseVariation,
-  hashFnv32a,
-  inNamespace,
-} from "../src/util";
 import { GrowthBook } from "../src";
 import { Experiment } from "../src/types";
 
@@ -45,6 +38,22 @@ describe("experiments", () => {
 
     growthbook.destroy();
   });
+  it("uses trackingKey", () => {
+    const growthbook = new GrowthBook({});
+
+    const exp: Experiment<number> = {
+      trackingKey: "my-test",
+      variations: [0, 1],
+    };
+
+    const expected = [1, 0, 0, 1, 1, 1, 0, 1, 0];
+    expected.forEach((v, i) => {
+      growthbook.context.user = { id: i + 1 + "" };
+      expect(growthbook.run(exp).value).toEqual(v);
+    });
+
+    growthbook.destroy();
+  });
   it("unevenWeights", () => {
     const growthbook = new GrowthBook({});
 
@@ -61,92 +70,6 @@ describe("experiments", () => {
     });
 
     growthbook.destroy();
-  });
-  it("bucket ranges", () => {
-    // Normal 50/50 split
-    expect(getBucketRanges(2, 1)).toEqual([
-      [0, 0.5],
-      [0.5, 1],
-    ]);
-
-    // Reduced coverage
-    expect(getBucketRanges(2, 0.5)).toEqual([
-      [0, 0.25],
-      [0.5, 0.75],
-    ]);
-
-    // Zero coverage
-    expect(getBucketRanges(2, 0)).toEqual([
-      [0, 0],
-      [0.5, 0.5],
-    ]);
-
-    // More variations
-    expect(getBucketRanges(4, 1)).toEqual([
-      [0, 0.25],
-      [0.25, 0.5],
-      [0.5, 0.75],
-      [0.75, 1],
-    ]);
-
-    // Uneven weights
-    expect(getBucketRanges(2, 1, [0.4, 0.6])).toEqual([
-      [0, 0.4],
-      [0.4, 1],
-    ]);
-
-    // Uneven weights, more variations
-    expect(getBucketRanges(3, 1, [0.2, 0.3, 0.5])).toEqual([
-      [0, 0.2],
-      [0.2, 0.5],
-      [0.5, 1],
-    ]);
-
-    // Uneven weights, more variations, reduced coverage
-    expect(getBucketRanges(3, 0.2, [0.2, 0.3, 0.5])).toEqual([
-      [0, 0.2 * 0.2],
-      [0.2, 0.2 + 0.3 * 0.2],
-      [0.5, 0.5 + 0.5 * 0.2],
-    ]);
-  });
-  it("choose variation", () => {
-    const evenRange: [number, number][] = [
-      [0, 0.5],
-      [0.5, 1],
-    ];
-    const reducedRange: [number, number][] = [
-      [0, 0.25],
-      [0.5, 0.75],
-    ];
-    const zeroRange: [number, number][] = [
-      [0, 0.5],
-      [0.5, 0.5],
-      [0.5, 1],
-    ];
-
-    expect(chooseVariation(0.2, evenRange)).toEqual(0);
-    expect(chooseVariation(0.6, evenRange)).toEqual(1);
-    expect(chooseVariation(0.4, evenRange)).toEqual(0);
-    expect(chooseVariation(0.8, evenRange)).toEqual(1);
-    expect(chooseVariation(0, evenRange)).toEqual(0);
-    expect(chooseVariation(0.5, evenRange)).toEqual(1);
-
-    expect(chooseVariation(0.2, reducedRange)).toEqual(0);
-    expect(chooseVariation(0.6, reducedRange)).toEqual(1);
-    expect(chooseVariation(0.4, reducedRange)).toEqual(-1);
-    expect(chooseVariation(0.8, reducedRange)).toEqual(-1);
-
-    expect(chooseVariation(0.5, zeroRange)).toEqual(2);
-  });
-
-  it("hashing", () => {
-    expect(hashFnv32a("a") % 1000).toEqual(220);
-    expect(hashFnv32a("b") % 1000).toEqual(77);
-    expect(hashFnv32a("ab") % 1000).toEqual(946);
-    expect(hashFnv32a("def") % 1000).toEqual(652);
-    expect(hashFnv32a("8952klfjas09ujkasdf") % 1000).toEqual(549);
-    expect(hashFnv32a("123") % 1000).toEqual(11);
-    expect(hashFnv32a('___)((*":&') % 1000).toEqual(563);
   });
 
   it("coverage", () => {
@@ -237,18 +160,6 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("persists assignment when coverage changes", () => {
-    expect(getBucketRanges(2, 0.1, [0.4, 0.6])).toEqual([
-      [0, 0.4 * 0.1],
-      [0.4, 0.4 + 0.6 * 0.1],
-    ]);
-
-    expect(getBucketRanges(2, 1, [0.4, 0.6])).toEqual([
-      [0, 0.4],
-      [0.4, 1],
-    ]);
-  });
-
   it("handles weird experiment values", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
     const spy = jest.spyOn(console, "error").mockImplementation();
@@ -271,33 +182,6 @@ describe("experiments", () => {
         },
       }).inExperiment
     ).toEqual(false);
-
-    expect(getBucketRanges(2, -0.2)).toEqual([
-      [0, 0],
-      [0.5, 0.5],
-    ]);
-
-    expect(getBucketRanges(2, 1.5)).toEqual([
-      [0, 0.5],
-      [0.5, 1],
-    ]);
-
-    expect(getBucketRanges(2, 1, [0.4, 0.1])).toEqual([
-      [0, 0.5],
-      [0.5, 1],
-    ]);
-
-    expect(getBucketRanges(2, 1, [0.7, 0.6])).toEqual([
-      [0, 0.5],
-      [0.5, 1],
-    ]);
-
-    expect(getBucketRanges(4, 1, [0.4, 0.4, 0.2])).toEqual([
-      [0, 0.25],
-      [0.25, 0.5],
-      [0.5, 0.75],
-      [0.75, 1],
-    ]);
 
     const res1 = growthbook.run({
       key: "my-test",
@@ -471,6 +355,27 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
+  it("evaluates conditions", () => {
+    const attributes = {
+      id: "1",
+      browser: "firefox",
+    };
+    const growthbook = new GrowthBook({ attributes });
+    const experiment: Experiment<number> = {
+      trackingKey: "my-test",
+      variations: [0, 1],
+      condition: {
+        browser: "firefox",
+      },
+    };
+
+    expect(growthbook.run(experiment).inExperiment).toEqual(true);
+
+    attributes.browser = "chrome";
+    expect(growthbook.run(experiment).inExperiment).toEqual(false);
+    growthbook.destroy();
+  });
+
   it("runs custom include callback", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
     expect(
@@ -559,26 +464,6 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("querystring force invalid url", () => {
-    expect(getQueryStringOverride("my-test", "")).toEqual(null);
-
-    expect(getQueryStringOverride("my-test", "http://example.com")).toEqual(
-      null
-    );
-
-    expect(getQueryStringOverride("my-test", "http://example.com?")).toEqual(
-      null
-    );
-
-    expect(
-      getQueryStringOverride("my-test", "http://example.com?somequery")
-    ).toEqual(null);
-
-    expect(
-      getQueryStringOverride("my-test", "http://example.com??&&&?#")
-    ).toEqual(null);
-  });
-
   it("url targeting", () => {
     const growthbook = new GrowthBook({
       user: { id: "1" },
@@ -639,6 +524,26 @@ describe("experiments", () => {
     const exp: Experiment<number> = {
       key: "my-test",
       status: "draft",
+      variations: [0, 1],
+    };
+
+    const res1 = growthbook.run(exp);
+    growthbook.context.url = "http://example.com/?my-test=1";
+    const res2 = growthbook.run(exp);
+
+    expect(res1.inExperiment).toEqual(false);
+    expect(res1.value).toEqual(0);
+    expect(res2.inExperiment).toEqual(false);
+    expect(res2.value).toEqual(1);
+
+    growthbook.destroy();
+  });
+
+  it("ignores inactive experiments", () => {
+    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const exp: Experiment<number> = {
+      key: "my-test",
+      active: false,
       variations: [0, 1],
     };
 
@@ -933,32 +838,6 @@ describe("experiments", () => {
     growthbook.destroy();
 
     expect(window._growthbook).toBeUndefined();
-  });
-
-  it("calculates namespace inclusion correctly", () => {
-    let included = 0;
-    for (let i = 0; i < 10000; i++) {
-      if (inNamespace(i + "", ["namespace1", 0, 0.4])) {
-        included++;
-      }
-    }
-    expect(included).toEqual(4042);
-
-    included = 0;
-    for (let i = 0; i < 10000; i++) {
-      if (inNamespace(i + "", ["namespace1", 0.4, 1])) {
-        included++;
-      }
-    }
-    expect(included).toEqual(5958);
-
-    included = 0;
-    for (let i = 0; i < 10000; i++) {
-      if (inNamespace(i + "", ["namespace2", 0, 0.4])) {
-        included++;
-      }
-    }
-    expect(included).toEqual(3984);
   });
 
   it("checks namespace when running an experiment", () => {
