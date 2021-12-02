@@ -57,7 +57,8 @@ export function reportArgsFromSnapshot(
 
 export async function startExperimentAnalysis(
   organization: string,
-  args: ExperimentReportArgs
+  args: ExperimentReportArgs,
+  useCache: boolean
 ) {
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -153,14 +154,18 @@ export async function startExperimentAnalysis(
   // Run as multiple async queries (new way for sql datasources)
   else {
     selectedMetrics.forEach((m) => {
-      queryDocs[m.id] = getExperimentMetric(integration, {
-        metric: m,
-        experiment: experimentObj,
-        dimension: dimensionObj,
-        activationMetric: activationMetricObj,
-        phase: experimentPhaseObj,
-        segment: segmentObj,
-      });
+      queryDocs[m.id] = getExperimentMetric(
+        integration,
+        {
+          metric: m,
+          experiment: experimentObj,
+          dimension: dimensionObj,
+          activationMetric: activationMetricObj,
+          phase: experimentPhaseObj,
+          segment: segmentObj,
+        },
+        useCache
+      );
     });
   }
 
@@ -177,13 +182,17 @@ export async function startExperimentAnalysis(
   return { queries, results };
 }
 
-export async function runReport(report: ReportInterface) {
+export async function runReport(
+  report: ReportInterface,
+  useCache: boolean = true
+) {
   const updates: Partial<ReportInterface> = {};
 
   if (report.type === "experiment") {
     const { queries, results } = await startExperimentAnalysis(
       report.organization,
-      report.args
+      report.args,
+      useCache
     );
     updates.queries = queries;
     updates.results = results || report.results;
