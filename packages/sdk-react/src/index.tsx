@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as React from "react";
-import type { Experiment, Result } from "@growthbook/growthbook";
+import type { Experiment, Result, FeatureResult } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
 export { GrowthBook } from "@growthbook/growthbook";
@@ -34,10 +36,47 @@ function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
   }
   return growthbook.run(exp);
 }
+function feature<T = any>(
+  id: string,
+  growthbook?: GrowthBook
+): FeatureResult<T> {
+  if (!growthbook) {
+    return {
+      value: null,
+      on: false,
+      off: true,
+      source: "unknownFeature",
+    };
+  }
+  return growthbook.feature(id);
+}
 
 export function useExperiment<T>(exp: Experiment<T>): Result<T> {
   const { growthbook } = React.useContext(GrowthBookContext);
   return run(exp, growthbook);
+}
+
+export function useFeature<T = any>(id: string): FeatureResult<T> {
+  const { growthbook } = React.useContext(GrowthBookContext);
+  return feature(id, growthbook);
+}
+
+export function IfFeatureEnabled({
+  children,
+  feature,
+}: {
+  children: React.ReactNode;
+  feature: string;
+}): React.ReactNode {
+  return useFeature(feature).on ? children : null;
+}
+
+export function FeatureString(props: {
+  default: string;
+  feature: string;
+}): React.ReactNode {
+  const value = useFeature(props.feature).value;
+  return value ? value + "" : props.default;
 }
 
 export const withRunExperiment = <P extends WithRunExperimentProps>(

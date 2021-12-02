@@ -1,8 +1,8 @@
 # GrowthBook React SDK
 
-Powerful A/B testing for React.
+Powerful feature flagging and A/B testing for React.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.3KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.68KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -24,11 +24,15 @@ Join [our GrowthBook Users Slack community](https://join.slack.com/t/growthbooku
 
 ## Installation
 
-`yarn add @growthbook/growthbook-react`
+```
+yarn add @growthbook/growthbook-react
+```
 
 or
 
-`npm install --save @growthbook/growthbook-react`
+```
+npm install --save @growthbook/growthbook-react
+```
 
 ## Quick Start
 
@@ -39,10 +43,16 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
-  // The attributes you want to use to assign variations
-  user: {
+  // Optional path to a JSON file with remote configuration data
+  configEndpoint: "https://cdn.growthbook.io/config/key_abc123",
+
+  // User attributes for targeting and variation assignment
+  attributes: {
     id: "123",
+    isPremium: true,
+    country: "US",
   },
+
   // Called every time the user is put into an experiment
   trackingCallback: (experiment, result) => {
     // Mixpanel, Segment, GA, or custom tracking
@@ -62,9 +72,70 @@ export default function App() {
 }
 ```
 
-### Step 2: Run an experiment
+### Step 2: Start feature flagging!
 
-#### Hooks (recommended)
+There are a few ways to use feature flags in GrowthBook:
+
+#### useFeature hook
+
+```tsx
+import { useFeature } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  // Boolean on/off flags
+  const newLogin = useFeature("new-login-form").on;
+
+  // Multivariate or string/JSON values
+  const buttonColor = useFeature("login-button-color").value || "blue";
+
+  if (newLogin) {
+    return <NewLogin color={buttonColor} />;
+  } else {
+    return <Login color={buttonColor} />;
+  }
+}
+```
+
+#### <IfFeatureEnabled>
+
+```tsx
+import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  return (
+    <div>
+      <h1>Hello!</h1>
+      <IfFeatureEnabled feature="welcome-message">
+        <p>Welcome to our site!</p>
+      </IfFeatureEnabled>
+    </div>
+  );
+}
+```
+
+#### <FeatureValue>
+
+```tsx
+import { FeatureString } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  return (
+    <div>
+      <h1>
+        <FeatureString feature="site-h1" default="My Site" />
+      </h1>
+    </div>
+  );
+}
+```
+
+## Experiments
+
+Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value to the user.
+
+Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the HoC `withRunExperiment`:
+
+### useExperiment hook
 
 ```tsx
 import { useExperiment } from "@growthbook/growthbook-react";
@@ -79,7 +150,7 @@ export default function OtherComponent() {
 }
 ```
 
-#### Class Components
+### Class Components
 
 **Note:** This library uses hooks internally, so still requires React 16.8 or above.
 
