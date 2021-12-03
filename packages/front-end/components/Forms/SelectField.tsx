@@ -83,6 +83,20 @@ const SelectField: FC<
                 minWidth: "100%",
               }),
               menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+              groupHeading: (base) => ({
+                ...base,
+                margin: "3px 0 0 -2px",
+                fontSize: "70%",
+              }),
+              group: (base) => ({
+                ...base,
+                paddingTop: 0,
+                paddingBottom: 0,
+              }),
+              option: (base) => ({
+                ...base,
+                padding: "6px 17px",
+              }),
             }}
             value={selected}
             placeholder={initialOption ?? placeholder}
