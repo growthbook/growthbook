@@ -125,6 +125,7 @@ const MetricsSelector: FC<{
         }}
         selected={selected.map(toMetricValue)}
         placeholder="Select metrics..."
+        positionFixed={true}
       />
       {metricTags.size > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">

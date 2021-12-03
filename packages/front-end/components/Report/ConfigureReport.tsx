@@ -6,6 +6,7 @@ import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { getValidDate } from "../../services/dates";
+import Select from "../Forms/Select";
 
 export default function ConfigureReport({
   report,
@@ -237,17 +238,18 @@ export default function ConfigureReport({
         />
       )}
 
-      <Field
+      <Select
         label="Activation Metric"
         labelClassName="font-weight-bold"
-        {...form.register("activationMetric")}
         options={filteredMetrics.map((m) => {
           return {
-            display: m.name,
+            label: m.name,
             value: m.id,
           };
         })}
         initialOption="None"
+        value={form.watch("activationMetric")}
+        onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />
       {datasourceProperties?.experimentSegments && (
