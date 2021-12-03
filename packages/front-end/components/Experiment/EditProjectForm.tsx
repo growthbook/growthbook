@@ -3,7 +3,7 @@ import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useForm } from "react-hook-form";
-import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
@@ -34,10 +34,11 @@ const EditProjectForm: FC<{
       })}
       cta="Save"
     >
-      <Field
+      <SelectField
         label="Project"
-        {...form.register("project")}
-        options={projects.map((p) => ({ display: p.name, value: p.id }))}
+        value={form.watch("project")}
+        onChange={(v) => form.setValue("project", v)}
+        options={projects.map((p) => ({ label: p.name, value: p.id }))}
         initialOption="None"
       />
     </Modal>

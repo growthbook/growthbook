@@ -23,6 +23,7 @@ import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
+import SelectField from "../Forms/SelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -262,13 +263,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         )}
         {!isImport && (
-          <Field
+          <SelectField
             label="Data Source"
-            {...form.register("datasource")}
+            value={form.watch("datasource")}
+            onChange={(v) => form.setValue("datasource", v)}
             initialOption="Manual"
             options={datasources.map((d) => ({
               value: d.id,
-              display: d.name,
+              label: d.name,
             }))}
           />
         )}

@@ -22,6 +22,7 @@ import track from "../../services/track";
 import Modal from "../Modal";
 import PrestoForm from "./PrestoForm";
 import MysqlForm from "./MysqlForm";
+import SelectField from "../Forms/SelectField";
 
 const typeOptions: {
   type: DataSourceType;
@@ -324,35 +325,30 @@ const DataSourceForm: FC<{
       header={existing ? "Edit Data Source" : "Add Data Source"}
       cta="Save"
     >
-      <div className="form-group">
-        <label>Data Source Type</label>
-        <select
-          className="form-control"
-          value={datasource.type}
-          disabled={existing}
-          required
-          onChange={(e) => {
-            const option = typeOptions.filter(
-              (o) => o.type === e.target.value
-            )[0];
-            if (!option) return;
+      <SelectField
+        label="Data Source Type"
+        value={datasource.type}
+        onChange={(value) => {
+          const option = typeOptions.filter((o) => o.type === value)[0];
+          if (!option) return;
 
-            setDatasource({
-              ...datasource,
-              type: option.type,
-              params: option.default,
-            } as Partial<DataSourceInterfaceWithParams>);
-            setDirty(true);
-          }}
-        >
-          <option value="">Choose Type...</option>
-          {typeOptions.map(({ type, display }) => (
-            <option value={type} key={type}>
-              {display}
-            </option>
-          ))}
-        </select>
-      </div>
+          setDatasource({
+            ...datasource,
+            type: option.type,
+            params: option.default,
+          } as Partial<DataSourceInterfaceWithParams>);
+          setDirty(true);
+        }}
+        disabled={existing}
+        required
+        placeholder="Choose Type..."
+        options={typeOptions.map((o) => {
+          return {
+            value: o.type,
+            label: o.display,
+          };
+        })}
+      />
       <div className="form-group">
         <label>Display Name</label>
         <input

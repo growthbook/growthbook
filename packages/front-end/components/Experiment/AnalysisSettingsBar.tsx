@@ -8,6 +8,7 @@ import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummaryText } from "../../services/utils";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 import { UserContext } from "../ProtectedPage";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
@@ -88,7 +89,7 @@ export default function AnalysisSettingsBar({
     .filter((d) => d.datasource === experiment.datasource)
     .map((d) => {
       return {
-        display: d.name,
+        label: d.name,
         value: d.id,
       };
     });
@@ -96,9 +97,25 @@ export default function AnalysisSettingsBar({
   if (datasource?.settings?.experimentDimensions?.length > 0) {
     datasource.settings.experimentDimensions.forEach((d) => {
       filteredDimensions.push({
-        display: d,
+        label: d,
         value: "exp:" + d,
       });
+    });
+  }
+
+  const builtInDimensions = [
+    {
+      label: "Date",
+      value: "pre:date",
+    },
+  ];
+  if (
+    datasource?.properties?.activationDimension &&
+    experiment.activationMetric
+  ) {
+    builtInDimensions.push({
+      label: "Activation status",
+      value: "pre:activation",
     });
   }
 
@@ -135,34 +152,23 @@ export default function AnalysisSettingsBar({
         )}
         {(filteredDimensions.length > 0 || supportsSql) && (
           <div className="col-auto form-inline">
-            <label className="mr-2">Dimension</label>{" "}
-            <select
-              className="form-control"
+            <SelectField
+              label="Dimension"
+              labelClassName="mr-2"
+              options={[
+                {
+                  label: "Built-in",
+                  options: builtInDimensions,
+                },
+                {
+                  label: "Custom",
+                  options: filteredDimensions,
+                },
+              ]}
+              initialOption="None"
               value={dimension}
-              onChange={(e) => {
-                setDimension(e.target.value);
-              }}
-            >
-              <option value="">None</option>
-              {supportsSql && (
-                <optgroup label="Built-in">
-                  <option value="pre:date">Date</option>
-                  {datasource?.properties?.activationDimension &&
-                    experiment.activationMetric && (
-                      <option value="pre:activation">Activation Status</option>
-                    )}
-                </optgroup>
-              )}
-              {filteredDimensions.length > 0 && (
-                <optgroup label="Custom">
-                  {filteredDimensions.map((d) => (
-                    <option key={d.value} value={d.value}>
-                      {d.display}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+              onChange={setDimension}
+            />
           </div>
         )}
         <div style={{ flex: 1 }} />

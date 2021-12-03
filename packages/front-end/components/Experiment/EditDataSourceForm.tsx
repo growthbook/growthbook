@@ -5,6 +5,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -34,12 +35,13 @@ const EditDataSourceForm: FC<{
       })}
       cta="Save"
     >
-      <Field
+      <SelectField
         label="Data Source"
-        {...form.register("datasource")}
+        value={form.watch("datasource")}
+        onChange={(v) => form.setValue("datasource", v)}
         disabled={experiment.status !== "draft"}
         initialOption="Manual"
-        options={datasources.map((d) => ({ value: d.id, display: d.name }))}
+        options={datasources.map((d) => ({ value: d.id, label: d.name }))}
       />
       <Field label="Tracking Key" {...form.register("trackingKey")} />
     </Modal>
