@@ -1,6 +1,7 @@
 import { FC, useMemo } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
+import cloneDeep from "lodash/cloneDeep";
 
 type SingleValue = { label: string; value: string };
 type GroupedValue = { label: string; options: SingleValue[] };
@@ -29,31 +30,33 @@ const SelectField: FC<
 }) => {
   const [map, sorted] = useMemo(() => {
     const m = new Map<string, SingleValue>();
-    const sorted = [...options];
-    sort &&
-      sorted.sort((a, b) => {
+    const clone = cloneDeep(options);
+    if (sort) {
+      clone.sort((a, b) => {
         return a.label.localeCompare(b.label);
       });
-    sorted.forEach((o) => {
-      if ((o as GroupedValue).options) {
-        (o as GroupedValue).options = [...(o as GroupedValue).options];
-        sort &&
-          (o as GroupedValue).options.sort((a, b) => {
+    }
+    clone.forEach((o) => {
+      if ("options" in o) {
+        const suboptions = o.options;
+        if (sort) {
+          suboptions.sort((a, b) => {
             return a.label.localeCompare(b.label);
           });
-        (o as GroupedValue).options.forEach((option) => {
+        }
+        suboptions.forEach((option) => {
           m.set(option.value, option);
         });
       } else {
-        m.set((o as SingleValue).value, o as SingleValue);
+        m.set(o.value, o);
       }
     });
 
     if (initialOption) {
-      sorted.unshift({ label: initialOption, value: "" });
+      clone.unshift({ label: initialOption, value: "" });
     }
 
-    return [m, sorted];
+    return [m, clone];
   }, [options, initialOption]);
   const selected = map.get(value);
 
