@@ -174,6 +174,16 @@ export function deleteExperimentById(id: string) {
   });
 }
 
+export async function getExperimentsUsingSegment(id: string, orgId: string) {
+  return ExperimentModel.find(
+    {
+      organization: orgId,
+      segment: id,
+    },
+    { id: 1, name: 1 }
+  );
+}
+
 export async function getLatestSnapshot(
   experiment: string,
   phase: number,
