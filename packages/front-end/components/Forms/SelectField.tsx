@@ -68,41 +68,77 @@ const SelectField: FC<
       {...fieldProps}
       render={(id, ref) => {
         return (
-          <ReactSelect
-            id={id}
-            ref={ref}
-            isDisabled={disabled || false}
-            options={sorted}
-            onChange={(selected) => {
-              onChange(selected?.value || "");
-            }}
-            styles={{
-              menu: (base) => ({
-                ...base,
-                width: "max-content",
-                minWidth: "100%",
-              }),
-              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-              groupHeading: (base) => ({
-                ...base,
-                margin: "3px 0 0 -2px",
-                fontSize: "70%",
-              }),
-              group: (base) => ({
-                ...base,
-                paddingTop: 0,
-                paddingBottom: 0,
-              }),
-              option: (base) => ({
-                ...base,
-                padding: "6px 17px",
-              }),
-            }}
-            value={selected}
-            placeholder={initialOption ?? placeholder}
-            menuPosition="fixed"
-            isSearchable
-          />
+          <>
+            <div className="d-lg-none">
+              <select
+                value={selected?.value || ""}
+                onChange={(e) => onChange(e.target.value)}
+                className="form-control"
+                disabled={disabled}
+                {...fieldProps}
+                id={id}
+                ref={ref}
+                placeholder={initialOption ?? placeholder}
+              >
+                {sorted.map((s) => {
+                  if ("options" in s) {
+                    return (
+                      <optgroup key={s.label} label={s.label}>
+                        {s.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  } else {
+                    return (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    );
+                  }
+                })}
+              </select>
+            </div>
+            <div className="d-none d-lg-block">
+              <ReactSelect
+                id={id}
+                ref={ref}
+                isDisabled={disabled || false}
+                options={sorted}
+                onChange={(selected) => {
+                  onChange(selected?.value || "");
+                }}
+                styles={{
+                  menu: (base) => ({
+                    ...base,
+                    width: "max-content",
+                    minWidth: "100%",
+                  }),
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                  groupHeading: (base) => ({
+                    ...base,
+                    margin: "3px 0 0 -2px",
+                    fontSize: "70%",
+                  }),
+                  group: (base) => ({
+                    ...base,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                  }),
+                  option: (base) => ({
+                    ...base,
+                    padding: "6px 17px",
+                  }),
+                }}
+                value={selected}
+                placeholder={initialOption ?? placeholder}
+                menuPosition="fixed"
+                isSearchable
+              />
+            </div>
+          </>
         );
       }}
     />
