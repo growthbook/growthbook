@@ -270,6 +270,15 @@ export default abstract class SqlIntegration
   getMetricValueQuery(params: MetricValueParams): string {
     const userId = params.userIdType === "user";
 
+    // Get rough date filter for metrics to improve performance
+    const metricStart = new Date(params.from);
+    metricStart.setMinutes(metricStart.getMinutes() - 30);
+    const metricEnd = new Date(params.to);
+    metricEnd.setHours(
+      metricEnd.getHours() +
+        (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
+    );
+
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -294,11 +303,12 @@ export default abstract class SqlIntegration
               )})`
             : ""
         }
-        , __metric as (${this.getMetricCTE(
-          params.metric,
-          DEFAULT_CONVERSION_WINDOW_HOURS,
-          userId
-        )})
+        , __metric as (${this.getMetricCTE({
+          metric: params.metric,
+          userId,
+          startDate: metricStart,
+          endDate: metricEnd,
+        })})
         , __distinctUsers as (
           SELECT
             u.user_id,
@@ -637,6 +647,23 @@ export default abstract class SqlIntegration
     const activationDimension =
       activationMetric && dimension?.type === "activation";
 
+    // Get rough date filter for metrics to improve performance
+    const metricStart = new Date(phase.dateStarted);
+    metricStart.setMinutes(metricStart.getMinutes() - 30);
+    const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
+    if (metricEnd) {
+      metricEnd.setHours(
+        metricEnd.getHours() +
+          // Add conversion window so metric has time to convert after experiment ends
+          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+          // If using an activation metric, also need to allow for that conversion time
+          (activationMetric
+            ? activationMetric.conversionWindowHours ||
+              DEFAULT_CONVERSION_WINDOW_HOURS
+            : 0)
+      );
+    }
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -660,11 +687,12 @@ export default abstract class SqlIntegration
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
       })})
-      , __metric as (${this.getMetricCTE(
+      , __metric as (${this.getMetricCTE({
         metric,
-        DEFAULT_CONVERSION_WINDOW_HOURS,
-        userId
-      )})
+        userId,
+        startDate: metricStart,
+        endDate: metricEnd,
+      })})
       ${
         segment
           ? `, __segment as (${this.getSegmentCTE(
@@ -684,11 +712,13 @@ export default abstract class SqlIntegration
       }
       ${
         activationMetric
-          ? `, __activationMetric as (${this.getMetricCTE(
-              activationMetric,
-              metric.conversionWindowHours,
-              userId
-            )})
+          ? `, __activationMetric as (${this.getMetricCTE({
+              metric: activationMetric,
+              conversionWindowHours: metric.conversionWindowHours,
+              userId,
+              startDate: metricStart,
+              endDate: metricEnd,
+            })})
             , __activatedUsers as (${this.getActivatedUsersCTE()})`
           : ""
       }
@@ -812,11 +842,19 @@ export default abstract class SqlIntegration
     throw new Error("Not implemented");
   }
 
-  private getMetricCTE(
-    metric: MetricInterface,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    userId: boolean = true
-  ) {
+  private getMetricCTE({
+    metric,
+    conversionWindowHours = DEFAULT_CONVERSION_WINDOW_HOURS,
+    userId = true,
+    startDate,
+    endDate,
+  }: {
+    metric: MetricInterface;
+    conversionWindowHours?: number;
+    userId?: boolean;
+    startDate?: Date;
+    endDate?: Date | null;
+  }) {
     let userIdCol: string;
     let join = "";
     // Need to use userId, but metric is anonymous only
@@ -848,6 +886,22 @@ export default abstract class SqlIntegration
 
     const schema = this.getSchema();
 
+    const where: string[] = [];
+
+    // From old, deprecated query builder UI
+    if (metric.conditions?.length) {
+      metric.conditions.forEach((c) => {
+        where.push(`m.${c.column} ${c.operator} '${c.value}'`);
+      });
+    }
+    // Add a rough date filter to improve query performance
+    if (startDate) {
+      where.push(`${timestampCol} >= ${this.toTimestamp(startDate)}`);
+    }
+    if (endDate) {
+      where.push(`${timestampCol} <= ${this.toTimestamp(endDate)}`);
+    }
+
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as user_id,
@@ -863,13 +917,7 @@ export default abstract class SqlIntegration
               (metric.table || "")
         } m
         ${join}
-      ${
-        metric.conditions?.length
-          ? `WHERE ${metric.conditions
-              .map((c) => `m.${c.column} ${c.operator} '${c.value}'`)
-              .join(" AND ")}`
-          : ""
-      }
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     `;
   }
 
