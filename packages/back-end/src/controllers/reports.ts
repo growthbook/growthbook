@@ -1,97 +1,231 @@
-/*
-import {Response} from "express";
-import {AuthRequest} from "../types/AuthRequest";
-import {ReportInterface} from "../models/ReportModel";
-import {getAllReportsByOrganization, createReport, getReportById, runReport} from "../services/reports";
+import { Response } from "express";
+import { ReportInterface } from "../../types/report";
+import { ExperimentModel } from "../models/ExperimentModel";
+import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import {
+  createReport,
+  getReportById,
+  updateReport,
+} from "../models/ReportModel";
+import { generateReportNotebook } from "../services/notebook";
+import { getOrgFromReq } from "../services/organizations";
+import { cancelRun, getStatusEndpoint } from "../services/queries";
+import { runReport, reportArgsFromSnapshot } from "../services/reports";
+import { analyzeExperimentResults } from "../services/stats";
+import { AuthRequest } from "../types/AuthRequest";
+import { getValidDate } from "../util/dates";
 
-export async function getReports(req: AuthRequest, res: Response) {
-  const reports = await getAllReportsByOrganization(req.organization.id);
+export async function postReportFromSnapshot(
+  req: AuthRequest<null, { snapshot: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    id: req.params.snapshot,
+    organization: org.id,
+  });
+
+  if (!snapshot) {
+    throw new Error("Invalid snapshot id");
+  }
+
+  const experiment = await ExperimentModel.findOne({
+    organization: org.id,
+    id: snapshot.experiment,
+  });
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const phase = experiment.phases[snapshot.phase];
+  if (!phase) {
+    throw new Error("Unknown experiment phase");
+  }
+
+  const doc = await createReport(org.id, {
+    title: `New Report - ${experiment.name}`,
+    description: `[Back to experiment results](/experiment/${snapshot.experiment}#results)`,
+    type: "experiment",
+    args: reportArgsFromSnapshot(experiment, snapshot),
+    results: snapshot.results
+      ? {
+          dimensions: snapshot.results,
+          unknownVariations: snapshot.unknownVariations || [],
+        }
+      : undefined,
+    queries: snapshot.queries,
+    runStarted: snapshot.runStarted,
+    error: snapshot.error,
+  });
+
+  await req.audit({
+    event: "experiment.analysis",
+    entity: {
+      object: "experiment",
+      id: snapshot.experiment,
+    },
+    details: JSON.stringify({
+      report: doc.id,
+    }),
+  });
 
   res.status(200).json({
     status: 200,
-    reports
+    report: doc,
   });
 }
 
-export async function getReport(req: AuthRequest, res: Response) {
-  const {id}: {id: string} = req.params;
+export async function getReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
 
-  const report = await getReportById(id);
+  const report = await getReportById(org.id, req.params.id);
+
   if (!report) {
-    res.status(404).json({
-      status: 404,
-      message: "Report not found"
-    });
-    return;
+    throw new Error("Unknown report id");
   }
-
-  if (report.organization !== req.organization.id) {
-    res.status(401).json({
-      status: 401,
-      message: "You don't have access to view this report"
-    });
-    return;
-  }
-
-  try {
-    const results = await runReport(id, true);
-    res.status(200).json({
-      status: 200,
-      report,
-      results,
-    });
-  }
-  catch (e) {
-    res.status(200).json({
-      status: 200,
-      report,
-      results: [],
-      error: e.message,
-    });
-  }
-}
-
-export async function postReports(req: AuthRequest, res: Response) {
-  const report = await createReport(req.organization.id);
 
   res.status(200).json({
     status: 200,
-    report: report.id
+    report,
   });
 }
 
-export async function putReport(req: AuthRequest<ReportInterface>, res: Response) {
-  const {id}: {id: string} = req.params;
-  const data = req.body;
+export async function refreshReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
 
-  const report = await getReportById(id);
+  const report = await getReportById(org.id, req.params.id);
+
   if (!report) {
-    res.status(404).json({
-      status: 404,
-      message: "Report not found"
-    });
-    return;
+    throw new Error("Unknown report id");
   }
 
-  if (report.organization !== req.organization.id) {
-    res.status(401).json({
-      status: 401,
-      message: "You don't have access to view this report"
-    });
-    return;
-  }
+  const useCache = !req.query["force"];
 
-  const allowedKeys = ["title", "description", "queries"];
-  allowedKeys.forEach((k: keyof ReportInterface) => {
-    if (k in data && data[k] !== report[k]) {
-      report.set(k, data[k]);
-    }
+  await runReport(report, useCache);
+
+  return res.status(200).json({
+    status: 200,
   });
+}
 
-  await report.save();
+export async function putReport(
+  req: AuthRequest<Partial<ReportInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const report = await getReportById(org.id, req.params.id);
+
+  if (!report) {
+    throw new Error("Unknown report id");
+  }
+
+  const updates: Partial<ReportInterface> = {};
+  let needsRun = false;
+  if ("args" in req.body) {
+    updates.args = {
+      ...report.args,
+      ...req.body.args,
+    };
+
+    updates.args.startDate = getValidDate(updates.args.startDate);
+    updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    needsRun = true;
+  }
+  if ("title" in req.body) updates.title = req.body.title;
+  if ("description" in req.body) updates.description = req.body.description;
+  await updateReport(org.id, req.params.id, updates);
+
+  if (needsRun) {
+    await runReport(
+      {
+        ...report,
+        ...updates,
+      },
+      true
+    );
+  }
+
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function getReportStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const report = await getReportById(org.id, id);
+  if (!report) {
+    throw new Error("Could not get query status");
+  }
+  const result = await getStatusEndpoint(
+    report,
+    org.id,
+    (queryData) => {
+      if (report.type === "experiment") {
+        return analyzeExperimentResults(
+          org.id,
+          report.args.variations,
+          report.args.dimension || "",
+          queryData
+        );
+      }
+      throw new Error("Unsupported report type");
+    },
+    async (updates, results, error) => {
+      await updateReport(org.id, id, {
+        ...updates,
+        results: results || report.results,
+        error,
+      });
+    },
+    report.error
+  );
+  return res.status(200).json(result);
+}
+
+export async function cancelReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const report = await getReportById(org.id, id);
+  if (!report) {
+    throw new Error("Could not cancel query");
+  }
+  res.status(200).json(
+    await cancelRun(report, org.id, async () => {
+      await updateReport(org.id, id, {
+        queries: [],
+        runStarted: null,
+      });
+    })
+  );
+}
+
+export async function postNotebook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const notebook = await generateReportNotebook(id, org.id);
 
   res.status(200).json({
-    status: 200
+    status: 200,
+    notebook,
   });
 }
-*/

@@ -1,5 +1,5 @@
 import React, { FC, Fragment, useState } from "react";
-import { FaPlus, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
 import { ago } from "../../services/dates";
@@ -11,6 +11,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import { useAuth } from "../../services/auth";
+import { GBAddCircle } from "../../components/Icons";
 
 const SegmentPage: FC = () => {
   const {
@@ -198,14 +199,18 @@ const SegmentPage: FC = () => {
         <div className="col-auto">
           <h3>Segments</h3>
         </div>
+        <div style={{ flex: 1 }}></div>
         <div className="col-auto">
           <Button
-            color="success"
+            color="primary"
             onClick={async () => {
               setSegmentForm({});
             }}
           >
-            <FaPlus /> New Segment
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>{" "}
+            New Segment
           </Button>
         </div>
       </div>
@@ -222,7 +227,7 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table className="table appbox table-hover">
+            <table className="table appbox gbtable table-hover">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -282,8 +287,8 @@ const SegmentPage: FC = () => {
       )}
       {segments.length === 0 && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet. Click the green button
-          above to create your first one.
+          You don&apos;t have any segments defined yet. Click the button above
+          to create your first one.
         </div>
       )}
     </div>

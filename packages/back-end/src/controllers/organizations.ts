@@ -73,6 +73,7 @@ import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
   findOrganizationsByMemberId,
+  hasOrganization,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
@@ -173,7 +174,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       "Making the buttons green on the pricing page will increase conversions",
     previewURL: "",
     targetURLRegex: "",
-    sqlOverride: new Map(),
     variations: [
       {
         name: "Control",
@@ -229,11 +229,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
   await createManualSnapshot(experiment, 0, [15500, 15400], {
     [metric1.id]: [
       {
+        users: 15500,
         count: 950,
         mean: 1,
         stddev: 1,
       },
       {
+        users: 15400,
         count: 1025,
         mean: 1,
         stddev: 1,
@@ -241,11 +243,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
     ],
     [metric2.id]: [
       {
+        users: 15500,
         count: 950,
         mean: 26.54,
         stddev: 16.75,
       },
       {
+        users: 15400,
         count: 1025,
         mean: 25.13,
         stddev: 16.87,
@@ -747,7 +751,13 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
   if (!IS_CLOUD) {
-    throw new Error("An organization already exists");
+    const orgs = await hasOrganization();
+    // there are odd edge cases where a user can exist, but not an org,
+    // so we want to allow org creation this way if there are no other orgs
+    // on a local install.
+    if (orgs) {
+      throw new Error("An organization already exists");
+    }
   }
 
   try {

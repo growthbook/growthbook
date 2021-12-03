@@ -4,6 +4,7 @@ import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
 import Code from "../Code";
 import clsx from "clsx";
+import { getValidDate } from "../../services/dates";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -50,9 +51,11 @@ const ExpandableQuery: FC<{
           click to {queryOpen ? "minimize" : "expand"}
         </div>
       </div>
-      {query.status === "failed" && (
+      {query.error && (
         <div className="alert alert-danger">
-          <pre>{query.error}</pre>
+          <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
+            {query.error}
+          </pre>
         </div>
       )}
       {query.status === "succeeded" && (
@@ -103,8 +106,8 @@ const ExpandableQuery: FC<{
           <em>
             Took{" "}
             {formatDistanceStrict(
-              new Date(query.startedAt),
-              new Date(query.finishedAt)
+              getValidDate(query.startedAt),
+              getValidDate(query.finishedAt)
             )}
           </em>
         </small>
@@ -113,7 +116,7 @@ const ExpandableQuery: FC<{
         <div className="alert alert-info">
           <em>
             Running for{" "}
-            {formatDistanceStrict(new Date(query.startedAt), new Date())}
+            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
           </em>
         </div>
       )}

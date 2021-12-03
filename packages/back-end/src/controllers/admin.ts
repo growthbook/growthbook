@@ -100,7 +100,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   FROM
     pages`,
       },
-      variationIdFormat: "index",
     }
   );
   const integration = getSourceIntegrationObject(datasource);
@@ -366,7 +365,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, datasource, null);
+      await createSnapshot(exp, 0, null);
     })
   );
 

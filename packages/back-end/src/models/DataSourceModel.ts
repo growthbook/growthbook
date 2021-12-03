@@ -38,7 +38,6 @@ const dataSourceSchema = new mongoose.Schema({
       pageviewEvent: String,
       urlProperty: String,
     },
-    variationIdFormat: String,
     experimentDimensions: [String],
 
     // Deprecated
@@ -54,7 +53,6 @@ const dataSourceSchema = new mongoose.Schema({
       anonymousIdColumn: String,
       experimentIdColumn: String,
       variationColumn: String,
-      variationFormat: String,
     },
     users: {
       table: String,

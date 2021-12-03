@@ -38,7 +38,7 @@ const Webhooks: FC = () => {
       </p>
 
       {data.webhooks.length > 0 && (
-        <table className="table mb-3">
+        <table className="table mb-3 appbox gbtable hover-highlight">
           <thead>
             <tr>
               <th>Webhook</th>
@@ -87,7 +87,7 @@ const Webhooks: FC = () => {
       )}
 
       <button
-        className="btn btn-success"
+        className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);

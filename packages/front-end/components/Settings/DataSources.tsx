@@ -1,13 +1,13 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
 import DataSourceForm from "./DataSourceForm";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
 import { datetime } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
+import { GBAddCircle } from "../Icons";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   type: "redshift",
@@ -43,7 +43,7 @@ const DataSources: FC = () => {
   return (
     <div>
       {datasources.length > 0 ? (
-        <table className="table appbox table-hover">
+        <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
               <th>Display Name</th>
@@ -103,13 +103,16 @@ const DataSources: FC = () => {
 
       {!hasFileConfig() && (
         <button
-          className="btn btn-success"
+          className="btn btn-primary"
           onClick={(e) => {
             e.preventDefault();
             setEdit(DEFAULT_DATA_SOURCE);
           }}
         >
-          <FaPlus /> Add Data Source
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <GBAddCircle />
+          </span>
+          Add Data Source
         </button>
       )}
 

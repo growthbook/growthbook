@@ -1,15 +1,10 @@
 import { FC, Fragment } from "react";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMWarning from "./SRMWarning";
 import isEqual from "lodash/isEqual";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useContext } from "react";
-import { UserContext } from "../ProtectedPage";
-import Link from "next/link";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -29,62 +24,47 @@ const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
 };
 
 const DataQualityWarning: FC<{
-  experiment: ExperimentInterfaceStringDates;
-  snapshot: ExperimentSnapshotInterface;
-  phase?: ExperimentPhaseStringDates;
+  results: ExperimentReportResultDimension;
   isUpdating?: boolean;
-}> = ({ experiment, snapshot, phase, isUpdating }) => {
-  const { getDatasourceById } = useDefinitions();
-
-  const { permissions } = useContext(UserContext);
-
-  if (!snapshot || !phase) return null;
-  const results = snapshot.results[0];
+  variations: ExperimentReportVariation[];
+  unknownVariations: string[];
+}> = ({ isUpdating, results, variations, unknownVariations }) => {
   if (!results) return null;
-  const variations = results?.variations || [];
+  const variationResults = results?.variations || [];
 
   // Skip checks if experiment phase has extremely uneven weights
   // This causes too many false positives with the current data quality checks
-  if (phase.variationWeights.filter((x) => x < 0.02).length > 0) {
+  if (variations.filter((x) => x.weight < 0.02).length > 0) {
     return null;
   }
 
-  const datasource = getDatasourceById(experiment.datasource);
-  const hasStringKeys = datasource?.settings?.variationIdFormat === "key";
-
   // Minimum number of users required to do data quality checks
   let totalUsers = 0;
-  variations.forEach((v) => {
+  variationResults.forEach((v) => {
     totalUsers += v.users;
   });
-  if (
-    totalUsers < 8 * experiment.variations.length &&
-    !snapshot.unknownVariations?.length
-  ) {
+  if (totalUsers < 8 * variations.length && !unknownVariations?.length) {
     return null;
   }
 
   // Variations defined for the experiment
-  const definedVariations: string[] = experiment.variations
-    .map((v, i) => (hasStringKeys ? v.key : null) || i + "")
-    .sort();
+  const definedVariations: string[] = variations.map((v) => v.id).sort();
   // Variation ids returned from the query
-  const returnedVariations: string[] = variations
+  const returnedVariations: string[] = variationResults
     .map((v, i) => {
       return {
-        variation:
-          (hasStringKeys ? experiment.variations[i]?.key : null) || i + "",
+        variation: variations[i]?.id || i + "",
         hasData: v.users > 0,
       };
     })
     .filter((v) => v.hasData)
     .map((v) => v.variation)
-    .concat(snapshot.unknownVariations || [])
+    .concat(unknownVariations)
     .sort();
 
   // Problem was fixed
   if (
-    snapshot.unknownVariations?.length > 0 &&
+    unknownVariations?.length > 0 &&
     isEqual(returnedVariations, definedVariations)
   ) {
     if (isUpdating) {
@@ -98,33 +78,11 @@ const DataQualityWarning: FC<{
   }
 
   // There are unknown variations
-  if (snapshot.unknownVariations?.length > 0) {
-    // Data source is expecting numeric variation ids, but received string ids
-    if (
-      datasource &&
-      !hasStringKeys &&
-      snapshot.unknownVariations.filter((x) => isNaN(parseInt(x))).length > 0
-    ) {
-      return (
-        <div className="alert alert-warning">
-          <strong>Warning:</strong> Your data source is configured to expect
-          numeric Variation Ids (<CommaList vals={definedVariations} />
-          ), but it returned strings instead (
-          <CommaList vals={returnedVariations} />
-          ).{" "}
-          {permissions.organizationSettings && (
-            <Link href={`/datasources/${datasource.id}`}>
-              <a>View settings</a>
-            </Link>
-          )}
-        </div>
-      );
-    }
-
+  if (unknownVariations?.length > 0) {
     return (
       <div className="alert alert-warning">
-        <strong>Warning:</strong> Expected {experiment.variations.length}{" "}
-        variation ids (<CommaList vals={definedVariations} />
+        <strong>Warning:</strong> Expected {variations.length} variation ids (
+        <CommaList vals={definedVariations} />
         ), but database returned{" "}
         {returnedVariations.length === definedVariations.length
           ? "a different set"
@@ -139,7 +97,12 @@ const DataQualityWarning: FC<{
   if (definedVariations.length > returnedVariations.length) {
     return (
       <div className="alert alert-warning">
-        <strong>Warning</strong>: Missing data from one or more variations.
+        <strong>Warning</strong>: Missing data from the following variation ids:{" "}
+        <CommaList
+          vals={definedVariations.filter(
+            (v) => !returnedVariations.includes(v)
+          )}
+        />
       </div>
     );
   }

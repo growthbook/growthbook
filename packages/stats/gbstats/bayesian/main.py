@@ -43,6 +43,16 @@ def binomial_ab_test(x_a, n_a, x_b, n_b, ccr=0.05):
 
 
 def gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b, ccr=0.05):
+    # Hacky fix to avoid divide by zero errors
+    if np.amin(s_a) <= 0 or np.amin(s_b) <= 0:
+        return {
+            "chance_to_win": 0.5,
+            "expected": 0,
+            "ci": [0, 0],
+            "uplift": {"dist": "lognormal", "mean": 0, "stddev": 0},
+            "risk": [0, 0],
+        }
+
     mu_a, sd_a = Norm.posterior(NORM_PRIOR, [m_a, s_a, n_a])
     mu_b, sd_b = Norm.posterior(NORM_PRIOR, [m_b, s_b, n_b])
 

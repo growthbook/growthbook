@@ -68,6 +68,7 @@ Below are all of the possible properties you can set for an Experiment:
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
 - **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **namespace** (`[string, number, number]`) - A more powerful version of `coverage` that lets you run mutually exclusive experiments. For example, two experiments with namespaces `["pricing", 0, 0.5]` and `["pricing", 0.5, 1]` would be mutually exclusive and each include 50% of users.
 - **url** (`RegExp`) - Users can only be included in this experiment if the current URL matches this regex
 - **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
 - **groups** (`string[]`) - Limits the experiment to specific user groups
@@ -206,6 +207,7 @@ The full list of experiment properties you can override is:
 - force
 - weights
 - coverage
+- namespace
 - groups
 - url (can use string instead of regex if serializing in a database)
 

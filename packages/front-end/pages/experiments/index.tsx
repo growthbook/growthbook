@@ -1,55 +1,74 @@
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
-import { datetime, ago } from "../../services/dates";
+import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPalette, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Link from "next/link";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
+import Pagination from "../../components/Pagination";
+import { GBAddCircle } from "../../components/Icons";
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, getMetricById } = useDefinitions();
 
   const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project || ""}`);
 
-  const [draftsExpanded, setDraftsExpanded] = useState(false);
+  const [showOnlyMyDrafts, setShowOnlyMyDrafts] = useState(false);
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId } = useContext(UserContext);
+  const { getUserDisplay, permissions, userId, users } = useContext(
+    UserContext
+  );
+
+  const [currentPage, setCurrentPage] = useState({
+    running: 1,
+    stopped: 1,
+    archived: 1,
+    draft: 1,
+  });
+  const [experimentsPerPage] = useState(20);
 
   const router = useRouter();
 
-  const {
-    list: experiments,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.experiments || [], [
-    "name",
-    "implementation",
-    "hypothesis",
-    "description",
-    "tags",
-    "trackingKey",
-    "status",
-    "id",
-    "owner",
-    "metrics",
-    "results",
-    "analysis",
-  ]);
+  const transforms = useMemo(() => {
+    return {
+      owner: (orig: string) => getUserDisplay(orig),
+      metrics: (orig: string[]) =>
+        orig?.map((m) => getMetricById(m)?.name)?.filter(Boolean) || [],
+    };
+  }, [getMetricById, users.size]);
+
+  const { list: experiments, searchInputProps, isFiltered } = useSearch(
+    data?.experiments || [],
+    [
+      "name",
+      "implementation",
+      "hypothesis",
+      "description",
+      "tags",
+      "trackingKey",
+      "status",
+      "id",
+      "owner",
+      "metrics",
+      "results",
+      "analysis",
+    ],
+    transforms
+  );
 
   if (error) {
     return (
@@ -131,101 +150,10 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        {permissions.draftExperiments && byStatus.myDrafts.length > 0 && (
-          <div className="mb-5 pb-3 position-relative">
-            {!draftsExpanded && byStatus.myDrafts.length > 3 && (
-              <div
-                className="position-absolute text-center p-4"
-                style={{
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  background:
-                    "linear-gradient(to top, rgba(245,247,250,1) 0%,rgba(245,247,250,0) 100%)",
-                }}
-              >
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDraftsExpanded(true);
-                  }}
-                >
-                  See all {byStatus.myDrafts.length} drafts...
-                </a>
-              </div>
-            )}
-            <h3>My Drafts</h3>
-            <table className="table experiment-table appbox">
-              <thead>
-                <tr>
-                  <th style={{ width: "99%" }}>Experiment</th>
-                  <th>Tags</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byStatus.myDrafts
-                  .sort(
-                    (a, b) =>
-                      new Date(b.dateCreated).getTime() -
-                      new Date(a.dateCreated).getTime()
-                  )
-                  .slice(0, draftsExpanded ? 20 : 3)
-                  .map((e) => {
-                    return (
-                      <tr key={e.id}>
-                        <td
-                          onClick={() => {
-                            router.push(`/experiment/${e.id}`);
-                          }}
-                        >
-                          <div className="d-flex">
-                            <h4 className="testname">
-                              <Link href={`/experiment/${e.id}`}>
-                                <a>{e.name}</a>
-                              </Link>
-                            </h4>
-                            {e.implementation === "visual" && (
-                              <small className="text-muted ml-2">
-                                <FaPalette /> Visual
-                              </small>
-                            )}
-                          </div>
-                        </td>
-                        <td className="nowrap">
-                          {Object.values(e.tags).map((col) => (
-                            <span
-                              className="tag badge badge-secondary mr-2"
-                              key={col}
-                            >
-                              {col}
-                            </span>
-                          ))}
-                        </td>
-                        <td className="nowrap" title={datetime(e.dateCreated)}>
-                          {ago(e.dateCreated)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        )}
         <div className="mb-5">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
               <h3>All Experiments</h3>
-            </div>
-            <div className="col-lg-3 col-md-4 col-6">
-              <input
-                type="search"
-                className=" form-control"
-                placeholder="Search"
-                aria-controls="dtBasicExample"
-                {...searchInputProps}
-              />
             </div>
             <div style={{ flex: 1 }}></div>
             {permissions.draftExperiments && (
@@ -236,6 +164,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     setOpenNewExperimentModal(true);
                   }}
                 >
+                  <span className="h4 pr-2 m-0 d-inline-block align-top">
+                    <GBAddCircle />
+                  </span>
                   New Experiment
                 </button>
               </div>
@@ -251,253 +182,493 @@ const ExperimentsPage = (): React.ReactElement => {
                 ? "Stopped"
                 : null
             }
+            newStyle={true}
+            navExtra={
+              <div className="ml-md-5 ml-0 mt-md-0 mt-3 col-lg-3 col-md-4 col-12">
+                <input
+                  type="search"
+                  className="form-control"
+                  placeholder="Search"
+                  aria-controls="dtBasicExample"
+                  {...searchInputProps}
+                />
+              </div>
+            }
           >
             <Tab
               display="Running"
               anchor="running"
               count={byStatus.running.length}
+              padding={false}
             >
               {byStatus.running.length > 0 ? (
-                <table className="table experiment-table appbox">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th style={{ width: "99%" }}>Experiment</th>
-                      <th>Tags</th>
-                      <th>Owner</th>
-                      <th>Phase</th>
-                      <th>Started</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byStatus.running
-                      .sort(
-                        (a, b) =>
-                          new Date(
-                            b.phases[b.phases.length - 1]?.dateStarted
-                          ).getTime() -
-                          new Date(
-                            a.phases[a.phases.length - 1]?.dateStarted
-                          ).getTime()
-                      )
-                      .map((e) => {
-                        const phase = e.phases[e.phases.length - 1];
-                        if (!phase) return null;
+                <>
+                  <table className="table experiment-table gbtable responsive-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th style={{ width: "99%" }}>Experiment</th>
+                        <th>Tags</th>
+                        <th>Owner</th>
+                        <th>Phase</th>
+                        <th>Started</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byStatus.running
+                        .sort(
+                          (a, b) =>
+                            getValidDate(
+                              b.phases[b.phases.length - 1]?.dateStarted
+                            ).getTime() -
+                            getValidDate(
+                              a.phases[a.phases.length - 1]?.dateStarted
+                            ).getTime()
+                        )
+                        .filter((e, i) => {
+                          if (
+                            i >=
+                              (currentPage.running - 1) * experimentsPerPage &&
+                            i < currentPage.running * experimentsPerPage
+                          )
+                            return true;
+                        })
+                        .map((e) => {
+                          const phase = e.phases[e.phases.length - 1];
+                          if (!phase) return null;
 
-                        return (
-                          <tr key={e.id}>
-                            <td>
-                              <WatchButton experiment={e.id} type="icon" />
-                            </td>
-                            <td
-                              onClick={() => {
-                                router.push(`/experiment/${e.id}`);
-                              }}
-                            >
-                              <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
-                                {e.implementation === "visual" && (
-                                  <small className="text-muted ml-2">
-                                    <FaPalette /> Visual
-                                  </small>
-                                )}
-                              </div>
-                            </td>
-                            <td className="nowrap">
-                              {Object.values(e.tags).map((col) => (
-                                <span
-                                  className="tag badge badge-secondary mr-2"
-                                  key={col}
-                                >
-                                  {col}
-                                </span>
-                              ))}
-                            </td>
-                            <td className="nowrap">
-                              {getUserDisplay(e.owner, false)}
-                            </td>
-                            <td className="nowrap">{phaseSummary(phase)}</td>
-                            <td
-                              className="nowrap"
-                              title={datetime(phase.dateStarted)}
-                            >
-                              {ago(phase.dateStarted)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+                          return (
+                            <tr key={e.id} className="hover-highlight">
+                              <td
+                                data-title="Watching status:"
+                                className="watching"
+                              >
+                                <WatchButton experiment={e.id} type="icon" />
+                              </td>
+                              <td
+                                onClick={() => {
+                                  router.push(`/experiment/${e.id}`);
+                                }}
+                                className="cursor-pointer"
+                                data-title="Experiment name:"
+                              >
+                                <div className="d-flex flex-column">
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="nowrap" data-title="Tags:">
+                                {Object.values(e.tags).map((col) => (
+                                  <span
+                                    className="tag badge badge-primary mr-2"
+                                    key={col}
+                                  >
+                                    {col}
+                                  </span>
+                                ))}
+                              </td>
+                              <td className="nowrap" data-title="Owner:">
+                                {getUserDisplay(e.owner, false)}
+                              </td>
+                              <td className="nowrap" data-title="Phase:">
+                                {phaseSummary(phase)}
+                              </td>
+                              <td
+                                className="nowrap"
+                                title={datetime(phase.dateStarted)}
+                                data-title="Created:"
+                              >
+                                {ago(phase.dateStarted)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  {Math.ceil(byStatus.running.length / experimentsPerPage) >
+                    1 && (
+                    <Pagination
+                      numItemsTotal={byStatus.running.length}
+                      currentPage={currentPage.running}
+                      perPage={experimentsPerPage}
+                      onPageChange={(d) => {
+                        const tmp = { ...currentPage };
+                        tmp.running = d;
+                        setCurrentPage(tmp);
+                      }}
+                    />
+                  )}
+                </>
               ) : (
                 <div className="alert alert-info">
                   No {isFiltered ? "matching" : "running"} experiments
                 </div>
               )}
             </Tab>
-            <Tab display="Drafts" anchor="drafts" count={byStatus.draft.length}>
-              {byStatus.draft.length > 0 ? (
-                <table className="table experiment-table appbox">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th style={{ width: "99%" }}>Experiment</th>
-                      <th>Tags</th>
-                      <th>Owner</th>
-                      <th>Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byStatus.draft
-                      .sort(
-                        (a, b) =>
-                          new Date(b.dateCreated).getTime() -
-                          new Date(a.dateCreated).getTime()
-                      )
-                      .map((e) => {
-                        return (
-                          <tr key={e.id}>
-                            <td>
-                              <WatchButton experiment={e.id} type="icon" />
-                            </td>
-                            <td
-                              onClick={() => {
-                                router.push(`/experiment/${e.id}`);
-                              }}
-                            >
-                              <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
-                                {e.implementation === "visual" && (
-                                  <small className="text-muted ml-2">
-                                    <FaPalette /> Visual
-                                  </small>
-                                )}
-                              </div>
-                            </td>
-                            <td className="nowrap">
-                              {Object.values(e.tags).map((col) => (
-                                <span
-                                  className="tag badge badge-secondary mr-2"
-                                  key={col}
-                                >
-                                  {col}
-                                </span>
-                              ))}
-                            </td>
-                            <td className="nowrap">
-                              {getUserDisplay(e.owner, false)}
-                            </td>
-                            <td
-                              className="nowrap"
-                              title={datetime(e.dateCreated)}
-                            >
-                              {ago(e.dateCreated)}
-                            </td>
+            <Tab
+              display={showOnlyMyDrafts ? "My drafts" : "Drafts"}
+              anchor="drafts"
+              count={byStatus.draft.length}
+              padding={false}
+            >
+              {showOnlyMyDrafts &&
+              permissions.draftExperiments &&
+              byStatus.myDrafts.length > 0 ? (
+                <>
+                  {byStatus.myDrafts.length > 0 && (
+                    <>
+                      <table className="table experiment-table gbtable responsive-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: "99%" }}>
+                              Experiment{" "}
+                              <a
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  setShowOnlyMyDrafts(false);
+                                }}
+                              >
+                                (show all drafts)
+                              </a>
+                            </th>
+                            <th>Tags</th>
+                            <th>Created</th>
                           </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                          {byStatus.myDrafts
+                            .sort(
+                              (a, b) =>
+                                getValidDate(b.dateCreated).getTime() -
+                                getValidDate(a.dateCreated).getTime()
+                            )
+                            .map((e) => {
+                              return (
+                                <tr key={e.id} className="hover-highlight">
+                                  <td
+                                    onClick={() => {
+                                      router.push(`/experiment/${e.id}`);
+                                    }}
+                                    className="cursor-pointer"
+                                    data-title="Experiment name:"
+                                  >
+                                    <div className="d-flex flex-column">
+                                      <div>
+                                        <span className="testname">
+                                          {e.name}
+                                        </span>
+                                        {e.implementation === "visual" && (
+                                          <small className="text-muted ml-2">
+                                            (visual)
+                                          </small>
+                                        )}
+                                      </div>
+                                      {isFiltered && e.trackingKey && (
+                                        <span
+                                          className="testid text-muted small"
+                                          title="Tracking key"
+                                        >
+                                          {e.trackingKey}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="nowrap" data-title="Tags:">
+                                    {Object.values(e.tags).map((col) => (
+                                      <span
+                                        className="tag badge badge-primary mr-2"
+                                        key={col}
+                                      >
+                                        {col}
+                                      </span>
+                                    ))}
+                                  </td>
+                                  <td
+                                    className="nowrap"
+                                    title={datetime(e.dateCreated)}
+                                    data-title="Created:"
+                                  >
+                                    {ago(e.dateCreated)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </>
+                  )}
+                </>
               ) : (
-                <div className="alert alert-info">
-                  No {isFiltered ? "matching" : "draft"} experiments
-                </div>
+                <>
+                  {byStatus.draft.length > 0 ? (
+                    <>
+                      <table className="table experiment-table gbtable responsive-table">
+                        <thead>
+                          <tr>
+                            <th></th>
+                            <th style={{ width: "99%" }}>
+                              Experiment
+                              {permissions.draftExperiments &&
+                                byStatus.myDrafts.length > 0 && (
+                                  <span className="pl-3">
+                                    <a
+                                      className="cursor-pointer"
+                                      onClick={() => {
+                                        setShowOnlyMyDrafts(true);
+                                      }}
+                                    >
+                                      (show only my drafts)
+                                    </a>
+                                  </span>
+                                )}
+                            </th>
+                            <th>Tags</th>
+                            <th>Owner</th>
+                            <th>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {byStatus.draft
+                            .sort(
+                              (a, b) =>
+                                getValidDate(b.dateCreated).getTime() -
+                                getValidDate(a.dateCreated).getTime()
+                            )
+                            .filter((e, i) => {
+                              if (
+                                i >=
+                                  (currentPage.draft - 1) *
+                                    experimentsPerPage &&
+                                i < currentPage.draft * experimentsPerPage
+                              )
+                                return true;
+                            })
+                            .map((e) => {
+                              return (
+                                <tr key={e.id} className="hover-highlight">
+                                  <td
+                                    data-title="Watching status:"
+                                    className="watching"
+                                  >
+                                    <WatchButton
+                                      experiment={e.id}
+                                      type="icon"
+                                    />
+                                  </td>
+                                  <td
+                                    onClick={() => {
+                                      router.push(`/experiment/${e.id}`);
+                                    }}
+                                    className="cursor-pointer"
+                                    data-title="Experiment name:"
+                                  >
+                                    <div className="d-flex flex-column">
+                                      <div>
+                                        <span className="testname">
+                                          {e.name}
+                                        </span>
+                                        {e.implementation === "visual" && (
+                                          <small className="text-muted ml-2">
+                                            (visual)
+                                          </small>
+                                        )}
+                                      </div>
+                                      {isFiltered && e.trackingKey && (
+                                        <span
+                                          className="testid text-muted small"
+                                          title="Tracking key"
+                                        >
+                                          {e.trackingKey}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="nowrap" data-title="Tags:">
+                                    {Object.values(e.tags).map((col) => (
+                                      <span
+                                        className="tag badge badge-primary mr-2"
+                                        key={col}
+                                      >
+                                        {col}
+                                      </span>
+                                    ))}
+                                  </td>
+                                  <td className="nowrap" data-title="Owner:">
+                                    {getUserDisplay(e.owner, false)}
+                                  </td>
+                                  <td
+                                    className="nowrap"
+                                    title={datetime(e.dateCreated)}
+                                    data-title="Created:"
+                                  >
+                                    {ago(e.dateCreated)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                      {Math.ceil(byStatus.draft.length / experimentsPerPage) >
+                        1 && (
+                        <Pagination
+                          numItemsTotal={byStatus.draft.length}
+                          currentPage={currentPage.draft}
+                          perPage={experimentsPerPage}
+                          onPageChange={(d) => {
+                            const tmp = { ...currentPage };
+                            tmp.draft = d;
+                            setCurrentPage(tmp);
+                          }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div className="alert alert-info">
+                      No {isFiltered ? "matching" : "draft"} experiments
+                    </div>
+                  )}
+                </>
               )}
             </Tab>
+
             <Tab
               display="Stopped"
               anchor="stopped"
               count={byStatus.stopped.length}
+              padding={false}
             >
               {byStatus.stopped.length > 0 ? (
-                <table className="table table-hover experiment-table appbox">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th style={{ width: "99%" }}>Experiment</th>
-                      <th>Tags</th>
-                      <th>Owner</th>
-                      <th>Ended</th>
-                      <th>Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byStatus.stopped
-                      .sort(
-                        (a, b) =>
-                          new Date(
-                            b.phases[b.phases.length - 1]?.dateEnded
-                          ).getTime() -
-                          new Date(
-                            a.phases[a.phases.length - 1]?.dateEnded
-                          ).getTime()
-                      )
-                      .map((e) => {
-                        const phase = e.phases[e.phases.length - 1];
-                        if (!phase) return null;
+                <>
+                  <table className="table table-hover experiment-table gbtable responsive-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th style={{ width: "99%" }}>Experiment</th>
+                        <th>Tags</th>
+                        <th>Owner</th>
+                        <th>Ended</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byStatus.stopped
+                        .sort(
+                          (a, b) =>
+                            getValidDate(
+                              b.phases[b.phases.length - 1]?.dateEnded
+                            ).getTime() -
+                            getValidDate(
+                              a.phases[a.phases.length - 1]?.dateEnded
+                            ).getTime()
+                        )
+                        .filter((e, i) => {
+                          if (
+                            i >=
+                              (currentPage.stopped - 1) * experimentsPerPage &&
+                            i < currentPage.stopped * experimentsPerPage
+                          )
+                            return true;
+                        })
+                        .map((e) => {
+                          const phase = e.phases[e.phases.length - 1];
+                          if (!phase) return null;
 
-                        return (
-                          <tr
-                            key={e.id}
-                            onClick={() => {
-                              router.push(`/experiment/${e.id}`);
-                            }}
-                          >
-                            <td>
-                              <WatchButton experiment={e.id} type="icon" />
-                            </td>
-                            <td
+                          return (
+                            <tr
+                              key={e.id}
                               onClick={() => {
                                 router.push(`/experiment/${e.id}`);
                               }}
+                              className="hover-highlight"
                             >
-                              <div className="d-flex">
-                                <h4 className="testname">
-                                  <Link href={`/experiment/${e.id}`}>
-                                    <a>{e.name}</a>
-                                  </Link>
-                                </h4>
-                                {e.implementation === "visual" && (
-                                  <small className="text-muted ml-2">
-                                    <FaPalette /> Visual
-                                  </small>
-                                )}
-                              </div>
-                            </td>
-                            <td className="nowrap">
-                              {Object.values(e.tags).map((col) => (
-                                <span
-                                  className="tag badge badge-secondary mr-2"
-                                  key={col}
-                                >
-                                  {col}
-                                </span>
-                              ))}
-                            </td>
-                            <td className="nowrap">
-                              {getUserDisplay(e.owner, false)}
-                            </td>
-                            <td
-                              className="nowrap"
-                              title={datetime(phase.dateEnded)}
-                            >
-                              {ago(phase.dateEnded)}
-                            </td>
-                            <td className="nowrap">
-                              <ResultsIndicator results={e.results} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+                              <td
+                                data-title="Watch status:"
+                                className="watching"
+                              >
+                                <WatchButton experiment={e.id} type="icon" />
+                              </td>
+                              <td
+                                onClick={() => {
+                                  router.push(`/experiment/${e.id}`);
+                                }}
+                                className="cursor-pointer"
+                                data-title="Experiment name:"
+                              >
+                                <div className="d-flex flex-column">
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="nowrap" data-title="Tags:">
+                                {Object.values(e.tags).map((col) => (
+                                  <span
+                                    className="tag badge badge-primary mr-2"
+                                    key={col}
+                                  >
+                                    {col}
+                                  </span>
+                                ))}
+                              </td>
+                              <td className="nowrap" data-title="Owner:">
+                                {getUserDisplay(e.owner, false)}
+                              </td>
+                              <td
+                                className="nowrap"
+                                title={datetime(phase.dateEnded)}
+                                data-title="Ended:"
+                              >
+                                {ago(phase.dateEnded)}
+                              </td>
+                              <td className="nowrap" data-title="Results:">
+                                <ResultsIndicator results={e.results} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  {Math.ceil(byStatus.stopped.length / experimentsPerPage) >
+                    1 && (
+                    <Pagination
+                      numItemsTotal={byStatus.stopped.length}
+                      currentPage={currentPage.stopped}
+                      perPage={experimentsPerPage}
+                      onPageChange={(d) => {
+                        const tmp = { ...currentPage };
+                        tmp.stopped = d;
+                        setCurrentPage(tmp);
+                      }}
+                    />
+                  )}
+                </>
               ) : (
                 <div className="alert alert-info">
                   No {isFiltered ? "matching" : "stopped"} experiments
@@ -510,62 +681,94 @@ const ExperimentsPage = (): React.ReactElement => {
                 anchor="archived"
                 count={byStatus.archived.length}
               >
-                <table className="table table-hover experiment-table appbox">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "99%" }}>Experiment</th>
-                      <th>Tags</th>
-                      <th>Owner</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byStatus.archived.map((e) => {
-                      const phase = e.phases[e.phases.length - 1];
-                      if (!phase) return null;
+                <>
+                  <table className="table table-hover experiment-table gbtable responsive-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "99%" }}>Experiment</th>
+                        <th>Tags</th>
+                        <th>Owner</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byStatus.archived
+                        .filter((e, i) => {
+                          if (
+                            i >=
+                              (currentPage.archived - 1) * experimentsPerPage &&
+                            i < currentPage.archived * experimentsPerPage
+                          )
+                            return true;
+                        })
+                        .map((e) => {
+                          const phase = e.phases[e.phases.length - 1];
+                          if (!phase) return null;
 
-                      return (
-                        <tr
-                          key={e.id}
-                          onClick={() => {
-                            router.push(`/experiment/${e.id}`);
-                          }}
-                        >
-                          <td
-                            onClick={() => {
-                              router.push(`/experiment/${e.id}`);
-                            }}
-                          >
-                            <div className="d-flex">
-                              <h4 className="testname">
-                                <Link href={`/experiment/${e.id}`}>
-                                  <a>{e.name}</a>
-                                </Link>
-                              </h4>
-                              {e.implementation === "visual" && (
-                                <small className="text-muted ml-2">
-                                  <FaPalette /> Visual
-                                </small>
-                              )}
-                            </div>
-                          </td>
-                          <td className="nowrap">
-                            {Object.values(e.tags).map((col) => (
-                              <span
-                                className="tag badge badge-secondary mr-2"
-                                key={col}
+                          return (
+                            <tr
+                              key={e.id}
+                              onClick={() => {
+                                router.push(`/experiment/${e.id}`);
+                              }}
+                              className="hover-highlight"
+                            >
+                              <td
+                                onClick={() => {
+                                  router.push(`/experiment/${e.id}`);
+                                }}
+                                className="cursor-pointer"
                               >
-                                {col}
-                              </span>
-                            ))}
-                          </td>
-                          <td className="nowrap">
-                            {getUserDisplay(e.owner, false)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                                <div className="d-flex flex-column">
+                                  <div>
+                                    <span className="testname">{e.name}</span>
+                                    {e.implementation === "visual" && (
+                                      <small className="text-muted ml-2">
+                                        (visual)
+                                      </small>
+                                    )}
+                                  </div>
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Tracking key"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="nowrap">
+                                {Object.values(e.tags).map((col) => (
+                                  <span
+                                    className="tag badge badge-primary mr-2"
+                                    key={col}
+                                  >
+                                    {col}
+                                  </span>
+                                ))}
+                              </td>
+                              <td className="nowrap">
+                                {getUserDisplay(e.owner, false)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  {Math.ceil(byStatus.archived.length / experimentsPerPage) >
+                    1 && (
+                    <Pagination
+                      numItemsTotal={byStatus.archived.length}
+                      currentPage={currentPage.archived}
+                      perPage={experimentsPerPage}
+                      onPageChange={(d) => {
+                        const tmp = { ...currentPage };
+                        tmp.archived = d;
+                        setCurrentPage(tmp);
+                      }}
+                    />
+                  )}
+                </>
               </Tab>
             )}
           </Tabs>

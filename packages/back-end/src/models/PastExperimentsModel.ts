@@ -20,6 +20,7 @@ const pastExperimentsSchema = new mongoose.Schema({
   ],
   runStarted: Date,
   queries: queriesSchema,
+  error: String,
   dateCreated: Date,
   dateUpdated: Date,
 });

@@ -1,10 +1,11 @@
 import { FC } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import { getValidDate } from "../../services/dates";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -33,11 +34,20 @@ const AnalysisForm: FC<{
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
-      dateStarted: new Date(phaseObj?.dateStarted).toISOString().substr(0, 16),
-      dateEnded: new Date(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      skipPartialData: experiment.skipPartialData ? "strict" : "loose",
+      dateStarted: getValidDate(phaseObj?.dateStarted)
+        .toISOString()
+        .substr(0, 16),
+      dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      variations: experiment.variations || [],
     },
   });
   const { apiCall } = useAuth();
+
+  const variations = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
 
   return (
     <Modal
@@ -46,7 +56,7 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, ...values } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -56,6 +66,7 @@ const AnalysisForm: FC<{
           ...values,
           currentPhase: phase,
           phaseStartDate: dateStarted,
+          skipPartialData: skipPartialData === "strict",
         };
 
         if (experiment.status === "stopped") {
@@ -83,6 +94,31 @@ const AnalysisForm: FC<{
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
       />
+      <div className="form-group">
+        <label className="font-weight-bold">Variation Ids</label>
+        <div className="row align-items-top">
+          {variations.fields.map((v, i) => (
+            <div
+              className={`col-${Math.max(
+                Math.round(12 / variations.fields.length),
+                3
+              )} mb-2`}
+              key={i}
+            >
+              <Field
+                label={v.name}
+                labelClassName="mb-0"
+                containerClassName="mb-1"
+                {...form.register(`variations.${i}.key`)}
+                placeholder={i + ""}
+              />
+            </div>
+          ))}
+        </div>
+        <small className="form-text text-muted">
+          Will match against the variation_id column in your data source
+        </small>
+      </div>
       {datasource?.properties?.userIds && (
         <Field
           label="User Id Column"
@@ -151,6 +187,24 @@ const AnalysisForm: FC<{
             };
           })}
           helpText="Only users in this segment will be included"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Metric Conversion Windows"
+          labelClassName="font-weight-bold"
+          {...form.register("skipPartialData")}
+          options={[
+            {
+              display: "Include In-Progress Conversions",
+              value: "loose",
+            },
+            {
+              display: "Exclude In-Progress Conversions",
+              value: "strict",
+            },
+          ]}
+          helpText="How to treat users who have not had the full time to convert yet"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

@@ -14,6 +14,7 @@ export interface Experiment<T> {
   coverage?: number;
   url?: RegExp;
   include?: () => boolean;
+  namespace?: [string, number, number];
   groups?: string[];
   force?: number;
   hashAttribute?: string;
@@ -22,7 +23,7 @@ export interface Experiment<T> {
 export type ExperimentOverride = Pick<
   // eslint-disable-next-line
   Experiment<any>,
-  "weights" | "status" | "force" | "coverage" | "groups"
+  "weights" | "status" | "force" | "coverage" | "groups" | "namespace"
 > & {
   url?: RegExp | string;
 };

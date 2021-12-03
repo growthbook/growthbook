@@ -5,18 +5,32 @@ import { FaDatabase } from "react-icons/fa";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
+  error?: string;
   display?: string;
   color?: string;
-}> = ({ queries, display = "View Queries", color = "link" }) => {
+  className?: string;
+}> = ({
+  queries,
+  display = "View Queries",
+  color = "link",
+  error,
+  className = "",
+}) => {
   const [open, setOpen] = useState(false);
+
+  if (!className) className = `btn btn-${color}`;
 
   return (
     <>
       {open && queries.length > 0 && (
-        <AsyncQueriesModal close={() => setOpen(false)} queries={queries} />
+        <AsyncQueriesModal
+          close={() => setOpen(false)}
+          queries={queries}
+          error={error}
+        />
       )}
       <button
-        className={clsx("btn", `btn-${color}`, {
+        className={clsx(className, {
           disabled: queries.length === 0,
         })}
         onClick={(e) => {
@@ -25,8 +39,10 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(true);
         }}
       >
-        <FaDatabase /> {display}{" "}
-        {queries.length > 0 ? `(${queries.length})` : ""}
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <FaDatabase />
+        </span>{" "}
+        {display} {queries.length > 0 ? `(${queries.length})` : ""}
       </button>
     </>
   );

@@ -12,21 +12,15 @@ import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
-  ExperimentUsersQueryResponse,
   ImpactEstimationResult,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   PastExperimentResponse,
   SourceIntegrationInterface,
-  UsersQueryParams,
-  UsersQueryResponse,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import {
-  processMetricValueQueryResponse,
-  processUsersQueryResponse,
-} from "../services/queries";
+import { processMetricValueQueryResponse } from "../services/queries";
 
 const percentileNumbers = [
   0.01,
@@ -54,7 +48,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
       encryptedParams
     );
     this.settings = {
-      variationIdFormat: settings.variationIdFormat || "index",
       events: {
         experimentEvent: "$experiment_started",
         experimentIdProperty: "Experiment name",
@@ -65,13 +58,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       },
     };
   }
-  getExperimentUsersQuery(): string {
-    throw new Error("Method not implemented.");
-  }
   getExperimentMetricQuery(): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -306,6 +293,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         metrics: metrics.map((m) => {
           return {
             metric: m.id,
+            users,
             count: m.count,
             mean: m.mean,
             stddev: m.stddev,
@@ -362,13 +350,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
       conversionWindowHours,
     };
 
-    const usersQuery = this.getUsersQuery({
-      ...baseSettings,
-      name: "Traffic - Selected Pages and Segment",
-      urlRegex,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
-    });
     const metricQuery = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Entire Site",
@@ -385,29 +366,20 @@ export default class Mixpanel implements SourceIntegrationInterface {
       segmentName: segment?.name,
     });
 
-    const [
-      usersResponse,
-      metricTotalResponse,
-      valueResponse,
-    ] = await Promise.all([
-      this.runUsersQuery(usersQuery),
+    const [metricTotalResponse, valueResponse] = await Promise.all([
       this.runMetricValueQuery(metricQuery),
       this.runMetricValueQuery(valueQuery),
     ]);
 
-    const users = processUsersQueryResponse(usersResponse);
     const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
     const value = processMetricValueQueryResponse(valueResponse);
 
-    const formatted =
-      [usersQuery, metricQuery, valueQuery]
-        .map((code) => formatQuery(code))
-        .join("\n\n\n") + ";";
+    const formatted = [metricQuery, valueQuery].join("\n\n\n") + ";";
 
-    if (users && metricTotal && value) {
+    if (metricTotal && value) {
       return {
         query: formatted,
-        users: users.users / numDays || 0,
+        users: value.users / numDays || 0,
         value: (value.count * value.mean) / numDays || 0,
         metricTotal: (metricTotal.count * metricTotal.mean) / numDays || 0,
       };
@@ -421,7 +393,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
 
-  getUsersQuery(params: UsersQueryParams): string {
+  getUsersQuery(params: MetricValueParams): string {
     return formatQuery(`
       // ${params.name} - Number of Users
       return ${this.getEvents(params.from, params.to)}
@@ -453,7 +425,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
               const date = (new Date(e.value)).toISOString().substr(0,10);
               dates[date] = (dates[date] || 0) + 1;
             });
-
             return {
               type: "byDate",
               dates: Object.keys(dates).map(d => ({
@@ -473,7 +444,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
 
-    return formatQuery(`
+    return (
+      formatQuery(`
       // ${params.name} - Metric value (${metric.name})
       return ${this.getEvents(params.from, params.to)}
         .filter(function(event) {
@@ -569,15 +541,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }`
               : ""
           }${
-      params.includePercentiles && metric.type !== "binomial"
-        ? `,
+        params.includePercentiles && metric.type !== "binomial"
+          ? `,
           // Percentile breakdown
           mixpanel.reducer.numeric_percentiles(
             "value.metricValue",
             ${JSON.stringify(percentileNumbers.map((n) => n * 100))}
           )`
-        : ""
-    }
+          : ""
+      }
         ])
         // Transform into easy-to-use objects
         .map(vals => vals.map(val => {
@@ -585,9 +557,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(val.count) return {type: "overall", ...val};
           return val;
         }));
-    `);
+        `) +
+      "\n/*USERS_QUERY_BELOW*/\n" +
+      this.getUsersQuery(params)
+    );
   }
-  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
+  async runUsersQuery(query: string): Promise<{ [key: string]: number }> {
     const rows = await runQuery<
       [
         (
@@ -606,23 +581,17 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: UsersQueryResponse = [];
+    const result: { [key: string]: number } = {};
 
     rows &&
       rows[0] &&
       rows[0].forEach((row) => {
         if (row.type === "overall") {
-          result.push({
-            date: "",
-            users: row.users,
-          });
+          result[""] = row.users;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
           row.dates.forEach((d) => {
-            result.push({
-              date: d.date,
-              users: d.users,
-            });
+            result[d.date] = d.users;
           });
         }
       });
@@ -630,6 +599,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return result;
   }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
+    const [metricQuery, usersQuery] = query.split("/*USERS_QUERY_BELOW*/", 2);
+
     const rows = await runQuery<
       [
         (
@@ -657,11 +628,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }
         )[]
       ]
-    >(this.params, query);
+    >(this.params, metricQuery);
+
+    const usersDateMap = await this.runUsersQuery(usersQuery);
 
     const result: MetricValueQueryResponse = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
+      users: 0,
       mean: 0,
       stddev: 0,
       count: 0,
@@ -674,11 +648,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
           overall.count = row.count;
           overall.mean = row.avg;
           overall.stddev = row.stddev;
+          overall.users = usersDateMap[""] || row.count;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
           row.dates.forEach(({ date, count, sum }) => {
             result.push({
               date,
+              users: usersDateMap[date] || count,
               count,
               mean: count > 0 ? sum / count : 0,
               stddev: 0,

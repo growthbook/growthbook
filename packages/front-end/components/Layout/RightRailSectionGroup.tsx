@@ -1,10 +1,20 @@
 import { Children, FC } from "react";
+import styles from "./RightRailSectionGroup.module.scss";
 
 const RightRailSectionGroup: FC<{
   title?: string;
-  type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom";
+  type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom" | "commaList";
   empty?: string;
-}> = ({ children, title = "", type = "custom", empty = "None" }) => {
+  badgeStyle?: string;
+  className?: string;
+}> = ({
+  children,
+  title = "",
+  type = "custom",
+  empty = "None",
+  badgeStyle = "",
+  className = "",
+}) => {
   let hasChildren = type === "onoff" || !!children;
   if (Array.isArray(children)) {
     hasChildren =
@@ -12,19 +22,20 @@ const RightRailSectionGroup: FC<{
   }
 
   return (
-    <div className={"mb-2"}>
-      {title && (
-        <small className="mr-2">
-          <em>{title}:</em>
-        </small>
-      )}
+    <div className={`mb-2 ${className}`}>
+      {title && <span className={`mr-2 ${styles.title}`}>{title}:</span>}
       {hasChildren ? (
         <>
           {type === "badge" &&
             Children.map(children, (child, i) => {
               if (child === null || child === undefined) return "";
               return (
-                <span className="badge badge-secondary mr-2" key={i}>
+                <span
+                  className={`badge ${
+                    badgeStyle === "" ? "badge-primary" : badgeStyle
+                  } mr-2`}
+                  key={i}
+                >
                   {child}
                 </span>
               );
@@ -50,6 +61,17 @@ const RightRailSectionGroup: FC<{
           )}
           {type === "code" && <code className="border p-1">{children}</code>}
           {type === "custom" && children}
+          {type === "commaList" && (
+            <span className="commalist">
+              {Children.map(children, (child, i) => {
+                return (
+                  <span className="font-weight-bold" key={i}>
+                    {child}
+                  </span>
+                );
+              })}
+            </span>
+          )}
         </>
       ) : (
         <em>{empty}</em>

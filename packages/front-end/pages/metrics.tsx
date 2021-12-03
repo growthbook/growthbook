@@ -17,6 +17,9 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
 import { useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
+import { GBAddCircle } from "../components/Icons";
+import Toggle from "../components/Forms/Toggle";
+import useApi from "../hooks/useApi";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -24,14 +27,12 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const {
-    ready,
-    metrics,
-    error,
-    mutateDefinitions,
-    getDatasourceById,
-  } = useDefinitions();
+  const { mutateDefinitions, getDatasourceById } = useDefinitions();
   const router = useRouter();
+
+  const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
+    `/metrics`
+  );
 
   const { permissions } = useContext(UserContext);
 
@@ -39,6 +40,8 @@ const MetricsPage = (): React.ReactElement => {
     field: "name",
     dir: 1,
   });
+  const [showArchived, setShowArchived] = useState(false);
+
   const setSort = (field: string) => {
     if (metricSort.field === field) {
       // switch dir:
@@ -47,22 +50,39 @@ const MetricsPage = (): React.ReactElement => {
       setMetricSort({ field, dir: 1 });
     }
   };
+
   const {
     list: filteredMetrics,
     searchInputProps,
     isFiltered,
-  } = useSearch(metrics || [], ["name", "tags", "type"]);
+  } = useSearch(data?.metrics || [], ["name", "tags", "type"]);
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <div className="alert alert-danger">An error occurred: {error}</div>;
   }
-  if (!ready) {
+  if (!data) {
     return <LoadingOverlay />;
   }
+
+  const metrics = data.metrics;
+
+  const hasArchivedMetrics = filteredMetrics.find(
+    (m) => m.status === "archived"
+  );
+  const showingFilteredMetrics = filteredMetrics.filter((m) => {
+    if (!showArchived) {
+      if (m.status !== "archived") {
+        return m;
+      }
+    } else {
+      return m;
+    }
+  });
 
   const closeModal = (refresh: boolean) => {
     if (refresh) {
       mutateDefinitions({});
+      mutate();
     }
     setModalData(null);
   };
@@ -128,13 +148,13 @@ const MetricsPage = (): React.ReactElement => {
   }
 
   // sort the metrics:
-  const sortedMetrics = filteredMetrics.sort((a, b) => {
+  const sortedMetrics = showingFilteredMetrics.sort((a, b) => {
     const comp1 = a[metricSort.field];
     const comp2 = b[metricSort.field];
     if (typeof comp1 === "string") {
       return comp1.localeCompare(comp2) * metricSort.dir;
     }
-    return comp1 - comp2;
+    return (comp1 - comp2) * metricSort.dir;
   });
 
   return (
@@ -164,6 +184,17 @@ const MetricsPage = (): React.ReactElement => {
             {...searchInputProps}
           />
         </div>
+        {hasArchivedMetrics && (
+          <div className="col-auto text-muted">
+            <Toggle
+              value={showArchived}
+              setValue={setShowArchived}
+              id="show-archived"
+              label="show archived"
+            />
+            Show archived
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         {permissions.createMetrics && !hasFileConfig() && (
           <div className="col-auto">
@@ -176,12 +207,15 @@ const MetricsPage = (): React.ReactElement => {
                 })
               }
             >
-              <FaPlus /> Add Metric
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Metric
             </button>
           </div>
         )}
       </div>
-      <table className="table appbox table-hover">
+      <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
             <th>
@@ -299,6 +333,7 @@ const MetricsPage = (): React.ReactElement => {
                 </span>
               </th>
             )}
+            {showArchived && <th>status</th>}
             {permissions.createMetrics && !hasFileConfig() && <th></th>}
           </tr>
         </thead>
@@ -311,17 +346,24 @@ const MetricsPage = (): React.ReactElement => {
                 router.push("/metric/[mid]", `/metric/${metric.id}`);
               }}
               style={{ cursor: "pointer" }}
+              className={metric.status === "archived" ? "text-muted" : ""}
             >
               <td>
-                <Link href="/metric/[mid]" as={`/metric/${metric.id}`}>
-                  <a className="text-dark">{metric.name}</a>
+                <Link href={`/metric/${metric.id}`}>
+                  <a
+                    className={`${
+                      metric.status === "archived" ? "text-muted" : "text-dark"
+                    } font-weight-bold`}
+                  >
+                    {metric.name}
+                  </a>
                 </Link>
               </td>
               <td>{metric.type}</td>
 
               <td className="nowrap">
                 {Object.values(metric.tags).map((col) => (
-                  <span className="tag badge badge-secondary mr-2" key={col}>
+                  <span className="tag badge badge-primary mr-2" key={col}>
                     {col}
                   </span>
                 ))}
@@ -337,6 +379,11 @@ const MetricsPage = (): React.ReactElement => {
                   className="d-none d-md-table-cell"
                 >
                   {ago(metric.dateUpdated)}
+                </td>
+              )}
+              {showArchived && (
+                <td className="text-muted">
+                  {metric.status === "archived" ? "archived" : "active"}
                 </td>
               )}
               {permissions.createMetrics && !hasFileConfig() && (

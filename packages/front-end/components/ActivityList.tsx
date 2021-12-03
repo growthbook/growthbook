@@ -4,8 +4,8 @@ import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
 import Avatar from "./Avatar";
-import { ago, datetime } from "../services/dates";
-import { phaseSummary } from "../services/utils";
+import { date, datetime } from "../services/dates";
+//import { phaseSummary } from "../services/utils";
 
 const eventActionMapping = {
   "experiment.start": "started experiment",
@@ -36,67 +36,70 @@ const ActivityList: FC<{
   const events = num !== 0 ? data.events.slice(0, num) : data.events;
 
   return (
-    <>
-      {events.map((event) => {
-        let details = null;
-        try {
-          details = JSON.parse(event.details);
-        } catch (e) {
-          // Ignore errors
-          console.error(e);
-        }
+    <div className="">
+      <ul className="list-unstyled simple-divider pl-0 mb-0">
+        {events.map((event) => {
+          // let details = null;
+          // try {
+          //   details = JSON.parse(event.details);
+          // } catch (e) {
+          //   // Ignore errors
+          //   console.error(e);
+          // }
 
-        return (
-          <div key={event.id} className="d-flex mb-3">
-            <div>
-              <Avatar email={event.user.email} className="mr-2" />
-            </div>
-            <Link
-              href="/experiment/[eid]"
-              as={`/experiment/${event.entity.id}`}
-            >
-              <a className="list-group-item list-group-item-action">
-                <div className="d-flex w-100">
-                  <div className="mb-1">
-                    <strong>{event.user.name}</strong>{" "}
-                    {eventActionMapping[event.event] || "modified"}{" "}
-                    <strong>
-                      {nameMap.get(event.entity.id) || event.entity.id}
-                    </strong>
+          return (
+            <li key={event.id} className="media d-flex w-100 hover-highlight">
+              <Link
+                href="/experiment/[eid]"
+                as={`/experiment/${event.entity.id}`}
+              >
+                <a className="no-link-color w-100">
+                  <Avatar
+                    email={event.user.email}
+                    className="mr-2 float-left"
+                    size={24}
+                  />
+                  <div className="d-flex flex-column flex-fill ">
+                    <div className="mb-1">
+                      <strong>{event.user.name}</strong>{" "}
+                      {eventActionMapping[event.event] || "modified"}{" "}
+                      <strong>
+                        {nameMap.get(event.entity.id) || event.entity.id}
+                      </strong>
+                    </div>
+                    <div
+                      className="text-muted"
+                      title={datetime(event.dateCreated)}
+                    >
+                      {date(event.dateCreated)}
+                    </div>
+                    {/*{details &&*/}
+                    {/*  (event.event === "experiment.start" ||*/}
+                    {/*    event.event === "experiment.phase") && (*/}
+                    {/*    <small>{phaseSummary(details)}</small>*/}
+                    {/*  )}*/}
+                    {/*{event.event === "experiment.stop" && (*/}
+                    {/*  <small>*/}
+                    {/*    {details && details.reason && (*/}
+                    {/*      <span className="mr-3">*/}
+                    {/*        <strong>Reason: </strong> {details.reason}*/}
+                    {/*      </span>*/}
+                    {/*    )}*/}
+                    {/*    {details && details.results && (*/}
+                    {/*      <>*/}
+                    {/*        <strong>Result: </strong> {details.results}*/}
+                    {/*      </>*/}
+                    {/*    )}*/}
+                    {/*  </small>*/}
+                    {/*)}*/}
                   </div>
-                  <div style={{ flex: 1 }} />
-                  <div
-                    className="text-muted"
-                    title={datetime(event.dateCreated)}
-                  >
-                    {ago(event.dateCreated)}
-                  </div>
-                </div>
-                {details &&
-                  (event.event === "experiment.start" ||
-                    event.event === "experiment.phase") && (
-                    <small>{phaseSummary(details)}</small>
-                  )}
-                {event.event === "experiment.stop" && (
-                  <small>
-                    {details && details.reason && (
-                      <span className="mr-3">
-                        <strong>Reason: </strong> {details.reason}
-                      </span>
-                    )}
-                    {details && details.results && (
-                      <>
-                        <strong>Result: </strong> {details.results}
-                      </>
-                    )}
-                  </small>
-                )}
-              </a>
-            </Link>
-          </div>
-        );
-      })}
-    </>
+                </a>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 };
 

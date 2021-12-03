@@ -28,7 +28,7 @@ const ResultsIndicator: FC<{
   const color = getColorClass(results);
 
   return (
-    <div className={`d-inline-block align-middle ${color} py-1 px-2 mr-2`}>
+    <div className={`d-inline-block align-middle ${color} py-1 px-3 mr-2`}>
       {displayName[results]}
     </div>
   );

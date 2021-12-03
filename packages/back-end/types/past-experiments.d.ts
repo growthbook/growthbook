@@ -17,6 +17,7 @@ export interface PastExperimentsInterface {
   experiments?: PastExperiment[];
   runStarted: Date | null;
   queries: Queries;
+  error?: string;
   dateCreated: Date;
   dateUpdated: Date;
 }

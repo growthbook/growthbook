@@ -14,6 +14,7 @@ import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
+import MetricsSelector from "../../components/Experiment/MetricsSelector";
 
 export type SettingsApiResponse = {
   status: number;
@@ -76,6 +77,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       logoPath: "",
       primaryColor: "#391c6d",
       secondaryColor: "#50279a",
+      northStar: {
+        //enabled: false,
+        title: "",
+        metricIds: [],
+        //target: [],
+        //window: "",
+        //resolution?: string;
+        //startDate?: Date;
+      },
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
@@ -109,6 +119,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     logoPath: form.watch("logoPath"),
     primaryColor: form.watch("primaryColor"),
     secondaryColor: form.watch("secondaryColor"),
+    northStar: form.watch("northStar"),
   };
   const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
@@ -138,7 +149,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   };
 
   return (
-    <div className="container-fluid mt-3 pagecontents">
+    <div className="container-fluid pagecontents">
       {editOpen && (
         <EditOrganizationForm
           name={data.organization.name}
@@ -184,6 +195,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+        <div className="my-3 bg-white p-3 border">
+          <div className="row">
+            <div className="col-sm-3">
+              <h4>North Star Metrics</h4>
+            </div>
+            <div className="col-sm-9">
+              <p>
+                North stars are metrics your team is focused on improving. These
+                metrics are shown on the home page with the experiments that
+                have the metric as a goal.
+              </p>
+              <div className={"form-group"}>
+                <div className="my-3">
+                  <div className="form-group">
+                    <label>Metric(s)</label>
+                    <MetricsSelector
+                      selected={form.watch("northStar.metricIds")}
+                      onChange={(metrics) =>
+                        form.setValue("northStar.metricIds", metrics)
+                      }
+                    />
+                  </div>
+                  <Field label="Title" {...form.register("northStar.title")} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -322,31 +361,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </div>
           </div>
-          {!hasFileConfig() && (
-            <>
-              <div className="divider border-bottom mb-3 mt-3"></div>
-              <div className="row">
-                <div className="col-12">
-                  <div className=" d-flex flex-row-reverse">
-                    <button
-                      className={`btn btn-${
-                        ctaEnabled ? "primary" : "secondary"
-                      }`}
-                      type="submit"
-                      disabled={!ctaEnabled}
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        if (!ctaEnabled) return;
-                        saveSettings();
-                      }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
+          <div className="divider border-bottom mb-3 mt-3"></div>
+
+          <div className="row">
+            <div className="col-12">
+              <div className=" d-flex flex-row-reverse">
+                <button
+                  className={`btn btn-${ctaEnabled ? "primary" : "secondary"}`}
+                  type="submit"
+                  disabled={!ctaEnabled}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (!ctaEnabled) return;
+                    saveSettings();
+                  }}
+                >
+                  Save
+                </button>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

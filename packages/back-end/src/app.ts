@@ -25,11 +25,13 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getJWTCheck, processJWT } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
+import path from "path";
 
 // Controllers
 import * as authController from "./controllers/auth";
 import * as organizationsController from "./controllers/organizations";
 import * as experimentsController from "./controllers/experiments";
+import * as reportsController from "./controllers/reports";
 import * as ideasController from "./controllers/ideas";
 import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
@@ -64,6 +66,7 @@ wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
 wrapController(slackController);
+wrapController(reportsController);
 
 const app = express();
 
@@ -111,7 +114,25 @@ app.get("/favicon.ico", (req, res) => {
 
 app.use(compression());
 
+let build: { sha: string; date: string };
 app.get("/", (req, res) => {
+  if (!build) {
+    build = {
+      sha: "",
+      date: "",
+    };
+    const rootPath = path.join(__dirname, "..", "..", "..", "buildinfo");
+    if (fs.existsSync(path.join(rootPath, "SHA"))) {
+      build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
+    }
+    if (fs.existsSync(path.join(rootPath, "DATE"))) {
+      build.date = fs
+        .readFileSync(path.join(rootPath, "DATE"))
+        .toString()
+        .trim();
+    }
+  }
+
   res.json({
     name: "GrowthBook API",
     production: process.env.NODE_ENV === "production",
@@ -119,6 +140,7 @@ app.get("/", (req, res) => {
     app_origin: APP_ORIGIN,
     config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
+    build,
   });
 });
 
@@ -228,6 +250,7 @@ if (!IS_CLOUD) {
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
@@ -270,10 +293,6 @@ app.use(
     next();
   }
 );
-
-// Event Tracking
-//app.get("/events", eventsController.getEvents);
-//app.post("/events/sync", eventsController.postEventsSync);
 
 // Logged-in auth requests
 // Managed cloud deployment uses Auth0 instead
@@ -330,6 +349,7 @@ app.delete("/idea/:id", ideasController.deleteIdea);
 app.post("/idea/:id/vote", ideasController.postVote);
 app.post("/ideas/impact", ideasController.getEstimatedImpact);
 app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
+app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
 app.get("/metrics", experimentsController.getMetrics);
@@ -337,6 +357,7 @@ app.post("/metrics", experimentsController.postMetrics);
 app.get("/metric/:id", experimentsController.getMetric);
 app.put("/metric/:id", experimentsController.putMetric);
 app.delete("/metric/:id", experimentsController.deleteMetric);
+app.get("/metric/:id/usage", experimentsController.getMetricUsage);
 app.post("/metric/:id/analysis", experimentsController.postMetricAnalysis);
 app.get(
   "/metric/:id/analysis/status",
@@ -411,6 +432,18 @@ app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
 );
+app.post(
+  "/experiments/report/:snapshot",
+  reportsController.postReportFromSnapshot
+);
+
+// Reports
+app.get("/report/:id", reportsController.getReport);
+app.put("/report/:id", reportsController.putReport);
+app.get("/report/:id/status", reportsController.getReportStatus);
+app.post("/report/:id/refresh", reportsController.refreshReport);
+app.post("/report/:id/cancel", reportsController.cancelReport);
+app.post("/report/:id/notebook", reportsController.postNotebook);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);
@@ -429,14 +462,6 @@ app.delete("/dimensions/:id", dimensionsController.deleteDimension);
 app.post("/projects", projectsController.postProjects);
 app.put("/projects/:id", projectsController.putProject);
 app.delete("/projects/:id", projectsController.deleteProject);
-
-// Reports
-/*
-app.get("/reports", reportsController.getReports);
-app.post("/reports", reportsController.postReports);
-app.get("/report/:id", reportsController.getReport);
-app.put("/report/:id", reportsController.putReport);
-*/
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);

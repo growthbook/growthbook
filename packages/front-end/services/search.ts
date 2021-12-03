@@ -21,9 +21,13 @@ function removeStopWords(terms: string[]): string[] {
   return terms.filter(isNotStopWord);
 }
 
+// eslint-disable-next-line
+export type TransformMapping = { [key: string]: (orig: any) => any };
+
 export function useSearch<T>(
   objects: T[],
-  fields: string[]
+  fields: string[],
+  transform?: TransformMapping
 ): {
   list: T[];
   isFiltered: boolean;
@@ -31,8 +35,8 @@ export function useSearch<T>(
 } {
   const [value, setValue] = useState("");
   const searchIndex = useMemo(() => {
-    return index<T>(objects, fields);
-  }, [objects]);
+    return index<T>(objects, fields, transform);
+  }, [objects, transform]);
 
   const isFiltered = value.length >= 2;
 
@@ -50,19 +54,23 @@ export function useSearch<T>(
   };
 }
 
-export function index<T>(objects: T[], fields: string[]): IndexedObject<T>[] {
+export function index<T>(
+  objects: T[],
+  fields: string[],
+  transform?: TransformMapping
+): IndexedObject<T>[] {
   return objects.map((o) => {
     const indexed: Record<string, string[]> = { all: [] };
     fields.forEach((k) => {
-      let vals: string[];
+      let vals: string[] = [];
 
-      const val = o[k];
+      const val = transform && transform[k] ? transform[k](o[k]) : o[k];
       if (Array.isArray(val)) {
         vals = [];
         val.forEach((v) => {
           vals = vals.concat(removeStopWords(tokenize("" + v)));
         });
-      } else {
+      } else if (val) {
         vals = removeStopWords(tokenize("" + val));
       }
 

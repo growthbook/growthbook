@@ -159,7 +159,7 @@ function App({
     <div className="h-screen dark:bg-gray-800">
       <Head>
         <title>GrowthBook Docs</title>
-        <meta name="robots" content="noindex, nofollow" />
+        <meta name="robots" content="index, follow" />
         <link
           rel="preload"
           href="https://cdn.jsdelivr.net/npm/prism-themes@1.7.0/themes/prism-dracula.css"

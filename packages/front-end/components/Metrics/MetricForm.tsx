@@ -588,7 +588,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
           </div>
           {supportsSQL && (
-            <div className="col-lg bg-light border-left pt-2">
+            <div className="col-lg pt-2">
               {sqlInput ? (
                 <div>
                   Example SQL
@@ -843,7 +843,7 @@ GROUP BY
           {riskError && <div className="text-danger">{riskError}</div>}
           <small className="text-muted">
             Set the threasholds for risk for this metric. This is used when
-            determining metric signigicance, highlighting the risk value as
+            determining metric significance, highlighting the risk value as
             green, yellow, or red.
           </small>
         </div>

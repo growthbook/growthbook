@@ -7,8 +7,34 @@ import { MetricInterface } from "../../types/metric";
 import { getQueryData } from "./queries";
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import { ExperimentReportArgs } from "../../types/report";
+import { getReportById } from "../models/ReportModel";
+import { Queries } from "../../types/query";
+import { reportArgsFromSnapshot } from "./reports";
 
-async function getNotebookObjects(snapshotId: string, organization: string) {
+export async function generateReportNotebook(
+  reportId: string,
+  organization: string
+): Promise<string> {
+  const report = await getReportById(organization, reportId);
+  if (!report) {
+    throw new Error("Could not find report");
+  }
+
+  return generateNotebook(
+    organization,
+    report.queries,
+    report.args,
+    `/report/${report.id}`,
+    report.title,
+    ""
+  );
+}
+
+export async function generateExperimentNotebook(
+  snapshotId: string,
+  organization: string
+): Promise<string> {
   // Get snapshot
   const snapshot = await ExperimentSnapshotModel.findOne({
     id: snapshotId,
@@ -36,13 +62,28 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
     throw new Error("Experiment must use a datasource");
   }
 
-  // Get datasource
-  const datasource = await getDataSourceById(
-    experiment.datasource,
-    organization
+  return generateNotebook(
+    organization,
+    snapshot.queries,
+    reportArgsFromSnapshot(experiment, snapshot),
+    `/experiment/${experiment.id}`,
+    experiment.name,
+    experiment.hypothesis || ""
   );
+}
+
+export async function generateNotebook(
+  organization: string,
+  queryPointers: Queries,
+  args: ExperimentReportArgs,
+  url: string,
+  name: string,
+  description: string
+) {
+  // Get datasource
+  const datasource = await getDataSourceById(args.datasource, organization);
   if (!datasource) {
-    throw new Error("Cannot find snapshot");
+    throw new Error("Cannot find datasource");
   }
   if (!datasource.settings?.notebookRunQuery) {
     throw new Error(
@@ -58,43 +99,18 @@ async function getNotebookObjects(snapshotId: string, organization: string) {
   });
 
   // Get queries
-  const queries = await getQueryData(snapshot.queries, organization);
-
-  return {
-    experiment,
-    snapshot,
-    datasource,
-    metrics: metricMap,
-    queries,
-  };
-}
-
-export async function generateExperimentNotebook(
-  snapshotId: string,
-  organization: string
-): Promise<string> {
-  const {
-    experiment,
-    snapshot,
-    datasource,
-    metrics,
-    queries,
-  } = await getNotebookObjects(snapshotId, organization);
+  const queries = await getQueryData(queryPointers, organization);
 
   const var_id_map: Record<string, number> = {};
-  experiment.variations.forEach((v, i) => {
-    if (datasource.settings?.variationIdFormat === "key" && v.key) {
-      var_id_map[v.key] = i;
-    } else {
-      var_id_map[i + ""] = i;
-    }
+  args.variations.forEach((v, i) => {
+    var_id_map[v.id] = i;
   });
 
   const data = JSON.stringify({
-    metrics: experiment.metrics
+    metrics: args.metrics
       .map((m) => {
         const q = queries.get(m);
-        const metric = metrics.get(m);
+        const metric = metricMap.get(m);
         if (!q || !metric) return null;
         return {
           rows: q.rawResult,
@@ -106,15 +122,13 @@ export async function generateExperimentNotebook(
         };
       })
       .filter(Boolean),
-    url: `${APP_ORIGIN}/experiment/${experiment.id}`,
-    hypothesis: experiment.hypothesis,
-    name: experiment.name,
+    url: `${APP_ORIGIN}${url}`,
+    hypothesis: description,
+    name,
     var_id_map,
-    var_names: experiment.variations.map((v) => v.name),
-    weights: experiment.phases[snapshot.phase].variationWeights,
+    var_names: args.variations.map((v) => v.name),
+    weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
-    users_sql: queries.get("users")?.query || "",
-    user_rows: queries.get("users")?.rawResult || [],
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
@@ -125,7 +139,6 @@ import json
 
 data = json.loads("""${data}""", strict=False)
 
-user_rows=pd.DataFrame(data['user_rows'])
 metrics=[]
 for metric in data['metrics']:
     metrics.append({
@@ -138,7 +151,6 @@ for metric in data['metrics']:
     })
 
 print(create_notebook(
-    user_rows=user_rows,
     metrics=metrics,
     url=data['url'],
     hypothesis=data['hypothesis'],
@@ -146,8 +158,7 @@ print(create_notebook(
     var_id_map=data['var_id_map'],
     var_names=data['var_names'],
     weights=data['weights'],
-    run_query=data['run_query'],
-    users_sql=data['users_sql']
+    run_query=data['run_query']
 ))`,
     {}
   );

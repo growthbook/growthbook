@@ -34,8 +34,8 @@ const DiscussionFeed: FC<{
   }
 
   return (
-    <div className="media mb-3">
-      <ul className="media-body pl-0">
+    <div className="">
+      <ul className="list-unstyled pl-0 mb-0">
         {data.discussions.map((comment, i) => {
           const linkUrl =
             "/" + comment.parentType + "/" + comment.parentId + "#discussions";
@@ -44,28 +44,27 @@ const DiscussionFeed: FC<{
           const name = user ? user.name : comment.userName;
 
           return (
-            <li className="media mb-3" key={i}>
-              <Avatar email={email} className="mr-2" />
-              <div className="media-body">
+            <li className="mb-3" key={i}>
+              <Avatar email={email} className="mr-2 float-left" size={24} />
+              <div
+                className="card cursor-pointer border-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(linkUrl);
+                }}
+              >
+                <div className="">
+                  <strong>{name || email}</strong> commented on{" "}
+                  {comment.parentType}
+                  <div className="text-muted">{date(comment.date)}</div>
+                </div>
                 <div
-                  className="card cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(linkUrl);
-                  }}
+                  className="py-1"
+                  style={{ maxHeight: 200, overflowY: "auto" }}
                 >
-                  <div className="card-header">
-                    <strong>{name || email}</strong> commented on an{" "}
-                    {comment.parentType} on {date(comment.date)}
-                  </div>
-                  <div
-                    className="card-body py-3"
-                    style={{ maxHeight: 200, overflowY: "auto" }}
-                  >
-                    <Markdown className="card-text">
-                      {comment.content || ""}
-                    </Markdown>
-                  </div>
+                  <Markdown className="speech-bubble d-inline-block">
+                    {comment.content || ""}
+                  </Markdown>
                 </div>
               </div>
             </li>

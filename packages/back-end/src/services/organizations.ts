@@ -477,12 +477,7 @@ export async function getExperimentOverrides(organization: string) {
     const groups: string[] = [];
 
     const phase = exp.phases[exp.phases.length - 1];
-    if (
-      phase &&
-      exp.status === "running" &&
-      phase.groups &&
-      phase.groups.length > 0
-    ) {
+    if (phase && phase.groups && phase.groups.length > 0) {
       groups.push(...phase.groups);
     }
 
@@ -503,8 +498,12 @@ export async function getExperimentOverrides(organization: string) {
       override.weights = phase.variationWeights;
     }
 
-    if (exp.status === "stopped" && exp.results === "won") {
-      override.force = exp.winner;
+    if (exp.status === "stopped") {
+      if (exp.results === "won") {
+        override.force = exp.winner;
+      } else {
+        override.force = 0;
+      }
     }
 
     if (exp.status === "running") {

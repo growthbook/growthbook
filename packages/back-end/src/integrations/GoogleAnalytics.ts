@@ -2,12 +2,9 @@ import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
   ImpactEstimationResult,
-  UsersQueryParams,
   MetricValueParams,
-  ExperimentUsersQueryResponse,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
-  UsersQueryResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
 } from "../types/Integration";
@@ -34,6 +31,22 @@ export function getOauth2Client() {
   );
 }
 
+// Transforms YYYYMMDD to ISO format (or empty string)
+function convertDate(rawDate: string): string {
+  if (rawDate.match(/^[0-9]{8}$/)) {
+    return (
+      rawDate.slice(0, 4) +
+      "-" +
+      rawDate.slice(4, 6) +
+      "-" +
+      rawDate.slice(6, 8) +
+      "T12:00:00Z"
+    );
+  }
+
+  return "";
+}
+
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
@@ -47,13 +60,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     );
     this.settings = {};
   }
-  getExperimentUsersQuery(): string {
-    throw new Error("Method not implemented.");
-  }
   getExperimentMetricQuery(): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentUsersQuery(): Promise<ExperimentUsersQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -64,32 +71,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
   runPastExperimentQuery(): Promise<PastExperimentResponse> {
     throw new Error("Method not implemented.");
-  }
-  getUsersQuery(params: UsersQueryParams): string {
-    // TODO: support segments and url regex
-    return JSON.stringify(
-      {
-        viewId: this.params.viewId,
-        dateRanges: [
-          {
-            startDate: params.from.toISOString().substr(0, 10),
-            endDate: params.to.toISOString().substr(0, 10),
-          },
-        ],
-        metrics: [
-          {
-            expression: "ga:users",
-          },
-        ],
-        dimensions: [
-          {
-            name: "ga:date",
-          },
-        ],
-      },
-      null,
-      2
-    );
   }
   getMetricValueQuery(params: MetricValueParams): string {
     // TODO: support segments and url regex
@@ -120,22 +101,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       2
     );
   }
-  async runUsersQuery(query: string): Promise<UsersQueryResponse> {
-    const { rows } = await this.runQuery(query);
-    if (!rows) return [];
-
-    let totalUsers = 0;
-    const correctedRows = rows.map((row) => {
-      const users = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-      totalUsers += users;
-      return {
-        date: (row.dimensions?.[0] || "") + "T12:00:00Z",
-        users,
-      };
-    });
-
-    return [{ date: "", users: totalUsers }, ...correctedRows];
-  }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
     const dates: MetricValueQueryResponse = [];
@@ -153,9 +118,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           metric
         );
       rows.forEach((row) => {
-        const date = (row.dimensions?.[0] || "") + "T12:00:00Z";
+        const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-        const users = parseInt(row.metrics?.[1]?.values?.[0] || "") || 0;
+        const users = parseInt(row.metrics?.[0]?.values?.[1] || "") || 0;
 
         let count: number;
         let mean: number;
@@ -181,6 +146,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
         dates.push({
           date,
+          users,
           count,
           mean,
           stddev,
@@ -315,6 +281,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
           return {
             metric: metric.id,
+            users,
             count: users,
             mean,
             stddev,

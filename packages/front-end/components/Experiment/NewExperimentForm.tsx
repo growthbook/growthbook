@@ -10,7 +10,7 @@ import {
   ImplementationType,
   Variation,
 } from "back-end/types/experiment";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { MdDeleteForever } from "react-icons/md";
 import MetricsSelector from "./MetricsSelector";
 import { useWatching } from "../../services/WatchProvider";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -21,6 +21,8 @@ import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import { getValidDate } from "../../services/dates";
+import { GBAddCircle } from "../Icons";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -77,6 +79,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
+  const [showVariationIds] = useState(false);
 
   const {
     datasources,
@@ -90,12 +93,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? [
         {
           coverage: 1,
-          dateStarted: new Date(
-            initialValue.phases?.[0]?.dateStarted || Date.now()
-          )
+          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
-          dateEnded: new Date(initialValue.phases?.[0]?.dateEnded || Date.now())
+          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
           phase: "main",
@@ -145,9 +146,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
-  const variationKeys =
-    (datasource?.settings?.variationIdFormat ||
-      datasource?.settings?.experiments?.variationFormat) === "key";
 
   const { apiCall } = useAuth();
 
@@ -214,7 +212,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {visualEditorEnabled && !isImport && (
           <div className="form-group">
-            <label>Type</label>
+            <label className="mb-0">Type</label>
             <RadioSelector
               name="implementation"
               value={form.watch("implementation")}
@@ -298,56 +296,64 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       </Page>
       <Page display="Variations">
         <div className="mb-3">
-          <label>Variations</label>
-          <div className="row align-items-center">
+          <div className="row equal">
             {variations.fields.map((v, i) => (
               <div
-                className="col-lg-4 col-md-6 mb-2"
+                className="col-lg-6 col-md-6 mb-2"
                 key={i}
                 style={{ minWidth: 200 }}
               >
-                <div className="border p-2 bg-white">
-                  <div>
+                <div className="graybox">
+                  <div className="row">
+                    <div className={showVariationIds ? "col-8" : "col-12"}>
+                      <Field
+                        label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                        {...form.register(`variations.${i}.name`)}
+                      />
+                    </div>
+                    <div
+                      className={`col-4 ${showVariationIds ? "" : "d-none"}`}
+                    >
+                      <Field
+                        label="Id"
+                        {...form.register(`variations.${i}.key`)}
+                        placeholder={i + ""}
+                      />
+                    </div>
+                  </div>
+                  <Field
+                    label="Description"
+                    {...form.register(`variations.${i}.description`)}
+                  />
+                  <div className="text-right">
                     {!isImport && variations.fields.length > 2 ? (
-                      <button
-                        className="btn btn-outline-danger btn-sm float-right"
+                      <a
+                        className="text-danger cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault();
                           variations.remove(i);
                         }}
                       >
-                        <FaTrash />
-                      </button>
+                        <MdDeleteForever /> Delete
+                      </a>
                     ) : (
                       ""
                     )}
                   </div>
-                  <Field
-                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
-                    {...form.register(`variations.${i}.name`)}
-                  />
-                  {variationKeys && (
-                    <Field
-                      label="Id"
-                      {...form.register(`variations.${i}.key`)}
-                      placeholder={i + ""}
-                    />
-                  )}
-                  <Field
-                    label="Description"
-                    {...form.register(`variations.${i}.description`)}
-                  />
                 </div>
               </div>
             ))}
             {!isImport && (
               <div
-                className="col-lg-4 col-md-6 mb-2 text-center"
+                className="col-lg-6 col-md-6 mb-2 text-center"
                 style={{ minWidth: 200 }}
               >
-                <div className="p-3" style={{ border: "3px dotted #dee2e6" }}>
+                <div
+                  className="p-3 h-100 d-flex align-items-center justify-content-center"
+                  style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
+                >
                   <button
-                    className="btn btn-outline-success"
+                    className="btn btn-outline-primary"
                     onClick={(e) => {
                       e.preventDefault();
                       variations.append({
@@ -358,7 +364,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       });
                     }}
                   >
-                    <FaPlus /> Variation
+                    <span className="h4 pr-2 m-0 d-inline-block">
+                      <GBAddCircle />
+                    </span>{" "}
+                    Add Variation
                   </button>
                 </div>
               </div>

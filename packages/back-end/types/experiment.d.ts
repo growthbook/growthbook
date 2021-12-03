@@ -42,6 +42,8 @@ export type ExperimentPhaseStringDates = Omit<
   dateEnded?: string;
 };
 
+export type ExperimentStatus = "draft" | "running" | "stopped";
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -66,13 +68,13 @@ export interface ExperimentInterface {
   activationMetric?: string;
   segment?: string;
   queryFilter?: string;
-  sqlOverride: Map<string, string>;
+  skipPartialData?: boolean;
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;
   variations: Variation[];
   archived: boolean;
-  status: "draft" | "running" | "stopped";
+  status: ExperimentStatus;
   phases: ExperimentPhase[];
   results?: "dnf" | "won" | "lost" | "inconclusive";
   winner?: number;
