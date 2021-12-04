@@ -40,6 +40,7 @@ const EditProjectForm: FC<{
         onChange={(v) => form.setValue("project", v)}
         options={projects.map((p) => ({ label: p.name, value: p.id }))}
         initialOption="None"
+        autoFocus={true}
       />
     </Modal>
   );

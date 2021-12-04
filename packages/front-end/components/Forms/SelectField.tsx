@@ -26,6 +26,7 @@ const SelectField: FC<
   placeholder = "Select...",
   sort = true,
   disabled,
+  autoFocus,
   ...otherProps
 }) => {
   const [map, sorted] = useMemo(() => {
@@ -132,6 +133,7 @@ const SelectField: FC<
                     padding: "6px 17px",
                   }),
                 }}
+                autoFocus={autoFocus}
                 value={selected}
                 placeholder={initialOption ?? placeholder}
                 menuPosition="fixed"

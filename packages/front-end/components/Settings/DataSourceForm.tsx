@@ -341,6 +341,7 @@ const DataSourceForm: FC<{
         }}
         disabled={existing}
         required
+        autoFocus={true}
         placeholder="Choose Type..."
         options={typeOptions.map((o) => {
           return {

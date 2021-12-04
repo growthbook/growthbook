@@ -41,6 +41,7 @@ const EditDataSourceForm: FC<{
         onChange={(v) => form.setValue("datasource", v)}
         disabled={experiment.status !== "draft"}
         initialOption="Manual"
+        autoFocus={true}
         options={datasources.map((d) => ({ value: d.id, label: d.name }))}
       />
       <Field label="Tracking Key" {...form.register("trackingKey")} />

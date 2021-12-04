@@ -116,6 +116,7 @@ const ImpactModal: FC<{
           value: m.id,
           label: m.name,
         }))}
+        autoFocus={true}
         helpText="Only binomial metrics are supported at this time"
       />
       <Field
