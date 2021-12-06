@@ -61,7 +61,8 @@ const getTooltipData = (
   mx: number,
   width: number,
   datapoints: ExperimentDateGraphDataPoint[],
-  yScale: ScaleLinear<number, number, never>
+  yScale: ScaleLinear<number, number, never>,
+  xScale
 ): TooltipData => {
   const innerWidth =
     width - margin[1] - margin[3] + width / datapoints.length - 1;
@@ -71,8 +72,7 @@ const getTooltipData = (
     0
   );
   const d = datapoints[index];
-  const x =
-    (datapoints.length > 0 ? index / datapoints.length : 0) * innerWidth;
+  const x = xScale(d.d);
   const y = d.variations.map((v) => yScale(v.value) ?? 0);
   return { x, y, d };
 };
@@ -136,8 +136,22 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       {({ width }) => {
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
-        const numXTicks = width > 768 ? 7 : 4;
+        const numXTicks =
+          datapoints.length < 7 ? datapoints.length : width > 768 ? 7 : 4;
         const numYTicks = 5;
+        // we want specific dates where possible.
+        const allXTicks = datapoints.map((p) => p.d.getTime());
+        let specificXTicks = allXTicks;
+        if (allXTicks.length > numXTicks + 2) {
+          // the 2 above is to add some padding - as if we are dealing with low numbers,
+          // the logic below will half the number of ticks. (ie, if its 7, we would show 3 ticks, so show all 7 instead)
+          // we have too many ticks, only display some of them
+          let div = Math.round(specificXTicks.length / numXTicks);
+          if (div === 1) div = 2;
+          specificXTicks = specificXTicks.filter((x, i) => {
+            return i % div === 0;
+          });
+        }
 
         const xScale = scaleTime({
           domain: [min, max],
@@ -154,7 +168,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
-          const data = getTooltipData(containerX, width, datapoints, yScale);
+          const data = getTooltipData(
+            containerX,
+            width,
+            datapoints,
+            yScale,
+            xScale
+          );
           showTooltip({
             tooltipLeft: data.x,
             tooltipTop: Math.min(...data.y),
@@ -226,6 +246,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   scale={xScale}
                   height={yMax}
                   numTicks={numXTicks}
+                  tickValues={allXTicks}
                 />
 
                 {variationNames.map((v, i) => {
@@ -270,6 +291,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
+                  tickValues={specificXTicks}
                 />
                 <AxisLeft
                   scale={yScale}
