@@ -40,7 +40,7 @@ export default class BigQuery extends SqlIntegration {
     return `DATETIME_SUB(${col}, INTERVAL 30 MINUTE)`;
   }
   regexMatch(col: string, regex: string) {
-    return `REGEXP_CONTAINS(${col}, r"${regex}")`;
+    return `REGEXP_CONTAINS(${col}, "${regex}")`;
   }
   percentile(col: string, percentile: number) {
     return `APPROX_QUANTILES(${col}, 100)[OFFSET(${Math.floor(
