@@ -33,6 +33,21 @@ export function getValidDate(
 
   if (!dateStr) return fallback;
 
+  if (typeof dateStr === "string") {
+    // seems like these are often yyyy-mm-dd
+    const parts = dateStr.split("-");
+    if (parts.length > 2) {
+      const d = new Date(
+        parseInt(parts[0]),
+        parseInt(parts[1]) - 1,
+        parseInt(parts[2])
+      );
+      if (!isNaN(d.getTime())) {
+        return d;
+      }
+    }
+  }
+  // using dateStr is unreliable: consider fixing.
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) {
     return fallback;
