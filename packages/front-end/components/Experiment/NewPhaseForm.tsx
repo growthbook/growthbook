@@ -69,6 +69,12 @@ const NewPhaseForm: FC<{
     refreshWatching();
   });
 
+  const maxSplitCols = experiment.variations.length > 2 ? 6 : 3;
+  const splitCols = Math.max(
+    Math.round(12 / experiment.variations.length - 1),
+    maxSplitCols
+  );
+
   return (
     <Modal
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -129,13 +135,7 @@ const NewPhaseForm: FC<{
           <label>Traffic Split</label>
           <div className="row">
             {experiment.variations.map((v, i) => (
-              <div
-                className={`col-${Math.max(
-                  Math.round(12 / experiment.variations.length - 1),
-                  3
-                )} mb-2`}
-                key={i}
-              >
+              <div className={`col-${splitCols} mb-2`} key={i}>
                 <Field
                   type="number"
                   min="0"
