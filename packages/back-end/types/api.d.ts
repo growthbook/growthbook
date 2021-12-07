@@ -9,19 +9,23 @@ export interface ExperimentOverride {
   url?: string;
 }
 
+export interface FeatureDefinitionRule {
+  type?: "force" | "experiment";
+  value?: number;
+  weights?: number[];
+  variations?: number[];
+  hashAttribute?: string;
+  trackingKey?: string;
+  coverage?: number;
+  // eslint-disable-next-line
+  condition?: any;
+}
+
 export interface FeatureDefinition {
   // eslint-disable-next-line
   values: any[];
   defaultValue: number;
-  rules?: {
-    type: "rollout" | "force" | "experiment";
-    weights?: number[];
-    // eslint-disable-next-line
-    condition?: any;
-    value?: number;
-    experiment?: string;
-    variations?: number[];
-  }[];
+  rules?: FeatureDefinitionRule[];
 }
 
 export interface ExperimentOverridesResponse {

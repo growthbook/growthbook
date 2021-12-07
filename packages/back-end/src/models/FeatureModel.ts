@@ -9,34 +9,23 @@ const featureSchema = new mongoose.Schema({
   project: String,
   dateCreated: Date,
   dateUpdated: Date,
-  values: [
-    {
-      _id: false,
-      name: String,
-      value: String,
-      key: String,
-      description: String,
-      screenshots: [
-        {
-          _id: false,
-          path: String,
-          width: Number,
-          height: Number,
-          description: String,
-        },
-      ],
-    },
-  ],
-  defaultValue: Number,
+  valueType: String,
+  defaultValue: String,
   rules: [
     {
       _id: false,
       type: String,
       trackingKey: String,
-      value: Number,
+      value: String,
       userIdType: String,
-      weights: [Number],
-      variations: [Number],
+      rollout: [
+        {
+          _id: false,
+          value: String,
+          weight: Number,
+        },
+      ],
+      variations: [String],
       experiment: String,
     },
   ],

@@ -9,9 +9,11 @@ import {
   ErrorResponse,
   ExperimentOverridesResponse,
   FeatureDefinition,
+  FeatureDefinitionRule,
 } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
 import { getAllFeatures } from "../models/FeatureModel";
+import { FeatureValueType } from "../../types/feature";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -23,6 +25,15 @@ export function canAutoAssignExperiment(
       (v) => (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
     ).length > 0
   );
+}
+
+// eslint-disable-next-line
+function getJSONValue(type: FeatureValueType, value: string): any {
+  if (type === "json") return JSON.parse(value);
+  if (type === "number") return parseFloat(value);
+  if (type === "string") return value;
+  if (type === "boolean") return value === "false" ? false : true;
+  return null;
 }
 
 export async function getExperimentConfig(
@@ -45,16 +56,77 @@ export async function getExperimentConfig(
 
     const features: Record<string, FeatureDefinition> = {};
     flags.forEach((flag) => {
+      const valueMap = new Map<string, number>();
+      valueMap.set(flag.defaultValue, 0);
+      const values: string[] = [
+        getJSONValue(flag.valueType, flag.defaultValue),
+      ];
+      flag.rules?.map((rule) => {
+        if (rule.type === "force") {
+          if (!valueMap.has(rule.value)) {
+            valueMap.set(rule.value, values.length);
+            values.push(getJSONValue(flag.valueType, rule.value));
+          }
+        } else if (rule.type === "rollout") {
+          rule.rollout.forEach((data) => {
+            if (!valueMap.has(data.value)) {
+              valueMap.set(data.value, values.length);
+              values.push(getJSONValue(flag.valueType, data.value));
+            }
+          });
+        } else if (rule.type === "experiment") {
+          rule.variations.forEach((value) => {
+            if (!valueMap.has(value)) {
+              valueMap.set(value, values.length);
+              values.push(getJSONValue(flag.valueType, value));
+            }
+          });
+        }
+      });
+
       features[flag.id] = {
-        defaultValue: flag.defaultValue,
-        values: flag.values.map((v) => JSON.parse(v.value)),
+        defaultValue: valueMap.get(flag.defaultValue) || 0,
+        values: values.map((v) => JSON.parse(v)),
         rules:
           flag.rules
             ?.filter((r) => r.enabled)
             ?.map((r) => {
-              const rule = { ...r };
-              if (rule.condition) {
-                rule.condition = JSON.parse(rule.condition);
+              const rule: FeatureDefinitionRule = {};
+              if (r.condition) {
+                rule.condition = JSON.parse(r.condition);
+              }
+
+              if (r.type === "force") {
+                rule.type = "force";
+                rule.value = valueMap.get(r.value) || 0;
+              } else if (r.type === "rollout") {
+                rule.type = "experiment";
+                rule.variations = r.rollout.map(
+                  (v) => valueMap.get(v.value) || 0
+                );
+
+                const totalWeight = r.rollout.reduce(
+                  (sum, r) => sum + r.weight,
+                  0
+                );
+                let multiplier = 1;
+                if (totalWeight < 1 && totalWeight > 0) {
+                  rule.coverage = totalWeight;
+                  multiplier = 1 / totalWeight;
+                }
+
+                rule.weights = r.rollout.map((v) => v.weight * multiplier);
+                if (r.trackingKey) {
+                  rule.trackingKey = r.trackingKey;
+                }
+                if (r.userIdType === "anonymous") {
+                  rule.hashAttribute = "anonId";
+                }
+              } else if (r.type === "experiment") {
+                rule.type = "experiment";
+                rule.variations = r.variations.map((v) => valueMap.get(v) || 0);
+
+                // TODO: get coverage, weights, trackingKey, hashAttribute from experiment
               }
               return rule;
             }) ?? [],

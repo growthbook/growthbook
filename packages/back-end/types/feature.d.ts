@@ -1,4 +1,6 @@
-import { Screenshot } from "./experiment";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
 export interface FeatureInterface {
   id: string;
@@ -7,8 +9,8 @@ export interface FeatureInterface {
   project?: string;
   dateCreated: Date;
   dateUpdated: Date;
-  values: FeatureValue[];
-  defaultValue: number;
+  valueType: FeatureValueType;
+  defaultValue: string;
   rules?: FeatureRule[];
 }
 
@@ -20,28 +22,25 @@ export interface BaseRule {
 
 export interface ForceRule extends BaseRule {
   type: "force";
-  value: number;
+  value: string;
 }
+
+type RolloutValue = {
+  value: string;
+  weight: number;
+};
 
 export interface RolloutRule extends BaseRule {
   type: "rollout";
   trackingKey: string;
   userIdType?: "user" | "anonymous";
-  weights: number[];
+  rollout: RolloutValue[];
 }
 
 export interface ExperimentRule extends BaseRule {
   type: "experiment";
   experiment: string; // ID of experiment
-  variations: number[];
+  variations: string[];
 }
 
 export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;
-
-export interface FeatureValue {
-  name: string;
-  value: string; // JSON-encoded string
-  key?: string;
-  description?: string;
-  screenshots?: Screenshot[];
-}

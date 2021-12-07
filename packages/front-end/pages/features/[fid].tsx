@@ -1,29 +1,37 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FaCheck } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
-import { FeatureInterface } from "../../../back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureValueType,
+  RolloutValue,
+} from "back-end/types/feature";
 import Code from "../../components/Code";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
+import ValueDisplay from "../../components/Features/ValueDisplay";
 import { GBCircleArrowLeft } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
+import { useState } from "react";
+import FeatureModal from "../../components/Features/FeatureModal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
 
+//const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
+
 function ExperimentSummary({
   exp,
   variations,
-  keys,
+  type,
 }: {
   exp: ExperimentInterfaceStringDates;
-  variations: number[];
-  keys: string[];
+  variations: string[];
+  type: FeatureValueType;
 }) {
   const phase =
     exp.status !== "draft" && exp.phases
@@ -66,7 +74,7 @@ function ExperimentSummary({
             <tr key={j}>
               <td>{exp.variations[j].name}</td>
               <td>
-                <span className="badge badge-primary">{keys[j]}</span>
+                <ValueDisplay value={v} type={type} />
               </td>
               {phase && (
                 <td>{percentFormatter.format(phase.variationWeights[j])}</td>
@@ -79,25 +87,31 @@ function ExperimentSummary({
   );
 }
 
-function ForceSummary({ value, keys }: { value: number; keys: string[] }) {
+function ForceSummary({
+  value,
+  type,
+}: {
+  value: string;
+  type: FeatureValueType;
+}) {
   return (
     <div className="row align-items-center">
       <div className="col-auto">
         <strong>SERVE</strong>
       </div>
       <div className="col">
-        <span className="badge badge-primary">{keys[value]}</span>
+        <ValueDisplay value={value} type={type} />
       </div>
     </div>
   );
 }
 
 function RolloutSummary({
-  weights,
-  keys,
+  rollout,
+  type,
 }: {
-  weights: number[];
-  keys: string[];
+  rollout: RolloutValue[];
+  type: FeatureValueType;
 }) {
   return (
     <div>
@@ -111,12 +125,12 @@ function RolloutSummary({
       </div>
       <table className="table w-auto">
         <tbody>
-          {weights.map((w, j) => (
+          {rollout.map((r, j) => (
             <tr key={j}>
               <td>
-                <span className="badge badge-primary">{keys[j]}</span>
+                <ValueDisplay value={r.value} type={type} />
               </td>
-              <td>{percentFormatter.format(w)}</td>
+              <td>{percentFormatter.format(r.weight)}</td>
             </tr>
           ))}
         </tbody>
@@ -129,7 +143,9 @@ export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
-  const { data, error } = useApi<{
+  const [edit, setEdit] = useState(false);
+
+  const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
@@ -145,10 +161,19 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const keys = data.feature.values.map((v) => v.key);
+  const type = data.feature.valueType;
 
   return (
     <div className="contents container-fluid pagecontents">
+      {edit && (
+        <FeatureModal
+          close={() => setEdit(false)}
+          existing={data.feature}
+          onSuccess={async (feature) => {
+            mutate({ feature, experiments: data.experiments });
+          }}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -159,7 +184,17 @@ export default function FeaturePage() {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <MoreMenu id="feature-more-menu"></MoreMenu>
+          <MoreMenu id="feature-more-menu">
+            <button
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                setEdit(true);
+              }}
+            >
+              edit feature
+            </button>
+          </MoreMenu>
         </div>
       </div>
 
@@ -168,39 +203,10 @@ export default function FeaturePage() {
         <Markdown>{data.feature.description}</Markdown>
       </div>
 
-      <h3>Values</h3>
-      <table className="table appbox gbtable">
-        <thead>
-          <tr>
-            <th style={{ maxWidth: 40 }}>Default</th>
-            <th>Key</th>
-            <th>Description</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.feature.values.map((value, i) => {
-            return (
-              <tr key={i}>
-                <td>
-                  {i === data.feature.defaultValue ? (
-                    <FaCheck className="text-success" />
-                  ) : null}
-                </td>
-                <td>
-                  <span className="badge badge-primary">{value.key}</span>
-                </td>
-                <td>
-                  <Markdown>{value.description}</Markdown>
-                </td>
-                <td>
-                  <Code language="json" code={value.value} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="mb-3">
+        <h3>Default Value</h3>
+        <ValueDisplay value={data.feature.defaultValue} type={type} />
+      </div>
 
       <h3 className="mb-3">Override Rules</h3>
       {data.feature.rules?.map((rule, i) => {
@@ -237,16 +243,16 @@ export default function FeaturePage() {
               </div>
             )}
             {rule.type === "force" && (
-              <ForceSummary value={rule.value} keys={keys} />
+              <ForceSummary value={rule.value} type={type} />
             )}
             {rule.type === "rollout" && (
-              <RolloutSummary weights={rule.weights} keys={keys} />
+              <RolloutSummary rollout={rule.rollout} type={type} />
             )}
             {rule.type === "experiment" && (
               <ExperimentSummary
                 exp={data.experiments[rule.experiment]}
                 variations={rule.variations}
-                keys={keys}
+                type={type}
               />
             )}
           </div>

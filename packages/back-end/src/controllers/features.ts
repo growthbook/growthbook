@@ -15,15 +15,22 @@ export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
   res: Response
 ) {
-  const { id, values, ...otherProps } = req.body;
+  const { id, ...otherProps } = req.body;
   const { org } = getOrgFromReq(req);
 
-  if (!id || !values) {
-    throw new Error("Must specify id and at least one value");
+  if (!id) {
+    throw new Error("Must specify feature key");
+  }
+
+  if (!id.match(/^[a-zA-Z0-9_-]+$/)) {
+    throw new Error(
+      "Feature keys can only include letters, numbers, hyphens, and underscores."
+    );
   }
 
   const feature: FeatureInterface = {
-    defaultValue: 0,
+    defaultValue: "",
+    valueType: "boolean",
     description: "",
     project: "",
     rules: [],
@@ -31,8 +38,7 @@ export async function postFeatures(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
-    id,
-    values,
+    id: id.toLowerCase(),
   };
 
   await createFeature(feature);
@@ -54,9 +60,15 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const { organization, dateUpdated, dateCreated, ...updates } = req.body;
+  const {
+    id: newId,
+    organization,
+    dateUpdated,
+    dateCreated,
+    ...updates
+  } = req.body;
 
-  if (organization || dateUpdated || dateCreated) {
+  if (newId || organization || dateUpdated || dateCreated) {
     throw new Error("Invalid update fields for feature");
   }
 
@@ -66,6 +78,11 @@ export async function putFeature(
   });
 
   res.status(200).json({
+    feature: {
+      ...feature,
+      ...updates,
+      dateUpdated: new Date(),
+    },
     status: 200,
   });
 }

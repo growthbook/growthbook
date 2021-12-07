@@ -46,7 +46,7 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook();
 
 // Load feature definitions (from API, database, etc.)
-fetch("https://s3.amazonaws.com/myBucket/features.json")
+await fetch("https://s3.amazonaws.com/myBucket/features.json")
   .then((res) => res.json())
   .then((parsed) => {
     growthbook.setFeatures(parsed);
@@ -79,7 +79,7 @@ new GrowthBook({
 })
 ```
 
-If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start).
+If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
 
 If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
 
@@ -98,6 +98,7 @@ The following are some comonly used attributes, but use whatever makes sense for
 new GrowthBook({
   attributes: {
     id: "123",
+    environment: "prod",
     loggedIn: true,
     deviceId: "abc123def456",
     company: "acme",
@@ -114,7 +115,7 @@ If you need to set or update attributes asynchronously, you can do so with `setA
 
 ### Tracking Callback
 
-Any time an experiment is run to determine the value of a feature, we can run a callback function so you can record the assigned value in your event tracking or analytics system of choice.
+Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
 
 ```ts
 new GrowthBook({
