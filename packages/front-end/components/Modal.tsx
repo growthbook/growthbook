@@ -36,7 +36,7 @@ const Modal: FC<ModalProps> = ({
   autoCloseOnSubmit = true,
   inline = false,
   overflowAuto = true,
-  autoFocusSelector = "input,textarea,select",
+  autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
 }) => {

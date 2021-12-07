@@ -28,6 +28,7 @@ const TagsInput: FC<{
         return { id: v, name: v };
       })}
       placeholder="Tags..."
+      positionFixed={true}
     />
   );
 };

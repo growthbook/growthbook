@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -41,14 +42,15 @@ const SegmentForm: FC<{
       })}
     >
       <Field label="Name" required {...form.register("name")} />
-      <Field
+      <SelectField
         label="Data Source"
         required
-        {...form.register("datasource")}
-        initialOption="Choose one..."
+        value={form.watch("datasource")}
+        onChange={(v) => form.setValue("datasource", v)}
+        placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          display: d.name,
+          label: d.name,
         }))}
       />
       <Field

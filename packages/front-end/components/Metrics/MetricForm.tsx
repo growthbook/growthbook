@@ -22,6 +22,7 @@ import {
 } from "../../services/metrics";
 import BooleanSelect from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -337,22 +338,18 @@ const MetricForm: FC<MetricFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
-        <div className="form-group">
-          Data Source
-          <select
-            {...form.register("datasource")}
-            name="datasource"
-            className="form-control"
-            disabled={!!current.id}
-          >
-            {(datasources || []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-            <option value="">Manual</option>
-          </select>
-        </div>
+        <SelectField
+          label="Data Source"
+          value={value.datasource || ""}
+          onChange={(v) => form.setValue("datasource", v)}
+          options={(datasources || []).map((d) => ({
+            value: d.id,
+            label: d.name,
+          }))}
+          name="datasource"
+          initialOption="Manual"
+          disabled={!!current.id}
+        />
         <div className="form-group">
           Metric Type
           <RadioSelector

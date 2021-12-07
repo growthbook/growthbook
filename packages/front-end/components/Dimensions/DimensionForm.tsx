@@ -5,6 +5,7 @@ import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -45,12 +46,16 @@ const DimensionForm: FC<{
       })}
     >
       <Field label="Name" required {...form.register("name")} />
-      <Field
+      <SelectField
         label="Data Source"
         required
-        {...form.register("datasource")}
-        initialOption="Choose one..."
-        options={datasources.map((d) => ({ value: d.id, display: d.name }))}
+        value={form.watch("datasource")}
+        onChange={(v) => form.setValue("datasource", v)}
+        placeholder="Choose one..."
+        options={datasources.map((d) => ({
+          value: d.id,
+          label: d.name,
+        }))}
       />
       <Field
         label={dsProps?.events ? "Event Property" : "SQL"}

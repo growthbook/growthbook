@@ -7,6 +7,7 @@ import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const ImpactModal: FC<{
   idea?: IdeaInterface;
@@ -107,13 +108,15 @@ const ImpactModal: FC<{
       cta="Save"
       close={close}
     >
-      <Field
+      <SelectField
         label="Primary Metric"
-        {...form.register("metric")}
+        value={form.watch("metric")}
+        onChange={(v) => form.setValue("metric", v)}
         options={possibleMetrics.map((m) => ({
           value: m.id,
-          display: m.name,
+          label: m.name,
         }))}
+        autoFocus={true}
         helpText="Only binomial metrics are supported at this time"
       />
       <Field
@@ -142,14 +145,15 @@ const ImpactModal: FC<{
         {...form.register("page")}
         helpText="URLs where this experiment will run (regular expression)"
       />
-      <Field
+      <SelectField
         label="User Segment"
         disabled={!possibleSegments?.length}
-        {...form.register("segment")}
+        value={form.watch("segment")}
+        onChange={(v) => form.setValue("segment", v)}
         initialOption="Everyone"
         options={possibleSegments.map((s) => ({
           value: s.id,
-          display: s.name,
+          label: s.name,
         }))}
         helpText={
           !possibleSegments?.length ? (

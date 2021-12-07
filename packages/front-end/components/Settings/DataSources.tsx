@@ -10,16 +10,12 @@ import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
-  type: "redshift",
+  type: "bigquery",
   name: "My Datasource",
   params: {
-    port: 5439,
-    database: "",
-    host: "",
-    password: "",
-    user: "",
-    defaultSchema: "",
-    ssl: "false",
+    clientEmail: "",
+    privateKey: "",
+    projectId: "",
   },
   settings: {},
 };

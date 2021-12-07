@@ -45,6 +45,7 @@
     "react-hook-form": "^7.15.0",
     "react-icons": "^4.2.0",
     "react-paginate": "^8.0.0",
+    "react-select": "^5.2.1",
     "react-syntax-highlighter": "^15.4.3",
     "react-textarea-autosize": "^8.3.2",
     "rich-markdown-editor": "^11.17.2",

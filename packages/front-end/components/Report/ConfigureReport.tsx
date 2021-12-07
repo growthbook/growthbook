@@ -6,6 +6,7 @@ import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { getValidDate } from "../../services/dates";
+import SelectField from "../Forms/SelectField";
 
 export default function ConfigureReport({
   report,
@@ -39,7 +40,7 @@ export default function ConfigureReport({
     .filter((d) => d.datasource === report.args.datasource)
     .map((d) => {
       return {
-        display: d.name,
+        label: d.name,
         value: d.id,
       };
     });
@@ -56,7 +57,7 @@ export default function ConfigureReport({
   if (datasource?.settings?.experimentDimensions?.length > 0) {
     datasource.settings.experimentDimensions.forEach((d) => {
       filteredDimensions.push({
-        display: d,
+        label: d,
         value: "exp:" + d,
       });
     });
@@ -64,7 +65,7 @@ export default function ConfigureReport({
 
   const builtInDimensions = [
     {
-      display: "Date",
+      label: "Date",
       value: "pre:date",
     },
   ];
@@ -73,7 +74,7 @@ export default function ConfigureReport({
     form.watch("activationMetric")
   ) {
     builtInDimensions.push({
-      display: "Activation status",
+      label: "Activation status",
       value: "pre:activation",
     });
   }
@@ -224,41 +225,49 @@ export default function ConfigureReport({
         />
       </div>
       {(filteredDimensions.length > 0 || supportsSql) && (
-        <Field
+        <SelectField
           label="Dimension"
           labelClassName="font-weight-bold"
+          options={[
+            {
+              label: "Built-in",
+              options: builtInDimensions,
+            },
+            {
+              label: "Custom",
+              options: filteredDimensions,
+            },
+          ]}
           initialOption="None"
-          optionGroups={{
-            "Built-in": builtInDimensions,
-            Custom: filteredDimensions,
-          }}
-          {...form.register("dimension")}
+          value={form.watch("dimension")}
+          onChange={(value) => form.setValue("dimension", value || "")}
           helpText="Break down results for each metric by a dimension"
         />
       )}
-
-      <Field
+      <SelectField
         label="Activation Metric"
         labelClassName="font-weight-bold"
-        {...form.register("activationMetric")}
         options={filteredMetrics.map((m) => {
           return {
-            display: m.name,
+            label: m.name,
             value: m.id,
           };
         })}
         initialOption="None"
+        value={form.watch("activationMetric")}
+        onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />
       {datasourceProperties?.experimentSegments && (
-        <Field
+        <SelectField
           label="Segment"
           labelClassName="font-weight-bold"
-          {...form.register("segment")}
+          value={form.watch("segment")}
+          onChange={(value) => form.setValue("segment", value || "")}
           initialOption="None (All Users)"
           options={filteredSegments.map((s) => {
             return {
-              display: s.name,
+              label: s.name,
               value: s.id,
             };
           })}
