@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { Experiment } from "../src/types";
+import { Context, Experiment } from "../src/types";
 
 Object.defineProperty(window, "location", {
   value: {
@@ -8,11 +8,11 @@ Object.defineProperty(window, "location", {
   writable: true,
 });
 
-const mockCallback = (growthbook: GrowthBook) => {
+const mockCallback = (context: Context) => {
   const onExperimentViewed = jest.fn((a) => {
     return a;
   });
-  growthbook.context.trackingCallback = onExperimentViewed;
+  context.trackingCallback = onExperimentViewed;
 
   return onExperimentViewed.mock;
 };
@@ -23,7 +23,8 @@ describe("experiments", () => {
   });
 
   it("defaultWeights", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       key: "my-test",
@@ -32,14 +33,15 @@ describe("experiments", () => {
 
     const expected = [1, 0, 0, 1, 1, 1, 0, 1, 0];
     expected.forEach((v, i) => {
-      growthbook.context.user = { id: i + 1 + "" };
+      context.user = { id: i + 1 + "" };
       expect(growthbook.run(exp).value).toEqual(v);
     });
 
     growthbook.destroy();
   });
   it("uses trackingKey", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       trackingKey: "my-test",
@@ -48,14 +50,15 @@ describe("experiments", () => {
 
     const expected = [1, 0, 0, 1, 1, 1, 0, 1, 0];
     expected.forEach((v, i) => {
-      growthbook.context.user = { id: i + 1 + "" };
+      context.user = { id: i + 1 + "" };
       expect(growthbook.run(exp).value).toEqual(v);
     });
 
     growthbook.destroy();
   });
   it("unevenWeights", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       key: "my-test",
@@ -65,7 +68,7 @@ describe("experiments", () => {
 
     const expected = [1, 1, 0, 1, 1, 1, 0, 1, 1];
     expected.forEach((v, i) => {
-      growthbook.context.user = { id: i + 1 + "" };
+      context.user = { id: i + 1 + "" };
       expect(growthbook.run(exp).value).toEqual(v);
     });
 
@@ -73,7 +76,8 @@ describe("experiments", () => {
   });
 
   it("coverage", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       key: "my-test",
@@ -83,7 +87,7 @@ describe("experiments", () => {
 
     const expected = [-1, 0, 0, -1, 1, -1, 0, 1, -1];
     expected.forEach((v, i) => {
-      growthbook.context.user = { id: i + 1 + "" };
+      context.user = { id: i + 1 + "" };
       const res = growthbook.run(exp);
       const actual = res.inExperiment ? res.value : -1;
       expect(actual).toEqual(v);
@@ -92,7 +96,8 @@ describe("experiments", () => {
     growthbook.destroy();
   });
   it("threeWayTest", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       key: "my-test",
@@ -101,14 +106,15 @@ describe("experiments", () => {
 
     const expected = [2, 0, 0, 2, 1, 2, 0, 1, 0];
     expected.forEach((v, i) => {
-      growthbook.context.user = { id: i + 1 + "" };
+      context.user = { id: i + 1 + "" };
       expect(growthbook.run(exp).value).toEqual(v);
     });
 
     growthbook.destroy();
   });
   it("testName", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
 
     expect(
       growthbook.run({ key: "my-test", variations: [0, 1] }).value
@@ -120,21 +126,23 @@ describe("experiments", () => {
     growthbook.destroy();
   });
   it("missing id", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
 
     const exp: Experiment<number> = {
       key: "my-test",
       variations: [0, 1],
     };
     expect(growthbook.run(exp).inExperiment).toEqual(true);
-    growthbook.context.user = { id: "" };
+    context.user = { id: "" };
     expect(growthbook.run(exp).inExperiment).toEqual(false);
 
     growthbook.destroy();
   });
   it("tracking", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
-    const mock = mockCallback(growthbook);
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
 
     const exp1: Experiment<number> = {
       key: "my-tracked-test",
@@ -149,7 +157,7 @@ describe("experiments", () => {
     growthbook.run(exp1);
     growthbook.run(exp1);
     const res4 = growthbook.run(exp2);
-    growthbook.context.user = { id: "2" };
+    context.user = { id: "2" };
     const res5 = growthbook.run(exp2);
 
     expect(mock.calls.length).toEqual(3);
@@ -161,7 +169,8 @@ describe("experiments", () => {
   });
 
   it("handles weird experiment values", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const spy = jest.spyOn(console, "error").mockImplementation();
 
     expect(
@@ -200,7 +209,7 @@ describe("experiments", () => {
     expect(res2.value).toEqual(0);
 
     // Should fail gracefully
-    growthbook.context.trackingCallback = () => {
+    context.trackingCallback = () => {
       throw new Error("Blah");
     };
     expect(
@@ -222,7 +231,8 @@ describe("experiments", () => {
   it("logs debug message", () => {
     const spy = jest.spyOn(console, "log").mockImplementation();
 
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     growthbook.run({
       key: "my-test",
       variations: [0, 1],
@@ -249,7 +259,8 @@ describe("experiments", () => {
 
   it("uses window.location.href by default", () => {
     window.location.href = "http://example.com/path";
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     expect(
       growthbook.run({
         key: "my-test",
@@ -269,12 +280,13 @@ describe("experiments", () => {
   });
 
   it("force variation", () => {
-    const growthbook = new GrowthBook({ user: { id: "6" } });
+    const context: Context = { user: { id: "6" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = { key: "forced-test", variations: [0, 1] };
     expect(growthbook.run(exp).value).toEqual(0);
 
-    const mock = mockCallback(growthbook);
-    growthbook.context.overrides = {
+    const mock = mockCallback(context);
+    context.overrides = {
       "forced-test": {
         force: 1,
       },
@@ -286,14 +298,15 @@ describe("experiments", () => {
   });
 
   it("uses overrides", () => {
-    const growthbook = new GrowthBook({
+    const context: Context = {
       user: { id: "1" },
       overrides: {
         "my-test": {
           coverage: 0.01,
         },
       },
-    });
+    };
+    const growthbook = new GrowthBook(context);
 
     expect(
       growthbook.run({
@@ -302,7 +315,7 @@ describe("experiments", () => {
       }).inExperiment
     ).toEqual(false);
 
-    growthbook.context.overrides = {
+    context.overrides = {
       "my-test": {
         url: /^\/path/,
       },
@@ -377,7 +390,8 @@ describe("experiments", () => {
   });
 
   it("runs custom include callback", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     expect(
       growthbook.run({
         key: "my-test",
@@ -390,13 +404,12 @@ describe("experiments", () => {
   });
 
   it("supports custom user hash keys", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
     for (let i = 0; i < 10; i++) {
-      growthbook.context = {
-        user: {
-          id: i + "",
-          companyId: "1",
-        },
+      context.user = {
+        id: i + "",
+        companyId: "1",
       };
       const { inExperiment, variationId } = growthbook.run({
         key: "my-test",
@@ -416,8 +429,9 @@ describe("experiments", () => {
   });
 
   it("experiments disabled", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" }, enabled: false });
-    const mock = mockCallback(growthbook);
+    const context: Context = { user: { id: "1" }, enabled: false };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
 
     // Experiment
     expect(
@@ -430,7 +444,8 @@ describe("experiments", () => {
   });
 
   it("querystring force", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "forced-test-qs",
       variations: [0, 1],
@@ -439,7 +454,7 @@ describe("experiments", () => {
     expect(res1.value).toEqual(0);
     expect(res1.inExperiment).toEqual(true);
 
-    growthbook.context.url = "http://example.com?forced-test-qs=1#someanchor";
+    context.url = "http://example.com?forced-test-qs=1#someanchor";
 
     const res2 = growthbook.run(exp);
     expect(res2.value).toEqual(1);
@@ -449,11 +464,12 @@ describe("experiments", () => {
   });
 
   it("querystring force disabled tracking", () => {
-    const growthbook = new GrowthBook({
+    const context: Context = {
       user: { id: "1" },
       url: "http://example.com?forced-test-qs=1",
-    });
-    const mock = mockCallback(growthbook);
+    };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
     const exp: Experiment<number> = {
       key: "forced-test-qs",
       variations: [0, 1],
@@ -465,10 +481,11 @@ describe("experiments", () => {
   });
 
   it("url targeting", () => {
-    const growthbook = new GrowthBook({
+    const context: Context = {
       user: { id: "1" },
       url: "http://example.com",
-    });
+    };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "my-test",
       variations: [0, 1],
@@ -480,7 +497,7 @@ describe("experiments", () => {
       value: 0,
     });
 
-    growthbook.context.url = "http://example.com/post/123";
+    context.url = "http://example.com/post/123";
     expect(growthbook.run(exp)).toMatchObject({
       inExperiment: true,
       value: 1,
@@ -520,7 +537,8 @@ describe("experiments", () => {
   });
 
   it("ignores draft experiments", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "my-test",
       status: "draft",
@@ -528,7 +546,7 @@ describe("experiments", () => {
     };
 
     const res1 = growthbook.run(exp);
-    growthbook.context.url = "http://example.com/?my-test=1";
+    context.url = "http://example.com/?my-test=1";
     const res2 = growthbook.run(exp);
 
     expect(res1.inExperiment).toEqual(false);
@@ -540,7 +558,8 @@ describe("experiments", () => {
   });
 
   it("ignores inactive experiments", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "my-test",
       active: false,
@@ -548,7 +567,7 @@ describe("experiments", () => {
     };
 
     const res1 = growthbook.run(exp);
-    growthbook.context.url = "http://example.com/?my-test=1";
+    context.url = "http://example.com/?my-test=1";
     const res2 = growthbook.run(exp);
 
     expect(res1.inExperiment).toEqual(false);
@@ -560,7 +579,8 @@ describe("experiments", () => {
   });
 
   it("ignores stopped experiments unless forced", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const expLose: Experiment<number> = {
       key: "my-test",
       status: "stopped",
@@ -585,7 +605,8 @@ describe("experiments", () => {
   });
 
   it("destroy removes subscriptions", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     let fired = false;
     growthbook.subscribe(() => {
       fired = true;
@@ -610,7 +631,8 @@ describe("experiments", () => {
   });
 
   it("configData experiment", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<{ color: string; size: string }> = {
       key: "my-test",
       variations: [
@@ -646,7 +668,8 @@ describe("experiments", () => {
   });
 
   it("does even weighting", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
     // Full coverage
     const exp: Experiment<number> = { key: "my-test", variations: [0, 1] };
     let variations: Record<string, number> = {
@@ -655,7 +678,7 @@ describe("experiments", () => {
       "-1": 0,
     };
     for (let i = 0; i < 1000; i++) {
-      growthbook.context.user = { id: i + "" };
+      context.user = { id: i + "" };
       const res = growthbook.run(exp);
       const v = res.inExperiment ? res.value : -1;
       variations[v]++;
@@ -670,7 +693,7 @@ describe("experiments", () => {
       "-1": 0,
     };
     for (let i = 0; i < 10000; i++) {
-      growthbook.context.user = { id: i + "" };
+      context.user = { id: i + "" };
       const res = growthbook.run(exp);
       const v = res.inExperiment ? res.value : -1;
       variations[v]++;
@@ -689,7 +712,7 @@ describe("experiments", () => {
       "-1": 0,
     };
     for (let i = 0; i < 10000; i++) {
-      growthbook.context.user = { id: i + "" };
+      context.user = { id: i + "" };
       const res = growthbook.run(exp);
       const v = res.inExperiment ? res.value : -1;
       variations[v]++;
@@ -705,7 +728,8 @@ describe("experiments", () => {
   });
 
   it("forces variations from the client", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" } });
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "my-test",
       variations: [0, 1],
@@ -714,7 +738,7 @@ describe("experiments", () => {
     expect(res1.inExperiment).toEqual(true);
     expect(res1.value).toEqual(1);
 
-    growthbook.context.forcedVariations = { "my-test": 0 };
+    context.forcedVariations = { "my-test": 0 };
     const res2 = growthbook.run(exp);
     expect(res2.inExperiment).toEqual(false);
     expect(res2.value).toEqual(0);
@@ -723,7 +747,8 @@ describe("experiments", () => {
   });
 
   it("forces all variations to -1 in qa mode", () => {
-    const growthbook = new GrowthBook({ user: { id: "1" }, qaMode: true });
+    const context: Context = { user: { id: "1" }, qaMode: true };
+    const growthbook = new GrowthBook(context);
     const exp: Experiment<number> = {
       key: "my-test",
       variations: [0, 1],
@@ -734,7 +759,7 @@ describe("experiments", () => {
     expect(res1.value).toEqual(0);
 
     // Still works if explicitly forced
-    growthbook.context.forcedVariations = { "my-test": 1 };
+    context.forcedVariations = { "my-test": 1 };
     const res2 = growthbook.run(exp);
     expect(res2.inExperiment).toEqual(false);
     expect(res2.value).toEqual(1);
@@ -814,9 +839,10 @@ describe("experiments", () => {
   });
 
   it("renders when a variation is forced", () => {
-    const growthbook = new GrowthBook({
+    const context: Context = {
       user: { id: "1" },
-    });
+    };
+    const growthbook = new GrowthBook(context);
     let called = false;
     growthbook.setRenderer(() => {
       called = true;
@@ -824,14 +850,15 @@ describe("experiments", () => {
 
     expect(called).toEqual(false);
     growthbook.forceVariation("my-test", 1);
-    expect(growthbook.context.forcedVariations).toEqual({ "my-test": 1 });
+    expect(context.forcedVariations).toEqual({ "my-test": 1 });
     expect(called).toEqual(true);
 
     growthbook.destroy();
   });
 
   it("stores growthbook instance in window", () => {
-    const growthbook = new GrowthBook({});
+    const context: Context = {};
+    const growthbook = new GrowthBook(context);
 
     expect(window._growthbook).toEqual(growthbook);
 
@@ -867,11 +894,12 @@ describe("experiments", () => {
   });
 
   it("does not have bias when using namespaces", () => {
-    const growthbook = new GrowthBook({
+    const context: Context = {
       user: {
         id: "1",
       },
-    });
+    };
+    const growthbook = new GrowthBook(context);
 
     const variations: { [key: string]: number } = {
       "0": 0,
@@ -879,7 +907,7 @@ describe("experiments", () => {
       "-1": 0,
     };
     for (let i = 0; i < 10000; i++) {
-      growthbook.context.user = { id: i + "" };
+      context.user = { id: i + "" };
       const res = growthbook.run({
         key: "my-test",
         variations: ["0", "1"],

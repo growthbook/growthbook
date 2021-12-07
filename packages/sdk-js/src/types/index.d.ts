@@ -1,4 +1,4 @@
-import type { GrowthBook } from ".";
+import type { GrowthBook } from "..";
 
 declare global {
   interface Window {
@@ -20,79 +20,6 @@ interface ExperimentFeatureRule {
   coverage?: number;
   namespace?: [string, number, number];
 }
-
-type OrRule = {
-  $or: RuleSet[];
-};
-type NorRule = {
-  $nor: RuleSet[];
-};
-type AndRule = {
-  $and: RuleSet[];
-};
-type NotRule = {
-  $not: RuleSet;
-};
-type Operator =
-  | "$in"
-  | "$nin"
-  | "$gt"
-  | "$gte"
-  | "$lt"
-  | "$lte"
-  | "$regex"
-  | "$ne"
-  | "$eq"
-  | "$size"
-  | "$elemMatch"
-  | "$all"
-  | "$not"
-  | "$type"
-  | "$exists";
-type VarType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "array"
-  | "object"
-  | "null"
-  | "undefined";
-type OperatorRule = {
-  $in?: (string | number)[];
-  $nin?: (string | number)[];
-  $gt?: number | string;
-  $gte?: number | string;
-  $lt?: number | string;
-  $lte?: number | string;
-  $regex?: string;
-  $ne?: number | string;
-  $eq?: number | string;
-  $exists?: boolean;
-  $all?: RuleValue[];
-  $size?: number | RuleValue;
-  $type?: VarType;
-  $elemMatch?: RuleSet | OperatorRule;
-  $not?: RuleValue;
-};
-
-type RuleValue =
-  | OperatorRule
-  | string
-  | number
-  | boolean
-  // eslint-disable-next-line
-  | Array<any>
-  // eslint-disable-next-line
-  | Record<string, any>;
-
-type OperatorRuleSet = {
-  [key: string]: RuleValue;
-};
-
-type RuleSet = OrRule | NorRule | AndRule | NotRule | OperatorRuleSet;
-
-// eslint-disable-next-line
-type TestedObj = Record<string, any>;
 
 type FeatureRule = { condition?: RuleSet } & (
   | ForceFeatureRule
@@ -184,7 +111,9 @@ interface Context {
   groups?: Record<string, boolean>;
   url?: string;
   overrides?: Record<string, ExperimentOverride>;
-  features?: Record<string, FeatureDefinition>;
+  features?:
+    | Record<string, FeatureDefinition>
+    | Promise<Record<string, FeatureDefinition>>;
   forcedVariations?: Record<string, number>;
   qaMode?: boolean;
   // eslint-disable-next-line

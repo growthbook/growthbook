@@ -1,19 +1,19 @@
-import { Rule } from "../src/mongrule";
+import { Condition } from "../src/mongrule";
 
-describe("rule", () => {
+describe("condition", () => {
   it("supports $not", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       $not: {
         name: "hello",
       },
     });
 
-    expect(rule.test({ name: "hello" })).toEqual(false);
-    expect(rule.test({ name: "world" })).toEqual(true);
+    expect(condition.test({ name: "hello" })).toEqual(false);
+    expect(condition.test({ name: "world" })).toEqual(true);
   });
 
   it("supports $and and $or", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       $and: [
         {
           "father.age": { $gt: 65 },
@@ -26,7 +26,7 @@ describe("rule", () => {
 
     // All true
     expect(
-      rule.test({
+      condition.test({
         name: "santa",
         bday: "1980-12-25",
         father: {
@@ -37,7 +37,7 @@ describe("rule", () => {
 
     // First and condition false
     expect(
-      rule.test({
+      condition.test({
         name: "santa",
         bday: "1980-12-25",
         father: {
@@ -48,7 +48,7 @@ describe("rule", () => {
 
     // First or condition false
     expect(
-      rule.test({
+      condition.test({
         name: "santa",
         bday: "1980-12-20",
         father: {
@@ -59,7 +59,7 @@ describe("rule", () => {
 
     // Second or condition false
     expect(
-      rule.test({
+      condition.test({
         name: "barbara",
         bday: "1980-12-25",
         father: {
@@ -70,7 +70,7 @@ describe("rule", () => {
 
     // Both or conditions false
     expect(
-      rule.test({
+      condition.test({
         name: "barbara",
         bday: "1980-11-25",
         father: {
@@ -81,7 +81,7 @@ describe("rule", () => {
 
     // All false
     expect(
-      rule.test({
+      condition.test({
         name: "john smith",
         bday: "1956-12-20",
         father: {
@@ -92,33 +92,33 @@ describe("rule", () => {
   });
 
   it("supports $exists operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       "pets.dog.name": {
         $exists: false,
       },
     });
 
-    expect(rule.test({ hello: "world" })).toEqual(true);
-    expect(rule.test({ pets: { dog: { name: "fido" } } })).toEqual(false);
+    expect(condition.test({ hello: "world" })).toEqual(true);
+    expect(condition.test({ pets: { dog: { name: "fido" } } })).toEqual(false);
 
-    const rule2 = new Rule({
+    const condition2 = new Condition({
       "pets.dog.name": {
         $exists: true,
       },
     });
-    expect(rule2.test({ hello: "world" })).toEqual(false);
-    expect(rule2.test({ pets: { dog: { name: "fido" } } })).toEqual(true);
+    expect(condition2.test({ hello: "world" })).toEqual(false);
+    expect(condition2.test({ pets: { dog: { name: "fido" } } })).toEqual(true);
   });
 
   it("supports multiple data types for equals", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       str: "str",
       num: 10,
       flag: false,
     });
 
     expect(
-      rule.test({
+      condition.test({
         str: "str",
         num: 10,
         flag: false,
@@ -127,7 +127,7 @@ describe("rule", () => {
   });
 
   it("supports $eq, $ne, and $regex operators", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       occupation: {
         $eq: "engineer",
       },
@@ -140,7 +140,7 @@ describe("rule", () => {
     });
 
     expect(
-      rule.test({
+      condition.test({
         occupation: "engineer",
         level: "junior",
         userAgent: "Android Tablet Browser",
@@ -148,7 +148,7 @@ describe("rule", () => {
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         occupation: "civil engineer",
         level: "junior",
         userAgent: "Android Tablet Browser",
@@ -156,7 +156,7 @@ describe("rule", () => {
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         occupation: "engineer",
         level: "senior",
         userAgent: "Android Tablet Browser",
@@ -164,7 +164,7 @@ describe("rule", () => {
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         occupation: "engineer",
         level: "junior",
         userAgent: "Mozilla Desktop Browser",
@@ -173,7 +173,7 @@ describe("rule", () => {
   });
 
   it("supports $gt, $gte, $lt, and $lte operators for numbers", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       age: {
         $gt: 30,
         $lt: 60,
@@ -185,63 +185,63 @@ describe("rule", () => {
     });
 
     expect(
-      rule.test({
+      condition.test({
         age: 50,
         weight: 100,
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         age: 30,
         weight: 100,
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         age: 29,
         weight: 100,
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         age: 60,
         weight: 100,
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         age: 61,
         weight: 100,
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         age: 31,
         weight: 150,
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         age: 31,
         weight: 200,
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         age: 31,
         weight: 201,
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         age: 31,
         weight: 99,
       })
@@ -249,7 +249,7 @@ describe("rule", () => {
   });
 
   it("supports $gt, $lt operators for strings", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       word: {
         $gt: "alphabet",
         $lt: "zebra",
@@ -257,105 +257,105 @@ describe("rule", () => {
     });
 
     expect(
-      rule.test({
+      condition.test({
         word: "alphabet",
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         word: "zebra",
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         word: "always",
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         word: "yoga",
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         word: "ABC",
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         word: "AZL",
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         word: "ZAL",
       })
     ).toEqual(false);
   });
 
   it("supports $in operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       num: {
         $in: [1, 2, 3],
       },
     });
-    expect(rule.test({ num: 2 })).toEqual(true);
-    expect(rule.test({ num: 4 })).toEqual(false);
+    expect(condition.test({ num: 2 })).toEqual(true);
+    expect(condition.test({ num: 4 })).toEqual(false);
   });
 
   it("supports $nin operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       num: {
         $nin: [1, 2, 3],
       },
     });
-    expect(rule.test({ num: 2 })).toEqual(false);
-    expect(rule.test({ num: 4 })).toEqual(true);
+    expect(condition.test({ num: 2 })).toEqual(false);
+    expect(condition.test({ num: 4 })).toEqual(true);
   });
 
   it("supports $size operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       tags: {
         $size: 3,
       },
     });
-    expect(rule.test({ tags: ["a", "b"] })).toEqual(false);
-    expect(rule.test({ tags: ["a", "b", "c"] })).toEqual(true);
-    expect(rule.test({ tags: ["a", "b", "c", "d"] })).toEqual(false);
-    expect(rule.test({ tags: "abcd" })).toEqual(false);
+    expect(condition.test({ tags: ["a", "b"] })).toEqual(false);
+    expect(condition.test({ tags: ["a", "b", "c"] })).toEqual(true);
+    expect(condition.test({ tags: ["a", "b", "c", "d"] })).toEqual(false);
+    expect(condition.test({ tags: "abcd" })).toEqual(false);
 
-    const rule2 = new Rule({
+    const condition2 = new Condition({
       tags: {
         $size: {
           $gt: 2,
         },
       },
     });
-    expect(rule2.test({ tags: ["a", "b"] })).toEqual(false);
-    expect(rule2.test({ tags: ["a", "b", "c"] })).toEqual(true);
-    expect(rule2.test({ tags: ["a", "b", "c", "d"] })).toEqual(true);
+    expect(condition2.test({ tags: ["a", "b"] })).toEqual(false);
+    expect(condition2.test({ tags: ["a", "b", "c"] })).toEqual(true);
+    expect(condition2.test({ tags: ["a", "b", "c", "d"] })).toEqual(true);
   });
 
   it("supports $elemMatch operator for flat arrays", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       nums: {
         $elemMatch: {
           $gt: 10,
         },
       },
     });
-    expect(rule.test({ nums: [0, 5, -20, 15] })).toEqual(true);
-    expect(rule.test({ nums: [0, 5, -20, 8] })).toEqual(false);
+    expect(condition.test({ nums: [0, 5, -20, 15] })).toEqual(true);
+    expect(condition.test({ nums: [0, 5, -20, 8] })).toEqual(false);
   });
 
   it("supports $elemMatch operator for nested objects", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       hobbies: {
         $elemMatch: {
           name: {
@@ -366,7 +366,7 @@ describe("rule", () => {
     });
 
     expect(
-      rule.test({
+      condition.test({
         hobbies: [
           {
             name: "bowling",
@@ -382,7 +382,7 @@ describe("rule", () => {
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         hobbies: [
           {
             name: "bowling",
@@ -395,7 +395,7 @@ describe("rule", () => {
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         hobbies: "all",
       })
     ).toEqual(false);
@@ -413,32 +413,32 @@ describe("rule", () => {
     };
 
     for (const k of Object.keys(types)) {
-      const rule = new Rule({
+      const condition = new Condition({
         a: {
           $type: k,
         },
       });
       for (const [k2, v2] of Object.entries(types)) {
-        expect(rule.test({ a: v2 })).toEqual(k2 === k);
+        expect(condition.test({ a: v2 })).toEqual(k2 === k);
       }
     }
   });
 
   it("returns false for unknown $types", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       a: {
         $type: "string",
       },
     });
     expect(
-      rule.test({
+      condition.test({
         a: Symbol(),
       })
     ).toEqual(false);
   });
 
   it("supports $not as an operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       name: {
         $not: {
           $regex: "^hello",
@@ -447,46 +447,46 @@ describe("rule", () => {
     });
 
     expect(
-      rule.test({
+      condition.test({
         name: "world",
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         name: "hello world",
       })
     ).toEqual(false);
   });
 
   it("supports $all operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       tags: {
         $all: ["one", "three"],
       },
     });
 
     expect(
-      rule.test({
+      condition.test({
         tags: "hello",
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         tags: ["one", "two", "three"],
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         tags: ["one", "two", "four"],
       })
     ).toEqual(false);
   });
 
   it("supports $nor operator", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       $nor: [
         {
           name: "john",
@@ -498,87 +498,87 @@ describe("rule", () => {
         },
       ],
     });
-    expect(rule.test({ name: "john", age: 20 })).toEqual(false);
-    expect(rule.test({ name: "john", age: 40 })).toEqual(false);
-    expect(rule.test({ name: "jim", age: 20 })).toEqual(false);
-    expect(rule.test({ name: "jim", age: 40 })).toEqual(true);
+    expect(condition.test({ name: "john", age: 20 })).toEqual(false);
+    expect(condition.test({ name: "john", age: 40 })).toEqual(false);
+    expect(condition.test({ name: "jim", age: 20 })).toEqual(false);
+    expect(condition.test({ name: "jim", age: 40 })).toEqual(true);
   });
 
   it("compares arrays directly", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       tags: ["hello", "world"],
     });
 
     expect(
-      rule.test({
+      condition.test({
         tags: ["hello", "world"],
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         tags: ["world", "hello"],
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         tags: "yes",
       })
     ).toEqual(false);
   });
 
   it("compares objects directly", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       tags: { hello: "world" },
     });
 
     expect(
-      rule.test({
+      condition.test({
         tags: { hello: "world" },
       })
     ).toEqual(true);
 
     expect(
-      rule.test({
+      condition.test({
         tags: { hello: "world", yes: "please" },
       })
     ).toEqual(false);
 
     expect(
-      rule.test({
+      condition.test({
         tags: "hello world",
       })
     ).toEqual(false);
   });
 
   it("returns false on missing source properties", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       "pets.dog.name": {
         $in: ["fido"],
       },
     });
 
-    expect(rule.test({ hello: "world" })).toEqual(false);
+    expect(condition.test({ hello: "world" })).toEqual(false);
   });
 
   it("returns true on empty $or condition", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       $or: [],
     });
-    expect(rule.test({ hello: "world" })).toEqual(true);
+    expect(condition.test({ hello: "world" })).toEqual(true);
   });
 
   it("returns true on empty $and condition", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       $and: [],
     });
-    expect(rule.test({ hello: "world" })).toEqual(true);
+    expect(condition.test({ hello: "world" })).toEqual(true);
   });
 
-  it("returns true on empty ruleset", () => {
-    const rule = new Rule({});
-    expect(rule.test({ hello: "world" })).toEqual(true);
+  it("returns true on empty conditionset", () => {
+    const condition = new Condition({});
+    expect(condition.test({ hello: "world" })).toEqual(true);
   });
 
   it("returns false on unknown operator", () => {
@@ -590,20 +590,20 @@ describe("rule", () => {
     };
     const consoleErrorMock = jest.spyOn(console, "error").mockImplementation();
 
-    const rule = new Rule(r);
-    expect(rule.test({ name: "hello" })).toEqual(false);
+    const condition = new Condition(r);
+    expect(condition.test({ name: "hello" })).toEqual(false);
     expect(consoleErrorMock).toHaveBeenCalledTimes(1);
 
     consoleErrorMock.mockRestore();
   });
 
   it("returns false for invalid regex", () => {
-    const rule = new Rule({
+    const condition = new Condition({
       name: {
         $regex: "/???***[)",
       },
     });
-    expect(rule.test({ name: "hello" })).toEqual(false);
-    expect(rule.test({ hello: "hello" })).toEqual(false);
+    expect(condition.test({ name: "hello" })).toEqual(false);
+    expect(condition.test({ hello: "hello" })).toEqual(false);
   });
 });

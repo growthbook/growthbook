@@ -1,20 +1,20 @@
 # GrowthBook Javascript Client Library
 
-Powerful feature flagging and A/B testing for Javascript.
+[GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.75KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+This particular library is for using feature flags and experiments within a Javascript application.
+
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.89KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
 - Supports both **browsers and nodejs**
-- All targeting and assignment happens locally, **no HTTP requests**
+- Local targeting and evaluation, **no HTTP requests**
 - **No flickering** when running A/B tests
 - Written in **Typescript** with 100% test coverage
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to adjust targeting and weights without deploying new code
-
-**Note**: This library is just for bucketing and variation assignment. To manage your experiments/features and analyze the resulting data, use the GrowthBook App (https://github.com/growthbook/growthbook).
 
 ## Installation
 
@@ -25,7 +25,7 @@ yarn add @growthbook/growthbook
 or
 
 ```
-npm install --save @growthbook/growthbook
+npm i --save @growthbook/growthbook
 ```
 
 or use directly in your HTML without installing first:
@@ -44,17 +44,19 @@ import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook context
 const growthbook = new GrowthBook({
-  // Optional path to a JSON file with remote configuration data
-  configEndpoint: "https://cdn.growthbook.io/config/key_abc123",
+  // Feature definitions (can pull from API, database, or just hard-code a JSON object)
+  features: fetch(
+    "https://s3.amazonaws.com/myBucket/features.json"
+  ).then((res) => res.json()),
 
-  // User attributes for targeting and variation assignment
+  // Attributes for targeting and variation assignment
   attributes: {
     id: "123",
     isPremium: true,
     country: "US",
   },
 
-  // Called when a user is put into an experiment
+  // Called whenever a user is put into an experiment
   trackingCallback: (experiment, result) => {
     analytics.track("Experiment Viewed", {
       experimentId: experiment.trackingKey,
@@ -63,30 +65,30 @@ const growthbook = new GrowthBook({
   },
 });
 
-// Wait for the `configEndpoint` JSON file to load (optional)
+// Wait for the `features` Promise to resolve (optional)
 await growthbook.ready();
 
-// Simple boolean on/off flag
+// Simple on/off feature flag
 if (growthbook.feature("my-feature").on) {
   console.log("Feature enabled!");
 }
 
-// Multi-variate or string/JSON values
+// Feature with multiple possible values
 const color = growthbook.feature("button-color").value || "blue";
 ```
 
-The return value of `growthbook.feature(key)` is an object with a few properties:
+The return value of `growthbook.feature()` is an object with a few properties:
 
-- **value** - the JSON value of the feature
-- **source** - why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
-- **on** and **off** which are simply the JSON value cast to booleans
-- **tracked** - true if an experiment was used to determine the value and your trackingCallback was called
+- **value** - The JSON value of the feature
+- **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
+- **on** and **off** - The JSON value cast to booleans (to make your code easier to read)
+- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 
 ## Feature Definitions
 
-Each feature consist of a unique key, a list of possible values, and rules for how to assign values to users. These definitions live in a single JSON object and there are two ways to load this JSON into the context.
+The `features` context setting either takes a JSON object or a Promise that resolves to a JSON object.
 
-You can use the `configEndpoint` setting to automatically fetch the JSON contents from a remote URL and deal with caching. When doing this, you'll need to wait before using features. If you don't wait, no errors will be thrown, you just may get back `null` for all feature checks until the JSON is loaded.
+If you pass a Promise, all features will evaluate to `null` until the Promise resolves. If you want to avoid flickering, you can wait until the context is ready:
 
 ```ts
 // Async/await
@@ -98,21 +100,11 @@ growthbook.ready(() => {
 });
 ```
 
-If you want to avoid HTTP requests and dealing with asynchronous code, you can pass the JSON directly into the context instead with the `features` setting:
+Each feature consists of a unique key, a list of possible values, and rules for how to assign values to users.
 
-```js
-// Same JSON format as the configEndpoint
-const jsonValue = {...}
-const growthbook = new GrowthBook({
-  features: jsonValue,
-  ...
-})
+The GrowthBook App auto-generates this JSON file for you, so if you are using that you can **stop reading now**.
 
-// No need for await or callbacks
-// You can use features immediately
-```
-
-If you are using the GrowthBook App to generate the features JSON, you can **stop reading now**. Everything below is for people who want to define the features JSON manually or want to understand what's going on under the hood.
+If you prefer to build this file by hand or you want to know how it works under the hood, keep reading.
 
 ### Basic Feature
 
@@ -124,7 +116,7 @@ An empty feature has two possible values (`false` and `true`) and everyone gets 
 }
 ```
 
-You can set your own possible values with the `values` property. You can have as many values as you want and they can be whatever data type you want - booleans, strings, arrays, objects.
+You can set your own possible values with the `values` property. You can have as many values as you want and they can be whatever data type you want - booleans, strings, numbers, arrays, or objects.
 
 ```js
 // Everyone gets assigned "blue" (array index 0)
@@ -147,42 +139,61 @@ You can change the default assigned value with the `defaultValue` property, whic
 }
 ```
 
-### Feature Rules
+### Override Rules
 
 You can override the default value with **rules**.
 
-Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`.
+Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
 
-Each rule can also define targeting conditions that limit which users it applies to. We use the **mongrule** library for defining rules which is really simple and based on MongoDB query syntax.
+#### Rule Conditions
 
-Here's an example targeting condition that limits a rule to firefox users in the US or Canada:
+Rules can optionally define targeting conditions that limit which users the rule applies to. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
 
-```js
+For example, if the attributes are:
+
+```json
 {
-  browser: "firefox",
-  country: {
-    $in: ["US", "CA"]
+  "id": "123",
+  "browser": {
+    "vendor": "firefox",
+    "version": 94
+  },
+  "country": "US"
+}
+```
+
+The following condition would evaluate to `true`:
+
+```json
+{
+  "browser.vendor": "firefox",
+  "country": {
+    "$in": ["US", "CA"]
   }
 }
 ```
 
-The first rule with matching targeting conditions will be used. That means you can chain rules together to achieve really complex use cases.
+If a condition evaluates to `false`, the rule will be skipped. This means you can chain rules together with different conditions to support even the most complex use cases.
 
 #### Force Rules
 
 Force rules do what you'd expect - force everyone to get assigned a specific value. This is only really useful when combined with targeting conditions.
 
 ```js
-// Paid users get "green" (index 1), everyone else gets "blue" (index 0)
+// Firefox users in the US or Canada get "green" (index 1)
+// Everyone else gets the default "blue" (index 0)
 {
   "button-color": {
     values: ["blue", "green"],
     rules: [
       {
-        condition: {
-          plan: {$ne: "free"} // $ne is "not equals"
-        },
         type: "force",
+        condition: {
+          browser: "firefox",
+          country: {
+            $in: ["US", "CA"]
+          }
+        },
         value: 1
       }
     ],
@@ -196,7 +207,7 @@ Force rules do what you'd expect - force everyone to get assigned a specific val
 Experiment rules let you adjust the percent of users who get randomly assigned to each variation. This can either be used for hypothesis-driven A/B tests or to simply mitigate risk by gradually rolling out new features to your users.
 
 ```js
-// Each value gets assigned to a random 33.33% of users
+// Each value gets assigned to a random 1/3rd of users
 {
   "image-size": {
     values: ["small", "medium", "large"],
@@ -209,12 +220,14 @@ Experiment rules let you adjust the percent of users who get randomly assigned t
 }
 ```
 
+##### Variations
+
 By default, all possible values are included in the experiment in the order they are defined. You can limit an experiment to a subset of values or change the ordering with the `variations` setting:
 
 ```js
-// The first variation is "large" (2) and will get 50% of users
-// The second variation is "small" (0) and will get the other 50%
-// The value "medium" is not part of the experiment at all
+// The first variation is "large" (index 2) and will get 50% of users
+// The second variation is "small" (index 0) and will get the other 50%
+// The value "medium" (index 1) will not be part of the experiment at all
 {
   "image-size": {
     values: ["small", "medium", "large"],
@@ -228,6 +241,8 @@ By default, all possible values are included in the experiment in the order they
 }
 ```
 
+##### Weights
+
 You can use the `weights` setting to control what percent of users get assigned to each variation. Weights determine the traffic split between variations and must add to 1.
 
 ```js
@@ -237,9 +252,9 @@ You can use the `weights` setting to control what percent of users get assigned 
     rules: [
       {
         type: "experiment",
-        // 50% of users will get variation 0 ("small")
-        // 30% will get variation 1 ("medium")
-        // 20% will get variation 2 ("large")
+        // 50% of users will get "small" (index 0)
+        // 30% will get "medium" (index 1)
+        // 20% will get "large" (index 2)
         weights: [0.5, 0.3, 0.2]
       }
     ]
@@ -247,61 +262,111 @@ You can use the `weights` setting to control what percent of users get assigned 
 }
 ```
 
+##### Tracking Key
+
 When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `trackingKey` setting:
 
 ```js
 {
-  type: "experiment",
-  trackingKey: "my-experiment"
+  "feature-1": {
+    values: ["A", "B"],
+    rules: [
+      {
+        // Use "my-experiment" as the trackingKey instead of "feature-1"
+        type: "experiment",
+        trackingKey: "my-experiment"
+      }
+    ]
+  },
 }
 ```
+
+##### Hash Attribute
 
 We use deterministic hashing to make sure the same user always gets assigned the same value. By default, we use the attribute `id`, but this can be overridden with the `hashAttribute` setting:
 
 ```js
-{
-  type: "experiment",
-  hashAttribute: "device_id"
-}
+const growthbook = new GrowthBook({
+  attributes: {
+    id: "123",
+    company: "acme",
+  },
+  features: {
+    "my-feature": {
+      values: ["A", "B"],
+      rules: [
+        // All users with the same "company" value
+        // will be assigned the same variation
+        {
+          type: "experiment",
+          hashAttribute: "company",
+        },
+        // If "company" is empty for the user (e.g. if they are logged out)
+        // The experiment will be skipped and fall through to the next rule
+        {
+          type: "force",
+          value: 0,
+        },
+      ],
+    },
+  },
+});
 ```
+
+##### Coverage
 
 You can use the `coverage` setting to introduce sampling and reduce the percent of users who are included in your experiment. Coverage must be between 0 and 1 and defaults to 1 (everyone included). This feature uses deterministic hashing to ensure consistent sampling.
 
 ```js
-// 80% of users will be included
-// 20% will not and will fall through to the next matching rule
 {
-  type: "experiment",
-  coverage: 0.8
+  "my-feature": {
+    values: [false, true],
+    rules: [
+      // 80% of users will be included in the experiment
+      {
+        type: "experiment",
+        coverage: 0.8
+      },
+      // The remaining 20% will fall through to the next matching rule
+      {
+        type: "force",
+        value: 0
+      }
+    ]
+  }
 }
 ```
 
-Sometimes you want to run multiple conflicting experiments at the same time. You can use the `namespace` setting to run mutually exclusive experiments. We also use deterministic hashing here to ensure users don't switch experiments.
+##### Namespaces
+
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `namespace` setting to run mutually exclusive experiments.
+
+We do this using deterministic hashing to assign users a value between 0 and 1 for each namespace. Experiments can specify which namespace it is in and what part of the range [0,1] it should include. If the ranges for two experiments in a namespace don't overlap, they will be mutually exclusive.
 
 ```js
-// Includes users with a hash value for the "pricing" namespace of 0 to 0.6
 {
-  "feature-1": {
-    values: [false, true],
+  "feature1": {
     rules: [
+      // Will include 60% of users - ones with a hash between 0 and 0.6
       {
         type: "experiment",
         namespace: ["pricing", 0, 0.6]
       }
     ]
   },
-  // Includes users with a hash value for the "pricing" namespace of 0.6 to 1
-  "feature-2": {
-    values: [false, true],
+  "feature2": {
     rules: [
+      // Will include the other 40% of users - ones with a hash between 0.6 and 1
       {
         type: "experiment",
         namespace: ["pricing", 0.6, 1]
-      }
+      },
     ]
   }
 }
 ```
+
+**Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
 
 ### Inline Experiments
 
@@ -322,15 +387,16 @@ In addition, there are a few other settings that only really make sense for inli
 - `active` can be set to false to disable the experiment and return the control for everyone
 - `include` is a callback function that returns a boolean for whether or not someone should be included in the experiment. It's a more flexible alternative to the declarative rules in `condition`
 
-### Remote Overrides for Inline Experiments
+### Overrides for Inline Experiments
 
-The downside with this approach is that you need to deploy new code in order to make a change or stop the experiment. To get the best of both worlds, you can define experiment `overrides` on the context:
+With Inline Experiments, you typically need to deploy new code anytime you want to make a change. For example, if an experiment wins and you want to roll it out to 100% of users.
+
+As a short-term alternative, you can pass `experimentOverrides` into the context. If you pull these overrides from a database or API, you can effectively control experiments remotely in realtime without deploying new code.
 
 ```js
 const growthbook = new GrowthBook({
-  overrides: {
+  experimentOverrides: {
     "my-experiment": {
-      status: "stopped",
       force: 1
     }
   },
@@ -338,7 +404,7 @@ const growthbook = new GrowthBook({
 })
 
 // The inline experiment says to do a 50/50 split
-// Instead, everyone is assigned "b" because of the override
+// Instead, everyone will be assigned "b" because of the override
 const {value} = growthbook.run({
   trackingKey: "my-experiment",
   variations: ["a", "b"]
@@ -381,79 +447,80 @@ The `inExperiment` flag is only set to true if the user was randomly assigned a 
 
 ## Typescript
 
-This module exposes Typescript type declarations if needed.
+Feature values are `any` by default, but you can specify a more restrictive type if you want:
 
-This is especially useful if experiments are defined as a variable before being passed into `growthbook.run`. Unions and tuples are used heavily and Typescript has trouble inferring those properly.
+```ts
+// color will be type `string|null`
+const color = growthbook.feature<string>("button-color").value;
+```
+
+There are a number of types you can import as well if needed:
 
 ```ts
 import type {
   Context,
+  ConditionInterface,
   Experiment,
-  Result,
   ExperimentOverride,
+  FeatureDefinition,
+  FeatureResult,
+  ExperimentResult,
 } from "@growthbook/growthbook";
-
-// The "number" part refers to the variation type
-const exp: Experiment<number> = {
-  trackingKey: "my-test",
-  variations: [0, 1],
-  status: "stoped", // Type error! (should be "stopped")
-};
 ```
 
 ## Event Tracking and Analyzing Results
 
-This library only handles assigning variations to users. The 2 other parts required for an A/B testing platform are Tracking and Analysis.
+### Event Tracking
 
-### Tracking
+It's likely you already have some event tracking on your site with the metrics you want to optimize (Google Analytics, Segment, Mixpanel, Snowplow, etc.).
 
-It's likely you already have some event tracking on your site with the metrics you want to optimize (Google Analytics, Segment, Mixpanel, etc.).
-
-For A/B tests, you just need to track one additional event - when someone views a variation.
-
-```ts
-// Specify a tracking callback when instantiating the context
-const growthbook = new GrowthBook({
-  user: { id: "123" },
-  trackingCallback: (experiment, result) => {
-    // ...
-  },
-});
-```
-
-Below are examples for a few popular event tracking tools:
+Whenever a user is part of an experiment, whether it's within a feature rule or an inline experiment, your `trackingCallback` function will be called. Use this to record the exposure event in the same system. Below are examples for a few common event tracking systems:
 
 #### Google Analytics
 
 ```ts
-ga("send", "event", "experiment", experiment.trackingKey, result.variationId, {
-  // Custom dimension for easier analysis
-  dimension1: `${experiment.trackingKey}::${result.variationId}`,
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: (experiment, result) => {
+    ga("send", "event", "experiment", experiment.trackingKey, result.variationId, {
+      // Custom dimension for easier analysis
+      dimension1: `${experiment.trackingKey}::${result.variationId}`,
+    });
+  },
 });
 ```
 
 #### Segment
 
 ```ts
-analytics.track("Experiment Viewed", {
-  experimentId: experiment.trackingKey,
-  variationId: result.variationId,
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: (experiment, result) => {
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.trackingKey,
+      variationId: result.variationId,
+    });
+  },
 });
 ```
 
 #### Mixpanel
 
 ```ts
-mixpanel.track("$experiment_started", {
-  "Experiment name": experiment.trackingKey,
-  "Variant name": result.variationId,
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: (experiment, result) => {
+    mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.trackingKey,
+      "Variant name": result.variationId,
+    });
+  },
 });
 ```
 
 ### Analysis
 
-Now just connect GrowthBook to the data source where your tracked events end up (Mixpanel, GA, or a data warehouse like Snowflake)
-and you can pull the data, run it through the built-in stats engine, and analyze results.
+The [GrowthBook App](https://github.com/growthbook/growthbook) can connect directly to your data source (Snowflake, BigQuery, Mixpanel, GA, etc.), pull out experiment data, run it through a robust stats engine, and show you results.
 
 ## Dev Mode
 

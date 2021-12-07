@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
-  RuleSet,
+  ConditionInterface,
   TestedObj,
-  RuleValue,
+  ConditionValue,
   Operator,
-  OperatorRule,
+  OperatorConditionValue,
   VarType,
-} from "./types";
+} from "./types/mongrule";
 
-export class Rule {
+export class Condition {
   private _regexCache: { [key: string]: RegExp } = {};
-  private _definition: RuleSet;
-  constructor(definition: RuleSet) {
+  private _definition: ConditionInterface;
+  constructor(definition: ConditionInterface) {
     this._definition = definition;
   }
 
   test(obj: TestedObj): boolean {
-    return this.evalRuleSet(obj, this._definition);
+    return this.evalCondition(obj, this._definition);
   }
 
   private getPath(obj: TestedObj, path: string) {
@@ -42,47 +42,47 @@ export class Rule {
     return this._regexCache[regex];
   }
 
-  private evalRuleSet(obj: TestedObj, def: RuleSet): boolean {
+  private evalCondition(obj: TestedObj, def: ConditionInterface): boolean {
     if ("$or" in def) {
-      return this.evalOr(obj, def["$or"] as RuleSet[]);
+      return this.evalOr(obj, def["$or"] as ConditionInterface[]);
     }
     if ("$nor" in def) {
-      return !this.evalOr(obj, def["$nor"] as RuleSet[]);
+      return !this.evalOr(obj, def["$nor"] as ConditionInterface[]);
     }
     if ("$and" in def) {
-      return this.evalAnd(obj, def["$and"] as RuleSet[]);
+      return this.evalAnd(obj, def["$and"] as ConditionInterface[]);
     }
     if ("$not" in def) {
-      return !this.evalRuleSet(obj, def["$not"] as RuleSet);
+      return !this.evalCondition(obj, def["$not"] as ConditionInterface);
     }
 
     for (const [k, v] of Object.entries(def)) {
-      if (!this.evalRuleValue(v, this.getPath(obj, k))) return false;
+      if (!this.evalConditionValue(v, this.getPath(obj, k))) return false;
     }
     return true;
   }
 
-  private evalRuleValue(rule: RuleValue, value: any) {
-    if (typeof rule === "string") {
-      return value + "" === rule;
+  private evalConditionValue(condition: ConditionValue, value: any) {
+    if (typeof condition === "string") {
+      return value + "" === condition;
     }
-    if (typeof rule === "number") {
-      return value * 1 === rule;
+    if (typeof condition === "number") {
+      return value * 1 === condition;
     }
-    if (typeof rule === "boolean") {
-      return !!value === rule;
+    if (typeof condition === "boolean") {
+      return !!value === condition;
     }
-    if (Array.isArray(rule) || !this.isOperatorObject(rule)) {
-      return JSON.stringify(value) === JSON.stringify(rule);
+    if (Array.isArray(condition) || !this.isOperatorObject(condition)) {
+      return JSON.stringify(value) === JSON.stringify(condition);
     }
 
-    // This is a special operator rule and we should evaluate each one separately
-    for (const op in rule) {
+    // This is a special operator condition and we should evaluate each one separately
+    for (const op in condition) {
       if (
-        !this.evalOperatorRule(
+        !this.evalOperatorCondition(
           op as Operator,
           value,
-          rule[op as keyof OperatorRule]
+          condition[op as keyof OperatorConditionValue]
         )
       ) {
         return false;
@@ -111,8 +111,8 @@ export class Rule {
   private elemMatch(actual: any, expected: any) {
     if (!Array.isArray(actual)) return false;
     const check = this.isOperatorObject(expected)
-      ? (v: any) => this.evalRuleValue(expected, v)
-      : (v: any) => this.evalRuleSet(v, expected);
+      ? (v: any) => this.evalConditionValue(expected, v)
+      : (v: any) => this.evalCondition(v, expected);
     for (let i = 0; i < actual.length; i++) {
       if (actual[i] && check(actual[i])) {
         return true;
@@ -121,7 +121,7 @@ export class Rule {
     return false;
   }
 
-  private evalOperatorRule(
+  private evalOperatorCondition(
     operator: Operator,
     actual: any,
     expected: any
@@ -146,13 +146,13 @@ export class Rule {
       case "$nin":
         return !expected.includes(actual);
       case "$not":
-        return !this.evalRuleValue(expected, actual);
+        return !this.evalConditionValue(expected, actual);
       case "$size":
         if (!Array.isArray(actual)) return false;
         if (typeof expected === "number") {
           return actual.length === expected;
         }
-        return this.evalRuleValue(expected, actual.length);
+        return this.evalConditionValue(expected, actual.length);
       case "$elemMatch":
         return this.elemMatch(actual, expected);
       case "$all":
@@ -160,7 +160,7 @@ export class Rule {
         for (let i = 0; i < expected.length; i++) {
           let passed = false;
           for (let j = 0; j < actual.length; j++) {
-            if (this.evalRuleValue(expected[i], actual[j])) {
+            if (this.evalConditionValue(expected[i], actual[j])) {
               passed = true;
               break;
             }
@@ -182,19 +182,19 @@ export class Rule {
     }
   }
 
-  private evalOr(obj: TestedObj, rules: RuleSet[]): boolean {
-    if (!rules.length) return true;
-    for (let i = 0; i < rules.length; i++) {
-      if (this.evalRuleSet(obj, rules[i])) {
+  private evalOr(obj: TestedObj, conditions: ConditionInterface[]): boolean {
+    if (!conditions.length) return true;
+    for (let i = 0; i < conditions.length; i++) {
+      if (this.evalCondition(obj, conditions[i])) {
         return true;
       }
     }
     return false;
   }
 
-  private evalAnd(obj: TestedObj, rules: RuleSet[]): boolean {
-    for (let i = 0; i < rules.length; i++) {
-      if (!this.evalRuleSet(obj, rules[i])) {
+  private evalAnd(obj: TestedObj, conditions: ConditionInterface[]): boolean {
+    for (let i = 0; i < conditions.length; i++) {
+      if (!this.evalCondition(obj, conditions[i])) {
         return false;
       }
     }

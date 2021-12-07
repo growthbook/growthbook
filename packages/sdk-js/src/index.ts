@@ -1,4 +1,4 @@
-import {
+import type {
   Context,
   Experiment,
   FeatureResult,
@@ -8,8 +8,8 @@ import {
   FeatureResultSource,
   NewExperiment,
   LegacyExperiment,
-  RuleSet,
 } from "./types";
+import type { ConditionInterface } from "./types/mongrule";
 import {
   getUrlRegExp,
   isIncluded,
@@ -19,24 +19,27 @@ import {
   getQueryStringOverride,
   inNamespace,
 } from "./util";
-import { Rule } from "./mongrule";
+import { Condition } from "./mongrule";
 
 export type {
   Context,
   Experiment,
   Result,
   FeatureResult,
-  RuleSet,
   ExperimentOverride,
 } from "./types";
+
+export type { ConditionInterface } from "./types/mongrule";
 
 const isBrowser = typeof window !== "undefined";
 
 class GrowthBook {
-  context: Context;
-
+  private context: Context;
+  private features: Record<string, FeatureDefinition> = {};
   private _renderer: null | (() => void) = null;
   private _trackedExperiments = new Set();
+  private _isReady = false;
+  private _readyQueue: (() => void)[] = [];
   public debug = false;
   private subscriptions = new Set<SubscriptionFunction>();
   private assigned = new Map<
@@ -49,12 +52,47 @@ class GrowthBook {
     }
   >();
 
-  constructor(context: Context) {
-    this.context = context || {};
+  constructor(context: Context = {}) {
+    this.context = context;
+
+    const features = context.features;
+
+    if (
+      features &&
+      typeof features === "object" &&
+      typeof features.then === "function"
+    ) {
+      features.then((res) => {
+        if (res) {
+          this.features = res;
+        }
+        this._isReady = true;
+        this._readyQueue.forEach((cb) => cb());
+      });
+    } else if (features) {
+      this.features = features as Record<string, FeatureDefinition>;
+      this._isReady = true;
+    } else {
+      this._isReady = true;
+    }
 
     if (isBrowser) {
       window._growthbook = this;
     }
+  }
+
+  public ready(cb?: () => void): Promise<void> {
+    if (this._isReady) {
+      cb && cb();
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      this._readyQueue.push(() => {
+        cb && cb();
+        resolve();
+      });
+    });
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -142,12 +180,12 @@ class GrowthBook {
   // eslint-disable-next-line
   public feature<T = any>(id: string): FeatureResult<T> {
     // Unknown feature id
-    if (!this.context.features || !this.context.features[id]) {
+    if (!this.features[id]) {
       return this.getFeatureResult([null], "unknownFeature");
     }
 
     // Get the feature and array of values
-    const feature: FeatureDefinition<T> = this.context.features[id];
+    const feature: FeatureDefinition<T> = this.features[id];
     const values = feature.values || [false, true];
 
     // Loop through the rules
@@ -205,9 +243,9 @@ class GrowthBook {
     );
   }
 
-  private conditionPasses(condition: RuleSet): boolean {
-    const rule = new Rule(condition);
-    return rule.test(this.context.attributes || {});
+  private conditionPasses(condition: ConditionInterface): boolean {
+    const cond = new Condition(condition);
+    return cond.test(this.context.attributes || {});
   }
 
   private _run<T>(experiment: Experiment<T>): Result<T> {

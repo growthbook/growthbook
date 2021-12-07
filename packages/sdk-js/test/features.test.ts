@@ -257,4 +257,176 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  it("falls through to next rule when experiment coverage excludes the user", () => {
+    const growthbook = new GrowthBook({
+      attributes: { id: "123" },
+      features: {
+        feature: {
+          values: [0, 1, 2, 3],
+          rules: [
+            {
+              type: "experiment",
+              coverage: 0.01,
+            },
+            {
+              type: "force",
+              value: 3,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: 3,
+      on: true,
+      off: false,
+      source: "force",
+    });
+
+    growthbook.destroy();
+  });
+
+  it("falls through to next rule when experiment namespace excludes the user", () => {
+    const growthbook = new GrowthBook({
+      attributes: { id: "123" },
+      features: {
+        feature: {
+          values: [0, 1, 2, 3],
+          rules: [
+            {
+              type: "experiment",
+              namespace: ["pricing", 0, 0.01],
+            },
+            {
+              type: "force",
+              value: 3,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: 3,
+      on: true,
+      off: false,
+      source: "force",
+    });
+
+    growthbook.destroy();
+  });
+
+  it("falls through to next rule when experiment hashAttribute excludes the user", () => {
+    const growthbook = new GrowthBook({
+      attributes: { id: "123" },
+      features: {
+        feature: {
+          values: [0, 1, 2, 3],
+          rules: [
+            {
+              type: "experiment",
+              hashAttribute: "company",
+            },
+            {
+              type: "force",
+              value: 3,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: 3,
+      on: true,
+      off: false,
+      source: "force",
+    });
+
+    growthbook.destroy();
+  });
+
+  it("resolves the features promise", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+      features: new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            feature: {},
+          });
+        }, 100);
+      }),
+    });
+    expect(growthbook.feature("feature")).toEqual({
+      value: null,
+      on: false,
+      off: true,
+      source: "unknownFeature",
+    });
+    setTimeout(() => {
+      expect(growthbook.feature("feature")).toEqual({
+        value: false,
+        on: false,
+        off: true,
+        source: "defaultValue",
+      });
+      growthbook.destroy();
+    }, 200);
+  });
+
+  it("returns a Promise when ready is called", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+      features: new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            feature: {},
+          });
+        }, 100);
+      }),
+    });
+
+    let fired = false;
+    growthbook.ready().then(() => {
+      fired = true;
+    });
+    expect(fired).toEqual(false);
+
+    setTimeout(() => {
+      expect(fired).toEqual(true);
+      growthbook.destroy();
+    }, 200);
+  });
+
+  it("fires the callback on ready", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+      features: new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            feature: {},
+          });
+        }, 100);
+      }),
+    });
+
+    let fired = false;
+    growthbook.ready(() => {
+      fired = true;
+    });
+    expect(fired).toEqual(false);
+
+    setTimeout(() => {
+      expect(fired).toEqual(true);
+      growthbook.destroy();
+    }, 200);
+  });
 });
