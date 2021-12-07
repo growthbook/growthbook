@@ -1,4 +1,4 @@
-import { GrowthBook } from "../src";
+import { Context, GrowthBook } from "../src";
 
 describe("features", () => {
   it("works for unknown features", () => {
@@ -348,18 +348,11 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("resolves the features promise", () => {
+  it("can set features asynchronously", () => {
     const growthbook = new GrowthBook({
       attributes: {
         id: "123",
       },
-      features: new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            feature: {},
-          });
-        }, 100);
-      }),
     });
     expect(growthbook.feature("feature")).toEqual({
       value: null,
@@ -367,66 +360,36 @@ describe("features", () => {
       off: true,
       source: "unknownFeature",
     });
-    setTimeout(() => {
-      expect(growthbook.feature("feature")).toEqual({
-        value: false,
-        on: false,
-        off: true,
-        source: "defaultValue",
-      });
-      growthbook.destroy();
-    }, 200);
+
+    growthbook.setFeatures({
+      feature: {},
+    });
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: false,
+      on: false,
+      off: true,
+      source: "defaultValue",
+    });
+
+    growthbook.destroy();
   });
 
-  it("returns a Promise when ready is called", () => {
-    const growthbook = new GrowthBook({
+  it("updates attributes with setAttributes", () => {
+    const context: Context = {
       attributes: {
-        id: "123",
+        foo: 1,
+        bar: 2,
       },
-      features: new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            feature: {},
-          });
-        }, 100);
-      }),
+    };
+
+    const growthbook = new GrowthBook(context);
+
+    growthbook.setAttributes({ foo: 2, baz: 3 });
+
+    expect(context.attributes).toEqual({
+      foo: 2,
+      baz: 3,
     });
-
-    let fired = false;
-    growthbook.ready().then(() => {
-      fired = true;
-    });
-    expect(fired).toEqual(false);
-
-    setTimeout(() => {
-      expect(fired).toEqual(true);
-      growthbook.destroy();
-    }, 200);
-  });
-
-  it("fires the callback on ready", () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
-      },
-      features: new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            feature: {},
-          });
-        }, 100);
-      }),
-    });
-
-    let fired = false;
-    growthbook.ready(() => {
-      fired = true;
-    });
-    expect(fired).toEqual(false);
-
-    setTimeout(() => {
-      expect(fired).toEqual(true);
-      growthbook.destroy();
-    }, 200);
   });
 });

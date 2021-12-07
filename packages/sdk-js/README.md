@@ -2,9 +2,9 @@
 
 [GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
 
-This particular library is for using feature flags and experiments within a Javascript application.
+This particular library lets you evaluate feature flags and run experiments within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.89KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.76KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -43,30 +43,14 @@ or use directly in your HTML without installing first:
 import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook context
-const growthbook = new GrowthBook({
-  // Feature definitions (can pull from API, database, or just hard-code a JSON object)
-  features: fetch(
-    "https://s3.amazonaws.com/myBucket/features.json"
-  ).then((res) => res.json()),
+const growthbook = new GrowthBook();
 
-  // Attributes for targeting and variation assignment
-  attributes: {
-    id: "123",
-    isPremium: true,
-    country: "US",
-  },
-
-  // Called whenever a user is put into an experiment
-  trackingCallback: (experiment, result) => {
-    analytics.track("Experiment Viewed", {
-      experimentId: experiment.trackingKey,
-      variationId: result.variationId,
-    });
-  },
-});
-
-// Wait for the `features` Promise to resolve (optional)
-await growthbook.ready();
+// Load feature definitions (from API, database, etc.)
+fetch("https://s3.amazonaws.com/myBucket/features.json")
+  .then((res) => res.json())
+  .then((parsed) => {
+    growthbook.setFeatures(parsed);
+  });
 
 // Simple on/off feature flag
 if (growthbook.feature("my-feature").on) {
@@ -77,34 +61,115 @@ if (growthbook.feature("my-feature").on) {
 const color = growthbook.feature("button-color").value || "blue";
 ```
 
-The return value of `growthbook.feature()` is an object with a few properties:
+## The GrowthBook Context
 
-- **value** - The JSON value of the feature
+The `GrowthBook` constructor takes a number of optional settings.
+
+### Features
+
+If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+
+```ts
+new GrowthBook({
+  features: {
+    "my-feature-1": {...}
+  }
+})
+```
+
+If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start).
+
+If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+
+If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](#feature-definitions) section below.
+
+### Attributes
+
+You can specify attributes about the current user and/or request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning random values in A/B tests and percentage rollouts
+
+The following are some comonly used attributes, but use whatever makes sense for your application.
+
+```ts
+new GrowthBook({
+  attributes: {
+    id: "123",
+    loggedIn: true,
+    deviceId: "abc123def456",
+    company: "acme",
+    paid: false,
+    url: "/pricing",
+    browser: "chrome",
+    mobile: false,
+    country: "US",
+  },
+});
+```
+
+If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+### Tracking Callback
+
+Any time an experiment is run to determine the value of a feature, we call a tracking callback function so you can record the assigned value in your event tracking or analytics system of choice.
+
+```ts
+new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    // Example using Segment.io
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.trackingKey,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+## Using Features
+
+The main method, `growthbook.feature()` takes a feature key and returns an object with a few properties:
+
+- **value** - The JSON value of the feature (or `null` if not defined)
 - **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
 - **on** and **off** - The JSON value cast to booleans (to make your code easier to read)
 - **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 
-## Feature Definitions
-
-The `features` context setting either takes a JSON object or a Promise that resolves to a JSON object.
-
-If you pass a Promise, all features will evaluate to `null` until the Promise resolves. If you want to avoid flickering, you can wait until the context is ready:
+Here's an example that uses all of them:
 
 ```ts
-// Async/await
-await growthbook.ready();
+const result = growthbook.feature("my-feature");
 
-// Callback
-growthbook.ready(() => {
-  // use features here
-});
+// The JSON value (might be a string, boolean, number, array, or object)
+console.log(result.value);
+
+if (result.on) {
+  // Feature value is truthy
+}
+if (result.off) {
+  // Feature value is falsy
+}
+
+// If the feature value was assigned as part of an experiment
+if (result.source === "experiment") {
+  // Get all the possible variations the experiment could have assigned
+  console.log(experiment.variations);
+}
 ```
 
-Each feature consists of a unique key, a list of possible values, and rules for how to assign values to users.
+## Feature Definitions
 
-The GrowthBook App auto-generates this JSON file for you, so if you are using that you can **stop reading now**.
+The feature definition JSON file contains information about all of the features in your application.
 
-If you prefer to build this file by hand or you want to know how it works under the hood, keep reading.
+Each feature consists of a unique key, a list of possible values, and rules for how to assign those values to users.
+
+```ts
+{
+  "feature-1": {...},
+  "feature-2": {...},
+  "another-feature": {...},
+}
+```
 
 ### Basic Feature
 
@@ -116,6 +181,8 @@ An empty feature has two possible values (`false` and `true`) and everyone gets 
 }
 ```
 
+#### Custom Values
+
 You can set your own possible values with the `values` property. You can have as many values as you want and they can be whatever data type you want - booleans, strings, numbers, arrays, or objects.
 
 ```js
@@ -126,6 +193,8 @@ You can set your own possible values with the `values` property. You can have as
   }
 }
 ```
+
+#### Default Values
 
 You can change the default assigned value with the `defaultValue` property, which is a pointer to a specific array index in `values`.
 
@@ -158,7 +227,7 @@ For example, if the attributes are:
     "vendor": "firefox",
     "version": 94
   },
-  "country": "US"
+  "country": "CA"
 }
 ```
 
@@ -168,7 +237,7 @@ The following condition would evaluate to `true`:
 {
   "browser.vendor": "firefox",
   "country": {
-    "$in": ["US", "CA"]
+    "$in": ["US", "CA", "IN"]
   }
 }
 ```
@@ -368,7 +437,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 **Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
 
-### Inline Experiments
+## Inline Experiments
 
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
 
@@ -411,7 +480,7 @@ const {value} = growthbook.run({
 })
 ```
 
-### Experiment Return Value
+### Inline Experiment Return Value
 
 A call to `growthbook.run(experiment)` returns an object with a few useful properties:
 
@@ -467,60 +536,6 @@ import type {
   ExperimentResult,
 } from "@growthbook/growthbook";
 ```
-
-## Event Tracking and Analyzing Results
-
-### Event Tracking
-
-It's likely you already have some event tracking on your site with the metrics you want to optimize (Google Analytics, Segment, Mixpanel, Snowplow, etc.).
-
-Whenever a user is part of an experiment, whether it's within a feature rule or an inline experiment, your `trackingCallback` function will be called. Use this to record the exposure event in the same system. Below are examples for a few common event tracking systems:
-
-#### Google Analytics
-
-```ts
-const growthbook = new GrowthBook({
-  ...,
-  trackingCallback: (experiment, result) => {
-    ga("send", "event", "experiment", experiment.trackingKey, result.variationId, {
-      // Custom dimension for easier analysis
-      dimension1: `${experiment.trackingKey}::${result.variationId}`,
-    });
-  },
-});
-```
-
-#### Segment
-
-```ts
-const growthbook = new GrowthBook({
-  ...,
-  trackingCallback: (experiment, result) => {
-    analytics.track("Experiment Viewed", {
-      experimentId: experiment.trackingKey,
-      variationId: result.variationId,
-    });
-  },
-});
-```
-
-#### Mixpanel
-
-```ts
-const growthbook = new GrowthBook({
-  ...,
-  trackingCallback: (experiment, result) => {
-    mixpanel.track("$experiment_started", {
-      "Experiment name": experiment.trackingKey,
-      "Variant name": result.variationId,
-    });
-  },
-});
-```
-
-### Analysis
-
-The [GrowthBook App](https://github.com/growthbook/growthbook) can connect directly to your data source (Snowflake, BigQuery, Mixpanel, GA, etc.), pull out experiment data, run it through a robust stats engine, and show you results.
 
 ## Dev Mode
 

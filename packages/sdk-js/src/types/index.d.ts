@@ -111,9 +111,7 @@ interface Context {
   groups?: Record<string, boolean>;
   url?: string;
   overrides?: Record<string, ExperimentOverride>;
-  features?:
-    | Record<string, FeatureDefinition>
-    | Promise<Record<string, FeatureDefinition>>;
+  features?: Record<string, FeatureDefinition>;
   forcedVariations?: Record<string, number>;
   qaMode?: boolean;
   // eslint-disable-next-line

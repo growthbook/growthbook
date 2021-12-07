@@ -35,11 +35,8 @@ const isBrowser = typeof window !== "undefined";
 
 class GrowthBook {
   private context: Context;
-  private features: Record<string, FeatureDefinition> = {};
   private _renderer: null | (() => void) = null;
   private _trackedExperiments = new Set();
-  private _isReady = false;
-  private _readyQueue: (() => void)[] = [];
   public debug = false;
   private subscriptions = new Set<SubscriptionFunction>();
   private assigned = new Map<
@@ -55,44 +52,18 @@ class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
-    const features = context.features;
-
-    if (
-      features &&
-      typeof features === "object" &&
-      typeof features.then === "function"
-    ) {
-      features.then((res) => {
-        if (res) {
-          this.features = res;
-        }
-        this._isReady = true;
-        this._readyQueue.forEach((cb) => cb());
-      });
-    } else if (features) {
-      this.features = features as Record<string, FeatureDefinition>;
-      this._isReady = true;
-    } else {
-      this._isReady = true;
-    }
-
     if (isBrowser) {
       window._growthbook = this;
     }
   }
 
-  public ready(cb?: () => void): Promise<void> {
-    if (this._isReady) {
-      cb && cb();
-      return Promise.resolve();
-    }
+  public setFeatures(features: Record<string, FeatureDefinition>) {
+    this.context.features = features;
+  }
 
-    return new Promise((resolve) => {
-      this._readyQueue.push(() => {
-        cb && cb();
-        resolve();
-      });
-    });
+  // eslint-disable-next-line
+  public setAttributes(attributes: Record<string, any>) {
+    this.context.attributes = attributes;
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -123,8 +94,6 @@ class GrowthBook {
   }
 
   public forceVariation(key: string, variation: number) {
-    if (!this.context) return;
-
     this.context.forcedVariations = this.context.forcedVariations || {};
     this.context.forcedVariations[key] = variation;
 
@@ -180,12 +149,12 @@ class GrowthBook {
   // eslint-disable-next-line
   public feature<T = any>(id: string): FeatureResult<T> {
     // Unknown feature id
-    if (!this.features[id]) {
+    if (!this.context.features || !this.context.features[id]) {
       return this.getFeatureResult([null], "unknownFeature");
     }
 
     // Get the feature and array of values
-    const feature: FeatureDefinition<T> = this.features[id];
+    const feature: FeatureDefinition<T> = this.context.features[id];
     const values = feature.values || [false, true];
 
     // Loop through the rules
