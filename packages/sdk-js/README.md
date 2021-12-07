@@ -72,7 +72,9 @@ If you already have features loaded as a JSON object, you can pass them into the
 ```ts
 new GrowthBook({
   features: {
-    "my-feature-1": {...}
+    "feature-1": {...},
+    "feature-2": {...},
+    "another-feature": {...},
   }
 })
 ```
@@ -85,10 +87,10 @@ If you prefer to build this file by hand or you want to know how it works under 
 
 ### Attributes
 
-You can specify attributes about the current user and/or request. These are used for two things:
+You can specify attributes about the current user and request. These are used for two things:
 
 1.  Feature targeting (e.g. paid users get one value, free users get another)
-2.  Assigning random values in A/B tests and percentage rollouts
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
 
 The following are some comonly used attributes, but use whatever makes sense for your application.
 
@@ -112,7 +114,7 @@ If you need to set or update attributes asynchronously, you can do so with `setA
 
 ### Tracking Callback
 
-Any time an experiment is run to determine the value of a feature, we call a tracking callback function so you can record the assigned value in your event tracking or analytics system of choice.
+Any time an experiment is run to determine the value of a feature, we can run a callback function so you can record the assigned value in your event tracking or analytics system of choice.
 
 ```ts
 new GrowthBook({
@@ -128,11 +130,11 @@ new GrowthBook({
 
 ## Using Features
 
-The main method, `growthbook.feature()` takes a feature key and returns an object with a few properties:
+The main method, `growthbook.feature(key)` takes a feature key and returns an object with a few properties:
 
 - **value** - The JSON value of the feature (or `null` if not defined)
-- **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
 - **on** and **off** - The JSON value cast to booleans (to make your code easier to read)
+- **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
 - **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 
 Here's an example that uses all of them:
@@ -140,7 +142,7 @@ Here's an example that uses all of them:
 ```ts
 const result = growthbook.feature("my-feature");
 
-// The JSON value (might be a string, boolean, number, array, or object)
+// The JSON value (might be null, string, boolean, number, array, or object)
 console.log(result.value);
 
 if (result.on) {
@@ -152,7 +154,7 @@ if (result.off) {
 
 // If the feature value was assigned as part of an experiment
 if (result.source === "experiment") {
-  // Get all the possible variations the experiment could have assigned
+  // Get all the possible variations that could have been assigned
   console.log(experiment.variations);
 }
 ```
