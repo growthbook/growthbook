@@ -1,14 +1,11 @@
 import { useForm } from "react-hook-form";
-import {
-  FeatureInterface,
-  FeatureValueType,
-} from "../../../back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
-import Toggle from "../Forms/Toggle";
+import FeatureValueField from "./FeatureValueField";
 
 export type Props = {
   close: () => void;
@@ -117,37 +114,11 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         ]}
       />
 
-      <Field
+      <FeatureValueField
         label="Default Value"
-        {...form.register("defaultValue")}
-        {...(valueType === "boolean"
-          ? {
-              render: function BooleanToggle(id) {
-                return (
-                  <div>
-                    <Toggle
-                      id={id}
-                      label=""
-                      value={form.watch("defaultValue") !== "false"}
-                      setValue={(value) =>
-                        form.setValue("defaultValue", value ? "true" : "false")
-                      }
-                    />
-                  </div>
-                );
-              },
-            }
-          : valueType === "number"
-          ? {
-              type: "number",
-              step: "any",
-              min: "any",
-              max: "any",
-            }
-          : {
-              textarea: true,
-              minRows: 1,
-            })}
+        form={form}
+        field="defaultValue"
+        valueType={valueType}
         helpText={
           existing
             ? ""

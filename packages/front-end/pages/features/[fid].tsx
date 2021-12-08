@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   FeatureInterface,
   FeatureValueType,
@@ -10,12 +10,15 @@ import Code from "../../components/Code";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import ValueDisplay from "../../components/Features/ValueDisplay";
-import { GBCircleArrowLeft } from "../../components/Icons";
+import { GBAddCircle, GBCircleArrowLeft } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
 import FeatureModal from "../../components/Features/FeatureModal";
+import DeleteButton from "../../components/DeleteButton";
+import { useAuth } from "../../services/auth";
+import RuleModal from "../../components/Features/RuleModal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -145,6 +148,10 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
+  const [ruleModal, setRuleModal] = useState<number | null>(null);
+
+  const { apiCall } = useAuth();
+
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
@@ -174,6 +181,14 @@ export default function FeaturePage() {
           }}
         />
       )}
+      {ruleModal !== null && (
+        <RuleModal
+          feature={data.feature}
+          close={() => setRuleModal(null)}
+          i={ruleModal}
+          mutate={mutate}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -194,6 +209,18 @@ export default function FeaturePage() {
             >
               edit feature
             </button>
+            <DeleteButton
+              useIcon={false}
+              displayName="Feature"
+              onClick={async () => {
+                await apiCall(`/feature/${data.feature.id}`, {
+                  method: "DELETE",
+                });
+                router.push("/features");
+              }}
+              className="dropdown-item"
+              text="delete feature"
+            />
           </MoreMenu>
         </div>
       </div>
@@ -225,6 +252,17 @@ export default function FeaturePage() {
               }}
             >
               {i + 1}
+            </div>
+            <div style={{ float: "right" }}>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setRuleModal(i);
+                }}
+              >
+                edit rule
+              </a>
             </div>
             {rule.description && (
               <Markdown className="mb-3">{rule.description}</Markdown>
@@ -258,6 +296,16 @@ export default function FeaturePage() {
           </div>
         );
       })}
+
+      <button
+        className="btn btn-primary"
+        onClick={() => setRuleModal(data?.feature?.rules?.length || 0)}
+      >
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <GBAddCircle />
+        </span>
+        Add Rule
+      </button>
     </div>
   );
 }

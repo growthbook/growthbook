@@ -14,10 +14,16 @@ const featureSchema = new mongoose.Schema({
   rules: [
     {
       _id: false,
-      type: String,
+      type: {
+        type: String,
+      },
       trackingKey: String,
       value: String,
       userIdType: String,
+      enabled: Boolean,
+      coverage: Number,
+      condition: String,
+      description: String,
       rollout: [
         {
           _id: false,

@@ -62,7 +62,7 @@ export default function FeaturesPage() {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <th>Feature Id</th>
+            <th>Feature Key</th>
             <th>Default Value</th>
             <th>Has Overrides</th>
             <th>Last Updated</th>
