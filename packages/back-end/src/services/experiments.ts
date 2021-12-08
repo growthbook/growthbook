@@ -591,6 +591,18 @@ export async function createSnapshot(
     skipPartialData: experiment.skipPartialData || false,
   };
 
+  await ExperimentModel.updateOne(
+    {
+      id: experiment.id,
+      organization: experiment.organization,
+    },
+    {
+      $set: {
+        lastSnapshotAttempt: new Date(),
+      },
+    }
+  );
+
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
@@ -608,6 +620,7 @@ export async function createSnapshot(
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
+      organization: experiment.organization,
     },
     {
       $set: {
