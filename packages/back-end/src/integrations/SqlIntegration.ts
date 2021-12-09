@@ -39,6 +39,23 @@ const percentileNumbers = [
   0.99,
 ];
 
+// Replace `{{startDate}}` and `{{endDate}}` in SQL queries
+function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+  return sql
+    .replace(
+      /\{\{\s*startDate\s*\}\}/g,
+      startDate.toISOString().substr(0, 19).replace("T", " ")
+    )
+    .replace(
+      /\{\{\s*endDate\s*\}\}/g,
+      // Give an extra day buffer to account for any timezones, etc.
+      (endDate || new Date(Date.now() + 1000 * 60 * 60 * 24))
+        .toISOString()
+        .substr(0, 19)
+        .replace("T", " ")
+    );
+}
+
 export function getExperimentQuery(
   settings: DataSourceSettings,
   schema?: string
@@ -187,7 +204,10 @@ export default abstract class SqlIntegration
       `-- Past Experiments
     WITH
       __experiments as (
-        ${getExperimentQuery(this.settings, this.getSchema())}
+        ${replaceDateVars(
+          getExperimentQuery(this.settings, this.getSchema()),
+          params.from
+        )}
       ),
       __experimentDates as (
         SELECT
@@ -288,7 +308,11 @@ export default abstract class SqlIntegration
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
-        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
+        __pageviews as (${replaceDateVars(
+          getPageviewsQuery(this.settings, this.getSchema()),
+          params.from,
+          params.to
+        )}),
         __users as (${this.getPageUsersCTE(
           params,
           userId,
@@ -673,9 +697,10 @@ export default abstract class SqlIntegration
         dimension: dimension?.type === "user",
         metrics: [metric, activationMetric],
       })}
-      __rawExperiment as (${getExperimentQuery(
-        this.settings,
-        this.getSchema()
+      __rawExperiment as (${replaceDateVars(
+        getExperimentQuery(this.settings, this.getSchema()),
+        phase.dateStarted,
+        phase.dateEnded
       )}),
       __experiment as (${this.getExperimentCTE({
         experiment,
@@ -852,8 +877,8 @@ export default abstract class SqlIntegration
     metric: MetricInterface;
     conversionWindowHours?: number;
     userId?: boolean;
-    startDate?: Date;
-    endDate?: Date | null;
+    startDate: Date;
+    endDate: Date | null;
   }) {
     let userIdCol: string;
     let join = "";
@@ -912,7 +937,11 @@ export default abstract class SqlIntegration
       FROM
         ${
           metric.sql
-            ? `(${metric.sql})`
+            ? `(${replaceDateVars(
+                metric.sql,
+                startDate,
+                endDate || undefined
+              )})`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
         } m
