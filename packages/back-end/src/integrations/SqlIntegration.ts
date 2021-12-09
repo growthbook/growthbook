@@ -603,7 +603,11 @@ export default abstract class SqlIntegration
         user_id,
         anonymous_id
       FROM
-        (${getPageviewsQuery(this.settings, this.getSchema())}) i
+        (${replaceDateVars(
+          getPageviewsQuery(this.settings, this.getSchema()),
+          from,
+          to
+        )}) i
       WHERE
         i.timestamp >= ${this.toTimestamp(from)}
         ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
@@ -695,6 +699,7 @@ export default abstract class SqlIntegration
         from: phase.dateStarted,
         to: phase.dateEnded,
         dimension: dimension?.type === "user",
+        segment: !!segment,
         metrics: [metric, activationMetric],
       })}
       __rawExperiment as (${replaceDateVars(
