@@ -15,7 +15,6 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
-import { useMemo } from "react";
 import cronstrue from "cronstrue";
 
 export type SettingsApiResponse = {
@@ -91,19 +90,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       updateSchedule: {
         type: "stale",
         hours: 6,
+        cron: "0 */6 * * *",
       },
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
-
-  useEffect(() => {
-    if (data?.organization?.settings) {
-      form.reset({
-        ...form.getValues(),
-        ...data.organization.settings,
-      });
-    }
-  }, [data?.organization?.settings]);
 
   const value = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
@@ -118,14 +109,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
   };
 
-  const cronString = useMemo(() => {
-    if (!value.updateSchedule?.cron) {
-      return "";
+  const [cronString, setCronString] = useState("");
+
+  function updateCronString(cron?: string) {
+    cron = cron || value.updateSchedule?.cron || "";
+
+    if (!cron) {
+      setCronString("");
     }
-    return cronstrue.toString(value.updateSchedule.cron, {
-      throwExceptionOnParseError: false,
-    });
-  }, [value.updateSchedule?.cron]);
+    setCronString(
+      cronstrue.toString(cron, {
+        throwExceptionOnParseError: false,
+      })
+    );
+  }
+
+  useEffect(() => {
+    if (data?.organization?.settings) {
+      const newVal = {
+        ...form.getValues(),
+        ...data.organization.settings,
+      };
+      form.reset(newVal);
+      updateCronString(newVal.updateSchedule?.cron || "");
+    }
+  }, [data?.organization?.settings]);
 
   if (error) {
     return (
@@ -376,51 +384,57 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
-              <Field
-                label="Experiment Auto-Update Frequency"
-                className="ml-2"
-                containerClassName="mb-3"
-                disabled={hasFileConfig()}
-                options={[
-                  {
-                    display: "When results are X hours old",
-                    value: "stale",
-                  },
-                  {
-                    display: "Cron Schedule",
-                    value: "cron",
-                  },
-                  {
-                    display: "Never",
-                    value: "never",
-                  },
-                ]}
-                {...form.register("updateSchedule.type")}
-              />
               <div className="mb-3">
+                <Field
+                  label="Experiment Auto-Update Frequency"
+                  className="ml-2"
+                  containerClassName="mb-2 mr-2"
+                  disabled={hasFileConfig()}
+                  options={[
+                    {
+                      display: "When results are X hours old",
+                      value: "stale",
+                    },
+                    {
+                      display: "Cron Schedule",
+                      value: "cron",
+                    },
+                    {
+                      display: "Never",
+                      value: "never",
+                    },
+                  ]}
+                  {...form.register("updateSchedule.type")}
+                />
                 {value.updateSchedule?.type === "stale" && (
-                  <Field
-                    append="hours"
-                    className="ml-2"
-                    disabled={hasFileConfig()}
-                    {...form.register("updateSchedule.hours", {
-                      valueAsNumber: true,
-                    })}
-                  />
+                  <div className="bg-light p-3 border">
+                    <Field
+                      label="Refresh when"
+                      append="hours old"
+                      className="ml-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("updateSchedule.hours", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
                 )}
                 {value.updateSchedule?.type === "cron" && (
-                  <Field
-                    label="Cron String"
-                    className="ml-2"
-                    disabled={hasFileConfig()}
-                    {...form.register("updateSchedule.cron")}
-                    placeholder="0 */6 * * *"
-                    helpText="minute hour day-of-month month day-of-week"
-                  />
-                )}
-                {cronString && (
-                  <div>
-                    <em>{cronString}</em>
+                  <div className="bg-light p-3 border">
+                    <Field
+                      label="Cron String"
+                      className="ml-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("updateSchedule.cron")}
+                      placeholder="0 */6 * * *"
+                      onFocus={(e) => {
+                        updateCronString(e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        updateCronString(e.target.value);
+                      }}
+                      helpText={<span className="ml-2">{cronString}</span>}
+                    />
                   </div>
                 )}
               </div>

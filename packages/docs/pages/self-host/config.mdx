@@ -78,7 +78,7 @@ Optional. If not specified, GrowthBook will use the local file system to store u
 
 ### Other Settings
 
-- **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
+- **EXPERIMENT_REFRESH_FREQUENCY** - Default update schedule for experiment results. Update when stale for X hours (default `6`).
 - **QUERY_CACHE_TTL_MINS** - How long (in minutes) to cache and re-use SQL query results (default `60`)
 - **DEFAULT_CONVERSION_WINDOW_HOURS** - How many hours after being put into an experiment does a user have to convert. Can be overridden on a per-metric basis. (default `72`)
 - **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve GrowthBook. Set to "true" to disable.
@@ -437,24 +437,24 @@ organization:
     metricAnalysisDays: 90
     # When we should auto-update experiment results
     updateSchedule:
-      type: every
+      type: stale
       hours: 6
 ```
 
 The `updateSchedule` setting has 3 types of values:
 
-- Never update Automatically
+- Never update automatically
   ```yml
   updateSchedule:
     type: never
   ```
-- Every X hours
+- Update if data is X hours stale
   ```yml
   updateSchedule:
-    type: every
+    type: stale
     hours: 6
   ```
-- Cron string
+- Update on a fixed Cron schedule
   ```yml
   updateSchedule:
     type: cron
