@@ -385,7 +385,7 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations || []);
-    const experiment = await createExperiment(obj);
+    const experiment = await createExperiment(obj, org);
 
     await req.audit({
       event: "experiment.create",
@@ -1743,6 +1743,7 @@ export async function postSnapshot(
     const snapshot = await createSnapshot(
       exp,
       phase,
+      org,
       dimension || null,
       useCache
     );

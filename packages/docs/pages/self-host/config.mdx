@@ -435,4 +435,28 @@ organization:
     # Number of days of historical data to use when analyzing metrics
     # (must be between 1 and 400, default `90`)
     metricAnalysisDays: 90
+    # When we should auto-update experiment results
+    updateSchedule:
+      type: every
+      hours: 6
 ```
+
+The `updateSchedule` setting has 3 types of values:
+
+- Never update Automatically
+  ```yml
+  updateSchedule:
+    type: never
+  ```
+- Every X hours
+  ```yml
+  updateSchedule:
+    type: every
+    hours: 6
+  ```
+- Cron string
+  ```yml
+  updateSchedule:
+    type: cron
+    cron: "0 */6 * * *"
+  ```

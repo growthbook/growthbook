@@ -15,6 +15,8 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
+import { useMemo } from "react";
+import cronstrue from "cronstrue";
 
 export type SettingsApiResponse = {
   status: number;
@@ -86,6 +88,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //resolution?: string;
         //startDate?: Date;
       },
+      updateSchedule: {
+        type: "stale",
+        hours: 6,
+      },
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
@@ -99,6 +105,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
     }
   }, [data?.organization?.settings]);
 
+  const value = {
+    visualEditorEnabled: form.watch("visualEditorEnabled"),
+    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
+    metricAnalysisDays: form.watch("metricAnalysisDays"),
+    // customization:
+    customized: form.watch("customized"),
+    logoPath: form.watch("logoPath"),
+    primaryColor: form.watch("primaryColor"),
+    secondaryColor: form.watch("secondaryColor"),
+    northStar: form.watch("northStar"),
+    updateSchedule: form.watch("updateSchedule"),
+  };
+
+  const cronString = useMemo(() => {
+    if (!value.updateSchedule?.cron) {
+      return "";
+    }
+    return cronstrue.toString(value.updateSchedule.cron, {
+      throwExceptionOnParseError: false,
+    });
+  }, [value.updateSchedule?.cron]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -110,17 +138,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const value = {
-    visualEditorEnabled: form.watch("visualEditorEnabled"),
-    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
-    metricAnalysisDays: form.watch("metricAnalysisDays"),
-    // customization:
-    customized: form.watch("customized"),
-    logoPath: form.watch("logoPath"),
-    primaryColor: form.watch("primaryColor"),
-    secondaryColor: form.watch("secondaryColor"),
-    northStar: form.watch("northStar"),
-  };
   const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {
@@ -359,6 +376,54 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
+              <Field
+                label="Experiment Auto-Update Frequency"
+                className="ml-2"
+                containerClassName="mb-3"
+                disabled={hasFileConfig()}
+                options={[
+                  {
+                    display: "When results are X hours old",
+                    value: "stale",
+                  },
+                  {
+                    display: "Cron Schedule",
+                    value: "cron",
+                  },
+                  {
+                    display: "Never",
+                    value: "never",
+                  },
+                ]}
+                {...form.register("updateSchedule.type")}
+              />
+              <div className="mb-3">
+                {value.updateSchedule?.type === "stale" && (
+                  <Field
+                    append="hours"
+                    className="ml-2"
+                    disabled={hasFileConfig()}
+                    {...form.register("updateSchedule.hours", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                )}
+                {value.updateSchedule?.type === "cron" && (
+                  <Field
+                    label="Cron String"
+                    className="ml-2"
+                    disabled={hasFileConfig()}
+                    {...form.register("updateSchedule.cron")}
+                    placeholder="0 */6 * * *"
+                    helpText="minute hour day-of-month month day-of-week"
+                  />
+                )}
+                {cronString && (
+                  <div>
+                    <em>{cronString}</em>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="divider border-bottom mb-3 mt-3"></div>
