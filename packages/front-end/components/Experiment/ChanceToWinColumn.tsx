@@ -99,9 +99,11 @@ export default function ChanceToWinColumn({
       ) : (
         <>
           {percentFormatter.format(chanceToWin)}
-          <Tooltip text={sigText} className="d-block">
-            {" "}
-          </Tooltip>
+          {sigText !== "" && (
+            <Tooltip text={sigText} className="d-block">
+              {" "}
+            </Tooltip>
+          )}
         </>
       )}
     </td>
