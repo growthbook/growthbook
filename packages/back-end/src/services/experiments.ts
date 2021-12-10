@@ -598,7 +598,7 @@ function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   }
 
   // Sanity check to make sure the next update is somewhere between 1 hour and 7 days
-  if (!hours) hours = 6;
+  if (!hours) hours = EXPERIMENT_REFRESH_FREQUENCY;
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
