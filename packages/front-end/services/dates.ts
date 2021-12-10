@@ -13,7 +13,7 @@ export function datetime(date: string | Date): string {
 }
 export function ago(date: string | Date): string {
   if (!date) return "";
-  return formatDistance(getValidDate(date), new Date()) + " ago";
+  return formatDistance(getValidDate(date), new Date(), { addSuffix: true });
 }
 export function daysLeft(date: string | Date): number {
   return differenceInDays(getValidDate(date), new Date());

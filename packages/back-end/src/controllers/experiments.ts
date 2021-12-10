@@ -527,6 +527,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "data",
+    "autoSnapshots",
     "project",
   ];
   const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
