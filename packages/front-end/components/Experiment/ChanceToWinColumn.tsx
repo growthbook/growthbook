@@ -10,6 +10,7 @@ import {
 import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
 import { ExperimentStatus } from "back-end/types/experiment";
+import Tooltip from "../Tooltip";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -49,14 +50,30 @@ export default function ChanceToWinColumn({
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 
+  let sigText = "";
+  let className = "";
+  if (shouldHighlight && chanceToWin > ciUpper) {
+    sigText = `Significant win as the chance to win is above the ${percentFormatter.format(
+      ciUpper
+    )} threshold`;
+    className = "won";
+  } else if (shouldHighlight && chanceToWin < ciLower) {
+    sigText = `Significant loss as the chance to win is below the ${percentFormatter.format(
+      ciLower
+    )} threshold`;
+    className = "lost";
+  }
+  if (belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower)) {
+    sigText = "This change is below the min detectable change threshold";
+    className += " draw";
+  }
+
   return (
     <td
-      className={clsx("variation chance result-number align-middle", {
-        won: shouldHighlight && chanceToWin > ciUpper,
-        lost: shouldHighlight && chanceToWin < ciLower,
-        draw:
-          belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower),
-      })}
+      className={clsx(
+        "variation chance result-number align-middle tiptrigger d-table-cell",
+        className
+      )}
     >
       {!baseline?.value || !stats?.value ? (
         <em>no data</em>
@@ -80,7 +97,12 @@ export default function ChanceToWinColumn({
           <small className="text-muted">value changed too much</small>
         </div>
       ) : (
-        percentFormatter.format(chanceToWin)
+        <>
+          percentFormatter.format(chanceToWin)
+          <Tooltip text={sigText} className="d-block">
+            {" "}
+          </Tooltip>
+        </>
       )}
     </td>
   );
