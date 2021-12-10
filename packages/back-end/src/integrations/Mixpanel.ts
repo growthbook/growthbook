@@ -758,17 +758,21 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }
 
     if (metric.conditions) {
-      metric.conditions.forEach((cond) => {
-        const check = ["~", "!~"].includes(cond.operator)
-          ? `.match(/${cond.value}/)`
-          : ` ${cond.operator} ${JSON.stringify(cond.value)}`;
+      metric.conditions.forEach(({ operator, value, column }) => {
+        const col = this.getPropertyColumn(column, event);
+        const encoded = JSON.stringify(value);
 
-        checks.push(
-          `${cond.operator === "!~" ? "!" : ""}${this.getPropertyColumn(
-            cond.column,
-            event
-          )}${check}`
-        );
+        // Some operators map to special javascript syntax
+        if (operator === "~") {
+          checks.push(`${col}.match(/${value}/)`);
+        } else if (operator === "!~") {
+          checks.push(`!${col}.match(/${value}/)`);
+        } else if (operator === "=") {
+          checks.push(`${col} === ${encoded}`);
+        } else {
+          // All the other operators exactly match the javascript syntax so we can use them directly
+          checks.push(`${col} ${operator} ${encoded}`);
+        }
       });
     }
 

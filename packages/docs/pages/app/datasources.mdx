@@ -86,6 +86,24 @@ FROM
 
 Similar to the experiment query, don’t worry about duplicate rows or ordering. Just make sure the column names you select exactly match the above.
 
+#### SQL Template Variables
+
+Within your experiment and page view queries, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+
+For example:
+
+```sql
+SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  path as url
+FROM
+  pages
+WHERE
+  received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+```
+
 #### 3. Jupyter Notebook Query Runner
 
 This setting is only required if you want to export experiment results as a Jupyter Notebook.

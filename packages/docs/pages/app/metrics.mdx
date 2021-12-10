@@ -56,6 +56,22 @@ FROM
   registrations
 ```
 
+#### SQL Template Variables
+
+You can use the variables `{{ startDate }}` and `{{ endDate }}` in your query, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+
+For example:
+
+```sql
+SELECT
+  user_id as user_id,
+  received_at as timestamp
+FROM
+  registrations
+WHERE
+  received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+```
+
 ### 2. Query Builder (legacy)
 
 The query builder prompts you for things such as table/column names and constructs a query behind the scenes.
