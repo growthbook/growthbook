@@ -64,7 +64,8 @@ export default function ChanceToWinColumn({
     className = "lost";
   }
   if (belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower)) {
-    sigText = "This change is below the min detectable change threshold";
+    sigText =
+      "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";
   }
 
@@ -100,7 +101,7 @@ export default function ChanceToWinColumn({
         <>
           {percentFormatter.format(chanceToWin)}
           {sigText !== "" && (
-            <Tooltip text={sigText} className="d-block">
+            <Tooltip text={sigText} className="d-block" tipPosition={"top"}>
               {" "}
             </Tooltip>
           )}
