@@ -98,7 +98,7 @@ export default function ChanceToWinColumn({
         </div>
       ) : (
         <>
-          percentFormatter.format(chanceToWin)
+          {percentFormatter.format(chanceToWin)}
           <Tooltip text={sigText} className="d-block">
             {" "}
           </Tooltip>
