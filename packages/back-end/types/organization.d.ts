@@ -31,6 +31,12 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export type ExperimentUpdateSchedule = {
+  type: "cron" | "never" | "stale";
+  cron?: string;
+  hours?: number;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -43,6 +49,7 @@ export interface OrganizationSettings {
   techsources?: string[];
   pastExperimentsMinLength?: number;
   metricAnalysisDays?: number;
+  updateSchedule?: ExperimentUpdateSchedule;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

@@ -81,6 +81,7 @@ export interface ExperimentInterface {
   analysis?: string;
   data?: string;
   lastSnapshotAttempt?: Date;
+  nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
 }

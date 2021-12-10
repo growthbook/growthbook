@@ -15,6 +15,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
+import cronstrue from "cronstrue";
 
 export type SettingsApiResponse = {
   status: number;
@@ -86,16 +87,51 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //resolution?: string;
         //startDate?: Date;
       },
+      updateSchedule: {
+        type: "stale",
+        hours: 6,
+        cron: "0 */6 * * *",
+      },
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
 
+  const value = {
+    visualEditorEnabled: form.watch("visualEditorEnabled"),
+    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
+    metricAnalysisDays: form.watch("metricAnalysisDays"),
+    // customization:
+    customized: form.watch("customized"),
+    logoPath: form.watch("logoPath"),
+    primaryColor: form.watch("primaryColor"),
+    secondaryColor: form.watch("secondaryColor"),
+    northStar: form.watch("northStar"),
+    updateSchedule: form.watch("updateSchedule"),
+  };
+
+  const [cronString, setCronString] = useState("");
+
+  function updateCronString(cron?: string) {
+    cron = cron || value.updateSchedule?.cron || "";
+
+    if (!cron) {
+      setCronString("");
+    }
+    setCronString(
+      cronstrue.toString(cron, {
+        throwExceptionOnParseError: false,
+      })
+    );
+  }
+
   useEffect(() => {
     if (data?.organization?.settings) {
-      form.reset({
+      const newVal = {
         ...form.getValues(),
         ...data.organization.settings,
-      });
+      };
+      form.reset(newVal);
+      updateCronString(newVal.updateSchedule?.cron || "");
     }
   }, [data?.organization?.settings]);
 
@@ -110,17 +146,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const value = {
-    visualEditorEnabled: form.watch("visualEditorEnabled"),
-    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
-    metricAnalysisDays: form.watch("metricAnalysisDays"),
-    // customization:
-    customized: form.watch("customized"),
-    logoPath: form.watch("logoPath"),
-    primaryColor: form.watch("primaryColor"),
-    secondaryColor: form.watch("secondaryColor"),
-    northStar: form.watch("northStar"),
-  };
   const ctaEnabled = hasChanges(value, data?.organization?.settings);
 
   const saveSettings = async () => {
@@ -359,6 +384,60 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
+              <div className="mb-3">
+                <Field
+                  label="Experiment Auto-Update Frequency"
+                  className="ml-2"
+                  containerClassName="mb-2 mr-2"
+                  disabled={hasFileConfig()}
+                  options={[
+                    {
+                      display: "When results are X hours old",
+                      value: "stale",
+                    },
+                    {
+                      display: "Cron Schedule",
+                      value: "cron",
+                    },
+                    {
+                      display: "Never",
+                      value: "never",
+                    },
+                  ]}
+                  {...form.register("updateSchedule.type")}
+                />
+                {value.updateSchedule?.type === "stale" && (
+                  <div className="bg-light p-3 border">
+                    <Field
+                      label="Refresh when"
+                      append="hours old"
+                      className="ml-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("updateSchedule.hours", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                )}
+                {value.updateSchedule?.type === "cron" && (
+                  <div className="bg-light p-3 border">
+                    <Field
+                      label="Cron String"
+                      className="ml-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("updateSchedule.cron")}
+                      placeholder="0 */6 * * *"
+                      onFocus={(e) => {
+                        updateCronString(e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        updateCronString(e.target.value);
+                      }}
+                      helpText={<span className="ml-2">{cronString}</span>}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="divider border-bottom mb-3 mt-3"></div>

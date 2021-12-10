@@ -53,6 +53,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
+import Button from "../../components/Button";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -832,6 +833,41 @@ const ExperimentPage = (): ReactElement => {
               </table>
             </div>
           )}
+          {"nextSnapshotAttempt" in experiment &&
+            experiment.status === "running" && (
+              <div className="mb-4">
+                <h4>Next Scheduled Results Update</h4>
+                {experiment.autoSnapshots && experiment.nextSnapshotAttempt ? (
+                  <span title={datetime(experiment.nextSnapshotAttempt)}>
+                    {ago(experiment.nextSnapshotAttempt)}{" "}
+                    <Button
+                      color="link text-danger"
+                      className="btn-sm"
+                      onClick={async () => {
+                        await apiCall(`/experiment/${experiment.id}`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            autoSnapshots: false,
+                          }),
+                        });
+                        mutate({
+                          ...data,
+                          experiment: { ...experiment, autoSnapshots: false },
+                        });
+                      }}
+                    >
+                      cancel
+                    </Button>
+                  </span>
+                ) : (
+                  <div>
+                    Not automatically updating. Click the &quot;Update
+                    Data&quot; button on the results tab to manually update
+                    results.
+                  </div>
+                )}
+              </div>
+            )}
           <HistoryTable
             type="experiment"
             id={experiment.id}

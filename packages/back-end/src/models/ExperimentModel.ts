@@ -80,6 +80,7 @@ const experimentSchema = new mongoose.Schema({
   ],
   data: String,
   lastSnapshotAttempt: Date,
+  nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
   ideaSource: String,
 });

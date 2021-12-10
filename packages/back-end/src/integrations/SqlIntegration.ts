@@ -41,6 +41,22 @@ const percentileNumbers = [
 
 // Replace `{{startDate}}` and `{{endDate}}` in SQL queries
 function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+  // If there's no end date, use a near future date by default
+  // We want to use at least 24 hours in the future in case of timezone issues
+  // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
+  if (!endDate) {
+    const now = new Date();
+    endDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 2,
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
   return sql
     .replace(
       /\{\{\s*startDate\s*\}\}/g,
@@ -49,10 +65,7 @@ function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     .replace(
       /\{\{\s*endDate\s*\}\}/g,
       // Give an extra day buffer to account for any timezones, etc.
-      (endDate || new Date(Date.now() + 1000 * 60 * 60 * 24))
-        .toISOString()
-        .substr(0, 19)
-        .replace("T", " ")
+      endDate.toISOString().substr(0, 19).replace("T", " ")
     );
 }
 

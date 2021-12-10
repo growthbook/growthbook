@@ -353,7 +353,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       if (!data.name) return;
 
       // Create experiment document
-      const exp = await createExperiment(data);
+      const exp = await createExperiment(data, org);
 
       // Add a few experiments to evidence
       if (
@@ -365,7 +365,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, null);
+      await createSnapshot(exp, 0, org, null);
     })
   );
 
