@@ -6,12 +6,14 @@ import { MdInfoOutline } from "react-icons/md";
 interface Props extends HTMLAttributes<HTMLDivElement> {
   text: string;
   tipMinWidth?: string;
+  tipPosition?: "bottom" | "top";
 }
 const Tooltip: FC<Props> = ({
   text,
   children,
   className,
   tipMinWidth = "140px",
+  tipPosition = "bottom",
   ...otherProps
 }) => {
   if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
@@ -19,8 +21,8 @@ const Tooltip: FC<Props> = ({
     <>
       <div className={`tiptrigger ${className}`} {...otherProps}>
         {children}
-        <div className="tooltip bs-tooltip-bottom" role="tooltip">
-          <div className="arrow"></div>
+        <div className={`tooltip bs-tooltip-${tipPosition}`} role="tooltip">
+          <div className="arrow" />
           <div
             className="tooltip-inner"
             style={tipMinWidth ? { minWidth: tipMinWidth } : {}}
