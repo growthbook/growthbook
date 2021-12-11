@@ -1155,26 +1155,34 @@ export default abstract class SqlIntegration
     }
     return "1";
   }
-  private getAggregateMetricSqlValue(
-    metric: MetricInterface,
-    col: string = "m.value"
-  ) {
+  private getAggregateMetricSqlValue(metric: MetricInterface) {
+    // For binomial metrics, a user having at least 1 row means they converted
+    // No need for aggregations
+    if (metric.type === "binomial") {
+      return "1";
+    }
+
+    // Custom aggregation
+    if (metric.aggregation) {
+      return this.capValue(metric.cap, metric.aggregation);
+    }
+
     if (metric.type === "count") {
       return this.capValue(
         metric.cap,
         metric.sql
-          ? `SUM(${col})`
-          : `COUNT(${metric.column ? `DISTINCT ${col}` : "*"})`
+          ? `SUM(value)`
+          : `COUNT(${metric.column ? `DISTINCT value` : "*"})`
       );
     } else if (metric.type === "duration") {
       return this.capValue(
         metric.cap,
-        metric.sql ? `SUM(${col})` : `MAX(${col})`
+        metric.sql ? `SUM(value)` : `MAX(value)`
       );
     } else if (metric.type === "revenue") {
       return this.capValue(
         metric.cap,
-        metric.sql ? `SUM(${col})` : `MAX(${col})`
+        metric.sql ? `SUM(value)` : `MAX(value)`
       );
     }
     return "1";

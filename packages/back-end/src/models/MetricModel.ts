@@ -40,6 +40,7 @@ const metricSchema = new mongoose.Schema({
   userIdType: String,
   status: String,
   sql: String,
+  aggregation: String,
   timestampColumn: String,
   tags: [String],
   conditions: [

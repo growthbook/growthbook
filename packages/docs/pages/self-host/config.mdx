@@ -376,6 +376,22 @@ userIdType: user
 sql: SELECT user_id, timestamp FROM orders
 ```
 
+By default, if a user has more than 1 non-binomial metric row during an experiment, we sum the values together. You can override this behavior with the `aggregation` setting:
+
+```yml
+type: duration
+userIdType: either
+sql: >
+  SELECT
+    created_at as timestamp,
+    user_id,
+    anonymous_id,
+    duration as value
+  FROM
+    requests
+aggregation: MAX(value) # use MAX instead of the default SUM
+```
+
 #### Mixpanel
 
 For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics),
