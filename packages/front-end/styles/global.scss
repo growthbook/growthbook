@@ -516,6 +516,10 @@ pre {
       top: 100%;
       left: 50%;
       transform: translate(-50%, 0);
+
+      .arrow::before {
+        border-bottom-color: $blue;
+      }
     }
     .arrow {
       left: 50%;
@@ -528,8 +532,15 @@ pre {
       background-color: $blue;
       box-shadow: 1px 1px 4px rgb(0 0 0 / 40%);
     }
-    .arrow::before {
-      border-bottom-color: $blue;
+
+    &.bs-tooltip-top {
+      bottom: 1rem;
+      left: 50%;
+      transform: translate(-50%, 0);
+
+      .arrow::before {
+        border-top-color: $blue;
+      }
     }
   }
   &:hover .tooltip {
@@ -549,7 +560,15 @@ pre {
   z-index: 1000;
   position: relative;
   min-height: 100vh;
+  font-size: 1rem;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+
+  .h1 {
+    font-size: 1.9rem;
+  }
+  .h2 {
+    font-size: 1.6rem;
+  }
 
   .intro-side {
     background-color: $purple;

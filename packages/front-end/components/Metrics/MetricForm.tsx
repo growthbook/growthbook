@@ -22,6 +22,7 @@ import {
 } from "../../services/metrics";
 import BooleanSelect from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -149,6 +150,7 @@ const MetricForm: FC<MetricFormProps> = ({
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       sql: current.sql || "",
+      aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
       anonymousIdColumn: current.anonymousIdColumn || "",
@@ -337,22 +339,18 @@ const MetricForm: FC<MetricFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
-        <div className="form-group">
-          Data Source
-          <select
-            {...form.register("datasource")}
-            name="datasource"
-            className="form-control"
-            disabled={!!current.id}
-          >
-            {(datasources || []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-            <option value="">Manual</option>
-          </select>
-        </div>
+        <SelectField
+          label="Data Source"
+          value={value.datasource || ""}
+          onChange={(v) => form.setValue("datasource", v)}
+          options={(datasources || []).map((d) => ({
+            value: d.id,
+            label: d.name,
+          }))}
+          name="datasource"
+          initialOption="Manual"
+          disabled={!!current.id}
+        />
         <div className="form-group">
           Metric Type
           <RadioSelector
@@ -419,31 +417,45 @@ const MetricForm: FC<MetricFormProps> = ({
           <div className="col-lg">
             {supportsSQL && sqlInput ? (
               <div>
-                <div className="form-group">
-                  <div className="form-group">
-                    <label>User Types Supported</label>
-                    <select
-                      className="form-control"
-                      {...form.register("userIdType")}
-                    >
-                      <option value="anonymous">Anonymous Only</option>
-                      <option value="user">Users Only</option>
-                      <option value="either">Both Anonymous and Users</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>SQL</label>
-                  <textarea
-                    {...form.register("sql")}
-                    className="form-control"
-                    rows={15}
-                    placeholder="SELECT ..."
-                    autoFocus
-                    required
-                    minLength={15}
+                <Field
+                  label="User Types Supported"
+                  {...form.register("userIdType")}
+                  options={[
+                    {
+                      display: "Anonymous Only",
+                      value: "anonymous",
+                    },
+                    {
+                      display: "Users Only",
+                      value: "user",
+                    },
+                    {
+                      display: "Both Anonymous and Users",
+                      value: "either",
+                    },
+                  ]}
+                />
+                <Field
+                  label="SQL"
+                  textarea
+                  {...form.register("sql")}
+                  minRows={8}
+                  maxRows={20}
+                  placeholder="SELECT ..."
+                  autoFocus
+                  required
+                  minLength={15}
+                />
+                {value.type !== "binomial" && (
+                  <Field
+                    label="User Value Aggregation"
+                    placeholder="SUM(value)"
+                    textarea
+                    minRows={1}
+                    {...form.register("aggregation")}
+                    helpText="When there are multiple metric rows for a user"
                   />
-                </div>
+                )}
               </div>
             ) : (
               <>

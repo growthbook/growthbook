@@ -28,6 +28,7 @@ const GroupsInput: FC<{
         return { id: v, name: v };
       })}
       placeholder="Groups..."
+      positionFixed={true}
     />
   );
 };

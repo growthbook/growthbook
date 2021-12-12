@@ -366,7 +366,7 @@ const ShareModal = ({
         anchor={status}
         count={byStatus[status].length}
       >
-        {byStatus.stopped.length > 0 ? (
+        {byStatus[status].length > 0 ? (
           <table className="table table-hover experiment-table appbox">
             <thead>
               <tr>
@@ -457,7 +457,7 @@ const ShareModal = ({
           </table>
         ) : (
           <div className="alert alert-info">
-            No {isFiltered ? "matching" : "stopped"} experiments
+            No {isFiltered ? "matching" : ""} {status} experiments
           </div>
         )}
       </Tab>

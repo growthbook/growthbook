@@ -78,7 +78,8 @@ Optional. If not specified, GrowthBook will use the local file system to store u
 
 ### Other Settings
 
-- **EXPERIMENT_REFRESH_FREQUENCY** - Automatically update experiment results every X hours (default `6`)
+- **EXPERIMENT_REFRESH_FREQUENCY** - Default update schedule for experiment results. Update when stale for X hours (default `6`).
+- **QUERY_CACHE_TTL_MINS** - How long (in minutes) to cache and re-use SQL query results (default `60`)
 - **DEFAULT_CONVERSION_WINDOW_HOURS** - How many hours after being put into an experiment does a user have to convert. Can be overridden on a per-metric basis. (default `72`)
 - **DISABLE_TELEMETRY** - We collect anonymous telemetry data to help us improve GrowthBook. Set to "true" to disable.
 
@@ -375,6 +376,22 @@ userIdType: user
 sql: SELECT user_id, timestamp FROM orders
 ```
 
+By default, if a user has more than 1 non-binomial metric row during an experiment, we sum the values together. You can override this behavior with the `aggregation` setting:
+
+```yml
+type: duration
+userIdType: either
+sql: >
+  SELECT
+    created_at as timestamp,
+    user_id,
+    anonymous_id,
+    duration as value
+  FROM
+    requests
+aggregation: MAX(value) # use MAX instead of the default SUM
+```
+
 #### Mixpanel
 
 For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics),
@@ -434,4 +451,28 @@ organization:
     # Number of days of historical data to use when analyzing metrics
     # (must be between 1 and 400, default `90`)
     metricAnalysisDays: 90
+    # When we should auto-update experiment results
+    updateSchedule:
+      type: stale
+      hours: 6
 ```
+
+The `updateSchedule` setting has 3 types of values:
+
+- Never update automatically
+  ```yml
+  updateSchedule:
+    type: never
+  ```
+- Update if data is X hours stale
+  ```yml
+  updateSchedule:
+    type: stale
+    hours: 6
+  ```
+- Update on a fixed Cron schedule
+  ```yml
+  updateSchedule:
+    type: cron
+    cron: "0 */6 * * *"
+  ```

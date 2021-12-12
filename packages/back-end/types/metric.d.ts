@@ -55,6 +55,7 @@ export interface MetricInterface {
   analysisError?: string;
   status?: MetricStatus;
   sql?: string;
+  aggregation?: string;
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;

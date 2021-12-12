@@ -9,6 +9,7 @@ import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { UserContext } from "../ProtectedPage";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
+import { BsArrowRepeat } from "react-icons/bs";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -22,6 +23,7 @@ export default function ResultMoreMenu({
   notebookUrl,
   notebookFilename,
   hasUserQuery,
+  forceRefresh,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -34,6 +36,7 @@ export default function ResultMoreMenu({
   notebookUrl?: string;
   notebookFilename?: string;
   hasUserQuery?: boolean;
+  forceRefresh?: () => Promise<void>;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -56,6 +59,17 @@ export default function ResultMoreMenu({
           error={queryError}
           className="dropdown-item py-2"
         />
+      )}
+      {forceRefresh && (
+        <button
+          className="btn dropdown-item py-2"
+          onClick={(e) => {
+            e.preventDefault();
+            forceRefresh();
+          }}
+        >
+          <BsArrowRepeat className="mr-2" /> Re-run All Queries
+        </button>
       )}
       {hasData && queries && !hasUserQuery && generateReport && (
         <Button

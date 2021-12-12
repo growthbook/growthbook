@@ -6,6 +6,7 @@ import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
+import SelectField from "../Forms/SelectField";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -161,28 +162,30 @@ const AnalysisForm: FC<{
           )}
         </div>
       )}
-      <Field
+      <SelectField
         label="Activation Metric"
         labelClassName="font-weight-bold"
-        {...form.register("activationMetric")}
         options={filteredMetrics.map((m) => {
           return {
-            display: m.name,
+            label: m.name,
             value: m.id,
           };
         })}
         initialOption="None"
+        value={form.watch("activationMetric")}
+        onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />
       {datasourceProperties?.experimentSegments && (
-        <Field
+        <SelectField
           label="Segment"
           labelClassName="font-weight-bold"
-          {...form.register("segment")}
+          value={form.watch("segment")}
+          onChange={(value) => form.setValue("segment", value || "")}
           initialOption="None (All Users)"
           options={filteredSegments.map((s) => {
             return {
-              display: s.name,
+              label: s.name,
               value: s.id,
             };
           })}

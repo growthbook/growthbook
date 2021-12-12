@@ -10,6 +10,7 @@ import {
 } from "../models/MetricModel";
 import uniqid from "uniqid";
 import { addNonconvertingUsersToStats, analyzeExperimentMetric } from "./stats";
+import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
 import { getMetricValue, QueryMap, startRun } from "./queries";
@@ -42,9 +43,14 @@ import {
 } from "./reports";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { getSourceIntegrationObject } from "./datasource";
 import { SegmentModel } from "../models/SegmentModel";
 import uniqBy from "lodash/uniqBy";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import cronParser from "cron-parser";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "../../types/organization";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -172,6 +178,16 @@ export function deleteExperimentById(id: string) {
   return ExperimentModel.deleteOne({
     id,
   });
+}
+
+export async function getExperimentsUsingSegment(id: string, orgId: string) {
+  return ExperimentModel.find(
+    {
+      organization: orgId,
+      segment: id,
+    },
+    { id: 1, name: 1 }
+  );
 }
 
 export async function getLatestSnapshot(
@@ -374,9 +390,15 @@ function generateTrackingKey(name: string, n: number): string {
   return key;
 }
 
-export async function createExperiment(data: Partial<ExperimentInterface>) {
+export async function createExperiment(
+  data: Partial<ExperimentInterface>,
+  organization: OrganizationInterface
+) {
   if (!data.organization) {
     throw new Error("Missing organization");
+  }
+  if (data.organization !== organization.id) {
+    throw new Error("Experiment and Organization must match");
   }
 
   if (data.trackingKey) {
@@ -406,13 +428,18 @@ export async function createExperiment(data: Partial<ExperimentInterface>) {
     data.trackingKey = found || uniqid();
   }
 
+  const nextUpdate = determineNextDate(
+    organization.settings?.updateSchedule || null
+  );
+
   const exp = await ExperimentModel.create({
     ...data,
     id: uniqid("exp_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    autoSnapshots: true,
+    autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
+    nextSnapshotAttempt: nextUpdate,
   });
 
   if (data.tags) {
@@ -549,10 +576,40 @@ export async function parseDimensionId(
   return null;
 }
 
+function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
+  // Default to every X hours if no organization-specific schedule is set
+  let hours = EXPERIMENT_REFRESH_FREQUENCY;
+
+  if (schedule?.type === "never") {
+    return null;
+  }
+  if (schedule?.type === "cron") {
+    try {
+      const interval = cronParser.parseExpression(schedule?.cron || "");
+      const next = interval.next();
+
+      hours = (next.getTime() - Date.now()) / 1000 / 60 / 60;
+    } catch (e) {
+      console.error("Failed to parse cron expression: ", e);
+    }
+  }
+  if (schedule?.type === "stale") {
+    hours = schedule?.hours || 0;
+  }
+
+  // Sanity check to make sure the next update is somewhere between 1 hour and 7 days
+  if (!hours) hours = EXPERIMENT_REFRESH_FREQUENCY;
+  if (hours < 1) hours = 1;
+  if (hours > 168) hours = 168;
+  return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
 export async function createSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
-  dimensionId: string | null
+  organization: OrganizationInterface,
+  dimensionId: string | null,
+  useCache: boolean = false
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -580,9 +637,28 @@ export async function createSnapshot(
     skipPartialData: experiment.skipPartialData || false,
   };
 
+  const nextUpdate = determineNextDate(
+    organization.settings?.updateSchedule || null
+  );
+
+  await ExperimentModel.updateOne(
+    {
+      id: experiment.id,
+      organization: experiment.organization,
+    },
+    {
+      $set: {
+        lastSnapshotAttempt: new Date(),
+        nextSnapshotAttempt: nextUpdate,
+        autoSnapshots: nextUpdate !== null,
+      },
+    }
+  );
+
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
-    reportArgsFromSnapshot(experiment, data)
+    reportArgsFromSnapshot(experiment, data),
+    useCache
   );
 
   data.queries = queries;
@@ -590,19 +666,6 @@ export async function createSnapshot(
   data.unknownVariations = results?.unknownVariations || [];
 
   const snapshot = await ExperimentSnapshotModel.create(data);
-
-  // After successful snapshot, turn on autosnapshots
-  experiment.autoSnapshots = true;
-  await ExperimentModel.updateOne(
-    {
-      id: experiment.id,
-    },
-    {
-      $set: {
-        autoSnapshots: true,
-      },
-    }
-  );
 
   return snapshot;
 }

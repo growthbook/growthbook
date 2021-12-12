@@ -21,6 +21,22 @@ export interface Member {
   role: MemberRole;
 }
 
+export interface NorthStarMetric {
+  //enabled: boolean;
+  title: string;
+  metricIds: string[];
+  target?: number | number[];
+  window?: string;
+  resolution?: string;
+  startDate?: Date;
+}
+
+export type ExperimentUpdateSchedule = {
+  type: "cron" | "never" | "stale";
+  cron?: string;
+  hours?: number;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -28,10 +44,12 @@ export interface OrganizationSettings {
   logoPath?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  northStar?: NorthStarMetric;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
   metricAnalysisDays?: number;
+  updateSchedule?: ExperimentUpdateSchedule;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

@@ -78,16 +78,12 @@ const GetStarted = ({
         {dataSourceOpen && (
           <DataSourceForm
             data={{
-              type: "redshift",
+              type: "bigquery",
               name: "My Datasource",
               params: {
-                port: 5439,
-                database: "",
-                host: "",
-                password: "",
-                user: "",
-                defaultSchema: "",
-                ssl: "false",
+                clientEmail: "",
+                privateKey: "",
+                projectId: "",
               },
               settings: {},
             }}

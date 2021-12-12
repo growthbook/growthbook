@@ -653,7 +653,16 @@ const MetricPage: FC = () => {
                   canOpen={canEdit}
                 >
                   {supportsSQL && metric.sql ? (
-                    <Code language="sql" code={metric.sql} />
+                    <div>
+                      Metric SQL:
+                      <Code language="sql" code={metric.sql} />
+                      {metric.type !== "binomial" && metric.aggregation && (
+                        <div className="mt-2">
+                          User Value Aggregation:
+                          <Code language="sql" code={metric.aggregation} />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <RightRailSectionGroup

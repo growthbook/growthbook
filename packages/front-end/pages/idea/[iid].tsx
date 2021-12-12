@@ -33,7 +33,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
-import Field from "../../components/Forms/Field";
+import SelectField from "../../components/Forms/SelectField";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -288,11 +288,12 @@ const IdeaPage = (): ReactElement => {
                       />
                     </div>
                     {projects.length > 0 && (
-                      <Field
+                      <SelectField
                         label="Project"
-                        {...form.register("project")}
+                        value={form.watch("project")}
+                        onChange={(v) => form.setValue("project", v)}
                         options={projects.map((p) => ({
-                          display: p.name,
+                          label: p.name,
                           value: p.id,
                         }))}
                         initialOption="None"

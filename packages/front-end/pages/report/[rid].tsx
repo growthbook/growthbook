@@ -140,6 +140,16 @@ export default function ReportPage() {
                 <ResultMoreMenu
                   id={report.id}
                   hasData={hasData}
+                  forceRefresh={async () => {
+                    try {
+                      await apiCall(`/report/${report.id}/refresh?force=true`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
                   supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                   configure={() => setActive("Configuration")}
                   editMetrics={() => setActive("Configuration")}

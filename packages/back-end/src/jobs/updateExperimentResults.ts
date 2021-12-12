@@ -19,6 +19,7 @@ import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
+import { findOrganizationById } from "../models/OrganizationModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -34,9 +35,11 @@ const parentLogger = pino();
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // All experiments that haven't been updated in at least UPDATE_EVERY ms
-    const latestDate = new Date(Date.now() - UPDATE_EVERY);
+    // Old way of queing experiments based on a fixed schedule
+    // Will remove in the future when it's no longer needed
+    const ids = await legacyQueueExperimentUpdates();
 
+    // New way, based on dynamic schedules
     const experimentIds = (
       await ExperimentModel.find(
         {
@@ -46,8 +49,12 @@ export default async function (agenda: Agenda) {
           },
           status: "running",
           autoSnapshots: true,
-          lastSnapshotAttempt: {
-            $lte: latestDate,
+          nextSnapshotAttempt: {
+            $exists: true,
+            $lte: new Date(),
+          },
+          id: {
+            $nin: ids,
           },
         },
         {
@@ -56,7 +63,7 @@ export default async function (agenda: Agenda) {
       )
         .limit(100)
         .sort({
-          lastSnapshotAttempt: 1,
+          nextSnapshotAttempt: 1,
         })
     ).map((e) => e.id);
 
@@ -74,6 +81,43 @@ export default async function (agenda: Agenda) {
 
   // Update experiment results
   await startUpdateJob();
+
+  async function legacyQueueExperimentUpdates() {
+    // All experiments that haven't been updated in at least UPDATE_EVERY ms
+    const latestDate = new Date(Date.now() - UPDATE_EVERY);
+
+    const experimentIds = (
+      await ExperimentModel.find(
+        {
+          datasource: {
+            $exists: true,
+            $ne: "",
+          },
+          status: "running",
+          autoSnapshots: true,
+          nextSnapshotAttempt: {
+            $exists: false,
+          },
+          lastSnapshotAttempt: {
+            $lte: latestDate,
+          },
+        },
+        {
+          id: true,
+        }
+      )
+        .limit(100)
+        .sort({
+          lastSnapshotAttempt: 1,
+        })
+    ).map((e) => e.id);
+
+    for (let i = 0; i < experimentIds.length; i++) {
+      await queueExerimentUpdate(experimentIds[i]);
+    }
+
+    return experimentIds;
+  }
 
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
@@ -123,10 +167,17 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.id,
       experiment.phases.length - 1
     );
+
+    const organization = await findOrganizationById(experiment.organization);
+    if (!organization) return;
+    if (organization?.settings?.updateSchedule?.type === "never") return;
+
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
-      null
+      organization,
+      null,
+      false
     );
 
     await new Promise<void>((resolve, reject) => {

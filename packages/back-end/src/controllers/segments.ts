@@ -8,10 +8,12 @@ import { getOrgFromReq } from "../services/organizations";
 import { FilterQuery } from "mongoose";
 import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
 import { getIdeasByQuery } from "../services/ideas";
+import { getExperimentsUsingSegment } from "../services/experiments";
 import {
   getMetricsUsingSegment,
   updateMetricsByQuery,
 } from "../models/MetricModel";
+import { ExperimentModel } from "../models/ExperimentModel";
 
 export async function getAllSegments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -121,10 +123,14 @@ export async function getSegmentUsage(
   // metricSchema
   const metrics = await getMetricsUsingSegment(id, org.id);
 
+  // experiments:
+  const experiments = await getExperimentsUsingSegment(id, org.id);
+
   res.status(200).json({
     ideas,
     metrics,
-    total: ideas.length + metrics.length,
+    experiments,
+    total: ideas.length + metrics.length + experiments.length,
     status: 200,
   });
 }
@@ -172,6 +178,16 @@ export async function deleteSegment(
     await updateMetricsByQuery(
       { organization: org.id, segment: id },
       { segment: "" }
+    );
+  }
+
+  const exps = await getExperimentsUsingSegment(id, org.id);
+  if (exps.length > 0) {
+    await ExperimentModel.updateMany(
+      { organization: org.id, segment: id },
+      {
+        $set: { segment: "" },
+      }
     );
   }
 

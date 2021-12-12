@@ -68,7 +68,7 @@ const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
 
 const app = express();
 
-app.post("/webhook", bodyParser.raw(), (req, res) => {
+app.post("/webhook", bodyParser.raw({ type: "application/json" }), (req, res) => {
   const payload = req.body;
   const sig = req.get("X-GrowthBook-Signature");
 

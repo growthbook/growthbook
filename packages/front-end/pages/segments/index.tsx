@@ -41,6 +41,7 @@ const SegmentPage: FC = () => {
           status: number;
           ideas?: IdeaInterface[];
           metrics?: MetricInterface[];
+          experiments?: { id: string; name: string }[];
           total?: number;
         }>(`/segments/${s.id}/usage`, {
           method: "GET",
@@ -48,6 +49,7 @@ const SegmentPage: FC = () => {
 
         const metricLinks = [];
         const ideaLinks = [];
+        const expLinks = [];
         let subtitleText = "This segment is not referenced anywhere else.";
         if (res.total) {
           subtitleText = "This segment is referenced in ";
@@ -78,6 +80,20 @@ const SegmentPage: FC = () => {
               );
             });
           }
+          if (res.experiments.length) {
+            refs.push(
+              res.experiments.length === 1
+                ? "1 experiment"
+                : res.experiments.length + " Experiments"
+            );
+            res.experiments.forEach((e) => {
+              expLinks.push(
+                <Link href={`/experiment/${e.id}`}>
+                  <a>{e.name}</a>
+                </Link>
+              );
+            });
+          }
           subtitleText += refs.join(" and ");
 
           return (
@@ -94,6 +110,20 @@ const SegmentPage: FC = () => {
                         Metrics:{" "}
                         <ul className="mb-0 pl-3">
                           {metricLinks.map((l, i) => {
+                            return (
+                              <Fragment key={i}>
+                                <li className="">{l}</li>
+                              </Fragment>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {expLinks.length > 0 && (
+                      <div className="col-6 text-smaller text-left">
+                        Experiments:{" "}
+                        <ul className="mb-0 pl-3">
+                          {expLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
                                 <li className="">{l}</li>

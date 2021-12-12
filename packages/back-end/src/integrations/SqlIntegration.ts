@@ -39,6 +39,36 @@ const percentileNumbers = [
   0.99,
 ];
 
+// Replace `{{startDate}}` and `{{endDate}}` in SQL queries
+function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+  // If there's no end date, use a near future date by default
+  // We want to use at least 24 hours in the future in case of timezone issues
+  // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
+  if (!endDate) {
+    const now = new Date();
+    endDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 2,
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  return sql
+    .replace(
+      /\{\{\s*startDate\s*\}\}/g,
+      startDate.toISOString().substr(0, 19).replace("T", " ")
+    )
+    .replace(
+      /\{\{\s*endDate\s*\}\}/g,
+      // Give an extra day buffer to account for any timezones, etc.
+      endDate.toISOString().substr(0, 19).replace("T", " ")
+    );
+}
+
 export function getExperimentQuery(
   settings: DataSourceSettings,
   schema?: string
@@ -187,7 +217,10 @@ export default abstract class SqlIntegration
       `-- Past Experiments
     WITH
       __experiments as (
-        ${getExperimentQuery(this.settings, this.getSchema())}
+        ${replaceDateVars(
+          getExperimentQuery(this.settings, this.getSchema()),
+          params.from
+        )}
       ),
       __experimentDates as (
         SELECT
@@ -270,6 +303,15 @@ export default abstract class SqlIntegration
   getMetricValueQuery(params: MetricValueParams): string {
     const userId = params.userIdType === "user";
 
+    // Get rough date filter for metrics to improve performance
+    const metricStart = new Date(params.from);
+    metricStart.setMinutes(metricStart.getMinutes() - 30);
+    const metricEnd = new Date(params.to);
+    metricEnd.setHours(
+      metricEnd.getHours() +
+        (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
+    );
+
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -279,7 +321,11 @@ export default abstract class SqlIntegration
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
-        __pageviews as (${getPageviewsQuery(this.settings, this.getSchema())}),
+        __pageviews as (${replaceDateVars(
+          getPageviewsQuery(this.settings, this.getSchema()),
+          params.from,
+          params.to
+        )}),
         __users as (${this.getPageUsersCTE(
           params,
           userId,
@@ -294,11 +340,12 @@ export default abstract class SqlIntegration
               )})`
             : ""
         }
-        , __metric as (${this.getMetricCTE(
-          params.metric,
-          DEFAULT_CONVERSION_WINDOW_HOURS,
-          userId
-        )})
+        , __metric as (${this.getMetricCTE({
+          metric: params.metric,
+          userId,
+          startDate: metricStart,
+          endDate: metricEnd,
+        })})
         , __distinctUsers as (
           SELECT
             u.user_id,
@@ -569,7 +616,11 @@ export default abstract class SqlIntegration
         user_id,
         anonymous_id
       FROM
-        (${getPageviewsQuery(this.settings, this.getSchema())}) i
+        (${replaceDateVars(
+          getPageviewsQuery(this.settings, this.getSchema()),
+          from,
+          to
+        )}) i
       WHERE
         i.timestamp >= ${this.toTimestamp(from)}
         ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
@@ -637,6 +688,23 @@ export default abstract class SqlIntegration
     const activationDimension =
       activationMetric && dimension?.type === "activation";
 
+    // Get rough date filter for metrics to improve performance
+    const metricStart = new Date(phase.dateStarted);
+    metricStart.setMinutes(metricStart.getMinutes() - 30);
+    const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
+    if (metricEnd) {
+      metricEnd.setHours(
+        metricEnd.getHours() +
+          // Add conversion window so metric has time to convert after experiment ends
+          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+          // If using an activation metric, also need to allow for that conversion time
+          (activationMetric
+            ? activationMetric.conversionWindowHours ||
+              DEFAULT_CONVERSION_WINDOW_HOURS
+            : 0)
+      );
+    }
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -644,11 +712,13 @@ export default abstract class SqlIntegration
         from: phase.dateStarted,
         to: phase.dateEnded,
         dimension: dimension?.type === "user",
+        segment: !!segment,
         metrics: [metric, activationMetric],
       })}
-      __rawExperiment as (${getExperimentQuery(
-        this.settings,
-        this.getSchema()
+      __rawExperiment as (${replaceDateVars(
+        getExperimentQuery(this.settings, this.getSchema()),
+        phase.dateStarted,
+        phase.dateEnded
       )}),
       __experiment as (${this.getExperimentCTE({
         experiment,
@@ -660,11 +730,12 @@ export default abstract class SqlIntegration
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
       })})
-      , __metric as (${this.getMetricCTE(
+      , __metric as (${this.getMetricCTE({
         metric,
-        DEFAULT_CONVERSION_WINDOW_HOURS,
-        userId
-      )})
+        userId,
+        startDate: metricStart,
+        endDate: metricEnd,
+      })})
       ${
         segment
           ? `, __segment as (${this.getSegmentCTE(
@@ -684,11 +755,13 @@ export default abstract class SqlIntegration
       }
       ${
         activationMetric
-          ? `, __activationMetric as (${this.getMetricCTE(
-              activationMetric,
-              metric.conversionWindowHours,
-              userId
-            )})
+          ? `, __activationMetric as (${this.getMetricCTE({
+              metric: activationMetric,
+              conversionWindowHours: metric.conversionWindowHours,
+              userId,
+              startDate: metricStart,
+              endDate: metricEnd,
+            })})
             , __activatedUsers as (${this.getActivatedUsersCTE()})`
           : ""
       }
@@ -812,11 +885,19 @@ export default abstract class SqlIntegration
     throw new Error("Not implemented");
   }
 
-  private getMetricCTE(
-    metric: MetricInterface,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    userId: boolean = true
-  ) {
+  private getMetricCTE({
+    metric,
+    conversionWindowHours = DEFAULT_CONVERSION_WINDOW_HOURS,
+    userId = true,
+    startDate,
+    endDate,
+  }: {
+    metric: MetricInterface;
+    conversionWindowHours?: number;
+    userId?: boolean;
+    startDate: Date;
+    endDate: Date | null;
+  }) {
     let userIdCol: string;
     let join = "";
     // Need to use userId, but metric is anonymous only
@@ -848,6 +929,22 @@ export default abstract class SqlIntegration
 
     const schema = this.getSchema();
 
+    const where: string[] = [];
+
+    // From old, deprecated query builder UI
+    if (metric.conditions?.length) {
+      metric.conditions.forEach((c) => {
+        where.push(`m.${c.column} ${c.operator} '${c.value}'`);
+      });
+    }
+    // Add a rough date filter to improve query performance
+    if (startDate) {
+      where.push(`${timestampCol} >= ${this.toTimestamp(startDate)}`);
+    }
+    if (endDate) {
+      where.push(`${timestampCol} <= ${this.toTimestamp(endDate)}`);
+    }
+
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as user_id,
@@ -858,18 +955,16 @@ export default abstract class SqlIntegration
       FROM
         ${
           metric.sql
-            ? `(${metric.sql})`
+            ? `(${replaceDateVars(
+                metric.sql,
+                startDate,
+                endDate || undefined
+              )})`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
         } m
         ${join}
-      ${
-        metric.conditions?.length
-          ? `WHERE ${metric.conditions
-              .map((c) => `m.${c.column} ${c.operator} '${c.value}'`)
-              .join(" AND ")}`
-          : ""
-      }
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     `;
   }
 
@@ -1060,26 +1155,34 @@ export default abstract class SqlIntegration
     }
     return "1";
   }
-  private getAggregateMetricSqlValue(
-    metric: MetricInterface,
-    col: string = "m.value"
-  ) {
+  private getAggregateMetricSqlValue(metric: MetricInterface) {
+    // For binomial metrics, a user having at least 1 row means they converted
+    // No need for aggregations
+    if (metric.type === "binomial") {
+      return "1";
+    }
+
+    // Custom aggregation
+    if (metric.aggregation) {
+      return this.capValue(metric.cap, metric.aggregation);
+    }
+
     if (metric.type === "count") {
       return this.capValue(
         metric.cap,
         metric.sql
-          ? `SUM(${col})`
-          : `COUNT(${metric.column ? `DISTINCT ${col}` : "*"})`
+          ? `SUM(value)`
+          : `COUNT(${metric.column ? `DISTINCT value` : "*"})`
       );
     } else if (metric.type === "duration") {
       return this.capValue(
         metric.cap,
-        metric.sql ? `SUM(${col})` : `MAX(${col})`
+        metric.sql ? `SUM(value)` : `MAX(value)`
       );
     } else if (metric.type === "revenue") {
       return this.capValue(
         metric.cap,
-        metric.sql ? `SUM(${col})` : `MAX(${col})`
+        metric.sql ? `SUM(value)` : `MAX(value)`
       );
     }
     return "1";

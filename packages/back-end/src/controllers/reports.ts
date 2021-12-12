@@ -107,7 +107,9 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  await runReport(report);
+  const useCache = !req.query["force"];
+
+  await runReport(report, useCache);
 
   return res.status(200).json({
     status: 200,
@@ -143,10 +145,13 @@ export async function putReport(
   await updateReport(org.id, req.params.id, updates);
 
   if (needsRun) {
-    await runReport({
-      ...report,
-      ...updates,
-    });
+    await runReport(
+      {
+        ...report,
+        ...updates,
+      },
+      true
+    );
   }
 
   return res.status(200).json({

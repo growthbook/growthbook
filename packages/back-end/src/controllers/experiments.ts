@@ -385,7 +385,7 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations || []);
-    const experiment = await createExperiment(obj);
+    const experiment = await createExperiment(obj, org);
 
     await req.audit({
       event: "experiment.create",
@@ -527,6 +527,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "data",
+    "autoSnapshots",
     "project",
   ];
   const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
@@ -1338,6 +1339,9 @@ export async function getMetric(
       id: true,
       name: true,
       status: true,
+      phases: true,
+      results: true,
+      analysis: true,
     }
   )
     .sort({
@@ -1375,6 +1379,7 @@ export async function postMetrics(
     cap,
     conversionWindowHours,
     sql,
+    aggregation,
     segment,
     tags,
     winRisk,
@@ -1417,6 +1422,7 @@ export async function postMetrics(
     conversionWindowHours,
     userIdType,
     sql,
+    aggregation,
     status: "active",
     userIdColumn,
     anonymousIdColumn,
@@ -1476,6 +1482,7 @@ export async function putMetric(
     "cap",
     "conversionWindowHours",
     "sql",
+    "aggregation",
     "status",
     "tags",
     "winRisk",
@@ -1665,6 +1672,8 @@ export async function postSnapshot(
     });
   }
 
+  const useCache = !req.query["force"];
+
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
@@ -1735,7 +1744,13 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(exp, phase, dimension || null);
+    const snapshot = await createSnapshot(
+      exp,
+      phase,
+      org,
+      dimension || null,
+      useCache
+    );
     await req.audit({
       event: "snapshot.create.auto",
       entity: {
