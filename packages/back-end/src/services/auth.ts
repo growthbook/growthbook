@@ -63,6 +63,15 @@ function getInitialEmailFromJWT(user: {
   return "";
 }
 
+function getInitialNameFromJWT(user: {
+  ["https://growthbook.io/fname"]?: string;
+}) {
+  if (IS_CLOUD) {
+    return user["https://growthbook.io/fname"] || "";
+  }
+  return "";
+}
+
 export function getJWTCheck() {
   return IS_CLOUD ? getAuth0JWTCheck() : getLocalJWTCheck();
 }
@@ -74,6 +83,7 @@ export async function processJWT(
   next: NextFunction
 ) {
   req.email = getInitialEmailFromJWT(req.user);
+  req.name = getInitialNameFromJWT(req.user);
   req.permissions = {};
 
   const user = await (IS_CLOUD

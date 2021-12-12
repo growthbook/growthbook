@@ -560,7 +560,15 @@ pre {
   z-index: 1000;
   position: relative;
   min-height: 100vh;
+  font-size: 1rem;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+
+  .h1 {
+    font-size: 1.9rem;
+  }
+  .h2 {
+    font-size: 1.6rem;
+  }
 
   .intro-side {
     background-color: $purple;
