@@ -93,8 +93,7 @@ const ProtectedPage: React.FC<{
     });
     setData(res);
     if (res.organizations) {
-      if (res.organizations[0] && res.organizations[0].settings)
-        setOrganizations(res.organizations);
+      setOrganizations(res.organizations);
     }
   };
 
@@ -161,7 +160,6 @@ const ProtectedPage: React.FC<{
   }
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  console.log(currentOrg);
   const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
 
   const userContextValue: UserContextValue = {
