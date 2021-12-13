@@ -2,38 +2,61 @@
 
 This guide is meant for library authors looking to build a GrowthBook client library in a currently unsupported language.
 
-GrowthBook client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 500 lines of code**.
+GrowthBook client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
 
 All libraries should follow this specification as closely as the language permits to maintain consistency.
 
 ## Data structures
 
-These are the 3 main data structures used in the client libraries.
+There are a number of important data structures in GrowthBook client libraries.
 
-`Context + Experiment = Result`
+### Condition
+
+Targeting condition based on MongoDB query syntax. For example:
+
+```ts
+{
+  "country": "US",
+  "browser": {
+    "$in": ["firefox", "chrome"]
+  },
+  "email": {
+    "$not": {
+      "$regex": "@gmail.com$"
+    }
+  }
+}
+```
 
 ### Context
 
-Defines the experimental context (attributes used for variation assignment and targeting).
-
-At a minimum, the context should support the following optional properties:
+Defines the GrowthBook context. At a minimum, the context should support the following optional properties:
 
 - **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
-- **user** (`Map`) - Map of user attributes that are used to assign variations
-- **groups** (`Map`) - A map of which groups the user belongs to (key is the group name, value is boolean)
+- **attributes** (`Map`) - Map of user attributes that are used to assign variations
 - **url** (`string`) - The URL of the current page
-- **overrides** (`Map`) - Override properties of specific experiments (used for Remote Config)
+- **features** (`Map`) - Feature definitions (usually pulled from an API or cache)
+- **overrides** (`Map`) - Experiment overrides (usually pulled from an API or cache)
 - **forcedVariations** (`Map`) - Force specific experiments to always assign a specific variation (used for QA)
 - **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
 - **trackingCallback** (`function`) - A function that takes `experiment` and `result` as arguments.
 
-An example of a `user`:
+Attributes are an arbitrary JSON object containing user and request attributes. Here's an example:
 
-```json
+```jsons
 {
   "id": "123",
   "anonId": "abcdef",
-  "company": "growthbook"
+  "company": "growthbook",
+  "url": "/pricing",
+  "country": "US",
+  "browser": "firefox",
+  "age": 25,
+  "beta": true,
+  "account": {
+    "plan": "team",
+    "seats": 10
+  }
 }
 ```
 
@@ -52,20 +75,20 @@ function track(experiment, result) {
 
 Defines a single experiment:
 
-- **key** (`string`) - The globally unique tracking key for the experiment
+- **trackingKey** (`string`) - The globally unique tracking key for the experiment
 - **variations** (`any[]`) - The different variations to choose between
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
-- **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
+- **active** (`boolean`) - If set to false, always return the control (first variation)
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
-- **url** (`RegExp`) - Users can only be included in this experiment if the current URL matches this regex
+- **condition** (`Condition`) - Optional targeting condition
 - **include** (`() => boolean`) - A callback that returns true if the user should be part of the experiment and false if they should not be
-- **groups** (`string[]`) - Limits the experiment to specific user groups
+- **namespace** (`(string, number, number)`) - A tuple that contains the namespace identifier, plus a range of coverage for the experiment.
 - **force** (`number`) - All users included in the experiment will be forced into the specific variation index
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
 
 The only required properties are `key` and `variations`. Everything else is optional.
 
-### Result
+### ExperimentResult
 
 The result of running an Experiment given a specific Context
 
@@ -77,9 +100,115 @@ The result of running an Experiment given a specific Context
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
 
+### ExperimentOverride
+
+`context.overrides` is a JSON object. Keys are experiment trackingKeys and the value is an ExperimentOverride object:
+
+```js
+context = {
+  "overrides": {
+    "key1": {...},
+    "key2": {...}
+  }
+}
+```
+
+An ExperimentOverride object is similar to an Experiment object, but only contains a subset of the possible properties:
+
+- weights
+- active
+- coverage
+- condition
+- force
+
+### Feature
+
+`context.features` is a JSON object. Keys are unique identifiers for the features and the values are Feature objects.
+
+```js
+{
+  "feature-1": {...},
+  "feature-2": {...},
+  "feature-3": {...}
+}
+```
+
+A Feature object consists of possible values plus rules for how to assign values to users.
+
+- **values** (`any[]`) - Array of all possible values for the feature
+- **defaultValue** (`number`) - The array index of values that should be the default (should use `0` if unspecified)
+- **rules** (`Rule[]`) - Array of Rule objects that determine when and how the defaultValue gets overridden
+
+### FeatureRule
+
+There are 2 types of rules
+
+Force rules:
+
+- **type** (`string`) - Always set to `"force"`
+- **condition** (`Condition`) - Optional targeting condition
+- **value** (`number`) - The array index of values that should be assigned
+
+Experiment rules:
+
+- **type** (`string`) - Always set to `"experiment"`
+- **condition** (`Condition`) - Optional targeting condition
+- **trackingKey** (`string`) - The globally unique tracking key for the experiment
+- **variations** (`number[]`) - The different array indexes on values that are part of the experiment (default to all of them)
+- **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+- **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **namespace** (`(string, number, number)`) - A tuple that contains the namespace identifier, plus a range of coverage for the experiment.
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+
+### FeatureResult
+
+- **value** (`any`) - The assigned value of the feature
+- **on** (`boolean`) - The assigned value cast to a boolean
+- **off** (`boolean`) - The assigned value cast to a boolean and then negated
+- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", or "experiment"
+- **experiment** (`Experiment`) - When source is "experiment", this will be the Experiment object used
+
+## Using the Library
+
+The main export of the libraries is a simple `GrowthBook` wrapper class that takes a `Context` object in the constructor.
+
+It exposes two main methods: `feature` and `run`.
+
+## Evaluating a Feature
+
+The `feature` method takes a single string argument, which is the unique identifier for the feature and returns a `FeatureResult` object.
+
+```js
+growthbook = new GrowthBook(context);
+myFeature = growthbook.feature("my-feature");
+```
+
+There are a few ordered steps to evaluate a feature
+
+1. If the key doesn't exist in `context.features`, return immediately (value = `null`, source = `unknownFeature`).
+2. If `values` are not specified for the feature, default to `[false, true]`.
+3. Loop through the feature rules (if any)
+   1. If the rule has a `condition` and it evaluates to false, skip this rule and continue to the next one
+   2. If the rule type is force, return immediately (value = forced value, source = `force`)
+   3. If the rule type is experiment, convert the rule to an Experiment object and run the experiment.
+      ```ts
+      const exp = {
+        variations: rule.variations
+          ? rule.variations.map((i) => values[i])
+          : values,
+        trackingKey: rule.trackingKey || featureKey,
+      };
+      if (rule.coverage) exp.coverage = rule.coverage;
+      if (rule.weights) exp.weights = rule.weights;
+      if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
+      if (rule.namespace) exp.namespace = rule.namespace;
+      ```
+   4. Run the experiment. If `result.inExperiment` is false, skip this rule and continue to the next one. Otherwise, return immediately (value = assigned variation, source = `experiment`)
+4. Return (value = defaultValue, source = `defaultValue`)
+
 ## Running an Experiment
 
-The main export of the libraries is a simple `GrowthBook` wrapper class with a `run` method that returns a `Result` object.
+The `run` method takes an Experiment object and returns an `ExperimentResult`:
 
 ```js
 growthbook = new GrowthBook(context);
@@ -90,19 +219,17 @@ There are a bunch of ordered steps to run an experiment:
 
 1.  If `experiment.variations` has fewer than 2 variations, return immediately (not in experiment, variationId `0`)
 2.  If `context.enabled` is false, return immediately (not in experiment, variationId `0`)
-3.  If `context.overrides[experiment.key]` is set, merge override properties into the experiment
-4.  If `context.url` contains a querystring `{experiment.key}=[0-9]+`, return immediately (not in experiment, variationId from querystring)
-5.  If `context.forcedVariations[experiment.key]` is defined, return immediately (not in experiment, forced variation)
-6.  If `experiment.status` is "draft", return immediately (not in experiment, variationId `0`)
-7.  Get the user hash attribute and value (`context.user[experiment.hashAttribute || "id"]`) and if empty, return immediately (not in experiment, variationId `0`)
+3.  If `context.overrides[experiment.trackingKey]` is set, merge override properties into the experiment
+4.  If `context.url` contains a querystring `{experiment.trackingKey}=[0-9]+`, return immediately (not in experiment, variationId from querystring)
+5.  If `context.forcedVariations[experiment.trackingKey]` is defined, return immediately (not in experiment, forced variation)
+6.  If `experiment.action` is set to false, return immediately (not in experiment, variationId `0`)
+7.  Get the user hash attribute and value (`context.attributes[experiment.hashAttribute || "id"]`) and if empty, return immediately (not in experiment, variationId `0`)
 8.  If `experiment.namespace` is set, check if hash value is included in the range and if not, return immediately (not in experiment, variationId `0`)
 9.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
-10. If `experiment.groups` is set and none of them are true in `context.groups`, return immediately (not in experiment, variationId `0`)
-11. If `experiment.url` is set, evaluate as a regex against `context.url` and if it doesn't match or throws, return immediately (not in experiment, variationId `0`)
-12. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
-13. If `experiment.status` is "stopped", return immediately (not in experiment, variationId `0`)
-14. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-15. Default variation weights and coverage if not specified
+10. If `experiment.condition` is set and the condition evaluates to false, return immediately (not in experiment, variationId `0`)
+11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
+12. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
+13. Default variation weights and coverage if not specified
 
     ```js
     // Default weights to an even split between all variations
@@ -117,7 +244,7 @@ There are a bunch of ordered steps to run an experiment:
     coverage = experiment.coverage ?? 1;
     ```
 
-16. Calculate bucket ranges for the variations
+14. Calculate bucket ranges for the variations
 
     ```js
     // Convert weights/coverage to ranges
@@ -131,7 +258,7 @@ There are a bunch of ordered steps to run an experiment:
     });
     ```
 
-17. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
+15. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
 
     ```js
     n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
@@ -144,39 +271,9 @@ There are a bunch of ordered steps to run an experiment:
     });
     ```
 
-18. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
-19. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
-20. Return (**in experiment**, assigned variation)
-
-## Remote Config
-
-`context.overrides` allows overriding a subset of experiment properties without changing code. For example, changing an experiment's status from `running` to `stopped`.
-
-The overrides are typically stored in a database or cache so there should be an easy way to pass them in as a JSON-encoded object. The object will look something like this:
-
-```json
-{
-  "my-experiment-key": {
-    "status": "stopped"
-  },
-  "my-other-experiment": {
-    "coverage": 0.5,
-    "groups": "beta-testers"
-  }
-}
-```
-
-The full list of supported override properties is:
-
-- weights
-- status
-- force
-- coverage
-- groups
-- url
-
-Note that the above list specifically does not include `variations`. The only way to change the variations is to change the code.
-This restriction makes testing and maintaining code much much easier.
+16. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+17. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
+18. Return (**in experiment**, assigned variation)
 
 ## Developer Experience
 
@@ -184,7 +281,21 @@ Having a good developer experience is super important.
 
 ### Basic Usage
 
-It should be very simple to run a basic A/B test:
+It should be extremely easy and natural to use features, both on/off flags and full remote config features.
+
+```js
+// On/off flag
+if (growthbook.feature("my-feature").on) {
+  // ...
+}
+
+// Remote config
+color = growthbook.feature("signup-button-color").value || "blue";
+```
+
+The developer doesn't need to care how the value of a feature was determined, whether it came from a default, an experiment, or through complex targeting rules.
+
+In most cases, this is all the developer will ever need to do. If they do need to run an inline experiment, it should be very simple to run a basic A/B test:
 
 ```js
 result = growthbook.run({
@@ -207,7 +318,9 @@ result = growthbook.run({
   ],
   weights: [0.8, 0.2],
   coverage: 0.5,
-  groups: ["beta-testers"],
+  condition: {
+    beta: true,
+  },
 });
 
 print(result.value.color, result.value.size);
@@ -222,21 +335,11 @@ If possible, use generics to type the return value. If `experiment.variations` i
 
 If your type system supports specifying a minimum array length, it's best to type `experiment.variations` as requiring at least 2 elements.
 
-The `experiment.status` field should be typed as a string union or enum if possible. The only valid values are `draft`, `running`, and `stopped`.
-
-### URL Regexes
-
-If your language has support for a native regex type, you should use that instead of strings for `experiment.url`.
-
-However, in all languages, `context.overrides` needs to remain serializeable to JSON, so strings must be used there. When importing overrides from JSON, you would convert the strings to actual regex objects.
-
-Since the regex deals with URLs, make sure you are escaping `/` if needed. The string value `"^/post/[0-9]+"` should work as expected and not throw an error.
-
 ### Handling Errors
 
 The general rule is to be strict in development and lenient in production.
 
-You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.run`.
+You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.feature` or `growthbook.run`.
 
 For the below edge cases in production, just act as if the problematic property didn't exist and ignore errors:
 
@@ -253,7 +356,6 @@ For the below edge cases in production, the experiment should be disabled (every
 - `experiment.force` specifies an invalid variation index
 - `context.forcedVariations` specifies an invalid variation index
 - `experiment.include` throws an error
-- `experiment.status` is set to an unknown value
 - `experiment.hashAttribute` is an empty string
 
 ### Subscriptions
