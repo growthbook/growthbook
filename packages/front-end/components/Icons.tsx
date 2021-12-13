@@ -279,6 +279,34 @@ export function GBMetrics({ className = "" }): React.ReactElement {
   );
 }
 
+export function GBReports({ className = "" }): React.ReactElement {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 28 28"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M21.5 19.9984H6.5V7.50684"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M21.5 11.2549L16.5 15.6269L11.5 11.8795L6.5 16.2515"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function GBArrowLeft({ className = "" }): React.ReactElement {
   return (
     <svg
