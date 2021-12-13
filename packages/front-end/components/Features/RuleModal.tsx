@@ -4,6 +4,7 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
 import { useAuth } from "../../services/auth";
+import ConditionInput from "./ConditionInput";
 
 export interface Props {
   close: () => void;
@@ -13,15 +14,16 @@ export interface Props {
 }
 
 export default function RuleModal({ close, feature, i, mutate }: Props) {
+  const defaultValues = {
+    condition: "",
+    description: "",
+    enabled: true,
+    type: "force",
+    value: feature.defaultValue,
+    ...((feature?.rules?.[i] as FeatureRule) || {}),
+  };
   const form = useForm({
-    defaultValues: {
-      condition: "",
-      description: "",
-      enabled: true,
-      type: "force",
-      value: feature.defaultValue,
-      ...((feature?.rules?.[i] as FeatureRule) || {}),
-    },
+    defaultValues,
   });
 
   const { apiCall } = useAuth();
@@ -32,10 +34,11 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     <Modal
       open={true}
       close={close}
+      size="lg"
+      header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const rules = [...feature.rules];
         rules[i] = values as FeatureRule;
-        console.log(rules);
         await apiCall(`/feature/${feature.id}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -52,11 +55,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
-      <Field
-        label="Condition (optional)"
-        textarea
-        {...form.register("condition")}
-        helpText="If specified, this rule will only apply to users who meet this condition"
+      <ConditionInput
+        defaultValue={defaultValues.condition || ""}
+        onChange={(value) => form.setValue("condition", value)}
       />
       <Field
         {...form.register("type")}

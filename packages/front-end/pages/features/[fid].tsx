@@ -6,7 +6,6 @@ import {
   FeatureValueType,
   RolloutValue,
 } from "back-end/types/feature";
-import Code from "../../components/Code";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -19,6 +18,7 @@ import FeatureModal from "../../components/Features/FeatureModal";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
+import ConditionDisplay from "../../components/Features/ConditionDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -268,15 +268,12 @@ export default function FeaturePage() {
               <Markdown className="mb-3">{rule.description}</Markdown>
             )}
             {rule.condition && (
-              <div className="row mb-3 align-items-center">
+              <div className="row mb-3 align-items-top">
                 <div className="col-auto">
                   <strong>IF</strong>
                 </div>
                 <div className="col">
-                  <Code
-                    language="json"
-                    code={rule.condition.replace(/\n/g, "")}
-                  />
+                  <ConditionDisplay condition={rule.condition} />
                 </div>
               </div>
             )}

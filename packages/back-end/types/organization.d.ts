@@ -31,6 +31,18 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export type SDKAttributeType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "string[]"
+  | "number[]";
+
+export type SDKAttributeSchema = {
+  property: string;
+  datatype: SDKAttributeType;
+}[];
+
 export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";
   cron?: string;
@@ -50,6 +62,7 @@ export interface OrganizationSettings {
   pastExperimentsMinLength?: number;
   metricAnalysisDays?: number;
   updateSchedule?: ExperimentUpdateSchedule;
+  attributeSchema?: SDKAttributeSchema;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

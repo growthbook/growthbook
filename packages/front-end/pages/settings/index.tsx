@@ -4,7 +4,7 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import { MemberRole, useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
@@ -92,6 +92,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
+      attributeSchema: [],
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
@@ -107,7 +108,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
+    attributeSchema: form.watch("attributeSchema"),
   };
+
+  const attributeSchema = useFieldArray({
+    name: "attributeSchema",
+    control: form.control,
+  });
 
   const [cronString, setCronString] = useState("");
 
@@ -247,6 +254,68 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                   <Field label="Title" {...form.register("northStar.title")} />
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="my-3 bg-white p-3 border">
+          <div className="row">
+            <div className="col-sm-3">
+              <h4>SDK Attribute Schema</h4>
+            </div>
+            <div className="col-sm-9">
+              <div className="mb-3">
+                <p>
+                  Describes the shape of the attribute data passed into the
+                  GrowthBook client libraries. This is used to provide a smarter
+                  UI for defining targeting conditions. Use dot notation for
+                  nested object property names (e.g. <code>account.plan</code>)
+                </p>
+                <div className="form-inline">
+                  <ul className="mb-0">
+                    {attributeSchema.fields.map((v, i) => (
+                      <li key={i} className="mb-1">
+                        <input
+                          {...form.register(`attributeSchema.${i}.property`)}
+                          placeholder="Property Name"
+                          className="form-control"
+                          required
+                        />
+                        <select
+                          {...form.register(`attributeSchema.${i}.datatype`)}
+                          className="form-control ml-2"
+                        >
+                          <option value="boolean">Boolean</option>
+                          <option value="number">Number</option>
+                          <option value="string">String</option>
+                          <option value="number[]">Array of Numbers</option>
+                          <option value="string[]">Array of Strings</option>
+                        </select>
+                        <button
+                          className="btn btn-link text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            attributeSchema.remove(i);
+                          }}
+                        >
+                          remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    attributeSchema.append({
+                      property: "",
+                      datatype: "string",
+                    });
+                  }}
+                >
+                  add property
+                </button>
               </div>
             </div>
           </div>
