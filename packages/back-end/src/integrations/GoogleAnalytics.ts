@@ -10,7 +10,7 @@ import {
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
-import { google } from "googleapis";
+import { analyticsreporting_v4, google } from "googleapis";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
@@ -211,7 +211,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       expression: m.table,
     }));
 
-    const query = {
+    const query: analyticsreporting_v4.Schema$ReportRequest = {
       viewId: this.params.viewId,
       dateRanges: [
         {
@@ -230,9 +230,24 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           name: `ga:dimension${this.params.customDimension}`,
         },
       ],
+      dimensionFilterClauses: [
+        {
+          filters: [
+            {
+              dimensionName: `ga:dimension${this.params.customDimension}`,
+              operator: "BEGINS_WITH",
+              expressions: [experiment.trackingKey + this.getDelimiter()],
+            },
+          ],
+        },
+      ],
     };
 
     return JSON.stringify(query, null, 2);
+  }
+
+  private getDelimiter() {
+    return this.params.delimiter || ":";
   }
 
   async getExperimentResults(
@@ -258,7 +273,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
       return {
         dimension: "",
-        variation: (row.dimensions?.[0] || "").split(":", 2)[1] || "",
+        variation:
+          (row.dimensions?.[0] || "").split(this.getDelimiter(), 2)[1] || "",
         users: users || 0,
         metrics: metrics.map((metric, j) => {
           let value = parseFloat(row.metrics?.[0]?.values?.[j + 1] || "") || 0;
