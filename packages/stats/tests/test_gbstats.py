@@ -9,6 +9,7 @@ from gbstats.gbstats import (
     run_analysis,
     correctMean,
     correctStddev,
+    detect_multiple_exposures,
     detect_unknown_variations,
     reduce_dimensionality,
     analyze_metric_df,
@@ -63,6 +64,41 @@ def test_unknown_variations():
     assert detect_unknown_variations(rows, {"zero": 0, "one": 1}) == set()
     assert detect_unknown_variations(rows, {"zero": 0, "hello": 1}) == {"one"}
     assert detect_unknown_variations(rows, {"hello": 0, "world": 1}) == {"one", "zero"}
+
+
+def test_multiple_exposures():
+    rows = pd.DataFrame(
+        [
+            {
+                "dimension": "All",
+                "variation": "one",
+                "count": 120,
+                "mean": 2.5,
+                "stddev": 1,
+                "users": 1000,
+            },
+            {
+                "dimension": "All",
+                "variation": "two",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1100,
+            },
+            {
+                "dimension": "All",
+                "variation": "one||two",
+                "count": 50,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 500,
+            },
+        ]
+    )
+    assert detect_multiple_exposures(rows) == 500
+    assert detect_multiple_exposures(rows, "&") == 0
+    assert detect_unknown_variations(rows, {"one": 0, "two": 1}) == set()
+    assert detect_unknown_variations(rows, {"one": 0, "two": 1}, "&") == {"one||two"}
 
 
 def test_reduce_dimensionality():

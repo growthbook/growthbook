@@ -22,13 +22,23 @@ def correctMean(n, x, m, y):
 
 
 # Looks for any variation ids that are not in the provided map
-def detect_unknown_variations(rows, var_id_map):
+def detect_unknown_variations(rows, var_id_map, ignore_delimiter="||"):
     unknown_var_ids = []
     for row in rows.itertuples(index=False):
         id = str(row.variation)
-        if id not in var_id_map:
+        if ignore_delimiter not in id and id not in var_id_map:
             unknown_var_ids.append(id)
     return set(unknown_var_ids)
+
+
+# Looks for rows with multiple variations and sums up the number of users
+def detect_multiple_exposures(rows, delimiter="||"):
+    multiple_exposures = 0
+    for row in rows.itertuples(index=False):
+        id = str(row.variation)
+        if delimiter in id:
+            multiple_exposures = multiple_exposures + row.users
+    return multiple_exposures
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions

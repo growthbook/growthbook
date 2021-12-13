@@ -1,7 +1,7 @@
 [tool]
 [tool.poetry]
 name = "gbstats"
-version = "0.2.0"
+version = "0.2.1"
 homepage = "https://github.com/growthbook/growthbook/packages/stats"
 description = "Stats engine for GrowthBook, the open source A/B testing platform."
 authors = ["Jeremy Dorn <jeremy@growthbook.io>"]

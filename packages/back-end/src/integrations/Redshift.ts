@@ -28,4 +28,7 @@ export default class Redshift extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
+  groupAggDistinct(col: string, delimiter: string): string {
+    return `LISTAGG(DISTINCT ${col}, '${delimiter}')`;
+  }
 }

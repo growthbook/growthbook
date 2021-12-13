@@ -1,5 +1,6 @@
 from .gbstats import (
     detect_unknown_variations,
+    detect_multiple_exposures,
     analyze_metric_df,
     get_metric_df,
     reduce_dimensionality,
@@ -104,6 +105,20 @@ def create_notebook(
         ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
 
+        multiple_exposures = detect_multiple_exposures(metric["rows"], "||")
+        cells.append(
+            code_cell_plain(
+                source=(
+                    "# Count users who saw more than one variation\n"
+                    "multiple_exposures = detect_multiple_exposures(rows)\n"
+                    'print("Users exposed to multiple variations: ", multiple_exposures)'
+                ),
+                text=(
+                    "Users exposed to multiple variations: " + (str(multiple_exposures))
+                ),
+            )
+        )
+
         unknown_var_ids = detect_unknown_variations(metric["rows"], var_id_map)
         cells.append(
             code_cell_plain(
@@ -113,9 +128,9 @@ def create_notebook(
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map\n"
                     f")\n"
-                    'print("Unknown variation ids: ", unknown_var_ids)'
+                    'print("Unexpected variation ids: ", unknown_var_ids)'
                 ),
-                text=("Unknown variation ids:" + (str(unknown_var_ids))),
+                text=("Unexpected variation ids:" + (str(unknown_var_ids))),
             )
         )
 

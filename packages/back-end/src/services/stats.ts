@@ -38,6 +38,7 @@ export interface StatsEngineDimensionResponse {
 
 export interface ExperimentMetricAnalysis {
   unknownVariations: string[];
+  multipleExposures: number;
   dimensions: StatsEngineDimensionResponse[];
 }
 
@@ -50,6 +51,7 @@ export async function analyzeExperimentMetric(
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
+      multipleExposures: 0,
       dimensions: [],
     };
   }
@@ -62,6 +64,7 @@ export async function analyzeExperimentMetric(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
+  detect_multiple_exposures,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
@@ -97,6 +100,10 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
+multiple_exposures = detect_multiple_exposures(
+  rows=rows
+)
+
 df = get_metric_df(
   rows=rows,
   var_id_map=var_id_map,
@@ -118,6 +125,7 @@ result = analyze_metric_df(
 )
 
 print(json.dumps({
+  'multipleExposures': multiple_exposures,
   'unknownVariations': list(unknown_var_ids),
   'dimensions': format_results(result)
 }, allow_nan=False))`,
@@ -153,6 +161,7 @@ export async function analyzeExperimentResults(
   }[] = [];
 
   let unknownVariations: string[] = [];
+  let multipleExposures = 0;
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   // Need to convert to the same format as SQL rows
@@ -211,6 +220,7 @@ export async function analyzeExperimentResults(
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
+        multipleExposures += result.multipleExposures;
 
         result.dimensions.forEach((row) => {
           const dim = dimensionMap.get(row.dimension) || {
@@ -248,6 +258,7 @@ export async function analyzeExperimentResults(
   }
 
   return {
+    multipleExposures,
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };

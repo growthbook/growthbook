@@ -1618,6 +1618,8 @@ export async function getSnapshotStatus(
             ...updates,
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
+            multipleExposures:
+              results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
             results: results?.dimensions || snapshot.results,
             error,
           },
