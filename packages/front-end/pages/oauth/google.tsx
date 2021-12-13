@@ -6,13 +6,13 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 
 const Google: FC = () => {
   const [code, setCode] = useState(null);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     // Get code from querystring
-    const c = window.location.search.match(/code=([^&]+)/)[1];
+    const c = window.location.search.match(/code=([^&]+)/)?.[1];
     if (!c) {
-      setError("Authentication failed");
+      setError(new Error("Authentication failed"));
     } else {
       setCode(c);
     }
@@ -21,11 +21,11 @@ const Google: FC = () => {
   const router = useRouter();
   const { mutateDefinitions } = useDefinitions();
 
-  if (!code) {
-    return <LoadingOverlay />;
-  }
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
+  }
+  if (!code) {
+    return <LoadingOverlay />;
   }
 
   const redirectToSettings = async () => {

@@ -79,10 +79,9 @@ const GoogleAnalyticsForm: FC<{
       <div>
         <p>
           We use custom dimensions to pull experiment results. The value of the
-          dimension must be in the format: <code>experimentTrackingKey</code>
-          <code>delimiter</code>
-          <code>variationId</code>. For example, <code>button-colors:blue</code>
-          .
+          dimension must be in the format:{" "}
+          <code>[experiment][delimiter][variation]</code>. For example,{" "}
+          <code>button-colors:blue</code>.
         </p>
         <div className="row">
           <div className="form-group col-auto">
@@ -108,10 +107,6 @@ const GoogleAnalyticsForm: FC<{
               value={params.delimiter || ""}
               onChange={onParamChange}
             />
-            <small className="form-text text-muted">
-              Separates the experiment id from the variation id in the dimension
-              value.
-            </small>
           </div>
         </div>
       </div>
