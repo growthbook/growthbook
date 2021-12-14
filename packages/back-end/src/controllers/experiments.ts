@@ -371,6 +371,7 @@ export async function postExperiments(
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
+    removeMultipleExposures: !!data.removeMultipleExposures,
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
@@ -515,6 +516,7 @@ export async function postExperiment(
     "segment",
     "queryFilter",
     "skipPartialData",
+    "removeMultipleExposures",
     "metrics",
     "guardrails",
     "variations",
@@ -1618,6 +1620,8 @@ export async function getSnapshotStatus(
             ...updates,
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
+            multipleExposures:
+              results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
             results: results?.dimensions || snapshot.results,
             error,
           },

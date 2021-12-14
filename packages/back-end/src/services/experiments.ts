@@ -631,6 +631,7 @@ export async function createSnapshot(
     dimension: dimensionId,
     results: undefined,
     unknownVariations: [],
+    multipleExposures: 0,
     activationMetric: experiment.activationMetric || "",
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
@@ -664,6 +665,7 @@ export async function createSnapshot(
   data.queries = queries;
   data.results = results?.dimensions;
   data.unknownVariations = results?.unknownVariations || [];
+  data.multipleExposures = results?.multipleExposures || 0;
 
   const snapshot = await ExperimentSnapshotModel.create(data);
 

@@ -38,6 +38,7 @@ export interface StatsEngineDimensionResponse {
 
 export interface ExperimentMetricAnalysis {
   unknownVariations: string[];
+  multipleExposures: number;
   dimensions: StatsEngineDimensionResponse[];
 }
 
@@ -50,6 +51,7 @@ export async function analyzeExperimentMetric(
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
+      multipleExposures: 0,
       dimensions: [],
     };
   }
@@ -127,6 +129,10 @@ print(json.dumps({
   let parsed: ExperimentMetricAnalysis;
   try {
     parsed = JSON.parse(result?.[0]);
+
+    // Add multiple exposures
+    parsed.multipleExposures =
+      rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0;
   } catch (e) {
     console.error("Failed to run stats model", result);
     throw e;
@@ -153,6 +159,7 @@ export async function analyzeExperimentResults(
   }[] = [];
 
   let unknownVariations: string[] = [];
+  let multipleExposures = 0;
 
   // Everything done in a single query (Mixpanel, Google Analytics)
   // Need to convert to the same format as SQL rows
@@ -211,6 +218,10 @@ export async function analyzeExperimentResults(
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
+        multipleExposures = Math.max(
+          multipleExposures,
+          result.multipleExposures
+        );
 
         result.dimensions.forEach((row) => {
           const dim = dimensionMap.get(row.dimension) || {
@@ -248,6 +259,7 @@ export async function analyzeExperimentResults(
   }
 
   return {
+    multipleExposures,
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };

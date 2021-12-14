@@ -27,6 +27,7 @@ const SelectField: FC<
   sort = true,
   disabled,
   autoFocus,
+  required,
   ...otherProps
 }) => {
   const [map, sorted] = useMemo(() => {
@@ -76,9 +77,9 @@ const SelectField: FC<
                 onChange={(e) => onChange(e.target.value)}
                 className="form-control"
                 disabled={disabled}
-                {...fieldProps}
                 id={id}
                 ref={ref}
+                required={required}
                 placeholder={initialOption ?? placeholder}
               >
                 {sorted.map((s) => {

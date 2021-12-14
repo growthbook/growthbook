@@ -50,6 +50,7 @@ export interface OrganizationSettings {
   pastExperimentsMinLength?: number;
   metricAnalysisDays?: number;
   updateSchedule?: ExperimentUpdateSchedule;
+  multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

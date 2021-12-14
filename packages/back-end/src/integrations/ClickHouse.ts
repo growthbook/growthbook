@@ -79,4 +79,7 @@ export default class ClickHouse extends SqlIntegration {
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
+  castToString(col: string): string {
+    return `toString(${col})`;
+  }
 }

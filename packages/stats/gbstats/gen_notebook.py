@@ -64,6 +64,7 @@ def create_notebook(
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
+            "# Requires gbstats version 0.2.1 or higher\n"
             "from gbstats.gbstats import (\n"
             "  detect_unknown_variations,\n"
             "  analyze_metric_df,\n"
@@ -113,9 +114,9 @@ def create_notebook(
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map\n"
                     f")\n"
-                    'print("Unknown variation ids: ", unknown_var_ids)'
+                    'print("Unexpected variation ids: ", unknown_var_ids)'
                 ),
-                text=("Unknown variation ids:" + (str(unknown_var_ids))),
+                text=("Unexpected variation ids:" + (str(unknown_var_ids))),
             )
         )
 

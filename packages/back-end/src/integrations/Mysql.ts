@@ -47,4 +47,7 @@ export default class Mysql extends SqlIntegration {
   formatDate(col: string): string {
     return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
   }
+  castToString(col: string): string {
+    return `cast(${col} as char)`;
+  }
 }

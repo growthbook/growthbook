@@ -205,6 +205,7 @@ const Results: FC<{
             status={experiment.status}
             startDate={phaseObj?.dateStarted}
             unknownVariations={snapshot.unknownVariations || []}
+            multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
             isUpdating={status === "running"}
             editMetrics={editMetrics}

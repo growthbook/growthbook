@@ -32,6 +32,7 @@ export interface ExperimentReportArgs {
   activationMetric?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
+  removeMultipleExposures?: boolean;
 }
 export interface ExperimentReportResultDimension {
   name: string;
@@ -40,6 +41,7 @@ export interface ExperimentReportResultDimension {
 }
 export interface ExperimentReportResults {
   unknownVariations: string[];
+  multipleExposures: number;
   dimensions: ExperimentReportResultDimension[];
 }
 export interface ExperimentReportInterface extends ReportInterfaceBase {
