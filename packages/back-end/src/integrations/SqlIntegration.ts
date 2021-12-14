@@ -790,7 +790,7 @@ export default abstract class SqlIntegration
                 )
               : "'All'"
           } as dimension,
-          ${this.groupAggDistinct("e.variation", "||")} as variation,
+          ${this.groupAggDistinct("e.variation", "&&")} as variation,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.actual_start" : null,
             "e.actual_start"

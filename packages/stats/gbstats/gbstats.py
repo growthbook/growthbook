@@ -22,7 +22,7 @@ def correctMean(n, x, m, y):
 
 
 # Looks for any variation ids that are not in the provided map
-def detect_unknown_variations(rows, var_id_map, ignore_delimiter="||"):
+def detect_unknown_variations(rows, var_id_map, ignore_delimiter="&&"):
     unknown_var_ids = []
     for row in rows.itertuples(index=False):
         id = str(row.variation)
@@ -32,7 +32,7 @@ def detect_unknown_variations(rows, var_id_map, ignore_delimiter="||"):
 
 
 # Looks for rows with multiple variations and sums up the number of users
-def detect_multiple_exposures(rows, delimiter="||"):
+def detect_multiple_exposures(rows, delimiter="&&"):
     multiple_exposures = 0
     for row in rows.itertuples(index=False):
         id = str(row.variation)

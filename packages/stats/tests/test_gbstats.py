@@ -87,7 +87,7 @@ def test_multiple_exposures():
             },
             {
                 "dimension": "All",
-                "variation": "one||two",
+                "variation": "one&&two",
                 "count": 50,
                 "mean": 2.7,
                 "stddev": 1.1,
@@ -96,9 +96,9 @@ def test_multiple_exposures():
         ]
     )
     assert detect_multiple_exposures(rows) == 500
-    assert detect_multiple_exposures(rows, "&") == 0
+    assert detect_multiple_exposures(rows, "||") == 0
     assert detect_unknown_variations(rows, {"one": 0, "two": 1}) == set()
-    assert detect_unknown_variations(rows, {"one": 0, "two": 1}, "&") == {"one||two"}
+    assert detect_unknown_variations(rows, {"one": 0, "two": 1}, "||") == {"one&&two"}
 
 
 def test_reduce_dimensionality():
