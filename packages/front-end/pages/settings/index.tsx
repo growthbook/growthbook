@@ -93,6 +93,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       attributeSchema: [],
+      multipleExposureMinPercent: 0.01,
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
@@ -109,6 +110,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     attributeSchema: form.watch("attributeSchema"),
+    multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
   };
 
   const attributeSchema = useFieldArray({
@@ -450,6 +452,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 disabled={hasFileConfig()}
                 options={[7, 14, 30, 90, 180, 365]}
                 {...form.register("metricAnalysisDays", {
+                  valueAsNumber: true,
+                })}
+              />
+              <Field
+                label="Warn when this percent of experiment users are in multiple variations"
+                type="number"
+                step="any"
+                min="0"
+                max="1"
+                className="ml-2"
+                containerClassName="mb-3"
+                disabled={hasFileConfig()}
+                helpText={<span className="ml-2">from 0 to 1</span>}
+                {...form.register("multipleExposureMinPercent", {
                   valueAsNumber: true,
                 })}
               />

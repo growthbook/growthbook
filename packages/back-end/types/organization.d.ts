@@ -63,6 +63,7 @@ export interface OrganizationSettings {
   metricAnalysisDays?: number;
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
+  multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }

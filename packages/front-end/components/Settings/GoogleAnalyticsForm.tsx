@@ -45,48 +45,71 @@ const GoogleAnalyticsForm: FC<{
   }
 
   return (
-    <div className="row">
-      {loading && <LoadingOverlay />}
-      <div className="form-group col-auto">
-        <label>View Id</label>
-        <input
-          type="text"
-          className="form-control"
-          name="viewId"
-          required
-          value={params.viewId || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-auto">
-        <label>Custom Dimension</label>
-        <input
-          type="number"
-          min="1"
-          max="20"
-          className="form-control"
-          required
-          name="customDimension"
-          value={params.customDimension || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      {existing && (
-        <div className="form-group col-auto mb-3">
-          <div className="mb-2 text-success">
-            <FaCheck /> Authenticated
-          </div>
-          <button
-            className="btn btn-secondary"
-            onClick={(e) => {
-              e.preventDefault();
-              redirect();
-            }}
-          >
-            <FaKey /> Re-Authenticate
-          </button>
+    <div>
+      <div className="row">
+        {loading && <LoadingOverlay />}
+        <div className="form-group col-auto">
+          <label>View Id</label>
+          <input
+            type="text"
+            className="form-control"
+            name="viewId"
+            required
+            value={params.viewId || ""}
+            onChange={onParamChange}
+          />
         </div>
-      )}
+        {existing && (
+          <div className="form-group col-auto mb-3">
+            <div className="mb-2 text-success">
+              <FaCheck /> Authenticated
+            </div>
+            <button
+              className="btn btn-secondary"
+              onClick={(e) => {
+                e.preventDefault();
+                redirect();
+              }}
+            >
+              <FaKey /> Re-Authenticate
+            </button>
+          </div>
+        )}
+      </div>
+      <div>
+        <p>
+          We use custom dimensions to pull experiment results. The value of the
+          dimension must be in the format:{" "}
+          <code>[experiment][delimiter][variation]</code>. For example,{" "}
+          <code>button-colors:blue</code>.
+        </p>
+        <div className="row">
+          <div className="form-group col-auto">
+            <label>Custom Dimension Index</label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              className="form-control"
+              required
+              name="customDimension"
+              value={params.customDimension || ""}
+              onChange={onParamChange}
+            />
+          </div>
+          <div className="form-group col-auto">
+            <label>Delimiter</label>
+            <input
+              type="text"
+              className="form-control"
+              name="delimiter"
+              placeholder=":"
+              value={params.delimiter || ""}
+              onChange={onParamChange}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

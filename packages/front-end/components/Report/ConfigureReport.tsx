@@ -21,6 +21,7 @@ export default function ConfigureReport({
   const form = useForm({
     defaultValues: {
       ...report.args,
+      removeMultipleExposures: !!report.args.removeMultipleExposures,
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
@@ -90,6 +91,7 @@ export default function ConfigureReport({
         const args = {
           ...value,
           skipPartialData: !!value.skipPartialData,
+          removeMultipleExposures: !!value.removeMultipleExposures,
         };
 
         await apiCall(`/report/${report.id}`, {
@@ -293,6 +295,30 @@ export default function ConfigureReport({
             },
           ]}
           helpText="How to treat users who have not had the full time to convert yet"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Users in Multiple Variations"
+          labelClassName="font-weight-bold"
+          value={form.watch("removeMultipleExposures") ? "remove" : "keep"}
+          onChange={(e) => {
+            form.setValue(
+              "removeMultipleExposures",
+              e.target.value === "remove"
+            );
+          }}
+          options={[
+            {
+              display: "Include in both variations",
+              value: "keep",
+            },
+            {
+              display: "Remove from analysis",
+              value: "remove",
+            },
+          ]}
+          helpText="How to treat users who were exposed to more than 1 variation"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

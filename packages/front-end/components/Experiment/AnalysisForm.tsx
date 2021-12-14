@@ -36,6 +36,9 @@ const AnalysisForm: FC<{
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
+      removeMultipleExposures: experiment.removeMultipleExposures
+        ? "remove"
+        : "keep",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
@@ -57,7 +60,13 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
+        const {
+          dateStarted,
+          dateEnded,
+          skipPartialData,
+          removeMultipleExposures,
+          ...values
+        } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -68,6 +77,7 @@ const AnalysisForm: FC<{
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
+          removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
         if (experiment.status === "stopped") {
@@ -208,6 +218,24 @@ const AnalysisForm: FC<{
             },
           ]}
           helpText="How to treat users who have not had the full time to convert yet"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Users in Multiple Variations"
+          labelClassName="font-weight-bold"
+          {...form.register("removeMultipleExposures")}
+          options={[
+            {
+              display: "Include in both variations",
+              value: "keep",
+            },
+            {
+              display: "Remove from analysis",
+              value: "remove",
+            },
+          ]}
+          helpText="How to treat users who were exposed to more than 1 variation"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

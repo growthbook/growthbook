@@ -14,12 +14,14 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
   isUpdating?: boolean;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   unknownVariations: string[];
+  multipleExposures?: number;
   results: ExperimentReportResultDimension;
   reportDate: Date;
   startDate: string;
@@ -32,6 +34,7 @@ const CompactResults: FC<{
   variations,
   isUpdating,
   unknownVariations,
+  multipleExposures,
   editMetrics,
   reportDate,
   startDate,
@@ -63,7 +66,6 @@ const CompactResults: FC<{
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results]);
-
   const risk = useRiskVariation(variations.length, rows);
 
   return (
@@ -74,6 +76,10 @@ const CompactResults: FC<{
           unknownVariations={unknownVariations}
           variations={variations}
           isUpdating={isUpdating}
+        />
+        <MultipleExposureWarning
+          users={users}
+          multipleExposures={multipleExposures}
         />
         <h3 className="mb-3">
           Metrics

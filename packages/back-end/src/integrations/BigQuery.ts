@@ -59,4 +59,7 @@ export default class BigQuery extends SqlIntegration {
   formatDate(col: string): string {
     return `format_date("%F", ${col})`;
   }
+  castToString(col: string): string {
+    return `cast(${col} as string)`;
+  }
 }

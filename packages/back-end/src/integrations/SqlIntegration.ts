@@ -209,6 +209,9 @@ export default abstract class SqlIntegration
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `(CASE WHEN ${condition} THEN ${ifTrue} ELSE ${ifFalse} END)`;
   }
+  castToString(col: string): string {
+    return `cast(${col} as varchar)`;
+  }
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
@@ -705,6 +708,8 @@ export default abstract class SqlIntegration
       );
     }
 
+    const removeMultipleExposures = !!experiment.removeMultipleExposures;
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -766,10 +771,11 @@ export default abstract class SqlIntegration
           : ""
       }
       , __distinctUsers as (
-        -- One row per user/dimension/variation
+        -- One row per user/dimension${
+          removeMultipleExposures ? "" : "/variation"
+        }
         SELECT
           e.user_id,
-          e.variation,
           ${
             dimension?.type === "user"
               ? "d.value"
@@ -785,6 +791,15 @@ export default abstract class SqlIntegration
                 )
               : "'All'"
           } as dimension,
+          ${
+            removeMultipleExposures
+              ? this.ifElse(
+                  "count(distinct e.variation) > 1",
+                  "'__multiple__'",
+                  "max(e.variation)"
+                )
+              : "e.variation"
+          } as variation,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.actual_start" : null,
             "e.actual_start"
@@ -814,7 +829,7 @@ export default abstract class SqlIntegration
               : ""
           }
         GROUP BY
-          variation, dimension, e.user_id
+          dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user
@@ -1025,7 +1040,7 @@ export default abstract class SqlIntegration
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
-      e.variation_id as variation,
+      ${this.castToString("e.variation_id")} as variation,
       e.timestamp as actual_start,
       ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
       ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
