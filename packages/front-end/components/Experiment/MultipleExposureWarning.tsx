@@ -15,11 +15,9 @@ export default function MultipleExposureWarning({
   users: number[];
   multipleExposures: number;
 }) {
-  if (!multipleExposures) return null;
-
-  const percent =
-    multipleExposures /
-    (multipleExposures + users.reduce((sum, n) => sum + n, 0));
+  if (multipleExposures < 5) return null;
+  const totalUsers = users.reduce((sum, n) => sum + n, 0);
+  const percent = multipleExposures / (multipleExposures + totalUsers);
 
   if (percent < MULTIPLE_EXPOSURE_WARNING_THRESHOLD) {
     return null;
