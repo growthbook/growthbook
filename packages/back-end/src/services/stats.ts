@@ -64,7 +64,6 @@ export async function analyzeExperimentMetric(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
-  detect_multiple_exposures,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
@@ -100,10 +99,6 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
-multiple_exposures = detect_multiple_exposures(
-  rows=rows
-)
-
 df = get_metric_df(
   rows=rows,
   var_id_map=var_id_map,
@@ -125,7 +120,6 @@ result = analyze_metric_df(
 )
 
 print(json.dumps({
-  'multipleExposures': multiple_exposures,
   'unknownVariations': list(unknown_var_ids),
   'dimensions': format_results(result)
 }, allow_nan=False))`,
@@ -135,6 +129,10 @@ print(json.dumps({
   let parsed: ExperimentMetricAnalysis;
   try {
     parsed = JSON.parse(result?.[0]);
+
+    // Add multiple exposures
+    parsed.multipleExposures =
+      rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0;
   } catch (e) {
     console.error("Failed to run stats model", result);
     throw e;

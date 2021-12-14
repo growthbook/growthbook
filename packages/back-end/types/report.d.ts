@@ -32,6 +32,7 @@ export interface ExperimentReportArgs {
   activationMetric?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
+  removeMultipleExposures?: boolean;
 }
 export interface ExperimentReportResultDimension {
   name: string;

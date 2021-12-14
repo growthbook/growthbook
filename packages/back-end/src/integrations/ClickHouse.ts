@@ -79,9 +79,6 @@ export default class ClickHouse extends SqlIntegration {
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
-  groupAggDistinct(col: string, delimiter: string): string {
-    return `arrayStringConcat(groupUniqArray(${col}), '${delimiter}')`;
-  }
   castToString(col: string): string {
     return `toString(${col})`;
   }

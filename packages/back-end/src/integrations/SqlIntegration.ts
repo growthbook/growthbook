@@ -209,9 +209,6 @@ export default abstract class SqlIntegration
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `(CASE WHEN ${condition} THEN ${ifTrue} ELSE ${ifFalse} END)`;
   }
-  groupAggDistinct(col: string, delimiter: string) {
-    return `string_agg(distinct ${col}, '${delimiter}')`;
-  }
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
@@ -711,6 +708,9 @@ export default abstract class SqlIntegration
       );
     }
 
+    const removeMultipleExposures =
+      experiment.removeMultipleExposures !== false;
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -772,7 +772,9 @@ export default abstract class SqlIntegration
           : ""
       }
       , __distinctUsers as (
-        -- One row per user/dimension
+        -- One row per user/dimension${
+          removeMultipleExposures ? "" : "/variation"
+        }
         SELECT
           e.user_id,
           ${
@@ -790,7 +792,15 @@ export default abstract class SqlIntegration
                 )
               : "'All'"
           } as dimension,
-          ${this.groupAggDistinct("e.variation", "&&")} as variation,
+          ${
+            removeMultipleExposures
+              ? this.ifElse(
+                  "count(distinct e.variation_id) > 1",
+                  "'__multiple__'",
+                  "max(e.variation_id)"
+                )
+              : "e.variation_id"
+          } as variation,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.actual_start" : null,
             "e.actual_start"
@@ -820,7 +830,9 @@ export default abstract class SqlIntegration
               : ""
           }
         GROUP BY
-          dimension, e.user_id
+          dimension, e.user_id${
+            removeMultipleExposures ? "" : ", e.variation_id"
+          }
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user

@@ -47,9 +47,6 @@ export default class Mysql extends SqlIntegration {
   formatDate(col: string): string {
     return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
   }
-  groupAggDistinct(col: string, delimiter: string): string {
-    return `GROUP_CONCAT(DISTINCT ${col} SEPARATOR '${delimiter}')`;
-  }
   castToString(col: string): string {
     return `cast(${col} as char)`;
   }

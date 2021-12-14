@@ -40,9 +40,6 @@ export default class Snowflake extends SqlIntegration {
   formatDate(col: string): string {
     return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
   }
-  groupAggDistinct(col: string, delimiter: string): string {
-    return `LISTAGG(DISTINCT ${col}, '${delimiter}')`;
-  }
   castToString(col: string): string {
     return `TO_VARCHAR(${col})`;
   }

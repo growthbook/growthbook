@@ -82,7 +82,4 @@ export default class Presto extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),0,10)`;
   }
-  groupAggDistinct(col: string, delimiter: string): string {
-    return `array_join(array_distinct(array_agg(${col})), '${delimiter}')`;
-  }
 }

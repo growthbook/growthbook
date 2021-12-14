@@ -106,20 +106,6 @@ def create_notebook(
         ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
 
-        multiple_exposures = detect_multiple_exposures(metric["rows"])
-        cells.append(
-            code_cell_plain(
-                source=(
-                    "# Count users who saw more than one variation\n"
-                    "multiple_exposures = detect_multiple_exposures(rows)\n"
-                    'print("Users exposed to multiple variations: ", multiple_exposures)'
-                ),
-                text=(
-                    "Users exposed to multiple variations: " + (str(multiple_exposures))
-                ),
-            )
-        )
-
         unknown_var_ids = detect_unknown_variations(metric["rows"], var_id_map)
         cells.append(
             code_cell_plain(

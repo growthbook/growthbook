@@ -69,6 +69,7 @@ export interface ExperimentInterface {
   segment?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
+  removeMultipleExposures?: boolean;
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;
