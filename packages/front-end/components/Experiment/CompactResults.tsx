@@ -14,11 +14,7 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
+import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
   isUpdating?: boolean;
@@ -70,8 +66,6 @@ const CompactResults: FC<{
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results]);
-  const totalUsers = users.reduce((sum, n) => sum + n, 0);
-
   const risk = useRiskVariation(variations.length, rows);
 
   return (
@@ -83,13 +77,10 @@ const CompactResults: FC<{
           variations={variations}
           isUpdating={isUpdating}
         />
-        {totalUsers && multipleExposures / totalUsers >= 0.02 && (
-          <div className="alert alert-warning">
-            <strong>Multiple Exposures Warning</strong>. A large number of users
-            ({percentFormatter.format(multipleExposures / totalUsers)}) saw
-            multiple variations and were automatically removed from results.
-          </div>
-        )}
+        <MultipleExposureWarning
+          users={users}
+          multipleExposures={multipleExposures}
+        />
         <h3 className="mb-3">
           Metrics
           {editMetrics && (

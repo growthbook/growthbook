@@ -220,7 +220,10 @@ export async function analyzeExperimentResults(
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
-        multipleExposures += result.multipleExposures;
+        multipleExposures = Math.max(
+          multipleExposures,
+          result.multipleExposures
+        );
 
         result.dimensions.forEach((row) => {
           const dim = dimensionMap.get(row.dimension) || {
