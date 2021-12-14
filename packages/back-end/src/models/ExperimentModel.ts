@@ -28,6 +28,7 @@ const experimentSchema = new mongoose.Schema({
   segment: String,
   queryFilter: String,
   skipPartialData: Boolean,
+  removeMultipleExposures: Boolean,
   archived: Boolean,
   status: String,
   results: String,

@@ -21,6 +21,7 @@ export default function ConfigureReport({
   const form = useForm({
     defaultValues: {
       ...report.args,
+      removeMultipleExposures: !!report.args.removeMultipleExposures,
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
@@ -309,12 +310,12 @@ export default function ConfigureReport({
           }}
           options={[
             {
-              display: "Remove from analysis",
-              value: "remove",
-            },
-            {
               display: "Include in both variations",
               value: "keep",
+            },
+            {
+              display: "Remove from analysis",
+              value: "remove",
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"

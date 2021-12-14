@@ -76,7 +76,6 @@ const SelectField: FC<
                 onChange={(e) => onChange(e.target.value)}
                 className="form-control"
                 disabled={disabled}
-                {...fieldProps}
                 id={id}
                 ref={ref}
                 placeholder={initialOption ?? placeholder}

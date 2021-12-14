@@ -708,8 +708,7 @@ export default abstract class SqlIntegration
       );
     }
 
-    const removeMultipleExposures =
-      experiment.removeMultipleExposures !== false;
+    const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -795,11 +794,11 @@ export default abstract class SqlIntegration
           ${
             removeMultipleExposures
               ? this.ifElse(
-                  "count(distinct e.variation_id) > 1",
+                  "count(distinct e.variation) > 1",
                   "'__multiple__'",
-                  "max(e.variation_id)"
+                  "max(e.variation)"
                 )
-              : "e.variation_id"
+              : "e.variation"
           } as variation,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.actual_start" : null,
@@ -830,9 +829,7 @@ export default abstract class SqlIntegration
               : ""
           }
         GROUP BY
-          dimension, e.user_id${
-            removeMultipleExposures ? "" : ", e.variation_id"
-          }
+          dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user

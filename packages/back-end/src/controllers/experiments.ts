@@ -371,7 +371,7 @@ export async function postExperiments(
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
-    removeMultipleExposures: data.removeMultipleExposures !== false,
+    removeMultipleExposures: !!data.removeMultipleExposures,
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",

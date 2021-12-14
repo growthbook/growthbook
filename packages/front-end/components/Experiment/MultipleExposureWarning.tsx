@@ -1,6 +1,7 @@
-// If this percent of users are in multiple variations, warn in the UI
-const MULTIPLE_EXPOSURE_WARNING_THRESHOLD = 0.001;
-const MULTIPLE_EXPOSURE_DANGER_THRESHOLD = 0.01;
+import { useContext } from "react";
+import { UserContext } from "../ProtectedPage";
+
+const MINIMUM_MULTIPLE_EXPOSURES = 10;
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -15,20 +16,19 @@ export default function MultipleExposureWarning({
   users: number[];
   multipleExposures: number;
 }) {
-  if (multipleExposures < 5) return null;
+  const { settings } = useContext(UserContext);
+  const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
+
+  if (multipleExposures < MINIMUM_MULTIPLE_EXPOSURES) return null;
   const totalUsers = users.reduce((sum, n) => sum + n, 0);
   const percent = multipleExposures / (multipleExposures + totalUsers);
 
-  if (percent < MULTIPLE_EXPOSURE_WARNING_THRESHOLD) {
+  if (percent < MIN_PERCENT) {
     return null;
   }
 
   return (
-    <div
-      className={`alert alert-${
-        percent < MULTIPLE_EXPOSURE_DANGER_THRESHOLD ? "warning" : "danger"
-      }`}
-    >
+    <div className="alert alert-warning">
       <strong>Multiple Exposures Warning</strong>.{" "}
       {numberFormatter.format(multipleExposures)} users (
       {percentFormatter.format(percent)}) saw multiple variations and were

@@ -227,12 +227,12 @@ const AnalysisForm: FC<{
           {...form.register("removeMultipleExposures")}
           options={[
             {
-              display: "Remove from analysis",
-              value: "remove",
-            },
-            {
               display: "Include in both variations",
               value: "keep",
+            },
+            {
+              display: "Remove from analysis",
+              value: "remove",
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"

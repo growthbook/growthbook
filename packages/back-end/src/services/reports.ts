@@ -52,7 +52,7 @@ export function reportArgsFromSnapshot(
     activationMetric: snapshot.activationMetric,
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
-    removeMultipleExposures: experiment.removeMultipleExposures !== false,
+    removeMultipleExposures: !!experiment.removeMultipleExposures,
   };
 }
 
@@ -117,7 +117,7 @@ export async function startExperimentAnalysis(
     activationMetric: args.activationMetric,
     metrics: args.metrics,
     guardrails: args.guardrails,
-    removeMultipleExposures: args.removeMultipleExposures !== false,
+    removeMultipleExposures: !!args.removeMultipleExposures,
     id: "",
     name: "",
     dateCreated: new Date(),

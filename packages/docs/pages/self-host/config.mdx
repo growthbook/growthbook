@@ -451,6 +451,9 @@ organization:
     # Number of days of historical data to use when analyzing metrics
     # (must be between 1 and 400, default `90`)
     metricAnalysisDays: 90
+    # The min percent of users exposed to multiple variations in an
+    # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
+    multipleExposureMinPercent: 0.01
     # When we should auto-update experiment results
     updateSchedule:
       type: stale
