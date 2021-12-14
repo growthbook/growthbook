@@ -1,6 +1,5 @@
 from .gbstats import (
     detect_unknown_variations,
-    detect_multiple_exposures,
     analyze_metric_df,
     get_metric_df,
     reduce_dimensionality,
