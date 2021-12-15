@@ -1,39 +1,43 @@
 import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 
+export async function getPostgresClient(conn: PostgresConnectionParams) {
+  const settings: ClientConfig = {
+    ...conn,
+    ssl:
+      conn.ssl === true || conn.ssl === "true"
+        ? {
+            rejectUnauthorized: false,
+          }
+        : false,
+  };
+
+  const client = new Client(settings);
+  await client.connect();
+
+  return {
+    client,
+    destroy: () => client.end(),
+  };
+}
+
 export function runPostgresQuery<T>(
-  conn: PostgresConnectionParams,
+  client: Client,
   sql: string,
   values: string[] = []
 ): Promise<T[]> {
   return new Promise<T[]>((resolve, reject) => {
-    const settings: ClientConfig = {
-      ...conn,
-      ssl:
-        conn.ssl === true || conn.ssl === "true"
-          ? {
-              rejectUnauthorized: false,
-            }
-          : false,
+    const onError = (err: Error) => {
+      client.off("error", onError);
+      reject(err);
     };
-
-    const client = new Client(settings);
+    client.on("error", onError);
     client
-      .on("error", (err) => {
-        reject(err);
-      })
-      .connect()
-      .then(() => client.query(sql, values))
+      .query(sql, values)
       .then(async (res) => {
-        try {
-          await client.end();
-        } catch (e) {
-          console.error(e);
-        }
+        client.off("error", onError);
         resolve(res.rows);
       })
-      .catch((e) => {
-        reject(e);
-      });
+      .catch(onError);
   });
 }

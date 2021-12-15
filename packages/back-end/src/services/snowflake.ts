@@ -1,11 +1,7 @@
 import { Snowflake } from "snowflake-promise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 
-export async function runSnowflakeQuery<T>(
-  conn: SnowflakeConnectionParams,
-  sql: string,
-  values: string[] = []
-): Promise<T[]> {
+export async function getSnowflakeClient(conn: SnowflakeConnectionParams) {
   const snowflake = new Snowflake({
     account: conn.account,
     username: conn.username,
@@ -17,6 +13,15 @@ export async function runSnowflakeQuery<T>(
   });
 
   await snowflake.connect();
+
+  return snowflake;
+}
+
+export async function runSnowflakeQuery<T>(
+  snowflake: Snowflake,
+  sql: string,
+  values: string[] = []
+): Promise<T[]> {
   const res = await snowflake.execute(sql, values);
 
   // Annoyingly, Snowflake turns all column names into all caps

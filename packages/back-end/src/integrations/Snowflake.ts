@@ -1,6 +1,6 @@
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
-import { runSnowflakeQuery } from "../services/snowflake";
+import { getSnowflakeClient, runSnowflakeQuery } from "../services/snowflake";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -13,8 +13,12 @@ export default class Snowflake extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  runQuery(sql: string) {
-    return runSnowflakeQuery(this.params, sql);
+  async runQuery(sql: string) {
+    const snowflake = await this.createPooledConnection(
+      () => getSnowflakeClient(this.params),
+      15
+    );
+    return runSnowflakeQuery(snowflake, sql);
   }
   percentile(col: string, percentile: number) {
     return `APPROX_PERCENTILE(${col}, ${percentile})`;

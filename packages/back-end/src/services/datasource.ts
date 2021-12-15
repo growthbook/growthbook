@@ -85,3 +85,50 @@ export async function testDataSourceConnection(
   const integration = getSourceIntegrationObject(datasource);
   await integration.testConnection();
 }
+
+interface DataSourceConnection<T> {
+  conn: Promise<T>;
+  destroy?: (conn: T) => void;
+  expires: number;
+  lastQuery: number;
+}
+
+// eslint-disable-next-line
+const connPool: Map<string, DataSourceConnection<any>> = new Map();
+
+function removeExpiredConnections() {
+  const now = Date.now();
+  connPool.forEach((obj, key) => {
+    if (obj.expires <= now) {
+      //console.log("Removing expired connection from pool", key);
+      connPool.delete(key);
+      if (obj.destroy) obj.destroy(obj.conn);
+    }
+  });
+}
+
+export function getPooledConnection<T>(
+  id: string,
+  create: () => Promise<T>,
+  expires: number = 15,
+  destroy?: (conn: T) => void
+): Promise<T> {
+  removeExpiredConnections();
+
+  let obj = connPool.get(id) as DataSourceConnection<T> | undefined;
+  if (obj) {
+    //console.log("Re-using connection from pool", id);
+    obj.lastQuery = Date.now();
+    return obj.conn;
+  }
+
+  //console.log("Creating new connection in pool", id);
+  obj = {
+    conn: create(),
+    expires: Date.now() + 1000 * 60 * expires,
+    destroy,
+    lastQuery: Date.now(),
+  };
+  connPool.set(id, obj);
+  return obj.conn;
+}

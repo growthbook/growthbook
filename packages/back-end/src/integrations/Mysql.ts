@@ -14,13 +14,17 @@ export default class Mysql extends SqlIntegration {
     return ["password"];
   }
   async runQuery(sql: string) {
-    const conn = await mysql.createConnection({
-      host: this.params.host,
-      port: this.params.port,
-      user: this.params.user,
-      password: this.params.password,
-      database: this.params.database,
-    });
+    const conn = await this.createPooledConnection(
+      () =>
+        mysql.createConnection({
+          host: this.params.host,
+          port: this.params.port,
+          user: this.params.user,
+          password: this.params.password,
+          database: this.params.database,
+        }),
+      15
+    );
 
     const [rows] = await conn.query(sql);
     return rows as RowDataPacket[];

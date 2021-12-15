@@ -1,6 +1,6 @@
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
-import { runPostgresQuery } from "../services/postgres";
+import { getPostgresClient, runPostgresQuery } from "../services/postgres";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
@@ -13,8 +13,13 @@ export default class Redshift extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  runQuery(sql: string) {
-    return runPostgresQuery(this.params, sql);
+  async runQuery(sql: string) {
+    const { client } = await this.createPooledConnection(
+      () => getPostgresClient(this.params),
+      15,
+      ({ destroy }) => destroy()
+    );
+    return runPostgresQuery(client, sql);
   }
   getSchema(): string {
     return this.params.defaultSchema || "";

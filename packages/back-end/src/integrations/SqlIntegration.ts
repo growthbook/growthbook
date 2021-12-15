@@ -22,6 +22,8 @@ import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
+import { getPooledConnection } from "../services/datasource";
+import md5 from "md5";
 
 const percentileNumbers = [
   0.01,
@@ -141,6 +143,7 @@ export default abstract class SqlIntegration
   organization: string;
   // eslint-disable-next-line
   params: any;
+  private encryptedParams: string;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
@@ -148,6 +151,7 @@ export default abstract class SqlIntegration
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
+    this.encryptedParams = encryptedParams;
     this.setParams(encryptedParams);
     this.settings = {
       ...settings,
@@ -211,6 +215,18 @@ export default abstract class SqlIntegration
   }
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
+  }
+
+  createPooledConnection<T>(
+    create: () => Promise<T>,
+    expires: number = 15,
+    destroy?: (conn: T) => void
+  ): Promise<T> {
+    if (!this.organization || !this.datasource) return create();
+    const id = md5(
+      this.organization + "__" + this.datasource + "__" + this.encryptedParams
+    );
+    return getPooledConnection<T>(id, create, expires, destroy);
   }
 
   getPastExperimentQuery(params: PastExperimentParams) {
