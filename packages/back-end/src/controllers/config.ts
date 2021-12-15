@@ -119,12 +119,15 @@ export async function getExperimentConfig(
                 if (r.trackingKey) {
                   rule.trackingKey = r.trackingKey;
                 }
-                if (r.userIdType === "anonymous") {
-                  rule.hashAttribute = "anonId";
+                if (r.hashAttribute) {
+                  rule.hashAttribute = r.hashAttribute;
                 }
               } else if (r.type === "experiment") {
                 rule.type = "experiment";
                 rule.variations = r.variations.map((v) => valueMap.get(v) || 0);
+                if (r.hashAttribute) {
+                  rule.hashAttribute = r.hashAttribute;
+                }
 
                 // TODO: get coverage, weights, trackingKey, hashAttribute from experiment
               }

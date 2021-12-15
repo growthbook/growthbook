@@ -33,12 +33,13 @@ type RolloutValue = {
 export interface RolloutRule extends BaseRule {
   type: "rollout";
   trackingKey: string;
-  userIdType?: "user" | "anonymous";
+  hashAttribute: string;
   rollout: RolloutValue[];
 }
 
 export interface ExperimentRule extends BaseRule {
   type: "experiment";
+  hashAttribute: string;
   experiment: string; // ID of experiment
   variations: string[];
 }

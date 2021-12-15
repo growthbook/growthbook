@@ -116,6 +116,8 @@ function RolloutSummary({
   rollout: RolloutValue[];
   type: FeatureValueType;
 }) {
+  const totalPercent = rollout.reduce((sum, w) => sum + w.weight, 0);
+
   return (
     <div>
       <div className="mb-2 row">
@@ -126,7 +128,7 @@ function RolloutSummary({
           <button className="btn btn-primary btn-sm">Analyze Impact</button>
         </div>
       </div>
-      <table className="table w-auto">
+      <table className="table table-bordered w-auto">
         <tbody>
           {rollout.map((r, j) => (
             <tr key={j}>
@@ -136,6 +138,14 @@ function RolloutSummary({
               <td>{percentFormatter.format(r.weight)}</td>
             </tr>
           ))}
+          {totalPercent < 1 && (
+            <tr>
+              <td>
+                <em>unallocated</em>
+              </td>
+              <td>{percentFormatter.format(1 - totalPercent)}</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -254,20 +264,40 @@ export default function FeaturePage() {
               {i + 1}
             </div>
             <div style={{ float: "right" }}>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRuleModal(i);
-                }}
-              >
-                edit rule
-              </a>
+              <MoreMenu id={"edit_rule_" + i}>
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRuleModal(i);
+                  }}
+                >
+                  edit rule
+                </a>
+                <DeleteButton
+                  className="dropdown-item"
+                  displayName="Rule"
+                  useIcon={false}
+                  text="delete rule"
+                  onClick={async () => {
+                    const rules = [...data.feature.rules];
+                    rules.splice(i, 1);
+                    await apiCall(`/feature/${fid}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        rules,
+                      }),
+                    });
+                    mutate();
+                  }}
+                />
+              </MoreMenu>
             </div>
             {rule.description && (
               <Markdown className="mb-3">{rule.description}</Markdown>
             )}
-            {rule.condition && (
+            {rule.condition && rule.condition !== "{}" && (
               <div className="row mb-3 align-items-top">
                 <div className="col-auto">
                   <strong>IF</strong>

@@ -9,7 +9,7 @@ export interface Condition {
 }
 
 export function jsonToConds(json: string): null | Condition[] {
-  if (!json) return [];
+  if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
   if (json.match(/\$(or|nor|elemMatch|all|type|size)/)) return null;
 

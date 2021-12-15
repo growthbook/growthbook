@@ -1,10 +1,12 @@
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
 import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
+import { useContext } from "react";
+import { UserContext } from "../ProtectedPage";
 
 export interface Props {
   close: () => void;
@@ -20,13 +22,22 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     enabled: true,
     type: "force",
     value: feature.defaultValue,
+    experiment: "",
+    rollout: [],
+    hashAttribute: "id",
+    trackingKey: "",
+    variations: [],
     ...((feature?.rules?.[i] as FeatureRule) || {}),
   };
   const form = useForm({
     defaultValues,
   });
 
+  const rollout = useFieldArray({ name: "rollout", control: form.control });
+
   const { apiCall } = useAuth();
+
+  const { settings } = useContext(UserContext);
 
   const type = form.watch("type");
 
@@ -50,8 +61,8 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     >
       <Field
         label="Description"
-        required
         textarea
+        minRows={1}
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
@@ -76,6 +87,79 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           field="value"
           valueType={feature.valueType}
         />
+      )}
+      {type === "rollout" && (
+        <div>
+          <Field
+            label="Tracking Key"
+            {...form.register(`trackingKey`)}
+            helpText="Unique identifier for this rollout, used to track impressions and analyze results"
+          />
+          <Field
+            label="Assign value based on attribute"
+            {...form.register("hashAttribute")}
+            options={settings.attributeSchema.map((s) => s.property)}
+            helpText="Will be hashed together with the Tracking Key to pick a value"
+          />
+          <div className="form-group">
+            <label>Rollout Values and Weights</label>
+            <table className="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Value</th>
+                  <th>Rollout Percent</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rollout.fields.map((val, i) => {
+                  return (
+                    <tr key={i}>
+                      <td>
+                        <FeatureValueField
+                          label=""
+                          form={form}
+                          field={`rollout.${i}.value`}
+                          valueType={feature.valueType}
+                        />
+                      </td>
+                      <td>
+                        <Field
+                          {...form.register(`rollout.${i}.weight`, {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-link text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            rollout.remove(i);
+                          }}
+                        >
+                          remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <button
+              className="btn btn-link"
+              onClick={(e) => {
+                e.preventDefault();
+                rollout.append({
+                  value: feature.defaultValue,
+                  weight: 0,
+                });
+              }}
+            >
+              add value
+            </button>
+          </div>
+        </div>
       )}
     </Modal>
   );
