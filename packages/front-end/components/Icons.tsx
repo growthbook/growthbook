@@ -290,14 +290,28 @@ export function GBReports({ className = "" }): React.ReactElement {
       className={className}
     >
       <path
-        d="M21.5 19.9984H6.5V7.50684"
+        d="M12 12H15"
         stroke="currentColor"
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M21.5 11.2549L16.5 15.6269L11.5 11.8795L6.5 16.2515"
+        d="M12 15H17"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 18H17"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M21 23H8V7H17L21 11.0001V23Z"
         stroke="currentColor"
         strokeWidth="1.2"
         strokeLinecap="round"
