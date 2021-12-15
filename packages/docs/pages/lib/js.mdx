@@ -161,7 +161,7 @@ Each feature consists of a unique key, a list of possible values, and rules for 
 
 ### Basic Feature
 
-An empty feature has two possible values (`false` and `true`) and everyone gets assigned the value `false`.
+An empty feature always has the value `null`:
 
 ```js
 {
@@ -169,29 +169,14 @@ An empty feature has two possible values (`false` and `true`) and everyone gets 
 }
 ```
 
-#### Custom Values
-
-You can set your own possible values with the `values` property. You can have as many values as you want and they can be whatever data type you want - booleans, strings, numbers, arrays, or objects.
-
-```js
-// Everyone gets assigned "blue" (array index 0)
-{
-  "my-feature": {
-    values: ["blue", "green", "red"]
-  }
-}
-```
-
 #### Default Values
 
-You can change the default assigned value with the `defaultValue` property, which is a pointer to a specific array index in `values`.
+You can change the default assigned value with the `defaultValue` property:
 
 ```js
-// Everyone gets assigned "green" (array index 1)
 {
   "my-feature": {
-    values: ["blue", "green", "red"],
-    defaultValue: 1
+    defaultValue: "green"
   }
 }
 ```
@@ -237,11 +222,11 @@ If a condition evaluates to `false`, the rule will be skipped. This means you ca
 Force rules do what you'd expect - force everyone to get assigned a specific value. This is only really useful when combined with targeting conditions.
 
 ```js
-// Firefox users in the US or Canada get "green" (index 1)
-// Everyone else gets the default "blue" (index 0)
+// Firefox users in the US or Canada get "green"
+// Everyone else gets the default "blue"
 {
   "button-color": {
-    values: ["blue", "green"],
+    defaultValue: "blue",
     rules: [
       {
         type: "force",
@@ -251,10 +236,9 @@ Force rules do what you'd expect - force everyone to get assigned a specific val
             $in: ["US", "CA"]
           }
         },
-        value: 1
+        value: "green"
       }
     ],
-    defaultValue: 0,
   }
 }
 ```
@@ -264,34 +248,13 @@ Force rules do what you'd expect - force everyone to get assigned a specific val
 Experiment rules let you adjust the percent of users who get randomly assigned to each variation. This can either be used for hypothesis-driven A/B tests or to simply mitigate risk by gradually rolling out new features to your users.
 
 ```js
-// Each value gets assigned to a random 1/3rd of users
+// Each variation gets assigned to a random 1/3rd of users
 {
   "image-size": {
-    values: ["small", "medium", "large"],
-    rules: [
-      {
-        type: "experiment"
-      }
-    ]
-  }
-}
-```
-
-##### Variations
-
-By default, all possible values are included in the experiment in the order they are defined. You can limit an experiment to a subset of values or change the ordering with the `variations` setting:
-
-```js
-// The first variation is "large" (index 2) and will get 50% of users
-// The second variation is "small" (index 0) and will get the other 50%
-// The value "medium" (index 1) will not be part of the experiment at all
-{
-  "image-size": {
-    values: ["small", "medium", "large"],
     rules: [
       {
         type: "experiment",
-        variations: [2, 0]
+        variations: ["small", "medium", "large"]
       }
     ]
   }
@@ -305,10 +268,10 @@ You can use the `weights` setting to control what percent of users get assigned 
 ```js
 {
   "results-per-page": {
-    values: ["small", "medium", "large"],
     rules: [
       {
         type: "experiment",
+        variations: ["small", "medium", "large"],
         // 50% of users will get "small" (index 0)
         // 30% will get "medium" (index 1)
         // 20% will get "large" (index 2)
@@ -326,12 +289,12 @@ When a user is assigned a variation, we call the `trackingCallback` function so 
 ```js
 {
   "feature-1": {
-    values: ["A", "B"],
     rules: [
       {
         // Use "my-experiment" as the trackingKey instead of "feature-1"
         type: "experiment",
-        trackingKey: "my-experiment"
+        trackingKey: "my-experiment",
+        variations: ["A", "B"]
       }
     ]
   },
@@ -350,19 +313,19 @@ const growthbook = new GrowthBook({
   },
   features: {
     "my-feature": {
-      values: ["A", "B"],
       rules: [
         // All users with the same "company" value
         // will be assigned the same variation
         {
           type: "experiment",
+          variations: ["A", "B"],
           hashAttribute: "company",
         },
         // If "company" is empty for the user (e.g. if they are logged out)
-        // The experiment will be skipped and fall through to the next rule
+        // The experiment will be skipped and fall through to this next rule
         {
           type: "force",
-          value: 0,
+          value: "A",
         },
       ],
     },
@@ -377,17 +340,17 @@ You can use the `coverage` setting to introduce sampling and reduce the percent 
 ```js
 {
   "my-feature": {
-    values: [false, true],
     rules: [
       // 80% of users will be included in the experiment
       {
         type: "experiment",
+        variations: [false, true],
         coverage: 0.8
       },
-      // The remaining 20% will fall through to the next matching rule
+      // The remaining 20% will fall through to this next matching rule
       {
         type: "force",
-        value: 0
+        value: false
       }
     ]
   }
@@ -407,6 +370,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include 60% of users - ones with a hash between 0 and 0.6
       {
         type: "experiment",
+        variations: [false, true],
         namespace: ["pricing", 0, 0.6]
       }
     ]
@@ -416,6 +380,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include the other 40% of users - ones with a hash between 0.6 and 1
       {
         type: "experiment",
+        variations: [false, true],
         namespace: ["pricing", 0.6, 1]
       },
     ]

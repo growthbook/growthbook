@@ -56,37 +56,8 @@ export async function getExperimentConfig(
 
     const features: Record<string, FeatureDefinition> = {};
     flags.forEach((flag) => {
-      const valueMap = new Map<string, number>();
-      valueMap.set(flag.defaultValue, 0);
-      const values: string[] = [
-        getJSONValue(flag.valueType, flag.defaultValue),
-      ];
-      flag.rules?.map((rule) => {
-        if (rule.type === "force") {
-          if (!valueMap.has(rule.value)) {
-            valueMap.set(rule.value, values.length);
-            values.push(getJSONValue(flag.valueType, rule.value));
-          }
-        } else if (rule.type === "rollout") {
-          rule.rollout.forEach((data) => {
-            if (!valueMap.has(data.value)) {
-              valueMap.set(data.value, values.length);
-              values.push(getJSONValue(flag.valueType, data.value));
-            }
-          });
-        } else if (rule.type === "experiment") {
-          rule.variations.forEach((value) => {
-            if (!valueMap.has(value)) {
-              valueMap.set(value, values.length);
-              values.push(getJSONValue(flag.valueType, value));
-            }
-          });
-        }
-      });
-
       features[flag.id] = {
-        defaultValue: valueMap.get(flag.defaultValue) || 0,
-        values: values.map((v) => JSON.parse(v)),
+        defaultValue: getJSONValue(flag.valueType, flag.defaultValue),
         rules:
           flag.rules
             ?.filter((r) => r.enabled)
@@ -98,14 +69,14 @@ export async function getExperimentConfig(
 
               if (r.type === "force") {
                 rule.type = "force";
-                rule.value = valueMap.get(r.value) || 0;
+                rule.value = getJSONValue(flag.valueType, r.value);
               } else if (r.type === "rollout") {
                 rule.type = "experiment";
-                rule.variations = r.rollout.map(
-                  (v) => valueMap.get(v.value) || 0
+                rule.variations = r.values.map((v) =>
+                  getJSONValue(flag.valueType, v.value)
                 );
 
-                const totalWeight = r.rollout.reduce(
+                const totalWeight = r.values.reduce(
                   (sum, r) => sum + r.weight,
                   0
                 );
@@ -115,21 +86,13 @@ export async function getExperimentConfig(
                   multiplier = 1 / totalWeight;
                 }
 
-                rule.weights = r.rollout.map((v) => v.weight * multiplier);
+                rule.weights = r.values.map((v) => v.weight * multiplier);
                 if (r.trackingKey) {
                   rule.trackingKey = r.trackingKey;
                 }
                 if (r.hashAttribute) {
                   rule.hashAttribute = r.hashAttribute;
                 }
-              } else if (r.type === "experiment") {
-                rule.type = "experiment";
-                rule.variations = r.variations.map((v) => valueMap.get(v) || 0);
-                if (r.hashAttribute) {
-                  rule.hashAttribute = r.hashAttribute;
-                }
-
-                // TODO: get coverage, weights, trackingKey, hashAttribute from experiment
               }
               return rule;
             }) ?? [],

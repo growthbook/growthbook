@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type { GrowthBook } from "..";
 
 declare global {
@@ -6,14 +8,14 @@ declare global {
   }
 }
 
-interface ForceFeatureRule {
+interface ForceFeatureRule<T = any> {
   type: "force";
-  value: number;
+  value: T;
 }
 
-interface ExperimentFeatureRule {
+interface ExperimentFeatureRule<T = any> {
   type: "experiment";
-  variations?: number[];
+  variations: T[];
   weights?: number[];
   trackingKey?: string;
   hashAttribute?: string;
@@ -21,16 +23,14 @@ interface ExperimentFeatureRule {
   namespace?: [string, number, number];
 }
 
-type FeatureRule = { condition?: RuleSet } & (
-  | ForceFeatureRule
-  | ExperimentFeatureRule
+type FeatureRule<T = any> = { condition?: RuleSet } & (
+  | ForceFeatureRule<T>
+  | ExperimentFeatureRule<T>
 );
 
-// eslint-disable-next-line
 interface FeatureDefinition<T = any> {
-  values?: T[];
-  defaultValue?: number;
-  rules?: FeatureRule[];
+  defaultValue?: T;
+  rules?: FeatureRule<T>[];
 }
 
 type FeatureResultSource =

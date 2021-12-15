@@ -22,18 +22,26 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     enabled: true,
     type: "force",
     value: feature.defaultValue,
-    experiment: "",
-    rollout: [],
+    values: [],
     hashAttribute: "id",
     trackingKey: "",
-    variations: [],
+    variations: [
+      {
+        weight: 0.5,
+        value: feature.defaultValue,
+      },
+      {
+        weight: 0.5,
+        value: feature.defaultValue,
+      },
+    ],
     ...((feature?.rules?.[i] as FeatureRule) || {}),
   };
   const form = useForm({
     defaultValues,
   });
 
-  const rollout = useFieldArray({ name: "rollout", control: form.control });
+  const rollout = useFieldArray({ name: "values", control: form.control });
 
   const { apiCall } = useAuth();
 
@@ -119,13 +127,13 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                         <FeatureValueField
                           label=""
                           form={form}
-                          field={`rollout.${i}.value`}
+                          field={`values.${i}.value`}
                           valueType={feature.valueType}
                         />
                       </td>
                       <td>
                         <Field
-                          {...form.register(`rollout.${i}.weight`, {
+                          {...form.register(`values.${i}.weight`, {
                             valueAsNumber: true,
                           })}
                         />

@@ -34,14 +34,7 @@ export interface RolloutRule extends BaseRule {
   type: "rollout";
   trackingKey: string;
   hashAttribute: string;
-  rollout: RolloutValue[];
+  values: RolloutValue[];
 }
 
-export interface ExperimentRule extends BaseRule {
-  type: "experiment";
-  hashAttribute: string;
-  experiment: string; // ID of experiment
-  variations: string[];
-}
-
-export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;
+export type FeatureRule = ForceRule | RolloutRule;

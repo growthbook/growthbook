@@ -19,12 +19,12 @@ const featureSchema = new mongoose.Schema({
       },
       trackingKey: String,
       value: String,
-      userIdType: String,
+      hashAttribute: String,
       enabled: Boolean,
       coverage: Number,
       condition: String,
       description: String,
-      rollout: [
+      values: [
         {
           _id: false,
           value: String,
@@ -32,7 +32,6 @@ const featureSchema = new mongoose.Schema({
         },
       ],
       variations: [String],
-      experiment: String,
     },
   ],
 });

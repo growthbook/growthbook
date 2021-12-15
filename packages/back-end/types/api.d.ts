@@ -11,7 +11,8 @@ export interface ExperimentOverride {
 
 export interface FeatureDefinitionRule {
   type?: "force" | "experiment";
-  value?: number;
+  // eslint-disable-next-line
+  value?: any;
   weights?: number[];
   variations?: number[];
   hashAttribute?: string;
@@ -23,8 +24,7 @@ export interface FeatureDefinitionRule {
 
 export interface FeatureDefinition {
   // eslint-disable-next-line
-  values: any[];
-  defaultValue: number;
+  defaultValue: any;
   rules?: FeatureDefinitionRule[];
 }
 

@@ -129,13 +129,10 @@ class GrowthBook {
   }
 
   private getFeatureResult<T>(
-    values: T[],
+    value: T,
     source: FeatureResultSource,
-    index = 0,
     experiment: Experiment<T> | null = null
-  ): FeatureResult {
-    const value = values[index >= 0 && index < values.length ? index : 0];
-
+  ): FeatureResult<T> {
     const ret: FeatureResult = {
       value,
       on: !!value,
@@ -147,15 +144,14 @@ class GrowthBook {
   }
 
   // eslint-disable-next-line
-  public feature<T = any>(id: string): FeatureResult<T> {
+  public feature<T = any>(id: string): FeatureResult<T | null> {
     // Unknown feature id
     if (!this.context.features || !this.context.features[id]) {
-      return this.getFeatureResult([null], "unknownFeature");
+      return this.getFeatureResult(null, "unknownFeature");
     }
 
-    // Get the feature and array of values
+    // Get the feature
     const feature: FeatureDefinition<T> = this.context.features[id];
-    const values = feature.values || [false, true];
 
     // Loop through the rules
     if (feature.rules) {
@@ -166,15 +162,12 @@ class GrowthBook {
         }
         // For force rules, return the forced value immediately
         if (rule.type === "force") {
-          return this.getFeatureResult(values as T[], "force", rule.value);
+          return this.getFeatureResult(rule.value, "force");
         }
         // For experiment rules, run an experiment
         if (rule.type === "experiment") {
-          const variations = rule.variations
-            ? rule.variations.map((i) => values[i])
-            : values;
           const exp: Experiment<T> = {
-            variations: variations as [T, T, ...T[]],
+            variations: rule.variations as [T, T, ...T[]],
             trackingKey: rule.trackingKey || id,
           };
           if (rule.coverage) exp.coverage = rule.coverage;
@@ -185,23 +178,14 @@ class GrowthBook {
           // Only return a value if the user is part of the experiment
           const res = this.run(exp);
           if (res.inExperiment) {
-            return this.getFeatureResult(
-              exp.variations,
-              "experiment",
-              res.variationId,
-              exp
-            );
+            return this.getFeatureResult(res.value, "experiment", exp);
           }
         }
       }
     }
 
     // Fall back to using the default value
-    return this.getFeatureResult(
-      values as T[],
-      "defaultValue",
-      feature.defaultValue || 0
-    );
+    return this.getFeatureResult(feature.defaultValue ?? null, "defaultValue");
   }
 
   private getExperimentKey<T>(experiment: Experiment<T>): string {

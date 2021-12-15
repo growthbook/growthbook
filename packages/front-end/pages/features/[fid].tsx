@@ -7,7 +7,6 @@ import {
   RolloutValue,
 } from "back-end/types/feature";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import ValueDisplay from "../../components/Features/ValueDisplay";
 import { GBAddCircle, GBCircleArrowLeft } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -26,69 +25,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 //const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
-
-function ExperimentSummary({
-  exp,
-  variations,
-  type,
-}: {
-  exp: ExperimentInterfaceStringDates;
-  variations: string[];
-  type: FeatureValueType;
-}) {
-  const phase =
-    exp.status !== "draft" && exp.phases
-      ? exp.phases[exp.phases.length - 1]
-      : undefined;
-
-  return (
-    <div>
-      <div className="mb-2 row">
-        <div className="col">
-          <strong>EXPERIMENT</strong>
-        </div>
-        {phase && (
-          <div className="col-auto">
-            <Link href={`/experiment/${exp.id}#results`}>
-              <a className="btn btn-primary btn-sm">View Results</a>
-            </Link>
-          </div>
-        )}
-      </div>
-      <div className="row mb-3">
-        <div className="col-auto">
-          <Link href={`/experiment/${exp.id}`}>
-            <a>{exp.name}</a>
-          </Link>
-        </div>
-        <div className="col-auto">
-          <StatusIndicator archived={exp.archived} status={exp.status} />
-        </div>
-        {phase && (
-          <div className="col-auto">
-            {percentFormatter.format(phase.coverage)} traffic
-          </div>
-        )}
-      </div>
-
-      <table className="table w-auto">
-        <tbody>
-          {variations.map((v, j) => (
-            <tr key={j}>
-              <td>{exp.variations[j].name}</td>
-              <td>
-                <ValueDisplay value={v} type={type} />
-              </td>
-              {phase && (
-                <td>{percentFormatter.format(phase.variationWeights[j])}</td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function ForceSummary({
   value,
@@ -311,14 +247,7 @@ export default function FeaturePage() {
               <ForceSummary value={rule.value} type={type} />
             )}
             {rule.type === "rollout" && (
-              <RolloutSummary rollout={rule.rollout} type={type} />
-            )}
-            {rule.type === "experiment" && (
-              <ExperimentSummary
-                exp={data.experiments[rule.experiment]}
-                variations={rule.variations}
-                type={type}
-              />
+              <RolloutSummary rollout={rule.values} type={type} />
             )}
           </div>
         );

@@ -9,7 +9,6 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
-import { ExperimentModel } from "../models/ExperimentModel";
 
 export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
@@ -129,28 +128,8 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const experimentIds: Set<string> = new Set();
-  if (feature.rules) {
-    feature.rules.forEach((rule) => {
-      if (rule.type === "experiment") {
-        experimentIds.add(rule.experiment);
-      }
-    });
-  }
-
-  const experiments =
-    experimentIds.size > 0
-      ? await ExperimentModel.find({
-          organization: org.id,
-          id: {
-            $in: Array.from(experimentIds),
-          },
-        })
-      : [];
-
   res.status(200).json({
     status: 200,
     feature,
-    experiments: experiments.map((e) => e.toJSON()),
   });
 }

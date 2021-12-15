@@ -21,7 +21,7 @@ describe("features", () => {
     });
     const res = growthbook.feature("feature");
     expect(res).toEqual({
-      value: false,
+      value: null,
       on: false,
       off: true,
       source: "defaultValue",
@@ -38,7 +38,7 @@ describe("features", () => {
     });
     const res = growthbook.feature("feature");
     expect(res).toEqual({
-      value: true,
+      value: 1,
       on: true,
       off: false,
       source: "defaultValue",
@@ -49,14 +49,13 @@ describe("features", () => {
     const growthbook = new GrowthBook({
       features: {
         feature: {
-          values: ["a", "b", "c"],
-          defaultValue: 2,
+          defaultValue: "yes",
         },
       },
     });
     const res = growthbook.feature("feature");
     expect(res).toEqual({
-      value: "c",
+      value: "yes",
       on: true,
       off: false,
       source: "defaultValue",
@@ -67,7 +66,6 @@ describe("features", () => {
     const growthbook = new GrowthBook({
       features: {
         feature: {
-          values: ["a", "b", "c"],
           defaultValue: 2,
           rules: [
             {
@@ -80,7 +78,7 @@ describe("features", () => {
     });
     const res = growthbook.feature("feature");
     expect(res).toEqual({
-      value: "b",
+      value: 1,
       on: true,
       off: false,
       source: "force",
@@ -96,7 +94,6 @@ describe("features", () => {
       attributes,
       features: {
         feature: {
-          values: ["a", "b", "c"],
           defaultValue: 2,
           rules: [
             {
@@ -113,7 +110,7 @@ describe("features", () => {
     });
     const res = growthbook.feature("feature");
     expect(res).toEqual({
-      value: "b",
+      value: 1,
       on: true,
       off: false,
       source: "force",
@@ -121,7 +118,7 @@ describe("features", () => {
     attributes.browser = "chrome";
     const res2 = growthbook.feature("feature");
     expect(res2).toEqual({
-      value: "c",
+      value: 2,
       on: true,
       off: false,
       source: "defaultValue",
@@ -137,10 +134,10 @@ describe("features", () => {
       attributes,
       features: {
         feature: {
-          values: ["a", "b", "c"],
           rules: [
             {
               type: "experiment",
+              variations: ["a", "b", "c"],
             },
           ],
         },
@@ -198,7 +195,7 @@ describe("features", () => {
               hashAttribute: "anonId",
               namespace: ["pricing", 0, 1],
               trackingKey: "hello",
-              variations: [1, 0],
+              variations: [true, false],
               weights: [0.1, 0.9],
               condition: { premium: true },
             },
@@ -227,7 +224,7 @@ describe("features", () => {
       attributes,
       features: {
         feature: {
-          values: [0, 1, 2, 3],
+          defaultValue: 0,
           rules: [
             {
               type: "force",
@@ -263,10 +260,11 @@ describe("features", () => {
       attributes: { id: "123" },
       features: {
         feature: {
-          values: [0, 1, 2, 3],
+          defaultValue: 0,
           rules: [
             {
               type: "experiment",
+              variations: [0, 1, 2, 3],
               coverage: 0.01,
             },
             {
@@ -293,10 +291,11 @@ describe("features", () => {
       attributes: { id: "123" },
       features: {
         feature: {
-          values: [0, 1, 2, 3],
+          defaultValue: 0,
           rules: [
             {
               type: "experiment",
+              variations: [0, 1, 2, 3],
               namespace: ["pricing", 0, 0.01],
             },
             {
@@ -323,10 +322,11 @@ describe("features", () => {
       attributes: { id: "123" },
       features: {
         feature: {
-          values: [0, 1, 2, 3],
+          defaultValue: 0,
           rules: [
             {
               type: "experiment",
+              variations: [0, 1, 2, 3],
               hashAttribute: "company",
             },
             {
@@ -362,11 +362,13 @@ describe("features", () => {
     });
 
     growthbook.setFeatures({
-      feature: {},
+      feature: {
+        defaultValue: 0,
+      },
     });
 
     expect(growthbook.feature("feature")).toEqual({
-      value: false,
+      value: 0,
       on: false,
       off: true,
       source: "defaultValue",
