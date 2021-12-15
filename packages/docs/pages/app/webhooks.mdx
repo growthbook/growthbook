@@ -1,10 +1,10 @@
 # Webhooks
 
-Webhooks are one way to keep cached experiment configuration up-to-date on your servers.
+Webhooks are one way to keep cached experiment and feature configuration up-to-date on your servers.
 
-With the [API](/app/api), your servers pull experiment overrides from GrowthBook in a cronjob (or similar).
+With the [API](/app/api), your servers pull config data from GrowthBook in a cronjob (or similar).
 
-With **Webhooks**, GrowthBook pushes experiment overrides to your servers as soon as they change.
+With **Webhooks**, GrowthBook pushes config data to your servers as soon as they change.
 
 ## Adding a Webhook Endpoint
 
@@ -23,6 +23,11 @@ Here's an example payload:
 ```json
 {
   "timestamp": 1625098156,
+  "features": {
+    "feature1": {
+      "defaultValue": true
+    }
+  },
   "overrides": {
     "experiment-key": {
       "status": "running",
@@ -38,6 +43,18 @@ Here's an example payload:
   }
 }
 ```
+
+The `features` field has one entry per feature definition. Features can have the following properties:
+
+- **defaultValue**
+- **rules[]** - Array of feature rules
+  - **type** - either `force` or `experiment`
+  - **value** - for `force` rules, this is the value that will be assigned
+  - **trackingKey** - For `experiment` rules, the key to use for event tracking
+  - **variations[]** - For `experiment` rules, this is an array of the possible variations
+  - **weights[]** - For `experiment` rules, determines how traffic is split between variations
+  - **coverage** - For `experiment` rules, specifies what sampling rate (0 to 1) to use for including users. A rate of `1` means everyone is included. A rate of `0` means no one is.
+  - **condition** - For `experiment` rules,A JSON condition using MongoDB query syntax
 
 The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
 
@@ -68,25 +85,29 @@ const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
 
 const app = express();
 
-app.post("/webhook", bodyParser.raw({ type: "application/json" }), (req, res) => {
-  const payload = req.body;
-  const sig = req.get("X-GrowthBook-Signature");
+app.post(
+  "/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  (req, res) => {
+    const payload = req.body;
+    const sig = req.get("X-GrowthBook-Signature");
 
-  const computed = crypto
-    .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
-    .update(req.body)
-    .digest("hex");
+    const computed = crypto
+      .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
+      .update(req.body)
+      .digest("hex");
 
-  if (!crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(sig))) {
-    throw new Error("Signatures do not match!");
+    if (!crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(sig))) {
+      throw new Error("Signatures do not match!");
+    }
+
+    const { overrides, features } = JSON.parse(payload);
+    // TODO: Store in a cache or database
+
+    // Make sure to respond with a 200 status code
+    res.status(200).send("");
   }
-
-  const { overrides } = JSON.parse(payload);
-  // TODO: Store in a cache or database
-
-  // Make sure to respond with a 200 status code
-  res.status(200).send("");
-});
+);
 ```
 
 ## Errors and Retries

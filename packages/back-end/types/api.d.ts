@@ -30,7 +30,6 @@ export interface FeatureDefinition {
 
 export interface ExperimentOverridesResponse {
   status: 200;
-  features: Record<string, FeatureDefinition>;
   overrides: Record<string, ExperimentOverride>;
 }
 

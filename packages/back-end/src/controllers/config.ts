@@ -5,15 +5,8 @@ import fs from "fs";
 import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
-import {
-  ErrorResponse,
-  ExperimentOverridesResponse,
-  FeatureDefinition,
-  FeatureDefinitionRule,
-} from "../../types/api";
+import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
-import { getAllFeatures } from "../models/FeatureModel";
-import { FeatureValueType } from "../../types/feature";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -25,15 +18,6 @@ export function canAutoAssignExperiment(
       (v) => (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
     ).length > 0
   );
-}
-
-// eslint-disable-next-line
-function getJSONValue(type: FeatureValueType, value: string): any {
-  if (type === "json") return JSON.parse(value);
-  if (type === "number") return parseFloat(value);
-  if (type === "string") return value;
-  if (type === "boolean") return value === "false" ? false : true;
-  return null;
 }
 
 export async function getExperimentConfig(
@@ -52,58 +36,11 @@ export async function getExperimentConfig(
     }
 
     const overrides = await getExperimentOverrides(organization);
-    const flags = await getAllFeatures(organization);
-
-    const features: Record<string, FeatureDefinition> = {};
-    flags.forEach((flag) => {
-      features[flag.id] = {
-        defaultValue: getJSONValue(flag.valueType, flag.defaultValue),
-        rules:
-          flag.rules
-            ?.filter((r) => r.enabled)
-            ?.map((r) => {
-              const rule: FeatureDefinitionRule = {};
-              if (r.condition) {
-                rule.condition = JSON.parse(r.condition);
-              }
-
-              if (r.type === "force") {
-                rule.type = "force";
-                rule.value = getJSONValue(flag.valueType, r.value);
-              } else if (r.type === "rollout") {
-                rule.type = "experiment";
-                rule.variations = r.values.map((v) =>
-                  getJSONValue(flag.valueType, v.value)
-                );
-
-                const totalWeight = r.values.reduce(
-                  (sum, r) => sum + r.weight,
-                  0
-                );
-                let multiplier = 1;
-                if (totalWeight < 1 && totalWeight > 0) {
-                  rule.coverage = totalWeight;
-                  multiplier = 1 / totalWeight;
-                }
-
-                rule.weights = r.values.map((v) => v.weight * multiplier);
-                if (r.trackingKey) {
-                  rule.trackingKey = r.trackingKey;
-                }
-                if (r.hashAttribute) {
-                  rule.hashAttribute = r.hashAttribute;
-                }
-              }
-              return rule;
-            }) ?? [],
-      };
-    });
 
     // TODO: add cache headers?
     res.status(200).json({
       status: 200,
       overrides,
-      features,
     });
   } catch (e) {
     console.error(e);
