@@ -369,6 +369,23 @@ In addition to subscriptions you may also want to expose a `growthbook.getAllRes
 
 Subscriptions and tracking calls require storing references to many objects and functions. If it makes sense for your language, libraries should provide a `growthbook.destroy` method to remove all of these references and release their memory.
 
+## Evaluating Targeting Conditions
+
+Targeting conditions are defined using a subset of the MongoDB query syntax. This makes it human readable/writeable while still being relatively easy to parse.
+
+For example:
+
+```js
+{
+  "browser": "firefox",
+  "country": {
+    "$in": ["US", "CA"]
+  }
+}
+```
+
+Look at the source of the Javascript SDK (specifically [mongrule.ts](https://github.com/growthbook/growthbook/tree/main/packages/sdk-js/src/mongrule.ts)) for a reference implementation (~200 lines of code total).
+
 ## Tests
 
 We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages. Pick the closest existing SDK as a guide and adapt as needed.

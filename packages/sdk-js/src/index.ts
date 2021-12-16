@@ -19,7 +19,7 @@ import {
   getQueryStringOverride,
   inNamespace,
 } from "./util";
-import { Condition } from "./mongrule";
+import { evalCondition } from "./mongrule";
 
 export type {
   Context,
@@ -198,8 +198,7 @@ class GrowthBook {
   }
 
   private conditionPasses(condition: ConditionInterface): boolean {
-    const cond = new Condition(condition);
-    return cond.test(this.context.attributes || {});
+    return evalCondition(this.context.attributes || {}, condition);
   }
 
   private _run<T>(experiment: Experiment<T>): Result<T> {
