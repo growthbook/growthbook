@@ -10,9 +10,8 @@ export interface ExperimentOverride {
 }
 
 export interface FeatureDefinitionRule {
-  type?: "force" | "experiment";
   // eslint-disable-next-line
-  value?: any;
+  force?: any;
   weights?: number[];
   variations?: number[];
   hashAttribute?: string;

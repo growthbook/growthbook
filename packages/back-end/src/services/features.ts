@@ -33,10 +33,8 @@ export async function getFeatureDefinitions(organization: string) {
             }
 
             if (r.type === "force") {
-              rule.type = "force";
-              rule.value = getJSONValue(flag.valueType, r.value);
+              rule.force = getJSONValue(flag.valueType, r.value);
             } else if (r.type === "rollout") {
-              rule.type = "experiment";
               rule.variations = r.values.map((v) =>
                 getJSONValue(flag.valueType, v.value)
               );

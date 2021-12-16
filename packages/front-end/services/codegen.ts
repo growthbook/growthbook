@@ -18,7 +18,7 @@ function getUrlCheck(exp: ExperimentInterfaceStringDates): string {
   return `if(!location.href.match(${getUrlRegex(exp.targetURLRegex)})){return}`;
 }
 
-function getUserIdCode(t: TrackingType): string {
+export function getUserIdCode(t: TrackingType): string {
   if (t === "segment") {
     return "analytics.user().anonymousId()";
   }
@@ -30,19 +30,34 @@ function getUserIdCode(t: TrackingType): string {
   }
   return '\n  // User ID\n  "123"\n';
 }
-function getTrackingCallback(t: TrackingType, param: string): string {
+export function getTrackingCallback(
+  t: TrackingType,
+  param: string,
+  experimentId = "e",
+  variationId = "v"
+): string {
   if (t === "segment") {
-    return `analytics.track("Experiment Viewed",{experimentId: e,variationId: v})`;
+    return `analytics.track("Experiment Viewed", {
+  experimentId: ${experimentId}, 
+  variationId: ${variationId}
+})`;
   }
   if (t === "mixpanel") {
-    return `mixpanel.track("Experiment Viewed",{experimentId: e, variationId: v})`;
+    return `mixpanel.track("Experiment Viewed", {
+  experimentId: ${experimentId}, 
+  variationId: ${variationId}
+})`;
   }
   if (t === "ga") {
-    return `ga("send","event","experiment",e+"::"+v,{dimension${
-      parseInt(param) || "1"
-    }:e+"::"+v})`;
+    return `const action = ${experimentId}, label = ${variationId};
+ga("send", "event", "experiment", action, label, { 
+  dimension${parseInt(param) || "1"}: action + "::" + label
+})`;
   }
-  return "\n  // Tracking Callback\n  console.log({experimentId: e, variationId: v})\n";
+  return `console.log({
+  experimentId: ${experimentId}, 
+  variationId: ${variationId}
+})`;
 }
 function trackingWrap(code: string, t: TrackingType, param: string): string {
   if (t === "ga") {

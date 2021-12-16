@@ -160,26 +160,27 @@ class GrowthBook {
         if (rule.condition && !this.conditionPasses(rule.condition)) {
           continue;
         }
-        // For force rules, return the forced value immediately
-        if (rule.type === "force") {
-          return this.getFeatureResult(rule.value, "force");
+        // Return the forced value immediately
+        if (rule.force) {
+          return this.getFeatureResult(rule.force, "force");
+        }
+        if (!rule.variations) {
+          continue;
         }
         // For experiment rules, run an experiment
-        if (rule.type === "experiment") {
-          const exp: Experiment<T> = {
-            variations: rule.variations as [T, T, ...T[]],
-            trackingKey: rule.trackingKey || id,
-          };
-          if (rule.coverage) exp.coverage = rule.coverage;
-          if (rule.weights) exp.weights = rule.weights;
-          if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
-          if (rule.namespace) exp.namespace = rule.namespace;
+        const exp: Experiment<T> = {
+          variations: rule.variations as [T, T, ...T[]],
+          trackingKey: rule.trackingKey || id,
+        };
+        if (rule.coverage) exp.coverage = rule.coverage;
+        if (rule.weights) exp.weights = rule.weights;
+        if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
+        if (rule.namespace) exp.namespace = rule.namespace;
 
-          // Only return a value if the user is part of the experiment
-          const res = this.run(exp);
-          if (res.inExperiment) {
-            return this.getFeatureResult(res.value, "experiment", exp);
-          }
+        // Only return a value if the user is part of the experiment
+        const res = this.run(exp);
+        if (res.inExperiment) {
+          return this.getFeatureResult(res.value, "experiment", exp);
         }
       }
     }

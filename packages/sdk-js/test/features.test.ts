@@ -69,8 +69,7 @@ describe("features", () => {
           defaultValue: 2,
           rules: [
             {
-              type: "force",
-              value: 1,
+              force: 1,
             },
           ],
         },
@@ -97,8 +96,7 @@ describe("features", () => {
           defaultValue: 2,
           rules: [
             {
-              type: "force",
-              value: 1,
+              force: 1,
               condition: {
                 country: { $in: ["US", "CA"] },
                 browser: "firefox",
@@ -136,7 +134,6 @@ describe("features", () => {
         feature: {
           rules: [
             {
-              type: "experiment",
               variations: ["a", "b", "c"],
             },
           ],
@@ -190,7 +187,6 @@ describe("features", () => {
         feature: {
           rules: [
             {
-              type: "experiment",
               coverage: 0.99,
               hashAttribute: "anonId",
               namespace: ["pricing", 0, 1],
@@ -227,18 +223,15 @@ describe("features", () => {
           defaultValue: 0,
           rules: [
             {
-              type: "force",
-              value: 1,
+              force: 1,
               condition: { browser: "chrome" },
             },
             {
-              type: "force",
-              value: 2,
+              force: 2,
               condition: { browser: "firefox" },
             },
             {
-              type: "force",
-              value: 3,
+              force: 3,
               condition: { browser: "safari" },
             },
           ],
@@ -263,13 +256,11 @@ describe("features", () => {
           defaultValue: 0,
           rules: [
             {
-              type: "experiment",
               variations: [0, 1, 2, 3],
               coverage: 0.01,
             },
             {
-              type: "force",
-              value: 3,
+              force: 3,
             },
           ],
         },
@@ -294,13 +285,11 @@ describe("features", () => {
           defaultValue: 0,
           rules: [
             {
-              type: "experiment",
               variations: [0, 1, 2, 3],
               namespace: ["pricing", 0, 0.01],
             },
             {
-              type: "force",
-              value: 3,
+              force: 3,
             },
           ],
         },
@@ -325,13 +314,11 @@ describe("features", () => {
           defaultValue: 0,
           rules: [
             {
-              type: "experiment",
               variations: [0, 1, 2, 3],
               hashAttribute: "company",
             },
             {
-              type: "force",
-              value: 3,
+              force: 3,
             },
           ],
         },

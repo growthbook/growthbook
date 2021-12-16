@@ -140,19 +140,9 @@ A Feature object consists of possible values plus rules for how to assign values
 
 ### FeatureRule
 
-There are 2 types of rules
-
-Force rules:
-
-- **type** (`string`) - Always set to `"force"`
 - **condition** (`Condition`) - Optional targeting condition
-- **value** (`any`) - The value that should be assigned
-
-Experiment rules:
-
-- **type** (`string`) - Always set to `"experiment"`
-- **variations** (`any[]`) - The experiment variations. Required.
-- **condition** (`Condition`) - Optional targeting condition
+- **force** (`any`) - Immediately force a specific value (ignore every other option besides condition)
+- **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
 - **trackingKey** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
@@ -187,8 +177,8 @@ There are a few ordered steps to evaluate a feature
 1. If the key doesn't exist in `context.features`, return immediately (value = `null`, source = `unknownFeature`).
 2. Loop through the feature rules (if any)
    1. If the rule has a `condition` and it evaluates to false, skip this rule and continue to the next one
-   2. If the rule type is force, return immediately (value = forced value, source = `force`)
-   3. If the rule type is experiment, convert the rule to an Experiment object and run the experiment.
+   2. If `rule.force` is set, return immediately (value = forced value, source = `force`)
+   3. Otherwise, convert the rule to an Experiment object
       ```ts
       const exp = {
         variations: rule.variations,

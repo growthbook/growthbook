@@ -4,7 +4,7 @@
 
 This particular library lets you evaluate feature flags and run experiments within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.76KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.73KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -244,14 +244,13 @@ Force rules do what you'd expect - force everyone to get assigned a specific val
     defaultValue: "blue",
     rules: [
       {
-        type: "force",
         condition: {
           browser: "firefox",
           country: {
             $in: ["US", "CA"]
           }
         },
-        value: "green"
+        force: "green"
       }
     ],
   }
@@ -268,7 +267,6 @@ Experiment rules let you adjust the percent of users who get randomly assigned t
   "image-size": {
     rules: [
       {
-        type: "experiment",
         variations: ["small", "medium", "large"]
       }
     ]
@@ -285,7 +283,6 @@ You can use the `weights` setting to control what percent of users get assigned 
   "results-per-page": {
     rules: [
       {
-        type: "experiment",
         variations: ["small", "medium", "large"],
         // 50% of users will get "small" (index 0)
         // 30% will get "medium" (index 1)
@@ -307,7 +304,6 @@ When a user is assigned a variation, we call the `trackingCallback` function so 
     rules: [
       {
         // Use "my-experiment" as the trackingKey instead of "feature-1"
-        type: "experiment",
         trackingKey: "my-experiment",
         variations: ["A", "B"]
       }
@@ -332,15 +328,13 @@ const growthbook = new GrowthBook({
         // All users with the same "company" value
         // will be assigned the same variation
         {
-          type: "experiment",
           variations: ["A", "B"],
           hashAttribute: "company",
         },
         // If "company" is empty for the user (e.g. if they are logged out)
         // The experiment will be skipped and fall through to this next rule
         {
-          type: "force",
-          value: "A",
+          force: "A",
         },
       ],
     },
@@ -358,14 +352,12 @@ You can use the `coverage` setting to introduce sampling and reduce the percent 
     rules: [
       // 80% of users will be included in the experiment
       {
-        type: "experiment",
         variations: [false, true],
         coverage: 0.8
       },
       // The remaining 20% will fall through to this next matching rule
       {
-        type: "force",
-        value: false
+        force: false
       }
     ]
   }
@@ -384,7 +376,6 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
     rules: [
       // Will include 60% of users - ones with a hash between 0 and 0.6
       {
-        type: "experiment",
         variations: [false, true],
         namespace: ["pricing", 0, 0.6]
       }
@@ -394,7 +385,6 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
     rules: [
       // Will include the other 40% of users - ones with a hash between 0.6 and 1
       {
-        type: "experiment",
         variations: [false, true],
         namespace: ["pricing", 0.6, 1]
       },

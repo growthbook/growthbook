@@ -8,25 +8,16 @@ declare global {
   }
 }
 
-interface ForceFeatureRule<T = any> {
-  type: "force";
-  value: T;
-}
-
-interface ExperimentFeatureRule<T = any> {
-  type: "experiment";
-  variations: T[];
+type FeatureRule<T = any> = {
+  condition?: RuleSet;
+  force?: T;
+  variations?: T[];
   weights?: number[];
   trackingKey?: string;
   hashAttribute?: string;
   coverage?: number;
   namespace?: [string, number, number];
-}
-
-type FeatureRule<T = any> = { condition?: RuleSet } & (
-  | ForceFeatureRule<T>
-  | ExperimentFeatureRule<T>
-);
+};
 
 interface FeatureDefinition<T = any> {
   defaultValue?: T;
