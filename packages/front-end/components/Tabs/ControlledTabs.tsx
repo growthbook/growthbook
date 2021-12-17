@@ -49,14 +49,15 @@ const ControlledTabs: FC<{
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
     const { display, anchor, visible } = child.props;
+    const id = child.props?.id ?? display;
     if (anchor) {
-      anchorMap.set(anchor, display);
+      anchorMap.set(anchor, id);
     }
 
-    if (!activeChosen && visible !== false && active === display) {
-      activeChosen = display;
+    if (!activeChosen && visible !== false && active === id) {
+      activeChosen = id;
     } else if (!activeChosen && visible !== false && !backupActive) {
-      backupActive = display;
+      backupActive = id;
     }
   });
   if (!activeChosen) {
@@ -81,8 +82,9 @@ const ControlledTabs: FC<{
       padding,
     } = child.props;
     if (visible === false) return;
+    const id = child.props?.id ?? display;
 
-    const isActive = display === activeChosen;
+    const isActive = id === activeChosen;
 
     if (isActive && padding === false) {
       contentsPadding = false;
@@ -115,7 +117,7 @@ const ControlledTabs: FC<{
       </a>
     );
 
-    if (lazy && !isActive && !loaded[display]) {
+    if (lazy && !isActive && !loaded[id]) {
       contents.push(null);
     } else {
       contents.push(
@@ -142,9 +144,9 @@ const ControlledTabs: FC<{
   useEffect(() => {
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "");
-      const display = anchorMap.get(hash);
-      if (display) {
-        setActive(display);
+      const id = anchorMap.get(hash);
+      if (id) {
+        setActive(id);
       }
     };
     handler();
