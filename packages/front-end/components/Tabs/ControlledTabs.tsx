@@ -48,8 +48,8 @@ const ControlledTabs: FC<{
   let backupActive = null;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
-    const { anchor, visible } = child.props;
-    const id = child.props?.id ?? child.props.display;
+    const { display, anchor, visible } = child.props;
+    const id = child.props?.id ?? display;
     if (anchor) {
       anchorMap.set(anchor, id);
     }
