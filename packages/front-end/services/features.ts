@@ -73,7 +73,7 @@ export function jsonToConds(json: string): null | Condition[] {
           return conds.push({
             field,
             operator,
-            value: v.join(","),
+            value: v.join(", "),
           });
         }
 
@@ -154,7 +154,7 @@ export function condToJson(conds: Condition[]) {
     } else if (operator === "$false") {
       obj[field]["$eq"] = false;
     } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value.split(",");
+      obj[field][operator] = value.split(",").map((x) => x.trim());
     } else {
       obj[field][operator] = value;
     }
@@ -170,7 +170,7 @@ export function condToJson(conds: Condition[]) {
   return JSON.stringify(obj, null, 2);
 }
 
-export function useAttributeMap() {
+export function useAttributeMap(): [boolean, Record<string, SDKAttributeType>] {
   const { settings } = useContext(UserContext);
 
   return [

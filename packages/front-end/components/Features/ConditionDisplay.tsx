@@ -27,9 +27,9 @@ function operatorToText(operator: string, type: SDKAttributeType): string {
     case "$nin":
       return `is not in the list`;
     case "$true":
-      return `is TRUE`;
+      return "is";
     case "$false":
-      return `is FALSE`;
+      return "is";
     case "$regex":
       return `matches the pattern`;
     case "$notRegex":
@@ -39,7 +39,12 @@ function operatorToText(operator: string, type: SDKAttributeType): string {
 }
 
 function needsValue(operator: string) {
-  return !["$true", "$false", "$exists", "$notExists"].includes(operator);
+  return !["$exists", "$notExists"].includes(operator);
+}
+function getValue(operator: string, value: string): string {
+  if (operator === "$true") return "TRUE";
+  if (operator === "$false") return "FALSE";
+  return value;
 }
 
 export default function ConditionDisplay({ condition }: { condition: string }) {
@@ -56,12 +61,18 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
     <div className="row">
       {conds.map(({ field, operator, value }, i) => (
         <div key={i} className="col-auto d-flex flex-wrap">
-          {i > 0 && <strong className="mr-2">AND</strong>}
-          <span className="mr-2">{field}</span>
-          <strong className="mr-2">
+          {i > 0 && <span className="mr-1">AND</span>}
+          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+          <span className="mr-1">
             {operatorToText(operator, attributeType[field] || "string")}
-          </strong>
-          {needsValue(operator) ? <span>{value}</span> : ""}
+          </span>
+          {needsValue(operator) ? (
+            <span className="mr-1 border px-2 bg-light rounded">
+              {getValue(operator, value)}
+            </span>
+          ) : (
+            ""
+          )}
         </div>
       ))}
     </div>

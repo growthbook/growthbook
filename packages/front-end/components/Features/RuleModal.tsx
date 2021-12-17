@@ -108,7 +108,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       })}
     >
       <Field
-        label="Description"
+        label="Description (optional)"
         textarea
         minRows={1}
         {...form.register("description")}
@@ -140,6 +140,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           <Field
             label="Tracking Key"
             {...form.register(`trackingKey`)}
+            placeholder={feature.id}
             helpText="Unique identifier for this rollout, used to track impressions and analyze results"
           />
           <Field
@@ -188,6 +189,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                             e.preventDefault();
                             rollout.remove(i);
                           }}
+                          type="button"
                         >
                           remove
                         </button>
@@ -206,6 +208,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                   weight: 0,
                 });
               }}
+              type="button"
             >
               add value
             </button>

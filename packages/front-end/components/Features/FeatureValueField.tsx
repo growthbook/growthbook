@@ -1,7 +1,6 @@
 import { UseFormReturn } from "react-hook-form";
 import { FeatureValueType } from "back-end/types/feature";
 import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -25,20 +24,16 @@ export default function FeatureValueField({
       {...form.register(field)}
       {...(valueType === "boolean"
         ? {
-            render: function BooleanToggle(id) {
-              return (
-                <div>
-                  <Toggle
-                    id={id}
-                    label=""
-                    value={form.watch(field) !== "false"}
-                    setValue={(value) =>
-                      form.setValue(field, value ? "true" : "false")
-                    }
-                  />
-                </div>
-              );
-            },
+            options: [
+              {
+                value: "false",
+                display: "OFF",
+              },
+              {
+                value: "true",
+                display: "ON",
+              },
+            ],
           }
         : valueType === "number"
         ? {

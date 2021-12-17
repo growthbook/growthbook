@@ -1,6 +1,5 @@
 import { FeatureValueType } from "back-end/types/feature";
 import Code from "../Code";
-import ReadonlyToggle from "../Forms/ReadonlyToggle";
 
 export default function ValueDisplay({
   value,
@@ -10,16 +9,34 @@ export default function ValueDisplay({
   type: FeatureValueType;
 }) {
   if (type === "boolean") {
-    return <ReadonlyToggle value={value !== "false"} />;
+    return (
+      <strong>
+        <div
+          className={value === "false" ? "bg-danger" : "bg-success"}
+          style={{
+            display: "inline-block",
+            height: 10,
+            width: 10,
+            borderRadius: 10,
+            marginRight: 5,
+          }}
+        ></div>
+        {value === "false" ? "OFF" : "ON"}
+      </strong>
+    );
   }
 
   if (type === "string") {
-    return <span>{value}</span>;
+    return <strong>{value}</strong>;
   }
 
   if (type === "number") {
-    return <span className="badge badge-info">{value}</span>;
+    return <strong>{value}</strong>;
   }
 
-  return <Code language="json" code={value} />;
+  return (
+    <div style={{ maxHeight: 150, overflowY: "auto" }}>
+      <Code language="json" code={value} />
+    </div>
+  );
 }
