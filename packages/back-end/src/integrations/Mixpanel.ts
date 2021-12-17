@@ -279,8 +279,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
           id: string;
           name: string;
           count: number;
-          mean: number;
-          stddev: number;
+          mean: number | null;
+          stddev: number | null;
         }[];
       }[]
     >(this.params, query);
@@ -295,8 +295,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             metric: m.id,
             users,
             count: m.count,
-            mean: m.mean,
-            stddev: m.stddev,
+            mean: m.mean || 0,
+            stddev: m.stddev || 0,
           };
         }),
       };
@@ -609,15 +609,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
               dates: {
                 date: string;
                 count: number;
-                sum: number;
+                sum: number | null;
               }[];
             }
           | {
               type: "overall";
               count: number;
-              sum: number;
-              avg: number;
-              stddev: number;
+              sum: number | null;
+              avg: number | null;
+              stddev: number | null;
             }
           | {
               type: "percentile";
@@ -646,8 +646,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
       rows[0].forEach((row) => {
         if (row.type === "overall") {
           overall.count = row.count;
-          overall.mean = row.avg;
-          overall.stddev = row.stddev;
+          overall.mean = row.avg || 0;
+          overall.stddev = row.stddev || 0;
           overall.users = usersDateMap[""] || row.count;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
@@ -656,7 +656,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               date,
               users: usersDateMap[date] || count,
               count,
-              mean: count > 0 ? sum / count : 0,
+              mean: count > 0 ? (sum || 0) / count : 0,
               stddev: 0,
             });
           });
