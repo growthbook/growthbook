@@ -445,6 +445,7 @@ app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
 app.post("/report/:id/notebook", reportsController.postNotebook);
 app.get("/reports", reportsController.getReports);
+app.get("/reports/:id", reportsController.getReportsOnExperiment);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);

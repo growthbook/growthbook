@@ -12,7 +12,6 @@ import {
   GBExperiment,
   GBMetrics,
   GBPresentations,
-  GBReports,
   GBSegments,
   GBSettings,
 } from "../Icons";
@@ -40,12 +39,6 @@ const navlinks: SidebarLinkProps[] = [
     href: "/experiments",
     Icon: GBExperiment,
     path: /^experiment/,
-  },
-  {
-    name: "Reports",
-    href: "/reports",
-    Icon: GBReports,
-    path: /^reports/,
   },
   {
     name: "Presentations",

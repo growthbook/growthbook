@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { hasFileConfig } from "../services/env";
 import { useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
+import { UserContext } from "../components/ProtectedPage";
+import Toggle from "../components/Forms/Toggle";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -21,9 +22,10 @@ const ReportsPage = (): React.ReactElement => {
   const expMap = new Map();
 
   const [reportSort, setReportsSort] = useState({
-    field: "name",
+    field: "dateUpdated",
     dir: 1,
   });
+  const [onlyMyReports, setOnlyMyReports] = useState(true);
 
   const setSort = (field: string) => {
     if (reportSort.field === field) {
@@ -34,19 +36,24 @@ const ReportsPage = (): React.ReactElement => {
     }
   };
 
-  const {
-    list: filteredReports,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.reports || [], [
-    "title",
-    "experimentName",
-    "dateUpdated",
-  ]);
+  const { users, userId, getUserDisplay } = useContext(UserContext);
 
   const getExperimentName = (experimentId: string): string => {
     return expMap.get(experimentId)?.name ?? "";
   };
+
+  const transforms = useMemo(() => {
+    return {
+      username: (orig: string) => getUserDisplay(orig),
+      experimentName: (orig: string) => getExperimentName(orig),
+    };
+  }, [getUserDisplay, users.size]);
+
+  const { list: filteredReports, searchInputProps, isFiltered } = useSearch(
+    data?.reports || [],
+    ["title", "description", "experimentName", "username", "dateUpdated"],
+    transforms
+  );
 
   if (error) {
     return <div className="alert alert-danger">An error occurred: {error}</div>;
@@ -79,15 +86,23 @@ const ReportsPage = (): React.ReactElement => {
     );
   }
 
-  // sort the Reports:
-  const sortedReports = filteredReports.sort((a, b) => {
-    const comp1 = a[reportSort.field];
-    const comp2 = b[reportSort.field];
-    if (typeof comp1 === "string") {
-      return comp1.localeCompare(comp2) * reportSort.dir;
-    }
-    return (comp1 - comp2) * reportSort.dir;
-  });
+  // filter and sort the Reports:
+  const sortedReports = filteredReports
+    .filter((r) => {
+      if (onlyMyReports) {
+        return r.userId === userId;
+      } else {
+        return true;
+      }
+    })
+    .sort((a, b) => {
+      const comp1 = a[reportSort.field];
+      const comp2 = b[reportSort.field];
+      if (typeof comp1 === "string") {
+        return comp1.localeCompare(comp2) * reportSort.dir;
+      }
+      return (comp1 - comp2) * reportSort.dir;
+    });
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -108,6 +123,15 @@ const ReportsPage = (): React.ReactElement => {
             aria-controls="dtBasicExample"
             {...searchInputProps}
           />
+        </div>
+        <div className="col-auto">
+          <Toggle
+            id={"onlymine"}
+            value={onlyMyReports}
+            label={"onlymine"}
+            setValue={setOnlyMyReports}
+          />
+          Show only my reports
         </div>
         <div style={{ flex: 1 }} />
       </div>
@@ -130,6 +154,35 @@ const ReportsPage = (): React.ReactElement => {
                   }
                 >
                   {reportSort.field === "name" ? (
+                    reportSort.dir < 0 ? (
+                      <FaSortUp />
+                    ) : (
+                      <FaSortDown />
+                    )
+                  ) : (
+                    <FaSort />
+                  )}
+                </a>
+              </span>
+            </th>
+            <th style={{ maxWidth: "30%" }}>
+              <span
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSort("description");
+                }}
+              >
+                Description{" "}
+                <a
+                  href="#"
+                  className={
+                    reportSort.field === "description"
+                      ? "activesort"
+                      : "inactivesort"
+                  }
+                >
+                  {reportSort.field === "description" ? (
                     reportSort.dir < 0 ? (
                       <FaSortUp />
                     ) : (
@@ -197,6 +250,35 @@ const ReportsPage = (): React.ReactElement => {
                 </a>
               </span>
             </th>
+            <th>
+              <span
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSort("userId");
+                }}
+              >
+                Created By{" "}
+                <a
+                  href="#"
+                  className={
+                    reportSort.field === "userId"
+                      ? "activesort"
+                      : "inactivesort"
+                  }
+                >
+                  {reportSort.field === "userId" ? (
+                    reportSort.dir < 0 ? (
+                      <FaSortUp />
+                    ) : (
+                      <FaSortDown />
+                    )
+                  ) : (
+                    <FaSort />
+                  )}
+                </a>
+              </span>
+            </th>
             <th className="d-none d-md-table-cell">
               <span
                 className="cursor-pointer"
@@ -229,37 +311,57 @@ const ReportsPage = (): React.ReactElement => {
           </tr>
         </thead>
         <tbody>
-          {sortedReports.map((report) => (
-            <tr
-              key={report.id}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/report/[rid]", `/report/${report.id}`);
-              }}
-              style={{ cursor: "pointer" }}
-              className=""
-            >
-              <td>
-                <Link href={`/report/${report.id}`}>
-                  <a className={`text-dark font-weight-bold`}>{report.title}</a>
-                </Link>
-              </td>
-              <td>{report.type}</td>
-              <td>{getExperimentName(report.experimentId)}</td>
-
-              <td
-                title={datetime(report.dateUpdated)}
-                className="d-none d-md-table-cell"
+          {sortedReports.map((report) => {
+            const name = report?.userId ? getUserDisplay(report?.userId) : "-";
+            return (
+              <tr
+                key={report.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push("/report/[rid]", `/report/${report.id}`);
+                }}
+                style={{ cursor: "pointer" }}
+                className=""
               >
-                {ago(report.dateUpdated)}
-              </td>
-            </tr>
-          ))}
+                <td>
+                  <Link href={`/report/${report.id}`}>
+                    <a className={`text-dark font-weight-bold`}>
+                      {report.title}
+                    </a>
+                  </Link>
+                </td>
+                <td
+                  className="text-muted"
+                  style={{
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "260px",
+                    overflow: "hidden",
+                  }}
+                >
+                  {report.description},
+                </td>
+                <td>{report.type}</td>
+                <td>{getExperimentName(report.experimentId)}</td>
+                <td>{name}</td>
+                <td
+                  title={datetime(report.dateUpdated)}
+                  className="d-none d-md-table-cell"
+                >
+                  {ago(report.dateUpdated)}
+                </td>
+              </tr>
+            );
+          })}
 
-          {!sortedReports.length && isFiltered && (
+          {!sortedReports.length && (
             <tr>
-              <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
-                No matching reports
+              <td colSpan={6} align={"center"}>
+                {isFiltered
+                  ? "No matching reports"
+                  : onlyMyReports
+                  ? "You have no reports"
+                  : "No reports"}
               </td>
             </tr>
           )}

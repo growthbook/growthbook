@@ -220,11 +220,22 @@ const TopNav: FC<{
               show: userDropdownOpen,
             })}
           >
-            <div className="px-3 pt-1 mb-2">
+            <div className="mb-2 dropdown-item">
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
               <div className="badge badge-secondary">{role}</div>
             </div>
+            <div className="dropdown-divider"></div>
+            <Link href={"/reports"}>
+              <a
+                className="dropdown-item"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                }}
+              >
+                My Reports
+              </a>
+            </Link>
             <div className="dropdown-divider"></div>
             <button
               className="dropdown-item"

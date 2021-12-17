@@ -7,7 +7,7 @@ import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import ScreenshotUpload from "../../components/EditExperiment/ScreenshotUpload";
 import clone from "lodash/clone";
-import { useState, ReactElement, useContext } from "react";
+import React, { useState, ReactElement, useContext, useEffect } from "react";
 import { useAuth } from "../../services/auth";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -39,6 +39,7 @@ import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
 import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
 import EditTargetingForm from "../../components/Experiment/EditTargetingForm";
 import EditInfoForm from "../../components/Experiment/EditInfoForm";
+import ExperimentReportsList from "../../components/Experiment/ExperimentReportsList";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
@@ -87,6 +88,12 @@ const ExperimentPage = (): ReactElement => {
     getProjectById,
   } = useDefinitions();
   const { permissions } = useContext(UserContext);
+
+  const [showReportsTab, setShowReportsTab] = useState(null);
+  useEffect(() => {
+    // If needed, check to see if we should show ad-hoc reports here:
+    setShowReportsTab(true);
+  }, [data?.experiment]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -778,6 +785,14 @@ const ExperimentPage = (): ReactElement => {
             id={experiment.id}
             allowNewComments={!experiment.archived}
           />
+        </Tab>
+        <Tab
+          display="Reports"
+          anchor="reports"
+          lazy={true}
+          visible={showReportsTab}
+        >
+          <ExperimentReportsList experiment={experiment} />
         </Tab>
         <Tab display="History" anchor="history" lazy={true}>
           {experiment.phases && (

@@ -7,6 +7,7 @@ export interface ReportInterfaceBase {
   dateUpdated: Date;
   organization: string;
   experimentId?: string;
+  userId?: string;
   title: string;
   description: string;
   runStarted: Date | null;

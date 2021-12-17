@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { ReportInterface } from "../../types/report";
 import uniqid from "uniqid";
 import { queriesSchema } from "./QueryModel";
@@ -10,6 +10,7 @@ const reportSchema = new mongoose.Schema({
   dateUpdated: Date,
   organization: String,
   experimentId: String,
+  userId: String,
   title: String,
   description: String,
   runStarted: Date,
@@ -20,7 +21,7 @@ const reportSchema = new mongoose.Schema({
   results: {},
 });
 
-type ReportDocument = mongoose.Document & ReportInterface;
+export type ReportDocument = mongoose.Document & ReportInterface;
 
 const ReportModel = mongoose.model<ReportDocument>("Report", reportSchema);
 
@@ -61,6 +62,26 @@ export async function getReportsByOrg(
     reports = reports.filter(async (r) => {
       const experiment = await ExperimentModel.findOne({
         organization,
+        id: r.experimentId,
+      });
+      if (experiment) {
+        return experiment.project === project;
+      }
+      return !!r.experimentId;
+    });
+  }
+  return reports;
+}
+
+export async function getReportsByQuery(
+  query: FilterQuery<ReportDocument>,
+  project?: string
+): Promise<ReportInterface[]> {
+  let reports = await ReportModel.find(query);
+  // filter by project assigned to the experiment:
+  if (reports && project) {
+    reports = reports.filter(async (r) => {
+      const experiment = await ExperimentModel.findOne({
         id: r.experimentId,
       });
       if (experiment) {

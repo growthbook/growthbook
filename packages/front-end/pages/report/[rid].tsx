@@ -4,7 +4,7 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useContext, useState } from "react";
+import React, { useContext, useState } from "react";
 import RunQueriesButton, {
   getQueryStatus,
 } from "../../components/Queries/RunQueriesButton";
@@ -17,10 +17,11 @@ import GuardrailResults from "../../components/Experiment/GuardrailResult";
 import { useAuth } from "../../services/auth";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import Tab from "../../components/Tabs/Tab";
-import { GBEdit } from "../../components/Icons";
+import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import EditTitleDescription from "../../components/Report/EditTitleDescription";
 import ConfigureReport from "../../components/Report/ConfigureReport";
 import ResultMoreMenu from "../../components/Experiment/ResultMoreMenu";
+import Link from "next/link";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions } = useContext(UserContext);
+  const { permissions, getUserDisplay } = useContext(UserContext);
   const [active, setActive] = useState<string | null>("Results");
 
   const { apiCall } = useAuth();
@@ -67,6 +68,13 @@ export default function ReportPage() {
         />
       )}
       <div className="mb-3">
+        {report?.experimentId && (
+          <Link href={`/experiment/${report.experimentId}`}>
+            <a>
+              <GBCircleArrowLeft /> go to experiment results
+            </a>
+          </Link>
+        )}
         <h1>
           {report.title}{" "}
           {permissions.runExperiments && (
@@ -78,6 +86,13 @@ export default function ReportPage() {
             </a>
           )}
         </h1>
+        {report?.userId && (
+          <div>
+            <small className="text-muted">
+              Created by {getUserDisplay(report.userId)}
+            </small>
+          </div>
+        )}
         {report.description && (
           <div className="mb-3">
             <Markdown>{report.description}</Markdown>
