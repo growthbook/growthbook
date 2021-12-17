@@ -810,7 +810,10 @@ export async function putOrganization(
       updates.name = name;
     }
     if (settings) {
-      updates.settings = settings;
+      updates.settings = {
+        ...org.settings,
+        ...settings,
+      };
     }
 
     await updateOrganization(org.id, updates);

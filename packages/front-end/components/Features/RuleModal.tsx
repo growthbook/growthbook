@@ -1,5 +1,10 @@
 import { useFieldArray, useForm } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  ForceRule,
+  RolloutRule,
+} from "back-end/types/feature";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
@@ -7,6 +12,7 @@ import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
+import { isValidValue } from "../../services/features";
 
 export interface Props {
   close: () => void;
@@ -22,10 +28,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     enabled: true,
     type: "force",
     value: feature.defaultValue,
-    values: [],
-    hashAttribute: "id",
-    trackingKey: "",
-    variations: [
+    values: [
       {
         weight: 0.5,
         value: feature.defaultValue,
@@ -35,6 +38,8 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
         value: feature.defaultValue,
       },
     ],
+    hashAttribute: "id",
+    trackingKey: "",
     ...((feature?.rules?.[i] as FeatureRule) || {}),
   };
   const form = useForm({
@@ -58,6 +63,41 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       submit={form.handleSubmit(async (values) => {
         const rules = [...feature.rules];
         rules[i] = values as FeatureRule;
+
+        if (rules[i].condition) {
+          try {
+            const res = JSON.parse(rules[i].condition);
+            if (!res || typeof res !== "object") {
+              throw new Error("Condition is invalid");
+            }
+          } catch (e) {
+            throw new Error("Condition is invalid: " + e.message);
+          }
+        }
+        if (rules[i].type === "force") {
+          isValidValue(
+            feature.valueType,
+            (rules[i] as ForceRule).value,
+            "Forced value"
+          );
+        } else {
+          const ruleValues = (rules[i] as RolloutRule).values;
+          if (!ruleValues || !ruleValues.length) {
+            throw new Error("Must set at least one value");
+          }
+          let totalWeight = 0;
+          ruleValues.forEach((val, i) => {
+            if (val.weight < 0) throw new Error("Percents cannot be negative");
+            totalWeight += val.weight;
+            isValidValue(feature.valueType, val.value, "Value #" + (i + 1));
+          });
+          if (totalWeight > 1) {
+            throw new Error(
+              `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+            );
+          }
+        }
+
         await apiCall(`/feature/${feature.id}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -84,7 +124,6 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
         options={[
           { display: "Force a specific value", value: "force" },
           { display: "Percentage rollout", value: "rollout" },
-          { display: "Experiment", value: "experiment" },
         ]}
       />
 
@@ -136,6 +175,10 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                           {...form.register(`values.${i}.weight`, {
                             valueAsNumber: true,
                           })}
+                          type="number"
+                          min={0}
+                          max={1}
+                          step="0.01"
                         />
                       </td>
                       <td>

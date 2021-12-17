@@ -1,11 +1,35 @@
 import { useContext, useMemo } from "react";
 import { SDKAttributeType } from "back-end/types/organization";
 import { UserContext } from "../components/ProtectedPage";
+import { FeatureValueType } from "back-end/types/feature";
 
 export interface Condition {
   field: string;
   operator: string;
   value: string;
+}
+
+export function isValidValue(
+  type: FeatureValueType,
+  value: string,
+  label: string
+) {
+  try {
+    if (type === "boolean") {
+      if (value !== "true" && value !== "false") {
+        throw new Error(
+          `Value must be either true or false. "${value}" given instead.`
+        );
+      }
+    } else if (type === "number") {
+      const parsed = parseFloat(value);
+      if (isNaN(parsed)) throw new Error(`Invalid number: "${value}"`);
+    } else if (type === "json") {
+      JSON.parse(value);
+    }
+  } catch (e) {
+    throw new Error(label + ": " + e.message);
+  }
 }
 
 export function jsonToConds(json: string): null | Condition[] {

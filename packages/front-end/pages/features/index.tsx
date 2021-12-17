@@ -30,56 +30,6 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  if (window) {
-    return (
-      <div className="container mt-5">
-        <p className="text-center">
-          Please choose the option which best describes your situation.
-        </p>
-        <div className="d-flex" style={{}}>
-          <div>
-            <div
-              style={{
-                height: 300,
-                textAlign: "center",
-                justifyContent: "center",
-              }}
-              className="bg-light border d-flex flex-column p-4 mx-3 rounded"
-            >
-              <h3 className="mb-3">
-                I already run experiments and track them in a database or
-                analytics tool.
-              </h3>
-              <p>
-                GrowthBook can automate the analysis and let you easily document
-                results.
-              </p>
-            </div>
-          </div>
-          <div>
-            <div
-              style={{
-                height: 300,
-                textAlign: "center",
-                justifyContent: "center",
-              }}
-              className="bg-light border d-flex flex-column p-4 mx-3 rounded"
-            >
-              <h3 className="mb-3">
-                I don&apos;t do any experimentation yet and need a full-featured
-                platform.
-              </h3>
-              <p>
-                GrowthBook has SDKs, APIs, and Webhooks to deeply integrate into
-                your existing tech stack.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="contents container-fluid pagecontents">
       {modalOpen && (

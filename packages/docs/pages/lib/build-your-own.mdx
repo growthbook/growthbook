@@ -28,6 +28,8 @@ Targeting condition based on MongoDB query syntax. For example:
 }
 ```
 
+For details on parsing and evaluating these conditions, view the [reference Typescript implementation](https://github.com/growthbook/growthbook/tree/main/packages/sdk-js/src/mongrule.ts) (~200 lines of code).
+
 ### Context
 
 Defines the GrowthBook context. At a minimum, the context should support the following optional properties:
@@ -368,23 +370,6 @@ In addition to subscriptions you may also want to expose a `growthbook.getAllRes
 ### Memory Management
 
 Subscriptions and tracking calls require storing references to many objects and functions. If it makes sense for your language, libraries should provide a `growthbook.destroy` method to remove all of these references and release their memory.
-
-## Evaluating Targeting Conditions
-
-Targeting conditions are defined using a subset of the MongoDB query syntax. This makes it human readable/writeable while still being relatively easy to parse.
-
-For example:
-
-```js
-{
-  "browser": "firefox",
-  "country": {
-    "$in": ["US", "CA"]
-  }
-}
-```
-
-Look at the source of the Javascript SDK (specifically [mongrule.ts](https://github.com/growthbook/growthbook/tree/main/packages/sdk-js/src/mongrule.ts)) for a reference implementation (~200 lines of code total).
 
 ## Tests
 
