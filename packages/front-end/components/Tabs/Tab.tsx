@@ -2,6 +2,7 @@ import { FC, ReactElement } from "react";
 
 const Tab: FC<{
   display: string;
+  id?: string;
   count?: number;
   anchor?: string;
   lazy?: boolean;

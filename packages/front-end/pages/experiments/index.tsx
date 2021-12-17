@@ -155,7 +155,7 @@ const ExperimentsPage = (): React.ReactElement => {
             <div className="col-auto">
               <h3>All Experiments</h3>
             </div>
-            <div style={{ flex: 1 }}></div>
+            <div style={{ flex: 1 }} />
             {permissions.draftExperiments && (
               <div className="col-auto">
                 <button
@@ -175,11 +175,11 @@ const ExperimentsPage = (): React.ReactElement => {
           <Tabs
             defaultTab={
               byStatus.running.length > 0
-                ? "Running"
+                ? "running"
                 : byStatus.draft.length > 0
-                ? "Drafts"
+                ? "drafts"
                 : byStatus.stopped.length > 0
-                ? "Stopped"
+                ? "stopped"
                 : null
             }
             newStyle={true}
@@ -197,6 +197,7 @@ const ExperimentsPage = (): React.ReactElement => {
           >
             <Tab
               display="Running"
+              id="running"
               anchor="running"
               count={byStatus.running.length}
               padding={false}
@@ -321,8 +322,13 @@ const ExperimentsPage = (): React.ReactElement => {
             </Tab>
             <Tab
               display={showOnlyMyDrafts ? "My drafts" : "Drafts"}
+              id="drafts"
               anchor="drafts"
-              count={byStatus.draft.length}
+              count={
+                showOnlyMyDrafts
+                  ? byStatus.myDrafts.length
+                  : byStatus.draft.length
+              }
               padding={false}
             >
               {showOnlyMyDrafts &&
@@ -547,6 +553,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
             <Tab
               display="Stopped"
+              id="stopped"
               anchor="stopped"
               count={byStatus.stopped.length}
               padding={false}
@@ -678,6 +685,7 @@ const ExperimentsPage = (): React.ReactElement => {
             {byStatus.archived.length > 0 && (
               <Tab
                 display="Archived"
+                id="archived"
                 anchor="archived"
                 count={byStatus.archived.length}
               >
