@@ -82,7 +82,7 @@ const ControlledTabs: FC<{
       padding,
     } = child.props;
     if (visible === false) return;
-    const id = child.props?.id ?? child.props.display;
+    const id = child.props?.id ?? display;
 
     const isActive = id === activeChosen;
 
