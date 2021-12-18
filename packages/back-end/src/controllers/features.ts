@@ -35,7 +35,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     console.error(e);
     res.status(400).json({
       status: 400,
-      error: "Failed to get experiment config",
+      error: "Failed to get features",
     });
   }
 }

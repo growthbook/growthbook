@@ -63,6 +63,8 @@ export async function getFeatureDefinitions(organization: string) {
           }) ?? [],
     };
   });
+
+  return features;
 }
 
 export async function featureUpdated(feature: FeatureInterface) {

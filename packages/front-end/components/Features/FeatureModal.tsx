@@ -6,6 +6,7 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
 import FeatureValueField from "./FeatureValueField";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export type Props = {
   close: () => void;
@@ -34,12 +35,14 @@ function parseDefaultValue(
 }
 
 export default function FeatureModal({ close, existing, onSuccess }: Props) {
+  const { project } = useDefinitions();
   const form = useForm<Partial<FeatureInterface>>({
     defaultValues: {
       valueType: existing?.valueType || "boolean",
-      defaultValue: existing?.defaultValue || "false",
+      defaultValue: existing?.defaultValue ?? "false",
       description: existing?.description || "",
       id: existing?.id || "",
+      project: existing?.project ?? project,
     },
   });
   const { apiCall } = useAuth();

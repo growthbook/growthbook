@@ -13,7 +13,8 @@ export interface FeatureDefinitionRule {
   // eslint-disable-next-line
   force?: any;
   weights?: number[];
-  variations?: number[];
+  // eslint-disable-next-line
+  variations?: any[];
   hashAttribute?: string;
   key?: string;
   coverage?: number;
