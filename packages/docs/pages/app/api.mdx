@@ -1,10 +1,10 @@
 # API
 
-The API is one way to keep cached experiment configuration up-to-date on your servers.
+The API is one way to keep cached experiment overrides and feature flags up-to-date on your servers.
 
-With the **API**, your servers pull experiment overrides from GrowthBook in a cronjob (or similar).
+With the **API**, your servers pull configs from GrowthBook in a cronjob (or similar).
 
-With [Webhooks](/app/webhooks), GrowthBook pushes experiment overrides to your servers as soon as they change.
+With [Webhooks](/app/webhooks), GrowthBook pushes configs to your servers as soon as they change.
 
 ## Creating an API Key
 
@@ -12,11 +12,11 @@ When logged into GrowthBook as an admin, navigate to **Settings -> API Keys**.
 
 There you can generate an API key and give it an optional description.
 
+There are two API endpoints. One for getting experiment overrides, and another for getting feature definitions.
+
 ## Experiment Overrides Endpoint
 
-As of right now, there is only a single public API endpoint that returns experiment configuration info.
-
-For **self-hosted** deployments, the endpoint is at [http://localhost:3100/config/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the API)
+For **self-hosted** deployments, the endpoint is at [http://localhost:3100/config/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the default for the API)
 
 For **GrowthBook Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/config/{myKey}
 
@@ -52,13 +52,47 @@ The `overrides` field has one entry per experiment with overrides that should ta
 - **url** - A regex for which URLs the experiment should run on
 - **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
 
+## Feature Definitions Endpoint
+
+For **self-hosted** deployments, the endpoint is at [http://localhost:3100/api/features/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the default for the API)
+
+For **GrowthBook Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/api/features/{myKey}
+
+Here is an example API response:
+
+```json
+{
+  "status": 200,
+  "features": {
+    "feature-key": {
+      "defaultValue": true
+    },
+    "another-feature": {
+      "defaultValue": "blue",
+      "rules": [
+        {
+          "condition": {
+            "browser": "firefox"
+          },
+          "force": "green"
+        }
+      ]
+    }
+  }
+}
+```
+
+The `status` field mirrors the HTTP status. The `features` field has feature definitions indexed by the feature key.
+
+Each feature definition has a default value and optional rules that override the value based on targeting conditions. Rules can also be experiments where values are randomly assigned to users.
+
 ## Official Client Libraries
 
 We offer official client libraries that work with these data structures in a few popular languages with more coming soon.
 
-- [Javascript/Typescript](/lib/js)
-- [React](/lib/react)
-- [PHP](/lib/php)
-- [Ruby](/lib/ruby)
-- [Python](/lib/python)
-- [Build your own](/lib/build-your-own)
+- [Javascript/Typescript](/lib/js) (experiments and features)
+- [React](/lib/react) (experiments and features)
+- [PHP](/lib/php) (experiments only)
+- [Ruby](/lib/ruby) (experiments only)
+- [Python](/lib/python) (experiments only)
+- [Build your own](/lib/build-your-own) (experiments only)

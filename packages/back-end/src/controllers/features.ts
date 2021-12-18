@@ -1,6 +1,6 @@
 import { AuthRequest } from "../types/AuthRequest";
-import { Response } from "express";
-import { FeatureInterface } from "../../types/feature";
+import { Request, Response } from "express";
+import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   createFeature,
@@ -9,6 +9,36 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
+import { lookupOrganizationByApiKey } from "../services/apiKey";
+import { featureUpdated, getFeatureDefinitions } from "../services/features";
+
+export async function getFeaturesPublic(req: Request, res: Response) {
+  const { key } = req.params;
+
+  try {
+    const organization = await lookupOrganizationByApiKey(key);
+    if (!organization) {
+      return res.status(400).json({
+        status: 400,
+        error: "Invalid API key",
+      });
+    }
+
+    const features = await getFeatureDefinitions(organization);
+
+    // TODO: add cache headers?
+    res.status(200).json({
+      status: 200,
+      features,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({
+      status: 400,
+      error: "Failed to get experiment config",
+    });
+  }
+}
 
 export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
@@ -42,6 +72,8 @@ export async function postFeatures(
 
   await createFeature(feature);
 
+  featureUpdated(feature);
+
   res.status(200).json({
     status: 200,
     feature,
@@ -71,10 +103,38 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
+  // See if anything important changed that requires firing a webhook
+  let requiresWebhook = false;
+  if (
+    "defaultValue" in updates &&
+    updates.defaultValue !== feature.defaultValue
+  ) {
+    requiresWebhook = true;
+  } else if ("rules" in updates) {
+    if (updates.rules?.length !== feature.rules?.length) {
+      requiresWebhook = true;
+    } else {
+      updates.rules?.forEach((rule, i) => {
+        const a = { ...rule } as Partial<FeatureRule>;
+        const b = { ...feature.rules?.[i] } as Partial<FeatureRule>;
+        delete a.description;
+        delete b.description;
+
+        if (JSON.stringify(a) !== JSON.stringify(b)) {
+          requiresWebhook = true;
+        }
+      });
+    }
+  }
+
   await updateFeature(feature.organization, id, {
     ...updates,
     dateUpdated: new Date(),
   });
+
+  if (requiresWebhook) {
+    featureUpdated(feature);
+  }
 
   res.status(200).json({
     feature: {
@@ -93,7 +153,12 @@ export async function deleteFeatureById(
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  await deleteFeature(org.id, id);
+  const feature = await getFeature(org.id, id);
+
+  if (feature) {
+    await deleteFeature(org.id, id);
+    featureUpdated(feature);
+  }
 
   res.status(200).json({
     status: 200,

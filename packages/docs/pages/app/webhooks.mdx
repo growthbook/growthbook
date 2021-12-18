@@ -2,9 +2,9 @@
 
 Webhooks are one way to keep cached experiment and feature configuration up-to-date on your servers.
 
-With the [API](/app/api), your servers pull config data from GrowthBook in a cronjob (or similar).
-
 With **Webhooks**, GrowthBook pushes config data to your servers as soon as they change.
+
+The other way is with the [API](/app/api), where your servers pull config data from GrowthBook in a cronjob (or similar).
 
 ## Adding a Webhook Endpoint
 
@@ -48,13 +48,12 @@ The `features` field has one entry per feature definition. Features can have the
 
 - **defaultValue**
 - **rules[]** - Array of feature rules
-  - **type** - either `force` or `experiment`
-  - **value** - for `force` rules, this is the value that will be assigned
-  - **trackingKey** - For `experiment` rules, the key to use for event tracking
-  - **variations[]** - For `experiment` rules, this is an array of the possible variations
-  - **weights[]** - For `experiment` rules, determines how traffic is split between variations
-  - **coverage** - For `experiment` rules, specifies what sampling rate (0 to 1) to use for including users. A rate of `1` means everyone is included. A rate of `0` means no one is.
-  - **condition** - For `experiment` rules,A JSON condition using MongoDB query syntax
+  - **condition** - A JSON condition using MongoDB query syntax
+  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
+  - **variations[]** - Run an experiment and randomly assign one of the specified variations
+  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
+  - **weights[]** - Determines how traffic is split between variations in an experiment
+  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
 
 The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
 

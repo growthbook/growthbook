@@ -2,7 +2,6 @@ import Agenda, { Job } from "agenda";
 import { AWS_CLOUDFRONT_DISTRIBUTION_ID } from "../util/secrets";
 import AWS from "aws-sdk";
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
-import { ExperimentInterface } from "../../types/experiment";
 import { getAllApiKeysByOrganization } from "../services/apiKey";
 
 const INVALIDATE_JOB_NAME = "fireInvalidate";
@@ -52,23 +51,20 @@ export default function (ag: Agenda) {
   });
 }
 
-export async function queueCDNInvalidate(experiment: ExperimentInterface) {
+export async function queueCDNInvalidate(
+  organization: string,
+  getUrl: (key: string) => string
+) {
   if (!AWS_CLOUDFRONT_DISTRIBUTION_ID) return;
 
-  const apiKeys = await getAllApiKeysByOrganization(experiment.organization);
+  const apiKeys = await getAllApiKeysByOrganization(organization);
 
   // Skip if there are no API keys defined
   if (!apiKeys || !apiKeys.length) return;
 
   // Queue up jobs to invalidate each API key in the CDN
   for (const k of apiKeys) {
-    // Which url to invalidate depends on the type of experiment
-    let url: string;
-    if (experiment.implementation === "visual") {
-      url = "/js/" + k.key + ".js";
-    } else {
-      url = "/config/" + k.key;
-    }
+    const url = getUrl(k.key);
     const job = agenda.create(INVALIDATE_JOB_NAME, {
       url,
     }) as InvalidateJob;

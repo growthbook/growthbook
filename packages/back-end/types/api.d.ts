@@ -15,7 +15,7 @@ export interface FeatureDefinitionRule {
   weights?: number[];
   variations?: number[];
   hashAttribute?: string;
-  trackingKey?: string;
+  key?: string;
   coverage?: number;
   // eslint-disable-next-line
   condition?: any;

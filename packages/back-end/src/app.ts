@@ -218,7 +218,7 @@ app.post(
 
 app.use(bodyParser.json());
 
-// Config route (does not require JWT, does require cors with origin = *)
+// Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
   "/config/:key",
   cors({
@@ -226,6 +226,14 @@ app.get(
     origin: "*",
   }),
   getExperimentConfig
+);
+app.get(
+  "/api/features/:key",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  featuresController.getFeaturesPublic
 );
 
 // Accept cross-origin requests from the frontend app

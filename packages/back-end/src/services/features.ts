@@ -1,5 +1,7 @@
 import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
-import { FeatureValueType } from "../../types/feature";
+import { FeatureInterface, FeatureValueType } from "../../types/feature";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
+import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 
 // eslint-disable-next-line
@@ -51,7 +53,7 @@ export async function getFeatureDefinitions(organization: string) {
 
               rule.weights = r.values.map((v) => v.weight * multiplier);
               if (r.trackingKey) {
-                rule.trackingKey = r.trackingKey;
+                rule.key = r.trackingKey;
               }
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
@@ -61,4 +63,15 @@ export async function getFeatureDefinitions(organization: string) {
           }) ?? [],
     };
   });
+}
+
+export async function featureUpdated(feature: FeatureInterface) {
+  // fire the webhook:
+  await queueWebhook(feature.organization);
+
+  // invalidate the CDN
+  await queueCDNInvalidate(
+    feature.organization,
+    (key) => `/api/features/${key}`
+  );
 }
