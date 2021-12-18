@@ -48,7 +48,16 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         await update();
       })}
     >
-      <label>Targeting Attributes</label>
+      <p>
+        The Attributes you define here can be used to create advanced targeting
+        rules for features and to run experiments.
+      </p>
+      {!settings?.attributeSchema?.length && (
+        <p>
+          We&apos;ve started you off with some common attributes, but feel free
+          to modify the list as needed.
+        </p>
+      )}
       <div className="form-inline">
         <ul className="mb-1 pl-4">
           {attributeSchema.fields.map((v, i) => (

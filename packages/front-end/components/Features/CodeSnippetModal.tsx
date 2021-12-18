@@ -9,6 +9,7 @@ import { SDKAttributeSchema } from "back-end/types/organization";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
+import Code from "../Code";
 
 type Language = "tsx" | "javascript";
 
@@ -170,6 +171,7 @@ ${getImport(language)}
 
 // Create a GrowthBook context
 const growthbook = new GrowthBook({
+  // TODO: fill in with real values
   attributes: ${indentLines(stringify(exampleAttributes), 2)},
   trackingCallback: (experiment, result) => {
     ${indentLines(
@@ -232,15 +234,7 @@ ${getUsageCode(language, apiKey)}
           </a>
         </div>
       </div>
-      <Field
-        readOnly
-        textarea
-        maxRows={20}
-        value={clientCode}
-        onFocus={(e) => {
-          e.target.select();
-        }}
-      />
+      <Code language={language} code={clientCode} />
     </Modal>
   );
 }
