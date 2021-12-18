@@ -92,7 +92,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
-      attributeSchema: [],
       multipleExposureMinPercent: 0.01,
     },
   });
