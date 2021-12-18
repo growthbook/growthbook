@@ -13,7 +13,7 @@ type FeatureRule<T = any> = {
   force?: T;
   variations?: T[];
   weights?: number[];
-  trackingKey?: string;
+  key?: string;
   hashAttribute?: string;
   coverage?: number;
   namespace?: [string, number, number];
@@ -41,34 +41,24 @@ interface FeatureResult<T = any> {
 
 type ExperimentStatus = "draft" | "running" | "stopped";
 
-interface LegacyExperiment<T> {
+type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
   weights?: number[];
-  coverage?: number;
-  include?: () => boolean;
-  namespace?: [string, number, number];
-  force?: number;
-  hashAttribute?: string;
-  status?: ExperimentStatus;
-  url?: RegExp;
-  groups?: string[];
-}
-
-interface NewExperiment<T> {
-  trackingKey: string;
-  variations: [T, T, ...T[]];
   condition?: Condition;
-  weights?: number[];
-  active?: boolean;
   coverage?: number;
   include?: () => boolean;
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
-}
-
-type Experiment<T> = LegacyExperiment<T> | NewExperiment<T>;
+  active?: boolean;
+  /* @deprecated */
+  status?: ExperimentStatus;
+  /* @deprecated */
+  url?: RegExp;
+  /* @deprecated */
+  groups?: string[];
+};
 
 type ExperimentOverride = {
   condition?: Condition;

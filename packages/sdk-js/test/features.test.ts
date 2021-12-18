@@ -124,6 +124,25 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("ignores empty rules", () => {
+    const growthbook = new GrowthBook({
+      features: {
+        feature: {
+          rules: [{}],
+        },
+      },
+    });
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: null,
+      on: false,
+      off: true,
+      source: "defaultValue",
+    });
+
+    growthbook.destroy();
+  });
+
   it("supports empty experiment rules", () => {
     const attributes = {
       id: "123",
@@ -146,7 +165,7 @@ describe("features", () => {
       on: true,
       off: false,
       experiment: {
-        trackingKey: "feature",
+        key: "feature",
         variations: ["a", "b", "c"],
       },
       source: "experiment",
@@ -157,7 +176,7 @@ describe("features", () => {
       on: true,
       off: false,
       experiment: {
-        trackingKey: "feature",
+        key: "feature",
         variations: ["a", "b", "c"],
       },
       source: "experiment",
@@ -168,7 +187,7 @@ describe("features", () => {
       on: true,
       off: false,
       experiment: {
-        trackingKey: "feature",
+        key: "feature",
         variations: ["a", "b", "c"],
       },
       source: "experiment",
@@ -190,7 +209,7 @@ describe("features", () => {
               coverage: 0.99,
               hashAttribute: "anonId",
               namespace: ["pricing", 0, 1],
-              trackingKey: "hello",
+              key: "hello",
               variations: [true, false],
               weights: [0.1, 0.9],
               condition: { premium: true },
@@ -204,7 +223,7 @@ describe("features", () => {
       coverage: 0.99,
       hashAttribute: "anonId",
       namespace: ["pricing", 0, 1],
-      trackingKey: "hello",
+      key: "hello",
       variations: [true, false],
       weights: [0.1, 0.9],
     });

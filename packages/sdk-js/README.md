@@ -1,10 +1,10 @@
-# GrowthBook Javascript Client Library
+# GrowthBook Javascript SDK
 
 [GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
 
-This particular library lets you evaluate feature flags and run experiments within a Javascript application.
+This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.63KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.61KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -122,7 +122,7 @@ new GrowthBook({
   trackingCallback: (experiment, result) => {
     // Example using Segment.io
     analytics.track("Experiment Viewed", {
-      experimentId: experiment.trackingKey,
+      experimentId: experiment.key,
       variationId: result.variationId,
     });
   },
@@ -296,15 +296,15 @@ You can use the `weights` setting to control what percent of users get assigned 
 
 ##### Tracking Key
 
-When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `trackingKey` setting:
+When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting:
 
 ```js
 {
   "feature-1": {
     rules: [
       {
-        // Use "my-experiment" as the trackingKey instead of "feature-1"
-        trackingKey: "my-experiment",
+        // Use "my-experiment" as the key instead of "feature-1"
+        key: "my-experiment",
         variations: ["A", "B"]
       }
     ]
@@ -401,7 +401,7 @@ Instead of declaring all features up-front in the context and referencing them b
 
 ```js
 const { value } = growthbook.run({
-  trackingKey: "my-experiment",
+  key: "my-experiment",
   variations: ["red", "blue", "green"],
 });
 ```
@@ -433,7 +433,7 @@ const growthbook = new GrowthBook({
 // The inline experiment says to do a 50/50 split
 // Instead, everyone will be assigned "b" because of the override
 const {value} = growthbook.run({
-  trackingKey: "my-experiment",
+  key: "my-experiment",
   variations: ["a", "b"]
 })
 ```
@@ -450,7 +450,7 @@ const {
   hashAttribute,
   hashValue,
 } = growthbook.run({
-  trackingKey: "my-experiment",
+  key: "my-experiment",
   variations: ["A", "B"],
 });
 

@@ -6,8 +6,6 @@ import type {
   SubscriptionFunction,
   FeatureDefinition,
   FeatureResultSource,
-  NewExperiment,
-  LegacyExperiment,
 } from "./types";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -64,6 +62,13 @@ class GrowthBook {
   // eslint-disable-next-line
   public setAttributes(attributes: Record<string, any>) {
     this.context.attributes = attributes;
+    if (this._renderer) {
+      this._renderer();
+    }
+  }
+
+  public getAttributes() {
+    return this.context.attributes || {};
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -105,7 +110,7 @@ class GrowthBook {
   public run<T>(experiment: Experiment<T>): Result<T> {
     const result = this._run(experiment);
 
-    const key = this.getExperimentKey(experiment);
+    const key = experiment.key;
 
     // If assigned variation has changed, fire subscriptions
     const prev = this.assigned.get(key);
@@ -170,7 +175,7 @@ class GrowthBook {
         // For experiment rules, run an experiment
         const exp: Experiment<T> = {
           variations: rule.variations as [T, T, ...T[]],
-          trackingKey: rule.trackingKey || id,
+          key: rule.key || id,
         };
         if (rule.coverage) exp.coverage = rule.coverage;
         if (rule.weights) exp.weights = rule.weights;
@@ -189,20 +194,12 @@ class GrowthBook {
     return this.getFeatureResult(feature.defaultValue ?? null, "defaultValue");
   }
 
-  private getExperimentKey<T>(experiment: Experiment<T>): string {
-    return (
-      (experiment as NewExperiment<T>).trackingKey ||
-      (experiment as LegacyExperiment<T>).key ||
-      ""
-    );
-  }
-
   private conditionPasses(condition: ConditionInterface): boolean {
     return evalCondition(this.context.attributes || {}, condition);
   }
 
   private _run<T>(experiment: Experiment<T>): Result<T> {
-    const key = this.getExperimentKey(experiment);
+    const key = experiment.key;
 
     process.env.NODE_ENV !== "production" && this.log("runExperiment", key);
 
@@ -238,10 +235,7 @@ class GrowthBook {
     }
 
     // 6. Exclude if a draft experiment or not active
-    if (
-      (experiment as LegacyExperiment<T>).status === "draft" ||
-      (experiment as NewExperiment<T>).active === false
-    ) {
+    if (experiment.status === "draft" || experiment.active === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because of draft status or not active");
       return this.getResult(experiment);
@@ -273,10 +267,7 @@ class GrowthBook {
     }
 
     // 9a. Exclude if condition is false
-    if (
-      (experiment as NewExperiment<T>).condition &&
-      !this.conditionPasses((experiment as NewExperiment<T>).condition)
-    ) {
+    if (experiment.condition && !this.conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
           "Exclude because experiment.condition did not evaluate to true"
@@ -286,10 +277,8 @@ class GrowthBook {
 
     // 10. Exclude if user is not in a required group
     if (
-      (experiment as LegacyExperiment<T>).groups &&
-      !this.hasGroupOverlap(
-        (experiment as LegacyExperiment<T>).groups as string[]
-      )
+      experiment.groups &&
+      !this.hasGroupOverlap(experiment.groups as string[])
     ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because user not in required group");
@@ -297,10 +286,7 @@ class GrowthBook {
     }
 
     // 11. Exclude if not on a targeted url
-    if (
-      (experiment as LegacyExperiment<T>).url &&
-      !this.urlIsValid((experiment as LegacyExperiment<T>).url as RegExp)
-    ) {
+    if (experiment.url && !this.urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
           "Exclude because context url does not match experiment.url regex"
@@ -316,7 +302,7 @@ class GrowthBook {
     }
 
     // 13. Exclude if experiment is stopped
-    if ((experiment as LegacyExperiment<T>).status === "stopped") {
+    if (experiment.status === "stopped") {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because status is 'stopped'");
       return this.getResult(experiment);
@@ -367,7 +353,7 @@ class GrowthBook {
   private track<T>(experiment: Experiment<T>, result: Result<T>) {
     if (!this.context.trackingCallback) return;
 
-    const key = this.getExperimentKey(experiment);
+    const key = experiment.key;
 
     // Make sure a tracking callback is only fired once per unique experiment
     const k =
@@ -383,14 +369,14 @@ class GrowthBook {
   }
 
   private mergeOverrides<T>(experiment: Experiment<T>): Experiment<T> {
-    const key = this.getExperimentKey(experiment);
+    const key = experiment.key;
     const o = this.context.overrides;
     if (o && o[key]) {
       experiment = Object.assign({}, experiment, o[key]);
-      if (typeof (experiment as LegacyExperiment<T>).url === "string") {
-        (experiment as LegacyExperiment<T>).url = getUrlRegExp(
+      if (typeof experiment.url === "string") {
+        experiment.url = getUrlRegExp(
           // eslint-disable-next-line
-          (experiment as LegacyExperiment<T>).url as any
+          experiment.url as any
         );
       }
     }

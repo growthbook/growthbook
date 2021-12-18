@@ -39,23 +39,6 @@ describe("experiments", () => {
 
     growthbook.destroy();
   });
-  it("uses trackingKey", () => {
-    const context: Context = {};
-    const growthbook = new GrowthBook(context);
-
-    const exp: Experiment<number> = {
-      trackingKey: "my-test",
-      variations: [0, 1],
-    };
-
-    const expected = [1, 0, 0, 1, 1, 1, 0, 1, 0];
-    expected.forEach((v, i) => {
-      context.user = { id: i + 1 + "" };
-      expect(growthbook.run(exp).value).toEqual(v);
-    });
-
-    growthbook.destroy();
-  });
   it("unevenWeights", () => {
     const context: Context = {};
     const growthbook = new GrowthBook(context);
@@ -368,6 +351,20 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
+  it("sets attributes", () => {
+    const attributes = {
+      id: "1",
+      browser: "firefox",
+    };
+    const growthbook = new GrowthBook();
+
+    growthbook.setAttributes(attributes);
+
+    expect(growthbook.getAttributes()).toEqual(attributes);
+
+    growthbook.destroy();
+  });
+
   it("evaluates conditions", () => {
     const attributes = {
       id: "1",
@@ -375,7 +372,7 @@ describe("experiments", () => {
     };
     const growthbook = new GrowthBook({ attributes });
     const experiment: Experiment<number> = {
-      trackingKey: "my-test",
+      key: "my-test",
       variations: [0, 1],
       condition: {
         browser: "firefox",
@@ -851,6 +848,23 @@ describe("experiments", () => {
     expect(called).toEqual(false);
     growthbook.forceVariation("my-test", 1);
     expect(context.forcedVariations).toEqual({ "my-test": 1 });
+    expect(called).toEqual(true);
+
+    growthbook.destroy();
+  });
+
+  it("renders when attributes are updated", () => {
+    const context: Context = {
+      user: { id: "1" },
+    };
+    const growthbook = new GrowthBook(context);
+    let called = false;
+    growthbook.setRenderer(() => {
+      called = true;
+    });
+
+    expect(called).toEqual(false);
+    growthbook.setAttributes({ id: "2" });
     expect(called).toEqual(true);
 
     growthbook.destroy();
