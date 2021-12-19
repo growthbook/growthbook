@@ -57,6 +57,9 @@ class GrowthBook {
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this.context.features = features;
+    if (this._renderer) {
+      this._renderer();
+    }
   }
 
   // eslint-disable-next-line

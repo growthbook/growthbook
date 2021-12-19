@@ -67,16 +67,18 @@ export function IfFeatureEnabled({
 }: {
   children: React.ReactNode;
   feature: string;
-}): React.ReactNode {
+}) {
   return useFeature(feature).on ? children : null;
 }
 
-export function FeatureString(props: {
-  default: string;
-  feature: string;
-}): React.ReactNode {
+export function FeatureString(props: { default: string; feature: string }) {
   const value = useFeature(props.feature).value;
-  return value ? value + "" : props.default;
+
+  if (value !== null) {
+    return <>{value}</>;
+  }
+
+  return <>{props.default}</>;
 }
 
 export const withRunExperiment = <P extends WithRunExperimentProps>(

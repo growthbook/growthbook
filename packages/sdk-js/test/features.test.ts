@@ -124,6 +124,23 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("renders when features are set", () => {
+    const context: Context = {
+      user: { id: "1" },
+    };
+    const growthbook = new GrowthBook(context);
+    let called = false;
+    growthbook.setRenderer(() => {
+      called = true;
+    });
+
+    expect(called).toEqual(false);
+    growthbook.setFeatures({ id: {} });
+    expect(called).toEqual(true);
+
+    growthbook.destroy();
+  });
+
   it("ignores empty rules", () => {
     const growthbook = new GrowthBook({
       features: {
