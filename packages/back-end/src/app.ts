@@ -478,6 +478,7 @@ app.delete("/key/:key", organizationsController.deleteApiKey);
 // Webhooks
 app.get("/webhooks", organizationsController.getWebhooks);
 app.post("/webhooks", organizationsController.postWebhook);
+app.put("/webhook/:id", organizationsController.putWebhook);
 app.delete("/webhook/:id", organizationsController.deleteWebhook);
 
 // Presentations

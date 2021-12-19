@@ -6,7 +6,10 @@ import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
-import { getExperimentOverrides } from "../services/organizations";
+import {
+  getExperimentOverrides,
+  getExperimentTrackingKeys,
+} from "../services/organizations";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -36,11 +39,13 @@ export async function getExperimentConfig(
     }
 
     const overrides = await getExperimentOverrides(organization);
+    const experiments = await getExperimentTrackingKeys(organization);
 
     // TODO: add cache headers?
     res.status(200).json({
       status: 200,
       overrides,
+      experiments,
     });
   } catch (e) {
     console.error(e);
