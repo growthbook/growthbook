@@ -61,6 +61,11 @@ export function useFeature<T = any>(id: string): FeatureResult<T> {
   return feature(id, growthbook);
 }
 
+export function useGrowthBook() {
+  const { growthbook } = React.useContext(GrowthBookContext);
+  return growthbook;
+}
+
 export function IfFeatureEnabled({
   children,
   feature,

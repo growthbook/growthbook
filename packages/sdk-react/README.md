@@ -115,6 +115,20 @@ export default function OtherComponent() {
 }
 ```
 
+#### useGrowthBook hook
+
+If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook:
+
+```tsx
+import { useGrowthBook } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  // Identical to: const feature = useFeature("my-feature")
+  const growthbook = useGrowthBook();
+  const feature = growthbook.feature("my-feature");
+}
+```
+
 ### Step 3: Use Targeting Attributes
 
 You can specify attributes about the current user and request. These are used for two things:
