@@ -21,7 +21,6 @@ const featureSchema = new mongoose.Schema({
       value: String,
       hashAttribute: String,
       enabled: Boolean,
-      coverage: Number,
       condition: String,
       description: String,
       values: [
@@ -31,7 +30,6 @@ const featureSchema = new mongoose.Schema({
           weight: Number,
         },
       ],
-      variations: [String],
     },
   ],
 });
@@ -51,15 +49,15 @@ export async function getAllFeatures(
     q[project] = project;
   }
 
-  return (await FeatureModel.find({ organization })).map((m) => m.toJSON());
+  return (await FeatureModel.find(q)).map((m) => m.toJSON());
 }
 
 export async function getFeature(
   organization: string,
   id: string
 ): Promise<FeatureInterface | null> {
-  const flag = await FeatureModel.findOne({ organization, id });
-  return flag ? flag.toJSON() : null;
+  const feature = await FeatureModel.findOne({ organization, id });
+  return feature ? feature.toJSON() : null;
 }
 
 export async function createFeature(data: FeatureInterface) {

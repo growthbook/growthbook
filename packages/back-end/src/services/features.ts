@@ -19,14 +19,14 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   return null;
 }
 export async function getFeatureDefinitions(organization: string) {
-  const flags = await getAllFeatures(organization);
+  const features = await getAllFeatures(organization);
 
-  const features: Record<string, FeatureDefinition> = {};
-  flags.forEach((flag) => {
-    features[flag.id] = {
-      defaultValue: getJSONValue(flag.valueType, flag.defaultValue),
+  const defs: Record<string, FeatureDefinition> = {};
+  features.forEach((feature) => {
+    defs[feature.id] = {
+      defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:
-        flag.rules
+        feature.rules
           ?.filter((r) => r.enabled)
           ?.map((r) => {
             const rule: FeatureDefinitionRule = {};
@@ -35,10 +35,10 @@ export async function getFeatureDefinitions(organization: string) {
             }
 
             if (r.type === "force") {
-              rule.force = getJSONValue(flag.valueType, r.value);
+              rule.force = getJSONValue(feature.valueType, r.value);
             } else if (r.type === "rollout") {
               rule.variations = r.values.map((v) =>
-                getJSONValue(flag.valueType, v.value)
+                getJSONValue(feature.valueType, v.value)
               );
 
               const totalWeight = r.values.reduce(
@@ -64,7 +64,7 @@ export async function getFeatureDefinitions(organization: string) {
     };
   });
 
-  return features;
+  return defs;
 }
 
 export async function featureUpdated(feature: FeatureInterface) {
