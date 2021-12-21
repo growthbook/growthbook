@@ -31,7 +31,11 @@ export async function getFeatureDefinitions(organization: string) {
           ?.map((r) => {
             const rule: FeatureDefinitionRule = {};
             if (r.condition) {
-              rule.condition = JSON.parse(r.condition);
+              try {
+                rule.condition = JSON.parse(r.condition);
+              } catch (e) {
+                // ignore condition parse errors here
+              }
             }
 
             if (r.type === "force") {
@@ -41,17 +45,21 @@ export async function getFeatureDefinitions(organization: string) {
                 getJSONValue(feature.valueType, v.value)
               );
 
-              const totalWeight = r.values.reduce(
-                (sum, r) => sum + r.weight,
-                0
-              );
-              let multiplier = 1;
-              if (totalWeight < 0.98 && totalWeight > 0) {
+              const weights = r.values
+                .map((v) => v.weight)
+                .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w));
+              const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+              if (totalWeight <= 0) {
+                rule.coverage = 0;
+              } else if (totalWeight < 1) {
                 rule.coverage = totalWeight;
-                multiplier = 1 / totalWeight;
               }
 
-              rule.weights = r.values.map((v) => v.weight * multiplier);
+              const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
+              rule.weights = weights.map(
+                (w) => Math.floor(w * multiplier * 1000) / 1000
+              );
+
               if (r.trackingKey) {
                 rule.key = r.trackingKey;
               }

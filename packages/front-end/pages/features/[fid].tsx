@@ -58,7 +58,7 @@ function RolloutSummary({
   return (
     <div>
       <div className="mb-3">
-        &bull; Split users by{" "}
+        &bull; SPLIT users by{" "}
         <span className="mr-1 border px-2 py-1 bg-light rounded">
           {hashAttribute}
         </span>
@@ -118,7 +118,7 @@ function RolloutSummary({
         </tbody>
       </table>
       <div>
-        &bull; Fire event tracking with the key{" "}
+        &bull; TRACK the split with the key{" "}
         <span className="mr-1 border px-2 py-1 bg-light rounded">
           {trackingKey}
         </span>
@@ -215,149 +215,144 @@ export default function FeaturePage() {
         <Markdown>{data.feature.description || "*no description*"}</Markdown>
       </div>
 
-      <div className="mb-3">
-        <h3>Default Behavior</h3>
-        <div className="appbox p-3 position-relative">
-          <div className="row">
-            <div className="col-auto">SERVE</div>
-            <div className="col-auto">
-              <ValueDisplay type={type} value={data.feature.defaultValue} />
-            </div>
-          </div>
-        </div>
+      <div className="appbox mb-4 p-3">
+        <h3 className="mb-3">Default Behavior</h3>
+        <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
 
-      <h3 className="mb-2">Override Rules</h3>
-      <p className="mb-3">The first matching rule will be applied</p>
-      {data.feature.rules?.map((rule, i) => {
-        return (
-          <div key={i} className="appbox p-3 mb-4 position-relative">
-            <div
-              className="position-absolute text-light border"
-              style={{
-                top: -12,
-                left: -1,
-                width: 35,
-                height: 24,
-                lineHeight: "24px",
-                textAlign: "center",
-                background: "#7C45EA",
-                opacity: !rule.enabled ? 0.5 : 1,
-              }}
-            >
-              {i + 1}
-            </div>
-            {!rule.enabled && (
-              <div
-                className="position-absolute bg-secondary text-light border"
-                style={{
-                  top: -12,
-                  right: 0,
-                  width: 90,
-                  height: 24,
-                  lineHeight: "24px",
-                  textAlign: "center",
-                }}
-              >
-                DISABLED
-              </div>
-            )}
-            <div className="d-flex">
-              <div style={{ flex: 1 }} className="pt-1 position-relative">
-                {!rule.enabled && (
+      <div className="appbox mb-4">
+        <div className="p-3">
+          <h3 className="mb-0">Override Rules</h3>
+        </div>
+        {data.feature.rules?.map((rule, i) => {
+          return (
+            <div key={i} className="p-3 border-bottom">
+              <div className="d-flex mb-2 align-items-center">
+                <div>
                   <div
+                    className="text-light border rounded-circle"
                     style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      zIndex: 99,
-                      background: "rgba(255,255,255,.7)",
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: 25,
+                      width: 28,
+                      height: 28,
+                      lineHeight: "28px",
+                      textAlign: "center",
+                      background: "#7C45EA",
+                      fontWeight: "bold",
+                      opacity: !rule.enabled ? 0.5 : 1,
                     }}
-                  ></div>
-                )}
-                {rule.description && (
-                  <Markdown className="mb-3">{rule.description}</Markdown>
-                )}
-                {rule.condition && rule.condition !== "{}" && (
-                  <div className="row mb-3 align-items-top">
-                    <div className="col-auto">
-                      <span>IF</span>
-                    </div>
-                    <div className="col">
-                      <ConditionDisplay condition={rule.condition} />
+                  >
+                    {i + 1}
+                  </div>
+                </div>
+                <div
+                  style={{ flex: 1, opacity: !rule.enabled ? 0.5 : 1 }}
+                  className="mx-2"
+                >
+                  {rule.description && <Markdown>{rule.description}</Markdown>}
+                </div>
+                {!rule.enabled && (
+                  <div>
+                    <div className="bg-secondary text-light border px-2 rounded">
+                      DISABLED
                     </div>
                   </div>
                 )}
-                {rule.type === "force" && (
-                  <ForceSummary value={rule.value} type={type} />
-                )}
-                {rule.type === "rollout" && (
-                  <RolloutSummary
-                    rollout={rule.values}
-                    type={type}
-                    hashAttribute={rule.hashAttribute || ""}
-                    trackingKey={rule.trackingKey || data.feature.id}
-                  />
-                )}
+
+                <div>
+                  <MoreMenu id={"edit_rule_" + i}>
+                    <a
+                      href="#"
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setRuleModal(i);
+                      }}
+                    >
+                      Edit
+                    </a>
+                    <Button
+                      color=""
+                      className="dropdown-item"
+                      onClick={async () => {
+                        const rules = [...data.feature.rules];
+                        rules[i] = { ...rules[i] };
+                        rules[i].enabled = !rules[i].enabled;
+                        await apiCall(`/feature/${fid}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            rules,
+                          }),
+                        });
+                        mutate();
+                      }}
+                    >
+                      {rule.enabled ? "Disable" : "Enable"}
+                    </Button>
+                    <DeleteButton
+                      className="dropdown-item"
+                      displayName="Rule"
+                      useIcon={false}
+                      text="Delete"
+                      onClick={async () => {
+                        const rules = [...data.feature.rules];
+                        rules.splice(i, 1);
+                        await apiCall(`/feature/${fid}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            rules,
+                          }),
+                        });
+                        mutate();
+                      }}
+                    />
+                  </MoreMenu>
+                </div>
               </div>
-              <div>
-                <MoreMenu id={"edit_rule_" + i}>
-                  <a
-                    href="#"
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setRuleModal(i);
-                    }}
-                  >
-                    Edit
-                  </a>
-                  <Button
-                    color=""
-                    className="dropdown-item"
-                    onClick={async () => {
-                      const rules = [...data.feature.rules];
-                      rules[i] = { ...rules[i] };
-                      rules[i].enabled = !rules[i].enabled;
-                      await apiCall(`/feature/${fid}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          rules,
-                        }),
-                      });
-                      mutate();
-                    }}
-                  >
-                    {rule.enabled ? "Disable" : "Enable"}
-                  </Button>
-                  <DeleteButton
-                    className="dropdown-item"
-                    displayName="Rule"
-                    useIcon={false}
-                    text="Delete"
-                    onClick={async () => {
-                      const rules = [...data.feature.rules];
-                      rules.splice(i, 1);
-                      await apiCall(`/feature/${fid}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          rules,
-                        }),
-                      });
-                      mutate();
-                    }}
-                  />
-                </MoreMenu>
+              <div className="d-flex">
+                <div style={{ flex: 1 }} className="pt-1 position-relative">
+                  {!rule.enabled && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 99,
+                        background: "rgba(255,255,255,.7)",
+                        display: "flex",
+                        flexDirection: "column",
+                        fontSize: 25,
+                      }}
+                    ></div>
+                  )}
+                  {rule.condition && rule.condition !== "{}" && (
+                    <div className="row mb-3 align-items-top">
+                      <div className="col-auto">
+                        <span>IF</span>
+                      </div>
+                      <div className="col">
+                        <ConditionDisplay condition={rule.condition} />
+                      </div>
+                    </div>
+                  )}
+                  {rule.type === "force" && (
+                    <ForceSummary value={rule.value} type={type} />
+                  )}
+                  {rule.type === "rollout" && (
+                    <RolloutSummary
+                      rollout={rule.values}
+                      type={type}
+                      hashAttribute={rule.hashAttribute || ""}
+                      trackingKey={rule.trackingKey || data.feature.id}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       <button
         className="btn btn-primary"

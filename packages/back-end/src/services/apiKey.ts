@@ -45,3 +45,9 @@ export async function getAllApiKeysByOrganization(organization: string) {
     organization,
   });
 }
+
+export async function getFirstApiKey(organization: string) {
+  return ApiKeyModel.findOne({
+    organization,
+  });
+}

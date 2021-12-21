@@ -78,7 +78,7 @@ You can specify attributes about the current user and request. These are used fo
 1.  Feature targeting (e.g. paid users get one value, free users get another)
 2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
 
-The following are some comonly used attributes, but use whatever makes sense for your application.
+Attributes can be any JSON data type - boolean, integer, string, array, or object. If you know them up front, you can pass them into the constructor with the `attributes` field:
 
 ```ts
 new GrowthBook({
@@ -96,7 +96,17 @@ new GrowthBook({
 });
 ```
 
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+You can also set or update attributes asynchronously at any time with the `setAttributes` method. This will completely overwrite the attributes object with whatever you pass in. If you want to merge attributes instead, you can get the existing ones with `getAttributes`:
+
+```ts
+// Only update the url attribute
+growthbook.setAttributes({
+  ...growthbook.getAttributes(),
+  url: "/checkout",
+});
+```
+
+Be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully. A common approach is to only refresh attributes on navigation, when the window is focused, and/or after a user performs a major action like logging in.
 
 ### Tracking Callback
 

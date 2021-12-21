@@ -1,10 +1,9 @@
 import stringify from "json-stringify-pretty-compact";
 import { getTrackingCallback, TrackingType } from "../../services/codegen";
 import { getApiHost, isCloud } from "../../services/env";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { UserContext } from "../ProtectedPage";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEffect } from "react";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -68,33 +67,47 @@ function getImport(language: Language) {
     return `import { GrowthBook } from "@growthbook/growthbook";`;
   }
   if (language === "tsx") {
-    return `import { 
-  GrowthBook, 
-  GrowthBookProvider 
-} from "@growthbook/growthbook-react";
-import React, { useEffect } from "react";`;
+    return `import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { useEffect } from "react";`;
   }
   return "";
 }
 
-function getUsageCode(language: Language, apiKey?: string) {
+function getUsageCode(
+  language: Language,
+  apiKey?: string,
+  // eslint-disable-next-line
+  exampleAttributes: any = {}
+) {
   const loadFeatures = `
-// Load feature definitions (from API, database, etc.)
+// Load feature definitions JSON (from API, database, etc.)
 fetch("${getFeaturesUrl(apiKey)}")
   .then((res) => res.json())
-  .then((parsed) => {
-    growthbook.setFeatures(parsed);
+  .then((json) => {
+    growthbook.setFeatures(json${apiKey ? ".features" : ""});
   });`.trim();
 
   if (language === "javascript") {
-    return loadFeatures;
+    return (
+      loadFeatures +
+      `
+  
+// TODO: replace with real targeting attributes
+growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});`
+    );
   }
   if (language === "tsx") {
     return `
 export default function MyApp() {
+  // Load feature definitions JSON (from API, database, etc.)
   useEffect(() => {
     ${indentLines(loadFeatures, 4)}
-  }, []);
+  }, [])
+
+  useEffect(() => {
+    // TODO: replace with real targeting attributes
+    growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
+  })
 
   // Wrap your app in the GrowthBookProvider
   return (
@@ -119,13 +132,7 @@ function getDocsUrl(language: Language) {
   return `https://docs.growthbook.io/lib${ext}`;
 }
 
-export default function CodeSnippetModal({
-  apiKey,
-  close,
-}: {
-  apiKey?: string;
-  close: () => void;
-}) {
+export default function CodeSnippetModal({ close }: { close: () => void }) {
   const [language, setLanguage] = useState<Language>("javascript");
   const [state, setState] = useState<{
     tracking: TrackingType;
@@ -143,6 +150,23 @@ export default function CodeSnippetModal({
   const exampleAttributes = getExampleAttributes(
     settings?.attributeSchema || []
   );
+
+  // Create API key if one doesn't exist yet
+  const [apiKey, setApiKey] = useState("");
+  useEffect(() => {
+    apiCall<{ key: string }>(`/keys?preferExisting=true`, {
+      method: "POST",
+      body: JSON.stringify({
+        description: "Features SDK",
+      }),
+    })
+      .then(({ key }) => {
+        setApiKey(key);
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  }, []);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -171,8 +195,6 @@ ${getImport(language)}
 
 // Create a GrowthBook context
 const growthbook = new GrowthBook({
-  // TODO: fill in with real values
-  attributes: ${indentLines(stringify(exampleAttributes), 2)},
   trackingCallback: (experiment, result) => {
     ${indentLines(
       getTrackingCallback(
@@ -186,13 +208,14 @@ const growthbook = new GrowthBook({
   }
 })
 
-${getUsageCode(language, apiKey)}
+${getUsageCode(language, apiKey, exampleAttributes)}
 `.trim();
 
   return (
     <Modal
       close={close}
       open={true}
+      size="lg"
       header="Implementation Instructions"
       submit={async () => {
         await apiCall(`/organization`, {

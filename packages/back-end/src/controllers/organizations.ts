@@ -28,6 +28,7 @@ import {
   getAllApiKeysByOrganization,
   createApiKey,
   deleteByOrganizationAndApiKey,
+  getFirstApiKey,
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
@@ -1073,6 +1074,17 @@ export async function postApiKey(
       status: 403,
       message: "You do not have permission to perform that action.",
     });
+  }
+
+  const { preferExisting } = req.query as { preferExisting?: string };
+  if (preferExisting) {
+    const existing = await getFirstApiKey(org.id);
+    if (existing) {
+      return res.status(200).json({
+        status: 200,
+        key: existing.key,
+      });
+    }
   }
 
   const { description } = req.body;
