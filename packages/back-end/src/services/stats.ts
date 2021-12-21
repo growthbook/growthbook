@@ -235,6 +235,7 @@ export async function analyzeExperimentResults(
               users: v.users,
               metrics: {},
             };
+            data.users = Math.max(data.users, v.users);
             data.metrics[metric.id] = {
               ...v,
               buckets: [],
