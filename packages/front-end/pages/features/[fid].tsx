@@ -14,6 +14,8 @@ import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
 import ForceSummary from "../../components/Features/ForceSummary";
 import RuleList from "../../components/Features/RuleList";
+import Code from "../../components/Code";
+import { useMemo } from "react";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -29,6 +31,19 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
+
+  const usage = useMemo(() => {
+    if (!data?.feature) return "";
+    const feature = data.feature;
+    if (feature.valueType === "boolean") {
+      return `if (growthbook.feature(${JSON.stringify(feature.id)}).on) {
+  console.log("Feature is enabled!")
+}`;
+    }
+
+    return `// Get latest feature value (may be null)
+console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
+  }, [data?.feature]);
 
   if (error) {
     return (
@@ -108,9 +123,28 @@ export default function FeaturePage() {
         <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
 
+      {usage && (
+        <div className="appbox p-3 mb-4">
+          <h3 className="mb-3">Usage Example</h3>
+          <Code
+            language="javascript"
+            code={usage}
+            theme="light"
+            className="border-0 p-0 m-0"
+          />
+        </div>
+      )}
+
       <div className="appbox mb-4">
         <div className="p-3">
-          <h3 className="mb-0">Override Rules</h3>
+          <div className="row">
+            <div className="col-auto">
+              <h3 className="mb-0">Override Rules</h3>
+            </div>
+            <div className="col-auto">
+              <small className="text-muted">Evaluated in order</small>
+            </div>
+          </div>
         </div>
         <RuleList
           feature={data.feature}

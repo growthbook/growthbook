@@ -1,5 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
+import { useMemo } from "react";
 import Code from "../Code";
+import stringify from "json-stringify-pretty-compact";
 
 export default function ValueDisplay({
   value,
@@ -8,6 +10,17 @@ export default function ValueDisplay({
   value: string;
   type: FeatureValueType;
 }) {
+  const formatted = useMemo(() => {
+    if (type === "boolean") return value;
+    if (type === "number") return value;
+    if (type === "string") return '"' + value + '"';
+    try {
+      return stringify(JSON.parse(value));
+    } catch (e) {
+      return value;
+    }
+  }, [value, type]);
+
   if (type === "boolean") {
     return (
       <span>
@@ -26,17 +39,14 @@ export default function ValueDisplay({
     );
   }
 
-  if (type === "string") {
-    return <span className="badge badge-primary">{value}</span>;
-  }
-
-  if (type === "number") {
-    return <span className="badge badge-primary">{value}</span>;
-  }
-
   return (
     <div style={{ maxHeight: 150, overflowY: "auto" }}>
-      <Code language="json" code={value} />
+      <Code
+        language="json"
+        code={formatted}
+        theme="light"
+        className="m-0 p-0 border-0 bg-transparent"
+      />
     </div>
   );
 }

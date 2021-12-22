@@ -100,7 +100,7 @@ export default function FeaturesPage() {
       </p>
       <p>
         You can set a global value for everyone, use advanced targeting to
-        assign values to users, or run an experiment to see which value is
+        assign values to users, and run experiments to see which value is
         better.
       </p>
       {stepsRequired || showSteps ? (

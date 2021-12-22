@@ -42,6 +42,14 @@ export default function RuleList({
     })
   );
 
+  if (!feature.rules?.length) {
+    return (
+      <div className="px-3 mb-3">
+        <em>None</em>
+      </div>
+    );
+  }
+
   function getRuleIndex(id: string) {
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === id) return i;
