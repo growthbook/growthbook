@@ -131,9 +131,6 @@ export function jsonToConds(json: string): null | Condition[] {
         valid = false;
       });
     });
-
-    console.log(conds, valid);
-
     if (!valid) return null;
     return conds;
   } catch (e) {

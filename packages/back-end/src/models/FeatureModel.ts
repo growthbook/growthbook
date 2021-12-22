@@ -14,6 +14,7 @@ const featureSchema = new mongoose.Schema({
   rules: [
     {
       _id: false,
+      id: String,
       type: {
         type: String,
       },

@@ -10,7 +10,7 @@ export default function ValueDisplay({
 }) {
   if (type === "boolean") {
     return (
-      <strong>
+      <span>
         <div
           className={value === "false" ? "bg-danger" : "bg-success"}
           style={{
@@ -22,16 +22,16 @@ export default function ValueDisplay({
           }}
         ></div>
         {value === "false" ? "OFF" : "ON"}
-      </strong>
+      </span>
     );
   }
 
   if (type === "string") {
-    return <strong>{value}</strong>;
+    return <span className="badge badge-primary">{value}</span>;
   }
 
   if (type === "number") {
-    return <strong>{value}</strong>;
+    return <span className="badge badge-primary">{value}</span>;
   }
 
   return (

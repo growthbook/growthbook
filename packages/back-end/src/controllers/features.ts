@@ -11,6 +11,7 @@ import {
 } from "../models/FeatureModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
+import uniqid from "uniqid";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -70,6 +71,15 @@ export async function postFeatures(
     id: id.toLowerCase(),
   };
 
+  if (feature.rules?.length) {
+    feature.rules = feature.rules?.map((r) => {
+      return {
+        ...r,
+        id: uniqid("fr_"),
+      };
+    });
+  }
+
   await createFeature(feature);
 
   featureUpdated(feature);
@@ -103,6 +113,16 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
+  if (updates.rules) {
+    updates.rules = updates.rules.map((r) => {
+      if (r.id) return r;
+      return {
+        ...r,
+        id: uniqid("fr_"),
+      };
+    });
+  }
+
   // See if anything important changed that requires firing a webhook
   let requiresWebhook = false;
   if (
@@ -118,7 +138,9 @@ export async function putFeature(
         const a = { ...rule } as Partial<FeatureRule>;
         const b = { ...feature.rules?.[i] } as Partial<FeatureRule>;
         delete a.description;
+        delete a.id;
         delete b.description;
+        delete b.id;
 
         if (JSON.stringify(a) !== JSON.stringify(b)) {
           requiresWebhook = true;

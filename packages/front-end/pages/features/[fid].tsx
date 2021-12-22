@@ -1,13 +1,8 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  FeatureInterface,
-  FeatureValueType,
-  RolloutValue,
-} from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import ValueDisplay from "../../components/Features/ValueDisplay";
 import { GBAddCircle, GBCircleArrowLeft } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
@@ -17,115 +12,8 @@ import FeatureModal from "../../components/Features/FeatureModal";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
-import ConditionDisplay from "../../components/Features/ConditionDisplay";
-import Button from "../../components/Button";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
-function ForceSummary({
-  value,
-  type,
-}: {
-  value: string;
-  type: FeatureValueType;
-}) {
-  return (
-    <div className="row align-items-center">
-      <div className="col-auto">&bull; SERVE</div>
-      <div className="col">
-        <ValueDisplay value={value} type={type} />
-      </div>
-    </div>
-  );
-}
-
-function RolloutSummary({
-  rollout,
-  type,
-  hashAttribute,
-  trackingKey,
-}: {
-  rollout: RolloutValue[];
-  type: FeatureValueType;
-  hashAttribute: string;
-  trackingKey: string;
-}) {
-  const totalPercent = rollout.reduce((sum, w) => sum + w.weight, 0);
-
-  return (
-    <div>
-      <div className="mb-3">
-        &bull; SPLIT users by{" "}
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {hashAttribute}
-        </span>
-      </div>
-      &bull; SERVE
-      <table className="table mt-1 mb-3 ml-3">
-        <tbody>
-          {rollout.map((r, j) => (
-            <tr key={j}>
-              <td>
-                <ValueDisplay value={r.value} type={type} />
-              </td>
-              <td>
-                <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
-                    {percentFormatter.format(r.weight)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="progress">
-                      <div
-                        className="progress-bar bg-info"
-                        style={{
-                          width: r.weight * 100 + "%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {totalPercent < 1 && (
-            <tr>
-              <td>
-                <em className="text-muted">unallocated</em>
-              </td>
-              <td>
-                <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
-                    {percentFormatter.format(1 - totalPercent)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="progress">
-                      <div
-                        className="progress-bar"
-                        style={{
-                          width: (1 - totalPercent) * 100 + "%",
-                          backgroundColor: "#ccc",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      <div>
-        &bull; TRACK the split with the key{" "}
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {trackingKey}
-        </span>
-      </div>
-    </div>
-  );
-}
+import ForceSummary from "../../components/Features/ForceSummary";
+import RuleList from "../../components/Features/RuleList";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -224,134 +112,11 @@ export default function FeaturePage() {
         <div className="p-3">
           <h3 className="mb-0">Override Rules</h3>
         </div>
-        {data.feature.rules?.map((rule, i) => {
-          return (
-            <div key={i} className="p-3 border-bottom">
-              <div className="d-flex mb-2 align-items-center">
-                <div>
-                  <div
-                    className="text-light border rounded-circle"
-                    style={{
-                      width: 28,
-                      height: 28,
-                      lineHeight: "28px",
-                      textAlign: "center",
-                      background: "#7C45EA",
-                      fontWeight: "bold",
-                      opacity: !rule.enabled ? 0.5 : 1,
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                </div>
-                <div
-                  style={{ flex: 1, opacity: !rule.enabled ? 0.5 : 1 }}
-                  className="mx-2"
-                >
-                  {rule.description && <Markdown>{rule.description}</Markdown>}
-                </div>
-                {!rule.enabled && (
-                  <div>
-                    <div className="bg-secondary text-light border px-2 rounded">
-                      DISABLED
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <MoreMenu id={"edit_rule_" + i}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRuleModal(i);
-                      }}
-                    >
-                      Edit
-                    </a>
-                    <Button
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        const rules = [...data.feature.rules];
-                        rules[i] = { ...rules[i] };
-                        rules[i].enabled = !rules[i].enabled;
-                        await apiCall(`/feature/${fid}`, {
-                          method: "PUT",
-                          body: JSON.stringify({
-                            rules,
-                          }),
-                        });
-                        mutate();
-                      }}
-                    >
-                      {rule.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <DeleteButton
-                      className="dropdown-item"
-                      displayName="Rule"
-                      useIcon={false}
-                      text="Delete"
-                      onClick={async () => {
-                        const rules = [...data.feature.rules];
-                        rules.splice(i, 1);
-                        await apiCall(`/feature/${fid}`, {
-                          method: "PUT",
-                          body: JSON.stringify({
-                            rules,
-                          }),
-                        });
-                        mutate();
-                      }}
-                    />
-                  </MoreMenu>
-                </div>
-              </div>
-              <div className="d-flex">
-                <div style={{ flex: 1 }} className="pt-1 position-relative">
-                  {!rule.enabled && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 99,
-                        background: "rgba(255,255,255,.7)",
-                        display: "flex",
-                        flexDirection: "column",
-                        fontSize: 25,
-                      }}
-                    ></div>
-                  )}
-                  {rule.condition && rule.condition !== "{}" && (
-                    <div className="row mb-3 align-items-top">
-                      <div className="col-auto">
-                        <span>IF</span>
-                      </div>
-                      <div className="col">
-                        <ConditionDisplay condition={rule.condition} />
-                      </div>
-                    </div>
-                  )}
-                  {rule.type === "force" && (
-                    <ForceSummary value={rule.value} type={type} />
-                  )}
-                  {rule.type === "rollout" && (
-                    <RolloutSummary
-                      rollout={rule.values}
-                      type={type}
-                      hashAttribute={rule.hashAttribute || ""}
-                      trackingKey={rule.trackingKey || data.feature.id}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        <RuleList
+          feature={data.feature}
+          mutate={mutate}
+          setRuleModal={setRuleModal}
+        />
       </div>
 
       <button

@@ -17,6 +17,7 @@ export interface FeatureInterface {
 export interface BaseRule {
   description: string;
   condition?: string;
+  id: string;
   enabled?: boolean;
 }
 
