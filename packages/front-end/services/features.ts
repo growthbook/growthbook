@@ -2,6 +2,7 @@ import { useContext, useMemo } from "react";
 import { SDKAttributeType } from "back-end/types/organization";
 import { UserContext } from "../components/ProtectedPage";
 import { FeatureValueType } from "back-end/types/feature";
+import stringify from "json-stringify-pretty-compact";
 
 export interface Condition {
   field: string;
@@ -63,7 +64,7 @@ export function jsonToConds(json: string): null | Condition[] {
         return conds.push({
           field,
           operator: "$eq",
-          value: JSON.stringify(value).replace(/(^"|"$)/g, ""),
+          value: stringify(value).replace(/(^"|"$)/g, ""),
         });
       }
       Object.keys(value).forEach((operator) => {
@@ -112,7 +113,7 @@ export function jsonToConds(json: string): null | Condition[] {
           return conds.push({
             field,
             operator,
-            value: JSON.stringify(v).replace(/(^"|"$)/g, ""),
+            value: stringify(v).replace(/(^"|"$)/g, ""),
           });
         }
 
@@ -122,7 +123,7 @@ export function jsonToConds(json: string): null | Condition[] {
               return conds.push({
                 field,
                 operator: "$notRegex",
-                value: JSON.stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
+                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
               });
             }
           }
@@ -138,7 +139,16 @@ export function jsonToConds(json: string): null | Condition[] {
   }
 }
 
-export function condToJson(conds: Condition[]) {
+function parseValue(value: string, type?: SDKAttributeType) {
+  if (type === "number" || type === "number[]") return parseFloat(value) || 0;
+  if (type === "boolean") return value === "false" ? false : true;
+  return value;
+}
+
+export function condToJson(
+  conds: Condition[],
+  attributeTypes: Record<string, SDKAttributeType>
+) {
   const obj = {};
   conds.forEach(({ field, operator, value }) => {
     obj[field] = obj[field] || {};
@@ -151,9 +161,12 @@ export function condToJson(conds: Condition[]) {
     } else if (operator === "$false") {
       obj[field]["$eq"] = false;
     } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value.split(",").map((x) => x.trim());
+      obj[field][operator] = value
+        .split(",")
+        .map((x) => x.trim())
+        .map((x) => parseValue(x, attributeTypes[field]));
     } else {
-      obj[field][operator] = value;
+      obj[field][operator] = parseValue(value, attributeTypes[field]);
     }
   });
 
@@ -164,7 +177,7 @@ export function condToJson(conds: Condition[]) {
     }
   });
 
-  return JSON.stringify(obj, null, 2);
+  return stringify(obj);
 }
 
 export function useAttributeMap(): [boolean, Record<string, SDKAttributeType>] {

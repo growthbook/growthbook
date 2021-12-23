@@ -27,7 +27,7 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     if (advanced) return;
-    setValue(condToJson(conds));
+    setValue(condToJson(conds, attributeTypes));
   }, [advanced, conds]);
 
   useEffect(() => {
@@ -163,9 +163,16 @@ export default function ConditionInput(props: Props) {
                     type !== "boolean" && (
                       <input
                         type={
-                          type === "number" || type === "number[]"
+                          (type === "number" || type === "number[]") &&
+                          operator !== "$in" &&
+                          operator !== "$nin"
                             ? "number"
                             : "text"
+                        }
+                        placeholder={
+                          operator === "$in" || operator === "$nin"
+                            ? "comma separated"
+                            : ""
                         }
                         step="any"
                         value={value}
