@@ -467,6 +467,7 @@ export async function getEmailFromUserId(userId: string) {
 export async function getExperimentOverrides(organization: string) {
   const experiments = await getExperimentsByOrganization(organization);
   const overrides: Record<string, ExperimentOverride> = {};
+  const expIdMapping: Record<string, { trackingKey: string }> = {};
 
   experiments.forEach((exp) => {
     if (exp.archived) {
@@ -511,29 +512,8 @@ export async function getExperimentOverrides(organization: string) {
     }
 
     overrides[key] = override;
+    expIdMapping[exp.id] = { trackingKey: key };
   });
 
-  return overrides;
-}
-
-export async function getExperimentTrackingKeys(organization: string) {
-  const experiments = await getExperimentsByOrganization(organization);
-  const experimentIds: Record<string, { trackingKey: string }> = {};
-
-  experiments.forEach((exp) => {
-    if (exp.archived) {
-      return;
-    }
-
-    const key = exp.trackingKey || exp.id;
-    const phase = exp.phases[exp.phases.length - 1];
-
-    if (exp.status === "running") {
-      if (!phase) return;
-    }
-
-    experimentIds[exp.id] = { trackingKey: key };
-  });
-
-  return experimentIds;
+  return { overrides, expIdMapping };
 }

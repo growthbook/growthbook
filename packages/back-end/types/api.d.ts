@@ -1,7 +1,6 @@
 import { ExperimentStatus } from "./experiment";
 
 export interface ExperimentOverride {
-  experimentId?: string;
   weights?: number[];
   status?: ExperimentStatus;
   force?: number;

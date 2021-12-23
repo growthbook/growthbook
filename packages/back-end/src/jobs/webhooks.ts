@@ -2,10 +2,7 @@ import Agenda, { Job } from "agenda";
 import { WebhookModel } from "../models/WebhookModel";
 import { createHmac } from "crypto";
 import fetch from "node-fetch";
-import {
-  getExperimentOverrides,
-  getExperimentTrackingKeys,
-} from "../services/organizations";
+import { getExperimentOverrides } from "../services/organizations";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -28,12 +25,13 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const overrides = await getExperimentOverrides(webhook.organization);
-    const experiments = await getExperimentTrackingKeys(webhook.organization);
+    const { overrides, expIdMapping } = await getExperimentOverrides(
+      webhook.organization
+    );
     const payload = JSON.stringify({
       timestamp: Math.floor(Date.now() / 1000),
       overrides,
-      experiments,
+      experiments: expIdMapping,
     });
 
     const signature = createHmac("sha256", webhook.signingKey)
