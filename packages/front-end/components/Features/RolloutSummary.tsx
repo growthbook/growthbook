@@ -28,7 +28,7 @@ export default function RolloutSummary({
         </span>
       </div>
       <strong>SERVE</strong>
-      <table className="table mt-1 mb-3 ml-3">
+      <table className="table mt-1 mb-3 ml-3 w-auto">
         <tbody>
           {rollout.map((r, j) => (
             <tr key={j}>
@@ -41,7 +41,10 @@ export default function RolloutSummary({
                     {percentFormatter.format(r.weight)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div className="progress">
+                    <div
+                      className="progress d-none d-md-flex"
+                      style={{ minWidth: 150 }}
+                    >
                       <div
                         className="progress-bar bg-info"
                         style={{
@@ -57,7 +60,7 @@ export default function RolloutSummary({
           {totalPercent < 1 && (
             <tr>
               <td>
-                <em className="text-muted">unallocated</em>
+                <em className="text-muted">unallocated, skip rule</em>
               </td>
               <td>
                 <div className="d-flex">

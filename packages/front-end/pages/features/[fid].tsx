@@ -136,14 +136,18 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       )}
 
       <div className="appbox mb-4">
-        <div className="p-3">
+        <div className="px-3 pt-3">
           <div className="row">
             <div className="col-auto">
               <h3 className="mb-0">Override Rules</h3>
             </div>
-            <div className="col-auto">
-              <small className="text-muted">Evaluated in order</small>
-            </div>
+            {data.feature?.rules?.length > 1 && (
+              <div className="col-auto">
+                <small className="text-muted">
+                  First matching rule applies
+                </small>
+              </div>
+            )}
           </div>
         </div>
         <RuleList
