@@ -56,10 +56,11 @@ function getFeaturesUrl(apiKey?: string) {
     return `/path/to/features.json`;
   }
 
-  return (
-    (isCloud() ? "https://cdn.growthbook.io" : getApiHost()) +
-    `/api/features/${apiKey}`
-  );
+  if (isCloud()) {
+    return `https://cdn.growthbook.io/features/${apiKey}.json`;
+  }
+
+  return getApiHost() + `/api/features/${apiKey}`;
 }
 
 function getImport(language: Language) {
