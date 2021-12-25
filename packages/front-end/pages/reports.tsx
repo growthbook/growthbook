@@ -39,9 +39,11 @@ const ReportsPage = (): React.ReactElement => {
   const { users, userId, getUserDisplay } = useContext(UserContext);
   const expMap = useMemo(() => {
     const tmp = new Map();
-    data.experiments.forEach((e) => {
-      tmp.set(e.id, e);
-    });
+    if (data?.experiments && data?.experiments.length > 0) {
+      data.experiments.forEach((e) => {
+        tmp.set(e.id, e);
+      });
+    }
     return tmp;
   }, [experiments]);
 
@@ -69,7 +71,7 @@ const ReportsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const reports = data.reports;
+  const reports = data?.reports || [];
 
   if (!reports.length) {
     return (

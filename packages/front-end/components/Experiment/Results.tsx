@@ -45,10 +45,10 @@ const Results: FC<{
       (dimension ? "/" + dimension : "")
   );
 
-  const [hasReports, setHasReports] = useState(null);
+  const [showReports, setShowReports] = useState(null);
   useEffect(() => {
     // If needed, check to see if we should show ad-hoc reports here:
-    setHasReports(true);
+    setShowReports(true);
   }, [experiment]);
 
   if (error) {
@@ -255,16 +255,11 @@ const Results: FC<{
               </div>
             </div>
           )}
-          {hasReports && (
-            <div className="mb-3 p-3">
-              <h3 className="mb-3">Custom Reports</h3>
-              <div className="row mt-3">
-                <ExperimentReportsList
-                  experiment={experiment}
-                  snapshot={snapshot}
-                />
-              </div>
-            </div>
+          {showReports && (
+            <ExperimentReportsList
+              experiment={experiment}
+              snapshot={snapshot}
+            />
           )}
         </>
       )}
