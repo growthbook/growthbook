@@ -73,23 +73,20 @@ There is an easy-to-use UI for simple conditions:
 In advanced mode, you can specify conditions using the MongoDB query syntax. This enables you to have nested logic, advanced array operators and more. Here's an example:
 
 ```js
-// Either the user's name starts with "john" OR they are over 65 and have a kid who's a doctor
+// Either the user's name starts with "john"
+// OR they are over 65 and have a kid who's a doctor
 {
   "$or": [
     {
       "name": { "$regex": "^john" }
     },
     {
-      "$and": [
-        {
-          "age": { "$gt": 65 },
-          "kids": {
-            "$elemMatch": {
-              "profession": "doctor"
-            }
-          }
+      "age": { "$gt": 65 },
+      "kids": {
+        "$elemMatch": {
+          "profession": "doctor"
         }
-      ]
+      }
     }
   ]
 }
