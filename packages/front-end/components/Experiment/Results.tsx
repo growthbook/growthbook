@@ -242,8 +242,12 @@ const Results: FC<{
                   const data = snapshot.results[0]?.variations;
                   if (!data) return "";
 
+                  const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
                   return (
-                    <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
+                    <div
+                      className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
+                      key={g}
+                    >
                       <GuardrailResults
                         data={data}
                         variations={variations}
