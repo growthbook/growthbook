@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FC, useState, useContext } from "react";
+import React, { FC, useState, useContext } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
@@ -15,6 +15,7 @@ import { ago, getValidDate } from "../../services/dates";
 import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
+import ExperimentReportsList from "./ExperimentReportsList";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -43,6 +44,12 @@ const Results: FC<{
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "")
   );
+
+  const [hasReports, setHasReports] = useState(null);
+  useEffect(() => {
+    // If needed, check to see if we should show ad-hoc reports here:
+    setHasReports(true);
+  }, [experiment]);
 
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
@@ -245,6 +252,17 @@ const Results: FC<{
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+          {hasReports && (
+            <div className="mb-3 p-3">
+              <h3 className="mb-3">Custom Reports</h3>
+              <div className="row mt-3">
+                <ExperimentReportsList
+                  experiment={experiment}
+                  snapshot={snapshot}
+                />
               </div>
             </div>
           )}

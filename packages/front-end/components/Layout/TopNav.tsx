@@ -220,7 +220,7 @@ const TopNav: FC<{
               show: userDropdownOpen,
             })}
           >
-            <div className="mb-2 dropdown-item">
+            <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
               <div className="badge badge-secondary">{role}</div>

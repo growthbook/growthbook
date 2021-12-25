@@ -11,6 +11,7 @@ import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { UserContext } from "../components/ProtectedPage";
 import Toggle from "../components/Forms/Toggle";
+import experiments from "./experiments";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -19,7 +20,6 @@ const ReportsPage = (): React.ReactElement => {
     reports: ReportInterface[];
     experiments: ExperimentInterface[];
   }>(`/reports`);
-  const expMap = new Map();
 
   const [reportSort, setReportsSort] = useState({
     field: "dateUpdated",
@@ -37,6 +37,13 @@ const ReportsPage = (): React.ReactElement => {
   };
 
   const { users, userId, getUserDisplay } = useContext(UserContext);
+  const expMap = useMemo(() => {
+    const tmp = new Map();
+    data.experiments.forEach((e) => {
+      tmp.set(e.id, e);
+    });
+    return tmp;
+  }, [experiments]);
 
   const getExperimentName = (experimentId: string): string => {
     return expMap.get(experimentId)?.name ?? "";
@@ -44,14 +51,14 @@ const ReportsPage = (): React.ReactElement => {
 
   const transforms = useMemo(() => {
     return {
-      username: (orig: string) => getUserDisplay(orig),
-      experimentName: (orig: string) => getExperimentName(orig),
+      userId: (orig: string) => getUserDisplay(orig),
+      experimentId: (orig: string) => getExperimentName(orig),
     };
-  }, [getUserDisplay, users.size]);
+  }, [getUserDisplay, users.size, experiments]);
 
   const { list: filteredReports, searchInputProps, isFiltered } = useSearch(
     data?.reports || [],
-    ["title", "description", "experimentName", "username", "dateUpdated"],
+    ["title", "description", "experimentId", "userId", "dateUpdated"],
     transforms
   );
 
@@ -61,9 +68,6 @@ const ReportsPage = (): React.ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-  data.experiments.forEach((e) => {
-    expMap.set(e.id, e);
-  });
 
   const reports = data.reports;
 

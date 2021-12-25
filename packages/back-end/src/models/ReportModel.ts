@@ -3,6 +3,7 @@ import { ReportInterface } from "../../types/report";
 import uniqid from "uniqid";
 import { queriesSchema } from "./QueryModel";
 import { ExperimentModel } from "./ExperimentModel";
+import { getExperimentsByOrganization } from "../services/experiments";
 
 const reportSchema = new mongoose.Schema({
   id: String,
@@ -21,7 +22,7 @@ const reportSchema = new mongoose.Schema({
   results: {},
 });
 
-export type ReportDocument = mongoose.Document & ReportInterface;
+type ReportDocument = mongoose.Document & ReportInterface;
 
 const ReportModel = mongoose.model<ReportDocument>("Report", reportSchema);
 
@@ -59,18 +60,24 @@ export async function getReportsByOrg(
   let reports = await ReportModel.find({ organization });
   // filter by project assigned to the experiment:
   if (reports && project) {
-    reports = reports.filter(async (r) => {
-      const experiment = await ExperimentModel.findOne({
-        organization,
-        id: r.experimentId,
-      });
-      if (experiment) {
-        return experiment.project === project;
+    const allExperiments = await getExperimentsByOrganization(
+      organization,
+      project
+    );
+    reports = reports.filter((r) => {
+      if (allExperiments.filter((e) => e.id === r.experimentId).length > 0) {
+        return true;
       }
-      return !!r.experimentId;
     });
   }
   return reports;
+}
+
+export async function getReportsByExperimentId(
+  organization: string,
+  experimentId: string
+): Promise<ReportInterface[]> {
+  return ReportModel.find({ organization, experimentId });
 }
 
 export async function getReportsByQuery(

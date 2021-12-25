@@ -12,30 +12,26 @@ import { useRouter } from "next/router";
 
 export default function ExperimentReportsList({
   experiment,
+  snapshot,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
 }): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
 
   const { data, error } = useApi<{
     reports: ReportInterface[];
-  }>(`/reports/${experiment.id}`);
+  }>(`/experiment/${experiment.id}/reports`);
 
-  const { data: sdata, error: serror } = useApi<{
-    snapshot: ExperimentSnapshotInterface;
-    latest?: ExperimentSnapshotInterface;
-  }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
-
-  if (error || serror) {
+  if (error) {
     return null;
   }
-  if (!data || !sdata) {
+  if (!data) {
     return null;
   }
 
   const { reports } = data;
-  const snapshot = sdata.snapshot;
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports = hasData && snapshot?.queries && !hasUserQuery;
