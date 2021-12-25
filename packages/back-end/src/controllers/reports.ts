@@ -7,7 +7,7 @@ import {
   getReportById,
   updateReport,
   getReportsByOrg,
-  getReportsByQuery,
+  getReportsByExperimentId,
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
@@ -17,8 +17,6 @@ import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 import { getValidDate } from "../util/dates";
 import { getExperimentsByIds } from "../services/experiments";
-import { FilterQuery } from "mongoose";
-import { ReportDocument } from "../models/ReportModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -117,11 +115,8 @@ export async function getReports(req: AuthRequest, res: Response) {
 export async function getReportsOnExperiment(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const query: FilterQuery<ReportDocument> = {
-    organization: org.id,
-    experimentId: id,
-  };
-  const reports = await getReportsByQuery(query);
+
+  const reports = await getReportsByExperimentId(org.id, id);
 
   res.status(200).json({
     status: 200,
