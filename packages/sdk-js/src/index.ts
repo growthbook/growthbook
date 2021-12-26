@@ -269,7 +269,7 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 9a. Exclude if condition is false
+    // 10. Exclude if condition is false
     if (experiment.condition && !this.conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
@@ -278,7 +278,7 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 10. Exclude if user is not in a required group
+    // 11. Exclude if user is not in a required group
     if (
       experiment.groups &&
       !this.hasGroupOverlap(experiment.groups as string[])
@@ -288,7 +288,7 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 11. Exclude if not on a targeted url
+    // 12. Exclude if not on a targeted url
     if (experiment.url && !this.urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log(
@@ -297,52 +297,52 @@ class GrowthBook {
       return this.getResult(experiment);
     }
 
-    // 12. Experiment has a forced variation
-    if ("force" in experiment) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Forced via experiment");
-      return this.getResult(experiment, experiment.force);
-    }
-
-    // 13. Exclude if experiment is stopped
-    if (experiment.status === "stopped") {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because status is 'stopped'");
-      return this.getResult(experiment);
-    }
-
-    // 14. Exclude if in QA mode
-    if (this.context.qaMode) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because context is in QA mode");
-      return this.getResult(experiment);
-    }
-
-    // 15. Compute a hash
-    const n = (hashFnv32a(hashValue + key) % 1000) / 1000;
-
-    // 16. Get bucket ranges
+    // 13. Get bucket ranges
     const ranges = getBucketRanges(
       experiment.variations.length,
       experiment.coverage || 1,
       experiment.weights
     );
 
-    // 17. Assign a variation
+    // 14. Compute hash
+    const n = (hashFnv32a(hashValue + key) % 1000) / 1000;
+
+    // 15. Assign a variation
     const assigned = chooseVariation(n, ranges);
 
-    // 18. Return if not in experiment
+    // 16. Return if not in experiment
     if (assigned < 0) {
       process.env.NODE_ENV !== "production" &&
         this.log("Exclude because of coverage");
       return this.getResult(experiment);
     }
 
-    // 19. Fire the tracking callback
+    // 17. Experiment has a forced variation
+    if ("force" in experiment) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Forced via experiment");
+      return this.getResult(experiment, experiment.force);
+    }
+
+    // 18. Exclude if in QA mode
+    if (this.context.qaMode) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Exclude because context is in QA mode");
+      return this.getResult(experiment);
+    }
+
+    // 19. Exclude if experiment is stopped
+    if (experiment.status === "stopped") {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Exclude because status is 'stopped'");
+      return this.getResult(experiment);
+    }
+
+    // 20. Fire the tracking callback
     const result = this.getResult(experiment, assigned, true);
     this.track(experiment, result);
 
-    // 20. Return the result
+    // 21. Return the result
     process.env.NODE_ENV !== "production" &&
       this.log("Assigned variation", result.variationId);
     return result;

@@ -39,7 +39,7 @@ export async function getFeatureDefinitions(organization: string) {
 
             if (r.type === "force") {
               rule.force = getJSONValue(feature.valueType, r.value);
-            } else if (r.type === "rollout") {
+            } else if (r.type === "experiment") {
               rule.variations = r.values.map((v) =>
                 getJSONValue(feature.valueType, v.value)
               );
@@ -62,6 +62,19 @@ export async function getFeatureDefinitions(organization: string) {
               if (r.trackingKey) {
                 rule.key = r.trackingKey;
               }
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+            } else if (r.type === "rollout") {
+              rule.variations = [
+                getJSONValue(feature.valueType, feature.defaultValue),
+                getJSONValue(feature.valueType, r.value),
+              ];
+
+              rule.coverage =
+                r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+              rule.force = 1;
+
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
               }

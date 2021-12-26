@@ -601,6 +601,23 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
+  it("ignores if not covered, even if forced", () => {
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
+
+    const res = growthbook.run({
+      key: "my-test",
+      force: 1,
+      coverage: 0.01,
+      variations: [0, 1],
+    });
+
+    expect(res.value).toEqual(0);
+    expect(res.inExperiment).toEqual(false);
+
+    growthbook.destroy();
+  });
+
   it("destroy removes subscriptions", () => {
     const context: Context = { user: { id: "1" } };
     const growthbook = new GrowthBook(context);

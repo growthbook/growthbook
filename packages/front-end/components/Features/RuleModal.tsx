@@ -1,5 +1,6 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import {
+  ExperimentRule,
   FeatureInterface,
   FeatureRule,
   ForceRule,
@@ -21,12 +22,18 @@ export interface Props {
   i: number;
 }
 
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
 export default function RuleModal({ close, feature, i, mutate }: Props) {
   const defaultValues = {
     condition: "",
     description: "",
     enabled: true,
     type: "force",
+    coverage: 1,
     value: feature.defaultValue,
     values: [
       {
@@ -46,7 +53,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     defaultValues,
   });
 
-  const rollout = useFieldArray({ name: "values", control: form.control });
+  const variations = useFieldArray({ name: "values", control: form.control });
 
   const { apiCall } = useAuth();
 
@@ -80,8 +87,8 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             (rules[i] as ForceRule).value,
             "Forced value"
           );
-        } else {
-          const ruleValues = (rules[i] as RolloutRule).values;
+        } else if (rules[i].type === "experiment") {
+          const ruleValues = (rules[i] as ExperimentRule).values;
           if (!ruleValues || !ruleValues.length) {
             throw new Error("Must set at least one value");
           }
@@ -95,6 +102,16 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             throw new Error(
               `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
             );
+          }
+        } else {
+          isValidValue(
+            feature.valueType,
+            (rules[i] as RolloutRule).value,
+            "Rollout value"
+          );
+
+          if (values.coverage < 0 || values.coverage > 1) {
+            throw new Error("Rollout percent must be between 0 and 1");
           }
         }
 
@@ -124,6 +141,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
         options={[
           { display: "Force a specific value", value: "force" },
           { display: "Percentage rollout", value: "rollout" },
+          { display: "Experiment", value: "experiment" },
         ]}
       />
 
@@ -137,11 +155,50 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       )}
       {type === "rollout" && (
         <div>
+          <FeatureValueField
+            label="Value to Rollout"
+            form={form}
+            field="value"
+            valueType={feature.valueType}
+          />
+          <div className="form-group">
+            <label>Percent of Users</label>
+            <div className="row align-items-center">
+              <div className="col">
+                <input
+                  {...form.register(`coverage`, {
+                    valueAsNumber: true,
+                  })}
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  type="range"
+                  className="w-100"
+                />
+              </div>
+              <div
+                className="col-auto"
+                style={{ fontSize: "1.3em", width: "4em" }}
+              >
+                {percentFormatter.format(form.watch("coverage"))}
+              </div>
+            </div>
+          </div>
+          <Field
+            label="Sample based on attribute"
+            {...form.register("hashAttribute")}
+            options={settings.attributeSchema.map((s) => s.property)}
+            helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
+          />
+        </div>
+      )}
+      {type === "experiment" && (
+        <div>
           <Field
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature.id}
-            helpText="Unique identifier for this rollout, used to track impressions and analyze results"
+            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
           <Field
             label="Assign value based on attribute"
@@ -150,17 +207,17 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
           <div className="form-group">
-            <label>Rollout Values and Weights</label>
+            <label>Variations and Weights</label>
             <table className="table table-bordered">
               <thead>
                 <tr>
                   <th>Value</th>
-                  <th>Rollout Percent</th>
+                  <th>Percent of Users</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {rollout.fields.map((val, i) => {
+                {variations.fields.map((val, i) => {
                   return (
                     <tr key={i}>
                       <td>
@@ -187,7 +244,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                           className="btn btn-link text-danger"
                           onClick={(e) => {
                             e.preventDefault();
-                            rollout.remove(i);
+                            variations.remove(i);
                           }}
                           type="button"
                         >
@@ -203,7 +260,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
               className="btn btn-link"
               onClick={(e) => {
                 e.preventDefault();
-                rollout.append({
+                variations.append({
                   value: feature.defaultValue,
                   weight: 0,
                 });

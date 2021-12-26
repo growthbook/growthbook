@@ -20,6 +20,7 @@ const featureSchema = new mongoose.Schema({
       },
       trackingKey: String,
       value: String,
+      coverage: Number,
       hashAttribute: String,
       enabled: Boolean,
       condition: String,

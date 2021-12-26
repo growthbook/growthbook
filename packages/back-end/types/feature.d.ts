@@ -26,16 +26,23 @@ export interface ForceRule extends BaseRule {
   value: string;
 }
 
-type RolloutValue = {
+export interface RolloutRule extends BaseRule {
+  type: "rollout";
+  value: string;
+  coverage: number;
+  hashAttribute: string;
+}
+
+type ExperimentValue = {
   value: string;
   weight: number;
 };
 
-export interface RolloutRule extends BaseRule {
-  type: "rollout";
+export interface ExperimentRule extends BaseRule {
+  type: "experiment";
   trackingKey: string;
   hashAttribute: string;
-  values: RolloutValue[];
+  values: ExperimentValue[];
 }
 
-export type FeatureRule = ForceRule | RolloutRule;
+export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;

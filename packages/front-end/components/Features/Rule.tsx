@@ -10,6 +10,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
+import ExperimentSummary from "./ExperimentSummary";
 
 interface SortableProps {
   i: number;
@@ -32,7 +33,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const title =
       rule.description ||
-      (rule.type === "force" ? "Force Rule" : "Rollout Rule");
+      rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
     return (
       <div className="p-3 border-bottom bg-white" {...props} ref={ref}>
@@ -158,7 +159,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             )}
             {rule.type === "rollout" && (
               <RolloutSummary
-                rollout={rule.values}
+                value={rule.value ?? ""}
+                coverage={rule.coverage ?? 1}
+                type={type}
+                hashAttribute={rule.hashAttribute || ""}
+              />
+            )}
+            {rule.type === "experiment" && (
+              <ExperimentSummary
+                values={rule.values}
                 type={type}
                 hashAttribute={rule.hashAttribute || ""}
                 trackingKey={rule.trackingKey || feature.id}

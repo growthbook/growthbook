@@ -215,9 +215,7 @@ There are a bunch of ordered steps to run an experiment:
 8.  If `experiment.namespace` is set, check if hash value is included in the range and if not, return immediately (not in experiment, variationId `0`)
 9.  If `experiment.include` is set, call the function and if "false" is returned or it throws, return immediately (not in experiment, variationId `0`)
 10. If `experiment.condition` is set and the condition evaluates to false, return immediately (not in experiment, variationId `0`)
-11. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
-12. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
-13. Default variation weights and coverage if not specified
+11. Default variation weights and coverage if not specified
 
     ```js
     // Default weights to an even split between all variations
@@ -232,7 +230,7 @@ There are a bunch of ordered steps to run an experiment:
     coverage = experiment.coverage ?? 1;
     ```
 
-14. Calculate bucket ranges for the variations
+12. Calculate bucket ranges for the variations
 
     ```js
     // Convert weights/coverage to ranges
@@ -246,7 +244,7 @@ There are a bunch of ordered steps to run an experiment:
     });
     ```
 
-15. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
+13. Compute a hash using the [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm (specifically fnv32-1a) and assign a variation
 
     ```js
     n = (fnv32_1a(id + experiment.key) % 1000) / 1000;
@@ -259,7 +257,9 @@ There are a bunch of ordered steps to run an experiment:
     });
     ```
 
-16. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+14. If not assigned a variation (`assigned === -1`), return immediately (not in experiment, variationId `0`)
+15. If `experiment.force` is set, return immediately (not in experiment, variationId `experiment.force`)
+16. If `context.qaMode` is true, return immediately (not in experiment, variationId `0`)
 17. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
 18. Return (**in experiment**, assigned variation)
 
