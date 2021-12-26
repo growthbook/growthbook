@@ -27,7 +27,12 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const features = await getFeatureDefinitions(organization);
 
-    // TODO: add cache headers?
+    // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
+    res.set(
+      "Cache-control",
+      "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
+    );
+
     res.status(200).json({
       status: 200,
       features,

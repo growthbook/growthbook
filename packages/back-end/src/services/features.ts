@@ -1,6 +1,5 @@
 import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
 import { FeatureInterface, FeatureValueType } from "../../types/feature";
-import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 
@@ -78,10 +77,4 @@ export async function getFeatureDefinitions(organization: string) {
 export async function featureUpdated(feature: FeatureInterface) {
   // fire the webhook:
   await queueWebhook(feature.organization);
-
-  // invalidate the CDN
-  await queueCDNInvalidate(
-    feature.organization,
-    (key) => `/api/features/${key}`
-  );
 }
