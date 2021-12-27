@@ -32,8 +32,8 @@ const Webhooks: FC = () => {
         />
       )}
       <p>
-        Webhooks push the latest experiment overrides to your server whenever an
-        experiment is modified within the GrowthBook app.{" "}
+        Webhooks push the latest experiment overrides and features to your
+        server whenever they are modified within the GrowthBook app.{" "}
         <a
           href="https://docs.growthbook.io/app/webhooks"
           target="_blank"

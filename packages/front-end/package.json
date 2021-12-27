@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^1.9.0",
+    "@dnd-kit/core": "^4.0.3",
+    "@dnd-kit/sortable": "^5.1.0",
+    "@growthbook/growthbook-react": "^0.6.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@visx/axis": "^2.1.0",

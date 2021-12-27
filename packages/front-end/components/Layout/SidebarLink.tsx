@@ -23,6 +23,7 @@ export type SidebarLinkProps = {
   autoClose?: boolean;
   settingsPermission?: boolean;
   subLinks?: SidebarLinkProps[];
+  beta?: boolean;
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
@@ -76,6 +77,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               </span>
             )}
             {props.name}
+            {props.beta && <div className="badge badge-warning ml-2">beta</div>}
             {props.subLinks && (
               <div className="float-right">
                 <FiChevronDown />
