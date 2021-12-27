@@ -73,7 +73,7 @@ export function IfFeatureEnabled({
   children: React.ReactNode;
   feature: string;
 }) {
-  return useFeature(feature).on ? children : null;
+  return useFeature(feature).on ? <>{children}</> : null;
 }
 
 export function FeatureString(props: { default: string; feature: string }) {

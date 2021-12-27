@@ -229,7 +229,7 @@ If a condition evaluates to `false`, the rule will be skipped. This means you ca
 
 #### Force Rules
 
-Force rules do what you'd expect - force everyone to get assigned a specific value. This is only really useful when combined with targeting conditions.
+Force rules do what you'd expect - force a specific value for the feature
 
 ```js
 // Firefox users in the US or Canada get "green"
@@ -248,6 +248,46 @@ Force rules do what you'd expect - force everyone to get assigned a specific val
         force: "green"
       }
     ],
+  }
+}
+```
+
+##### Gradual Rollouts
+
+You can specify a `coverage` value for your rule, which is a number between 0 and 1 and represents what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value).
+
+This is useful for gradually rolling out features to users (start coverage at 0 and slowly increase towards 1 as you watch metrics).
+
+```js
+// 20% of users will get the new feature
+{
+  "new-feature": {
+    defaultValue: false,
+    rules: [
+      {
+        force: true,
+        coverage: 0.2
+      }
+    ]
+  }
+}
+```
+
+In order to figure out if a user is included or not, we use deterministic hashing. By default, we use the user attribute `id` for this, but you can override this by specifying `hashAttribute` for the rule:
+
+```js
+// 20% of companies will get the new feature
+// Users in the same company will always get the same value (either true or false)
+{
+  "new-feature": {
+    defaultValue: false,
+    rules: [
+      {
+        force: true,
+        coverage: 0.2,
+        hashAttribute: "company"
+      }
+    ]
   }
 }
 ```

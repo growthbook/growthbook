@@ -124,7 +124,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       </div>
 
       {usage && (
-        <div className="appbox p-3 mb-4">
+        <div className="appbox p-3 mb-4 d-none">
           <h3 className="mb-3">Usage Example</h3>
           <Code
             language="javascript"

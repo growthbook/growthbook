@@ -84,6 +84,49 @@ describe("features", () => {
     });
     growthbook.destroy();
   });
+  it("supports coverage on force rules", () => {
+    const attributes: { id?: string } = {
+      id: "3",
+    };
+    const growthbook = new GrowthBook({
+      attributes,
+      features: {
+        feature: {
+          defaultValue: 2,
+          rules: [
+            {
+              force: 1,
+              coverage: 0.5,
+            },
+          ],
+        },
+      },
+    });
+    expect(growthbook.feature("feature")).toEqual({
+      value: 1,
+      on: true,
+      off: false,
+      source: "force",
+    });
+
+    attributes.id = "1";
+    expect(growthbook.feature("feature")).toEqual({
+      value: 2,
+      on: true,
+      off: false,
+      source: "defaultValue",
+    });
+
+    delete attributes.id;
+    expect(growthbook.feature("feature")).toEqual({
+      value: 2,
+      on: true,
+      off: false,
+      source: "defaultValue",
+    });
+
+    growthbook.destroy();
+  });
   it("supports conditions on force rules", () => {
     const attributes = {
       country: "US",

@@ -155,6 +155,7 @@ class GrowthBook {
   public feature<T = any>(id: string): FeatureResult<T | null> {
     // Unknown feature id
     if (!this.context.features || !this.context.features[id]) {
+      process.env.NODE_ENV !== "production" && this.log("Unknown feature", id);
       return this.getFeatureResult(null, "unknownFeature");
     }
 
@@ -166,13 +167,63 @@ class GrowthBook {
       for (const rule of feature.rules) {
         // If it's a conditional rule, skip if the condition doesn't pass
         if (rule.condition && !this.conditionPasses(rule.condition)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skipping feature rule since condition does not pass", {
+              id,
+              rule,
+              condition: rule.condition,
+            });
           continue;
         }
-        // Return the forced value immediately
+        // Feature value is being forced
         if (rule.force) {
+          // Skip if coverage is reduced and user not included
+          if ("coverage" in rule) {
+            const { hashValue } = this.getHashAttribute(rule.hashAttribute);
+            if (!hashValue) {
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skipping feature rule since hashAttribute is empty", {
+                  id,
+                  rule,
+                  attr: rule.hashAttribute || "id",
+                });
+              continue;
+            }
+            const n = (hashFnv32a(hashValue + id) % 1000) / 1000;
+            if (n > (rule.coverage as number)) {
+              process.env.NODE_ENV !== "production" &&
+                this.log(
+                  "Skipping feature rule since user outside of coverage",
+                  {
+                    id,
+                    rule,
+                    coverage: rule.coverage,
+                    hashValue,
+                  }
+                );
+              continue;
+            }
+          }
+
+          process.env.NODE_ENV !== "production" &&
+            this.log("Forcing feature value from rule", {
+              id,
+              rule,
+              value: rule.force,
+            });
+
           return this.getFeatureResult(rule.force, "force");
         }
         if (!rule.variations) {
+          process.env.NODE_ENV !== "production" &&
+            this.log(
+              "Skipping feature rule since no force or variations are defined",
+              {
+                id,
+                rule,
+              }
+            );
+
           continue;
         }
         // For experiment rules, run an experiment
@@ -180,7 +231,7 @@ class GrowthBook {
           variations: rule.variations as [T, T, ...T[]],
           key: rule.key || id,
         };
-        if (rule.coverage) exp.coverage = rule.coverage;
+        if ("coverage" in rule) exp.coverage = rule.coverage;
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.namespace) exp.namespace = rule.namespace;
@@ -245,7 +296,9 @@ class GrowthBook {
     }
 
     // 7. Get the hash attribute and return if empty
-    const { hashAttribute, hashValue } = this.getHashAttribute(experiment);
+    const { hashAttribute, hashValue } = this.getHashAttribute(
+      experiment.hashAttribute
+    );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
         this.log(
@@ -387,8 +440,8 @@ class GrowthBook {
     return experiment;
   }
 
-  private getHashAttribute<T>(experiment: Experiment<T>) {
-    const hashAttribute = experiment.hashAttribute || "id";
+  private getHashAttribute(attr?: string) {
+    const hashAttribute = attr || "id";
 
     let hashValue = "";
     if (this.context.attributes) {
@@ -409,7 +462,9 @@ class GrowthBook {
       variationIndex = 0;
     }
 
-    const { hashAttribute, hashValue } = this.getHashAttribute(experiment);
+    const { hashAttribute, hashValue } = this.getHashAttribute(
+      experiment.hashAttribute
+    );
 
     return {
       inExperiment,

@@ -29,7 +29,7 @@ export async function getFeatureDefinitions(organization: string) {
           ?.filter((r) => r.enabled)
           ?.map((r) => {
             const rule: FeatureDefinitionRule = {};
-            if (r.condition) {
+            if (r.condition && r.condition !== "{}") {
               try {
                 rule.condition = JSON.parse(r.condition);
               } catch (e) {
@@ -66,14 +66,9 @@ export async function getFeatureDefinitions(organization: string) {
                 rule.hashAttribute = r.hashAttribute;
               }
             } else if (r.type === "rollout") {
-              rule.variations = [
-                getJSONValue(feature.valueType, feature.defaultValue),
-                getJSONValue(feature.valueType, r.value),
-              ];
-
+              rule.force = getJSONValue(feature.valueType, r.value);
               rule.coverage =
                 r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-              rule.force = 1;
 
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
