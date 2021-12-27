@@ -77,6 +77,9 @@ export async function getFeatureDefinitions(organization: string) {
             return rule;
           }) ?? [],
     };
+    if (defs[feature.id].rules && !defs[feature.id].rules?.length) {
+      delete defs[feature.id].rules;
+    }
   });
 
   return defs;
