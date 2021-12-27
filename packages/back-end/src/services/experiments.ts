@@ -778,11 +778,15 @@ export async function processPastExperiments(
   );
 }
 
-//
 export async function experimentUpdated(experiment: ExperimentInterface) {
   // fire the webhook:
   await queueWebhook(experiment.organization);
 
   // invalidate the CDN
-  await queueCDNInvalidate(experiment);
+  await queueCDNInvalidate(experiment.organization, (key) => {
+    // Which url to invalidate depends on the type of experiment
+    return experiment.implementation === "visual"
+      ? `/js/${key}.js`
+      : `/config/${key}`;
+  });
 }

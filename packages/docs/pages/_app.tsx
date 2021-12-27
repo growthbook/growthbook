@@ -46,6 +46,10 @@ const navLinks = [
         name: "Metrics",
       },
       {
+        href: "/app/features",
+        name: "Features",
+      },
+      {
         href: "/app/experiments",
         name: "Experiments",
       },
