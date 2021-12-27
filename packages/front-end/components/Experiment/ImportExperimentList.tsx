@@ -1,6 +1,6 @@
 import { date, getValidDate } from "../../services/dates";
 import Link from "next/link";
-import Button from "../Button";
+//import Button from "../Button";
 import React, { Dispatch, FC, SetStateAction } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { useSearch } from "../../services/search";
@@ -18,7 +18,14 @@ const ImportExperimentList: FC<{
   importId: string;
   searchLimit?: number;
   showQueries?: boolean;
-}> = ({ onImport, importId, searchLimit = 4, showQueries = true }) => {
+  //useForm?: boolean;
+}> = ({
+  onImport,
+  importId,
+  searchLimit = 4,
+  showQueries = true,
+  //useForm = true,
+}) => {
   const { getDatasourceById, ready } = useDefinitions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
@@ -65,6 +72,7 @@ const ImportExperimentList: FC<{
         <div className="col-auto">
           <form
             onSubmit={async (e) => {
+              console.log("import exp form submitted");
               e.preventDefault();
               await apiCall<{ id: string }>("/experiments/import", {
                 method: "POST",
@@ -141,72 +149,84 @@ const ImportExperimentList: FC<{
               </tr>
             </thead>
             <tbody>
-              {filteredExperiments.map((e) => (
-                <tr key={e.trackingKey}>
-                  <td>{e.trackingKey}</td>
-                  <td>{date(e.startDate)}</td>
-                  <td>{date(e.endDate)}</td>
-                  <td>{e.numVariations}</td>
-                  <td>{numberFormatter.format(e.users)}</td>
-                  <td>{e.weights.map((w) => Math.round(w * 100)).join("/")}</td>
-                  <td>
-                    {existing?.[e.trackingKey] ? (
-                      <Link href={`/experiment/${existing[e.trackingKey]}`}>
-                        <a>imported</a>
-                      </Link>
-                    ) : (
-                      <Button
-                        color="primary"
-                        onClick={async () => {
-                          onImport({
-                            name: e.trackingKey,
-                            trackingKey: e.trackingKey,
-                            datasource: data?.experiments?.datasource,
-                            variations: e.variationKeys.map((v) => {
-                              const vInt = parseInt(v);
-                              const name = !Number.isNaN(vInt)
-                                ? vInt == 0
-                                  ? "Control"
-                                  : `Variation ${vInt}`
-                                : v;
-                              return {
-                                name,
-                                screenshots: [],
-                                description: "",
-                                key: v,
-                              };
-                            }),
-                            phases: [
-                              {
-                                coverage: 1,
-                                phase: "main",
-                                reason: "",
-                                variationWeights: e.weights,
-                                dateStarted:
-                                  getValidDate(e.startDate)
-                                    .toISOString()
-                                    .substr(0, 10) + "T00:00:00Z",
-                                dateEnded:
-                                  getValidDate(e.endDate)
-                                    .toISOString()
-                                    .substr(0, 10) + "T23:59:59Z",
-                              },
-                            ],
-                            // Default to stopped if the last data was more than 3 days ago
-                            status:
-                              getValidDate(e.endDate).getTime() <
-                              Date.now() - 72 * 60 * 60 * 1000
-                                ? "stopped"
-                                : "running",
-                          });
-                        }}
-                      >
-                        Import
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filteredExperiments.map((e) => {
+                if (existing?.[e.trackingKey]) {
+                  console.log("tracking key exists...");
+                } else {
+                  console.log("non existing key");
+                }
+                return (
+                  <tr key={e.trackingKey}>
+                    <td>{e.trackingKey}</td>
+                    <td>{date(e.startDate)}</td>
+                    <td>{date(e.endDate)}</td>
+                    <td>{e.numVariations}</td>
+                    <td>{numberFormatter.format(e.users)}</td>
+                    <td>
+                      {e.weights.map((w) => Math.round(w * 100)).join("/")}
+                    </td>
+                    <td>
+                      {existing?.[e.trackingKey] ? (
+                        <Link href={`/experiment/${existing[e.trackingKey]}`}>
+                          <a>imported</a>
+                        </Link>
+                      ) : (
+                        <button
+                          className={`btn btn-primary`}
+                          onClick={(ev) => {
+                            ev.preventDefault();
+                            const importObj: Partial<ExperimentInterfaceStringDates> = {
+                              name: e.trackingKey,
+                              trackingKey: e.trackingKey,
+                              datasource: data?.experiments?.datasource,
+                              variations: e.variationKeys.map((v) => {
+                                const vInt = parseInt(v);
+                                const name = !Number.isNaN(vInt)
+                                  ? vInt == 0
+                                    ? "Control"
+                                    : `Variation ${vInt}`
+                                  : v;
+                                return {
+                                  name,
+                                  screenshots: [],
+                                  description: "",
+                                  key: v,
+                                };
+                              }),
+                              phases: [
+                                {
+                                  coverage: 1,
+                                  phase: "main",
+                                  reason: "",
+                                  variationWeights: e.weights,
+                                  dateStarted:
+                                    getValidDate(e.startDate)
+                                      .toISOString()
+                                      .substr(0, 10) + "T00:00:00Z",
+                                  dateEnded:
+                                    getValidDate(e.endDate)
+                                      .toISOString()
+                                      .substr(0, 10) + "T23:59:59Z",
+                                },
+                              ],
+                              // Default to stopped if the last data was more than 3 days ago
+                              status:
+                                getValidDate(e.endDate).getTime() <
+                                Date.now() - 72 * 60 * 60 * 1000
+                                  ? "stopped"
+                                  : "running",
+                            };
+                            console.log("firing onimport");
+                            onImport(importObj);
+                          }}
+                        >
+                          Import
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

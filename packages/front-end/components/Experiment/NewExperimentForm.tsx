@@ -99,6 +99,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [datasourceId, setDatasourceId] = useState(datasources?.[0]?.id);
   const [importId, setImportId] = useState(null);
 
+  console.log("experimentDefaultValues value is", experimentDefaultValues);
   const getImportId = async () => {
     console.log("getting import id");
     const res = await apiCall<{ id: string }>("/experiments/import", {
@@ -151,32 +152,42 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
+  const defaultValues = {
+    project: experimentDefaultValues?.project || project || "",
+    implementation: experimentDefaultValues?.implementation || "code",
+    trackingKey: experimentDefaultValues?.trackingKey || "",
+    datasource:
+      experimentDefaultValues?.datasource || datasources?.[0]?.id || "",
+    userIdType: experimentDefaultValues?.userIdType || "anonymous",
+    name: experimentDefaultValues?.name || "",
+    hypothesis: experimentDefaultValues?.hypothesis || "",
+    activationMetric: experimentDefaultValues?.activationMetric || "",
+    removeMultipleExposures:
+      experimentDefaultValues?.removeMultipleExposures ?? true,
+    metrics: experimentDefaultValues?.metrics || [],
+    tags: experimentDefaultValues?.tags || [],
+    targetURLRegex: experimentDefaultValues?.targetURLRegex || "",
+    description: experimentDefaultValues?.description || "",
+    guardrails: experimentDefaultValues?.guardrails || [],
+    variations:
+      experimentDefaultValues?.variations ||
+      getDefaultVariations(initialNumVariations),
+    phases: initialPhases,
+    status: experimentDefaultValues?.status || "running",
+    ideaSource: idea || "",
+  };
+
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
-    defaultValues: {
-      project: experimentDefaultValues?.project || project || "",
-      implementation: experimentDefaultValues?.implementation || "code",
-      trackingKey: experimentDefaultValues?.trackingKey || "",
-      datasource:
-        experimentDefaultValues?.datasource || datasources?.[0]?.id || "",
-      userIdType: experimentDefaultValues?.userIdType || "anonymous",
-      name: experimentDefaultValues?.name || "",
-      hypothesis: experimentDefaultValues?.hypothesis || "",
-      activationMetric: experimentDefaultValues?.activationMetric || "",
-      removeMultipleExposures:
-        experimentDefaultValues?.removeMultipleExposures ?? true,
-      metrics: experimentDefaultValues?.metrics || [],
-      tags: experimentDefaultValues?.tags || [],
-      targetURLRegex: experimentDefaultValues?.targetURLRegex || "",
-      description: experimentDefaultValues?.description || "",
-      guardrails: experimentDefaultValues?.guardrails || [],
-      variations:
-        experimentDefaultValues?.variations ||
-        getDefaultVariations(initialNumVariations),
-      phases: initialPhases,
-      status: experimentDefaultValues?.status || "running",
-      ideaSource: idea || "",
-    },
+    defaultValues: defaultValues,
   });
+
+  // useEffect(() => {
+  //   setForm(
+  //     useForm<Partial<ExperimentInterfaceStringDates>>({
+  //       defaultValues: defaultValues,
+  //     })
+  //   );
+  // }, [experimentDefaultValues]);
 
   const variations = useFieldArray({
     name: "variations",
