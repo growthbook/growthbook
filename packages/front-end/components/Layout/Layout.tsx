@@ -46,6 +46,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/features",
     Icon: BsFlag,
     path: /^features/,
+    beta: false,
   },
   {
     name: "Presentations",
