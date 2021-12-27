@@ -57,7 +57,7 @@ function getFeaturesUrl(apiKey?: string) {
   }
 
   if (isCloud()) {
-    return `https://cdn.growthbook.io/features/${apiKey}.json`;
+    return `https://cdn.growthbook.io/api/features/${apiKey}`;
   }
 
   return getApiHost() + `/api/features/${apiKey}`;

@@ -16,6 +16,7 @@ import ForceSummary from "../../components/Features/ForceSummary";
 import RuleList from "../../components/Features/RuleList";
 import Code from "../../components/Code";
 import { useMemo } from "react";
+import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -124,15 +125,17 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       </div>
 
       {usage && (
-        <div className="appbox p-3 mb-4 d-none">
-          <h3 className="mb-3">Usage Example</h3>
-          <Code
-            language="javascript"
-            code={usage}
-            theme="light"
-            className="border-0 p-0 m-0"
-          />
-        </div>
+        <IfFeatureEnabled feature="feature-usage-code">
+          <div className="appbox p-3 mb-4">
+            <h3 className="mb-3">Usage Example</h3>
+            <Code
+              language="javascript"
+              code={usage}
+              theme="light"
+              className="border-0 p-0 m-0"
+            />
+          </div>
+        </IfFeatureEnabled>
       )}
 
       <div className="appbox mb-4">
