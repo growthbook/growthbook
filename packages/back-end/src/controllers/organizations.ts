@@ -79,6 +79,7 @@ import {
 } from "../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
+import { WebhookInterface } from "../../types/webhook";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -1144,6 +1145,47 @@ export async function postWebhook(
   const { name, endpoint } = req.body;
 
   const webhook = await createWebhook(org.id, name, endpoint);
+
+  res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+
+export async function putWebhook(
+  req: AuthRequest<WebhookInterface, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id } = req.params;
+
+  const webhook = await WebhookModel.findOne({
+    id,
+  });
+
+  if (!webhook) {
+    throw new Error("Could not find webhook");
+  }
+  if (webhook.organization !== org.id) {
+    throw new Error("You don't have access to that webhook");
+  }
+
+  const { name, endpoint } = req.body;
+  if (!name || !endpoint) {
+    throw new Error("Missing required properties");
+  }
+
+  webhook.set("name", name);
+  webhook.set("endpoint", endpoint);
+
+  await webhook.save();
 
   res.status(200).json({
     status: 200,

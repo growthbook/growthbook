@@ -26,11 +26,14 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const overrides = await getExperimentOverrides(webhook.organization);
+    const { overrides, expIdMapping } = await getExperimentOverrides(
+      webhook.organization
+    );
     const features = await getFeatureDefinitions(webhook.organization);
     const payload = JSON.stringify({
       timestamp: Math.floor(Date.now() / 1000),
       overrides,
+      experiments: expIdMapping,
       features,
     });
 

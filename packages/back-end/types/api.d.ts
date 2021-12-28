@@ -31,6 +31,7 @@ export interface FeatureDefinition {
 export interface ExperimentOverridesResponse {
   status: 200;
   overrides: Record<string, ExperimentOverride>;
+  experiments: Record<string, { trackingKey: string }>;
 }
 
 export interface ErrorResponse {

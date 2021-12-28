@@ -5,36 +5,38 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
+import { WebhookInterface } from "back-end/types/webhook";
 
 const WebhooksModal: FC<{
   close: () => void;
-  onCreate: () => void;
+  onSave: () => void;
   defaultDescription?: string;
-}> = ({ close, onCreate }) => {
+  current: Partial<WebhookInterface>;
+}> = ({ close, onSave, current }) => {
   const { apiCall } = useAuth();
   const form = useForm({
     defaultValues: {
-      name: "My Webhook",
-      endpoint: "",
+      name: current.name || "My Webhook",
+      endpoint: current.endpoint || "",
     },
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    await apiCall("/webhooks", {
-      method: "POST",
+    await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
+      method: current.id ? "PUT" : "POST",
       body: JSON.stringify(value),
     });
-    track("Create Webhook");
-    onCreate();
+    track(current.id ? "Edit Webhook" : "Create Webhook");
+    onSave();
   });
 
   return (
     <Modal
       close={close}
-      header="Create New Key"
+      header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
       submit={onSubmit}
-      cta="Create"
+      cta={current.id ? "Update" : "Create"}
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
