@@ -284,7 +284,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             value = users * value;
           }
 
-          const mean = Math.round(value) / users;
+          const mean =
+            metric.type === "binomial" ? 1 : Math.round(value) / users;
+          const count = metric.type === "binomial" ? value : users;
 
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
@@ -298,7 +300,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           return {
             metric: metric.id,
             users,
-            count: users,
+            count,
             mean,
             stddev,
           };
