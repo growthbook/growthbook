@@ -5,10 +5,11 @@ import { useContext, useState, useEffect } from "react";
 import { UserContext } from "../ProtectedPage";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { SDKAttributeSchema } from "back-end/types/organization";
-import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import Code from "../Code";
+import ControlledTabs from "../Tabs/ControlledTabs";
+import Tab from "../Tabs/Tab";
 
 type Language = "tsx" | "javascript";
 
@@ -61,76 +62,6 @@ function getFeaturesUrl(apiKey?: string) {
   }
 
   return getApiHost() + `/api/features/${apiKey}`;
-}
-
-function getImport(language: Language) {
-  if (language === "javascript") {
-    return `import { GrowthBook } from "@growthbook/growthbook";`;
-  }
-  if (language === "tsx") {
-    return `import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
-import { useEffect } from "react";`;
-  }
-  return "";
-}
-
-function getUsageCode(
-  language: Language,
-  apiKey?: string,
-  // eslint-disable-next-line
-  exampleAttributes: any = {}
-) {
-  const loadFeatures = `
-// Load feature definitions JSON (from API, database, etc.)
-fetch("${getFeaturesUrl(apiKey)}")
-  .then((res) => res.json())
-  .then((json) => {
-    growthbook.setFeatures(json${apiKey ? ".features" : ""});
-  });`.trim();
-
-  if (language === "javascript") {
-    return (
-      loadFeatures +
-      `
-  
-// TODO: replace with real targeting attributes
-growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});`
-    );
-  }
-  if (language === "tsx") {
-    return `
-export default function MyApp() {
-  // Load feature definitions JSON (from API, database, etc.)
-  useEffect(() => {
-    ${indentLines(loadFeatures, 4)}
-  }, [])
-
-  useEffect(() => {
-    // TODO: replace with real targeting attributes
-    growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
-  })
-
-  // Wrap your app in the GrowthBookProvider
-  return (
-    <GrowthBookProvider growthbook={growthbook}>
-      <MyComponent/>
-    </GrowthBookProvider>
-  )
-}`.trim();
-  }
-
-  return "";
-}
-
-function getDocsUrl(language: Language) {
-  let ext = "";
-  if (language === "javascript") {
-    ext = "/js";
-  } else if (language === "tsx") {
-    ext = "/react";
-  }
-
-  return `https://docs.growthbook.io/lib${ext}`;
 }
 
 export default function CodeSnippetModal({ close }: { close: () => void }) {
@@ -186,31 +117,10 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
     } else {
       setState({
         ...state,
-        tracking: "segment",
+        tracking: "custom",
       });
     }
   }, [datasources?.[0]?.type]);
-
-  const clientCode = `
-${getImport(language)}
-
-// Create a GrowthBook context
-const growthbook = new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    ${indentLines(
-      getTrackingCallback(
-        state.tracking,
-        state.gaDimension + "",
-        "experiment.key",
-        "result.variationId"
-      ),
-      4
-    )}
-  }
-})
-
-${getUsageCode(language, apiKey, exampleAttributes)}
-`.trim();
 
   return (
     <Modal
@@ -231,34 +141,134 @@ ${getUsageCode(language, apiKey, exampleAttributes)}
       }}
       cta={"Finish"}
     >
-      <p>
-        Below is some starter code to integrate GrowthBook into your Javascript
-        or React application. Read the docs for full implementation details.
-      </p>
-      <div className="row align-items-center mb-1">
-        <div className="col">
-          <Field
-            value={language}
-            onChange={(e) => {
-              setLanguage(e.target.value as Language);
+      {apiKey && (
+        <>
+          <p>
+            We generated an API endpoint for you that will contain all of your
+            feature definitions:
+          </p>
+          <input
+            readOnly
+            value={getFeaturesUrl(apiKey)}
+            className="form-control mb-3"
+            onFocus={(e) => {
+              (e.target as HTMLInputElement).select();
             }}
-            options={[
-              { display: "Javascript", value: "javascript" },
-              { display: "React", value: "tsx" },
-            ]}
           />
-        </div>
-        <div className="col-auto">
-          <a
-            href={getDocsUrl(language)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View the full docs
-          </a>
-        </div>
-      </div>
-      <Code language={language} code={clientCode} />
+        </>
+      )}
+      <p>
+        Below is some starter code to integrate GrowthBook into your app. More
+        languages coming soon!
+      </p>
+      <ControlledTabs
+        active={language}
+        setActive={(language) => setLanguage(language as Language)}
+      >
+        <Tab display="Javascript" id="javascript">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/js"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Javascript docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code
+            language="javascript"
+            code={`
+import { GrowthBook } from "@growthbook/growthbook";
+
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    ${indentLines(
+      getTrackingCallback(
+        state.tracking,
+        state.gaDimension + "",
+        "experiment.key",
+        "result.variationId"
+      ),
+      4
+    )}
+  }
+});
+
+// Load feature definitions from API
+fetch(FEATURES_ENDPOINT)
+  .then((res) => res.json())
+  .then((json) => {
+    growthbook.setFeatures(json${apiKey ? ".features" : ""});
+  });
+
+// TODO: replace with real targeting attributes
+growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="React" id="tsx">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/react"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full React docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code
+            language="tsx"
+            code={`
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { useEffect } from "react";
+
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    ${indentLines(
+      getTrackingCallback(
+        state.tracking,
+        state.gaDimension + "",
+        "experiment.key",
+        "result.variationId"
+      ),
+      4
+    )}
+  }
+});
+
+export default function MyApp() {
+  useEffect(() => {
+    // Load feature definitions from API
+    fetch(FEATURES_ENDPOINT)
+      .then((res) => res.json())
+      .then((json) => {
+        growthbook.setFeatures(json${apiKey ? ".features" : ""});
+      });
+    
+    // TODO: replace with real targeting attributes
+    growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
+  }, [])
+
+  return (
+    <GrowthBookProvider growthbook={growthbook}>
+      <MyComponent/>
+    </GrowthBookProvider>
+  )
+}
+            `.trim()}
+          />
+        </Tab>
+      </ControlledTabs>
     </Modal>
   );
 }

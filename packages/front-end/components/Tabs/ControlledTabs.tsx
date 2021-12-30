@@ -104,7 +104,7 @@ const ControlledTabs: FC<{
           if (!anchor) {
             e.preventDefault();
           }
-          setActive(display);
+          setActive(id);
         }}
       >
         {display}
