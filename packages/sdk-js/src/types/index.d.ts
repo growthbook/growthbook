@@ -8,7 +8,7 @@ declare global {
   }
 }
 
-type FeatureRule<T = any> = {
+export type FeatureRule<T = any> = {
   condition?: RuleSet;
   force?: T;
   variations?: T[];
@@ -19,19 +19,19 @@ type FeatureRule<T = any> = {
   namespace?: [string, number, number];
 };
 
-interface FeatureDefinition<T = any> {
+export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
 }
 
-type FeatureResultSource =
+export type FeatureResultSource =
   | "unknownFeature"
   | "defaultValue"
   | "force"
   | "experiment";
 
 // eslint-disable-next-line
-interface FeatureResult<T = any> {
+export interface FeatureResult<T = any> {
   value: T | null;
   source: FeatureResultSource;
   on: boolean;
@@ -39,9 +39,9 @@ interface FeatureResult<T = any> {
   experiment?: Experiment<T>;
 }
 
-type ExperimentStatus = "draft" | "running" | "stopped";
+export type ExperimentStatus = "draft" | "running" | "stopped";
 
-type Experiment<T> = {
+export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
   weights?: number[];
@@ -60,7 +60,7 @@ type Experiment<T> = {
   groups?: string[];
 };
 
-type ExperimentOverride = {
+export type ExperimentOverride = {
   condition?: Condition;
   weights?: number[];
   active?: boolean;
@@ -72,7 +72,7 @@ type ExperimentOverride = {
   url?: RegExp | string;
 };
 
-interface Result<T> {
+export interface Result<T> {
   value: T;
   variationId: number;
   inExperiment: boolean;
@@ -80,7 +80,7 @@ interface Result<T> {
   hashValue: string;
 }
 
-interface Context {
+export interface Context {
   enabled?: boolean;
   user?: {
     id?: string;
@@ -99,11 +99,11 @@ interface Context {
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
 }
 
-type SubscriptionFunction = (
+export type SubscriptionFunction = (
   // eslint-disable-next-line
   experiment: Experiment<any>,
   // eslint-disable-next-line
   result: Result<any>
 ) => void;
 
-type VariationRange = [number, number];
+export type VariationRange = [number, number];
