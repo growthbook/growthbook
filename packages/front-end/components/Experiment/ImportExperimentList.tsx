@@ -1,7 +1,7 @@
 import { date, getValidDate } from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
-import React, { Dispatch, FC, SetStateAction } from "react";
+import React, { FC } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { useSearch } from "../../services/search";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -14,7 +14,7 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
-  onImport: Dispatch<SetStateAction<Partial<ExperimentInterfaceStringDates>>>;
+  onImport: (obj: Partial<ExperimentInterfaceStringDates>) => void;
   importId: string;
   searchLimit?: number;
   showQueries?: boolean;
@@ -150,11 +150,6 @@ const ImportExperimentList: FC<{
             </thead>
             <tbody>
               {filteredExperiments.map((e) => {
-                if (existing?.[e.trackingKey]) {
-                  console.log("tracking key exists...");
-                } else {
-                  console.log("non existing key");
-                }
                 return (
                   <tr key={e.trackingKey}>
                     <td>{e.trackingKey}</td>

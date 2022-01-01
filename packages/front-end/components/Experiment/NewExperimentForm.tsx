@@ -99,9 +99,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [datasourceId, setDatasourceId] = useState(datasources?.[0]?.id);
   const [importId, setImportId] = useState(null);
 
-  console.log("experimentDefaultValues value is", experimentDefaultValues);
   const getImportId = async () => {
-    console.log("getting import id");
     const res = await apiCall<{ id: string }>("/experiments/import", {
       method: "POST",
       body: JSON.stringify({
@@ -109,12 +107,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }),
     });
     if (res?.id) {
-      console.log("setting import id to ", res.id);
       setImportId(res.id);
     }
   };
   useEffect(() => {
-    console.log("useEffect triggered");
     getImportId();
   }, [datasourceId]);
 
@@ -152,49 +148,50 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const defaultValues = {
-    project: experimentDefaultValues?.project || project || "",
-    implementation: experimentDefaultValues?.implementation || "code",
-    trackingKey: experimentDefaultValues?.trackingKey || "",
-    datasource:
-      experimentDefaultValues?.datasource || datasources?.[0]?.id || "",
-    userIdType: experimentDefaultValues?.userIdType || "anonymous",
-    name: experimentDefaultValues?.name || "",
-    hypothesis: experimentDefaultValues?.hypothesis || "",
-    activationMetric: experimentDefaultValues?.activationMetric || "",
-    removeMultipleExposures:
-      experimentDefaultValues?.removeMultipleExposures ?? true,
-    metrics: experimentDefaultValues?.metrics || [],
-    tags: experimentDefaultValues?.tags || [],
-    targetURLRegex: experimentDefaultValues?.targetURLRegex || "",
-    description: experimentDefaultValues?.description || "",
-    guardrails: experimentDefaultValues?.guardrails || [],
-    variations:
-      experimentDefaultValues?.variations ||
-      getDefaultVariations(initialNumVariations),
-    phases: initialPhases,
-    status: experimentDefaultValues?.status || "running",
-    ideaSource: idea || "",
+  const getDefaultValues = () => {
+    return {
+      project: experimentDefaultValues?.project || project || "",
+      implementation: experimentDefaultValues?.implementation || "code",
+      trackingKey: experimentDefaultValues?.trackingKey || "",
+      datasource:
+        experimentDefaultValues?.datasource || datasources?.[0]?.id || "",
+      userIdType: experimentDefaultValues?.userIdType || "anonymous",
+      name: experimentDefaultValues?.name || "",
+      hypothesis: experimentDefaultValues?.hypothesis || "",
+      activationMetric: experimentDefaultValues?.activationMetric || "",
+      removeMultipleExposures:
+        experimentDefaultValues?.removeMultipleExposures ?? true,
+      metrics: experimentDefaultValues?.metrics || [],
+      tags: experimentDefaultValues?.tags || [],
+      targetURLRegex: experimentDefaultValues?.targetURLRegex || "",
+      description: experimentDefaultValues?.description || "",
+      guardrails: experimentDefaultValues?.guardrails || [],
+      variations:
+        experimentDefaultValues?.variations ||
+        getDefaultVariations(initialNumVariations),
+      phases: initialPhases,
+      status: experimentDefaultValues?.status || "running",
+      ideaSource: idea || "",
+    };
   };
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
-    defaultValues: defaultValues,
+    defaultValues: getDefaultValues(),
   });
 
-  // useEffect(() => {
-  //   setForm(
-  //     useForm<Partial<ExperimentInterfaceStringDates>>({
-  //       defaultValues: defaultValues,
-  //     })
-  //   );
-  // }, [experimentDefaultValues]);
+  useEffect(() => {
+    // update the form defaults when the experiment defaults change:
+    if (experimentDefaultValues) {
+      form.reset(getDefaultValues());
+    }
+  }, [experimentDefaultValues]);
 
   const variations = useFieldArray({
     name: "variations",
     control: form.control,
   });
 
-  const [importModal, setImportModal] = useState<boolean>(false);
+  const [importModal, setImportModal] = useState<boolean>(true);
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
@@ -249,7 +246,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   if (importModal) {
-    console.log("showing import list");
     return (
       <Modal
         header="Import Experiment"
@@ -264,7 +260,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             setImportModal(false);
           }}
         >
-          Back to new experiment form
+          Create new experiment
         </a>
         <SelectField
           label=" Import from data source:"
@@ -277,12 +273,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         />
         <ImportExperimentList
           onImport={(create) => {
-            console.log("create exp ");
-            console.log("set to exp value", create);
             setExperimentDefaultValues(create);
-            console.log("turned off import list modal");
             setImportModal(false);
-            console.log("set to import more");
             setIsImporting(true);
           }}
           importId={importId}
@@ -290,7 +282,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       </Modal>
     );
   }
-  console.log("showing usual list");
   return (
     <PagedModal
       header={isImporting ? "Import Experiment" : "New Experiment"}
@@ -303,7 +294,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
     >
       <Page display="Basic Info">
-        {!isImporting && datasources.length > 0 && (
+        {datasources.length > 0 && (
           <a
             className="cursor-pointer float-right"
             onClick={(e) => {
