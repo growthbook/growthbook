@@ -16,6 +16,7 @@ const reportSchema = new mongoose.Schema({
   runStarted: Date,
   error: String,
   queries: queriesSchema,
+  status: String,
   type: String,
   args: {},
   results: {},
@@ -30,6 +31,7 @@ export async function createReport(
   initialValue: Partial<ReportInterface>
 ): Promise<ReportInterface> {
   const report = await ReportModel.create({
+    status: "private",
     ...initialValue,
     organization,
     id: uniqid("rep_"),
@@ -63,8 +65,12 @@ export async function getReportsByOrg(
       organization,
       project
     );
+    const expMap = new Map();
+    allExperiments.map((e) => {
+      expMap.set(e.id, true);
+    });
     reports = reports.filter((r) => {
-      if (allExperiments.filter((e) => e.id === r.experimentId).length > 0) {
+      if (expMap.get(r.experimentId)) {
         return true;
       }
     });

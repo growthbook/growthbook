@@ -13,6 +13,7 @@ export interface ReportInterfaceBase {
   runStarted: Date | null;
   error?: string;
   queries: Queries;
+  status?: "published" | "private";
 }
 
 export interface ExperimentReportVariation {

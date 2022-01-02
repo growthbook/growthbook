@@ -189,6 +189,8 @@ export async function putReport(
   }
   if ("title" in req.body) updates.title = req.body.title;
   if ("description" in req.body) updates.description = req.body.description;
+  if ("status" in req.body) updates.status = req.body.status;
+
   await updateReport(org.id, req.params.id, updates);
 
   if (needsRun) {

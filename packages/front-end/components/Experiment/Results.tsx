@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useState, useContext } from "react";
+import React, { FC, useState, useContext, useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
@@ -45,10 +45,9 @@ const Results: FC<{
       (dimension ? "/" + dimension : "")
   );
 
-  const [showReports, setShowReports] = useState(null);
-  useEffect(() => {
-    // If needed, check to see if we should show ad-hoc reports here:
-    setShowReports(true);
+  const showReports = useMemo(() => {
+    // TODO: logic to see if we should show reports or not
+    return true;
   }, [experiment]);
 
   if (error) {
@@ -260,10 +259,12 @@ const Results: FC<{
             </div>
           )}
           {showReports && (
-            <ExperimentReportsList
-              experiment={experiment}
-              snapshot={snapshot}
-            />
+            <div className="p-3">
+              <ExperimentReportsList
+                experiment={experiment}
+                snapshot={snapshot}
+              />
+            </div>
           )}
         </>
       )}

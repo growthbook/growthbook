@@ -3,12 +3,12 @@ import { GBAddCircle } from "../Icons";
 import Link from "next/link";
 import React from "react";
 import { ago, datetime } from "../../services/dates";
-import { hasFileConfig } from "../../services/env";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
+import Button from "../Button";
 
 export default function ExperimentReportsList({
   experiment,
@@ -58,7 +58,7 @@ export default function ExperimentReportsList({
           </div>
           {canCreateReports && (
             <div className="col-auto">
-              <button
+              <Button
                 className="btn btn-primary float-right"
                 color="outline-info"
                 onClick={async () => {
@@ -80,7 +80,7 @@ export default function ExperimentReportsList({
                   <GBAddCircle />
                 </span>
                 New Custom Report
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -125,7 +125,7 @@ export default function ExperimentReportsList({
             ))}
             {!reports.length && (
               <tr>
-                <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
+                <td colSpan={3} align={"center"}>
                   No custom reports created
                 </td>
               </tr>

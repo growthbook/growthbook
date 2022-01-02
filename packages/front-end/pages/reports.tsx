@@ -98,7 +98,8 @@ const ReportsPage = (): React.ReactElement => {
       if (onlyMyReports) {
         return r.userId === userId;
       } else {
-        return true;
+        // when showing 'all' show all your reports, but only published reports from everyone else (or if status isn't set because it was before the change)
+        return r.userId === userId || r?.status === "published" || !r?.status;
       }
     })
     .sort((a, b) => {
@@ -115,7 +116,7 @@ const ReportsPage = (): React.ReactElement => {
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto">
           <h3>
-            Your Reports{" "}
+            Custom Reports{" "}
             <small className="text-muted">
               <Tooltip text="Reports are used by data teams to explore experiment results" />
             </small>
@@ -205,17 +206,19 @@ const ReportsPage = (): React.ReactElement => {
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSort("type");
+                  setSort("status");
                 }}
               >
-                Type{" "}
+                Status{" "}
                 <a
                   href="#"
                   className={
-                    reportSort.field === "type" ? "activesort" : "inactivesort"
+                    reportSort.field === "status"
+                      ? "activesort"
+                      : "inactivesort"
                   }
                 >
-                  {reportSort.field === "type" ? (
+                  {reportSort.field === "status" ? (
                     reportSort.dir < 0 ? (
                       <FaSortUp />
                     ) : (
@@ -347,7 +350,7 @@ const ReportsPage = (): React.ReactElement => {
                 >
                   {report.description},
                 </td>
-                <td>{report.type}</td>
+                <td>{report.status === "private" ? "private" : ""}</td>
                 <td>{getExperimentName(report.experimentId)}</td>
                 <td>{name}</td>
                 <td
