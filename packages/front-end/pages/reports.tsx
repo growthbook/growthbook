@@ -350,7 +350,7 @@ const ReportsPage = (): React.ReactElement => {
                 >
                   {report.description},
                 </td>
-                <td>{report.status === "private" ? "private" : ""}</td>
+                <td>{report.status === "private" ? "private" : "published"}</td>
                 <td>{getExperimentName(report.experimentId)}</td>
                 <td>{name}</td>
                 <td
