@@ -45,7 +45,7 @@ const ReportsPage = (): React.ReactElement => {
       });
     }
     return tmp;
-  }, [experiments]);
+  }, [data.experiments]);
 
   const getExperimentName = (experimentId: string): string => {
     return expMap.get(experimentId)?.name ?? "";
