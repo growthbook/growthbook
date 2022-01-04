@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { GrowthBook } from "..";
+import { ConditionInterface } from "./mongrule";
 
 declare global {
   interface Window {
@@ -9,7 +10,7 @@ declare global {
 }
 
 export type FeatureRule<T = any> = {
-  condition?: RuleSet;
+  condition?: ConditionInterface;
   force?: T;
   variations?: T[];
   weights?: number[];
@@ -28,9 +29,9 @@ export type FeatureResultSource =
   | "unknownFeature"
   | "defaultValue"
   | "force"
+  | "override"
   | "experiment";
 
-// eslint-disable-next-line
 export interface FeatureResult<T = any> {
   value: T | null;
   source: FeatureResultSource;
@@ -45,7 +46,7 @@ export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
   weights?: number[];
-  condition?: Condition;
+  condition?: ConditionInterface;
   coverage?: number;
   include?: () => boolean;
   namespace?: [string, number, number];
@@ -61,7 +62,7 @@ export type Experiment<T> = {
 };
 
 export type ExperimentOverride = {
-  condition?: Condition;
+  condition?: ConditionInterface;
   weights?: number[];
   active?: boolean;
   status?: ExperimentStatus;
@@ -80,6 +81,8 @@ export interface Result<T> {
   hashValue: string;
 }
 
+export type Attributes = Record<string, any>;
+
 export interface Context {
   enabled?: boolean;
   user?: {
@@ -87,22 +90,20 @@ export interface Context {
     anonId?: string;
     [key: string]: string | undefined;
   };
-  // eslint-disable-next-line
-  attributes?: Record<string, any>;
+  attributes?: Attributes;
   groups?: Record<string, boolean>;
   url?: string;
   overrides?: Record<string, ExperimentOverride>;
   features?: Record<string, FeatureDefinition>;
   forcedVariations?: Record<string, number>;
+  log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
-  // eslint-disable-next-line
+  noWindowRef?: boolean;
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
 }
 
 export type SubscriptionFunction = (
-  // eslint-disable-next-line
   experiment: Experiment<any>,
-  // eslint-disable-next-line
   result: Result<any>
 ) => void;
 
