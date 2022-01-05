@@ -460,4 +460,90 @@ describe("features", () => {
       baz: 3,
     });
   });
+
+  it("uses attribute overrides", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        foo: "bar",
+      },
+    });
+
+    growthbook.setAttributeOverrides({
+      foo: "baz",
+    });
+
+    expect(growthbook.getAttributes()).toEqual({
+      id: "123",
+      foo: "baz",
+    });
+    expect(
+      growthbook.run({
+        key: "my-test",
+        variations: [0, 1],
+        hashAttribute: "foo",
+      }).hashValue
+    ).toEqual("baz");
+
+    growthbook.setAttributeOverrides({});
+    expect(growthbook.getAttributes()).toEqual({
+      id: "123",
+      foo: "bar",
+    });
+    expect(
+      growthbook.run({
+        key: "my-test",
+        variations: [0, 1],
+        hashAttribute: "foo",
+      }).hashValue
+    ).toEqual("bar");
+
+    growthbook.destroy();
+  });
+
+  it("uses forced feature values", () => {
+    const growthbook = new GrowthBook({
+      features: {
+        feature1: {
+          defaultValue: 0,
+        },
+        feature2: {
+          defaultValue: 0,
+        },
+      },
+    });
+
+    growthbook.setForcedFeatures(
+      new Map(
+        Object.entries({
+          feature2: 1,
+          feature3: 1,
+        })
+      )
+    );
+
+    expect(growthbook.feature("feature1").value).toEqual(0);
+    expect(growthbook.feature("feature2").value).toEqual(1);
+    expect(growthbook.feature("feature3").value).toEqual(1);
+
+    growthbook.setForcedFeatures(new Map());
+    expect(growthbook.feature("feature1").value).toEqual(0);
+    expect(growthbook.feature("feature2").value).toEqual(0);
+    expect(growthbook.feature("feature3").value).toEqual(null);
+
+    growthbook.destroy();
+  });
+
+  it("gets features", () => {
+    const features = {
+      feature1: { defaultValue: 0 },
+    };
+    const growthbook = new GrowthBook({
+      features,
+    });
+
+    expect(growthbook.getFeatures()).toEqual(features);
+
+    growthbook.destroy();
+  });
 });

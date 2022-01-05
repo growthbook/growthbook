@@ -98,7 +98,7 @@ export interface Context {
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
-  noWindowRef?: boolean;
+  disableDevTools?: boolean;
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
 }
 
