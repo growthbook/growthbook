@@ -6,7 +6,8 @@ import type {
   SubscriptionFunction,
   FeatureDefinition,
   FeatureResultSource,
-} from "./types";
+  Attributes,
+} from "./types/";
 import type { ConditionInterface } from "./types/mongrule";
 import {
   getUrlRegExp,
@@ -23,9 +24,12 @@ export type {
   Context,
   Experiment,
   Result,
+  FeatureDefinition,
+  FeatureRule,
+  Attributes,
   FeatureResult,
   ExperimentOverride,
-} from "./types";
+} from "./types/";
 
 export type { ConditionInterface } from "./types/mongrule";
 
@@ -46,32 +50,55 @@ class GrowthBook {
       result: Result<any>;
     }
   >();
+  // eslint-disable-next-line
+  private _forcedFeatureValues = new Map<string, any>();
+  private _attributeOverrides: Attributes = {};
 
   constructor(context: Context = {}) {
     this.context = context;
 
-    if (isBrowser) {
+    if (isBrowser && !context.disableDevTools) {
       window._growthbook = this;
+      document.dispatchEvent(new Event("gbloaded"));
+    }
+  }
+
+  private render() {
+    if (this._renderer) {
+      this._renderer();
     }
   }
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this.context.features = features;
-    if (this._renderer) {
-      this._renderer();
-    }
+    this.render();
   }
 
-  // eslint-disable-next-line
-  public setAttributes(attributes: Record<string, any>) {
+  public setAttributes(attributes: Attributes) {
     this.context.attributes = attributes;
-    if (this._renderer) {
-      this._renderer();
-    }
+    this.render();
+  }
+
+  public setAttributeOverrides(overrides: Attributes) {
+    this._attributeOverrides = overrides;
+    this.render();
+  }
+  public setForcedVariations(vars: Record<string, number>) {
+    this.context.forcedVariations = vars || {};
+    this.render();
+  }
+  // eslint-disable-next-line
+  public setForcedFeatures(map: Map<string, any>) {
+    this._forcedFeatureValues = map;
+    this.render();
   }
 
   public getAttributes() {
-    return this.context.attributes || {};
+    return { ...this.context.attributes, ...this._attributeOverrides };
+  }
+
+  public getFeatures() {
+    return this.context.features || {};
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -104,10 +131,7 @@ class GrowthBook {
   public forceVariation(key: string, variation: number) {
     this.context.forcedVariations = this.context.forcedVariations || {};
     this.context.forcedVariations[key] = variation;
-
-    if (this._renderer) {
-      this._renderer();
-    }
+    this.render();
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
@@ -153,9 +177,23 @@ class GrowthBook {
 
   // eslint-disable-next-line
   public feature<T = any>(id: string): FeatureResult<T | null> {
+    // Global override
+    if (this._forcedFeatureValues.has(id)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Global override", {
+          id,
+          value: this._forcedFeatureValues.get(id),
+        });
+      return this.getFeatureResult(
+        this._forcedFeatureValues.get(id),
+        "override"
+      );
+    }
+
     // Unknown feature id
     if (!this.context.features || !this.context.features[id]) {
-      process.env.NODE_ENV !== "production" && this.log("Unknown feature", id);
+      process.env.NODE_ENV !== "production" &&
+        this.log("Unknown feature", { id });
       return this.getFeatureResult(null, "unknownFeature");
     }
 
@@ -168,10 +206,9 @@ class GrowthBook {
         // If it's a conditional rule, skip if the condition doesn't pass
         if (rule.condition && !this.conditionPasses(rule.condition)) {
           process.env.NODE_ENV !== "production" &&
-            this.log("Skipping feature rule since condition does not pass", {
+            this.log("Skip rule because of condition", {
               id,
               rule,
-              condition: rule.condition,
             });
           continue;
         }
@@ -182,47 +219,37 @@ class GrowthBook {
             const { hashValue } = this.getHashAttribute(rule.hashAttribute);
             if (!hashValue) {
               process.env.NODE_ENV !== "production" &&
-                this.log("Skipping feature rule since hashAttribute is empty", {
+                this.log("Skip rule because of missing hashAttribute", {
                   id,
                   rule,
-                  attr: rule.hashAttribute || "id",
                 });
               continue;
             }
             const n = (hashFnv32a(hashValue + id) % 1000) / 1000;
             if (n > (rule.coverage as number)) {
               process.env.NODE_ENV !== "production" &&
-                this.log(
-                  "Skipping feature rule since user outside of coverage",
-                  {
-                    id,
-                    rule,
-                    coverage: rule.coverage,
-                    hashValue,
-                  }
-                );
+                this.log("Skip rule because of coverage", {
+                  id,
+                  rule,
+                });
               continue;
             }
           }
 
           process.env.NODE_ENV !== "production" &&
-            this.log("Forcing feature value from rule", {
+            this.log("Force value from rule", {
               id,
               rule,
-              value: rule.force,
             });
 
           return this.getFeatureResult(rule.force, "force");
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
-            this.log(
-              "Skipping feature rule since no force or variations are defined",
-              {
-                id,
-                rule,
-              }
-            );
+            this.log("Skip invalid rule", {
+              id,
+              rule,
+            });
 
           continue;
         }
@@ -244,29 +271,34 @@ class GrowthBook {
       }
     }
 
+    process.env.NODE_ENV !== "production" &&
+      this.log("Use default value", {
+        id,
+        value: feature.defaultValue ?? null,
+      });
+
     // Fall back to using the default value
     return this.getFeatureResult(feature.defaultValue ?? null, "defaultValue");
   }
 
   private conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.context.attributes || {}, condition);
+    return evalCondition(this.getAttributes(), condition);
   }
 
   private _run<T>(experiment: Experiment<T>): Result<T> {
     const key = experiment.key;
 
-    process.env.NODE_ENV !== "production" && this.log("runExperiment", key);
-
     // 1. If experiment is invalid, return immediately
     if (experiment.variations.length < 2) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Experiment is invalid");
+        this.log("Invalid experiment", { id: key });
       return this.getResult(experiment);
     }
 
     // 2. If the context is disabled, return immediately
     if (this.context.enabled === false) {
-      process.env.NODE_ENV !== "production" && this.log("Context Disabled");
+      process.env.NODE_ENV !== "production" &&
+        this.log("Context disabled", { id: key });
       return this.getResult(experiment);
     }
 
@@ -277,57 +309,67 @@ class GrowthBook {
     const qsOverride = getQueryStringOverride(key, this.getContextUrl());
     if (qsOverride !== null) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via querystring");
+        this.log("Force via querystring", {
+          id: key,
+          variation: qsOverride,
+        });
       return this.getResult(experiment, qsOverride);
     }
 
     // 5. If a variation is forced in the context, return the forced variation
     if (this.context.forcedVariations && key in this.context.forcedVariations) {
+      const variation = this.context.forcedVariations[key];
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via context.forcedVariations");
-      return this.getResult(experiment, this.context.forcedVariations[key]);
+        this.log("Force via dev tools", {
+          id: key,
+          variation,
+        });
+      return this.getResult(experiment, variation);
     }
 
     // 6. Exclude if a draft experiment or not active
     if (experiment.status === "draft" || experiment.active === false) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because of draft status or not active");
+        this.log("Skip because inactive", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 7. Get the hash attribute and return if empty
-    const { hashAttribute, hashValue } = this.getHashAttribute(
-      experiment.hashAttribute
-    );
+    const { hashValue } = this.getHashAttribute(experiment.hashAttribute);
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Exclude because of missing hashAttribute in context",
-          hashAttribute
-        );
+        this.log("Skip because missing hashAttribute", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 8. Exclude if user not in experiment.namespace
     if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because hashValue not in experiment.namespace range");
+        this.log("Skip because of namespace", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 9. Exclude if experiment.include returns false or throws
     if (experiment.include && !isIncluded(experiment.include)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because experiment.include did not return true");
+        this.log("Skip because of include function", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 10. Exclude if condition is false
     if (experiment.condition && !this.conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Exclude because experiment.condition did not evaluate to true"
-        );
+        this.log("Skip because of condition", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
@@ -337,16 +379,18 @@ class GrowthBook {
       !this.hasGroupOverlap(experiment.groups as string[])
     ) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because user not in required group");
+        this.log("Skip because of groups", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 12. Exclude if not on a targeted url
     if (experiment.url && !this.urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Exclude because context url does not match experiment.url regex"
-        );
+        this.log("Skip because of url", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
@@ -366,28 +410,37 @@ class GrowthBook {
     // 16. Return if not in experiment
     if (assigned < 0) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because of coverage");
+        this.log("Skip because of coverage", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 17. Experiment has a forced variation
     if ("force" in experiment) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via experiment");
+        this.log("Force variation", {
+          id: key,
+          variation: experiment.force,
+        });
       return this.getResult(experiment, experiment.force);
     }
 
     // 18. Exclude if in QA mode
     if (this.context.qaMode) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because context is in QA mode");
+        this.log("Skip because QA mode", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 19. Exclude if experiment is stopped
     if (experiment.status === "stopped") {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because status is 'stopped'");
+        this.log("Skip because stopped", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
@@ -396,14 +449,20 @@ class GrowthBook {
     this.track(experiment, result);
 
     // 21. Return the result
+
     process.env.NODE_ENV !== "production" &&
-      this.log("Assigned variation", result.variationId);
+      this.log("In experiment", {
+        id: key,
+        variation: result.variationId,
+      });
     return result;
   }
 
   // eslint-disable-next-line
-  private log(msg: string, ctx?: any) {
-    this.debug && console.log(msg, ctx);
+  private log(msg: string, ctx: Record<string, any>) {
+    if (!this.debug) return;
+    if (this.context.log) this.context.log(msg, ctx);
+    else console.log(msg, ctx);
   }
 
   private track<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -444,7 +503,9 @@ class GrowthBook {
     const hashAttribute = attr || "id";
 
     let hashValue = "";
-    if (this.context.attributes) {
+    if (this._attributeOverrides[hashAttribute]) {
+      hashValue = this._attributeOverrides[hashAttribute];
+    } else if (this.context.attributes) {
       hashValue = this.context.attributes[hashAttribute] || "";
     } else if (this.context.user) {
       hashValue = this.context.user[hashAttribute] || "";

@@ -231,9 +231,8 @@ describe("experiments", () => {
       variations: [0, 1],
     });
     // Should be
-    // 1. Trying to put user in experiment
-    // 2. User put in experiment
-    expect(spy.mock.calls.length).toEqual(2);
+    // 1. In experiment
+    expect(spy.mock.calls.length).toEqual(1);
 
     growthbook.debug = false;
     spy.mockRestore();
@@ -756,6 +755,32 @@ describe("experiments", () => {
     const res2 = growthbook.run(exp);
     expect(res2.inExperiment).toEqual(false);
     expect(res2.value).toEqual(0);
+
+    growthbook.destroy();
+  });
+
+  it("forces multiple variations at once", () => {
+    const growthbook = new GrowthBook({ attributes: { id: "1" } });
+    const exp: Experiment<number> = {
+      key: "my-test",
+      variations: [0, 1],
+    };
+    const res1 = growthbook.run(exp);
+    expect(res1.inExperiment).toEqual(true);
+    expect(res1.value).toEqual(1);
+
+    growthbook.setForcedVariations({
+      "my-test": 0,
+    });
+
+    const res2 = growthbook.run(exp);
+    expect(res2.inExperiment).toEqual(false);
+    expect(res2.value).toEqual(0);
+
+    growthbook.setForcedVariations({});
+    const res3 = growthbook.run(exp);
+    expect(res3.inExperiment).toEqual(true);
+    expect(res3.value).toEqual(1);
 
     growthbook.destroy();
   });
