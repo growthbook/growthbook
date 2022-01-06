@@ -192,7 +192,8 @@ class GrowthBook {
 
     // Unknown feature id
     if (!this.context.features || !this.context.features[id]) {
-      process.env.NODE_ENV !== "production" && this.log("Unknown id", { id });
+      process.env.NODE_ENV !== "production" &&
+        this.log("Unknown feature", { id });
       return this.getFeatureResult(null, "unknownFeature");
     }
 
