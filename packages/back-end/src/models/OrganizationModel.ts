@@ -76,7 +76,8 @@ export async function createOrganization(
   email: string,
   userId: string,
   name: string,
-  url: string
+  url: string,
+  onBoarding: boolean = true
 ) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -91,6 +92,9 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    settings: {
+      onBoarding: onBoarding,
+    },
   });
   return toInterface(doc);
 }
@@ -132,6 +136,7 @@ export async function updateOrganizationByStripeId(
 
 export async function hasOrganization() {
   const res = await OrganizationModel.findOne();
+  return false;
   return !!res;
 }
 

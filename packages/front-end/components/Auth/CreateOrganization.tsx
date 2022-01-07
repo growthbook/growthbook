@@ -18,6 +18,9 @@ export default function CreateOrganization(): ReactElement {
   const form = useForm({
     defaultValues: {
       company: "",
+      settings: {
+        onBoarding: true,
+      },
     },
   });
 
@@ -65,6 +68,7 @@ export default function CreateOrganization(): ReactElement {
               setError(null);
               setLoading(true);
               try {
+                console.log(value);
                 await apiCall("/organization", {
                   method: "POST",
                   body: JSON.stringify(value),

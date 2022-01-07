@@ -8,6 +8,7 @@ import {
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
+import InitialOrgQuestions from "./Auth/InitialOrgQuestions";
 import md5 from "md5";
 import track from "../services/track";
 import { OrganizationSettings } from "back-end/types/organization";
@@ -199,10 +200,16 @@ const ProtectedPage: React.FC<{
     settings: currentOrg?.settings || {},
   };
 
+  const showOnBoarding = userContextValue.settings?.onBoarding;
+
   return (
     <UserContext.Provider value={userContextValue} key={orgId}>
       {orgId ? (
-        <WatchProvider>{children}</WatchProvider>
+        showOnBoarding ? (
+          <InitialOrgQuestions />
+        ) : (
+          <WatchProvider>{children}</WatchProvider>
+        )
       ) : (
         <CreateOrganization />
       )}

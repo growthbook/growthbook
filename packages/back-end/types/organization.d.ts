@@ -57,6 +57,8 @@ export interface OrganizationSettings {
   primaryColor?: string;
   secondaryColor?: string;
   northStar?: NorthStarMetric;
+  onBoarding?: boolean;
+  primaryUse?: "full" | "analysis" | "notsure" | "skipped";
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
