@@ -271,14 +271,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           }))}
           onChange={setDatasourceId}
         />
-        <ImportExperimentList
-          onImport={(create) => {
-            setExperimentDefaultValues(create);
-            setImportModal(false);
-            setIsImporting(true);
-          }}
-          importId={importId}
-        />
+        {importId && (
+          <ImportExperimentList
+            onImport={(create) => {
+              setExperimentDefaultValues(create);
+              setImportModal(false);
+              setIsImporting(true);
+            }}
+            importId={importId}
+          />
+        )}
       </Modal>
     );
   }
