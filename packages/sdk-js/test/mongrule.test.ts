@@ -15,7 +15,7 @@ describe("condition", () => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
-      expect(evalCondition(condition, value)).toEqual(expected);
+      expect(evalCondition(value, condition)).toEqual(expected);
       expect(consoleErrorMock).toHaveBeenCalledTimes(expectError ? 1 : 0);
       consoleErrorMock.mockRestore();
     }

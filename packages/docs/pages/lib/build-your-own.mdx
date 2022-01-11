@@ -12,7 +12,7 @@ There are a number of important data structures in GrowthBook client libraries.
 
 ### Condition
 
-Targeting condition based on MongoDB query syntax. This is a recursive JSON object with arbitrary nesting levels.  For example:
+Targeting condition based on MongoDB query syntax. This is a recursive JSON object with arbitrary nesting levels. For example:
 
 ```ts
 {
@@ -275,8 +275,6 @@ Both experiments and features can define targeting conditions using a syntax mod
 
 These conditions can have arbitrary nesting levels and evaluating them requires recursion. There are a handful of functions to define, and be aware that some of them may reference function definitions further below.
 
-There are many test cases for the Javascript SDK in [mongrule.test.ts](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/test/mongrule.test.ts). Make sure your implementation passes all of these.
-
 ### evalCondition(attributes, conditionObj): boolean
 
 This is the main function used to evaluate a condition.
@@ -320,6 +318,7 @@ This accepts a parsed JSON object as input and returns `true` if every key in th
 This returns the data type of the passed in argument.
 
 The valid types to return are:
+
 - `string`
 - `number`
 - `boolean`
@@ -332,11 +331,11 @@ The valid types to return are:
 The difference between `null` and `undefined` can be illustrated as follows:
 
 ```ts
-obj = JSON.parse('{"foo": null}')
+obj = JSON.parse('{"foo": null}');
 
-getType(obj["foo"]) // null
+getType(obj["foo"]); // null
 
-getType(obj["bar"]) // undefined
+getType(obj["bar"]); // undefined
 ```
 
 The value `unknown` is there just in case you can't figure out the data type for whatever reason. It will never be used in most implementations.
@@ -358,13 +357,13 @@ Given the input:
 
 It should return:
 
--  `getPath(input, "name")` -> `"john"`
--  `getPath(input, "job.title")` -> `"developer"`
--  `getPath(input, "job.company")` -> `null` or `undefined`
+- `getPath(input, "name")` -> `"john"`
+- `getPath(input, "job.title")` -> `"developer"`
+- `getPath(input, "job.company")` -> `null` or `undefined`
 
 ### evalConditionValue(conditionValue, attributeValue): boolean
 
-1. If `conditionValue` is a string, number, boolean, or array, return true if it's "equal" to `attributeValue` and false if not.  "equal" should do a deep comparison for arrays.
+1. If `conditionValue` is a string, number, boolean, or array, return true if it's "equal" to `attributeValue` and false if not. "equal" should do a deep comparison for arrays.
 2. If `conditionValue` is an object, loop over each key/value pair:
    1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
 3. Return true
@@ -375,10 +374,10 @@ This checks if `attributeValue` is an array, and if so at least one of the array
 
 1. If `attributeValue` is not an array, return false
 2. Loop through items in `attributeValue`
-  1. If `isOperatorValue(condition)`
-    1. If `evalConditionValue(condition, item)`, break out of loop and return true
-  2. Else if `evalCondition(item, condition)`, break out of loop and return true
-3. Return false
+3. If `isOperatorValue(condition)`
+4. If `evalConditionValue(condition, item)`, break out of loop and return true
+5. Else if `evalCondition(item, condition)`, break out of loop and return true
+6. Return false
 
 ### evalOperatorCondition(operator, attributeValue, conditionValue)
 
@@ -408,8 +407,8 @@ There are 3 operators where attributeValue is an array:
 
 - `$elemMatch` - return `elemMatch(conditionValue, attributeValue)`
 - `$size`
-   1. If attributeValue is not an array, return false
-   2. Return `evalConditionValue(conditionValue, attributeValue.length)`
+  1.  If attributeValue is not an array, return false
+  2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
 
 There are 3 other operators:
 
@@ -532,7 +531,21 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 ## Tests
 
-We strive to have 100% test coverage for all of our client libraries. Since they all use the same data structures, the test suites are pretty transferrable between languages. Pick the closest existing SDK as a guide and adapt as needed.
+We strive to have 100% test coverage for all of our client libraries.
+
+There are language-agnostic test suites stored as JSON files in `packages/sdk-js/test/cases/`. This covers things like hashing, feature rules, variation assignment, and evaluating conditions. The files are arrays of arrays. Each test case has the following structure
+
+- `mongrule.json` - tests for `evalCondition`
+  - name of the test case (string)
+  - expected return value (boolean)
+  - condition
+  - attributes
+  - whether or not a logged error is expected (boolean, optional, default false)
+- `features.json` - coming soon
+- `experiments.json` - coming soon
+- `fnv.json` - coming soon
+
+In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, constructor args, etc. that are more language-specific.
 
 ## Getting Help
 
