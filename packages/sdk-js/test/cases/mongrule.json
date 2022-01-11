@@ -1,0 +1,952 @@
+[
+  [
+    "$not - pass",
+    true,
+    {
+      "$not": {
+        "name": "hello"
+      }
+    },
+    { "name": "world" }
+  ],
+  [
+    "$not - fail",
+    false,
+    {
+      "$not": {
+        "name": "hello"
+      }
+    },
+    {
+      "name": "hello"
+    },
+    false
+  ],
+  [
+    "$and/$or - all true",
+    true,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "santa",
+      "bday": "1980-12-25",
+      "father": {
+        "age": 70
+      }
+    }
+  ],
+  [
+    "$and/$or - first or true",
+    true,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "santa",
+      "bday": "1980-12-20",
+      "father": {
+        "age": 70
+      }
+    }
+  ],
+  [
+    "$and/$or - second or true",
+    true,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "barbara",
+      "bday": "1980-12-25",
+      "father": {
+        "age": 70
+      }
+    }
+  ],
+  [
+    "$and/$or - first and false",
+    false,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "santa",
+      "bday": "1980-12-25",
+      "father": {
+        "age": 65
+      }
+    }
+  ],
+  [
+    "$and/$or - both or false",
+    false,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "barbara",
+      "bday": "1980-11-25",
+      "father": {
+        "age": 70
+      }
+    }
+  ],
+  [
+    "$and/$or - both and false",
+    false,
+    {
+      "$and": [
+        {
+          "father.age": { "$gt": 65 }
+        },
+        {
+          "$or": [{ "bday": { "$regex": "-12-25$" } }, { "name": "santa" }]
+        }
+      ]
+    },
+    {
+      "name": "john smith",
+      "bday": "1956-12-20",
+      "father": {
+        "age": 40
+      }
+    }
+  ],
+  [
+    "$exists - false pass",
+    true,
+    {
+      "pets.dog.name": {
+        "$exists": false
+      }
+    },
+    { "hello": "world" }
+  ],
+  [
+    "$exists - false fail",
+    false,
+    {
+      "pets.dog.name": {
+        "$exists": false
+      }
+    },
+    { "pets": { "dog": { "name": "fido" } } }
+  ],
+  [
+    "$exists - true fail",
+    false,
+    {
+      "pets.dog.name": {
+        "$exists": true
+      }
+    },
+    { "hello": "world" }
+  ],
+  [
+    "$exists - true pass",
+    true,
+    {
+      "pets.dog.name": {
+        "$exists": true
+      }
+    },
+    { "pets": { "dog": { "name": "fido" } } }
+  ],
+  [
+    "equals - multiple datatypes",
+    true,
+    {
+      "str": "str",
+      "num": 10,
+      "flag": false
+    },
+    {
+      "str": "str",
+      "num": 10,
+      "flag": false
+    }
+  ],
+  [
+    "$in - pass",
+    true,
+    {
+      "num": {
+        "$in": [1, 2, 3]
+      }
+    },
+    { "num": 2 }
+  ],
+  [
+    "$in - fail",
+    false,
+    {
+      "num": {
+        "$in": [1, 2, 3]
+      }
+    },
+    { "num": 4 }
+  ],
+  [
+    "$nin - pass",
+    true,
+    {
+      "num": {
+        "$nin": [1, 2, 3]
+      }
+    },
+    { "num": 4 }
+  ],
+  [
+    "$nin - fail",
+    false,
+    {
+      "num": {
+        "$nin": [1, 2, 3]
+      }
+    },
+    { "num": 2 }
+  ],
+  [
+    "$elemMatch - pass - flat arrays",
+    true,
+    {
+      "nums": {
+        "$elemMatch": {
+          "$gt": 10
+        }
+      }
+    },
+    { "nums": [0, 5, -20, 15] }
+  ],
+  [
+    "$elemMatch - fail - flat arrays",
+    false,
+    {
+      "nums": {
+        "$elemMatch": {
+          "$gt": 10
+        }
+      }
+    },
+    { "nums": [0, 5, -20, 8] }
+  ],
+  [
+    "missing attribute - fail",
+    false,
+    {
+      "pets.dog.name": {
+        "$in": ["fido"]
+      }
+    },
+    { "hello": "world" }
+  ],
+  [
+    "empty $or - pass",
+    true,
+    {
+      "$or": []
+    },
+    { "hello": "world" }
+  ],
+  [
+    "empty $and - pass",
+    true,
+    {
+      "$and": []
+    },
+    { "hello": "world" }
+  ],
+  ["empty - pass", true, {}, { "hello": "world" }],
+  [
+    "$eq - pass",
+    true,
+    {
+      "occupation": {
+        "$eq": "engineer"
+      }
+    },
+    {
+      "occupation": "engineer"
+    }
+  ],
+  [
+    "$eq - fail",
+    false,
+    {
+      "occupation": {
+        "$eq": "engineer"
+      }
+    },
+    {
+      "occupation": "civil engineer"
+    }
+  ],
+  [
+    "$ne - pass",
+    true,
+    {
+      "level": {
+        "$ne": "senior"
+      }
+    },
+    {
+      "level": "junior"
+    }
+  ],
+  [
+    "$ne - fail",
+    false,
+    {
+      "level": {
+        "$ne": "senior"
+      }
+    },
+    {
+      "level": "senior"
+    }
+  ],
+  [
+    "$regex - pass",
+    true,
+    {
+      "userAgent": {
+        "$regex": "(Mobile|Tablet)"
+      }
+    },
+    {
+      "userAgent": "Android Mobile Browser"
+    }
+  ],
+  [
+    "$regex - fail",
+    false,
+    {
+      "userAgent": {
+        "$regex": "(Mobile|Tablet)"
+      }
+    },
+    {
+      "userAgent": "Chrome Desktop Browser"
+    }
+  ],
+  [
+    "$gt/$lt numbers - pass",
+    true,
+    {
+      "age": {
+        "$gt": 30,
+        "$lt": 60
+      }
+    },
+    {
+      "age": 50
+    }
+  ],
+  [
+    "$gt/$lt numbers - fail $lt",
+    false,
+    {
+      "age": {
+        "$gt": 30,
+        "$lt": 60
+      }
+    },
+    {
+      "age": 60
+    }
+  ],
+  [
+    "$gt/$lt numbers - fail $gt",
+    false,
+    {
+      "age": {
+        "$gt": 30,
+        "$lt": 60
+      }
+    },
+    {
+      "age": 30
+    }
+  ],
+  [
+    "$gte/$lte numbers - pass",
+    true,
+    {
+      "age": {
+        "$gte": 30,
+        "$lte": 60
+      }
+    },
+    {
+      "age": 50
+    }
+  ],
+  [
+    "$gte/$lte numbers - pass $gte",
+    true,
+    {
+      "age": {
+        "$gte": 30,
+        "$lte": 60
+      }
+    },
+    {
+      "age": 30
+    }
+  ],
+  [
+    "$gte/$lte numbers - pass $lte",
+    true,
+    {
+      "age": {
+        "$gte": 30,
+        "$lte": 60
+      }
+    },
+    {
+      "age": 60
+    }
+  ],
+  [
+    "$gte/$lte numbers - fail $lte",
+    false,
+    {
+      "age": {
+        "$gte": 30,
+        "$lte": 60
+      }
+    },
+    {
+      "age": 61
+    }
+  ],
+  [
+    "$gte/$lte numbers - fail $gte",
+    false,
+    {
+      "age": {
+        "$gt": 30,
+        "$lt": 60
+      }
+    },
+    {
+      "age": 29
+    }
+  ],
+  [
+    "$gt/$lt strings - fail $gt",
+    false,
+    {
+      "word": {
+        "$gt": "alphabet",
+        "$lt": "zebra"
+      }
+    },
+    {
+      "word": "alphabet"
+    }
+  ],
+  [
+    "$gt/$lt strings - fail $lt",
+    false,
+    {
+      "word": {
+        "$gt": "alphabet",
+        "$lt": "zebra"
+      }
+    },
+    {
+      "word": "zebra"
+    }
+  ],
+  [
+    "$gt/$lt strings - pass",
+    true,
+    {
+      "word": {
+        "$gt": "alphabet",
+        "$lt": "zebra"
+      }
+    },
+    {
+      "word": "always"
+    }
+  ],
+  [
+    "$gt/$lt strings - fail uppercase",
+    false,
+    {
+      "word": {
+        "$gt": "alphabet",
+        "$lt": "zebra"
+      }
+    },
+    {
+      "word": "AZL"
+    }
+  ],
+  ["$type string - pass", true, { "a": { "$type": "string" } }, { "a": "a" }],
+  ["$type string - fail", false, { "a": { "$type": "string" } }, { "a": 1 }],
+  ["$type null - pass", true, { "a": { "$type": "null" } }, { "a": null }],
+  ["$type null - fail", false, { "a": { "$type": "null" } }, { "a": 1 }],
+  [
+    "$type boolean - pass",
+    true,
+    { "a": { "$type": "boolean" } },
+    { "a": false }
+  ],
+  ["$type boolean - fail", false, { "a": { "$type": "boolean" } }, { "a": 1 }],
+  ["$type number - pass", true, { "a": { "$type": "number" } }, { "a": 1 }],
+  ["$type number - fail", false, { "a": { "$type": "number" } }, { "a": "a" }],
+  [
+    "$type object - pass",
+    true,
+    { "a": { "$type": "object" } },
+    { "a": { "a": "b" } }
+  ],
+  ["$type object - fail", false, { "a": { "$type": "object" } }, { "a": 1 }],
+  ["$type array - pass", true, { "a": { "$type": "array" } }, { "a": [1, 2] }],
+  ["$type array - fail", false, { "a": { "$type": "array" } }, { "a": 1 }],
+  [
+    "unknown operator - pass",
+    false,
+    {
+      "name": {
+        "$regx": "hello"
+      }
+    },
+    {
+      "name": "hello"
+    },
+    true
+  ],
+  [
+    "$regex invalid - pass",
+    false,
+    {
+      "name": {
+        "$regex": "/???***[)"
+      }
+    },
+    {
+      "name": "hello"
+    }
+  ],
+  [
+    "$regex invalid - fail",
+    false,
+    {
+      "name": {
+        "$regex": "/???***[)"
+      }
+    },
+    {
+      "hello": "hello"
+    }
+  ],
+  [
+    "$size number - pass",
+    true,
+    {
+      "tags": { "$size": 3 }
+    },
+    {
+      "tags": ["a", "b", "c"]
+    }
+  ],
+  [
+    "$size number - fail small",
+    false,
+    {
+      "tags": { "$size": 3 }
+    },
+    {
+      "tags": ["a", "b"]
+    }
+  ],
+  [
+    "$size number - fail large",
+    false,
+    {
+      "tags": { "$size": 3 }
+    },
+    {
+      "tags": ["a", "b", "c", "d"]
+    }
+  ],
+  [
+    "$size number - fail not array",
+    false,
+    {
+      "tags": { "$size": 3 }
+    },
+    {
+      "tags": "abc"
+    }
+  ],
+  [
+    "$size nested - pass",
+    true,
+    {
+      "tags": { "$size": { "$gt": 2 } }
+    },
+    {
+      "tags": [0, 1, 2]
+    }
+  ],
+  [
+    "$size nested - fail equal",
+    false,
+    {
+      "tags": { "$size": { "$gt": 2 } }
+    },
+    {
+      "tags": [0, 1]
+    }
+  ],
+  [
+    "$size nested - fail less than",
+    false,
+    {
+      "tags": { "$size": { "$gt": 2 } }
+    },
+    {
+      "tags": [0]
+    }
+  ],
+  [
+    "$elemMatch nested - pass",
+    true,
+    {
+      "hobbies": {
+        "$elemMatch": {
+          "name": {
+            "$regex": "^ping"
+          }
+        }
+      }
+    },
+    {
+      "hobbies": [
+        {
+          "name": "bowling"
+        },
+        {
+          "name": "pingpong"
+        },
+        {
+          "name": "tennis"
+        }
+      ]
+    }
+  ],
+  [
+    "$elemMatch nested - fail",
+    false,
+    {
+      "hobbies": {
+        "$elemMatch": {
+          "name": {
+            "$regex": "^ping"
+          }
+        }
+      }
+    },
+    {
+      "hobbies": [
+        {
+          "name": "bowling"
+        },
+        {
+          "name": "tennis"
+        }
+      ]
+    }
+  ],
+  [
+    "$elemMatch nested - fail not array",
+    false,
+    {
+      "hobbies": {
+        "$elemMatch": {
+          "name": {
+            "$regex": "^ping"
+          }
+        }
+      }
+    },
+    {
+      "hobbies": "all"
+    }
+  ],
+  [
+    "$not - pass",
+    true,
+    {
+      "name": {
+        "$not": {
+          "$regex": "^hello"
+        }
+      }
+    },
+    {
+      "name": "world"
+    }
+  ],
+  [
+    "$not - fail",
+    false,
+    {
+      "name": {
+        "$not": {
+          "$regex": "^hello"
+        }
+      }
+    },
+    {
+      "name": "hello world"
+    }
+  ],
+  [
+    "$all - pass",
+    true,
+    {
+      "tags": {
+        "$all": ["one", "three"]
+      }
+    },
+    {
+      "tags": ["one", "two", "three"]
+    }
+  ],
+  [
+    "$all - fail",
+    false,
+    {
+      "tags": {
+        "$all": ["one", "three"]
+      }
+    },
+    {
+      "tags": ["one", "two", "four"]
+    }
+  ],
+  [
+    "$all - fail not array",
+    false,
+    {
+      "tags": {
+        "$all": ["one", "three"]
+      }
+    },
+    {
+      "tags": "hello"
+    }
+  ],
+  [
+    "$nor - pass",
+    true,
+    {
+      "$nor": [
+        {
+          "name": "john"
+        },
+        {
+          "age": {
+            "$lt": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "jim",
+      "age": 40
+    }
+  ],
+  [
+    "$nor - fail both",
+    false,
+    {
+      "$nor": [
+        {
+          "name": "john"
+        },
+        {
+          "age": {
+            "$lt": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "john",
+      "age": 20
+    }
+  ],
+  [
+    "$nor - fail first",
+    false,
+    {
+      "$nor": [
+        {
+          "name": "john"
+        },
+        {
+          "age": {
+            "$lt": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "john",
+      "age": 40
+    }
+  ],
+  [
+    "$nor - fail second",
+    false,
+    {
+      "$nor": [
+        {
+          "name": "john"
+        },
+        {
+          "age": {
+            "$lt": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "jim",
+      "age": 20
+    }
+  ],
+  [
+    "equals array - pass",
+    true,
+    {
+      "tags": ["hello", "world"]
+    },
+    {
+      "tags": ["hello", "world"]
+    }
+  ],
+  [
+    "equals array - fail order",
+    false,
+    {
+      "tags": ["hello", "world"]
+    },
+    {
+      "tags": ["world", "hello"]
+    }
+  ],
+  [
+    "equals array - fail missing item",
+    false,
+    {
+      "tags": ["hello", "world"]
+    },
+    {
+      "tags": ["hello"]
+    }
+  ],
+  [
+    "equals array - fail extra item",
+    false,
+    {
+      "tags": ["hello", "world"]
+    },
+    {
+      "tags": ["hello", "world", "foo"]
+    }
+  ],
+  [
+    "equals array - fail type mismatch",
+    false,
+    {
+      "tags": ["hello", "world"]
+    },
+    {
+      "tags": "hello world"
+    }
+  ],
+  [
+    "equals object - pass",
+    true,
+    {
+      "tags": { "hello": "world" }
+    },
+    {
+      "tags": { "hello": "world" }
+    }
+  ],
+  [
+    "equals object - fail extra property",
+    false,
+    {
+      "tags": { "hello": "world" }
+    },
+    {
+      "tags": { "hello": "world", "yes": "please" }
+    }
+  ],
+  [
+    "equals object - fail missing property",
+    false,
+    {
+      "tags": { "hello": "world" }
+    },
+    {
+      "tags": {}
+    }
+  ],
+  [
+    "equals object - fail type mismatch",
+    false,
+    {
+      "tags": { "hello": "world" }
+    },
+    {
+      "tags": "hello world"
+    }
+  ]
+]
