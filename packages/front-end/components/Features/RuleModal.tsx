@@ -3,6 +3,7 @@ import {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
+  FeatureValueType,
   ForceRule,
   RolloutRule,
 } from "back-end/types/feature";
@@ -27,6 +28,29 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function getDefaultVariationValue(
+  valueType: FeatureValueType,
+  defaultValue: string
+) {
+  if (valueType === "json") return defaultValue;
+
+  if (valueType === "string") return defaultValue + " 2";
+
+  try {
+    const parsed = JSON.parse(defaultValue);
+    if (typeof parsed === "number") {
+      return JSON.stringify(parsed + 1);
+    }
+    if (typeof parsed === "boolean") {
+      return JSON.stringify(!parsed);
+    }
+
+    return defaultValue;
+  } catch (e) {
+    return defaultValue;
+  }
+}
+
 export default function RuleModal({ close, feature, i, mutate }: Props) {
   const defaultValues = {
     condition: "",
@@ -42,7 +66,10 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       },
       {
         weight: 0.5,
-        value: feature.defaultValue,
+        value: getDefaultVariationValue(
+          feature.valueType,
+          feature.defaultValue
+        ),
       },
     ],
     hashAttribute: "id",
@@ -261,7 +288,10 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
               onClick={(e) => {
                 e.preventDefault();
                 variations.append({
-                  value: feature.defaultValue,
+                  value: getDefaultVariationValue(
+                    feature.valueType,
+                    feature.defaultValue
+                  ),
                   weight: 0,
                 });
               }}
