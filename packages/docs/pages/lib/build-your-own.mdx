@@ -533,7 +533,7 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 We strive to have 100% test coverage for all of our client libraries.
 
-There are language-agnostic test suites stored as JSON files in `packages/sdk-js/test/cases/`. This covers things like hashing, feature rules, variation assignment, and evaluating conditions. The files are arrays of arrays. Each test case has the following structure
+There are language-agnostic test suites stored as JSON files in `packages/sdk-js/test/cases/`. This covers things like hashing, feature rules, variation assignment, and evaluating conditions. The files are arrays of test cases. Each test case is an array and the order/meaning of array items depends on the file:
 
 - `conditions.json` - tests for `evalCondition`
   - name of the test case (string)

@@ -11,7 +11,7 @@ import experiments from "./cases/experiments.json";
 // Name, context, feature key, result
 type FeatureCasesArray = [string, Context, string, FeatureResult][];
 // Name, result, condition, attributes
-type ConditionCasesArray = [string, boolean, any, any];
+type ConditionCasesArray = [string, any, any, boolean];
 // Value, result
 type FnvCasesArray = [string, number];
 // Name, context, experiment, result.value, result.inExperiment
@@ -29,7 +29,7 @@ describe("json test suite", () => {
 
   it.each(conditions as ConditionCasesArray)(
     "conditions.json[%#] %s",
-    (name, expected, condition, value) => {
+    (name, condition, value, expected) => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
