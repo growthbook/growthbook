@@ -11,12 +11,12 @@ import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
 import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
-import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
+import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -111,9 +111,9 @@ const ExperimentsPage = (): React.ReactElement => {
           </button>
         )}
         {openNewExperimentModal && (
-          <NewExperimentForm
+          <ImportExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}
-            source="onboarding"
+            source="first-experiment"
           />
         )}
       </div>
@@ -783,7 +783,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <NewExperimentForm
+        <ImportExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
         />

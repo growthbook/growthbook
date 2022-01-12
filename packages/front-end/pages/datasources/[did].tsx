@@ -32,7 +32,6 @@ const DataSourcePage: FC = () => {
     error,
   } = useDefinitions();
   const { did } = router.query as { did: string };
-  console.log(did);
   const d = getDatasourceById(did);
 
   const { apiCall } = useAuth();

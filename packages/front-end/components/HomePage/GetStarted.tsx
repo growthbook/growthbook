@@ -7,7 +7,6 @@ import { useState } from "react";
 import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
 import { FaCheck, FaChevronRight, FaDesktop } from "react-icons/fa";
 import Button from "../Button";
 import Tooltip from "../Tooltip";
@@ -19,6 +18,7 @@ import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import EditDataSourceSettingsForm from "../Settings/EditDataSourceSettingsForm";
+import ImportExperimentModal from "../Experiment/ImportExperimentModal";
 
 const GetStarted = ({
   experiments,
@@ -111,7 +111,7 @@ const GetStarted = ({
           />
         )}
         {experimentsOpen && (
-          <NewExperimentForm
+          <ImportExperimentModal
             onClose={() => setExperimentsOpen(false)}
             source="get-started"
           />

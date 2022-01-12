@@ -66,13 +66,12 @@ const ImportExperimentList: FC<{
       <h2>Import Experiments</h2>
       <p>
         From datasource:{" "}
-        <strong>{getDatasourceById(data.experiments.datasource).name}</strong>
+        <strong>{getDatasourceById(data.experiments.datasource)?.name}</strong>
       </p>
       <div className="row mb-3">
         <div className="col-auto">
           <form
             onSubmit={async (e) => {
-              console.log("import exp form submitted");
               e.preventDefault();
               await apiCall<{ id: string }>("/experiments/import", {
                 method: "POST",
@@ -211,7 +210,6 @@ const ImportExperimentList: FC<{
                                   ? "stopped"
                                   : "running",
                             };
-                            console.log("firing onimport");
                             onImport(importObj);
                           }}
                         >

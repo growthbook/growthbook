@@ -24,8 +24,6 @@ import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
-import ImportExperimentList from "./ImportExperimentList";
-import Modal from "../Modal";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -83,10 +81,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
   const [showVariationIds] = useState(false);
-  const [isImporting, setIsImporting] = useState(isImport);
-  const [experimentDefaultValues, setExperimentDefaultValues] = useState(
-    initialValue
-  );
 
   const {
     datasources,
@@ -96,47 +90,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useDefinitions();
   const { refreshWatching } = useWatching();
 
-  const [datasourceId, setDatasourceId] = useState(datasources?.[0]?.id);
-  const [importId, setImportId] = useState(null);
-
-  const getImportId = async () => {
-    const res = await apiCall<{ id: string }>("/experiments/import", {
-      method: "POST",
-      body: JSON.stringify({
-        datasource: datasourceId,
-      }),
-    });
-    if (res?.id) {
-      setImportId(res.id);
-    }
-  };
-  useEffect(() => {
-    getImportId();
-  }, [datasourceId]);
-
-  const initialPhases: ExperimentPhaseStringDates[] = isImporting
+  const initialPhases: ExperimentPhaseStringDates[] = isImport
     ? [
         {
           coverage: 1,
-          dateStarted: getValidDate(
-            experimentDefaultValues.phases?.[0]?.dateStarted
-          )
+          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
-          dateEnded: getValidDate(
-            experimentDefaultValues.phases?.[0]?.dateEnded
-          )
+          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
           phase: "main",
           reason: "",
           groups: [],
           variationWeights:
-            experimentDefaultValues.phases?.[0].variationWeights ||
+            initialValue.phases?.[0].variationWeights ||
             getEvenSplit(
-              experimentDefaultValues.variations
-                ? experimentDefaultValues.variations.length
-                : 2
+              initialValue.variations ? initialValue.variations.length : 2
             ),
         },
       ]
@@ -148,50 +118,34 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const getDefaultValues = () => {
-    return {
-      project: experimentDefaultValues?.project || project || "",
-      implementation: experimentDefaultValues?.implementation || "code",
-      trackingKey: experimentDefaultValues?.trackingKey || "",
-      datasource:
-        experimentDefaultValues?.datasource || datasources?.[0]?.id || "",
-      userIdType: experimentDefaultValues?.userIdType || "anonymous",
-      name: experimentDefaultValues?.name || "",
-      hypothesis: experimentDefaultValues?.hypothesis || "",
-      activationMetric: experimentDefaultValues?.activationMetric || "",
-      removeMultipleExposures:
-        experimentDefaultValues?.removeMultipleExposures ?? true,
-      metrics: experimentDefaultValues?.metrics || [],
-      tags: experimentDefaultValues?.tags || [],
-      targetURLRegex: experimentDefaultValues?.targetURLRegex || "",
-      description: experimentDefaultValues?.description || "",
-      guardrails: experimentDefaultValues?.guardrails || [],
-      variations:
-        experimentDefaultValues?.variations ||
-        getDefaultVariations(initialNumVariations),
-      phases: initialPhases,
-      status: experimentDefaultValues?.status || "running",
-      ideaSource: idea || "",
-    };
-  };
-
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
-    defaultValues: getDefaultValues(),
+    defaultValues: {
+      project: initialValue?.project || project || "",
+      implementation: initialValue?.implementation || "code",
+      trackingKey: initialValue?.trackingKey || "",
+      datasource: initialValue?.datasource || datasources?.[0]?.id || "",
+      userIdType: initialValue?.userIdType || "anonymous",
+      name: initialValue?.name || "",
+      hypothesis: initialValue?.hypothesis || "",
+      activationMetric: initialValue?.activationMetric || "",
+      removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
+      metrics: initialValue?.metrics || [],
+      tags: initialValue?.tags || [],
+      targetURLRegex: initialValue?.targetURLRegex || "",
+      description: initialValue?.description || "",
+      guardrails: initialValue?.guardrails || [],
+      variations:
+        initialValue?.variations || getDefaultVariations(initialNumVariations),
+      phases: initialPhases,
+      status: initialValue?.status || "running",
+      ideaSource: idea || "",
+    },
   });
-
-  useEffect(() => {
-    // update the form defaults when the experiment defaults change:
-    if (experimentDefaultValues) {
-      form.reset(getDefaultValues());
-    }
-  }, [experimentDefaultValues]);
 
   const variations = useFieldArray({
     name: "variations",
     control: form.control,
   });
-
-  const [importModal, setImportModal] = useState<boolean>(true);
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
@@ -211,7 +165,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // TODO: more validation?
 
     const data = { ...value };
-    if (!isImporting) {
+    if (!isImport) {
       data.status = "draft";
     }
 
@@ -245,48 +199,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   });
 
-  if (importModal) {
-    return (
-      <Modal
-        header="Import Experiment"
-        open={true}
-        size="lg"
-        close={() => setImportModal(false)}
-      >
-        <a
-          className="cursor-pointer float-right"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
-          Create new experiment
-        </a>
-        <SelectField
-          label=" Import from data source:"
-          value={datasourceId}
-          options={datasources.map((d) => ({
-            value: d.id,
-            label: d.name,
-          }))}
-          onChange={setDatasourceId}
-        />
-        {importId && (
-          <ImportExperimentList
-            onImport={(create) => {
-              setExperimentDefaultValues(create);
-              setImportModal(false);
-              setIsImporting(true);
-            }}
-            importId={importId}
-          />
-        )}
-      </Modal>
-    );
-  }
   return (
     <PagedModal
-      header={isImporting ? "Import Experiment" : "New Experiment"}
+      header={isImport ? "Import Experiment" : "New Experiment"}
       close={onClose}
       submit={onSubmit}
       cta={"Save"}
@@ -296,19 +211,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
     >
       <Page display="Basic Info">
-        {datasources.length > 0 && (
-          <a
-            className="cursor-pointer float-right"
-            onClick={(e) => {
-              e.preventDefault();
-              setImportModal(true);
-            }}
-          >
-            Import from data source
-          </a>
-        )}
         <Field label="Name" required minLength={2} {...form.register("name")} />
-        {visualEditorEnabled && !isImporting && (
+        {visualEditorEnabled && !isImport && (
           <div className="form-group">
             <label className="mb-0">Type</label>
             <RadioSelector
@@ -357,7 +261,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
           </div>
         )}
-        {!isImporting && (
+        {!isImport && (
           <SelectField
             label="Data Source"
             value={form.watch("datasource")}
@@ -369,7 +273,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }))}
           />
         )}
-        {isImporting && (
+        {isImport && (
           <>
             <Field
               label="Status"
@@ -423,7 +327,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     {...form.register(`variations.${i}.description`)}
                   />
                   <div className="text-right">
-                    {!isImporting && variations.fields.length > 2 ? (
+                    {!isImport && variations.fields.length > 2 ? (
                       <a
                         className="text-danger cursor-pointer"
                         onClick={(e) => {
@@ -440,7 +344,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </div>
               </div>
             ))}
-            {!isImporting && (
+            {!isImport && (
               <div
                 className="col-lg-6 col-md-6 mb-2 text-center"
                 style={{ minWidth: 200 }}
@@ -471,7 +375,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
           </div>
         </div>
-        {isImporting && (
+        {isImport && (
           <div className="form-group">
             <label>Traffic Split</label>
             <div className="row">
@@ -539,7 +443,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               options={["user", "anonymous"]}
             />
           )}
-          {!isImporting && (
+          {!isImport && (
             <Field
               label="URL Targeting"
               {...form.register("targetURLRegex")}
