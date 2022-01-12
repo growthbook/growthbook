@@ -2,7 +2,6 @@ import {
   getQueryStringOverride,
   getBucketRanges,
   chooseVariation,
-  hashFnv32a,
   inNamespace,
 } from "../src/util";
 
@@ -82,16 +81,6 @@ describe("utils", () => {
     expect(chooseVariation(0.8, reducedRange)).toEqual(-1);
 
     expect(chooseVariation(0.5, zeroRange)).toEqual(2);
-  });
-
-  it("hashing", () => {
-    expect(hashFnv32a("a") % 1000).toEqual(220);
-    expect(hashFnv32a("b") % 1000).toEqual(77);
-    expect(hashFnv32a("ab") % 1000).toEqual(946);
-    expect(hashFnv32a("def") % 1000).toEqual(652);
-    expect(hashFnv32a("8952klfjas09ujkasdf") % 1000).toEqual(549);
-    expect(hashFnv32a("123") % 1000).toEqual(11);
-    expect(hashFnv32a('___)((*":&') % 1000).toEqual(563);
   });
 
   it("persists assignment when coverage changes", () => {
