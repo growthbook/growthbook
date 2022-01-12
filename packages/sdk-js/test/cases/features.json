@@ -5,6 +5,8 @@
     "my-feature",
     {
       "value": null,
+      "on": false,
+      "off": true,
       "source": "unknownFeature"
     }
   ],
@@ -14,6 +16,8 @@
     "feature",
     {
       "value": null,
+      "on": false,
+      "off": true,
       "source": "defaultValue"
     }
   ],
@@ -23,6 +27,8 @@
     "feature",
     {
       "value": 1,
+      "on": true,
+      "off": false,
       "source": "defaultValue"
     }
   ],
@@ -32,6 +38,8 @@
     "feature",
     {
       "value": "yes",
+      "on": true,
+      "off": false,
       "source": "defaultValue"
     }
   ],
@@ -52,6 +60,8 @@
     "feature",
     {
       "value": 1,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -76,6 +86,8 @@
     "feature",
     {
       "value": 1,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -100,6 +112,8 @@
     "feature",
     {
       "value": 2,
+      "on": true,
+      "off": false,
       "source": "defaultValue"
     }
   ],
@@ -122,6 +136,8 @@
     "feature",
     {
       "value": 2,
+      "on": true,
+      "off": false,
       "source": "defaultValue"
     }
   ],
@@ -150,6 +166,8 @@
     "feature",
     {
       "value": 1,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -178,6 +196,8 @@
     "feature",
     {
       "value": 2,
+      "on": true,
+      "off": false,
       "source": "defaultValue"
     }
   ],
@@ -193,6 +213,8 @@
     "feature",
     {
       "value": null,
+      "on": false,
+      "off": true,
       "source": "defaultValue"
     }
   ],
@@ -215,6 +237,8 @@
     "feature",
     {
       "value": "c",
+      "on": true,
+      "off": false,
       "experiment": {
         "key": "feature",
         "variations": ["a", "b", "c"]
@@ -241,6 +265,8 @@
     "feature",
     {
       "value": "a",
+      "on": true,
+      "off": false,
       "experiment": {
         "key": "feature",
         "variations": ["a", "b", "c"]
@@ -267,6 +293,8 @@
     "feature",
     {
       "value": "b",
+      "on": true,
+      "off": false,
       "experiment": {
         "key": "feature",
         "variations": ["a", "b", "c"]
@@ -300,6 +328,8 @@
     "feature",
     {
       "value": false,
+      "on": false,
+      "off": true,
       "source": "experiment",
       "experiment": {
         "coverage": 0.99,
@@ -340,6 +370,8 @@
     "feature",
     {
       "value": 2,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -372,6 +404,8 @@
     "feature",
     {
       "value": 3,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -404,6 +438,8 @@
     "feature",
     {
       "value": 0,
+      "on": false,
+      "off": true,
       "source": "defaultValue"
     }
   ],
@@ -429,6 +465,8 @@
     "feature",
     {
       "value": 3,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -454,6 +492,8 @@
     "feature",
     {
       "value": 3,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ],
@@ -479,6 +519,8 @@
     "feature",
     {
       "value": 3,
+      "on": true,
+      "off": false,
       "source": "force"
     }
   ]

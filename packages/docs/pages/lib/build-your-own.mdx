@@ -535,15 +535,25 @@ We strive to have 100% test coverage for all of our client libraries.
 
 There are language-agnostic test suites stored as JSON files in `packages/sdk-js/test/cases/`. This covers things like hashing, feature rules, variation assignment, and evaluating conditions. The files are arrays of arrays. Each test case has the following structure
 
-- `mongrule.json` - tests for `evalCondition`
+- `conditions.json` - tests for `evalCondition`
   - name of the test case (string)
   - expected return value (boolean)
   - condition
   - attributes
-  - whether or not a logged error is expected (boolean, optional, default false)
-- `features.json` - coming soon
-- `experiments.json` - coming soon
-- `fnv.json` - coming soon
+- `features.json` - tests for `growthbook.feature()`
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - name of the feature (string)
+  - expected result
+- `fnv.json` - tests for `hashFnv32a(value) % 1000`
+  - value to hash (string)
+  - expected result (number)
+- `experiments.json` - tests for `growthbook.run()`
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, constructor args, etc. that are more language-specific.
 

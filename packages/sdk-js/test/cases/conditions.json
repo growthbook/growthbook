@@ -553,8 +553,7 @@
     },
     {
       "name": "hello"
-    },
-    true
+    }
   ],
   [
     "$regex invalid - pass",
