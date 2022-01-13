@@ -23,11 +23,11 @@ export default function ConditionInput(props: Props) {
 
   const { settings } = useContext(UserContext);
 
-  const [hasAttributes, attributeTypes] = useAttributeMap();
+  const attributes = useAttributeMap();
 
   useEffect(() => {
     if (advanced) return;
-    setValue(condToJson(conds, attributeTypes));
+    setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ConditionInput(props: Props) {
     setSimpleAllowed(jsonToConds(value) !== null);
   }, [value]);
 
-  if (advanced || !hasAttributes || !simpleAllowed) {
+  if (advanced || !attributes.size || !simpleAllowed) {
     return (
       <div className="mb-3">
         <Field
@@ -48,7 +48,7 @@ export default function ConditionInput(props: Props) {
           onChange={(e) => setValue(e.target.value)}
           helpText="JSON format using MongoDB query syntax"
         />
-        {simpleAllowed && hasAttributes && (
+        {simpleAllowed && attributes.size && (
           <a
             href="#"
             onClick={(e) => {
@@ -75,7 +75,7 @@ export default function ConditionInput(props: Props) {
       {conds.length > 0 && (
         <ul className="mb-2 pl-4">
           {conds.map(({ field, operator, value }, i) => {
-            const type = attributeTypes[field];
+            const attribute = attributes.get(field);
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
@@ -101,9 +101,9 @@ export default function ConditionInput(props: Props) {
                       newConds[i] = { ...newConds[i] };
                       newConds[i]["field"] = value;
 
-                      const newType = attributeTypes[value];
-                      if (newType !== type) {
-                        if (newType === "boolean") {
+                      const newAttribute = attributes.get(value);
+                      if (newAttribute.datatype !== attribute.datatype) {
+                        if (newAttribute.datatype === "boolean") {
                           newConds[i]["operator"] = "$true";
                         } else {
                           newConds[i]["operator"] = "$eq";
@@ -125,13 +125,44 @@ export default function ConditionInput(props: Props) {
                     onChange={onChange}
                     className="form-control mr-1"
                   >
-                    {type === "boolean" && (
+                    {attribute.datatype === "boolean" ? (
                       <>
                         <option value="$true">is true</option>
                         <option value="$false">is false</option>
+                        <option value="$exists">exists</option>
+                        <option value="$notExists">does not exist</option>
                       </>
-                    )}
-                    {(type === "number" || type === "string") && (
+                    ) : attribute.array ? (
+                      <>
+                        <option value="$eq">contains</option>
+                        <option value="$ne">does not contain</option>
+                        <option value="$exists">exists</option>
+                        <option value="$notExists">does not exist</option>
+                      </>
+                    ) : attribute.enum ? (
+                      <>
+                        <option value="$eq">is equal to</option>
+                        <option value="$ne">is not equal to</option>
+                        <option value="$in">is in the list</option>
+                        <option value="$nin">is not in the list</option>
+                        <option value="$exists">exists</option>
+                        <option value="$notExists">does not exist</option>
+                      </>
+                    ) : attribute.datatype === "string" ? (
+                      <>
+                        <option value="$eq">is equal to</option>
+                        <option value="$ne">is not equal to</option>
+                        <option value="$regex">matches regex</option>
+                        <option value="$gt">is greater than</option>
+                        <option value="$gte">
+                          is greater than or equal to
+                        </option>
+                        <option value="$lt">is less than</option>
+                        <option value="$lte">is less than or equal to</option>
+                        <option value="$in">is in the list</option>
+                        <option value="$nin">is not in the list</option>
+                      </>
+                    ) : attribute.datatype === "number" ? (
                       <>
                         <option value="$eq">is equal to</option>
                         <option value="$ne">is not equal to</option>
@@ -144,43 +175,43 @@ export default function ConditionInput(props: Props) {
                         <option value="$in">is in the list</option>
                         <option value="$nin">is not in the list</option>
                       </>
+                    ) : (
+                      ""
                     )}
-                    {type === "string" && (
-                      <option value="$regex">matches regex</option>
-                    )}
-                    {(type === "number[]" || type === "string[]") && (
-                      <>
-                        <option value="$eq">contains</option>
-                        <option value="$ne">does not contain</option>
-                      </>
-                    )}
-                    <option value="$exists">exists</option>
-                    <option value="$notExists">does not exist</option>
                   </select>
-                  {!["$exists", "$notExists", "$true", "$false"].includes(
+                  {["$exists", "$notExists", "$true", "$false"].includes(
                     operator
-                  ) &&
-                    type !== "boolean" && (
-                      <input
-                        type={
-                          (type === "number" || type === "number[]") &&
-                          operator !== "$in" &&
-                          operator !== "$nin"
-                            ? "number"
-                            : "text"
-                        }
-                        placeholder={
-                          operator === "$in" || operator === "$nin"
-                            ? "comma separated"
-                            : ""
-                        }
-                        step="any"
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        className="form-control"
-                      />
-                    )}
+                  ) ? (
+                    ""
+                  ) : ["$in", "$nin"].includes(operator) ? (
+                    <Field
+                      textarea
+                      placeholder="comma separated"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                    />
+                  ) : attribute.enum.length ? (
+                    <Field
+                      options={attribute.enum}
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      initialOption="Choose One..."
+                    />
+                  ) : attribute.datatype === "number" ? (
+                    <Field
+                      type="number"
+                      step="any"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                    />
+                  ) : attribute.datatype === "string" ? (
+                    <Field value={value} onChange={onChange} name="value" />
+                  ) : (
+                    ""
+                  )}
                   <button
                     className="btn btn-link text-danger"
                     type="button"

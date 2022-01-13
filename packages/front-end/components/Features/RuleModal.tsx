@@ -58,7 +58,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     enabled: true,
     type: "force",
     coverage: 1,
-    value: feature.defaultValue,
+    value: getDefaultVariationValue(feature.valueType, feature.defaultValue),
     values: [
       {
         weight: 0.5,
@@ -87,6 +87,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
   const { settings } = useContext(UserContext);
 
   const type = form.watch("type");
+
+  const hasHashAttributes =
+    settings?.attributeSchema?.filter((x) => x.hashAttribute)?.length > 0;
 
   return (
     <Modal
@@ -214,7 +217,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           <Field
             label="Sample based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema.map((s) => s.property)}
+            options={settings.attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
           />
         </div>
@@ -230,7 +235,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           <Field
             label="Assign value based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema.map((s) => s.property)}
+            options={settings.attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
           <div className="form-group">

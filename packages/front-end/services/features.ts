@@ -10,6 +10,14 @@ export interface Condition {
   value: string;
 }
 
+export interface AttributeData {
+  attribute: string;
+  datatype: "boolean" | "number" | "string";
+  array: boolean;
+  identifier: boolean;
+  enum: string[];
+}
+
 export function isValidValue(
   type: FeatureValueType,
   value: string,
@@ -139,15 +147,15 @@ export function jsonToConds(json: string): null | Condition[] {
   }
 }
 
-function parseValue(value: string, type?: SDKAttributeType) {
-  if (type === "number" || type === "number[]") return parseFloat(value) || 0;
+function parseValue(value: string, type?: "string" | "number" | "boolean") {
+  if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "false" ? false : true;
   return value;
 }
 
 export function condToJson(
   conds: Condition[],
-  attributeTypes: Record<string, SDKAttributeType>
+  attributes: Map<string, AttributeData>
 ) {
   const obj = {};
   conds.forEach(({ field, operator, value }) => {
@@ -164,9 +172,9 @@ export function condToJson(
       obj[field][operator] = value
         .split(",")
         .map((x) => x.trim())
-        .map((x) => parseValue(x, attributeTypes[field]));
+        .map((x) => parseValue(x, attributes.get(field)?.datatype));
     } else {
-      obj[field][operator] = parseValue(value, attributeTypes[field]);
+      obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
     }
   });
 
@@ -180,19 +188,36 @@ export function condToJson(
   return stringify(obj);
 }
 
-export function useAttributeMap(): [boolean, Record<string, SDKAttributeType>] {
+function getAttributeDataType(type: SDKAttributeType) {
+  if (type === "boolean" || type === "number" || type === "string") return type;
+
+  if (type === "enum" || type === "string[]") return "string";
+
+  return "number";
+}
+
+export function useAttributeMap(): Map<string, AttributeData> {
   const { settings } = useContext(UserContext);
 
-  return [
-    settings?.attributeSchema?.length > 0,
-    useMemo(() => {
-      if (!settings?.attributeSchema) return {};
+  return useMemo(() => {
+    if (!settings?.attributeSchema?.length) {
+      return new Map();
+    }
 
-      const map: Record<string, SDKAttributeType> = {};
-      settings.attributeSchema.forEach(({ property, datatype }) => {
-        map[property] = datatype;
+    const map = new Map<string, AttributeData>();
+    settings.attributeSchema.forEach((schema) => {
+      map.set(schema.property, {
+        attribute: schema.property,
+        datatype: getAttributeDataType(schema.datatype),
+        array: !!schema.datatype.match(/\[\]$/),
+        enum:
+          schema.datatype === "enum"
+            ? schema.enum.split(",").map((x) => x.trim())
+            : [],
+        identifier: !!schema.hashAttribute,
       });
-      return map;
-    }, [settings?.attributeSchema]),
-  ];
+    });
+
+    return map;
+  }, [settings?.attributeSchema]);
 }

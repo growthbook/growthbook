@@ -36,11 +36,14 @@ export type SDKAttributeType =
   | "number"
   | "boolean"
   | "string[]"
-  | "number[]";
+  | "number[]"
+  | "enum";
 
 export type SDKAttributeSchema = {
   property: string;
   datatype: SDKAttributeType;
+  hashAttribute?: boolean;
+  enum?: string;
 }[];
 
 export type ExperimentUpdateSchedule = {
