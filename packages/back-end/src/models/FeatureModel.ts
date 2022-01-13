@@ -48,7 +48,7 @@ export async function getAllFeatures(
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization };
   if (project) {
-    q[project] = project;
+    q.project = project;
   }
 
   return (await FeatureModel.find(q)).map((m) => m.toJSON());
