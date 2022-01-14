@@ -244,16 +244,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
-        {!isImport && (
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={2}
-            maxRows={6}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-          />
-        )}
+        <Field
+          label="Hypothesis"
+          textarea
+          minRows={2}
+          maxRows={6}
+          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          {...form.register("hypothesis")}
+        />
         {includeDescription && (
           <div className="form-group">
             <label>Description</label>

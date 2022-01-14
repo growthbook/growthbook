@@ -32,7 +32,6 @@ const DataSourcePage: FC = () => {
     error,
   } = useDefinitions();
   const { did } = router.query as { did: string };
-
   const d = getDatasourceById(did);
 
   const { apiCall } = useAuth();
@@ -53,6 +52,7 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
+  const supportsImports = d.properties?.pastExperiments;
 
   return (
     <div className="container mt-3 pagecontents">
@@ -219,7 +219,7 @@ const DataSourcePage: FC = () => {
           )}
         </div>
         <div className="col-md-3">
-          {supportsSQL && (
+          {supportsImports && (
             <div className="card">
               <div className="card-body">
                 <h2>Import Past Experiments</h2>
