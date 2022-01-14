@@ -6,6 +6,8 @@ import {
   createReport,
   getReportById,
   updateReport,
+  getReportsByOrg,
+  getReportsByExperimentId,
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
@@ -14,6 +16,7 @@ import { runReport, reportArgsFromSnapshot } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 import { getValidDate } from "../util/dates";
+import { getExperimentsByIds } from "../services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -45,8 +48,10 @@ export async function postReportFromSnapshot(
   }
 
   const doc = await createReport(org.id, {
+    experimentId: experiment.id,
+    userId: req.userId,
     title: `New Report - ${experiment.name}`,
-    description: `[Back to experiment results](/experiment/${snapshot.experiment}#results)`,
+    description: ``,
     type: "experiment",
     args: reportArgsFromSnapshot(experiment, snapshot),
     results: snapshot.results
@@ -75,6 +80,48 @@ export async function postReportFromSnapshot(
   res.status(200).json({
     status: 200,
     report: doc,
+  });
+}
+
+export async function getReports(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const reports = await getReportsByOrg(org.id, project);
+
+  // get the experiments for these reports, mostly needed for names.
+  const experimentsIds: string[] = [];
+  if (reports.length) {
+    reports.forEach((r) => {
+      if (r.experimentId) {
+        experimentsIds.push(r.experimentId);
+      }
+    });
+  }
+
+  const experiments = experimentsIds.length
+    ? await getExperimentsByIds(experimentsIds)
+    : [];
+
+  res.status(200).json({
+    status: 200,
+    reports,
+    experiments,
+  });
+}
+
+export async function getReportsOnExperiment(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const reports = await getReportsByExperimentId(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    reports,
   });
 }
 
@@ -143,6 +190,8 @@ export async function putReport(
   }
   if ("title" in req.body) updates.title = req.body.title;
   if ("description" in req.body) updates.description = req.body.description;
+  if ("status" in req.body) updates.status = req.body.status;
+
   await updateReport(org.id, req.params.id, updates);
 
   if (needsRun) {

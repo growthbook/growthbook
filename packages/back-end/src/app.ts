@@ -387,6 +387,7 @@ app.get(
 );
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get("/experiment/:id", experimentsController.getExperiment);
+app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
@@ -454,6 +455,7 @@ app.get("/report/:id/status", reportsController.getReportStatus);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
 app.post("/report/:id/notebook", reportsController.postNotebook);
+app.get("/reports", reportsController.getReports);
 
 // Segments
 app.get("/segments", segmentsController.getAllSegments);

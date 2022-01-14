@@ -6,11 +6,14 @@ export interface ReportInterfaceBase {
   dateCreated: Date;
   dateUpdated: Date;
   organization: string;
+  experimentId?: string;
+  userId?: string;
   title: string;
   description: string;
   runStarted: Date | null;
   error?: string;
   queries: Queries;
+  status?: "published" | "private";
 }
 
 export interface ExperimentReportVariation {

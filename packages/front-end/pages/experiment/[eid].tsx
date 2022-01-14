@@ -7,7 +7,7 @@ import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import ScreenshotUpload from "../../components/EditExperiment/ScreenshotUpload";
 import clone from "lodash/clone";
-import { useState, ReactElement, useContext } from "react";
+import React, { useState, ReactElement, useContext } from "react";
 import { useAuth } from "../../services/auth";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";

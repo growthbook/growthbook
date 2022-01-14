@@ -76,7 +76,7 @@ const GuardrailResults: FC<{
             <tr>
               <th>Variation</th>
               <th>Value</th>
-              <th>Chance of Being Worse</th>
+              <th className="text-center">Chance of Being Worse</th>
             </tr>
           </thead>
           <tbody>

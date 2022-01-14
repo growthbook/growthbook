@@ -4,7 +4,7 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import RunQueriesButton, {
   getQueryStatus,
 } from "../../components/Queries/RunQueriesButton";
@@ -17,10 +17,17 @@ import GuardrailResults from "../../components/Experiment/GuardrailResult";
 import { useAuth } from "../../services/auth";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import Tab from "../../components/Tabs/Tab";
-import { GBEdit } from "../../components/Icons";
-import EditTitleDescription from "../../components/Report/EditTitleDescription";
+import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import ConfigureReport from "../../components/Report/ConfigureReport";
 import ResultMoreMenu from "../../components/Experiment/ResultMoreMenu";
+import Link from "next/link";
+import Toggle from "../../components/Forms/Toggle";
+import Field from "../../components/Forms/Field";
+import MarkdownInput from "../../components/Markdown/MarkdownInput";
+import Modal from "../../components/Modal";
+import { useForm } from "react-hook-form";
+import Tooltip from "../../components/Tooltip";
+import { date } from "../../services/dates";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -32,10 +39,30 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions } = useContext(UserContext);
+  const { permissions, userId, getUserDisplay } = useContext(UserContext);
   const [active, setActive] = useState<string | null>("Results");
 
   const { apiCall } = useAuth();
+
+  const form = useForm({
+    defaultValues: {
+      title: data?.report.title || "",
+      description: data?.report.description || "",
+      status: data?.report?.status ? data.report.status : "private",
+    },
+  });
+
+  useEffect(() => {
+    if (data?.report) {
+      const newVal = {
+        ...form.getValues(),
+        title: data?.report.title,
+        description: data?.report.description,
+        status: data?.report?.status ? data.report.status : "private",
+      };
+      form.reset(newVal);
+    }
+  }, [data?.report]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -60,24 +87,77 @@ export default function ReportPage() {
   return (
     <div className="container-fluid pagecontents experiment-details">
       {editModalOpen && (
-        <EditTitleDescription
-          report={report}
-          cancel={() => setEditModalOpen(false)}
-          mutate={mutate}
-        />
+        <Modal
+          open={true}
+          submit={form.handleSubmit(async (value) => {
+            await apiCall(`/report/${report.id}`, {
+              method: "PUT",
+              body: JSON.stringify(value),
+            });
+            mutate();
+          })}
+          close={() => {
+            setEditModalOpen(false);
+          }}
+          header="Edit Report"
+          overflowAuto={false}
+        >
+          <Field label="Title" {...form.register("title")} />
+          <div className="form-group">
+            <label>Description</label>
+            <MarkdownInput
+              setValue={(value) => {
+                form.setValue("description", value);
+              }}
+              value={form.watch("description")}
+            />
+          </div>
+          Publish:{" "}
+          <Toggle
+            id="toggle-status"
+            value={form.watch("status") === "published"}
+            label="published"
+            setValue={(value) => {
+              const newStatus = value ? "published" : "private";
+              form.setValue("status", newStatus);
+            }}
+          />
+          <Tooltip
+            text={
+              "A published report will be visible to other users of your team"
+            }
+          />
+        </Modal>
       )}
       <div className="mb-3">
-        <h1>
-          {report.title}{" "}
-          {permissions.runExperiments && (
-            <a
-              className="ml-2 cursor-pointer"
-              onClick={() => setEditModalOpen(true)}
-            >
-              <GBEdit />
+        {report?.experimentId && (
+          <Link href={`/experiment/${report.experimentId}#results`}>
+            <a>
+              <GBCircleArrowLeft /> go to experiment results
             </a>
-          )}
+          </Link>
+        )}
+        <h1 className="mb-0 mt-2">
+          {report.title}{" "}
+          {permissions.runExperiments &&
+            (userId === report?.userId || !report?.userId) && (
+              <a
+                className="ml-2 cursor-pointer"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
         </h1>
+        <div className="mb-1">
+          <small className="text-muted">
+            Created {report?.userId && <>by {getUserDisplay(report.userId)} </>}{" "}
+            on {date(report.dateCreated)} -{" "}
+            <span className="badge badge-secondary">
+              {form.watch("status") === "published" ? "Published" : "Private"}
+            </span>
+          </small>
+        </div>
         {report.description && (
           <div className="mb-3">
             <Markdown>{report.description}</Markdown>
