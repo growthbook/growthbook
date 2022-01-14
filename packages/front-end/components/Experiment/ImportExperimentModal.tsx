@@ -25,21 +25,23 @@ const ImportExperimentModal: FC<{
   const { apiCall } = useAuth();
 
   const getImportId = async () => {
-    const res = await apiCall<{ id: string }>("/experiments/import", {
-      method: "POST",
-      body: JSON.stringify({
-        datasource: datasourceId,
-      }),
-    });
-    if (res?.id) {
-      setImportId(res.id);
+    if (datasourceId) {
+      const res = await apiCall<{ id: string }>("/experiments/import", {
+        method: "POST",
+        body: JSON.stringify({
+          datasource: datasourceId,
+        }),
+      });
+      if (res?.id) {
+        setImportId(res.id);
+      }
     }
   };
   useEffect(() => {
     getImportId();
   }, [datasourceId]);
 
-  if (selected || !importModal) {
+  if (selected || !importModal || !datasourceId) {
     return (
       <NewExperimentForm
         initialValue={selected}
