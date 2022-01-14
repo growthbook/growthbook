@@ -258,6 +258,7 @@ const DataSourceForm: FC<{
       <PostgresForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -266,6 +267,7 @@ const DataSourceForm: FC<{
       <PostgresForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );

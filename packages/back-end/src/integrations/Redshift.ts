@@ -11,7 +11,7 @@ export default class Redshift extends SqlIntegration {
     );
   }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "caCert", "clientCert", "clientKey"];
   }
   runQuery(sql: string) {
     return runPostgresQuery(this.params, sql);

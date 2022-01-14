@@ -40,6 +40,7 @@ import * as stripeController from "./controllers/stripe";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
+import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
@@ -65,6 +66,7 @@ wrapController(stripeController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
+wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
 
@@ -216,7 +218,7 @@ app.post(
 
 app.use(bodyParser.json());
 
-// Config route (does not require JWT, does require cors with origin = *)
+// Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
   "/config/:key",
   cors({
@@ -224,6 +226,14 @@ app.get(
     origin: "*",
   }),
   getExperimentConfig
+);
+app.get(
+  "/api/features/:key",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  featuresController.getFeaturesPublic
 );
 
 // Accept cross-origin requests from the frontend app
@@ -463,6 +473,13 @@ app.post("/projects", projectsController.postProjects);
 app.put("/projects/:id", projectsController.putProject);
 app.delete("/projects/:id", projectsController.deleteProject);
 
+// Features
+app.get("/feature", featuresController.getFeatures);
+app.get("/feature/:id", featuresController.getFeatureById);
+app.post("/feature", featuresController.postFeatures);
+app.put("/feature/:id", featuresController.putFeature);
+app.delete("/feature/:id", featuresController.deleteFeatureById);
+
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);
 app.get("/datasource/:id", organizationsController.getDataSource);
@@ -478,6 +495,7 @@ app.delete("/key/:key", organizationsController.deleteApiKey);
 // Webhooks
 app.get("/webhooks", organizationsController.getWebhooks);
 app.post("/webhooks", organizationsController.postWebhook);
+app.put("/webhook/:id", organizationsController.putWebhook);
 app.delete("/webhook/:id", organizationsController.deleteWebhook);
 
 // Presentations

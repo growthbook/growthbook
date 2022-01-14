@@ -1,22 +1,20 @@
 # GrowthBook React SDK
 
-Powerful A/B testing for React.
+[GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.3KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
+
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.82KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
-- **No HTTP requests** everything is defined and evaluated locally
+- Local targeting and evaluation, **no HTTP requests**
 - Works for both **client and server-side** rendering
-- **Dev Mode** for testing variations and taking screenshots
-- **No flickering or blocking calls**
-- Written in **Typescript** with an extensive test suite
-- Flexible experiment **targeting**
+- **No flickering** when running A/B tests
+- Written in **Typescript** with extensive test coverage
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
-- **Adjust variation weights and targeting** without deploying new code
-
-**Note**: This library is just for running A/B tests in React. To analyze results, use the GrowthBook App (https://github.com/growthbook/growthbook).
+- **Remote configuration** to adjust targeting and weights without deploying new code
 
 ## Community
 
@@ -24,13 +22,17 @@ Join [our GrowthBook Users Slack community](https://join.slack.com/t/growthbooku
 
 ## Installation
 
-`yarn add @growthbook/growthbook-react`
+```
+yarn add @growthbook/growthbook-react
+```
 
 or
 
-`npm install --save @growthbook/growthbook-react`
+```
+npm install --save @growthbook/growthbook-react
+```
 
-## Quick Start
+## Quick Usage
 
 ### Step 1: Configure your app
 
@@ -38,20 +40,14 @@ or
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
-const growthbook = new GrowthBook({
-  // The attributes you want to use to assign variations
-  user: {
-    id: "123",
-  },
-  // Called every time the user is put into an experiment
-  trackingCallback: (experiment, result) => {
-    // Mixpanel, Segment, GA, or custom tracking
-    mixpanel.track("Experiment Viewed", {
-      experiment: experiment.key,
-      variation: result.variationId,
-    });
-  },
-});
+const growthbook = new GrowthBook();
+
+// Load feature definitions (from API, database, etc.)
+await fetch("https://s3.amazonaws.com/myBucket/features.json")
+  .then((res) => res.json())
+  .then((parsed) => {
+    growthbook.setFeatures(parsed);
+  });
 
 export default function App() {
   return (
@@ -62,9 +58,128 @@ export default function App() {
 }
 ```
 
-### Step 2: Run an experiment
+### Step 2: Start feature flagging!
 
-#### Hooks (recommended)
+There are a few ways to use feature flags in GrowthBook:
+
+#### useFeature hook
+
+```tsx
+import { useFeature } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  // Boolean on/off flags
+  const newLogin = useFeature("new-login-form").on;
+
+  // Multivariate or string/JSON values
+  const buttonColor = useFeature("login-button-color").value || "blue";
+
+  if (newLogin) {
+    return <NewLogin color={buttonColor} />;
+  } else {
+    return <Login color={buttonColor} />;
+  }
+}
+```
+
+#### <IfFeatureEnabled>
+
+```tsx
+import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  return (
+    <div>
+      <h1>Hello!</h1>
+      <IfFeatureEnabled feature="welcome-message">
+        <p>Welcome to our site!</p>
+      </IfFeatureEnabled>
+    </div>
+  );
+}
+```
+
+#### <FeatureString>
+
+```tsx
+import { FeatureString } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  return (
+    <div>
+      <h1>
+        <FeatureString feature="site-h1" default="My Site" />
+      </h1>
+    </div>
+  );
+}
+```
+
+#### useGrowthBook hook
+
+If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook:
+
+```tsx
+import { useGrowthBook } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  // Identical to: const feature = useFeature("my-feature")
+  const growthbook = useGrowthBook();
+  const feature = growthbook.feature("my-feature");
+}
+```
+
+### Step 3: Use Targeting Attributes
+
+You can specify attributes about the current user and request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
+
+The following are some comonly used attributes, but use whatever makes sense for your application.
+
+```ts
+new GrowthBook({
+  attributes: {
+    id: "123",
+    environment: "prod",
+    loggedIn: true,
+    deviceId: "abc123def456",
+    company: "acme",
+    paid: false,
+    url: "/pricing",
+    browser: "chrome",
+    mobile: false,
+    country: "US",
+  },
+});
+```
+
+If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+### Step 4: Set up a Tracking Callback
+
+Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
+
+```ts
+new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    // Example using Segment.io
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+## Inline Experiments
+
+Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
+
+Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
+
+### useExperiment hook
 
 ```tsx
 import { useExperiment } from "@growthbook/growthbook-react";
@@ -79,7 +194,7 @@ export default function OtherComponent() {
 }
 ```
 
-#### Class Components
+### Class Components
 
 **Note:** This library uses hooks internally, so still requires React 16.8 or above.
 
@@ -99,7 +214,3 @@ class OtherComponent extends React.Component {
 // Wrap your component in `withRunExperiment`
 export default withRunExperiment(OtherComponent);
 ```
-
-## Documentation
-
-See the full documentation and more usage examples at https://docs.growthbook.io/lib/react

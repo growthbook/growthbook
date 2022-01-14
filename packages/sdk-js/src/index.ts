@@ -1,4 +1,14 @@
-import { Context, Experiment, Result, SubscriptionFunction } from "./types";
+import type {
+  Context,
+  Experiment,
+  FeatureResult,
+  Result,
+  SubscriptionFunction,
+  FeatureDefinition,
+  FeatureResultSource,
+  Attributes,
+} from "./types/";
+import type { ConditionInterface } from "./types/mongrule";
 import {
   getUrlRegExp,
   isIncluded,
@@ -8,14 +18,25 @@ import {
   getQueryStringOverride,
   inNamespace,
 } from "./util";
+import { evalCondition } from "./mongrule";
 
-export type { Context, Experiment, Result, ExperimentOverride } from "./types";
+export type {
+  Context,
+  Experiment,
+  Result,
+  FeatureDefinition,
+  FeatureRule,
+  Attributes,
+  FeatureResult,
+  ExperimentOverride,
+} from "./types/";
+
+export type { ConditionInterface } from "./types/mongrule";
 
 const isBrowser = typeof window !== "undefined";
 
 class GrowthBook {
-  context: Context;
-
+  private context: Context;
   private _renderer: null | (() => void) = null;
   private _trackedExperiments = new Set();
   public debug = false;
@@ -29,13 +50,55 @@ class GrowthBook {
       result: Result<any>;
     }
   >();
+  // eslint-disable-next-line
+  private _forcedFeatureValues = new Map<string, any>();
+  private _attributeOverrides: Attributes = {};
 
-  constructor(context: Context) {
-    this.context = context || {};
+  constructor(context: Context = {}) {
+    this.context = context;
 
-    if (isBrowser) {
+    if (isBrowser && !context.disableDevTools) {
       window._growthbook = this;
+      document.dispatchEvent(new Event("gbloaded"));
     }
+  }
+
+  private render() {
+    if (this._renderer) {
+      this._renderer();
+    }
+  }
+
+  public setFeatures(features: Record<string, FeatureDefinition>) {
+    this.context.features = features;
+    this.render();
+  }
+
+  public setAttributes(attributes: Attributes) {
+    this.context.attributes = attributes;
+    this.render();
+  }
+
+  public setAttributeOverrides(overrides: Attributes) {
+    this._attributeOverrides = overrides;
+    this.render();
+  }
+  public setForcedVariations(vars: Record<string, number>) {
+    this.context.forcedVariations = vars || {};
+    this.render();
+  }
+  // eslint-disable-next-line
+  public setForcedFeatures(map: Map<string, any>) {
+    this._forcedFeatureValues = map;
+    this.render();
+  }
+
+  public getAttributes() {
+    return { ...this.context.attributes, ...this._attributeOverrides };
+  }
+
+  public getFeatures() {
+    return this.context.features || {};
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -66,28 +129,25 @@ class GrowthBook {
   }
 
   public forceVariation(key: string, variation: number) {
-    if (!this.context) return;
-
     this.context.forcedVariations = this.context.forcedVariations || {};
     this.context.forcedVariations[key] = variation;
-
-    if (this._renderer) {
-      this._renderer();
-    }
+    this.render();
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
     const result = this._run(experiment);
 
+    const key = experiment.key;
+
     // If assigned variation has changed, fire subscriptions
-    const prev = this.assigned.get(experiment.key);
+    const prev = this.assigned.get(key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
       prev.result.inExperiment !== result.inExperiment ||
       prev.result.variationId !== result.variationId
     ) {
-      this.assigned.set(experiment.key, { experiment, result });
+      this.assigned.set(key, { experiment, result });
       this.subscriptions.forEach((cb) => {
         try {
           cb(experiment, result);
@@ -100,20 +160,145 @@ class GrowthBook {
     return result;
   }
 
-  private _run<T>(experiment: Experiment<T>): Result<T> {
+  private getFeatureResult<T>(
+    value: T,
+    source: FeatureResultSource,
+    experiment: Experiment<T> | null = null
+  ): FeatureResult<T> {
+    const ret: FeatureResult = {
+      value,
+      on: !!value,
+      off: !value,
+      source,
+    };
+    if (experiment) ret.experiment = experiment;
+    return ret;
+  }
+
+  // eslint-disable-next-line
+  public feature<T = any>(id: string): FeatureResult<T | null> {
+    // Global override
+    if (this._forcedFeatureValues.has(id)) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Global override", {
+          id,
+          value: this._forcedFeatureValues.get(id),
+        });
+      return this.getFeatureResult(
+        this._forcedFeatureValues.get(id),
+        "override"
+      );
+    }
+
+    // Unknown feature id
+    if (!this.context.features || !this.context.features[id]) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Unknown feature", { id });
+      return this.getFeatureResult(null, "unknownFeature");
+    }
+
+    // Get the feature
+    const feature: FeatureDefinition<T> = this.context.features[id];
+
+    // Loop through the rules
+    if (feature.rules) {
+      for (const rule of feature.rules) {
+        // If it's a conditional rule, skip if the condition doesn't pass
+        if (rule.condition && !this.conditionPasses(rule.condition)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip rule because of condition", {
+              id,
+              rule,
+            });
+          continue;
+        }
+        // Feature value is being forced
+        if (rule.force) {
+          // Skip if coverage is reduced and user not included
+          if ("coverage" in rule) {
+            const { hashValue } = this.getHashAttribute(rule.hashAttribute);
+            if (!hashValue) {
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because of missing hashAttribute", {
+                  id,
+                  rule,
+                });
+              continue;
+            }
+            const n = (hashFnv32a(hashValue + id) % 1000) / 1000;
+            if (n > (rule.coverage as number)) {
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because of coverage", {
+                  id,
+                  rule,
+                });
+              continue;
+            }
+          }
+
+          process.env.NODE_ENV !== "production" &&
+            this.log("Force value from rule", {
+              id,
+              rule,
+            });
+
+          return this.getFeatureResult(rule.force, "force");
+        }
+        if (!rule.variations) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip invalid rule", {
+              id,
+              rule,
+            });
+
+          continue;
+        }
+        // For experiment rules, run an experiment
+        const exp: Experiment<T> = {
+          variations: rule.variations as [T, T, ...T[]],
+          key: rule.key || id,
+        };
+        if ("coverage" in rule) exp.coverage = rule.coverage;
+        if (rule.weights) exp.weights = rule.weights;
+        if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
+        if (rule.namespace) exp.namespace = rule.namespace;
+
+        // Only return a value if the user is part of the experiment
+        const res = this.run(exp);
+        if (res.inExperiment) {
+          return this.getFeatureResult(res.value, "experiment", exp);
+        }
+      }
+    }
+
     process.env.NODE_ENV !== "production" &&
-      this.log("runExperiment", experiment.key);
+      this.log("Use default value", {
+        id,
+        value: feature.defaultValue ?? null,
+      });
+
+    // Fall back to using the default value
+    return this.getFeatureResult(feature.defaultValue ?? null, "defaultValue");
+  }
+
+  private conditionPasses(condition: ConditionInterface): boolean {
+    return evalCondition(this.getAttributes(), condition);
+  }
+
+  private _run<T>(experiment: Experiment<T>): Result<T> {
+    const key = experiment.key;
 
     // 1. If experiment is invalid, return immediately
     if (experiment.variations.length < 2) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Experiment is invalid");
+        this.log("Invalid experiment", { id: key });
       return this.getResult(experiment);
     }
 
     // 2. If the context is disabled, return immediately
     if (this.context.enabled === false) {
-      process.env.NODE_ENV !== "production" && this.log("Context Disabled");
+      process.env.NODE_ENV !== "production" &&
+        this.log("Context disabled", { id: key });
       return this.getResult(experiment);
     }
 
@@ -121,142 +306,173 @@ class GrowthBook {
     experiment = this.mergeOverrides(experiment);
 
     // 4. If a variation is forced from a querystring, return the forced variation
-    const qsOverride = getQueryStringOverride(
-      experiment.key,
-      this.getContextUrl()
-    );
+    const qsOverride = getQueryStringOverride(key, this.getContextUrl());
     if (qsOverride !== null) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via querystring");
+        this.log("Force via querystring", {
+          id: key,
+          variation: qsOverride,
+        });
       return this.getResult(experiment, qsOverride);
     }
 
     // 5. If a variation is forced in the context, return the forced variation
-    if (
-      this.context.forcedVariations &&
-      experiment.key in this.context.forcedVariations
-    ) {
+    if (this.context.forcedVariations && key in this.context.forcedVariations) {
+      const variation = this.context.forcedVariations[key];
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via context.forcedVariations");
-      return this.getResult(
-        experiment,
-        this.context.forcedVariations[experiment.key]
-      );
+        this.log("Force via dev tools", {
+          id: key,
+          variation,
+        });
+      return this.getResult(experiment, variation);
     }
 
-    // 6. Exclude if a draft experiment
-    if (experiment.status === "draft") {
+    // 6. Exclude if a draft experiment or not active
+    if (experiment.status === "draft" || experiment.active === false) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because of draft status");
+        this.log("Skip because inactive", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 7. Get the hash attribute and return if empty
-    const { hashAttribute, hashValue } = this.getHashAttribute(experiment);
+    const { hashValue } = this.getHashAttribute(experiment.hashAttribute);
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Exclude because of missing hashAttribute in context",
-          hashAttribute
-        );
+        this.log("Skip because missing hashAttribute", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 8. Exclude if user not in experiment.namespace
     if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because hashValue not in experiment.namespace range");
+        this.log("Skip because of namespace", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
     // 9. Exclude if experiment.include returns false or throws
     if (experiment.include && !isIncluded(experiment.include)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because experiment.include did not return true");
+        this.log("Skip because of include function", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
-    // 10. Exclude if user is not in a required group
-    if (experiment.groups && !this.hasGroupOverlap(experiment.groups)) {
+    // 10. Exclude if condition is false
+    if (experiment.condition && !this.conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because user not in required group");
+        this.log("Skip because of condition", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
-    // 11. Exclude if not on a targeted url
-    if (experiment.url && !this.urlIsValid(experiment.url)) {
+    // 11. Exclude if user is not in a required group
+    if (
+      experiment.groups &&
+      !this.hasGroupOverlap(experiment.groups as string[])
+    ) {
       process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Exclude because context url does not match experiment.url regex"
-        );
+        this.log("Skip because of groups", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
-    // 12. Experiment has a forced variation
-    if ("force" in experiment) {
+    // 12. Exclude if not on a targeted url
+    if (experiment.url && !this.urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Forced via experiment");
-      return this.getResult(experiment, experiment.force);
-    }
-
-    // 13. Exclude if experiment is stopped
-    if (experiment.status === "stopped") {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because status is 'stopped'");
+        this.log("Skip because of url", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
-    // 14. Exclude if in QA mode
-    if (this.context.qaMode) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because context is in QA mode");
-      return this.getResult(experiment);
-    }
-
-    // 15. Compute a hash
-    const n = (hashFnv32a(hashValue + experiment.key) % 1000) / 1000;
-
-    // 16. Get bucket ranges
+    // 13. Get bucket ranges
     const ranges = getBucketRanges(
       experiment.variations.length,
       experiment.coverage || 1,
       experiment.weights
     );
 
-    // 17. Assign a variation
+    // 14. Compute hash
+    const n = (hashFnv32a(hashValue + key) % 1000) / 1000;
+
+    // 15. Assign a variation
     const assigned = chooseVariation(n, ranges);
 
-    // 18. Return if not in experiment
+    // 16. Return if not in experiment
     if (assigned < 0) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Exclude because of coverage");
+        this.log("Skip because of coverage", {
+          id: key,
+        });
       return this.getResult(experiment);
     }
 
-    // 19. Fire the tracking callback
+    // 17. Experiment has a forced variation
+    if ("force" in experiment) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Force variation", {
+          id: key,
+          variation: experiment.force,
+        });
+      return this.getResult(experiment, experiment.force);
+    }
+
+    // 18. Exclude if in QA mode
+    if (this.context.qaMode) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because QA mode", {
+          id: key,
+        });
+      return this.getResult(experiment);
+    }
+
+    // 19. Exclude if experiment is stopped
+    if (experiment.status === "stopped") {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because stopped", {
+          id: key,
+        });
+      return this.getResult(experiment);
+    }
+
+    // 20. Fire the tracking callback
     const result = this.getResult(experiment, assigned, true);
     this.track(experiment, result);
 
-    // 20. Return the result
+    // 21. Return the result
+
     process.env.NODE_ENV !== "production" &&
-      this.log("Assigned variation", result.variationId);
+      this.log("In experiment", {
+        id: key,
+        variation: result.variationId,
+      });
     return result;
   }
 
   // eslint-disable-next-line
-  private log(msg: string, ctx?: any) {
-    this.debug && console.log(msg, ctx);
+  private log(msg: string, ctx: Record<string, any>) {
+    if (!this.debug) return;
+    if (this.context.log) this.context.log(msg, ctx);
+    else console.log(msg, ctx);
   }
 
   private track<T>(experiment: Experiment<T>, result: Result<T>) {
     if (!this.context.trackingCallback) return;
 
+    const key = experiment.key;
+
     // Make sure a tracking callback is only fired once per unique experiment
     const k =
-      result.hashAttribute +
-      result.hashValue +
-      experiment.key +
-      result.variationId;
+      result.hashAttribute + result.hashValue + key + result.variationId;
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
 
@@ -268,21 +484,33 @@ class GrowthBook {
   }
 
   private mergeOverrides<T>(experiment: Experiment<T>): Experiment<T> {
+    const key = experiment.key;
     const o = this.context.overrides;
-    if (o && o[experiment.key]) {
-      experiment = Object.assign({}, experiment, o[experiment.key]);
+    if (o && o[key]) {
+      experiment = Object.assign({}, experiment, o[key]);
       if (typeof experiment.url === "string") {
-        experiment.url = getUrlRegExp(experiment.url);
+        experiment.url = getUrlRegExp(
+          // eslint-disable-next-line
+          experiment.url as any
+        );
       }
     }
 
     return experiment;
   }
 
-  private getHashAttribute<T>(experiment: Experiment<T>) {
-    const hashAttribute = experiment.hashAttribute || "id";
-    const hashValue =
-      (this.context.user && this.context.user[hashAttribute]) || "";
+  private getHashAttribute(attr?: string) {
+    const hashAttribute = attr || "id";
+
+    let hashValue = "";
+    if (this._attributeOverrides[hashAttribute]) {
+      hashValue = this._attributeOverrides[hashAttribute];
+    } else if (this.context.attributes) {
+      hashValue = this.context.attributes[hashAttribute] || "";
+    } else if (this.context.user) {
+      hashValue = this.context.user[hashAttribute] || "";
+    }
+
     return { hashAttribute, hashValue };
   }
 
@@ -295,7 +523,9 @@ class GrowthBook {
       variationIndex = 0;
     }
 
-    const { hashAttribute, hashValue } = this.getHashAttribute(experiment);
+    const { hashAttribute, hashValue } = this.getHashAttribute(
+      experiment.hashAttribute
+    );
 
     return {
       inExperiment,
