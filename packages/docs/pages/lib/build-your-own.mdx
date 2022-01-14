@@ -374,10 +374,10 @@ This checks if `attributeValue` is an array, and if so at least one of the array
 
 1. If `attributeValue` is not an array, return false
 2. Loop through items in `attributeValue`
-3. If `isOperatorObject(condition)`
-4. If `evalConditionValue(condition, item)`, break out of loop and return true
-5. Else if `evalCondition(item, condition)`, break out of loop and return true
-6. Return false
+   1. If `isOperatorObject(condition)`
+      1. If `evalConditionValue(condition, item)`, break out of loop and return true
+   2. Else if `evalCondition(item, condition)`, break out of loop and return true
+3. Return false
 
 ### evalOperatorCondition(operator, attributeValue, conditionValue)
 
