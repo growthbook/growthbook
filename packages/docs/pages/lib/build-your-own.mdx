@@ -374,7 +374,7 @@ This checks if `attributeValue` is an array, and if so at least one of the array
 
 1. If `attributeValue` is not an array, return false
 2. Loop through items in `attributeValue`
-3. If `isOperatorValue(condition)`
+3. If `isOperatorObject(condition)`
 4. If `evalConditionValue(condition, item)`, break out of loop and return true
 5. Else if `evalCondition(item, condition)`, break out of loop and return true
 6. Return false
@@ -393,22 +393,28 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
-There are three operators where conditionValue is an array:
+There are 2 operators where conditionValue is an array:
 
-- `$in` - attributeValue in the conditionValue array
-- `$nin` - attributeValue not in the conditionValue array
+- `$in`
+  1. Return true if attributeValue in the conditionValue array, false otherwise
+- `$nin`
+  1. Return false if attributeValue in the conditionValue array, true otherwise
+
+There are 2 operators where attributeValue is an array:
+
+- `$elemMatch`
+  1. Return `elemMatch(conditionValue, attributeValue)`
+- `$size`
+  1.  If attributeValue is not an array, return false
+  2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
+
+There is 1 operator where both attributeValue and conditionValue are arrays:
+
 - `$all`
   1. If attributeValue is not an array, return false
   2. Loop through conditionValue array
      1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
   3. Return true
-
-There are 3 operators where attributeValue is an array:
-
-- `$elemMatch` - return `elemMatch(conditionValue, attributeValue)`
-- `$size`
-  1.  If attributeValue is not an array, return false
-  2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
 
 There are 3 other operators:
 
@@ -416,8 +422,10 @@ There are 3 other operators:
   1. If conditionValue is false, return true if attributeValue is null or undefined
   2. Else, return true if attributeValue is NOT null or undefined
   3. Return false by default
-- `$type` - return `getType(attributeValue) == conditionValue`
-- `$not` - recursive rule. Return `!evalConditionValue(conditionValue, attributeValue)`
+- `$type`
+  1. Return `getType(attributeValue) == conditionValue`
+- `$not`
+  1. Return `!evalConditionValue(conditionValue, attributeValue)`
 
 If operator doesn't match any of these, return false and potentially log the error for debug purposes.
 

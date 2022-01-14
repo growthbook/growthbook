@@ -8,6 +8,23 @@ import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
+import track from "../../services/track";
+
+const INITIAL_ATTRS: SDKAttributeSchema = [
+  { property: "id", datatype: "string", hashAttribute: true },
+  { property: "deviceId", datatype: "string", hashAttribute: true },
+  { property: "company", datatype: "string", hashAttribute: true },
+  {
+    property: "env",
+    datatype: "enum",
+    enum: "dev, staging, prod",
+  },
+  { property: "loggedIn", datatype: "boolean" },
+  { property: "employee", datatype: "boolean" },
+  { property: "country", datatype: "string" },
+  { property: "browser", datatype: "string" },
+  { property: "url", datatype: "string" },
+];
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
   const { settings, update } = useContext(UserContext);
@@ -17,21 +34,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
     defaultValues: {
       attributeSchema: settings?.attributeSchema?.length
         ? settings?.attributeSchema
-        : [
-            { property: "id", datatype: "string", hashAttribute: true },
-            { property: "deviceId", datatype: "string", hashAttribute: true },
-            { property: "company", datatype: "string", hashAttribute: true },
-            {
-              property: "env",
-              datatype: "enum",
-              enum: "dev, staging, prod",
-            },
-            { property: "loggedIn", datatype: "boolean" },
-            { property: "employee", datatype: "boolean" },
-            { property: "country", datatype: "string" },
-            { property: "browser", datatype: "string" },
-            { property: "url", datatype: "string" },
-          ],
+        : INITIAL_ATTRS,
     },
   });
 
@@ -48,6 +51,18 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
       size="lg"
       cta="Save Attributes"
       submit={form.handleSubmit(async (value) => {
+        if (!settings?.attributeSchema) {
+          track("Save Targeting Attributes", {
+            source: "onboarding",
+            customized:
+              JSON.stringify(value.attributeSchema) !==
+              JSON.stringify(INITIAL_ATTRS),
+            hashAttributes: value.attributeSchema
+              .filter((s) => s.hashAttribute)
+              .map((s) => s.property),
+          });
+        }
+
         await apiCall(`/organization`, {
           method: "PUT",
           body: JSON.stringify({

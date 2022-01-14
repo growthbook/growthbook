@@ -58,6 +58,18 @@ And this is what it looks like in the GrowthBook App to list them:
 
 **Note**: The actual values of the targeting attributes (e.g. the user ids, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture eliminates huge potential security holes and keeps your user's PII safe and secure.
 
+Each attribute has 3 parts:
+
+- The **attribute name** itself. This is how the attribute will be referenced in the SDK.
+- The **data type** of the attribute
+  - String - freeform text
+  - Number - Floats or integers
+  - Boolean - true or false
+  - Array of strings - useful for things like "tags"
+  - Array of numbers - useful anytime you have multiple numeric values
+  - Enum - When there are only a small list of pre-defined values it could take
+- Whether or not it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device.
+
 ## Override Rules
 
 Every feature has a default value that is served to all users. The real power comes when you define **override rules** that let you run experiments and/or change the value based on targeting attributes.

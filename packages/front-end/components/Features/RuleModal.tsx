@@ -15,6 +15,7 @@ import ConditionInput from "./ConditionInput";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import { isValidValue } from "../../services/features";
+import track from "../../services/track";
 
 export interface Props {
   close: () => void;
@@ -98,60 +99,84 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       size="lg"
       header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
-        const rules = [...feature.rules];
-        rules[i] = values as FeatureRule;
+        const ruleAction = i === feature.rules?.length ? "add" : "edit";
 
-        if (rules[i].condition) {
-          try {
-            const res = JSON.parse(rules[i].condition);
-            if (!res || typeof res !== "object") {
-              throw new Error("Condition is invalid");
+        try {
+          const rules = [...feature.rules];
+          rules[i] = values as FeatureRule;
+
+          if (rules[i].condition) {
+            try {
+              const res = JSON.parse(rules[i].condition);
+              if (!res || typeof res !== "object") {
+                throw new Error("Condition is invalid");
+              }
+            } catch (e) {
+              throw new Error("Condition is invalid: " + e.message);
             }
-          } catch (e) {
-            throw new Error("Condition is invalid: " + e.message);
           }
-        }
-        if (rules[i].type === "force") {
-          isValidValue(
-            feature.valueType,
-            (rules[i] as ForceRule).value,
-            "Forced value"
-          );
-        } else if (rules[i].type === "experiment") {
-          const ruleValues = (rules[i] as ExperimentRule).values;
-          if (!ruleValues || !ruleValues.length) {
-            throw new Error("Must set at least one value");
-          }
-          let totalWeight = 0;
-          ruleValues.forEach((val, i) => {
-            if (val.weight < 0) throw new Error("Percents cannot be negative");
-            totalWeight += val.weight;
-            isValidValue(feature.valueType, val.value, "Value #" + (i + 1));
-          });
-          if (totalWeight > 1) {
-            throw new Error(
-              `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+          if (rules[i].type === "force") {
+            isValidValue(
+              feature.valueType,
+              (rules[i] as ForceRule).value,
+              "Forced value"
             );
-          }
-        } else {
-          isValidValue(
-            feature.valueType,
-            (rules[i] as RolloutRule).value,
-            "Rollout value"
-          );
+          } else if (rules[i].type === "experiment") {
+            const ruleValues = (rules[i] as ExperimentRule).values;
+            if (!ruleValues || !ruleValues.length) {
+              throw new Error("Must set at least one value");
+            }
+            let totalWeight = 0;
+            ruleValues.forEach((val, i) => {
+              if (val.weight < 0)
+                throw new Error("Percents cannot be negative");
+              totalWeight += val.weight;
+              isValidValue(feature.valueType, val.value, "Value #" + (i + 1));
+            });
+            if (totalWeight > 1) {
+              throw new Error(
+                `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+              );
+            }
+          } else {
+            isValidValue(
+              feature.valueType,
+              (rules[i] as RolloutRule).value,
+              "Rollout value"
+            );
 
-          if (values.coverage < 0 || values.coverage > 1) {
-            throw new Error("Rollout percent must be between 0 and 1");
+            if (values.coverage < 0 || values.coverage > 1) {
+              throw new Error("Rollout percent must be between 0 and 1");
+            }
           }
+
+          track("Save Feature Rule", {
+            source: ruleAction,
+            ruleIndex: i,
+            type: values.type,
+            hasCondition: values.condition.length > 2,
+            hasDescription: values.description.length > 0,
+          });
+
+          await apiCall(`/feature/${feature.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              rules,
+            }),
+          });
+          mutate();
+        } catch (e) {
+          track("Feature Rule Error", {
+            source: ruleAction,
+            ruleIndex: i,
+            type: values.type,
+            hasCondition: values.condition.length > 2,
+            hasDescription: values.description.length > 0,
+            error: e.message,
+          });
+
+          throw e;
         }
-
-        await apiCall(`/feature/${feature.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            rules,
-          }),
-        });
-        mutate();
       })}
     >
       <Field

@@ -7,6 +7,7 @@ import Modal from "../Modal";
 import dJSON from "dirty-json";
 import FeatureValueField from "./FeatureValueField";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import track from "../../services/track";
 
 export type Props = {
   close: () => void;
@@ -77,6 +78,14 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             body: JSON.stringify(body),
           }
         );
+
+        if (!existing) {
+          track("Feature Created", {
+            valueType: values.valueType,
+            hasDescription: values.description.length > 0,
+          });
+        }
+
         await onSuccess(res.feature);
       })}
     >
