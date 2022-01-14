@@ -65,6 +65,41 @@ def test_unknown_variations():
     assert detect_unknown_variations(rows, {"hello": 0, "world": 1}) == {"one", "zero"}
 
 
+def test_multiple_exposures():
+    rows = pd.DataFrame(
+        [
+            {
+                "dimension": "All",
+                "variation": "one",
+                "count": 120,
+                "mean": 2.5,
+                "stddev": 1,
+                "users": 1000,
+            },
+            {
+                "dimension": "All",
+                "variation": "two",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 1100,
+            },
+            {
+                "dimension": "All",
+                "variation": "__multiple__",
+                "count": 50,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 500,
+            },
+        ]
+    )
+    assert detect_unknown_variations(rows, {"one": 0, "two": 1}) == set()
+    assert detect_unknown_variations(rows, {"one": 0, "two": 1}, {"some_other"}) == {
+        "__multiple__"
+    }
+
+
 def test_reduce_dimensionality():
     rows = pd.DataFrame(
         [

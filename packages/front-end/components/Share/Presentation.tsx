@@ -224,6 +224,7 @@ const Presentation = ({
                 status={experiment.status}
                 startDate={phase?.dateStarted}
                 unknownVariations={snapshot.unknownVariations || []}
+                multipleExposures={snapshot.multipleExposures || 0}
                 variations={experiment.variations.map((v, i) => {
                   return {
                     id: v.key || i + "",

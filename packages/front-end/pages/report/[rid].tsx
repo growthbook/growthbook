@@ -297,6 +297,7 @@ export default function ReportPage() {
                 status={"stopped"}
                 startDate={getValidDate(report.args.startDate).toISOString()}
                 unknownVariations={report.results?.unknownVariations || []}
+                multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 isUpdating={status === "running"}
               />

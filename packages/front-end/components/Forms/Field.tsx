@@ -171,7 +171,11 @@ const Field = forwardRef(
     }
 
     return (
-      <div className={clsx("form-group", containerClassName)}>
+      <div
+        className={clsx("form-group", containerClassName, {
+          "mb-0": !label,
+        })}
+      >
         {label && (
           <label htmlFor={fieldId} className={clsx(labelClassName)}>
             {label}

@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { WebhookInterface } from "back-end/types/webhook";
@@ -6,14 +6,14 @@ import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
-import { FaCheck, FaBolt } from "react-icons/fa";
+import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
     "/webhooks"
   );
   const { apiCall } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -24,10 +24,16 @@ const Webhooks: FC = () => {
 
   return (
     <div>
-      {open && <WebhooksModal close={() => setOpen(false)} onCreate={mutate} />}
+      {open && (
+        <WebhooksModal
+          close={() => setOpen(null)}
+          onSave={mutate}
+          current={open}
+        />
+      )}
       <p>
-        Webhooks push the latest experiment overrides to your server whenever an
-        experiment is modified within the GrowthBook app.{" "}
+        Webhooks push the latest experiment overrides and features to your
+        server whenever they are modified within the GrowthBook app.{" "}
         <a
           href="https://docs.growthbook.io/app/webhooks"
           target="_blank"
@@ -69,15 +75,28 @@ const Webhooks: FC = () => {
                   )}
                 </td>
                 <td>
+                  <a
+                    href="#"
+                    className="tr-hover text-primary mr-3"
+                    title="Edit this webhook"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOpen(webhook);
+                    }}
+                  >
+                    <FaPencilAlt />
+                  </a>
                   <DeleteButton
+                    link={true}
+                    className={"tr-hover text-primary"}
+                    displayName="Webhook"
+                    title="Delete this webhook"
                     onClick={async () => {
                       await apiCall(`/webhook/${webhook.id}`, {
                         method: "DELETE",
                       });
                       mutate();
                     }}
-                    displayName="Webhook"
-                    className="tr-hover"
                   />
                 </td>
               </tr>
@@ -90,7 +109,7 @@ const Webhooks: FC = () => {
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
-          setOpen(true);
+          setOpen({});
         }}
       >
         <FaBolt /> Create Webhook

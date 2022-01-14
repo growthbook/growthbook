@@ -1,5 +1,5 @@
 <p align="center"><a href="https://www.growthbook.io"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" alt="GrowthBook - The Open Source A/B Testing Platform" /></a></p>
-<p align="center"><b>The Open Source A/B Testing Platform</b></p>
+<p align="center"><b>The Open Source A/B Testing and Feature Flagging Platform</b></p>
 <p align="center">
     <a href="https://github.com/growthbook/growthbook/actions/workflows/ci.yml"><img src="https://img.shields.io/github/workflow/status/growthbook/growthbook/CI" alt="Build Status" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
@@ -17,14 +17,14 @@ docker-compose up -d
 
 Then visit http://localhost:3000
 
-[![GrowthBook Screenshot](https://user-images.githubusercontent.com/1087514/124157227-26f05e00-da5e-11eb-9f73-3ceabc6ecf9e.png)](https://www.growthbook.io)
+[![GrowthBook Screenshot](/growthbook-screenshot.png)](https://www.growthbook.io)
 
 ## Our Philosophy
 
-The top 1% of companies spend thousands of hours building their own A/B testing platforms in-house.
+The top 1% of companies spend thousands of hours building their own A/B testing and feature flagging platforms in-house.
 The other 99% are left paying for expensive 3rd party SaaS tools or hacking together unmaintained open source libraries.
 
-GrowthBook gives you the flexibility and power of a fully-featured in-house A/B testing platform without needing to build it yourself.
+GrowthBook gives you the flexibility and power of a fully-featured in-house platform without needing to build it yourself.
 
 ## Major Features
 
@@ -33,6 +33,7 @@ GrowthBook gives you the flexibility and power of a fully-featured in-house A/B 
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
 - 🪐 Export results as a Jupyter Notebook!
 - 💻 Client libraries for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
+- 🏁 Feature flags with targeting, gradual rollouts, and experiments
 - 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
 - 📝 Document experiments with screenshots and GitHub Flavored Markdown
 - 🔔 Automated email alerts when tests become significant

@@ -43,6 +43,7 @@ export interface ExperimentSnapshotInterface {
   queries: Queries;
   dimension: string | null;
   unknownVariations?: string[];
+  multipleExposures?: number;
   results?: {
     name: string;
     srm: number;

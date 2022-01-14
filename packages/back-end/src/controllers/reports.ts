@@ -58,6 +58,7 @@ export async function postReportFromSnapshot(
       ? {
           dimensions: snapshot.results,
           unknownVariations: snapshot.unknownVariations || [],
+          multipleExposures: snapshot.multipleExposures || 0,
         }
       : undefined,
     queries: snapshot.queries,

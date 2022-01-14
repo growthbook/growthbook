@@ -23,6 +23,7 @@ export type ExperimentResults = {
     }[];
   }[];
   unknownVariations: string[];
+  multipleExposures?: number;
 };
 
 export type ExperimentQueryResponses = {

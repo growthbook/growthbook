@@ -11,10 +11,20 @@ import { hasFileConfig, initEnv } from "../services/env";
 import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
 };
+
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
 
 function App({
   Component,
@@ -47,6 +57,15 @@ function App({
     });
   }, [ready]);
 
+  useEffect(() => {
+    // Load feature definitions JSON (from API, database, etc.)
+    fetch("https://cdn.growthbook.io/api/features/key_486336ff87c125f4")
+      .then((res) => res.json())
+      .then((json) => {
+        growthbook.setFeatures(json.features);
+      });
+  }, [router.pathname]);
+
   return (
     <>
       <Head>
@@ -55,21 +74,23 @@ function App({
       </Head>
       {ready ? (
         <AuthProvider>
-          <ProtectedPage
-            organizationRequired={organizationRequired}
-            preAuth={preAuth}
-          >
-            {organizationRequired && !preAuth ? (
-              <DefinitionsProvider>
-                <Layout />
-                <main className={`main ${parts[0]}`}>
-                  <Component {...pageProps} />
-                </main>
-              </DefinitionsProvider>
-            ) : (
-              <Component {...pageProps} />
-            )}
-          </ProtectedPage>
+          <GrowthBookProvider growthbook={growthbook}>
+            <ProtectedPage
+              organizationRequired={organizationRequired}
+              preAuth={preAuth}
+            >
+              {organizationRequired && !preAuth ? (
+                <DefinitionsProvider>
+                  <Layout />
+                  <main className={`main ${parts[0]}`}>
+                    <Component {...pageProps} />
+                  </main>
+                </DefinitionsProvider>
+              ) : (
+                <Component {...pageProps} />
+              )}
+            </ProtectedPage>
+          </GrowthBookProvider>
         </AuthProvider>
       ) : error ? (
         <div className="container mt-3">

@@ -11,6 +11,9 @@ import CreateOrganization from "./Auth/CreateOrganization";
 import md5 from "md5";
 import track from "../services/track";
 import { OrganizationSettings } from "back-end/types/organization";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useRouter } from "next/router";
+import { isCloud } from "../services/env";
 
 type User = { id: string; email: string; name: string };
 
@@ -86,6 +89,7 @@ const ProtectedPage: React.FC<{
 
   const [data, setData] = useState<UserResponse>(null);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
+  const router = useRouter();
 
   const update = async () => {
     const res = await apiCall<UserResponse>("/user", {
@@ -139,6 +143,22 @@ const ProtectedPage: React.FC<{
     update();
   }, [isAuthenticated]);
 
+  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
+  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+
+  const growthbook = useGrowthBook();
+  useEffect(() => {
+    growthbook.setAttributes({
+      id: data?.userId || "",
+      name: data?.userName || "",
+      admin: data?.admin || false,
+      company: currentOrg?.name || "",
+      userAgent: window.navigator.userAgent,
+      url: router?.pathname || "",
+      cloud: isCloud(),
+    });
+  }, [data, router?.pathname]);
+
   // This page is before the user is authenticated (e.g. reset password)
   if (preAuth) {
     return <>{children}</>;
@@ -158,9 +178,6 @@ const ProtectedPage: React.FC<{
   if (data?.organizations?.length > 0 && !orgId) {
     return <LoadingOverlay />;
   }
-
-  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
 
   const userContextValue: UserContextValue = {
     userId: data?.userId,

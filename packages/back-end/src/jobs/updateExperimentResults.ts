@@ -205,6 +205,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
                 $set: {
                   ...updates,
                   unknownVariations: results?.unknownVariations || [],
+                  multipleExposures: results?.multipleExposures || 0,
                   results: results?.dimensions || currentSnapshot.results,
                   error,
                 },

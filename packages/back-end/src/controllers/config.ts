@@ -35,12 +35,15 @@ export async function getExperimentConfig(
       });
     }
 
-    const overrides = await getExperimentOverrides(organization);
+    const { overrides, expIdMapping } = await getExperimentOverrides(
+      organization
+    );
 
     // TODO: add cache headers?
     res.status(200).json({
       status: 200,
       overrides,
+      experiments: expIdMapping,
     });
   } catch (e) {
     console.error(e);
