@@ -46,7 +46,7 @@ const Results: FC<{
   );
 
   const showReports = useMemo(() => {
-    // TODO: logic to see if we should show reports or not
+    if (!experiment.datasource) return false;
     return true;
   }, [experiment]);
 

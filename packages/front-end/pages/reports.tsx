@@ -78,15 +78,27 @@ const ReportsPage = (): React.ReactElement => {
       <div className="container p-4">
         <h1>Reports</h1>
         <p>
-          Reports are customized analysis of experiment results. They are useful
-          for teams to dig into the results and discover new insights and
-          learnings.
+          A report is an ad-hoc analysis of an experiment. Use them to explore
+          results in an isolated environment without affecting the main
+          experiment.
         </p>
 
+        <p>To create your first report:</p>
+        <ol>
+          <li>Go to an experiment</li>
+          <li>Click on the Results tab</li>
+          <li>Open the more menu (3 dots next to the Update button)</li>
+          <li>Select &quot;ad-hoc report&quot;</li>
+        </ol>
+
+        <Link href="/experiments">
+          <a className="btn btn-primary mb-2">Go to Experiments</a>
+        </Link>
+
         <p>
-          To create your first report, start from the experiment you want to
-          analyze and click on &quot;ad-hoc report&quot; from the drop down menu
-          on the results page.
+          <em>Note:</em> you will not see the &quot;ad-hoc report&quot; option
+          if your experiment does not have results yet or is not hooked up to a
+          valid data source.
         </p>
       </div>
     );

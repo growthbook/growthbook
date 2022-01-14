@@ -36,17 +36,8 @@ export default function ExperimentReportsList({
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports = hasData && snapshot?.queries && !hasUserQuery;
 
-  if (!reports.length && (!hasData || !snapshot?.queries)) {
-    return (
-      <div>
-        <div className="row mb-3">
-          <div className="col">
-            <h3 className="mb-3">Custom Reports</h3>
-          </div>
-        </div>
-        <div className="mb-4">This experiment has no results to customize.</div>
-      </div>
-    );
+  if (!reports.length) {
+    return null;
   }
 
   return (
