@@ -7,7 +7,7 @@ export function runPostgresQuery<T>(
   values: string[] = []
 ): Promise<T[]> {
   return new Promise<T[]>((resolve, reject) => {
-    let ssl: false | Record<string, unknown> = false;
+    let ssl: false | ClientConfig["ssl"] = false;
     if (conn.ssl === true || conn.ssl === "true") {
       ssl = {
         rejectUnauthorized: false,
