@@ -15,6 +15,7 @@ import { FaCheck, FaRegCircle } from "react-icons/fa";
 import clsx from "clsx";
 import EditAttributesModal from "../../components/Features/EditAttributesModal";
 import CodeSnippetModal from "../../components/Features/CodeSnippetModal";
+import track from "../../services/track";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -82,7 +83,12 @@ export default function FeaturesPage() {
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                setModalOpen(true);
+                track("Viewed Feature Modal", {
+                  source: "feature-list",
+                });
+              }}
               type="button"
             >
               <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -130,6 +136,9 @@ export default function FeaturesPage() {
               onClick={(e) => {
                 e.preventDefault();
                 setAttributeModalOpen(true);
+                track("Viewed Attributes Modal", {
+                  source: "feature-onboarding",
+                });
               }}
             >
               {settings?.attributeSchema?.length > 0 ? (
@@ -147,6 +156,9 @@ export default function FeaturesPage() {
               onClick={(e) => {
                 e.preventDefault();
                 setCodeModalOpen(true);
+                track("Viewed Feature Integration Modal", {
+                  source: "feature-onboarding",
+                });
               }}
             >
               {settings?.sdkInstructionsViewed ? (
@@ -164,6 +176,9 @@ export default function FeaturesPage() {
               onClick={(e) => {
                 e.preventDefault();
                 setModalOpen(true);
+                track("Viewed Feature Modal", {
+                  source: "feature-onboarding",
+                });
               }}
             >
               {data?.features?.length > 0 ? (

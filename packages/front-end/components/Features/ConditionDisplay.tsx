@@ -1,14 +1,17 @@
-import { SDKAttributeType } from "back-end/types/organization";
-import { jsonToConds, useAttributeMap } from "../../services/features";
+import {
+  AttributeData,
+  jsonToConds,
+  useAttributeMap,
+} from "../../services/features";
 import Code from "../Code";
 
-function operatorToText(operator: string, type: SDKAttributeType): string {
+function operatorToText(operator: string, attribute?: AttributeData): string {
   switch (operator) {
     case "$eq":
-      if (type === "number[]" || type === "string[]") return `contains`;
+      if (attribute?.array) return `contains`;
       return `is equal to`;
     case "$ne":
-      if (type === "number[]" || type === "string[]") return `does not contain`;
+      if (attribute?.array) return `does not contain`;
       return `is not equal to`;
     case "$lt":
       return `is less than`;
@@ -50,10 +53,10 @@ function getValue(operator: string, value: string): string {
 export default function ConditionDisplay({ condition }: { condition: string }) {
   const conds = jsonToConds(condition);
 
-  const [hasAttributes, attributeType] = useAttributeMap();
+  const attributes = useAttributeMap();
 
   // Could not parse into simple conditions
-  if (conds === null || !hasAttributes) {
+  if (conds === null || !attributes.size) {
     return <Code language="json" code={condition} />;
   }
 
@@ -64,7 +67,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
           {i > 0 && <span className="mr-1">AND</span>}
           <span className="mr-1 border px-2 bg-light rounded">{field}</span>
           <span className="mr-1">
-            {operatorToText(operator, attributeType[field] || "string")}
+            {operatorToText(operator, attributes[field])}
           </span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">

@@ -17,6 +17,7 @@ import RuleList from "../../components/Features/RuleList";
 import Code from "../../components/Code";
 import { useMemo } from "react";
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+import track from "../../services/track";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -162,7 +163,12 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <button
         className="btn btn-primary"
-        onClick={() => setRuleModal(data?.feature?.rules?.length || 0)}
+        onClick={() => {
+          setRuleModal(data?.feature?.rules?.length || 0);
+          track("Viewed Rule Modal", {
+            source: "add-rule",
+          });
+        }}
       >
         <span className="h4 pr-2 m-0 d-inline-block align-top">
           <GBAddCircle />
