@@ -828,6 +828,7 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
+        ${segment ? `WHERE s.date <= e.actual_start` : ""}
         GROUP BY
           dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )
