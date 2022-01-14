@@ -102,7 +102,7 @@ export async function getReports(req: AuthRequest, res: Response) {
     });
   }
 
-  const experiments = experimentsIds
+  const experiments = experimentsIds.length
     ? await getExperimentsByIds(experimentsIds)
     : [];
 

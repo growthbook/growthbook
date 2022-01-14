@@ -153,7 +153,9 @@ export default function ReportPage() {
           <small className="text-muted">
             Created {report?.userId && <>by {getUserDisplay(report.userId)} </>}{" "}
             on {date(report.dateCreated)} -{" "}
-            {form.watch("status") === "published" ? "Published" : "Private"}
+            <span className="badge badge-secondary">
+              {form.watch("status") === "published" ? "Published" : "Private"}
+            </span>
           </small>
         </div>
         {report.description && (

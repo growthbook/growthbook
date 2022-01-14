@@ -45,7 +45,7 @@ const ReportsPage = (): React.ReactElement => {
       });
     }
     return tmp;
-  }, [data.experiments]);
+  }, [data?.experiments]);
 
   const getExperimentName = (experimentId: string): string => {
     return expMap.get(experimentId)?.name ?? "";
@@ -348,7 +348,7 @@ const ReportsPage = (): React.ReactElement => {
                     overflow: "hidden",
                   }}
                 >
-                  {report.description},
+                  {report.description}
                 </td>
                 <td>{report.status === "private" ? "private" : "published"}</td>
                 <td>{getExperimentName(report.experimentId)}</td>

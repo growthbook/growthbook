@@ -65,15 +65,8 @@ export async function getReportsByOrg(
       organization,
       project
     );
-    const expMap = new Map();
-    allExperiments.map((e) => {
-      expMap.set(e.id, true);
-    });
-    reports = reports.filter((r) => {
-      if (expMap.get(r.experimentId)) {
-        return true;
-      }
-    });
+    const expIds = new Set(allExperiments.map((e) => e.id));
+    reports = reports.filter((r) => expIds.has(r.experimentId));
   }
   return reports;
 }
