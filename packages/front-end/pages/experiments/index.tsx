@@ -167,7 +167,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <span className="h4 pr-2 m-0 d-inline-block align-top">
                     <GBAddCircle />
                   </span>
-                  New Experiment
+                  Add Experiment
                 </button>
               </div>
             )}

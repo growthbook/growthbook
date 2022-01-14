@@ -1,6 +1,5 @@
 import { FC, useEffect, useState } from "react";
 import NewExperimentForm from "./NewExperimentForm";
-import SelectField from "../Forms/SelectField";
 import ImportExperimentList from "./ImportExperimentList";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
@@ -19,21 +18,30 @@ const ImportExperimentModal: FC<{
     setSelected,
   ] = useState<null | Partial<ExperimentInterfaceStringDates>>(initialValue);
   const [importModal, setImportModal] = useState<boolean>(importMode);
-  const [datasourceId, setDatasourceId] = useState(datasources?.[0]?.id);
+  const [datasourceId, setDatasourceId] = useState(() => {
+    if (!datasources) return null;
+    return (
+      datasources.filter((d) => d.properties.pastExperiments)[0]?.id ?? null
+    );
+  });
   const [importId, setImportId] = useState(null);
 
   const { apiCall } = useAuth();
 
   const getImportId = async () => {
     if (datasourceId) {
-      const res = await apiCall<{ id: string }>("/experiments/import", {
-        method: "POST",
-        body: JSON.stringify({
-          datasource: datasourceId,
-        }),
-      });
-      if (res?.id) {
-        setImportId(res.id);
+      try {
+        const res = await apiCall<{ id: string }>("/experiments/import", {
+          method: "POST",
+          body: JSON.stringify({
+            datasource: datasourceId,
+          }),
+        });
+        if (res?.id) {
+          setImportId(res.id);
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
   };
@@ -54,37 +62,33 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
-      header="Import Experiment"
+      header="Add Experiment"
       open={true}
       size="lg"
       close={() => onClose()}
     >
-      <a
-        className="cursor-pointer float-right"
-        onClick={(e) => {
-          e.preventDefault();
-          setImportModal(false);
-        }}
-      >
-        Create experiment
-      </a>
-      {datasources.length > 1 && (
-        <SelectField
-          label="Import from data source:"
-          value={datasourceId}
-          options={datasources.map((d) => ({
-            value: d.id,
-            label: d.name,
-          }))}
-          onChange={setDatasourceId}
-        />
-      )}
+      <div className="alert alert-info">
+        Prefer to start with a blank experiment instead?{" "}
+        <a
+          href="#"
+          className="alert-link"
+          onClick={(e) => {
+            e.preventDefault();
+            setImportModal(false);
+          }}
+        >
+          Create New Draft
+        </a>
+      </div>
+      <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
           onImport={(create) => {
             setSelected(create);
           }}
+          changeDatasource={setDatasourceId}
           importId={importId}
+          hideImported={true}
         />
       )}
     </Modal>

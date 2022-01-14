@@ -278,16 +278,15 @@ const GetStarted = ({
                       <div className="col-12 col-sm-8">
                         <div className="card-title">
                           <h3 className="">
-                            3. Create an experiment
+                            3. Add an Experiment
                             <span className="h3 mb-0 ml-3 complete checkmark d-none">
                               <FaCheck /> Completed
                             </span>
                           </h3>
                         </div>
                         <p className="card-text">
-                          Create a draft experiment, implement using our Client
-                          Libraries or Visual Editor, start it, and analyze
-                          results.
+                          Import an existing experiment from your data source or
+                          create a new draft from scratch.
                         </p>
                         <a
                           className={`action-link ${
@@ -309,7 +308,7 @@ const GetStarted = ({
                         >
                           {hasExperiments
                             ? "View experiments"
-                            : "Create experiment"}{" "}
+                            : "Add experiment"}{" "}
                           <FiArrowRight />
                         </a>
                       </div>

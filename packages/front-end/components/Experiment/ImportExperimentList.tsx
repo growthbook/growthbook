@@ -1,4 +1,4 @@
-import { date, getValidDate } from "../../services/dates";
+import { ago, date, datetime, getValidDate } from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
 import React, { FC } from "react";
@@ -11,6 +11,7 @@ import useApi from "../../hooks/useApi";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import LoadingOverlay from "../LoadingOverlay";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
+import SelectField from "../Forms/SelectField";
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -18,15 +19,19 @@ const ImportExperimentList: FC<{
   importId: string;
   searchLimit?: number;
   showQueries?: boolean;
+  changeDatasource?: (id: string) => void;
+  hideImported?: boolean;
   //useForm?: boolean;
 }> = ({
   onImport,
   importId,
   searchLimit = 4,
   showQueries = true,
+  changeDatasource,
+  hideImported = false,
   //useForm = true,
 }) => {
-  const { getDatasourceById, ready } = useDefinitions();
+  const { getDatasourceById, ready, datasources } = useDefinitions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
@@ -43,7 +48,11 @@ const ImportExperimentList: FC<{
   const {
     list: filteredExperiments,
     searchInputProps,
-  } = useSearch(pastExpArr || [], ["trackingKey"]);
+  } = useSearch(
+    pastExpArr?.filter((e) => !hideImported || !existing?.[e.trackingKey]) ||
+      [],
+    ["trackingKey"]
+  );
 
   filteredExperiments.sort((a, b) => {
     if (a.startDate < b.startDate) return 1;
@@ -61,14 +70,38 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
 
+  const supportedDatasources = datasources.filter(
+    (d) => d.properties.pastExperiments
+  );
+
   return (
     <>
-      <h2>Import Experiments</h2>
-      <p>
-        From datasource:{" "}
-        <strong>{getDatasourceById(data.experiments.datasource)?.name}</strong>
-      </p>
-      <div className="row mb-3">
+      <div className="row align-items-center mb-4">
+        <div className="col-auto">
+          {changeDatasource && supportedDatasources.length > 1 ? (
+            <SelectField
+              value={data.experiments.datasource}
+              options={supportedDatasources.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+              onChange={changeDatasource}
+            />
+          ) : (
+            <strong>
+              {getDatasourceById(data.experiments.datasource)?.name}
+            </strong>
+          )}
+        </div>
+        <div className="col-auto ml-auto">
+          <div
+            className="text-muted"
+            style={{ fontSize: "0.8em" }}
+            title={datetime(data.experiments.runStarted)}
+          >
+            last updated {ago(data.experiments.runStarted)}
+          </div>
+        </div>
         <div className="col-auto">
           <form
             onSubmit={async (e) => {
@@ -97,18 +130,6 @@ const ImportExperimentList: FC<{
             />
           </form>
         </div>
-        {showQueries && (
-          <div className="col-auto">
-            <ViewAsyncQueriesButton
-              queries={
-                data.experiments.queries?.length > 0
-                  ? data.experiments.queries.map((q) => q.query)
-                  : []
-              }
-              error={data.experiments.error}
-            />
-          </div>
-        )}
       </div>
       {status === "failed" && (
         <div className="alert alert-danger my-3">
@@ -117,10 +138,10 @@ const ImportExperimentList: FC<{
       )}
       {pastExpArr.length > 0 && (
         <div>
-          <h3>Available Experiments</h3>
+          <h4>Experiments</h4>
           <p>
-            These are all of the experiments we found in your datasource for the
-            past 12 months.
+            These are all of the {hideImported && "new "}experiments we found in
+            your datasource for the past 12 months.
           </p>
           {pastExpArr.length > searchLimit && (
             <div className="row mb-3">
@@ -222,6 +243,19 @@ const ImportExperimentList: FC<{
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showQueries && (
+        <div>
+          <ViewAsyncQueriesButton
+            queries={
+              data.experiments.queries?.length > 0
+                ? data.experiments.queries.map((q) => q.query)
+                : []
+            }
+            error={data.experiments.error}
+          />
         </div>
       )}
     </>

@@ -43,6 +43,7 @@ export interface DataSourceProperties {
   activationDimension?: boolean;
   events?: boolean;
   userIds?: boolean;
+  pastExperiments?: boolean;
   separateExperimentResultQueries?: boolean;
 }
 
