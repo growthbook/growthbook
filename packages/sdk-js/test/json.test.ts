@@ -2,24 +2,49 @@
 
 import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
 import { evalCondition } from "../src/mongrule";
-import { hashFnv32a } from "../src/util";
-import features from "./cases/features.json";
-import conditions from "./cases/conditions.json";
-import fnv from "./cases/fnv.json";
-import experiments from "./cases/experiments.json";
+import { VariationRange } from "../src/types";
+import {
+  chooseVariation,
+  getBucketRanges,
+  getEqualWeights,
+  getQueryStringOverride,
+  hash,
+  inNamespace,
+} from "../src/util";
+import cases from "./cases.json";
 
-// Name, context, feature key, result
-type FeatureCasesArray = [string, Context, string, FeatureResult][];
-// Name, result, condition, attributes
-type ConditionCasesArray = [string, any, any, boolean];
-// Value, result
-type FnvCasesArray = [string, number];
-// Name, context, experiment, result.value, result.inExperiment
-type ExperimentsCasesArray = [string, Context, Experiment<any>, any, boolean];
+type Cases = {
+  // value, hash
+  hash: [string, number][];
+  // name, context, experiment, value, inExperiment
+  run: [string, Context, Experiment<any>, any, boolean][];
+  // name, context, feature key, result
+  feature: [string, Context, string, FeatureResult][];
+  // name, condition, attribute, result
+  evalCondition: [string, any, any, boolean][];
+  // name, args ([numVariations, coverage, weights]), result
+  getBucketRange: [
+    string,
+    [number, number, number[] | null],
+    VariationRange[]
+  ][];
+  // name, hash, ranges, result
+  chooseVariation: [string, number, VariationRange[], number][];
+  // name, experiment key, url, numVariations, result
+  getQueryStringOverride: [string, string, string, number, number | null][];
+  // name, id, namespace, result
+  inNamespace: [string, string, [string, number, number], boolean][];
+  // numVariations, result
+  getEqualWeights: [number, number[]][];
+};
+
+const round = (n: number) => Math.floor(n * 1e8) / 1e8;
+const roundArray = (arr: number[]) => arr.map((n) => round(n));
+const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
 
 describe("json test suite", () => {
-  it.each(features as FeatureCasesArray)(
-    "features.json[%#] %s",
+  it.each((cases as Cases).feature)(
+    "feature[%#] %s",
     (name, ctx, key, result) => {
       const growthbook = new GrowthBook(ctx);
       expect(growthbook.feature(key)).toEqual(result);
@@ -27,8 +52,8 @@ describe("json test suite", () => {
     }
   );
 
-  it.each(conditions as ConditionCasesArray)(
-    "conditions.json[%#] %s",
+  it.each((cases as Cases).evalCondition)(
+    "evalCondition[%#] %s",
     (name, condition, value, expected) => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
@@ -38,15 +63,57 @@ describe("json test suite", () => {
     }
   );
 
-  it.each((fnv as unknown) as FnvCasesArray)(
-    "fnv.json[%#] %s",
-    (value, expected) => {
-      expect(hashFnv32a(value as string) % 1000).toEqual(expected);
+  it.each((cases as Cases).hash)("hash[%#] %s", (value, expected) => {
+    expect(hash(value as string)).toEqual(expected);
+  });
+
+  it.each((cases as Cases).getBucketRange)(
+    "getBucketRange[%#] %s",
+    (name, inputs, expected) => {
+      const consoleErrorMock = jest
+        .spyOn(console, "error")
+        .mockImplementation();
+
+      expect(
+        roundArrayArray(
+          getBucketRanges(inputs[0], inputs[1], inputs[2] ?? undefined)
+        )
+      ).toEqual(roundArrayArray(expected));
+
+      consoleErrorMock.mockRestore();
     }
   );
 
-  it.each(experiments as ExperimentsCasesArray)(
-    "experiments.json[%#] %s",
+  it.each((cases as Cases).chooseVariation)(
+    "chooseVariation[%#] %s",
+    (name, n, ranges, expected) => {
+      expect(chooseVariation(n, ranges)).toEqual(expected);
+    }
+  );
+
+  it.each((cases as Cases).getQueryStringOverride)(
+    "getQueryStringOverride[%#] %s",
+    (name, key, url, numVariations, expected) => {
+      expect(getQueryStringOverride(key, url, numVariations)).toEqual(expected);
+    }
+  );
+
+  it.each((cases as Cases).inNamespace)(
+    "inNamespace[%#] %s",
+    (name, id, namespace, expected) => {
+      expect(inNamespace(id, namespace)).toEqual(expected);
+    }
+  );
+
+  it.each((cases as Cases).getEqualWeights)(
+    "getEqualWeights[%#] %d",
+    (n, expected) => {
+      expect(roundArray(getEqualWeights(n))).toEqual(roundArray(expected));
+    }
+  );
+
+  it.each((cases as Cases).run)(
+    "run[%#] %s",
     (name, ctx, exp, value, inExperiment) => {
       const growthbook = new GrowthBook(ctx);
       const res = growthbook.run(exp);

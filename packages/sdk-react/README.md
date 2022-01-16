@@ -14,7 +14,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 - Written in **Typescript** with extensive test coverage
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
-- **Remote configuration** to adjust targeting and weights without deploying new code
+- **Remote configuration** to change feature values without deploying new code
 
 ## Community
 
