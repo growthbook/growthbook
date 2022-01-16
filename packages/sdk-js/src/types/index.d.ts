@@ -38,6 +38,7 @@ export interface FeatureResult<T = any> {
   on: boolean;
   off: boolean;
   experiment?: Experiment<T>;
+  experimentResult?: Result<T>;
 }
 
 export type ExperimentStatus = "draft" | "running" | "stopped";

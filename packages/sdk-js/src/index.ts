@@ -163,7 +163,8 @@ class GrowthBook {
   private getFeatureResult<T>(
     value: T,
     source: FeatureResultSource,
-    experiment: Experiment<T> | null = null
+    experiment: Experiment<T> | null = null,
+    result: Result<T> | null = null
   ): FeatureResult<T> {
     const ret: FeatureResult = {
       value,
@@ -172,6 +173,7 @@ class GrowthBook {
       source,
     };
     if (experiment) ret.experiment = experiment;
+    if (result) ret.experimentResult = result;
     return ret;
   }
 
@@ -266,7 +268,7 @@ class GrowthBook {
         // Only return a value if the user is part of the experiment
         const res = this.run(exp);
         if (res.inExperiment) {
-          return this.getFeatureResult(res.value, "experiment", exp);
+          return this.getFeatureResult(res.value, "experiment", exp, res);
         }
       }
     }

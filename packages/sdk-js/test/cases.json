@@ -1581,6 +1581,13 @@
           "key": "feature",
           "variations": ["a", "b", "c"]
         },
+        "experimentResult": {
+          "value": "c",
+          "variationId": 2,
+          "inExperiment": true,
+          "hashAttribute": "id",
+          "hashValue": "123"
+        },
         "source": "experiment"
       }
     ],
@@ -1609,6 +1616,13 @@
           "key": "feature",
           "variations": ["a", "b", "c"]
         },
+        "experimentResult": {
+          "value": "a",
+          "variationId": 0,
+          "inExperiment": true,
+          "hashAttribute": "id",
+          "hashValue": "456"
+        },
         "source": "experiment"
       }
     ],
@@ -1636,6 +1650,13 @@
         "experiment": {
           "key": "feature",
           "variations": ["a", "b", "c"]
+        },
+        "experimentResult": {
+          "value": "b",
+          "variationId": 1,
+          "inExperiment": true,
+          "hashAttribute": "id",
+          "hashValue": "fds"
         },
         "source": "experiment"
       }
@@ -1676,6 +1697,13 @@
           "key": "hello",
           "variations": [true, false],
           "weights": [0.1, 0.9]
+        },
+        "experimentResult": {
+          "value": false,
+          "variationId": 1,
+          "inExperiment": true,
+          "hashAttribute": "anonId",
+          "hashValue": "123"
         }
       }
     ],
