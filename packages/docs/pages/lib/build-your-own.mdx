@@ -8,39 +8,11 @@ All libraries should follow this specification as closely as the language permit
 
 ## Data structures
 
-There are a number of important data structures in GrowthBook client libraries.
+Here are a number of important data structures in GrowthBook client libraries, listed alphabetically.
 
-### Condition
+### Attributes
 
-Targeting condition based on MongoDB query syntax. This is a recursive JSON object with arbitrary nesting levels. For example:
-
-```ts
-{
-  "country": "US",
-  "browser": {
-    "$in": ["firefox", "chrome"]
-  },
-  "email": {
-    "$not": {
-      "$regex": "@gmail.com$"
-    }
-  }
-}
-```
-
-### Context
-
-Defines the GrowthBook context. At a minimum, the context should support the following optional properties:
-
-- **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
-- **attributes** (`Map`) - Map of user attributes that are used to assign variations
-- **url** (`string`) - The URL of the current page
-- **features** (`Map`) - Feature definitions (usually pulled from an API or cache)
-- **forcedVariations** (`Map`) - Force specific experiments to always assign a specific variation (used for QA)
-- **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
-- **trackingCallback** (`function`) - A function that takes `experiment` and `result` as arguments.
-
-Attributes are an arbitrary JSON object containing user and request attributes. Here's an example:
+**Attributes** are an arbitrary JSON object containing user and request attributes. Here's an example:
 
 ```json
 {
@@ -59,28 +31,59 @@ Attributes are an arbitrary JSON object containing user and request attributes. 
 }
 ```
 
-An example of `trackingCallback` in javascript:
+### BucketRange
 
-```js
-function track(experiment, result) {
-  analytics.track("Experiment Viewed", {
-    experimentId: experiment.key,
-    variationId: result.variationId,
-  });
+A tuple that describes a range of the numberline between `0` and `1`.
+
+The tuple has 2 parts, both floats - the start of the range and the end. For example:
+
+```ts
+[0.3, 0.7];
+```
+
+### Condition
+
+A **Condition** is evaluated against **Attributes** and used to target features/experiments to specific users.
+
+The syntax is inspired by MongoDB queries. Here is an example:
+
+```ts
+{
+  "country": "US",
+  "browser": {
+    "$in": ["firefox", "chrome"]
+  },
+  "email": {
+    "$not": {
+      "$regex": "@gmail.com$"
+    }
+  }
 }
 ```
 
+### Context
+
+**Context** object passed into the GrowthBook constructor. Has a number of optional properties:
+
+- **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
+- **attributes** (`Attributes`) - Map of user attributes that are used to assign variations
+- **url** (`string`) - The URL of the current page
+- **features** (`FeatureMap`) - Feature definitions (usually pulled from an API or cache)
+- **forcedVariations** (`ForcedVariationsMap`) - Force specific experiments to always assign a specific variation (used for QA)
+- **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+- **trackingCallback** (`TrackingCallback`) - A function that takes `experiment` and `result` as arguments.
+
 ### Experiment
 
-Defines a single experiment:
+Defines a single **Experiment**. Has a number of properties:
 
-- **trackingKey** (`string`) - The globally unique tracking key for the experiment
+- **key** (`string`) - The globally unique identifier for the experiment
 - **variations** (`any[]`) - The different variations to choose between
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
 - **active** (`boolean`) - If set to false, always return the control (first variation)
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **condition** (`Condition`) - Optional targeting condition
-- **namespace** (`(string, number, number)`) - A tuple that contains the namespace identifier, plus a range of coverage for the experiment.
+- **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **force** (`number`) - All users included in the experiment will be forced into the specific variation index
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
 
@@ -88,7 +91,7 @@ The only required properties are `key` and `variations`. Everything else is opti
 
 ### ExperimentResult
 
-The result of running an Experiment given a specific Context
+The result of running an **Experiment** given a specific **Context**
 
 - **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
 - **variationId** (`string`) - The array index of the assigned variation
@@ -100,22 +103,45 @@ The `variationId` and `value` should always be set, even when `inExperiment` is 
 
 ### Feature
 
-`context.features` is a JSON object. Keys are unique identifiers for the features and the values are Feature objects.
+A **Feature** object consists of a default value plus rules that can override the default.
+
+- **defaultValue** (`any`) - The default value (should use `null` if not specified)
+- **rules** (`FeatureRule[]`) - Array of **FeatureRule** objects that determine when and how the defaultValue gets overridden
+
+### FeatureMap
+
+A hash or map of **Feature** objects. Keys are string ids for the features. Values are **Feature** objects. For example:
 
 ```js
 {
-  "feature-1": {...},
-  "feature-2": {...},
-  "feature-3": {...}
+  "feature-1": {
+    "defaultValue": false
+  },
+  "my_other_feature": {
+    "defaultValue": 1,
+    "rules": [
+      {
+        "force": 2
+      }
+    ]
+  }
 }
 ```
 
-A Feature object consists of possible values plus rules for how to assign values to users.
+### FeatureResult
 
-- **defaultValue** (`any`) - The default value (should use `null` if not specified)
-- **rules** (`Rule[]`) - Array of Rule objects that determine when and how the defaultValue gets overridden
+The result of evaluating a **Feature**. Has a number of properties:
+
+- **value** (`any`) - The assigned value of the feature
+- **on** (`boolean`) - The assigned value cast to a boolean
+- **off** (`boolean`) - The assigned value cast to a boolean and then negated
+- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", or "experiment"
+- **experiment** (`Experiment` or `null`) - When source is "experiment", this will be an Experiment object
+- **experimentResult** (`ExperimentResult` or `null`) - When source is "experiment", this will be an ExperimentResult object
 
 ### FeatureRule
+
+Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
 - **condition** (`Condition`) - Optional targeting condition
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
@@ -123,23 +149,56 @@ A Feature object consists of possible values plus rules for how to assign values
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
 - **trackingKey** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
-- **namespace** (`(string, number, number)`) - A tuple that contains the namespace identifier, plus a range of coverage for the experiment.
+- **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
 
-### FeatureResult
+### ForcedVariationsMap
 
-- **value** (`any`) - The assigned value of the feature
-- **on** (`boolean`) - The assigned value cast to a boolean
-- **off** (`boolean`) - The assigned value cast to a boolean and then negated
-- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", or "experiment"
-- **experiment** (`Experiment` or `null`) - When source is "experiment", this will be the Experiment object used
-- **experimentResult** (`ExperimentResult` or `null`) - When source is "experiment", this will be the experiment result
+A hash or map that forces an **Experiment** to always assign a specific variation. Useful for QA.
+
+Keys are the experiment key, values are the array index of the variation. For example:
+
+```json
+{
+  "my-test": 0,
+  "other-test": 1
+}
+```
+
+### Namespace
+
+A tuple that specifies what part of a namespace an experiment includes. If two experiments are in the same namespace and their ranges don't overlap, they wil be mutually exclusive.
+
+The tuple has 3 parts:
+
+1. The namespace id (`string`)
+2. The beginning of the range (`float`, between `0` and `1`)
+3. The end of the range (`float`, between `0` and `1`)
+
+For example:
+
+```ts
+["namespace1", 0, 0.5];
+```
+
+### TrackingCallback
+
+A callback function that is executed every time a user is included in an **Experiment**. Here's an example:
+
+```js
+function track(experiment, result) {
+  analytics.track("Experiment Viewed", {
+    experimentId: experiment.key,
+    variationId: result.variationId,
+  });
+}
+```
 
 ## Helper Functions
 
 There are some helper functions which are used a few times throughout the SDK.
 
-### hash(inputStr): float
+### hash(str: string): float
 
 Hashes a string to a float between 0 and 1.
 
@@ -148,28 +207,28 @@ Uses the simple [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%
 fnv32a returns an integer, so we convert that to a float using a modulus:
 
 ```ts
-n = fnv32a(inputStr);
+n = fnv32a(str);
 return (n % 1000) / 1000;
 ```
 
 **Note**: It's important to use the exact hashing strategy outlined here so all SDKs behave identically.
 
-### inNamespace(id, namespace): boolean
+### inNamespace(userId: string, namespace: Namespace): boolean
 
-This checks if a user id is within an experiment namespace or not.
+This checks if a userId is within an experiment namespace or not.
 
-The `namespace` argument is a tuple with 3 parts: name (string), start (float), and end (float).
+The `namespace` argument is a tuple with 3 parts: id (string), start (float), and end (float).
 
 1. Hash the id and namespace name
    ```ts
-   n = hash(id + namespace[0]);
+   n = hash(userId + namespace[0]);
    ```
 2. Return if hash is greater than (inclusive) the namespace start and less than (exclusive) the namespace end:
    ```ts
    return n >= namespace[1] && n < namespace[2];
    ```
 
-### getEqualWeights(numVariations): float[]
+### getEqualWeights(numVariations: integer): float[]
 
 Returns an array of floats with `numVariations` items that are all equal and sum to 1. For example, `getEqualWeights(2)` would return `[0.5, 0.5]`.
 
@@ -179,7 +238,7 @@ It's ok if the sum is slightly off due to rounding. So a sum of `0.9999999` is f
 2. Create array with a length of `numVariations`
 3. Fill the array with `1.0/numVariations` and return
 
-### getBucketRanges(numVariations, coverage, weights): [float, float][]
+### getBucketRanges(numVariations: integer, coverage: float, weights: float[]): BucketRange[]
 
 This converts and experiment's coverage and variation weights into an array of bucket ranges.
 
@@ -222,7 +281,7 @@ Some examples:
 - `getBucketRanges(2, 1, [0.5, 0.5])` -> `[[0, 0.5], [0.5, 1]]`
 - `getBucketRanges(2, 0.5, [0.4, 0.6])` -> `[[0, 0.2], [0.4, 0.7]]`
 
-### chooseVariation(n, ranges): integer
+### chooseVariation(n: float, ranges: BucketRange[]): integer
 
 Given a hash and bucket ranges, assign one of the bucket ranges.
 
@@ -235,7 +294,7 @@ Given a hash and bucket ranges, assign one of the bucket ranges.
       ```
 2. Return `-1` if it makes it through the whole ranges array without returning
 
-### getQueryStringOverride(id, url, numVariations): null|integer
+### getQueryStringOverride(id: string, url: string, numVariations: integer): null|integer
 
 This checks if an experiment variation is being forced via a URL query string. This may not be applicable for all SDKs (e.g. mobile).
 
@@ -256,33 +315,33 @@ In addition to the helper functions above, there are a number of methods related
 
 There is only one public method `evalCondition` and everything else is a private helper function.
 
-### public evalCondition(attributes, conditionObj): boolean
+### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
 This is the main function used to evaluate a condition.
 
-1. If conditionObj has a key `$or`, return `evalOr(attributes, condition["$or"])`
-2. If conditionObj has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
-3. If conditionObj has a key `$and`, return `!evalAnd(attributes, condition["$and"])`
-4. If conditionObj has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
-5. Loop through the conditionObj key/value pairs
+1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
+2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
+3. If condition has a key `$and`, return `!evalAnd(attributes, condition["$and"])`
+4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
+5. Loop through the condition key/value pairs
    1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
 6. Return true
 
-### private evalOr(attributes, conditionObjs): boolean
+### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
 
-`conditionObjs` is an array of parsed condition objects
+`conditions` is an array of Condition objects
 
-1. If conditionObjs is empty, return true
-2. Loop through the conditionObjects
-   1. If `evalCondition(attributes, conditionObjs[i])` is true, break out of the loop and return true
+1. If conditions is empty, return true
+2. Loop through conditions
+   1. If `evalCondition(attributes, conditions[i])` is true, break out of the loop and return true
 3. Return false
 
-### private evalAnd(attributes, conditionObjs): boolean
+### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean
 
-`conditionObjs` is an array of parsed condition objects
+`conditions` is an array of Condition objects
 
-1. Loop through the conditionObjects
-   1. If `evalCondition(attributes, conditionObjs[i])` is false, break out of the loop and return false
+1. Loop through conditions
+   1. If `evalCondition(attributes, conditions[i])` is false, break out of the loop and return false
 2. Return true
 
 ### private isOperatorObject(obj): boolean
@@ -321,7 +380,7 @@ getType(obj["bar"]); // undefined
 
 The value `unknown` is there just in case you can't figure out the data type for whatever reason. It will never be used in most implementations.
 
-### private getPath(attributes, path): any
+### private getPath(attributes: Attributes, path: string): any
 
 Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist)
 
@@ -481,7 +540,7 @@ The method is pretty simple:
    };
    ```
 
-### public feature(key): FeatureResult
+### public feature(key: string): FeatureResult
 
 The `feature` method takes a single string argument, which is the unique identifier for the feature and returns a `FeatureResult` object.
 
@@ -510,7 +569,7 @@ There are a few ordered steps to evaluate a feature
       ```ts
       const exp = {
         variations: rule.variations,
-        trackingKey: rule.trackingKey || featureKey,
+        key: rule.trackingKey || featureKey,
       };
       if (rule.coverage) exp.coverage = rule.coverage;
       if (rule.weights) exp.weights = rule.weights;
@@ -528,7 +587,7 @@ There are a few ordered steps to evaluate a feature
       ```
 3. Return `getFeatureResult(feature.defaultValue || null, "defaultValue")`
 
-### public run(experiment): ExperimentResult
+### public run(experiment: Experiment): ExperimentResult
 
 The `run` method takes an Experiment object and returns an `ExperimentResult`.
 
@@ -749,11 +808,11 @@ The cases.json file is an object. The keys are the function being tested, and th
   - name of the feature (string)
   - expected result
 - **run**
-- name of the test case (string)
-- context passed into GrowthBook constructor
-- experiment object
-- expected value
-- inExperiment (boolean)
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
