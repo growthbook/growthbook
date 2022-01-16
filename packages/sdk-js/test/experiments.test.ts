@@ -136,6 +136,75 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
+  it("forces variation from overrides", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "6",
+      },
+      overrides: {
+        "forced-test": {
+          force: 1,
+        },
+      },
+    });
+
+    const res = growthbook.run({
+      key: "forced-test",
+      variations: [0, 1],
+    });
+
+    expect(res.variationId).toEqual(1);
+    expect(res.inExperiment).toEqual(false);
+
+    growthbook.destroy();
+  });
+
+  it("coverrage from overrides", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1",
+      },
+      overrides: {
+        "my-test": {
+          coverage: 0.01,
+        },
+      },
+    });
+
+    const res = growthbook.run({
+      key: "my-test",
+      variations: [0, 1],
+    });
+
+    expect(res.variationId).toEqual(0);
+    expect(res.inExperiment).toEqual(false);
+
+    growthbook.destroy();
+  });
+
+  it("coverrage from overrides", () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1",
+      },
+      overrides: {
+        "my-test": {
+          coverage: 0.01,
+        },
+      },
+    });
+
+    const res = growthbook.run({
+      key: "my-test",
+      variations: [0, 1],
+    });
+
+    expect(res.variationId).toEqual(0);
+    expect(res.inExperiment).toEqual(false);
+
+    growthbook.destroy();
+  });
+
   it("does not track when forced with overrides", () => {
     const context: Context = { user: { id: "6" } };
     const growthbook = new GrowthBook(context);

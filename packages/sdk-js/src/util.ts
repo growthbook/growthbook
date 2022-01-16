@@ -1,6 +1,6 @@
 import { VariationRange } from "./types";
 
-export function hashFnv32a(str: string): number {
+function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
   const l = str.length;
 
@@ -12,11 +12,20 @@ export function hashFnv32a(str: string): number {
   return hval >>> 0;
 }
 
+export function hash(str: string): number {
+  return (hashFnv32a(str) % 1000) / 1000;
+}
+
+export function getEqualWeights(n: number): number[] {
+  if (n <= 0) return [];
+  return new Array(n).fill(1 / n);
+}
+
 export function inNamespace(
   hashValue: string,
   namespace: [string, number, number]
 ): boolean {
-  const n = (hashFnv32a(hashValue + "__" + namespace[0]) % 1000) / 1000;
+  const n = hash(hashValue + "__" + namespace[0]);
   return n >= namespace[1] && n < namespace[2];
 }
 
@@ -58,7 +67,7 @@ export function getBucketRanges(
   }
 
   // Default to equal weights if missing or invalid
-  const equal = new Array(numVariations).fill(1 / numVariations);
+  const equal = getEqualWeights(numVariations);
   weights = weights || equal;
   if (weights.length !== numVariations) {
     if (process.env.NODE_ENV !== "production") {
@@ -87,7 +96,11 @@ export function getBucketRanges(
   }) as VariationRange[];
 }
 
-export function getQueryStringOverride(id: string, url: string) {
+export function getQueryStringOverride(
+  id: string,
+  url: string,
+  numVariations: number
+) {
   if (!url) {
     return null;
   }
@@ -104,7 +117,8 @@ export function getQueryStringOverride(id: string, url: string) {
     .filter(([k]) => k === id) // Look for key that matches the experiment id
     .map(([, v]) => parseInt(v)); // Parse the value into an integer
 
-  if (match.length > 0 && match[0] >= -1 && match[0] < 10) return match[0];
+  if (match.length > 0 && match[0] >= 0 && match[0] < numVariations)
+    return match[0];
 
   return null;
 }
