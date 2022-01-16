@@ -452,7 +452,6 @@ In addition, there are a few other settings that only really make sense for inli
 
 - `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
 - `active` can be set to false to disable the experiment and return the control for everyone
-- `include` is a callback function that returns a boolean for whether or not someone should be included in the experiment. It's a more flexible alternative to the declarative rules in `condition`
 
 ### Inline Experiment Return Value
 
