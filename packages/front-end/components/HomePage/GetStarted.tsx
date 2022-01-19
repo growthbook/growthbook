@@ -78,13 +78,7 @@ const GetStarted = ({
         {dataSourceOpen && (
           <DataSourceForm
             data={{
-              type: "bigquery",
               name: "My Datasource",
-              params: {
-                clientEmail: "",
-                privateKey: "",
-                projectId: "",
-              },
               settings: {},
             }}
             existing={false}
@@ -351,8 +345,8 @@ const GetStarted = ({
                     <div className="d-flex flex-row">
                       <div className="">
                         <h4>Just here to explore?</h4>
-                        <p
-                          className="card-text"
+                        <div
+                          className="card-text mb-3"
                           style={{ paddingRight: "105px" }}
                         >
                           Add some{" "}
@@ -370,7 +364,7 @@ const GetStarted = ({
                           >
                             video&nbsp;tour
                           </a>
-                        </p>
+                        </div>
                         {hasSampleExperiment ? (
                           <Link href={`/experiment/${hasSampleExperiment.id}`}>
                             <a className="btn btn-sm btn-success ml-3">
@@ -479,7 +473,7 @@ const GetStarted = ({
                     <div className="card-title">
                       <h4 className="">Enable the Visual Editor</h4>
                     </div>
-                    <p className="card-text">
+                    <div className="card-text mb-3">
                       <div className="float-right mx-4 position-relative">
                         <FaDesktop
                           style={{
@@ -503,7 +497,7 @@ const GetStarted = ({
                       </div>
                       Let your non-technical teammates implement A/B tests
                       without writing code.
-                    </p>
+                    </div>
                     <span className="action-link non-active-step">
                       <Link href="/settings">
                         <a className="boxlink">

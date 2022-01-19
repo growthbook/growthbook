@@ -219,9 +219,9 @@ This checks if a userId is within an experiment namespace or not.
 
 The `namespace` argument is a tuple with 3 parts: id (string), start (float), and end (float).
 
-1. Hash the id and namespace name
+1. Hash the userId and namespace name with two underscores as a delimiter
    ```ts
-   n = hash(userId + namespace[0]);
+   n = hash(userId + "__" + namespace[0]);
    ```
 2. Return if hash is greater than (inclusive) the namespace start and less than (exclusive) the namespace end:
    ```ts
