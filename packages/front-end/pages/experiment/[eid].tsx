@@ -48,12 +48,12 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import InstructionsModal from "../../components/Experiment/InstructionsModal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
-import Code from "../../components/Code";
 import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
+import { IfFeatureEnabled, useFeature } from "@growthbook/growthbook-react";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -69,6 +69,8 @@ const ExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
+
+  const showTargeting = useFeature("show-experiment-targeting").on;
 
   const { apiCall } = useAuth();
 
@@ -545,9 +547,6 @@ const ExperimentPage = (): ReactElement => {
                           <small className="text-muted">id: {v.key || i}</small>
                         </div>
                         {v.description && <p>{v.description}</p>}
-                        {v.value && experiment.implementation !== "visual" && (
-                          <Code language="json" code={v.value} />
-                        )}
                         {experiment.implementation === "visual" && (
                           <VisualCode
                             dom={v.dom || []}
@@ -631,7 +630,7 @@ const ExperimentPage = (): ReactElement => {
               {!experiment.archived &&
                 experiment.status !== "stopped" &&
                 experiment.implementation !== "visual" && (
-                  <>
+                  <IfFeatureEnabled feature="experiment-implementation">
                     <RightRailSection title="Implementation">
                       <div className="my-1">
                         <a
@@ -647,7 +646,7 @@ const ExperimentPage = (): ReactElement => {
                       </div>
                     </RightRailSection>
                     <hr />
-                  </>
+                  </IfFeatureEnabled>
                 )}
               <RightRailSection
                 title="Tags"
@@ -707,26 +706,39 @@ const ExperimentPage = (): ReactElement => {
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>
-              <hr />
-              <RightRailSection
-                title="Targeting"
-                open={() => setTargetingModalOpen(true)}
-                canOpen={canEdit && !experiment.archived}
-              >
-                {datasource?.properties?.userIds && (
-                  <RightRailSectionGroup title="Login State" type="commaList">
-                    {experiment.userIdType === "user" ? "User" : "Anonymous"}
-                  </RightRailSectionGroup>
-                )}
-                <RightRailSectionGroup title="URL" type="code" empty="Any">
-                  {experiment.targetURLRegex}
-                </RightRailSectionGroup>
-                {currentPhase?.groups?.length > 0 && (
-                  <RightRailSectionGroup title="User Groups" type="commaList">
-                    {currentPhase?.groups}
-                  </RightRailSectionGroup>
-                )}
-              </RightRailSection>
+
+              {(experiment.implementation === "visual" || showTargeting) && (
+                <>
+                  <hr />
+                  <RightRailSection
+                    title="Targeting"
+                    open={() => setTargetingModalOpen(true)}
+                    canOpen={canEdit && !experiment.archived}
+                  >
+                    {datasource?.properties?.userIds && (
+                      <RightRailSectionGroup
+                        title="Login State"
+                        type="commaList"
+                      >
+                        {experiment.userIdType === "user"
+                          ? "User"
+                          : "Anonymous"}
+                      </RightRailSectionGroup>
+                    )}
+                    <RightRailSectionGroup title="URL" type="code" empty="Any">
+                      {experiment.targetURLRegex}
+                    </RightRailSectionGroup>
+                    {currentPhase?.groups?.length > 0 && (
+                      <RightRailSectionGroup
+                        title="User Groups"
+                        type="commaList"
+                      >
+                        {currentPhase?.groups}
+                      </RightRailSectionGroup>
+                    )}
+                  </RightRailSection>
+                </>
+              )}
               {data.idea && <hr />}
               {data.idea && (
                 <RightRailSection title="Linked Idea" canOpen={false}>

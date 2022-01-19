@@ -11,6 +11,7 @@ import { getEvenSplit } from "../../services/utils";
 import GroupsInput from "../GroupsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import { useFeature } from "@growthbook/growthbook-react";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -42,6 +43,8 @@ const NewPhaseForm: FC<{
   const { apiCall } = useAuth();
 
   const variationWeights = form.watch("variationWeights");
+
+  const showGroups = useFeature("show-experiment-groups").on;
 
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
@@ -170,21 +173,24 @@ const NewPhaseForm: FC<{
           )}
         </div>
       </div>
-      <div className="row">
-        <div className="col">
-          <label>User Groups (optional)</label>
-          <GroupsInput
-            value={form.watch("groups")}
-            onChange={(groups) => {
-              form.setValue("groups", groups);
-            }}
-          />
-          <small className="form-text text-muted">
-            Use this to limit your experiment to specific groups of users (e.g.
-            &quot;internal&quot;, &quot;beta-testers&quot;, &quot;qa&quot;).
-          </small>
+      {(experiment.implementation === "visual" || showGroups) && (
+        <div className="row">
+          <div className="col">
+            <label>User Groups (optional)</label>
+            <GroupsInput
+              value={form.watch("groups")}
+              onChange={(groups) => {
+                form.setValue("groups", groups);
+              }}
+            />
+            <small className="form-text text-muted">
+              Use this to limit your experiment to specific groups of users
+              (e.g. &quot;internal&quot;, &quot;beta-testers&quot;,
+              &quot;qa&quot;).
+            </small>
+          </div>
         </div>
-      </div>
+      )}
       <div style={{ height: 150 }} />
     </Modal>
   );
