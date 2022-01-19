@@ -7,7 +7,7 @@ import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import ScreenshotUpload from "../../components/EditExperiment/ScreenshotUpload";
 import clone from "lodash/clone";
-import React, { useState, ReactElement, useContext } from "react";
+import React, { useState, ReactElement, useContext, useEffect } from "react";
 import { useAuth } from "../../services/auth";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -69,6 +69,8 @@ const ExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
+  const isNew = "new" in router?.query;
+  const [showNewBar, setShowNewBar] = useState(isNew);
 
   const { apiCall } = useAuth();
 
@@ -78,6 +80,19 @@ const ExperimentPage = (): ReactElement => {
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization);
+
+  // Hide success after a short delay
+  useEffect(() => {
+    if (isNew && showNewBar) {
+      const hide = () => {
+        setShowNewBar(false);
+      };
+      const timer = window.setTimeout(hide, 3000);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
+  }, [showNewBar]);
 
   const {
     getMetricById,
@@ -142,8 +157,19 @@ const ExperimentPage = (): ReactElement => {
     );
   }
 
-  const currentPhase = experiment.phases[experiment.phases.length - 1];
+  const infoMsg = isNew ? (
+    <div className="infomessage">
+      <div className="row" style={{ height: showNewBar ? "63px" : "5px" }}>
+        <div className="col" style={{ opacity: showNewBar ? "1" : "0" }}>
+          <div className="alert alert-info">Experiment created</div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <></>
+  );
 
+  const currentPhase = experiment.phases[experiment.phases.length - 1];
   let wrapClasses = `container-fluid experiment-details exp-vars-${experiment.variations.length}`;
   if (experiment.variations.length <= 2) {
     wrapClasses += " pagecontents";
@@ -282,6 +308,7 @@ const ExperimentPage = (): ReactElement => {
           </a>
         </div>
       )}
+      {infoMsg}
       <div className="row mb-2">
         <div className="col-auto">
           <Link href="/experiments">
@@ -766,6 +793,7 @@ const ExperimentPage = (): ReactElement => {
           <div className="position-relative">
             <Results
               experiment={experiment}
+              isNew={isNew}
               editMetrics={() => setMetricsModalOpen(true)}
               editResult={() => setStopModalOpen(true)}
               mutateExperiment={mutate}
