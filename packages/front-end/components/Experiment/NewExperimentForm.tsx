@@ -195,7 +195,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
-      router.push(`/experiment/${res.experiment.id}`);
+      const expUrl = `/experiment/${res.experiment.id}?new${
+        isImport ? "#results" : ""
+      }`;
+      router.push(expUrl);
     }
   });
 

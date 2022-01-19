@@ -16,16 +16,24 @@ import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
 import ExperimentReportsList from "./ExperimentReportsList";
+import { useAuth } from "../../services/auth";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
+  isNew?: boolean;
   editMetrics: () => void;
   editResult: () => void;
   mutateExperiment: () => void;
-}> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
+}> = ({
+  experiment,
+  isNew = false,
+  editMetrics,
+  editResult,
+  mutateExperiment,
+}) => {
   const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
@@ -36,6 +44,7 @@ const Results: FC<{
   }, [experiment.phases.length]);
 
   const { permissions } = useContext(UserContext);
+  const { apiCall } = useAuth();
 
   const { data, error, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
@@ -62,6 +71,21 @@ const Results: FC<{
 
   const result = experiment.results;
 
+  const refreshResults = () => {
+    apiCall(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        dimension,
+      }),
+    })
+      .then(() => {
+        mutate();
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
   const variationsPlural =
     experiment.variations.length > 2 ? "variations" : "variation";
 
@@ -95,6 +119,17 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
+
+  if (
+    experiment.datasource &&
+    isNew &&
+    !latest &&
+    !experiment.lastSnapshotAttempt &&
+    experiment.metrics.length > 0
+  ) {
+    // this new experiment has never been run, so run it:
+    refreshResults();
+  }
 
   return (
     <>
