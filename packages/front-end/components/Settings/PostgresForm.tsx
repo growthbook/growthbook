@@ -1,9 +1,9 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { isCloud } from "../../services/env";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import HostWarning from "./HostWarning";
 
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
@@ -15,16 +15,14 @@ const PostgresForm: FC<{
 
   return (
     <>
-      {isCloud() ? (
-        <div className="row">
-          <div className="col-auto">
-            <div className="alert alert-info">
-              Make sure to whitelist the IP Address <code>52.70.79.40</code> so
-              GrowthBook can reach your database.
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <HostWarning
+        host={params.host}
+        setHost={(host) => {
+          setParams({
+            host,
+          });
+        }}
+      />
       <div className="row">
         <div className="form-group col-md-12">
           <label>Host</label>

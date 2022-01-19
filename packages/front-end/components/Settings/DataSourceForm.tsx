@@ -250,6 +250,7 @@ const DataSourceForm: FC<{
       <PrestoForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -276,6 +277,7 @@ const DataSourceForm: FC<{
       <MysqlForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -302,6 +304,7 @@ const DataSourceForm: FC<{
       <ClickHouseForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );

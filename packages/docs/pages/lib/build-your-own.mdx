@@ -321,7 +321,7 @@ This is the main function used to evaluate a condition.
 
 1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
 2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
-3. If condition has a key `$and`, return `!evalAnd(attributes, condition["$and"])`
+3. If condition has a key `$and`, return `evalAnd(attributes, condition["$and"])`
 4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
 5. Loop through the condition key/value pairs
    1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
@@ -352,6 +352,8 @@ This accepts a parsed JSON object as input and returns `true` if every key in th
 - `{"$gt": 1, "$lt": 10}` -> `true`
 - `{"foo": "bar"}` -> `false`
 - `{"$gt": 1, "foo": "bar"}` -> `false`
+
+If the object is empty and has no keys, this should also return true.
 
 ### private getType(attributeValue): string
 
@@ -403,10 +405,11 @@ It should return:
 
 ### private evalConditionValue(conditionValue, attributeValue): boolean
 
-1. If `conditionValue` is a string, number, boolean, or array, return true if it's "equal" to `attributeValue` and false if not. "equal" should do a deep comparison for arrays.
-2. If `conditionValue` is an object, loop over each key/value pair:
-   1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
-3. Return true
+1. If `conditionValue` is an object and `isOperatorObject(conditionValue)` is true
+   1. Loop over each key/value pair
+      1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
+   2. Return true
+2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
 
 ### private elemMatch(condition, attributeValue): boolean
 
@@ -508,7 +511,7 @@ Everything else is considered "truthy", including empty arrays and objects.
 
 If value is "truthy", then `on` should be true and `off` should be false. If the value is "falsy", then they should take opposite values.
 
-### public getExperimentResult(experiment, variationIndex, inExperiment): ExperimentResult
+### private getExperimentResult(experiment, variationIndex, inExperiment): ExperimentResult
 
 This is a helper method to create an `ExperimentResult` object. The arguments are:
 
