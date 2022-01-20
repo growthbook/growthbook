@@ -7,7 +7,6 @@ import TagsInput from "../TagsInput";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { MdDeleteForever } from "react-icons/md";
@@ -19,7 +18,6 @@ import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
-import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
@@ -149,6 +147,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
+  const implementation = form.watch("implementation");
+
   const { apiCall } = useAuth();
 
   const {
@@ -213,29 +213,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Basic Info">
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {visualEditorEnabled && !isImport && (
-          <div className="form-group">
-            <label className="mb-0">Type</label>
-            <RadioSelector
-              name="implementation"
-              value={form.watch("implementation")}
-              setValue={(val: ImplementationType) =>
-                form.setValue("implementation", val)
-              }
-              options={[
-                {
-                  key: "code",
-                  display: "Code",
-                  description:
-                    "Using one of our Client Libraries (Javascript, React, PHP, Ruby, or Python)",
-                },
-                {
-                  key: "visual",
-                  display: "Visual",
-                  description: "Using our point & click Visual Editor",
-                },
-              ]}
-            />
-          </div>
+          <Field
+            label="Use Visual Editor"
+            options={[
+              { display: "no", value: "code" },
+              { display: "yes", value: "visual" },
+            ]}
+            {...form.register("implementation")}
+          />
         )}
         <div className="form-group">
           <label>Tags</label>
@@ -244,16 +229,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
-        {!isImport && (
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={2}
-            maxRows={6}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-          />
-        )}
+        <Field
+          label="Hypothesis"
+          textarea
+          minRows={2}
+          maxRows={6}
+          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          {...form.register("hypothesis")}
+        />
         {includeDescription && (
           <div className="form-group">
             <label>Description</label>
@@ -413,7 +396,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         )}
       </Page>
-      <Page display="Metrics and Targeting">
+      <Page display="Goals">
         <div style={{ minHeight: 350 }}>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Goal Metrics</label>
@@ -438,14 +421,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          {datasource?.properties?.userIds && (
+          {datasource?.properties?.userIds && implementation === "visual" && (
             <Field
               label="Login State"
               {...form.register("userIdType")}
               options={["user", "anonymous"]}
             />
           )}
-          {!isImport && (
+          {!isImport && implementation === "visual" && (
             <Field
               label="URL Targeting"
               {...form.register("targetURLRegex")}

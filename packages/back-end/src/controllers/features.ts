@@ -57,7 +57,7 @@ export async function postFeatures(
     throw new Error("Must specify feature key");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_-]+$/)) {
+  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
     throw new Error(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );

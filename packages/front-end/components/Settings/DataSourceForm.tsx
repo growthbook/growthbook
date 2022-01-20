@@ -209,6 +209,11 @@ const DataSourceForm: FC<{
       setDirty(false);
       await onSuccess(id);
     } catch (e) {
+      track("Data Source Form Error", {
+        source,
+        type: datasource.type,
+        error: e.message.substr(0, 32) + "...",
+      });
       setHasError(true);
       throw e;
     }
@@ -250,6 +255,7 @@ const DataSourceForm: FC<{
       <PrestoForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -258,6 +264,7 @@ const DataSourceForm: FC<{
       <PostgresForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -266,6 +273,7 @@ const DataSourceForm: FC<{
       <PostgresForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -274,6 +282,7 @@ const DataSourceForm: FC<{
       <MysqlForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -300,6 +309,7 @@ const DataSourceForm: FC<{
       <ClickHouseForm
         existing={existing}
         onParamChange={onParamChange}
+        setParams={setParams}
         params={datasource.params}
       />
     );
@@ -331,6 +341,10 @@ const DataSourceForm: FC<{
         onChange={(value) => {
           const option = typeOptions.filter((o) => o.type === value)[0];
           if (!option) return;
+
+          track("Data Source Type Selected", {
+            type: value,
+          });
 
           setDatasource({
             ...datasource,

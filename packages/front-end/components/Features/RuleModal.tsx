@@ -3,6 +3,7 @@ import {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
+  FeatureValueType,
   ForceRule,
   RolloutRule,
 } from "back-end/types/feature";
@@ -14,6 +15,7 @@ import ConditionInput from "./ConditionInput";
 import { useContext } from "react";
 import { UserContext } from "../ProtectedPage";
 import { isValidValue } from "../../services/features";
+import track from "../../services/track";
 
 export interface Props {
   close: () => void;
@@ -27,6 +29,29 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function getDefaultVariationValue(
+  valueType: FeatureValueType,
+  defaultValue: string
+) {
+  if (valueType === "json") return defaultValue;
+
+  if (valueType === "string") return defaultValue + " 2";
+
+  try {
+    const parsed = JSON.parse(defaultValue);
+    if (typeof parsed === "number") {
+      return JSON.stringify(parsed + 1);
+    }
+    if (typeof parsed === "boolean") {
+      return JSON.stringify(!parsed);
+    }
+
+    return defaultValue;
+  } catch (e) {
+    return defaultValue;
+  }
+}
+
 export default function RuleModal({ close, feature, i, mutate }: Props) {
   const defaultValues = {
     condition: "",
@@ -34,7 +59,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
     enabled: true,
     type: "force",
     coverage: 1,
-    value: feature.defaultValue,
+    value: getDefaultVariationValue(feature.valueType, feature.defaultValue),
     values: [
       {
         weight: 0.5,
@@ -42,7 +67,10 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       },
       {
         weight: 0.5,
-        value: feature.defaultValue,
+        value: getDefaultVariationValue(
+          feature.valueType,
+          feature.defaultValue
+        ),
       },
     ],
     hashAttribute: "id",
@@ -61,6 +89,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
 
   const type = form.watch("type");
 
+  const hasHashAttributes =
+    settings?.attributeSchema?.filter((x) => x.hashAttribute)?.length > 0;
+
   return (
     <Modal
       open={true}
@@ -68,60 +99,84 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       size="lg"
       header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
-        const rules = [...feature.rules];
-        rules[i] = values as FeatureRule;
+        const ruleAction = i === feature.rules?.length ? "add" : "edit";
 
-        if (rules[i].condition) {
-          try {
-            const res = JSON.parse(rules[i].condition);
-            if (!res || typeof res !== "object") {
-              throw new Error("Condition is invalid");
+        try {
+          const rules = [...feature.rules];
+          rules[i] = values as FeatureRule;
+
+          if (rules[i].condition) {
+            try {
+              const res = JSON.parse(rules[i].condition);
+              if (!res || typeof res !== "object") {
+                throw new Error("Condition is invalid");
+              }
+            } catch (e) {
+              throw new Error("Condition is invalid: " + e.message);
             }
-          } catch (e) {
-            throw new Error("Condition is invalid: " + e.message);
           }
-        }
-        if (rules[i].type === "force") {
-          isValidValue(
-            feature.valueType,
-            (rules[i] as ForceRule).value,
-            "Forced value"
-          );
-        } else if (rules[i].type === "experiment") {
-          const ruleValues = (rules[i] as ExperimentRule).values;
-          if (!ruleValues || !ruleValues.length) {
-            throw new Error("Must set at least one value");
-          }
-          let totalWeight = 0;
-          ruleValues.forEach((val, i) => {
-            if (val.weight < 0) throw new Error("Percents cannot be negative");
-            totalWeight += val.weight;
-            isValidValue(feature.valueType, val.value, "Value #" + (i + 1));
-          });
-          if (totalWeight > 1) {
-            throw new Error(
-              `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+          if (rules[i].type === "force") {
+            isValidValue(
+              feature.valueType,
+              (rules[i] as ForceRule).value,
+              "Forced value"
             );
-          }
-        } else {
-          isValidValue(
-            feature.valueType,
-            (rules[i] as RolloutRule).value,
-            "Rollout value"
-          );
+          } else if (rules[i].type === "experiment") {
+            const ruleValues = (rules[i] as ExperimentRule).values;
+            if (!ruleValues || !ruleValues.length) {
+              throw new Error("Must set at least one value");
+            }
+            let totalWeight = 0;
+            ruleValues.forEach((val, i) => {
+              if (val.weight < 0)
+                throw new Error("Percents cannot be negative");
+              totalWeight += val.weight;
+              isValidValue(feature.valueType, val.value, "Value #" + (i + 1));
+            });
+            if (totalWeight > 1) {
+              throw new Error(
+                `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+              );
+            }
+          } else {
+            isValidValue(
+              feature.valueType,
+              (rules[i] as RolloutRule).value,
+              "Rollout value"
+            );
 
-          if (values.coverage < 0 || values.coverage > 1) {
-            throw new Error("Rollout percent must be between 0 and 1");
+            if (values.coverage < 0 || values.coverage > 1) {
+              throw new Error("Rollout percent must be between 0 and 1");
+            }
           }
+
+          track("Save Feature Rule", {
+            source: ruleAction,
+            ruleIndex: i,
+            type: values.type,
+            hasCondition: values.condition.length > 2,
+            hasDescription: values.description.length > 0,
+          });
+
+          await apiCall(`/feature/${feature.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              rules,
+            }),
+          });
+          mutate();
+        } catch (e) {
+          track("Feature Rule Error", {
+            source: ruleAction,
+            ruleIndex: i,
+            type: values.type,
+            hasCondition: values.condition.length > 2,
+            hasDescription: values.description.length > 0,
+            error: e.message,
+          });
+
+          throw e;
         }
-
-        await apiCall(`/feature/${feature.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            rules,
-          }),
-        });
-        mutate();
       })}
     >
       <Field
@@ -187,7 +242,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           <Field
             label="Sample based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema.map((s) => s.property)}
+            options={settings.attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
           />
         </div>
@@ -203,7 +260,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
           <Field
             label="Assign value based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema.map((s) => s.property)}
+            options={settings.attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
           <div className="form-group">
@@ -261,7 +320,10 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
               onClick={(e) => {
                 e.preventDefault();
                 variations.append({
-                  value: feature.defaultValue,
+                  value: getDefaultVariationValue(
+                    feature.valueType,
+                    feature.defaultValue
+                  ),
                   weight: 0,
                 });
               }}

@@ -20,6 +20,7 @@ import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
 import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -44,6 +45,8 @@ const TopNav: FC<{
     permissions,
     role,
   } = useContext(UserContext);
+
+  const { datasources } = useDefinitions();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
@@ -220,11 +223,26 @@ const TopNav: FC<{
               show: userDropdownOpen,
             })}
           >
-            <div className="px-3 pt-1 mb-2">
+            <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
               <div className="badge badge-secondary">{role}</div>
             </div>
+            {datasources?.length > 0 && (
+              <>
+                <div className="dropdown-divider"></div>
+                <Link href={"/reports"}>
+                  <a
+                    className="dropdown-item"
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                    }}
+                  >
+                    My Reports
+                  </a>
+                </Link>
+              </>
+            )}
             <div className="dropdown-divider"></div>
             <button
               className="dropdown-item"

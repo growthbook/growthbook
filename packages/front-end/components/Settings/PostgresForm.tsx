@@ -1,24 +1,28 @@
-import { FC, ChangeEventHandler } from "react";
+import { FC, ChangeEventHandler, useState } from "react";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { isCloud } from "../../services/env";
+import Toggle from "../Forms/Toggle";
+import Field from "../Forms/Field";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import HostWarning from "./HostWarning";
 
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, existing, onParamChange }) => {
+  setParams: (params: { [key: string]: string }) => void;
+}> = ({ params, existing, onParamChange, setParams }) => {
+  const [certs, setCerts] = useState(false);
+
   return (
     <>
-      {isCloud() ? (
-        <div className="row">
-          <div className="col-auto">
-            <div className="alert alert-info">
-              Make sure to whitelist the IP Address <code>52.70.79.40</code> so
-              GrowthBook can reach your database.
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <HostWarning
+        host={params.host}
+        setHost={(host) => {
+          setParams({
+            host,
+          });
+        }}
+      />
       <div className="row">
         <div className="form-group col-md-12">
           <label>Host</label>
@@ -77,20 +81,6 @@ const PostgresForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Require SSL</label>
-          <select
-            className="form-control"
-            name="ssl"
-            value={
-              params.ssl === true || params.ssl === "true" ? "true" : "false"
-            }
-            onChange={onParamChange}
-          >
-            <option value="false">Off</option>
-            <option value="true">On</option>
-          </select>
-        </div>
-        <div className="form-group col-md-12">
           <label>Default Schema</label>
           <input
             type="text"
@@ -101,6 +91,68 @@ const PostgresForm: FC<{
             placeholder="(optional)"
           />
         </div>
+        <div className="col-md-12">
+          <div className="form-group">
+            <label htmlFor="require-ssl" className="mr-2">
+              Require SSL
+            </label>
+            <Toggle
+              id="require-ssl"
+              label="Require SSL"
+              value={params.ssl === true || params.ssl === "true"}
+              setValue={(value) => {
+                setParams({
+                  ssl: value ? "true" : "",
+                });
+              }}
+            />
+            {params.ssl && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCerts(!certs);
+                }}
+              >
+                Advanced SSL Settings{" "}
+                {certs ? <FaCaretDown /> : <FaCaretRight />}
+              </a>
+            )}
+          </div>
+        </div>
+        {params.ssl && certs && (
+          <div className="col-md-12 mb-3">
+            <div className="p-2 bg-light border">
+              <Field
+                label="CA Cert (optional)"
+                textarea
+                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+                minRows={2}
+                value={params.caCert || ""}
+                name="caCert"
+                onChange={onParamChange}
+              />
+              <Field
+                label="Client Cert"
+                textarea
+                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+                minRows={2}
+                value={params.clientCert || ""}
+                name="clientCert"
+                onChange={onParamChange}
+              />
+              <Field
+                label="Client Key"
+                textarea
+                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+                minRows={2}
+                value={params.clientKey || ""}
+                name="clientKey"
+                onChange={onParamChange}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

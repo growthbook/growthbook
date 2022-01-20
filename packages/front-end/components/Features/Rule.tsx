@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
+import track from "../../services/track";
 
 interface SortableProps {
   i: number;
@@ -95,6 +96,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   const rules = [...feature.rules];
                   rules[i] = { ...rules[i] };
                   rules[i].enabled = !rules[i].enabled;
+                  track(
+                    rule.enabled
+                      ? "Disable Feature Rule"
+                      : "Enable Feature Rule",
+                    {
+                      ruleIndex: i,
+                      type: rules[i].type,
+                    }
+                  );
                   await apiCall(`/feature/${feature.id}`, {
                     method: "PUT",
                     body: JSON.stringify({
@@ -112,6 +122,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 useIcon={false}
                 text="Delete"
                 onClick={async () => {
+                  track("Delete Feature Rule", {
+                    ruleIndex: i,
+                    type: feature.rules[i].type,
+                  });
                   const rules = [...feature.rules];
                   rules.splice(i, 1);
                   await apiCall(`/feature/${feature.id}`, {

@@ -42,7 +42,6 @@ const MarkdownInput: FC<{
   const { apiCall } = useAuth();
   const textareaRef = useRef<null | HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
-
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -106,7 +105,7 @@ const MarkdownInput: FC<{
             <a
               className={clsx("nav-link", {
                 active: preview,
-                disabled: value.length < 1,
+                disabled: value?.length < 1,
               })}
               href="#"
               onClick={(e) => {

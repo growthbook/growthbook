@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.65KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.85KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -14,7 +14,7 @@ This is the Javascript client library that lets you evaluate feature flags and r
 - Written in **Typescript** with 100% test coverage
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
-- **Remote configuration** to adjust targeting and weights without deploying new code
+- **Remote configuration** to change feature values without deploying new code
 
 ## Installation
 
@@ -452,31 +452,6 @@ In addition, there are a few other settings that only really make sense for inli
 
 - `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
 - `active` can be set to false to disable the experiment and return the control for everyone
-- `include` is a callback function that returns a boolean for whether or not someone should be included in the experiment. It's a more flexible alternative to the declarative rules in `condition`
-
-### Overrides for Inline Experiments
-
-With Inline Experiments, you typically need to deploy new code anytime you want to make a change. For example, if an experiment wins and you want to roll it out to 100% of users.
-
-As a short-term alternative, you can pass `experimentOverrides` into the context. If you pull these overrides from a database or API, you can effectively control experiments remotely in realtime without deploying new code.
-
-```js
-const growthbook = new GrowthBook({
-  experimentOverrides: {
-    "my-experiment": {
-      force: 1
-    }
-  },
-  ...
-})
-
-// The inline experiment says to do a 50/50 split
-// Instead, everyone will be assigned "b" because of the override
-const {value} = growthbook.run({
-  key: "my-experiment",
-  variations: ["a", "b"]
-})
-```
 
 ### Inline Experiment Return Value
 
@@ -528,7 +503,6 @@ import type {
   Context,
   ConditionInterface,
   Experiment,
-  ExperimentOverride,
   FeatureDefinition,
   FeatureResult,
   ExperimentResult,

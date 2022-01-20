@@ -7,7 +7,6 @@ import {
 } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import dJSON from "dirty-json";
 import { UserContext } from "../ProtectedPage";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
@@ -64,8 +63,6 @@ const EditInfoForm: FC<{
     name: "variations",
   });
 
-  const implementation = form.watch("implementation");
-
   return (
     <Modal
       header={"Edit Info"}
@@ -75,21 +72,6 @@ const EditInfoForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
-
-        value.variations.forEach((v, i) => {
-          if (v.value) {
-            try {
-              data.variations[i] = {
-                ...data.variations[i],
-                value: JSON.stringify(dJSON.parse(v.value), null, 2),
-              };
-            } catch (e) {
-              throw new Error(
-                `JSON parse error for variation "${v.name}": ${e.message}`
-              );
-            }
-          }
-        });
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -168,17 +150,6 @@ const EditInfoForm: FC<{
                   textarea
                   {...form.register(`variations.${i}.description`)}
                 />
-                {implementation !== "visual" && (
-                  <Field
-                    label="JSON Value"
-                    textarea
-                    minRows={1}
-                    maxRows={10}
-                    placeholder='e.g. {"color": "red"}'
-                    {...form.register(`variations.${i}.value`)}
-                    helpText="Optional, use to parameterize experiment data."
-                  />
-                )}
                 <div className="text-right">
                   {experiment.status === "draft" &&
                   variations.fields.length > 2 ? (

@@ -152,7 +152,19 @@ params:
   user: root
   password: password
   database: growthbook
-  ssl: false # ssl setting only works for postgres and redshift currently
+```
+
+Redshift and Postgres also support optional params to force an SSL connection:
+
+```yml
+type: postgres
+params:
+  ...
+  ssl: true
+  # Omit the below fields to use the default trusted CA from Mozilla
+  caCert: "-----BEGIN CERTIFICATE-----\n..."
+  clientCert: "-----BEGIN CERTIFICATE-----\n..."
+  clientKey: "-----BEGIN CERTIFICATE-----\n..."
 ```
 
 #### Snowflake

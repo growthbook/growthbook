@@ -10,13 +10,7 @@ import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
-  type: "bigquery",
   name: "My Datasource",
-  params: {
-    clientEmail: "",
-    privateKey: "",
-    projectId: "",
-  },
   settings: {},
 };
 

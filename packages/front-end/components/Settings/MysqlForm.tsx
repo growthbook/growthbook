@@ -1,24 +1,23 @@
 import { FC, ChangeEventHandler } from "react";
 import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
-import { isCloud } from "../../services/env";
+import HostWarning from "./HostWarning";
 
 const MysqlForm: FC<{
   params: Partial<MysqlConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-}> = ({ params, existing, onParamChange }) => {
+  setParams: (params: { [key: string]: string }) => void;
+}> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
-      {isCloud() ? (
-        <div className="row">
-          <div className="col-auto">
-            <div className="alert alert-info">
-              Make sure to whitelist the IP Address <code>52.70.79.40</code> so
-              GrowthBook can reach your database.
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <HostWarning
+        host={params.host}
+        setHost={(host) => {
+          setParams({
+            host,
+          });
+        }}
+      />
       <div className="row">
         <div className="form-group col-md-12">
           <label>Host</label>

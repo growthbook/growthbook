@@ -7,6 +7,7 @@ import Modal from "../Modal";
 import dJSON from "dirty-json";
 import FeatureValueField from "./FeatureValueField";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import track from "../../services/track";
 
 export type Props = {
   close: () => void;
@@ -77,6 +78,14 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             body: JSON.stringify(body),
           }
         );
+
+        if (!existing) {
+          track("Feature Created", {
+            valueType: values.valueType,
+            hasDescription: values.description.length > 0,
+          });
+        }
+
         await onSuccess(res.feature);
       })}
     >
@@ -84,10 +93,16 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         <Field
           label="Feature Key"
           {...form.register("id")}
-          pattern="^[a-z0-9_-]+$"
+          pattern="^[a-zA-Z0-9_.:|-]+$"
+          required
           disabled={!!existing}
-          title="Only lowercase letters, numbers, underscores, and hyphens allowed. No spaces"
-          helpText="They key you reference in your code. Cannot be changed later."
+          title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
+          helpText={
+            <>
+              Only letters, numbers, and the characters <code>_-.:|</code>{" "}
+              allowed. No spaces. <strong>Cannot be changed later!</strong>
+            </>
+          }
         />
       )}
 

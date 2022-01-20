@@ -164,6 +164,7 @@ export default abstract class SqlIntegration
       userIds: true,
       experimentSegments: true,
       activationDimension: true,
+      pastExperiments: true,
     };
   }
 
@@ -215,6 +216,8 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
+
+    const now = new Date();
 
     return format(
       `-- Past Experiments
@@ -278,12 +281,15 @@ export default abstract class SqlIntegration
     FROM
       __variations
     WHERE
-      -- Skip experiments with fewer than 200 users since they don't have enough data
-      users > 200 AND
-      -- Skip experiments that are shorter than ${minLength} days (most likely means it was stopped early)
-      ${this.dateDiff("start_date", "end_date")} >= ${minLength} AND
-      -- Skip experiments that start on the very first day since we're likely missing data
-      ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
+      -- Experiment was started recently
+      ${this.dateDiff("start_date", this.toTimestamp(now))} < ${minLength} OR
+      -- OR it ran for long enough and had enough users
+      (
+        ${this.dateDiff("start_date", "end_date")} >= ${minLength} AND
+        users > 100 AND
+        -- Skip experiments at start of date range since it's likely missing data
+        ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
+      )
     ORDER BY
       experiment_id ASC, variation_id ASC`,
       this.getFormatOptions()
@@ -828,6 +834,7 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
+        ${segment ? `WHERE s.date <= e.actual_start` : ""}
         GROUP BY
           dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )

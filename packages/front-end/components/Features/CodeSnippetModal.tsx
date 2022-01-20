@@ -129,6 +129,7 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
       size="lg"
       header="Implementation Instructions"
       submit={async () => {
+        if (settings?.sdkInstructionsViewed) return;
         await apiCall(`/organization`, {
           method: "PUT",
           body: JSON.stringify({

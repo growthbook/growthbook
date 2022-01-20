@@ -2,17 +2,21 @@ import mongoose from "mongoose";
 import { ReportInterface } from "../../types/report";
 import uniqid from "uniqid";
 import { queriesSchema } from "./QueryModel";
+import { getExperimentsByOrganization } from "../services/experiments";
 
 const reportSchema = new mongoose.Schema({
   id: String,
   dateCreated: Date,
   dateUpdated: Date,
   organization: String,
+  experimentId: String,
+  userId: String,
   title: String,
   description: String,
   runStarted: Date,
   error: String,
   queries: queriesSchema,
+  status: String,
   type: String,
   args: {},
   results: {},
@@ -27,6 +31,7 @@ export async function createReport(
   initialValue: Partial<ReportInterface>
 ): Promise<ReportInterface> {
   const report = await ReportModel.create({
+    status: "private",
     ...initialValue,
     organization,
     id: uniqid("rep_"),
@@ -47,6 +52,30 @@ export async function getReportById(
   });
 
   return report ? report.toJSON() : null;
+}
+
+export async function getReportsByOrg(
+  organization: string,
+  project: string
+): Promise<ReportInterface[]> {
+  let reports = await ReportModel.find({ organization });
+  // filter by project assigned to the experiment:
+  if (reports && project) {
+    const allExperiments = await getExperimentsByOrganization(
+      organization,
+      project
+    );
+    const expIds = new Set(allExperiments.map((e) => e.id));
+    reports = reports.filter((r) => expIds.has(r.experimentId));
+  }
+  return reports;
+}
+
+export async function getReportsByExperimentId(
+  organization: string,
+  experimentId: string
+): Promise<ReportInterface[]> {
+  return ReportModel.find({ organization, experimentId });
 }
 
 export async function updateReport(

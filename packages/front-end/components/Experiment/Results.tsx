@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FC, useState, useContext } from "react";
+import React, { FC, useState, useContext, useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
@@ -15,6 +15,7 @@ import { ago, getValidDate } from "../../services/dates";
 import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
+import ExperimentReportsList from "./ExperimentReportsList";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -43,6 +44,11 @@ const Results: FC<{
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "")
   );
+
+  const showReports = useMemo(() => {
+    if (!experiment.datasource) return false;
+    return true;
+  }, [experiment]);
 
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
@@ -236,8 +242,12 @@ const Results: FC<{
                   const data = snapshot.results[0]?.variations;
                   if (!data) return "";
 
+                  const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
                   return (
-                    <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
+                    <div
+                      className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
+                      key={g}
+                    >
                       <GuardrailResults
                         data={data}
                         variations={variations}
@@ -247,6 +257,14 @@ const Results: FC<{
                   );
                 })}
               </div>
+            </div>
+          )}
+          {showReports && (
+            <div className="p-3">
+              <ExperimentReportsList
+                experiment={experiment}
+                snapshot={snapshot}
+              />
             </div>
           )}
         </>
