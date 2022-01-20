@@ -215,7 +215,7 @@ class GrowthBook {
           continue;
         }
         // Feature value is being forced
-        if (rule.force) {
+        if ("force" in rule) {
           // Skip if coverage is reduced and user not included
           if ("coverage" in rule) {
             const { hashValue } = this.getHashAttribute(rule.hashAttribute);
@@ -244,7 +244,8 @@ class GrowthBook {
               rule,
             });
 
-          return this.getFeatureResult(rule.force, "force");
+          // eslint-disable-next-line
+          return this.getFeatureResult(rule.force as T, "force");
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&

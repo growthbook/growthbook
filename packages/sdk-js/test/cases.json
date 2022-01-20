@@ -1404,6 +1404,28 @@
       }
     ],
     [
+      "force rules - force false",
+      {
+        "features": {
+          "feature": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "force": false
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": false,
+        "on": false,
+        "off": true,
+        "source": "force"
+      }
+    ],
+    [
       "force rules - coverage included",
       {
         "attributes": {
