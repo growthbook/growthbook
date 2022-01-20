@@ -6,38 +6,71 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import GetStarted from "../components/HomePage/GetStarted";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
+import { useContext } from "react";
+import { UserContext } from "../components/ProtectedPage";
+import { FeatureInterface } from "../../back-end/types/feature";
+import { useState } from "react";
+import track from "../services/track";
+import Link from "next/link";
 
 export default function Home(): React.ReactElement {
   const {
     metrics,
     ready,
     datasources,
-    project,
     error: definitionsError,
   } = useDefinitions();
 
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+  const [onboardingType, setOnboardingType] = useState<
+    "features" | "experiments" | null
+  >(null);
 
-  if (error || definitionsError) {
+  const { settings } = useContext(UserContext);
+
+  const {
+    data: experiments,
+    error: experimentsError,
+    mutate: mutateExperiments,
+  } = useApi<{
+    experiments: ExperimentInterfaceStringDates[];
+  }>(`/experiments`);
+
+  const {
+    data: features,
+    error: featuresError,
+    mutate: mutateFeatures,
+  } = useApi<{
+    features: FeatureInterface[];
+  }>(`/feature`);
+
+  if (featuresError || experimentsError || definitionsError) {
     return (
       <div className="alert alert-danger">
-        An error occurred: {error?.message || definitionsError}
+        An error occurred:{" "}
+        {featuresError?.message ||
+          experimentsError?.message ||
+          definitionsError}
       </div>
     );
   }
 
-  if (!data || !ready) {
+  if (!experiments || !features || !ready) {
     return <LoadingOverlay />;
   }
 
-  const hasDataSource = datasources.length > 0;
-  const hasMetrics =
-    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
   const hasExperiments =
-    data?.experiments?.filter((e) => !e.id.match(/^exp_sample/))?.length > 0;
-  const isNew = !project && !(hasMetrics && hasExperiments && hasDataSource);
+    experiments?.experiments?.filter((e) => !e.id.match(/^exp_sample/))
+      ?.length > 0;
+
+  const hasFeatures = features?.features?.length > 0;
+
+  const startedExpOnboarding =
+    datasources.length > 0 || metrics.length > 0 || hasExperiments;
+
+  const startedFeatOnboarding =
+    !!settings?.attributeSchema ||
+    settings?.sdkInstructionsViewed ||
+    hasFeatures;
 
   return (
     <>
@@ -46,19 +79,111 @@ export default function Home(): React.ReactElement {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {!ready && <LoadingOverlay />}
+      <div className="container pagecontents position-relative">
+        {!onboardingType && !startedExpOnboarding && !startedFeatOnboarding && (
+          <>
+            <div
+              className="bg-white"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 120,
+                opacity: 0.75,
+              }}
+            ></div>
+            <div
+              style={{
+                position: "absolute",
+                top: 30,
+                width: 800,
+                left: "50%",
+                marginLeft: -400,
+                zIndex: 130,
+              }}
+              className="bg-white p-4 shadow-lg"
+            >
+              <div className="text-center p-3">
+                <h1 className="mb-5">What do you want to do first?</h1>
+                <div className="row">
+                  <div className="col">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        track("Choose Onboarding", {
+                          type: "features",
+                          source: "modal",
+                        });
+                        setOnboardingType("features");
+                      }}
+                      className="d-block border p-3"
+                    >
+                      <img
+                        src="/images/feature-icon.svg"
+                        className="mb-3"
+                        style={{
+                          height: 180,
+                        }}
+                      />
+                      <div style={{ fontSize: "1.3em" }} className="text-dark">
+                        Use Feature Flags
+                      </div>
+                    </a>
+                  </div>
 
-      {ready && isNew && (
-        <div className="container-fluid mt-3 pagecontents getstarted">
-          <GetStarted experiments={data.experiments} mutate={mutate} />
-        </div>
-      )}
+                  <div className="col">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        track("Choose Onboarding", {
+                          type: "experiments",
+                          source: "modal",
+                        });
+                        setOnboardingType("experiments");
+                      }}
+                      className="d-block border p-3"
+                    >
+                      <img
+                        src="/images/getstarted-step3.svg"
+                        className="mb-3"
+                        style={{
+                          height: 180,
+                        }}
+                      />
+                      <div style={{ fontSize: "1.3em" }} className="text-dark">
+                        Analyze Experiment Results
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        {hasExperiments || hasFeatures ? (
+          <div>
+            <div className="px-3">
+              <Link href="/getstarted">
+                <a>view setup instructions</a>
+              </Link>
+            </div>
 
-      {ready && !isNew && (
-        <>
-          <Dashboard />
-        </>
-      )}
+            <Dashboard />
+          </div>
+        ) : (
+          <GetStarted
+            experiments={experiments?.experiments || []}
+            features={features?.features || []}
+            mutateExperiments={mutateExperiments}
+            mutateFeatures={mutateFeatures}
+            onboardingType={onboardingType}
+          />
+        )}
+      </div>
     </>
   );
 }
