@@ -2,19 +2,18 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
-import { useContext } from "react";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummaryText } from "../../services/utils";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import { UserContext } from "../ProtectedPage";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
+import usePermissions from "../../hooks/usePermissions";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -81,7 +80,7 @@ export default function AnalysisSettingsBar({
     }
   }, [dimension, experiment.activationMetric]);
 
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   const { apiCall } = useAuth();
 

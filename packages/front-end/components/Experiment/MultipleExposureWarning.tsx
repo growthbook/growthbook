@@ -1,5 +1,4 @@
-import { useContext } from "react";
-import { UserContext } from "../ProtectedPage";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const MINIMUM_MULTIPLE_EXPOSURES = 10;
 
@@ -16,7 +15,7 @@ export default function MultipleExposureWarning({
   users: number[];
   multipleExposures: number;
 }) {
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
   const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
 
   if (multipleExposures < MINIMUM_MULTIPLE_EXPOSURES) return null;

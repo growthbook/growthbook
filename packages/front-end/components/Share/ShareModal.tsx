@@ -1,9 +1,9 @@
-import React, { useContext } from "react";
+import React from "react";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import { useState } from "react";
 import { useSearch } from "../../services/search";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";
@@ -182,7 +182,7 @@ const ShareModal = ({
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { getUserDisplay } = useContext(UserContext);
+  const { getUserDisplay } = useUser();
   const form = useForm<Partial<PresentationInterface>>({
     defaultValues: {
       title: existing?.title || "A/B Test Review",

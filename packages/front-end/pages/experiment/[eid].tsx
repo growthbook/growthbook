@@ -7,7 +7,7 @@ import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import ScreenshotUpload from "../../components/EditExperiment/ScreenshotUpload";
 import clone from "lodash/clone";
-import React, { useState, ReactElement, useContext } from "react";
+import React, { useState, ReactElement } from "react";
 import { useAuth } from "../../services/auth";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -32,7 +32,6 @@ import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import ConfirmModal from "../../components/ConfirmModal";
 import WatchButton from "../../components/Experiment/WatchButton";
-import { UserContext } from "../../components/ProtectedPage";
 import HistoryTable from "../../components/HistoryTable";
 import EditTagsForm from "../../components/Experiment/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
@@ -54,6 +53,7 @@ import DeleteButton from "../../components/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
 import { IfFeatureEnabled, useFeature } from "@growthbook/growthbook-react";
+import usePermissions from "../../hooks/usePermissions";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -88,7 +88,7 @@ const ExperimentPage = (): ReactElement => {
     project,
     getProjectById,
   } = useDefinitions();
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;

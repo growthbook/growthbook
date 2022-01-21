@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import { useContext } from "react";
 import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { GrTableAdd } from "react-icons/gr";
 import { Queries } from "back-end/types/query";
@@ -7,9 +6,9 @@ import { ReportInterface } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
-import { UserContext } from "../ProtectedPage";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -40,7 +39,7 @@ export default function ResultMoreMenu({
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   return (
     <MoreMenu id="exp-result-actions">

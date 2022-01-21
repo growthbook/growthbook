@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import {
@@ -10,7 +10,6 @@ import {
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { datetime, ago } from "../services/dates";
-import { UserContext } from "../components/ProtectedPage";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -20,6 +19,7 @@ import Tooltip from "../components/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
+import usePermissions from "../hooks/usePermissions";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -34,7 +34,7 @@ const MetricsPage = (): React.ReactElement => {
     `/metrics`
   );
 
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   const [metricSort, setMetricSort] = useState({
     field: "name",

@@ -1,8 +1,7 @@
-import { useContext } from "react";
-import { UserContext } from "../components/ProtectedPage";
+import useOrgSettings from "./useOrgSettings";
 
 export default function useConfidenceLevels() {
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
   const ciUpper = settings.confidenceLevel || 0.95;
   return {
     ciUpper,

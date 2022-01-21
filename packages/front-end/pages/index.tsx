@@ -6,11 +6,10 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import GetStarted from "../components/HomePage/GetStarted";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
-import { useContext } from "react";
-import { UserContext } from "../components/ProtectedPage";
 import { FeatureInterface } from "back-end/types/feature";
 import { useState } from "react";
 import track from "../services/track";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export default function Home(): React.ReactElement {
   const {
@@ -25,7 +24,7 @@ export default function Home(): React.ReactElement {
     "features" | "experiments" | null
   >(null);
 
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
 
   const {
     data: experiments,

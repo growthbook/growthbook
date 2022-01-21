@@ -1,8 +1,8 @@
-import React, { FC, useState, useContext } from "react";
+import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { useAuth, MemberRole } from "../../services/auth";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import DeleteButton from "../DeleteButton";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
@@ -16,7 +16,7 @@ const MemberList: FC<{
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
-  const { userId } = useContext(UserContext);
+  const { userId } = useUser();
   const [roleModal, setRoleModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
 

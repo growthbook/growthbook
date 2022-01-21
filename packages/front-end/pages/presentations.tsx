@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import useApi from "../hooks/useApi";
 import Link from "next/link";
 import { useState } from "react";
@@ -10,8 +10,8 @@ import { useAuth } from "../services/auth";
 import { date } from "../services/dates";
 import { FaPlus } from "react-icons/fa";
 import Modal from "../components/Modal";
-import { UserContext } from "../components/ProtectedPage";
 import CopyToClipboard from "../components/CopyToClipboard";
+import useUser from "../hooks/useUser";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
@@ -30,7 +30,7 @@ const PresentationPage = (): React.ReactElement => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { getUserDisplay } = useContext(UserContext);
+  const { getUserDisplay } = useUser();
   const { apiCall } = useAuth();
 
   const { data: p, error: error, mutate } = useApi<{

@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import useApi from "../hooks/useApi";
 import Link from "next/link";
 import { useState } from "react";
@@ -6,11 +6,11 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "../services/dates";
 import IdeaForm from "../components/Ideas/IdeaForm";
-import { UserContext } from "../components/ProtectedPage";
 import { useSearch } from "../services/search";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { useDefinitions } from "../services/DefinitionsContext";
+import useUser from "../hooks/useUser";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -23,7 +23,7 @@ const IdeasPage = (): React.ReactElement => {
 
   const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
 
-  const { getUserDisplay } = useContext(UserContext);
+  const { getUserDisplay } = useUser();
 
   const { list: displayedIdeas, searchInputProps } = useSearch(
     data?.ideas || [],

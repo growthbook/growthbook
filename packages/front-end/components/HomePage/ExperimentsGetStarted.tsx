@@ -10,14 +10,13 @@ import { FaChevronRight } from "react-icons/fa";
 import Button from "../Button";
 import Tooltip from "../Tooltip";
 import { useAuth } from "../../services/auth";
-import { useContext } from "react";
-import { UserContext } from "../ProtectedPage";
 import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";
 import EditDataSourceSettingsForm from "../Settings/EditDataSourceSettingsForm";
 import ImportExperimentModal from "../Experiment/ImportExperimentModal";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -29,9 +28,7 @@ const ExperimentsGetStarted = ({
   const { metrics, datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const {
-    settings: { visualEditorEnabled },
-  } = useContext(UserContext);
+  const { visualEditorEnabled } = useOrgSettings();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);

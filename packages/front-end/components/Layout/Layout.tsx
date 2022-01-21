@@ -1,6 +1,6 @@
 import Link from "next/link";
 import styles from "./Layout.module.scss";
-import { useState, useContext } from "react";
+import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
@@ -16,10 +16,10 @@ import {
   GBSettings,
 } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { UserContext } from "../ProtectedPage";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -159,7 +159,7 @@ const backgroundShade = (color: string) => {
 
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
 
   // hacky:
   const router = useRouter();

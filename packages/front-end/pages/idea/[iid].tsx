@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { useState, ReactElement, useContext } from "react";
+import { useState, ReactElement } from "react";
 import { useAuth } from "../../services/auth";
 import DeleteButton from "../../components/DeleteButton";
 import {
@@ -13,7 +13,6 @@ import {
 } from "react-icons/fa";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import { UserContext } from "../../components/ProtectedPage";
 import ImpactModal from "../../components/Ideas/ImpactModal";
 import { date } from "../../services/dates";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
@@ -34,6 +33,7 @@ import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import SelectField from "../../components/Forms/SelectField";
+import useUser from "../../hooks/useUser";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -52,7 +52,7 @@ const IdeaPage = (): ReactElement => {
     getProjectById,
   } = useDefinitions();
 
-  const { permissions, getUserDisplay } = useContext(UserContext);
+  const { permissions, getUserDisplay } = useUser();
 
   const { apiCall } = useAuth();
 

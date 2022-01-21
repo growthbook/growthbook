@@ -12,10 +12,9 @@ import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
 import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
-import { useContext } from "react";
-import { UserContext } from "../ProtectedPage";
 import { isValidValue } from "../../services/features";
 import track from "../../services/track";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export interface Props {
   close: () => void;
@@ -85,7 +84,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
 
   const { apiCall } = useAuth();
 
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
 
   const type = form.watch("type");
 

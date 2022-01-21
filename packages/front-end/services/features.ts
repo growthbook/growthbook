@@ -1,8 +1,8 @@
-import { useContext, useMemo } from "react";
+import { useMemo } from "react";
 import { SDKAttributeType } from "back-end/types/organization";
-import { UserContext } from "../components/ProtectedPage";
 import { FeatureValueType } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export interface Condition {
   field: string;
@@ -197,7 +197,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
 
   return useMemo(() => {
     if (!settings?.attributeSchema?.length) {

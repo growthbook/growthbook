@@ -1,7 +1,7 @@
-import { FC, useContext } from "react";
+import { FC } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
@@ -27,7 +27,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, admin } = useContext(UserContext);
+  const { permissions, admin } = useUser();
   const router = useRouter();
 
   if (props.superAdmin && !admin) return null;

@@ -2,13 +2,12 @@ import { useRouter } from "next/router";
 import useApi from "../../hooks/useApi";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import React, { FC, useContext, useState, useEffect, Fragment } from "react";
+import React, { FC, useState, useEffect, Fragment } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
 import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
-import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import {
@@ -50,11 +49,12 @@ import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
+import usePermissions from "../../hooks/usePermissions";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
   const { apiCall } = useAuth();
   const {
     mutateDefinitions,

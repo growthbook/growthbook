@@ -1,13 +1,13 @@
 import { useRouter } from "next/router";
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import track from "../../services/track";
 import CodeSnippetModal from "../Features/CodeSnippetModal";
 import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
-import { UserContext } from "../ProtectedPage";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import GetStartedStep from "./GetStartedStep";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export interface Props {
   features: FeatureInterface[];
@@ -15,7 +15,7 @@ export interface Props {
 }
 
 export default function FeaturesGetStarted({ features, mutate }: Props) {
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
   const router = useRouter();
 
   let step = -1;

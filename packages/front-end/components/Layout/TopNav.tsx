@@ -1,8 +1,8 @@
-import { FC, useState, useContext } from "react";
+import { FC, useState } from "react";
 import { useWatching } from "../../services/WatchProvider";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import { useForm } from "react-hook-form";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import { useAuth } from "../../services/auth";
 import { daysLeft } from "../../services/dates";
 import Modal from "../Modal";
@@ -44,7 +44,7 @@ const TopNav: FC<{
     subscriptionStatus,
     permissions,
     role,
-  } = useContext(UserContext);
+  } = useUser();
 
   const { datasources } = useDefinitions();
 
