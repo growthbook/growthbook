@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import ControlledTabs from "../Tabs/ControlledTabs";
 
 export interface Props {
-  onboardingType: "features" | "experiments" | null;
+  onboardingType: "features" | "experiments";
   experiments: ExperimentInterfaceStringDates[];
   features: FeatureInterface[];
   mutateExperiments: () => void;
@@ -25,12 +25,10 @@ export default function GetStarted({
   mutateFeatures,
 }: Props) {
   const { datasources } = useDefinitions();
-  const [tab, setTab] = useState("features");
+  const [tab, setTab] = useState("experiments");
 
   useEffect(() => {
-    setTab(
-      onboardingType ?? (datasources.length > 0 ? "experiments" : "features")
-    );
+    setTab(onboardingType);
   }, [onboardingType]);
 
   return (
@@ -48,14 +46,14 @@ export default function GetStarted({
         }
         newStyle={true}
       >
-        <Tab display="Features" id="features" padding={false}>
-          <FeaturesGetStarted features={features} mutate={mutateFeatures} />
-        </Tab>
         <Tab display="Experiments" id="experiments" padding={false}>
           <ExperimentsGetStarted
             experiments={experiments}
             mutate={mutateExperiments}
           />
+        </Tab>
+        <Tab display="Features" id="features" padding={false}>
+          <FeaturesGetStarted features={features} mutate={mutateFeatures} />
         </Tab>
       </ControlledTabs>
     </div>

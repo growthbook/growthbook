@@ -11,7 +11,6 @@ import { UserContext } from "../components/ProtectedPage";
 import { FeatureInterface } from "back-end/types/feature";
 import { useState } from "react";
 import track from "../services/track";
-import Link from "next/link";
 
 export default function Home(): React.ReactElement {
   const {
@@ -168,26 +167,20 @@ export default function Home(): React.ReactElement {
           </>
         )}
         {hasExperiments || hasFeatures ? (
-          <div>
-            <Dashboard
-              features={features?.features || []}
-              experiments={experiments?.experiments || []}
-            />
-
-            <div className="alert alert-info mx-3">
-              Not done configuring GrowthBook yet?{" "}
-              <Link href="/getstarted">
-                <a>Go back to initial setup</a>
-              </Link>
-            </div>
-          </div>
+          <Dashboard
+            features={features?.features || []}
+            experiments={experiments?.experiments || []}
+          />
         ) : (
           <GetStarted
             experiments={experiments?.experiments || []}
             features={features?.features || []}
             mutateExperiments={mutateExperiments}
             mutateFeatures={mutateFeatures}
-            onboardingType={onboardingType}
+            onboardingType={
+              onboardingType ??
+              (startedFeatOnboarding ? "features" : "experiments")
+            }
           />
         )}
       </div>
