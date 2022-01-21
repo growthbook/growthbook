@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+import React, { useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -6,7 +6,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
 import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
-import { UserContext } from "../../components/ProtectedPage";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
 import { FaPlus } from "react-icons/fa";
@@ -17,6 +16,7 @@ import Tab from "../../components/Tabs/Tab";
 import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
+import useUser from "../../hooks/useUser";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -29,9 +29,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId, users } = useContext(
-    UserContext
-  );
+  const { getUserDisplay, permissions, userId, users } = useUser();
 
   const [currentPage, setCurrentPage] = useState({
     running: 1,
