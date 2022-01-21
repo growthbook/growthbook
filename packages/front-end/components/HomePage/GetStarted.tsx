@@ -1,6 +1,6 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureInterface } from "../../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import ExperimentsGetStarted from "./ExperimentsGetStarted";
 import Tab from "../Tabs/Tab";
 import FeaturesGetStarted from "./FeaturesGetStarted";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FeatureInterface } from "../../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { ago, datetime } from "../../services/dates";
 import ValueDisplay from "./ValueDisplay";
 

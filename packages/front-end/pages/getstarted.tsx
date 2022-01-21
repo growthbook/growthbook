@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
-import { FeatureInterface } from "../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import GetStarted from "../components/HomePage/GetStarted";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";

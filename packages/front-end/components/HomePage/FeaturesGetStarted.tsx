@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useContext, useState } from "react";
-import { FeatureInterface } from "../../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import track from "../../services/track";
 import CodeSnippetModal from "../Features/CodeSnippetModal";
 import EditAttributesModal from "../Features/EditAttributesModal";
