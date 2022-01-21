@@ -1,4 +1,4 @@
-import { FC, useContext } from "react";
+import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
@@ -7,7 +7,7 @@ import {
 } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
@@ -20,7 +20,7 @@ const EditInfoForm: FC<{
 }> = ({ experiment, cancel, mutate }) => {
   const {
     settings: { visualEditorEnabled },
-  } = useContext(UserContext);
+  } = useUser();
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {

@@ -1,8 +1,8 @@
 import stringify from "json-stringify-pretty-compact";
 import { getTrackingCallback, TrackingType } from "../../services/codegen";
 import { getApiHost, isCloud } from "../../services/env";
-import { useContext, useState, useEffect } from "react";
-import { UserContext } from "../ProtectedPage";
+import { useState, useEffect } from "react";
+import useUser from "../../hooks/useUser";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import Modal from "../Modal";
@@ -76,7 +76,7 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
 
   const { apiCall } = useAuth();
 
-  const { settings, update } = useContext(UserContext);
+  const { settings, update } = useUser();
 
   const { datasources } = useDefinitions();
   const exampleAttributes = getExampleAttributes(

@@ -1,4 +1,4 @@
-import { FC, useState, useContext } from "react";
+import { FC, useState } from "react";
 import {
   DiscussionParentType,
   DiscussionInterface,
@@ -10,10 +10,10 @@ import useApi from "../hooks/useApi";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
 import { FaPencilAlt } from "react-icons/fa";
-import { UserContext } from "./ProtectedPage";
 import DeleteButton from "./DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
+import useUser from "../hooks/useUser";
 
 const DiscussionThread: FC<{
   type: DiscussionParentType;
@@ -29,14 +29,12 @@ const DiscussionThread: FC<{
   title = "Add comment",
 }) => {
   const { apiCall } = useAuth();
-  const { userId } = useContext(UserContext);
+  const { userId, users } = useUser();
   const [edit, setEdit] = useState(null);
 
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/${type}/${id}`
   );
-
-  const { users } = useContext(UserContext);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

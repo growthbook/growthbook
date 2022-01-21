@@ -1,9 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useState, useContext, useMemo } from "react";
+import React, { FC, useState, useMemo } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import clsx from "clsx";
-import { UserContext } from "../ProtectedPage";
 import { FaPencilAlt } from "react-icons/fa";
 import dynamic from "next/dynamic";
 import Markdown from "../Markdown/Markdown";
@@ -16,6 +15,7 @@ import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
 import ExperimentReportsList from "./ExperimentReportsList";
+import usePermissions from "../../hooks/usePermissions";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -35,7 +35,7 @@ const Results: FC<{
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length]);
 
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   const { data, error, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;

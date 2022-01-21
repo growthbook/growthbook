@@ -1,8 +1,8 @@
-import { FC, useContext } from "react";
+import { FC } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { ago } from "../../services/dates";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import { useRouter } from "next/router";
 import Markdown from "../Markdown/Markdown";
 import { IdeaInterface } from "back-end/types/idea";
@@ -18,7 +18,7 @@ const IdeasFeed: FC<{
 
   const router = useRouter();
 
-  const { users } = useContext(UserContext);
+  const { users } = useUser();
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

@@ -4,12 +4,11 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import RunQueriesButton, {
   getQueryStatus,
 } from "../../components/Queries/RunQueriesButton";
 import { ago, datetime, getValidDate } from "../../services/dates";
-import { UserContext } from "../../components/ProtectedPage";
 import DateResults from "../../components/Experiment/DateResults";
 import BreakDownResults from "../../components/Experiment/BreakDownResults";
 import CompactResults from "../../components/Experiment/CompactResults";
@@ -28,6 +27,7 @@ import Modal from "../../components/Modal";
 import { useForm } from "react-hook-form";
 import Tooltip from "../../components/Tooltip";
 import { date } from "../../services/dates";
+import useUser from "../../hooks/useUser";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions, userId, getUserDisplay } = useContext(UserContext);
+  const { permissions, userId, getUserDisplay } = useUser();
   const [active, setActive] = useState<string | null>("Results");
 
   const { apiCall } = useAuth();

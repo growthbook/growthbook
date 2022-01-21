@@ -1,12 +1,12 @@
-import React, { useContext } from "react";
+import React from "react";
 import { useState, useEffect } from "react";
+import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
 } from "../../services/features";
 import Field from "../Forms/Field";
-import { UserContext } from "../ProtectedPage";
 
 interface Props {
   defaultValue: string;
@@ -21,7 +21,7 @@ export default function ConditionInput(props: Props) {
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(() => jsonToConds(props.defaultValue));
 
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
 
   const attributes = useAttributeMap();
 

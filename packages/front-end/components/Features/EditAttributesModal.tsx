@@ -1,9 +1,8 @@
-import { useContext } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip";
@@ -27,7 +26,7 @@ const INITIAL_ATTRS: SDKAttributeSchema = [
 ];
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
-  const { settings, update } = useContext(UserContext);
+  const { settings, update } = useUser();
   const { apiCall } = useAuth();
 
   const form = useForm<{ attributeSchema: SDKAttributeSchema }>({

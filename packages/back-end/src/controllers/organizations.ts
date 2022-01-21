@@ -757,7 +757,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
     // on a local install.
-    if (orgs) {
+    if (orgs && !req.admin) {
       throw new Error("An organization already exists");
     }
   }

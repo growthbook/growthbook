@@ -16,8 +16,7 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useContext } from "react";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
@@ -153,7 +152,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const {
     settings: { visualEditorEnabled },
-  } = useContext(UserContext);
+  } = useUser();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name

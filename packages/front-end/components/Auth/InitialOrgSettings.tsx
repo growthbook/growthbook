@@ -1,9 +1,9 @@
-import { ReactElement, useContext, useState } from "react";
+import { ReactElement, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import { FiLogOut } from "react-icons/fi";
 import Tooltip from "../../components/Tooltip";
 
@@ -50,7 +50,7 @@ export default function InitialOrgSettings(): ReactElement {
   const [error, setError] = useState(null);
 
   const { apiCall, logout } = useAuth();
-  const { update } = useContext(UserContext);
+  const { update } = useUser();
 
   const submit = form.handleSubmit(async (value) => {
     // add the other to the array:

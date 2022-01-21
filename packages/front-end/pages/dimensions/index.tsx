@@ -1,4 +1,4 @@
-import React, { FC, useContext, useState } from "react";
+import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago } from "../../services/dates";
@@ -9,10 +9,10 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
-import { UserContext } from "../../components/ProtectedPage";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
+import usePermissions from "../../hooks/usePermissions";
 
 const DimensionsPage: FC = () => {
   const {
@@ -24,7 +24,7 @@ const DimensionsPage: FC = () => {
     mutateDefinitions,
   } = useDefinitions();
 
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
 
   const [
     dimensionForm,

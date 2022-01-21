@@ -1,10 +1,10 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
-import { UserContext } from "../ProtectedPage";
 import VisualEditorInstructions from "../Settings/VisualEditorInstructions";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function VisualEditorScriptMissing({
   onSuccess,
@@ -16,7 +16,7 @@ export default function VisualEditorScriptMissing({
   url?: string;
 }) {
   const { apiCall } = useAuth();
-  const { permissions } = useContext(UserContext);
+  const permissions = usePermissions();
   const [apiKeys, setApiKeys] = useState<ApiKeyInterface[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");

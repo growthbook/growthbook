@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
@@ -7,7 +7,7 @@ import ActivityList from "../ActivityList";
 import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
 import { FeatureInterface } from "back-end/types/feature";
@@ -24,7 +24,7 @@ export default function Dashboard({ experiments, features }: Props) {
     events: AuditInterface[];
   }>("/activity");
 
-  const { name } = useContext(UserContext);
+  const { name } = useUser();
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

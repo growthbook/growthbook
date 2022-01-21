@@ -1,16 +1,15 @@
-import React, { FC, useContext, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
-import { SettingsApiResponse } from "../../pages/settings/";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
 import Field from "../Forms/Field";
-import { UserContext } from "../ProtectedPage";
+import useUser from "../../hooks/useUser";
 
 const NorthStar: FC = () => {
   const { apiCall } = useAuth();
@@ -19,11 +18,7 @@ const NorthStar: FC = () => {
     experiments: { id: string; name: string }[];
   }>("/activity");
 
-  const {
-    data: orgData,
-    error: orgError,
-    mutate,
-  } = useApi<SettingsApiResponse>(`/organization`);
+  const { settings, permissions, update } = useUser();
 
   const form = useForm<{
     title: string;
@@ -33,32 +28,22 @@ const NorthStar: FC = () => {
   }>({ defaultValues: { resolution: "week" } });
 
   useEffect(() => {
-    if (orgData?.organization?.settings?.northStar?.metricIds) {
-      form.setValue(
-        "metrics",
-        orgData?.organization?.settings?.northStar?.metricIds || []
-      );
+    if (settings.northStar?.metricIds) {
+      form.setValue("metrics", settings.northStar?.metricIds || []);
       // form.setValue(
       //   "window",
-      //   orgData?.organization?.settings?.northStar?.window || ""
+      //   settings.northStar?.window || ""
       // );
-      form.setValue(
-        "title",
-        orgData?.organization?.settings?.northStar?.title || ""
-      );
+      form.setValue("title", settings.northStar?.title || "");
     }
-  }, [orgData?.organization?.settings?.northStar]);
+  }, [settings.northStar]);
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
-  const { permissions } = useContext(UserContext);
 
-  if (orgError) {
-    return <div className="alert alert-danger">{orgError.message}</div>;
-  }
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
-  if (!data || !orgData) {
+  if (!data) {
     return <LoadingOverlay />;
   }
   const nameMap = new Map<string, string>();
@@ -66,7 +51,7 @@ const NorthStar: FC = () => {
     nameMap.set(e.id, e.name);
   });
 
-  const northStar = orgData?.organization?.settings?.northStar || null;
+  const northStar = settings.northStar || null;
   const hasNorthStar = northStar?.metricIds && northStar.metricIds.length > 0;
 
   return (
@@ -112,29 +97,23 @@ const NorthStar: FC = () => {
           overflowAuto={false}
           autoFocusSelector={""}
           submit={form.handleSubmit(async (value) => {
-            const settings = { ...orgData.organization.settings };
-            if (!settings.northStar)
-              settings.northStar = {
-                //enabled: true,
+            const newSettings = { ...settings };
+            if (!newSettings.northStar)
+              newSettings.northStar = {
                 metricIds: value.metrics,
                 title: value.title,
-                //window: "" + value.window,
-                //resolution: value.resolution,
               };
             else {
-              //settings.northStar.enabled = true;
-              settings.northStar.metricIds = value.metrics;
-              settings.northStar.title = value.title;
-              //settings.northStar.window = "" + value.window;
-              //settings.northStar.resolution = value.resolution;
+              newSettings.northStar.metricIds = value.metrics;
+              newSettings.northStar.title = value.title;
             }
             await apiCall("/organization", {
               method: "PUT",
               body: JSON.stringify({
-                settings,
+                settings: newSettings,
               }),
             });
-            await mutate();
+            await update();
             setOpenNorthStarModal(false);
           })}
           header={

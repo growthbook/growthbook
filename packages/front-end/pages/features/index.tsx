@@ -9,10 +9,9 @@ import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useRouter } from "next/router";
-import { useContext } from "react";
-import { UserContext } from "../../components/ProtectedPage";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -23,7 +22,7 @@ export default function FeaturesPage() {
     features: FeatureInterface[];
   }>(`/feature?project=${project || ""}`);
 
-  const { settings } = useContext(UserContext);
+  const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =

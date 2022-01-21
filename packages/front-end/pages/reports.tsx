@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { datetime, ago } from "../services/dates";
@@ -9,9 +9,9 @@ import Tooltip from "../components/Tooltip";
 import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { UserContext } from "../components/ProtectedPage";
 import Toggle from "../components/Forms/Toggle";
 import experiments from "./experiments";
+import useUser from "../hooks/useUser";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -36,7 +36,7 @@ const ReportsPage = (): React.ReactElement => {
     }
   };
 
-  const { users, userId, getUserDisplay } = useContext(UserContext);
+  const { users, userId, getUserDisplay } = useUser();
   const expMap = useMemo(() => {
     const tmp = new Map();
     if (data?.experiments && data?.experiments.length > 0) {
