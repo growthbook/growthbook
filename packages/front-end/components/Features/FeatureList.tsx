@@ -21,7 +21,7 @@ export default function FeatureList({ features }: Props) {
           return (
             <li key={feature.id} className="w-100 hover-highlight">
               <div className="d-flex">
-                <Link href={`/feature/${feature.id}`}>
+                <Link href={`/features/${feature.id}`}>
                   <a className="w-100 no-link-color">
                     <div className="d-flex w-100">
                       <div className="mb-1">
