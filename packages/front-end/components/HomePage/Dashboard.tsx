@@ -1,21 +1,27 @@
-import React, { FC, useContext } from "react";
+import React, { useContext } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
 import ActivityList from "../ActivityList";
-import DiscussionFeed from "./DiscussionFeed";
 import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
 import { UserContext } from "../ProtectedPage";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
+import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import FeatureList from "../Features/FeatureList";
 
-const Dashboard: FC = () => {
+export interface Props {
+  experiments: ExperimentInterfaceStringDates[];
+  features: FeatureInterface[];
+}
+
+export default function Dashboard({ experiments, features }: Props) {
   const { data, error } = useApi<{
     events: AuditInterface[];
-    experiments: { id: string; name: string }[];
   }>("/activity");
 
   const { name } = useContext(UserContext);
@@ -28,7 +34,7 @@ const Dashboard: FC = () => {
   }
 
   const nameMap = new Map<string, string>();
-  data.experiments.forEach((e) => {
+  experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
 
@@ -61,7 +67,11 @@ const Dashboard: FC = () => {
                   <a className="float-right h6">See all</a>
                 </Link>
               </h4>
-              <ExperimentList num={5} status={"running"} />
+              <ExperimentList
+                num={5}
+                status={"running"}
+                experiments={experiments}
+              />
             </div>
           </div>
           <div className="col-xl-4 col-md-6 mb-3">
@@ -77,8 +87,13 @@ const Dashboard: FC = () => {
           </div>
           <div className="col-xl-4 col-md-6 mb-3">
             <div className="list-group activity-box fixed-height overflow-auto">
-              <h4 className="mb-3">Recent discussions</h4>
-              <DiscussionFeed num={5} />
+              <h4 className="mb-3">
+                Recent Features{" "}
+                <Link href={`/features`}>
+                  <a className="float-right h6">See all</a>
+                </Link>
+              </h4>
+              <FeatureList features={features} />
             </div>
           </div>
           <div className="col-xl-4 col-md-6 mb-4">
@@ -97,5 +112,4 @@ const Dashboard: FC = () => {
       </div>
     </>
   );
-};
-export default Dashboard;
+}
