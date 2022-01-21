@@ -7,9 +7,9 @@ import GetStarted from "../components/HomePage/GetStarted";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 import { FeatureInterface } from "back-end/types/feature";
-import { useState } from "react";
 import track from "../services/track";
 import useOrgSettings from "../hooks/useOrgSettings";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export default function Home(): React.ReactElement {
   const {
@@ -20,9 +20,9 @@ export default function Home(): React.ReactElement {
     project,
   } = useDefinitions();
 
-  const [onboardingType, setOnboardingType] = useState<
-    "features" | "experiments" | null
-  >(null);
+  const [onboardingType, setOnboardingType] = useLocalStorage<
+    "features" | "experiments" | ""
+  >("gb-onboarding-choice", "");
 
   const settings = useOrgSettings();
 
@@ -177,7 +177,7 @@ export default function Home(): React.ReactElement {
             mutateExperiments={mutateExperiments}
             mutateFeatures={mutateFeatures}
             onboardingType={
-              onboardingType ??
+              onboardingType ||
               (startedFeatOnboarding ? "features" : "experiments")
             }
           />
