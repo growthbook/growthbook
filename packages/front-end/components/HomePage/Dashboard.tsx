@@ -67,7 +67,11 @@ export default function Dashboard({ experiments, features }: Props) {
                   <a className="float-right h6">See all</a>
                 </Link>
               </h4>
-              <ExperimentList num={5} status={"running"} />
+              <ExperimentList
+                num={5}
+                status={"running"}
+                experiments={experiments}
+              />
             </div>
           </div>
           <div className="col-xl-4 col-md-6 mb-3">

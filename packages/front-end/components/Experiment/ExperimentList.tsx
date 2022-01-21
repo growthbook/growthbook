@@ -1,43 +1,22 @@
 import Link from "next/link";
 import React from "react";
-import useApi from "../../hooks/useApi";
 import { ago, datetime } from "../../services/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "back-end/types/experiment";
-import LoadingOverlay from "../LoadingOverlay";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummary } from "../../services/utils";
 
 export default function ExperimentList({
   num,
   status,
+  experiments,
 }: {
   num: number;
   status: ExperimentStatus;
+  experiments: ExperimentInterfaceStringDates[];
 }): React.ReactElement {
-  const { project } = useDefinitions();
-  const { data, error } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
-
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
-
-  let exps = [];
-  data.experiments.forEach((e) => {
-    if (e.status === status) return exps.push(e);
-  });
-
+  let exps = experiments.filter((e) => e.status === status);
   if (!exps.length) {
     return <div>no {status} experiments</div>;
   }
