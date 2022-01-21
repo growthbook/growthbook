@@ -8,7 +8,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 import { useContext } from "react";
 import { UserContext } from "../components/ProtectedPage";
-import { FeatureInterface } from "../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { useState } from "react";
 import track from "../services/track";
 import Link from "next/link";
@@ -19,6 +19,7 @@ export default function Home(): React.ReactElement {
     ready,
     datasources,
     error: definitionsError,
+    project,
   } = useDefinitions();
 
   const [onboardingType, setOnboardingType] = useState<
@@ -33,7 +34,7 @@ export default function Home(): React.ReactElement {
     mutate: mutateExperiments,
   } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments`);
+  }>(`/experiments?project=${project}`);
 
   const {
     data: features,
@@ -41,7 +42,7 @@ export default function Home(): React.ReactElement {
     mutate: mutateFeatures,
   } = useApi<{
     features: FeatureInterface[];
-  }>(`/feature`);
+  }>(`/feature?project=${project}`);
 
   if (featuresError || experimentsError || definitionsError) {
     return (
@@ -97,13 +98,8 @@ export default function Home(): React.ReactElement {
             <div
               style={{
                 position: "absolute",
-                top: 30,
-                width: 800,
-                left: "50%",
-                marginLeft: -400,
-                zIndex: 130,
               }}
-              className="bg-white p-4 shadow-lg"
+              className="bg-white p-4 shadow-lg onboarding-modal"
             >
               <div className="text-center p-3">
                 <h1 className="mb-5">What do you want to do first?</h1>
@@ -119,15 +115,9 @@ export default function Home(): React.ReactElement {
                         });
                         setOnboardingType("features");
                       }}
-                      className="d-block border p-3"
+                      className="d-block border p-3 onboarding-choice"
                     >
-                      <img
-                        src="/images/feature-icon.svg"
-                        className="mb-3"
-                        style={{
-                          height: 180,
-                        }}
-                      />
+                      <img src="/images/feature-icon.svg" className="mb-3" />
                       <div style={{ fontSize: "1.3em" }} className="text-dark">
                         Use Feature Flags
                       </div>
@@ -145,14 +135,11 @@ export default function Home(): React.ReactElement {
                         });
                         setOnboardingType("experiments");
                       }}
-                      className="d-block border p-3"
+                      className="d-block border p-3 onboarding-choice"
                     >
                       <img
                         src="/images/getstarted-step3.svg"
                         className="mb-3"
-                        style={{
-                          height: 180,
-                        }}
                       />
                       <div style={{ fontSize: "1.3em" }} className="text-dark">
                         Analyze Experiment Results
@@ -160,19 +147,39 @@ export default function Home(): React.ReactElement {
                     </a>
                   </div>
                 </div>
+
+                <div className="mt-4">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      track("Choose Onboarding", {
+                        type: "skip",
+                        source: "modal",
+                      });
+                      setOnboardingType("experiments");
+                    }}
+                  >
+                    I&apos;m just here to explore, skip this step
+                  </a>
+                </div>
               </div>
             </div>
           </>
         )}
         {hasExperiments || hasFeatures ? (
           <div>
-            <div className="px-3">
+            <Dashboard
+              features={features?.features || []}
+              experiments={experiments?.experiments || []}
+            />
+
+            <div className="alert alert-info mx-3">
+              Not done configuring GrowthBook yet?{" "}
               <Link href="/getstarted">
-                <a>view setup instructions</a>
+                <a>Go back to initial setup</a>
               </Link>
             </div>
-
-            <Dashboard />
           </div>
         ) : (
           <GetStarted

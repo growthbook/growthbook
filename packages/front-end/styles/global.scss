@@ -1524,6 +1524,39 @@ li.metrics a span img {
   height: 0;
 }
 
+.onboarding-modal {
+  top: 30px;
+  width: 95%;
+  left: 2.5%;
+  z-index: 130;
+
+  .col a {
+    height: 100%;
+  }
+
+  img {
+    height: 120px;
+  }
+
+  @media (min-width: 850px) {
+    top: 30px;
+    width: 800px;
+    left: 50%;
+    margin-left: -400px;
+
+    img {
+      height: 180px;
+    }
+  }
+
+  .onboarding-choice {
+    transition: background-color 0.3s;
+    &:hover {
+      background: rgba(124, 69, 234, 0.1);
+    }
+  }
+}
+
 .getstarted {
   .gsbox {
     .card-body.extra-padding {
