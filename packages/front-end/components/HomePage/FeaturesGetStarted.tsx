@@ -8,6 +8,7 @@ import FeatureModal from "../Features/FeatureModal";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { FaChrome } from "react-icons/fa";
 
 export interface Props {
   features: FeatureInterface[];
@@ -113,6 +114,34 @@ export default function FeaturesGetStarted({ features, mutate }: Props) {
         </div>
         <div className="d-none d-lg-block col-lg-4">
           <DocumentationLinksSidebar />
+
+          <div className="card gsbox mb-3">
+            <div className="card-body">
+              <div className="card-title">
+                <h4 className="">Chrome DevTools Extension</h4>
+              </div>
+              <div className="card-text">
+                <p>
+                  Easily QA and debug features on your site, directly within
+                  Chrome DevTools!
+                </p>
+                <a
+                  href="https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-outline-primary"
+                  onClick={() => {
+                    track("Install DevTools", {
+                      type: "chrome",
+                      source: "feature-onboarding",
+                    });
+                  }}
+                >
+                  <FaChrome /> Install Extension
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
