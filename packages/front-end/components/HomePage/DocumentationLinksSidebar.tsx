@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
+import track from "../../services/track";
 
 export default function DocumentationLinksSidebar({
   showVisualEditor = false,
@@ -24,6 +25,23 @@ export default function DocumentationLinksSidebar({
                 href="https://docs.growthbook.io/app"
               >
                 <strong>User Guide</strong>
+              </a>
+            </div>
+          </div>
+          <div className="d-flex flex-row">
+            <div className="p-1 w-100">
+              Watch a quick{" "}
+              <a
+                href="https://youtu.be/0-gugX_dICM"
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  track("Watch Video Tour", {
+                    source: "onboarding",
+                  });
+                }}
+              >
+                <strong>Video&nbsp;Tour</strong>
               </a>
             </div>
           </div>

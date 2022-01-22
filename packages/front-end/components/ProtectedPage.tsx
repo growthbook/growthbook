@@ -8,7 +8,6 @@ import {
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
-import md5 from "md5";
 import track from "../services/track";
 import { OrganizationSettings } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -28,6 +27,15 @@ interface UserResponse {
 
 interface MembersResponse {
   users: User[];
+}
+
+let currentUser: null | {
+  id: string;
+  org: string;
+  role: MemberRole;
+} = null;
+export function getCurrentUser() {
+  return currentUser;
 }
 
 export type Permissions = {
@@ -115,9 +123,15 @@ const ProtectedPage: React.FC<{
     setUsers(userMap);
   };
 
+  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
+  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+
   useEffect(() => {
-    // Anonymous hash of the orgId for telemetry data
-    window["gbOrgHash"] = orgId ? md5(orgId) : "";
+    currentUser = {
+      org: orgId || "",
+      id: data?.userId || "",
+      role,
+    };
     if (orgId) {
       refreshUsers();
       track("Organization Loaded");
@@ -142,9 +156,6 @@ const ProtectedPage: React.FC<{
     }
     update();
   }, [isAuthenticated]);
-
-  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
 
   const growthbook = useGrowthBook();
   useEffect(() => {

@@ -9,7 +9,15 @@ Track anonymous usage statistics
 */
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
-import { inTelemetryDebugMode, isCloud, isTelemetryEnabled } from "./env";
+import md5 from "md5";
+import { getCurrentUser } from "../components/ProtectedPage";
+import {
+  getGrowthBookBuild,
+  hasFileConfig,
+  inTelemetryDebugMode,
+  isCloud,
+  isTelemetryEnabled,
+} from "./env";
 
 let jitsu: JitsuClient;
 export default function track(
@@ -19,12 +27,18 @@ export default function track(
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
 
+  const build = getGrowthBookBuild();
+
+  const currentUser = getCurrentUser();
+  const org = currentUser?.org;
+  const id = currentUser?.id;
+  const role = currentUser?.role;
+
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
   const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
-    org_hash: window["gbOrgHash"] || "",
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
@@ -33,6 +47,16 @@ export default function track(
     doc_search: "",
     doc_path: location.pathname,
     referer: "",
+    build_sha: build.sha,
+    build_date: build.date,
+    configFile: hasFileConfig(),
+    role: id ? role : "",
+    // Track anonymous hashed identifiers for all deployments
+    org_hash: org ? md5(org) : "",
+    user_id_hash: id ? md5(id) : "",
+    // Only track un-hashed identifiers on the managed cloud for priority support
+    user_id: isCloud() ? id : "",
+    org: isCloud() ? org : "",
   };
 
   if (inTelemetryDebugMode()) {

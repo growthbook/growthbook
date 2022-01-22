@@ -7,7 +7,7 @@ import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
 import { useEffect } from "react";
 import track from "../services/track";
-import { hasFileConfig, initEnv } from "../services/env";
+import { initEnv } from "../services/env";
 import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
@@ -52,9 +52,7 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
-    track("App Load", {
-      configFile: hasFileConfig(),
-    });
+    track("App Load");
   }, [ready]);
 
   useEffect(() => {

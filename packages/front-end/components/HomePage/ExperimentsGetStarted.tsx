@@ -6,7 +6,7 @@ import { useState } from "react";
 import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
-import { FaChevronRight } from "react-icons/fa";
+import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
 import Button from "../Button";
 import Tooltip from "../Tooltip";
 import { useAuth } from "../../services/auth";
@@ -108,7 +108,7 @@ const ExperimentsGetStarted = ({
         )}
         <div className="row">
           <div className="col-12 col-lg-8">
-            {hasFileConfig() && (
+            {hasFileConfig() ? (
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
@@ -116,6 +116,48 @@ const ExperimentsGetStarted = ({
                   View Documentation
                 </a>
               </div>
+            ) : (
+              allowImport && (
+                <div className="alert alert-info mb-3 d-none d-md-block">
+                  <div className="d-flex align-items-center">
+                    <strong className="mr-2">Just here to explore?</strong>
+                    <div style={{ flex: 1 }}>
+                      We have some sample data you can use.
+                    </div>
+                    {hasSampleExperiment ? (
+                      <Link href={`/experiment/${hasSampleExperiment.id}`}>
+                        <a className="btn btn-sm btn-link ml-2">
+                          View Sample Experiment <FaChevronRight />
+                        </a>
+                      </Link>
+                    ) : (
+                      <div>
+                        <Button
+                          color="info"
+                          className="btn-sm ml-3 mr-2"
+                          onClick={async () => {
+                            const res = await apiCall<{
+                              experiment: string;
+                            }>(`/organization/sample-data`, {
+                              method: "POST",
+                            });
+                            await mutateDefinitions();
+                            await mutate();
+                            track("Add Sample Data");
+                            await router.push("/experiment/" + res.experiment);
+                          }}
+                        >
+                          <FaDatabase /> Import Sample Data
+                        </Button>
+
+                        <Tooltip text="Includes a sample experiment with results. Don't worry, it's easy to remove later.">
+                          <FaQuestionCircle className="text-dark" />
+                        </Tooltip>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
             )}
             <div className="row mb-3">
               <div className="col">
@@ -208,94 +250,9 @@ const ExperimentsGetStarted = ({
             </div>
           </div>
           <div className="col-12 col-lg-4">
-            <div>
-              {!allowImport ? (
-                <div className="card gsbox secondary-box mb-4">
-                  <div className="card-body">
-                    <div className="d-flex flex-row">
-                      <div className="">
-                        <h4 style={{ paddingRight: "100px" }}>
-                          Want to understand how it works?
-                        </h4>
-                        <p
-                          className="card-text"
-                          style={{ paddingRight: "105px" }}
-                        >
-                          Watch a quick{" "}
-                          <a
-                            href="https://youtu.be/0-gugX_dICM"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            video&nbsp;tour
-                          </a>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="card gsbox secondary-box mb-4">
-                  <div className="card-body">
-                    <div className="d-flex flex-row">
-                      <div className="">
-                        <h4>Just here to explore?</h4>
-                        <div
-                          className="card-text mb-3"
-                          style={{ paddingRight: "105px" }}
-                        >
-                          Add some{" "}
-                          <Tooltip
-                            text="Includes a sample experiment with results. Don't worry, it's easy to remove later."
-                            style={{ borderBottom: "1px dotted #666" }}
-                          >
-                            sample data
-                          </Tooltip>
-                          , or watch a{" "}
-                          <a
-                            href="https://youtu.be/0-gugX_dICM"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            video&nbsp;tour
-                          </a>
-                        </div>
-                        {hasSampleExperiment ? (
-                          <Link href={`/experiment/${hasSampleExperiment.id}`}>
-                            <a className="btn btn-sm btn-success ml-3">
-                              View Sample Experiment <FaChevronRight />
-                            </a>
-                          </Link>
-                        ) : (
-                          <Button
-                            color="outline-primary"
-                            className=""
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                experiment: string;
-                              }>(`/organization/sample-data`, {
-                                method: "POST",
-                              });
-                              await mutateDefinitions();
-                              await mutate();
-                              track("Add Sample Data");
-                              await router.push(
-                                "/experiment/" + res.experiment
-                              );
-                            }}
-                          >
-                            Import Sample Data
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <DocumentationLinksSidebar
-                showVisualEditor={!visualEditorEnabled}
-              />
-            </div>
+            <DocumentationLinksSidebar
+              showVisualEditor={!visualEditorEnabled}
+            />
           </div>
         </div>
       </div>
