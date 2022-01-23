@@ -5,6 +5,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import Button from "../Button";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -28,7 +29,14 @@ const DataQualityWarning: FC<{
   isUpdating?: boolean;
   variations: ExperimentReportVariation[];
   unknownVariations: string[];
-}> = ({ isUpdating, results, variations, unknownVariations }) => {
+  setVariationIds?: (ids: string[]) => Promise<void>;
+}> = ({
+  isUpdating,
+  results,
+  variations,
+  unknownVariations,
+  setVariationIds,
+}) => {
   if (!results) return null;
   const variationResults = results?.variations || [];
 
@@ -88,7 +96,19 @@ const DataQualityWarning: FC<{
           ? "a different set"
           : returnedVariations.length}{" "}
         (<CommaList vals={returnedVariations} />
-        ).
+        ).{" "}
+        {setVariationIds &&
+          returnedVariations.length === definedVariations.length && (
+            <Button
+              color="info"
+              className="btn-sm ml-3"
+              onClick={async () => {
+                await setVariationIds(returnedVariations);
+              }}
+            >
+              Use these instead
+            </Button>
+          )}
       </div>
     );
   }
