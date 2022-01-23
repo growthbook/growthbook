@@ -119,7 +119,7 @@ const DataQualityWarning: FC<{
                 setIdModal(true);
               }}
             >
-              Fix Ids
+              Update Ids
             </button>
           )}
         </div>

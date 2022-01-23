@@ -77,7 +77,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [showVariationIds] = useState(false);
+  const [showVariationIds] = useState(isImport);
 
   const {
     datasources,
@@ -289,23 +289,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 style={{ minWidth: 200 }}
               >
                 <div className="graybox">
-                  <div className="row">
-                    <div className={showVariationIds ? "col-8" : "col-12"}>
-                      <Field
-                        label={i === 0 ? "Control Name" : `Variation ${i} Name`}
-                        {...form.register(`variations.${i}.name`)}
-                      />
-                    </div>
-                    <div
-                      className={`col-4 ${showVariationIds ? "" : "d-none"}`}
-                    >
-                      <Field
-                        label="Id"
-                        {...form.register(`variations.${i}.key`)}
-                        placeholder={i + ""}
-                      />
-                    </div>
-                  </div>
+                  <Field
+                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                    {...form.register(`variations.${i}.name`)}
+                  />
+                  {showVariationIds && (
+                    <Field
+                      label="Id"
+                      {...form.register(`variations.${i}.key`)}
+                      placeholder={i + ""}
+                      helpText={
+                        <span>
+                          Must match the <code>variation_id</code> field in your
+                          data source
+                        </span>
+                      }
+                    />
+                  )}
                   <Field
                     label="Description"
                     {...form.register(`variations.${i}.description`)}
