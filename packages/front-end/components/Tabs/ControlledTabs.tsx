@@ -80,6 +80,7 @@ const ControlledTabs: FC<{
       action,
       className,
       padding,
+      forceRenderOnFocus,
     } = child.props;
     if (visible === false) return;
     const id = child.props?.id ?? display;
@@ -118,6 +119,8 @@ const ControlledTabs: FC<{
     );
 
     if (lazy && !isActive && !loaded[id]) {
+      contents.push(null);
+    } else if (!isActive && forceRenderOnFocus) {
       contents.push(null);
     } else {
       contents.push(

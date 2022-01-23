@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { ReportInterface } from "back-end/types/report";
+import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
@@ -302,6 +302,25 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 isUpdating={status === "running"}
+                setVariationIds={async (ids) => {
+                  const args: ExperimentReportArgs = {
+                    ...report.args,
+                    variations: report.args.variations.map((v, i) => {
+                      return {
+                        ...v,
+                        id: ids[i] ?? v.id,
+                      };
+                    }),
+                  };
+
+                  await apiCall(`/report/${report.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      args,
+                    }),
+                  });
+                  mutate();
+                }}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mb-3 p-3">
@@ -335,6 +354,7 @@ export default function ReportPage() {
           anchor="configuration"
           display="Configuration"
           visible={permissions.runExperiments}
+          forceRenderOnFocus={true}
         >
           <h2>Configuration</h2>
           <ConfigureReport

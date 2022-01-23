@@ -5,7 +5,8 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import Button from "../Button";
+import { useState } from "react";
+import FixVariationIds from "./FixVariationIds";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -37,6 +38,8 @@ const DataQualityWarning: FC<{
   unknownVariations,
   setVariationIds,
 }) => {
+  const [idModal, setIdModal] = useState(false);
+
   if (!results) return null;
   const variationResults = results?.variations || [];
 
@@ -88,28 +91,39 @@ const DataQualityWarning: FC<{
   // There are unknown variations
   if (unknownVariations?.length > 0) {
     return (
-      <div className="alert alert-warning">
-        <strong>Warning:</strong> Expected {variations.length} variation ids (
-        <CommaList vals={definedVariations} />
-        ), but database returned{" "}
-        {returnedVariations.length === definedVariations.length
-          ? "a different set"
-          : returnedVariations.length}{" "}
-        (<CommaList vals={returnedVariations} />
-        ).{" "}
-        {setVariationIds &&
-          returnedVariations.length === definedVariations.length && (
-            <Button
-              color="info"
-              className="btn-sm ml-3"
-              onClick={async () => {
-                await setVariationIds(returnedVariations);
+      <>
+        {idModal && (
+          <FixVariationIds
+            close={() => setIdModal(false)}
+            expected={definedVariations}
+            actual={returnedVariations}
+            names={variations.map((v) => v.name)}
+            setVariationIds={setVariationIds}
+          />
+        )}
+        <div className="alert alert-warning">
+          <strong>Warning:</strong> Expected {variations.length} variation ids (
+          <CommaList vals={definedVariations} />
+          ), but database returned{" "}
+          {returnedVariations.length === definedVariations.length
+            ? "a different set"
+            : returnedVariations.length}{" "}
+          (<CommaList vals={returnedVariations} />
+          ).{" "}
+          {setVariationIds && (
+            <button
+              className="btn btn-info btn-sm ml-3"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setIdModal(true);
               }}
             >
-              Use these instead
-            </Button>
+              Fix Ids
+            </button>
           )}
-      </div>
+        </div>
+      </>
     );
   }
 
