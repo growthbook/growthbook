@@ -97,6 +97,10 @@ const navLinks = [
         name: "Python",
       },
       {
+        href: "/lib/go",
+        name: "Go",
+      },
+      {
         href: "/lib/build-your-own",
         name: "Build Your Own",
       },
