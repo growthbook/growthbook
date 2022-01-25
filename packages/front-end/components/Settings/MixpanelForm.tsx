@@ -4,7 +4,7 @@ import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
   existing: boolean;
-  onParamChange: ChangeEventHandler<HTMLInputElement>;
+  onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, existing, onParamChange }) => {
   return (
     <>
@@ -53,6 +53,18 @@ const MixpanelForm: FC<{
             value={params.projectId || ""}
             onChange={onParamChange}
           />
+        </div>
+        <div className="form-group col-md-12">
+          <label>API Server</label>
+          <select
+            className="form-control"
+            name="server"
+            value={params.server || ""}
+            onChange={onParamChange}
+          >
+            <option value="">Standard (mixpanel.com/api)</option>
+            <option value="eu">EU Residency (eu.mixpanel.com/api)</option>
+          </select>
         </div>
       </div>
     </>

@@ -54,7 +54,10 @@ export async function runQuery<T extends MixpanelResultRow>(
   encodedParams.set("script", query);
   encodedParams.set("project_id", conn.projectId);
 
-  const url = "https://mixpanel.com/api/2.0/jql";
+  const apiBase =
+    conn.server === "eu" ? "eu.mixpanel.com/api" : "mixpanel.com/api";
+
+  const url = `https://${apiBase}/api/2.0/jql`;
 
   const options = {
     method: "POST",
