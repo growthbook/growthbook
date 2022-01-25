@@ -59,10 +59,10 @@ const MixpanelForm: FC<{
           <select
             className="form-control"
             name="server"
-            value={params.server || ""}
+            value={params.server || "standard"}
             onChange={onParamChange}
           >
-            <option value="">Standard (mixpanel.com/api)</option>
+            <option value="standard">Standard (mixpanel.com/api)</option>
             <option value="eu">EU Residency (eu.mixpanel.com/api)</option>
           </select>
         </div>
