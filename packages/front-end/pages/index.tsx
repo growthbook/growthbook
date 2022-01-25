@@ -10,6 +10,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import track from "../services/track";
 import useOrgSettings from "../hooks/useOrgSettings";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useFeature } from "@growthbook/growthbook-react";
 
 export default function Home(): React.ReactElement {
   const {
@@ -19,6 +20,8 @@ export default function Home(): React.ReactElement {
     error: definitionsError,
     project,
   } = useDefinitions();
+
+  const featureFocus: boolean = useFeature("feature-focus").on;
 
   const [onboardingType, setOnboardingType] = useLocalStorage<
     "features" | "experiments" | ""
@@ -79,92 +82,101 @@ export default function Home(): React.ReactElement {
       </Head>
 
       <div className="container pagecontents position-relative">
-        {!onboardingType && !startedExpOnboarding && !startedFeatOnboarding && (
-          <>
-            <div
-              className="bg-white"
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 120,
-                opacity: 0.75,
-              }}
-            ></div>
-            <div
-              style={{
-                position: "absolute",
-              }}
-              className="bg-white p-4 shadow-lg onboarding-modal"
-            >
-              <div className="text-center p-3">
-                <h1 className="mb-5">What do you want to do first?</h1>
-                <div className="row">
-                  <div className="col">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        track("Choose Onboarding", {
-                          type: "features",
-                          source: "modal",
-                        });
-                        setOnboardingType("features");
-                      }}
-                      className="d-block border p-3 onboarding-choice"
-                    >
-                      <img src="/images/feature-icon.svg" className="mb-3" />
-                      <div style={{ fontSize: "1.3em" }} className="text-dark">
-                        Use Feature Flags
-                      </div>
-                    </a>
+        {!featureFocus &&
+          !onboardingType &&
+          !startedExpOnboarding &&
+          !startedFeatOnboarding && (
+            <>
+              <div
+                className="bg-white"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 120,
+                  opacity: 0.75,
+                }}
+              ></div>
+              <div
+                style={{
+                  position: "absolute",
+                }}
+                className="bg-white p-4 shadow-lg onboarding-modal"
+              >
+                <div className="text-center p-3">
+                  <h1 className="mb-5">What do you want to do first?</h1>
+                  <div className="row">
+                    <div className="col">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          track("Choose Onboarding", {
+                            type: "features",
+                            source: "modal",
+                          });
+                          setOnboardingType("features");
+                        }}
+                        className="d-block border p-3 onboarding-choice"
+                      >
+                        <img src="/images/feature-icon.svg" className="mb-3" />
+                        <div
+                          style={{ fontSize: "1.3em" }}
+                          className="text-dark"
+                        >
+                          Use Feature Flags
+                        </div>
+                      </a>
+                    </div>
+
+                    <div className="col">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          track("Choose Onboarding", {
+                            type: "experiments",
+                            source: "modal",
+                          });
+                          setOnboardingType("experiments");
+                        }}
+                        className="d-block border p-3 onboarding-choice"
+                      >
+                        <img
+                          src="/images/getstarted-step3.svg"
+                          className="mb-3"
+                        />
+                        <div
+                          style={{ fontSize: "1.3em" }}
+                          className="text-dark"
+                        >
+                          Analyze Experiment Results
+                        </div>
+                      </a>
+                    </div>
                   </div>
 
-                  <div className="col">
+                  <div className="mt-4">
                     <a
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
                         track("Choose Onboarding", {
-                          type: "experiments",
+                          type: "skip",
                           source: "modal",
                         });
                         setOnboardingType("experiments");
                       }}
-                      className="d-block border p-3 onboarding-choice"
                     >
-                      <img
-                        src="/images/getstarted-step3.svg"
-                        className="mb-3"
-                      />
-                      <div style={{ fontSize: "1.3em" }} className="text-dark">
-                        Analyze Experiment Results
-                      </div>
+                      I&apos;m just here to explore, skip this step
                     </a>
                   </div>
                 </div>
-
-                <div className="mt-4">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      track("Choose Onboarding", {
-                        type: "skip",
-                        source: "modal",
-                      });
-                      setOnboardingType("experiments");
-                    }}
-                  >
-                    I&apos;m just here to explore, skip this step
-                  </a>
-                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
         {hasExperiments || hasFeatures ? (
           <Dashboard
             features={features?.features || []}
@@ -177,8 +189,10 @@ export default function Home(): React.ReactElement {
             mutateExperiments={mutateExperiments}
             mutateFeatures={mutateFeatures}
             onboardingType={
-              onboardingType ||
-              (startedFeatOnboarding ? "features" : "experiments")
+              featureFocus
+                ? "features"
+                : onboardingType ||
+                  (startedFeatOnboarding ? "features" : "experiments")
             }
           />
         )}
