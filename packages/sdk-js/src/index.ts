@@ -33,7 +33,8 @@ export type {
 
 export type { ConditionInterface } from "./types/mongrule";
 
-const isBrowser = typeof window !== "undefined";
+const isBrowser =
+  typeof window !== "undefined" && typeof document !== "undefined";
 
 class GrowthBook {
   private context: Context;
