@@ -74,7 +74,7 @@ const navLinks = [
   },
   {
     href: "/lib",
-    name: "Client Libraries",
+    name: "SDKs",
     links: [
       {
         href: "/lib/js",
@@ -99,6 +99,10 @@ const navLinks = [
       {
         href: "/lib/go",
         name: "Go",
+      },
+      {
+        href: "/lib/kotlin",
+        name: "Kotlin (Android)",
       },
       {
         href: "/lib/build-your-own",

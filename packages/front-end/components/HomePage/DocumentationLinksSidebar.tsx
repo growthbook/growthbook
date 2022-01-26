@@ -53,7 +53,7 @@ export default function DocumentationLinksSidebar({
                 rel="noreferrer"
                 href="https://docs.growthbook.io/lib"
               >
-                <strong>Client Libraries</strong>
+                <strong>SDKs</strong>
               </a>
             </div>
           </div>

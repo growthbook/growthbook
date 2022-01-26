@@ -97,7 +97,7 @@ const EditInfoForm: FC<{
                   key: "code",
                   display: "Code",
                   description:
-                    "Using one of our Client Libraries (Javascript, React, PHP, Ruby, Go, or Python)",
+                    "Using one of our SDKs (Javascript, React, PHP, Ruby, Go, or Python)",
                 },
                 {
                   key: "visual",
