@@ -290,7 +290,7 @@ export default function MyApp() {
 // Use a feature!
 function MyComponent() {
   const feature = useFeature("my-feature")
-  return feature.on ? "New version" : "Old Version"
+  return feature.on ? "New version" : "Old version"
 }
             `.trim()}
           />
@@ -333,7 +333,7 @@ type GrowthBookApiResp struct {
 
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
-	// In production, we recommend using a db or cache layer instead
+	// In production, we recommend adding a db or cache layer
 	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
 	if err != nil {
 		log.Println(err)
