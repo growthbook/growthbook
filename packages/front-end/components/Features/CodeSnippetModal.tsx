@@ -11,10 +11,10 @@ import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 
-type Language = "tsx" | "javascript";
+type Language = "tsx" | "javascript" | "go";
 
-function indentLines(code: string, indent: number = 2) {
-  const spaces = " ".repeat(indent);
+function indentLines(code: string, indent: number | string = 2) {
+  const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
 }
 
@@ -23,7 +23,7 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
 
   // eslint-disable-next-line
   const exampleAttributes: any = {};
-  (attributeSchema || []).forEach(({ property, datatype }) => {
+  (attributeSchema || []).forEach(({ property, datatype, enum: enumList }) => {
     const parts = property.split(".");
     const last = parts.pop();
     let current = exampleAttributes;
@@ -44,6 +44,8 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
       value = [1, 2, 3];
     } else if (datatype === "string[]") {
       value = ["foo", "bar"];
+    } else if (datatype === "enum") {
+      value = enumList.split(",").map((v) => v.trim())[0] ?? null;
     }
 
     current[last] = value;
@@ -178,11 +180,16 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
             </a>{" "}
             for more details.
           </p>
+          <Code language="sh" code="npm i --save @growthbook/growthbook" />
           <Code
             language="javascript"
             code={`
 import { GrowthBook } from "@growthbook/growthbook";
-
+${
+  isCloud()
+    ? ""
+    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+}
 const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
@@ -209,7 +216,12 @@ fetch(FEATURES_ENDPOINT)
 
 // TODO: replace with real targeting attributes
 growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
-            `.trim()}
+
+// Use a feature!
+if (growthbook.feature("my-feature").on) {
+  // ...
+}
+`.trim()}
           />
         </Tab>
         <Tab display="React" id="tsx">
@@ -225,11 +237,19 @@ growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
             for more details.
           </p>
           <Code
+            language="sh"
+            code="npm i --save @growthbook/growthbook-react"
+          />
+          <Code
             language="tsx"
             code={`
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { GrowthBook, GrowthBookProvider, useFeature } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-
+${
+  isCloud()
+    ? ""
+    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+}
 const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
@@ -265,6 +285,90 @@ export default function MyApp() {
       <MyComponent/>
     </GrowthBookProvider>
   )
+}
+
+// Use a feature!
+function MyComponent() {
+  const feature = useFeature("my-feature")
+  return feature.on ? "New version" : "Old version"
+}
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Go" id="go">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/go"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Golang SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code
+            language="sh"
+            code="go get github.com/growthbook/growthbook-golang"
+          />
+          <Code
+            language="go"
+            code={`
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	growthbook "github.com/growthbook/growthbook-golang"
+	"io/ioutil"
+	"log"
+	"net/http"
+)
+
+// Features API response
+type GrowthBookApiResp struct {
+	Features json.RawMessage
+	Status   int
+}
+
+func GetFeatureMap() []byte {
+	// Fetch features JSON from api
+	// In production, we recommend adding a db or cache layer
+	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	// Just return the features map from the API response
+	apiResp := &GrowthBookApiResp{}
+	_ = json.Unmarshal(body, apiResp)
+	return apiResp.Features
+}
+
+func main() {
+	featureMap := GetFeatureMap()
+	features := growthbook.ParseFeatureMap(featureMap)
+
+	context := growthbook.NewContext().
+		WithFeatures(features).
+		// TODO: Real user attributes
+		WithAttributes(growthbook.Attributes${indentLines(
+      JSON.stringify(exampleAttributes, null, "\t"),
+      "\t\t"
+    )
+      .replace(/null/g, "nil")
+      .replace(/\n(\t+)\}/, ",\n$1}")}).
+		// TODO: Track in your analytics system
+		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
+			log.Println(fmt.Sprintf("Experiment: %s, Variation: %d", experiment.Key, result.VariationID))
+		})
+	gb := growthbook.New(context)
+
+	// Use a feature!
+	if gb.Feature("my-feature").On {
+		// ...
+	}
 }
             `.trim()}
           />
