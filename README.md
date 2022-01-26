@@ -32,7 +32,7 @@ GrowthBook gives you the flexibility and power of a fully-featured in-house plat
 - 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
 - ⬇️ Drill down into A/B test results by browser, country, or any other attribute
 - 🪐 Export results as a Jupyter Notebook!
-- 💻 Client libraries for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://github.com/growthbook/growthbook-php), [Ruby](https://github.com/growthbook/growthbook-ruby), and [Python](https://github.com/growthbook/growthbook-python) with more coming soon
+- 💻 SDKs for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://docs.growthbook.io/lib/php), [Ruby](https://docs.growthbook.io/lib/ruby), [Python](https://docs.growthbook.io/lib/python), [Go](https://docs.growthbook.io/lib/go), and [Kotlin (Android)](https://docs.growthbook.io/lib/kotlin) with more coming soon
 - 🏁 Feature flags with targeting, gradual rollouts, and experiments
 - 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
 - 📝 Document experiments with screenshots and GitHub Flavored Markdown
