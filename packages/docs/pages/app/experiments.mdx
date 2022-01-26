@@ -32,7 +32,7 @@ All of these rules are evaluated locally in your app at runtime and no HTTP requ
 ## Implementation
 
 There are generally two ways to implement experiments.
-The first is using our [Visual Editor](/app/visual) and the second is using one of our [Client Libraries](/lib) (for Javascript, React, PHP, Ruby, or Python).
+The first is using our [Visual Editor](/app/visual) and the second is using one of our [SDKs](/lib) (for Javascript, React, PHP, Ruby, Python, Go, or Kotlin).
 
 It's also possible to use a completely custom implementation (or another library like PlanOut).
 The only requirement is that you track in your datasource when users are put into an experiment and which variation they received.
@@ -43,11 +43,11 @@ When you start an experiment, you will be prompted for how you want to split tra
 
 When stopping an experiment, you'll be prompted to enter which variation (if any) won and why you are stopping the test.
 
-### Client Library Integration
+### SDK Integration
 
-If you are using the Client Libraries to implement experiments, there are some additional steps you must take.
+If you are using the SDKs to implement experiments, there are some additional steps you must take.
 
-The Client Libraries never communicate with the GrowthBook servers. That means as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately and the experiment will continue until you remove the code and do another deploy.
+The SDKs never communicate with the GrowthBook servers. That means as soon as your deploy the A/B test code to production, people will start getting put into the experiment immediately and the experiment will continue until you remove the code and do another deploy.
 
 This separation has huge performance and reliability benefits (if GrowthBook goes down, it has no effect on your app), but it can be a bit unintuitive when you press the "Stop" button in the UI and people continue to be put into the experiment.
 

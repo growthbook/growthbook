@@ -11,7 +11,7 @@ import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 
-type Language = "tsx" | "javascript" | "go";
+type Language = "tsx" | "javascript" | "go" | "kotlin";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -54,16 +54,19 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
   return exampleAttributes;
 }
 
+function getApiBaseUrl(): string {
+  if (isCloud()) {
+    return `https://cdn.growthbook.io/`;
+  }
+  return getApiHost() + "/";
+}
+
 function getFeaturesUrl(apiKey?: string) {
   if (!apiKey) {
     return `/path/to/features.json`;
   }
 
-  if (isCloud()) {
-    return `https://cdn.growthbook.io/api/features/${apiKey}`;
-  }
-
-  return getApiHost() + `/api/features/${apiKey}`;
+  return getApiBaseUrl() + `api/features/${apiKey}`;
 }
 
 export default function CodeSnippetModal({ close }: { close: () => void }) {
@@ -369,6 +372,58 @@ func main() {
 	if gb.Feature("my-feature").On {
 		// ...
 	}
+}
+            `.trim()}
+          />
+        </Tab>{" "}
+        <Tab display="Kotlin (Android)" id="kotlin">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/kotlin"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Kotlin (Android) SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code
+            language="javascript"
+            code={`repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.growthbook.sdk:GrowthBook:1.+'
+}`}
+          />
+          <Code
+            language="kotlin"
+            code={`
+import com.sdk.growthbook.GBSDKBuilder
+
+// TODO: Real user attributes
+val attrs = HashMap<String, Any>()
+${Object.keys(exampleAttributes)
+  .map((k) => {
+    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
+  })
+  .join("\n")}
+
+val gb = GBSDKBuilder(
+  // Fetch and cache feature definitions from GrowthBook API
+  // If self-hosting, we recommend using a CDN in production
+  apiKey = "${apiKey}",
+  hostURL = "${getApiBaseUrl()}",
+  attributes = attrs,
+  trackingCallback = { gbExperiment, gbExperimentResult ->
+    // TODO: track in your analytics system
+  }
+).initialize()
+
+if (gb.feature("my-feature").on) {
+  // Feature is enabled!
 }
             `.trim()}
           />

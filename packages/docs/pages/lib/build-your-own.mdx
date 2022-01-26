@@ -1,14 +1,14 @@
-# Build Your Own Client Library
+# Build Your Own SDK
 
-This guide is meant for library authors looking to build a GrowthBook client library in a currently unsupported language.
+This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook client libraries are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
+GrowthBook SDKs are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
 
 All libraries should follow this specification as closely as the language permits to maintain consistency.
 
 ## Data structures
 
-Here are a number of important data structures in GrowthBook client libraries, listed alphabetically.
+Here are a number of important data structures in GrowthBook SDKs, listed alphabetically.
 
 ### Attributes
 
@@ -714,7 +714,7 @@ print(result.value.color, result.value.size);
 
 ### Type Hinting
 
-Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for client libraries.
+Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for SDKs.
 
 If possible, use generics to type the return value. If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
 
@@ -768,7 +768,7 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 ## Tests
 
-We strive to have 100% test coverage for all of our client libraries.
+We strive to have 100% test coverage for all of our SDKs.
 
 There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/test/cases.json` with more than 200 unit tests. This extensively tests all of the public methods mentioned above.
 

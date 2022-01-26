@@ -199,7 +199,7 @@ const InstructionsModal: FC<{
               target="_blank"
               rel="noopener noreferrer"
             >
-              Javascript Client Library
+              Javascript SDK
             </a>{" "}
             and then...
           </p>
@@ -224,7 +224,7 @@ const InstructionsModal: FC<{
               target="_blank"
               rel="noopener noreferrer"
             >
-              React Client Library
+              React SDK
             </a>{" "}
             and then...
           </p>
@@ -249,7 +249,7 @@ const InstructionsModal: FC<{
               target="_blank"
               rel="noopener noreferrer"
             >
-              PHP Client Library
+              PHP SDK
             </a>{" "}
             and then...
           </p>
@@ -275,7 +275,7 @@ const InstructionsModal: FC<{
               target="_blank"
               rel="noopener noreferrer"
             >
-              Python Client Library
+              Python SDK
             </a>{" "}
             and then...
           </p>
@@ -296,7 +296,7 @@ const InstructionsModal: FC<{
               target="_blank"
               rel="noopener noreferrer"
             >
-              Ruby Client Library
+              Ruby SDK
             </a>{" "}
             and then...
           </p>

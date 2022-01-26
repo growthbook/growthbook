@@ -1,23 +1,10 @@
 # GrowthBook Go SDK
 
-[GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
-
-This is a Go package that lets you evaluate feature flags and run
-experiments (A/B tests) within a Go application.
-
-- **No external dependencies**
-- **Lightweight and fast**
-- Local targeting and evaluation, **no HTTP requests**
-- **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
-- Run mutually exclusive experiments with **namespaces**
-
-
 ## Installation
 
 ```
 go get github.com/growthbook/growthbook-golang
 ```
-
 
 ## Quick Usage
 
@@ -143,11 +130,10 @@ Definitions](#feature-definitions) section below.
 You can specify attributes about the current user and request. These
 are used for two things:
 
- * Feature targeting (e.g. paid users get one value, free users get
-   another);
-   
- * Assigning persistent variations in A/B tests (e.g. user id "123"
-   always gets variation B).
+- Feature targeting (e.g. paid users get one value, free users get
+  another);
+- Assigning persistent variations in A/B tests (e.g. user id "123"
+  always gets variation B).
 
 Attributes can be any JSON data type -- boolean, integer, string,
 array, or object and are represented by the `Attributes` type, which
@@ -208,7 +194,6 @@ context.WithTrackingCallback(func(experiment *growthbook.Experiment,
 )
 ```
 
-
 ## Error handling
 
 The GrowthBook public API does not return errors under any normal
@@ -227,14 +212,14 @@ other parts of the program in which it is used.
 
 To be specific about this:
 
- * None of the functions that create or update `Context`, `GrowthBook`
-   or `Experiment` values return errors.
+- None of the functions that create or update `Context`, `GrowthBook`
+  or `Experiment` values return errors.
 
- * The main `GrowthBook.Feature` and `GrowthBook.Run` methods never
-   return errors.
+- The main `GrowthBook.Feature` and `GrowthBook.Run` methods never
+  return errors.
 
- * None of the functions that create values from JSON data return
-   errors.
+- None of the functions that create values from JSON data return
+  errors.
 
 For most common use cases, this means that the GrowthBook SDK can be
 used transparently, without needing to care about error handling. Your
@@ -243,7 +228,6 @@ SDK. The only effect of error conditions in the inputs to the SDK may
 be that feature values and results of experiments are not what you
 expect.
 
-
 ## Using Features
 
 The main method, `GrowthBook.Feature(key)`, takes a feature key and
@@ -251,19 +235,19 @@ uses the stored feature definitions and attributes to evaluate the
 feature value. It returns a `FeatureResult` value with the following
 fields:
 
- * `Value`: the JSON value of the feature (or null if not defined), as
-   a `FeatureValue` value (which is just an alias for `interface{}`,
-   using Go's default behavior for handling JSON values);
- * `On` and `Off`: the JSON value cast to booleans (to make your code
-   easier to read);
- * `Source`: a value of type `FeatureResultSource`, telling why the
-   value was assigned to the user. One of
-   `UnknownFeatureResultSource`, `DefaultValueResultSource`,
-   `ForceResultSource`, or `ExperimentResultSource`.
- * `Experiment`: information about the experiment (if any) which was
-   used to assign the value to the user.
- * `ExperimentResult`: the result of the experiment (if any) which was
-   used to assign the value to the user.
+- `Value`: the JSON value of the feature (or null if not defined), as
+  a `FeatureValue` value (which is just an alias for `interface{}`,
+  using Go's default behavior for handling JSON values);
+- `On` and `Off`: the JSON value cast to booleans (to make your code
+  easier to read);
+- `Source`: a value of type `FeatureResultSource`, telling why the
+  value was assigned to the user. One of
+  `UnknownFeatureResultSource`, `DefaultValueResultSource`,
+  `ForceResultSource`, or `ExperimentResultSource`.
+- `Experiment`: information about the experiment (if any) which was
+  used to assign the value to the user.
+- `ExperimentResult`: the result of the experiment (if any) which was
+  used to assign the value to the user.
 
 Here's an example that uses all of them:
 
@@ -297,7 +281,6 @@ value, defaulting to "blue" if the feature has no value:
 color := gb.Feature("signup-button-color").GetValueWithDefault("blue")
 ```
 
-
 ## Feature Definitions
 
 For details of the JSON format used for feature definitions, consult
@@ -312,7 +295,6 @@ simply by creating Go values of the appropriate types (`Feature`,
 `FeatureValue`, `FeatureRule`), but the most common use case is
 likely to be ingesting feature definitions from JSON data using the
 `ParseFeatureMap` function.
-
 
 ## Inline Experiments
 
@@ -342,12 +324,11 @@ set easily (i.e. `WithWeights`, `WithHashAttribute`, `WithCoverage`,
 In addition, there are a few other settings that only really make
 sense for inline experiments:
 
- * `Force` can be set to one of the variation array indexes. Everyone
-   will be immediately assigned the specified value.
-   
- * `Active` can be set to `false` to disable the experiment and return
-    the control for everyone.
-    
+- `Force` can be set to one of the variation array indexes. Everyone
+  will be immediately assigned the specified value.
+- `Active` can be set to `false` to disable the experiment and return
+  the control for everyone.
+
 ### Inline Experiment Return Value
 
 A call to `GrowthBook.Run(experiment)` returns a value of type
@@ -377,7 +358,6 @@ fmt.Println(result.HashValue) // e.g. "123"
 The `InExperiment` flag is only set to true if the user was randomly
 assigned a variation. If the user failed any targeting rules or was
 forced into a specific variation, this flag will be false.
-
 
 ## JSON data representations
 
@@ -426,7 +406,6 @@ function process raw JSON data (as a `[]byte` value), while the
 `Build...` functions process JSON objects unmarshalled to Go values of
 type `map[string]interface{}`. This provides flexibility in ingestion
 of JSON data.
-
 
 ## Tracking and subscriptions
 
