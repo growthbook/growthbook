@@ -4,7 +4,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import ExperimentsGetStarted from "./ExperimentsGetStarted";
 import Tab from "../Tabs/Tab";
 import FeaturesGetStarted from "./FeaturesGetStarted";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { useState } from "react";
 import { useEffect } from "react";
 import ControlledTabs from "../Tabs/ControlledTabs";
@@ -24,8 +23,7 @@ export default function GetStarted({
   mutateExperiments,
   mutateFeatures,
 }: Props) {
-  const { datasources } = useDefinitions();
-  const [tab, setTab] = useState("experiments");
+  const [tab, setTab] = useState("features");
 
   useEffect(() => {
     setTab(onboardingType);
@@ -40,20 +38,17 @@ export default function GetStarted({
       <ControlledTabs
         setActive={setTab}
         active={tab}
-        defaultTab={
-          onboardingType ??
-          (datasources.length > 0 ? "experiments" : "features")
-        }
+        defaultTab="features"
         newStyle={true}
       >
-        <Tab display="Experiments" id="experiments" padding={false}>
+        <Tab display="Feature Flags" id="features" padding={false}>
+          <FeaturesGetStarted features={features} mutate={mutateFeatures} />
+        </Tab>
+        <Tab display="Experiment Analysis" id="experiments" padding={false}>
           <ExperimentsGetStarted
             experiments={experiments}
             mutate={mutateExperiments}
           />
-        </Tab>
-        <Tab display="Features" id="features" padding={false}>
-          <FeaturesGetStarted features={features} mutate={mutateFeatures} />
         </Tab>
       </ControlledTabs>
     </div>
