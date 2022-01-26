@@ -185,7 +185,11 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
             language="javascript"
             code={`
 import { GrowthBook } from "@growthbook/growthbook";
-
+${
+  isCloud()
+    ? ""
+    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+}
 const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
@@ -239,9 +243,13 @@ if (growthbook.feature("my-feature").on) {
           <Code
             language="tsx"
             code={`
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { GrowthBook, GrowthBookProvider, useFeature } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-
+${
+  isCloud()
+    ? ""
+    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+}
 const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
