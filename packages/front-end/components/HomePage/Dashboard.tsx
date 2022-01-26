@@ -13,7 +13,6 @@ import NorthStar from "./NorthStar";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import FeatureList from "../Features/FeatureList";
-//import { useFeature } from "@growthbook/growthbook-react";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];
@@ -24,9 +23,6 @@ export default function Dashboard({ experiments, features }: Props) {
   const { data, error } = useApi<{
     events: AuditInterface[];
   }>("/activity");
-
-  // TODO: change the dashboard if the app is in a feature-flag focused state
-  //const featureFocus: boolean = useFeature("feature-focus").on;
 
   const { name } = useUser();
 
