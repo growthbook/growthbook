@@ -17,6 +17,13 @@ import {
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
+function quotePropertyName(name: string) {
+  if (name.match(/^[a-zA-Z][a-zA-Z_]*$/)) {
+    return name;
+  }
+  return JSON.stringify(name);
+}
+
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [editSettings, setEditSettings] = useState(false);
@@ -127,7 +134,7 @@ const DataSourcePage: FC = () => {
           {supportsEvents && (
             <>
               <h3 className="mb-3">Query Settings</h3>
-              <table className="table appbox gbtable">
+              <table className="table appbox gbtable mb-5">
                 <tbody>
                   {Object.keys(d.settings.events).map((k) => {
                     return (
@@ -144,6 +151,49 @@ const DataSourcePage: FC = () => {
                   })}
                 </tbody>
               </table>
+              {d.type === "mixpanel" && (
+                <div>
+                  <h3>Mixpanel Tracking Instructions</h3>
+                  <p>
+                    The below example is for Javascript and uses the above
+                    settings. Other languages should be similar.
+                  </p>
+                  <Code
+                    language="javascript"
+                    code={`
+// Tracking Callback for GrowthBook SDK
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: function(experiment, result) {
+    mixpanel.track(${JSON.stringify(d.settings.events.experimentEvent)}, {
+      ${quotePropertyName(
+        d.settings.events.experimentIdProperty
+      )}: experiment.key,
+      ${quotePropertyName(
+        d.settings.events.variationIdProperty
+      )}:  result.variationId
+    })
+  }
+})
+
+// On page view (or similar event)
+mixpanel.track(${JSON.stringify(d.settings.events.pageviewEvent)}, {
+  ${quotePropertyName(d.settings.events.urlProperty)}: location.pathname
+})
+
+// When Mixpanel loads, pass the distinct_id into the SDK
+mixpanel.init('YOUR PROJECT TOKEN', {
+  loaded: function(mixpanel) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mixpanel.get_distinct_id()
+    })
+  }
+})
+                  `.trim()}
+                  />
+                </div>
+              )}
             </>
           )}
           {supportsSQL && (
