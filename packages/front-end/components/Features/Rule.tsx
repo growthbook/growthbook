@@ -33,8 +33,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const type = feature.valueType;
 
     const title =
-      rule.description ||
-      rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+      rule.description || rule.type === "force"
+        ? "Targeting Rule"
+        : rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
     return (
       <div className="p-3 border-bottom bg-white" {...props} ref={ref}>

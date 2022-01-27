@@ -73,7 +73,7 @@ export default function RuleModal({
     description: "",
     enabled: true,
     type: defaultType,
-    coverage: 1,
+    coverage: 0.5,
     value: getDefaultVariationValue(feature.valueType, feature.defaultValue),
     values: [
       {
@@ -193,6 +193,15 @@ export default function RuleModal({
       })}
     >
       <Field
+        {...form.register("type")}
+        label="Type of Rule"
+        options={[
+          { display: "Targeting", value: "force" },
+          { display: "Percentage Rollout", value: "rollout" },
+          { display: "A/B Experiment", value: "experiment" },
+        ]}
+      />
+      <Field
         label="Description (optional)"
         textarea
         minRows={1}
@@ -202,15 +211,6 @@ export default function RuleModal({
       <ConditionInput
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
-      />
-      <Field
-        {...form.register("type")}
-        label="Type of Rule"
-        options={[
-          { display: "Force a specific value", value: "force" },
-          { display: "Percentage rollout", value: "rollout" },
-          { display: "Experiment", value: "experiment" },
-        ]}
       />
 
       {type === "force" && (

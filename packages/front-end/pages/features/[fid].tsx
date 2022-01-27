@@ -142,7 +142,10 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       )}
 
       <h3>Override Rules</h3>
-      <p>Powerful logic on top of your features</p>
+      <p>
+        Add powerful logic on top of your feature.{" "}
+        {data.feature.rules?.length > 1 && "First matching rule applies."}
+      </p>
 
       {data.feature.rules?.length > 0 && (
         <>
@@ -162,10 +165,8 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             className="bg-white border p-3 d-flex flex-column"
             style={{ height: "100%" }}
           >
-            <h4>Segment Users</h4>
-            <p>
-              Override the default feature value for a subset of your users.
-            </p>
+            <h4>Targeting</h4>
+            <p>Override the default behavior for a subset of your users.</p>
             <div style={{ flex: 1 }} />
             <div>
               <button
@@ -182,7 +183,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 <span className="h4 pr-2 m-0 d-inline-block align-top">
                   <GBAddCircle />
                 </span>
-                Add Rule
+                Add Targeting Rule
               </button>
             </div>
           </div>
@@ -192,10 +193,9 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             className="bg-white border p-3 d-flex flex-column"
             style={{ height: "100%" }}
           >
-            <h4>Gradual Roll-out</h4>
+            <h4>Percentage Rollout</h4>
             <p>
-              Safely release the feature to a small percent of users while you
-              monitor the logs.
+              Release to a small percent of users while you monitor the logs.
             </p>
             <div style={{ flex: 1 }} />
             <div>
@@ -213,7 +213,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 <span className="h4 pr-2 m-0 d-inline-block align-top">
                   <GBAddCircle />
                 </span>
-                Add Rule
+                Add Rollout Rule
               </button>
             </div>
           </div>
@@ -224,10 +224,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             style={{ height: "100%" }}
           >
             <h4>A/B Experiment</h4>
-            <p>
-              Perform an A/B test on this feature to measure the impact on your
-              business.
-            </p>
+            <p>Measure the impact of this feature on your key metrics.</p>
             <div style={{ flex: 1 }} />
             <div>
               <button
@@ -244,7 +241,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 <span className="h4 pr-2 m-0 d-inline-block align-top">
                   <GBAddCircle />
                 </span>
-                Add Rule
+                Add Experiment Rule
               </button>
             </div>
           </div>
