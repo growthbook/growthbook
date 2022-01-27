@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -33,6 +33,7 @@ export type MetricFormProps = {
   edit: boolean;
   source: string;
   onClose: (refresh?: boolean) => void;
+  advanced?: boolean;
 };
 
 function validateSQL(
@@ -94,9 +95,12 @@ const MetricForm: FC<MetricFormProps> = ({
   onClose,
   source,
   initialStep = 0,
+  advanced = false,
 }) => {
   const { datasources, getDatasourceById } = useDefinitions();
   const [step, setStep] = useState(initialStep);
+  const [showAdvanced, setShowAdvanced] = useState(advanced);
+  const [hideTags, setHideTags] = useState(true);
   const [sqlInput, setSqlInput] = useState(
     current?.sql || !current?.table ? true : false
   );
@@ -333,11 +337,26 @@ const MetricForm: FC<MetricFormProps> = ({
           />
         </div>
         <div className="form-group">
-          Tags
-          <TagsInput
-            value={value.tags}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
+          {hideTags ? (
+            <a
+              href="#"
+              style={{ fontSize: "0.8rem" }}
+              onClick={(e) => {
+                e.preventDefault();
+                setHideTags(false);
+              }}
+            >
+              Add tags{" "}
+            </a>
+          ) : (
+            <>
+              Tags
+              <TagsInput
+                value={value.tags}
+                onChange={(tags) => form.setValue("tags", tags)}
+              />
+            </>
+          )}
         </div>
         <SelectField
           label="Data Source"
@@ -742,162 +761,178 @@ GROUP BY
             </small>
           </div>
         )}
-        {capSupported && (
-          <div className="form-group">
-            In an Experiment,{" "}
-            {value.type === "binomial"
-              ? "only count if a conversion happens"
-              : "start counting"}
-            <BooleanSelect
-              control={form.control}
-              required
-              name="earlyStart"
-              falseLabel="After the user is assigned a variation"
-              trueLabel={
-                (value.type === "binomial"
-                  ? "Any time during the"
-                  : "At the start of the") + " user's session"
-              }
-            />
-          </div>
-        )}
-        <div className="form-group">
-          Risk thresholds
-          <div className="riskbar row align-items-center pt-3">
-            <div className="col green-bar pr-0">
-              <span
-                style={{
-                  position: "absolute",
-                  top: "-20px",
-                  color: "#009a6d",
-                  fontSize: "0.75rem",
-                }}
-              >
-                acceptable risk under {value.winRisk}%
-              </span>
-              <div
-                style={{
-                  height: "10px",
-                  backgroundColor: "#009a6d",
-                  borderRadius: "5px 0 0 5px",
-                }}
-              ></div>
+        {!showAdvanced ? (
+          <a
+            href="#"
+            style={{ fontSize: "0.8rem" }}
+            onClick={(e) => {
+              e.preventDefault();
+              setShowAdvanced(true);
+            }}
+          >
+            Show advanced options{" "}
+          </a>
+        ) : (
+          <>
+            {capSupported && (
+              <div className="form-group">
+                In an Experiment,{" "}
+                {value.type === "binomial"
+                  ? "only count if a conversion happens"
+                  : "start counting"}
+                <BooleanSelect
+                  control={form.control}
+                  required
+                  name="earlyStart"
+                  falseLabel="After the user is assigned a variation"
+                  trueLabel={
+                    (value.type === "binomial"
+                      ? "Any time during the"
+                      : "At the start of the") + " user's session"
+                  }
+                />
+              </div>
+            )}
+            <div className="form-group">
+              Risk thresholds
+              <div className="riskbar row align-items-center pt-3">
+                <div className="col green-bar pr-0">
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-20px",
+                      color: "#009a6d",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    acceptable risk under {value.winRisk}%
+                  </span>
+                  <div
+                    style={{
+                      height: "10px",
+                      backgroundColor: "#009a6d",
+                      borderRadius: "5px 0 0 5px",
+                    }}
+                  ></div>
+                </div>
+                <div className="col-2 px-0">
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: "4px",
+                      top: "6px",
+                      color: "#888",
+                    }}
+                  >
+                    %
+                  </span>
+                  <input
+                    className="form-control winrisk text-center"
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    {...form.register("winRisk", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="col yellow-bar px-0">
+                  <div
+                    style={{
+                      height: "10px",
+                      backgroundColor: "#dfd700",
+                    }}
+                  ></div>
+                </div>
+                <div className="col-2 px-0">
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: "4px",
+                      top: "6px",
+                      color: "#888",
+                    }}
+                  >
+                    %
+                  </span>
+                  <input
+                    className="form-control loserisk text-center"
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    {...form.register("loseRisk", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="col red-bar pl-0">
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-20px",
+                      right: "15px",
+                      color: "#c50f0f",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    too much risk over {value.loseRisk}%
+                  </span>
+                  <div
+                    style={{
+                      height: "10px",
+                      backgroundColor: "#c50f0f",
+                      borderRadius: "0 5px 5px 0",
+                    }}
+                  ></div>
+                </div>
+              </div>
+              {riskError && <div className="text-danger">{riskError}</div>}
+              <small className="text-muted">
+                Set the threasholds for risk for this metric. This is used when
+                determining metric significance, highlighting the risk value as
+                green, yellow, or red.
+              </small>
             </div>
-            <div className="col-2 px-0">
-              <span
-                style={{
-                  position: "absolute",
-                  right: "4px",
-                  top: "6px",
-                  color: "#888",
-                }}
-              >
-                %
-              </span>
+            <div className="form-group">
+              Minimum Sample Size
               <input
-                className="form-control winrisk text-center"
                 type="number"
-                step="any"
-                min="0"
-                max="100"
-                {...form.register("winRisk", { valueAsNumber: true })}
+                className="form-control"
+                {...form.register("minSampleSize", { valueAsNumber: true })}
               />
+              <small className="text-muted">
+                The{" "}
+                {value.type === "binomial"
+                  ? "number of conversions"
+                  : `total ${value.type}`}{" "}
+                required in an experiment variation before showing results
+                (default{" "}
+                {value.type === "binomial"
+                  ? defaultMinSampleSize
+                  : formatConversionRate(value.type, defaultMinSampleSize)}
+                )
+              </small>
             </div>
-            <div className="col yellow-bar px-0">
-              <div
-                style={{
-                  height: "10px",
-                  backgroundColor: "#dfd700",
-                }}
-              ></div>
-            </div>
-            <div className="col-2 px-0">
-              <span
-                style={{
-                  position: "absolute",
-                  right: "4px",
-                  top: "6px",
-                  color: "#888",
-                }}
-              >
-                %
-              </span>
-              <input
-                className="form-control loserisk text-center"
-                type="number"
-                step="any"
-                min="0"
-                max="100"
-                {...form.register("loseRisk", { valueAsNumber: true })}
-              />
-            </div>
-            <div className="col red-bar pl-0">
-              <span
-                style={{
-                  position: "absolute",
-                  top: "-20px",
-                  right: "15px",
-                  color: "#c50f0f",
-                  fontSize: "0.75rem",
-                }}
-              >
-                too much risk over {value.loseRisk}%
-              </span>
-              <div
-                style={{
-                  height: "10px",
-                  backgroundColor: "#c50f0f",
-                  borderRadius: "0 5px 5px 0",
-                }}
-              ></div>
-            </div>
-          </div>
-          {riskError && <div className="text-danger">{riskError}</div>}
-          <small className="text-muted">
-            Set the threasholds for risk for this metric. This is used when
-            determining metric significance, highlighting the risk value as
-            green, yellow, or red.
-          </small>
-        </div>
-        <div className="form-group">
-          Minimum Sample Size
-          <input
-            type="number"
-            className="form-control"
-            {...form.register("minSampleSize", { valueAsNumber: true })}
-          />
-          <small className="text-muted">
-            The{" "}
-            {value.type === "binomial"
-              ? "number of conversions"
-              : `total ${value.type}`}{" "}
-            required in an experiment variation before showing results (default{" "}
-            {value.type === "binomial"
-              ? defaultMinSampleSize
-              : formatConversionRate(value.type, defaultMinSampleSize)}
-            )
-          </small>
-        </div>
-        <Field
-          label="Max Percent Change"
-          type="number"
-          step="any"
-          append="%"
-          {...form.register("maxPercentChange", { valueAsNumber: true })}
-          helpText={`An experiment that changes the metric by more than this percent will
+            <Field
+              label="Max Percent Change"
+              type="number"
+              step="any"
+              append="%"
+              {...form.register("maxPercentChange", { valueAsNumber: true })}
+              helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               defaultMaxPercentChange * 100
             })`}
-        />
-        <Field
-          label="Min Percent Change"
-          type="number"
-          step="any"
-          append="%"
-          {...form.register("minPercentChange", { valueAsNumber: true })}
-          helpText={`An experiment that changes the metric by less than this percent will be
+            />
+            <Field
+              label="Min Percent Change"
+              type="number"
+              step="any"
+              append="%"
+              {...form.register("minPercentChange", { valueAsNumber: true })}
+              helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${defaultMinPercentChange * 100})`}
-        />
+            />
+          </>
+        )}
       </Page>
     </PagedModal>
   );
