@@ -15,6 +15,7 @@ import ConditionInput from "./ConditionInput";
 import { isValidValue } from "../../services/features";
 import track from "../../services/track";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import uniq from "lodash/uniq";
 
 export interface Props {
   close: () => void;
@@ -150,6 +151,11 @@ export default function RuleModal({
               throw new Error(
                 `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
               );
+            }
+            if (
+              uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length
+            ) {
+              throw new Error(`All variations must be unique`);
             }
           } else {
             isValidValue(
