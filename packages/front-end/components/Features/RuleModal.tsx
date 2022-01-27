@@ -15,12 +15,14 @@ import ConditionInput from "./ConditionInput";
 import { isValidValue } from "../../services/features";
 import track from "../../services/track";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import uniq from "lodash/uniq";
 
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
   mutate: () => void;
   i: number;
+  defaultType?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -51,13 +53,28 @@ function getDefaultVariationValue(
   }
 }
 
-export default function RuleModal({ close, feature, i, mutate }: Props) {
+export default function RuleModal({
+  close,
+  feature,
+  i,
+  mutate,
+  defaultType = "force",
+}: Props) {
+  const settings = useOrgSettings();
+  const firstAttr = settings?.attributeSchema?.[0];
+
   const defaultValues = {
-    condition: "",
+    condition:
+      defaultType === "force" && firstAttr
+        ? JSON.stringify({
+            [firstAttr.property]:
+              firstAttr.datatype === "boolean" ? "true" : "",
+          })
+        : "",
     description: "",
     enabled: true,
-    type: "force",
-    coverage: 1,
+    type: defaultType,
+    coverage: 0.5,
     value: getDefaultVariationValue(feature.valueType, feature.defaultValue),
     values: [
       {
@@ -83,8 +100,6 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
   const variations = useFieldArray({ name: "values", control: form.control });
 
   const { apiCall } = useAuth();
-
-  const settings = useOrgSettings();
 
   const type = form.watch("type");
 
@@ -137,6 +152,11 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                 `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
               );
             }
+            if (
+              uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length
+            ) {
+              throw new Error(`All variations must be unique`);
+            }
           } else {
             isValidValue(
               feature.valueType,
@@ -179,6 +199,15 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       })}
     >
       <Field
+        {...form.register("type")}
+        label="Type of Rule"
+        options={[
+          { display: "Forced Value", value: "force" },
+          { display: "Percentage Rollout", value: "rollout" },
+          { display: "A/B Experiment", value: "experiment" },
+        ]}
+      />
+      <Field
         label="Description (optional)"
         textarea
         minRows={1}
@@ -188,15 +217,6 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       <ConditionInput
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
-      />
-      <Field
-        {...form.register("type")}
-        label="Rule Action"
-        options={[
-          { display: "Force a specific value", value: "force" },
-          { display: "Percentage rollout", value: "rollout" },
-          { display: "Experiment", value: "experiment" },
-        ]}
       />
 
       {type === "force" && (
@@ -239,7 +259,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             </div>
           </div>
           <Field
-            label="Sample based on attribute"
+            label="Sample users based on attribute"
             {...form.register("hashAttribute")}
             options={settings.attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -269,9 +289,9 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             <table className="table table-bordered">
               <thead>
                 <tr>
-                  <th>Value</th>
+                  <th>Variation</th>
                   <th>Percent of Users</th>
-                  <th></th>
+                  {variations.fields.length > 2 && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -297,39 +317,46 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
                           step="0.01"
                         />
                       </td>
-                      <td>
-                        <button
-                          className="btn btn-link text-danger"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            variations.remove(i);
-                          }}
-                          type="button"
-                        >
-                          remove
-                        </button>
-                      </td>
+                      {variations.fields.length > 2 && (
+                        <td style={{ width: 100 }}>
+                          <button
+                            className="btn btn-link text-danger"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              variations.remove(i);
+                            }}
+                            type="button"
+                          >
+                            remove
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
+                {feature.valueType !== "boolean" && (
+                  <tr>
+                    <td colSpan={3}>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          variations.append({
+                            value: getDefaultVariationValue(
+                              feature.valueType,
+                              feature.defaultValue
+                            ),
+                            weight: 0,
+                          });
+                        }}
+                      >
+                        add another variation
+                      </a>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                variations.append({
-                  value: getDefaultVariationValue(
-                    feature.valueType,
-                    feature.defaultValue
-                  ),
-                  weight: 0,
-                });
-              }}
-              type="button"
-            >
-              add value
-            </button>
           </div>
         </div>
       )}
