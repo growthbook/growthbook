@@ -68,7 +68,8 @@ const DataSourcePage: FC = () => {
           <h1 className="mb-0">{d.name}</h1>
         </div>
         <div className="col-auto">
-          <span className="badge badge-secondary">{d.type}</span>
+          <span className="badge badge-secondary">{d.type}</span>{" "}
+          <span className="badge badge-success">connected</span>
         </div>
         <div style={{ flex: 1 }} />
         {canEdit && (
@@ -126,7 +127,7 @@ const DataSourcePage: FC = () => {
           {supportsEvents && (
             <>
               <h3 className="mb-3">Query Settings</h3>
-              <table className="table table-bordered">
+              <table className="table appbox gbtable">
                 <tbody>
                   {Object.keys(d.settings.events).map((k) => {
                     return (

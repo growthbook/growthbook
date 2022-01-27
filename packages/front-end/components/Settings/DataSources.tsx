@@ -29,7 +29,6 @@ const DataSources: FC = () => {
   if (!ready) {
     return <LoadingOverlay />;
   }
-
   return (
     <div>
       {datasources.length > 0 ? (
