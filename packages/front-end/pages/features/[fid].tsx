@@ -165,8 +165,8 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             className="bg-white border p-3 d-flex flex-column"
             style={{ height: "100%" }}
           >
-            <h4>Targeting</h4>
-            <p>Override the default behavior for a subset of your users.</p>
+            <h4>Forced Value</h4>
+            <p>Target specific users and assign them a single feature value.</p>
             <div style={{ flex: 1 }} />
             <div>
               <button
@@ -183,7 +183,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 <span className="h4 pr-2 m-0 d-inline-block align-top">
                   <GBAddCircle />
                 </span>
-                Add Targeting Rule
+                Add Forced Rule
               </button>
             </div>
           </div>
@@ -194,9 +194,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             style={{ height: "100%" }}
           >
             <h4>Percentage Rollout</h4>
-            <p>
-              Release to a small percent of users while you monitor the logs.
-            </p>
+            <p>Release to a small percent of users while you monitor logs.</p>
             <div style={{ flex: 1 }} />
             <div>
               <button

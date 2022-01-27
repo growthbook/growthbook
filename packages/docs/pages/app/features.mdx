@@ -108,9 +108,9 @@ In advanced mode, you can specify conditions using the MongoDB query syntax. Thi
 
 **Note**: We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
 
-### Targeting
+### Forced Value
 
-The simplest type of override rule is a "Targeting" rule. This forces everyone who matches the condition to get the specified value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
+The simplest type of override rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
 
 ### Percentage Rollout
 

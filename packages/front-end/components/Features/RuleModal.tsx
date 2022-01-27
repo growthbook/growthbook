@@ -196,7 +196,7 @@ export default function RuleModal({
         {...form.register("type")}
         label="Type of Rule"
         options={[
-          { display: "Targeting", value: "force" },
+          { display: "Forced Value", value: "force" },
           { display: "Percentage Rollout", value: "rollout" },
           { display: "A/B Experiment", value: "experiment" },
         ]}
