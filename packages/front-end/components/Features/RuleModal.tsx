@@ -283,9 +283,9 @@ export default function RuleModal({
             <table className="table table-bordered">
               <thead>
                 <tr>
-                  <th>Value</th>
+                  <th>Variation</th>
                   <th>Percent of Users</th>
-                  <th></th>
+                  {variations.fields.length > 2 && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -311,39 +311,46 @@ export default function RuleModal({
                           step="0.01"
                         />
                       </td>
-                      <td>
-                        <button
-                          className="btn btn-link text-danger"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            variations.remove(i);
-                          }}
-                          type="button"
-                        >
-                          remove
-                        </button>
-                      </td>
+                      {variations.fields.length > 2 && (
+                        <td style={{ width: 100 }}>
+                          <button
+                            className="btn btn-link text-danger"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              variations.remove(i);
+                            }}
+                            type="button"
+                          >
+                            remove
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
+                {feature.valueType !== "boolean" && (
+                  <tr>
+                    <td colSpan={3}>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          variations.append({
+                            value: getDefaultVariationValue(
+                              feature.valueType,
+                              feature.defaultValue
+                            ),
+                            weight: 0,
+                          });
+                        }}
+                      >
+                        add another variation
+                      </a>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                variations.append({
-                  value: getDefaultVariationValue(
-                    feature.valueType,
-                    feature.defaultValue
-                  ),
-                  weight: 0,
-                });
-              }}
-              type="button"
-            >
-              add value
-            </button>
           </div>
         </div>
       )}
