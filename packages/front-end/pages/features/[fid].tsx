@@ -166,7 +166,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             style={{ height: "100%" }}
           >
             <h4>Forced Value</h4>
-            <p>Target specific users and assign them a single feature value.</p>
+            <p>Target groups of users and give them all the same value.</p>
             <div style={{ flex: 1 }} />
             <div>
               <button
