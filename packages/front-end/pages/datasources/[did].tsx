@@ -18,7 +18,7 @@ import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
 function quotePropertyName(name: string) {
-  if (name.match(/^[a-zA-Z][a-zA-Z_]*$/)) {
+  if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
     return name;
   }
   return JSON.stringify(name);
