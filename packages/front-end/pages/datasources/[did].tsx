@@ -155,8 +155,8 @@ const DataSourcePage: FC = () => {
                 <div>
                   <h3>Mixpanel Tracking Instructions</h3>
                   <p>
-                    The below example is for Javascript and uses the above
-                    settings. Other languages should be similar.
+                    This example is for Javascript and uses the above settings.
+                    Other languages should be similar.
                   </p>
                   <Code
                     language="javascript"
