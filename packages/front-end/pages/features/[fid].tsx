@@ -25,6 +25,7 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
+  const [ruleDefaultType, setRuleDefaultType] = useState<string>("");
   const [ruleModal, setRuleModal] = useState<number | null>(null);
 
   const { apiCall } = useAuth();
@@ -77,6 +78,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           close={() => setRuleModal(null)}
           i={ruleModal}
           mutate={mutate}
+          defaultType={ruleDefaultType}
         />
       )}
       <div className="row align-items-center">
@@ -139,42 +141,115 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         </IfFeatureEnabled>
       )}
 
-      <div className="appbox mb-4">
-        <div className="px-3 pt-3">
-          <div className="row">
-            <div className="col-auto">
-              <h3 className="mb-0">Override Rules</h3>
+      <h3>Override Rules</h3>
+      <p>Powerful logic on top of your features</p>
+
+      {data.feature.rules?.length > 0 && (
+        <>
+          <div className="appbox mb-4">
+            <RuleList
+              feature={data.feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+            />
+          </div>
+          <h4>Add more</h4>
+        </>
+      )}
+      <div className="row">
+        <div className="col mb-3">
+          <div
+            className="bg-white border p-3 d-flex flex-column"
+            style={{ height: "100%" }}
+          >
+            <h4>Segment Users</h4>
+            <p>
+              Override the default feature value for a subset of your users.
+            </p>
+            <div style={{ flex: 1 }} />
+            <div>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setRuleDefaultType("force");
+                  setRuleModal(data?.feature?.rules?.length || 0);
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "force",
+                  });
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Rule
+              </button>
             </div>
-            {data.feature?.rules?.length > 1 && (
-              <div className="col-auto">
-                <small className="text-muted">
-                  First matching rule applies
-                </small>
-              </div>
-            )}
           </div>
         </div>
-        <RuleList
-          feature={data.feature}
-          mutate={mutate}
-          setRuleModal={setRuleModal}
-        />
+        <div className="col mb-3">
+          <div
+            className="bg-white border p-3 d-flex flex-column"
+            style={{ height: "100%" }}
+          >
+            <h4>Gradual Roll-out</h4>
+            <p>
+              Safely release the feature to a small percent of users while you
+              monitor the logs.
+            </p>
+            <div style={{ flex: 1 }} />
+            <div>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setRuleDefaultType("rollout");
+                  setRuleModal(data?.feature?.rules?.length || 0);
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "rollout",
+                  });
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Rule
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="col mb-3">
+          <div
+            className="bg-white border p-3 d-flex flex-column"
+            style={{ height: "100%" }}
+          >
+            <h4>A/B Experiment</h4>
+            <p>
+              Perform an A/B test on this feature to measure the impact on your
+              business.
+            </p>
+            <div style={{ flex: 1 }} />
+            <div>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setRuleDefaultType("experiment");
+                  setRuleModal(data?.feature?.rules?.length || 0);
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "experiment",
+                  });
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Rule
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <button
-        className="btn btn-primary"
-        onClick={() => {
-          setRuleModal(data?.feature?.rules?.length || 0);
-          track("Viewed Rule Modal", {
-            source: "add-rule",
-          });
-        }}
-      >
-        <span className="h4 pr-2 m-0 d-inline-block align-top">
-          <GBAddCircle />
-        </span>
-        Add Rule
-      </button>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
   i: number;
+  defaultType?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -51,12 +52,27 @@ function getDefaultVariationValue(
   }
 }
 
-export default function RuleModal({ close, feature, i, mutate }: Props) {
+export default function RuleModal({
+  close,
+  feature,
+  i,
+  mutate,
+  defaultType = "force",
+}: Props) {
+  const settings = useOrgSettings();
+  const firstAttr = settings?.attributeSchema?.[0];
+
   const defaultValues = {
-    condition: "",
+    condition:
+      defaultType === "force" && firstAttr
+        ? JSON.stringify({
+            [firstAttr.property]:
+              firstAttr.datatype === "boolean" ? "true" : "",
+          })
+        : "",
     description: "",
     enabled: true,
-    type: "force",
+    type: defaultType,
     coverage: 1,
     value: getDefaultVariationValue(feature.valueType, feature.defaultValue),
     values: [
@@ -83,8 +99,6 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
   const variations = useFieldArray({ name: "values", control: form.control });
 
   const { apiCall } = useAuth();
-
-  const settings = useOrgSettings();
 
   const type = form.watch("type");
 
@@ -191,7 +205,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
       />
       <Field
         {...form.register("type")}
-        label="Rule Action"
+        label="Type of Rule"
         options={[
           { display: "Force a specific value", value: "force" },
           { display: "Percentage rollout", value: "rollout" },
@@ -239,7 +253,7 @@ export default function RuleModal({ close, feature, i, mutate }: Props) {
             </div>
           </div>
           <Field
-            label="Sample based on attribute"
+            label="Sample users based on attribute"
             {...form.register("hashAttribute")}
             options={settings.attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
