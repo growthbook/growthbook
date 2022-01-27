@@ -131,6 +131,130 @@ const navlinks: SidebarLinkProps[] = [
   },
 ];
 
+// move experiments inside of 'analysis' menu
+const navlinksSimple: SidebarLinkProps[] = [
+  {
+    name: "Features",
+    href: "/features",
+    Icon: BsFlag,
+    path: /^features/,
+    beta: false,
+    className: styles.first,
+  },
+  {
+    name: "Analysis",
+    href: "/analysis",
+    Icon: GBMetrics,
+    path: /^(analysis|experiment|presentations|metric|segment|dimension|datasources)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Overview",
+        href: "/analysis",
+        //Icon: GBHome,
+        path: /^analysis/,
+      },
+      {
+        name: "Experiments",
+        href: "/experiments",
+        //Icon: GBExperiment,
+        path: /^experiment/,
+      },
+      // {
+      //   name: "Presentations",
+      //   href: "/presentations",
+      //   //Icon: GBPresentations,
+      //   path: /^presentations/,
+      // },
+      {
+        name: "Metrics",
+        href: "/metrics",
+        //Icon: GBMetrics,
+        path: /^metric/,
+        //divider: true,
+      },
+      {
+        name: "Segments",
+        href: "/segments",
+        //Icon: GBSegments,
+        path: /^segment/,
+      },
+      {
+        name: "Dimensions",
+        href: "/dimensions",
+        //Icon: GBDimensions,
+        path: /^dimension/,
+      },
+      // {
+      //   name: "Data Sources",
+      //   href: "/datasources",
+      //   path: /^datasources/,
+      // },
+    ],
+  },
+  // {
+  //   name: "Ideas",
+  //   href: "/ideas",
+  //   Icon: GBIdea,
+  //   path: /^idea/,
+  // },
+  {
+    name: "Settings",
+    href: "/settings",
+    Icon: GBSettings,
+    divider: true,
+    path: /^(settings|admin|datasources)/,
+    settingsPermission: true,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "General",
+        href: "/settings",
+        path: /^settings$/,
+      },
+      {
+        name: "Team",
+        href: "/settings/team",
+        path: /^settings\/team/,
+      },
+      {
+        name: "Projects",
+        href: "/settings/projects",
+        path: /^settings\/projects/,
+      },
+      {
+        name: "Billing",
+        href: "/settings/billing",
+        path: /^settings\/billing/,
+        cloudOnly: true,
+      },
+      {
+        name: "Data Sources",
+        href: "/datasources",
+        path: /^datasources/,
+      },
+      {
+        name: "API Keys",
+        href: "/settings/keys",
+        path: /^settings\/keys/,
+      },
+      {
+        name: "Webhooks",
+        href: "/settings/webhooks",
+        path: /^settings\/webhooks/,
+      },
+      {
+        name: "Admin",
+        href: "/admin",
+        path: /^admin/,
+        cloudOnly: true,
+        divider: true,
+        superAdmin: true,
+      },
+    ],
+  },
+];
+
 const otherPageTitles = [
   {
     path: /^activity/,
@@ -161,6 +285,9 @@ const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
 
+  const newNavFeature = true;
+  // add flagging here
+  const usedNav = newNavFeature ? navlinksSimple : navlinks;
   // hacky:
   const router = useRouter();
   const path = router.route.substr(1);
@@ -175,7 +302,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  navlinks.forEach((o) => {
+  usedNav.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (s.path.test(path)) {
@@ -291,7 +418,7 @@ const Layout = (): React.ReactElement => {
                   </a>
                 </li>
                 <ProjectSelector />
-                {navlinks.map((v, i) => (
+                {usedNav.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}
               </ul>
