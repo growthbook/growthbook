@@ -18,6 +18,7 @@ import Code from "../../components/Code";
 import { useMemo } from "react";
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
+import Toggle from "../../components/Forms/Toggle";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function FeaturePage() {
   const [ruleModal, setRuleModal] = useState<number | null>(null);
 
   const { apiCall } = useAuth();
+  const [toggling, setToggling] = useState(false);
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -57,6 +59,35 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
   }
   if (!data) {
     return <LoadingOverlay />;
+  }
+
+  async function updateEnvironments(environment: string, on: boolean) {
+    if (toggling || !data?.feature) return;
+    let envs = [...data.feature.environments];
+    if (on) {
+      if (envs.includes(environment)) {
+        return;
+      }
+      envs.push(environment);
+    } else {
+      if (!envs.includes(environment)) {
+        return;
+      }
+      envs = envs.filter((e) => e !== environment);
+    }
+    setToggling(true);
+    try {
+      await apiCall(`/feature/${data.feature.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          environments: envs,
+        }),
+      });
+      await mutate();
+    } catch (e) {
+      console.error(e);
+    }
+    setToggling(false);
   }
 
   const type = data.feature.valueType;
@@ -119,11 +150,56 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <h1>{fid}</h1>
       <div className="mb-3">
-        <Markdown>{data.feature.description || "*no description*"}</Markdown>
+        {data.feature.description ? (
+          <div className="appbox mb-4 p-3">
+            <Markdown>{data.feature.description}</Markdown>
+          </div>
+        ) : (
+          <em>no description</em>
+        )}
       </div>
 
+      <h3>Environments</h3>
       <div className="appbox mb-4 p-3">
-        <h3 className="mb-3">Default Behavior</h3>
+        <div className="row mb-2">
+          <div className="col-auto">
+            <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
+              Dev:{" "}
+            </label>
+            <Toggle
+              id={"dev_toggle"}
+              label="Dev"
+              value={data.feature.environments?.includes("dev") ?? false}
+              setValue={(on) => {
+                updateEnvironments("dev", on);
+              }}
+            />
+          </div>
+          <div className="col-auto">
+            <label
+              className="font-weight-bold mr-2"
+              htmlFor={"production_toggle"}
+            >
+              Production:{" "}
+            </label>
+            <Toggle
+              id={"production_toggle"}
+              label="Production"
+              value={data.feature.environments?.includes("production") ?? false}
+              setValue={(on) => {
+                updateEnvironments("production", on);
+              }}
+            />
+          </div>
+        </div>
+        <div>
+          In a disabled environment, the feature will always evaluate to{" "}
+          <code>null</code> and all override rules will be ignored.
+        </div>
+      </div>
+
+      <h3>Value When Enabled</h3>
+      <div className="appbox mb-4 p-3">
         <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
 

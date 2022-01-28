@@ -4,14 +4,18 @@ import md5 from "md5";
 
 export async function createApiKey(
   organization: string,
+  environment: string,
   description?: string
 ): Promise<string> {
-  const key = "key_" + md5(uniqid()).substr(0, 16);
+  const envPrefix = environment === "production" ? "prod" : environment;
+
+  const key = "key_" + envPrefix + "_" + md5(uniqid()).substr(0, 16);
 
   await ApiKeyModel.create({
     organization,
     key,
     description,
+    environment,
     dateCreated: new Date(),
   });
 
@@ -47,8 +51,12 @@ export async function getAllApiKeysByOrganization(organization: string) {
   });
 }
 
-export async function getFirstApiKey(organization: string) {
+export async function getFirstApiKey(
+  organization: string,
+  environment: string
+) {
   return ApiKeyModel.findOne({
     organization,
+    environment,
   });
 }

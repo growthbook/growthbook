@@ -39,6 +39,7 @@ const ApiKeys: FC = () => {
           <thead>
             <tr>
               <th>Key</th>
+              <th>Environment</th>
               <th>Description</th>
               <th></th>
             </tr>
@@ -47,6 +48,7 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
+                <td>{key.environment ?? "dev, production"}</td>
                 <td>{key.description}</td>
                 <td>
                   <DeleteButton

@@ -13,11 +13,6 @@ const INITIAL_ATTRS: SDKAttributeSchema = [
   { property: "id", datatype: "string", hashAttribute: true },
   { property: "deviceId", datatype: "string", hashAttribute: true },
   { property: "company", datatype: "string", hashAttribute: true },
-  {
-    property: "env",
-    datatype: "enum",
-    enum: "dev, staging, prod",
-  },
   { property: "loggedIn", datatype: "boolean" },
   { property: "employee", datatype: "boolean" },
   { property: "country", datatype: "string" },
