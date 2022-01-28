@@ -2,16 +2,17 @@ import useApi from "../../hooks/useApi";
 import { FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago, datetime } from "../../services/dates";
-import Link from "next/link";
 import { useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
-import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import FeatureRow from "../../components/Features/FeatureRow";
+import { useSearch } from "../../services/search";
+import { useMemo } from "react";
+import Field from "../../components/Forms/Field";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -29,6 +30,16 @@ export default function FeaturesPage() {
     !settings?.attributeSchema?.length ||
     !settings?.sdkInstructionsViewed ||
     (data && !data?.features?.length);
+
+  const { list, searchInputProps } = useSearch(data?.features || [], [
+    "id",
+    "description",
+    "tags",
+  ]);
+
+  const sorted = useMemo(() => {
+    return list.sort((a, b) => a.id.localeCompare(b.id));
+  }, [list]);
 
   if (error) {
     return (
@@ -119,38 +130,38 @@ export default function FeaturesPage() {
       )}
 
       {data.features.length > 0 && (
-        <div className="appbox p-3">
+        <div>
+          <div className="row mb-2">
+            <div className="col-auto">
+              <Field placeholder="Filter list..." {...searchInputProps} />
+            </div>
+          </div>
           <table className="table gbtable table-hover">
             <thead>
               <tr>
                 <th>Feature Key</th>
-                <th>Default Value</th>
-                <th>Has Overrides</th>
+                <th>Dev</th>
+                <th>Prod</th>
+                <th>Value When Enabled</th>
+                <th>Overrides Rules</th>
                 <th>Last Updated</th>
               </tr>
             </thead>
             <tbody>
-              {data.features.map((feature) => {
+              {sorted.map((feature) => {
                 return (
-                  <tr key={feature.id}>
-                    <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a>{feature.id}</a>
-                      </Link>
-                    </td>
-                    <td>
-                      <ValueDisplay
-                        value={feature.defaultValue}
-                        type={feature.valueType}
-                      />
-                    </td>
-                    <td>{feature.rules?.length > 0 ? "yes" : "no"}</td>
-                    <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
-                    </td>
-                  </tr>
+                  <FeatureRow
+                    feature={feature}
+                    mutate={mutate}
+                    key={feature.id}
+                  />
                 );
               })}
+              {!sorted.length && (
+                <tr>
+                  <td colSpan={6}>No matching features</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

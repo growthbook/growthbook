@@ -31,13 +31,14 @@ export async function deleteByOrganizationAndApiKey(
 
 export async function lookupOrganizationByApiKey(
   key: string
-): Promise<string | null> {
+): Promise<{ organization?: string; environment?: string }> {
   const doc = await ApiKeyModel.findOne({
     key,
   });
 
-  if (!doc) return null;
-  return doc.organization || null;
+  if (!doc || !doc.organization) return {};
+  const { organization, environment } = doc;
+  return { organization, environment };
 }
 
 export async function getAllApiKeysByOrganization(organization: string) {
