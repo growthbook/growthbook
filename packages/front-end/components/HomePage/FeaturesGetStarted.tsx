@@ -93,7 +93,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/feature-icon.svg"
               title="3. Add your first feature"
-              text="Create a feature within GrowthBook. It could be a simple ON/OFF flag or a configurable property like a color or copy for a headline."
+              text="Create a feature within GrowthBook. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
