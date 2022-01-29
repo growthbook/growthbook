@@ -121,6 +121,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                   description,
                 }),
               });
+              track("Update Feature Description");
               mutate();
             }}
           />

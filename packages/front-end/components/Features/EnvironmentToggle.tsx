@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Toggle from "../Forms/Toggle";
+import track from "../../services/track";
 
 export interface Props {
   feature: FeatureInterface;
@@ -43,6 +44,10 @@ export default function EnvironmentToggle({
             body: JSON.stringify({
               environments: newEnvs,
             }),
+          });
+          track("Feature Environment Toggle", {
+            environment,
+            enabled: on,
           });
         } catch (e) {
           console.error(e);
