@@ -8,6 +8,16 @@ You can set a global value for everyone, use advanced targeting to
 assign values to users, and run experiments to see which value is
 better.
 
+## Environments
+
+GrowthBook comes with two environments - **dev** and **production**, and each one has their own unique API endpoint for getting a list of features.
+
+Features can be enabled and disabled on a per-environment basis.
+
+When a feature is disabled in an environment, it will always evaluate to `null` and ignore any other targeting or override rules.
+
+**Note:** It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+
 ## Feature Keys
 
 Every feature is defined by a unique **key**. This is what the engineering team will reference in their code when they check the value of a feature. Feature keys cannot be changed after they are created, so take care when choosing one.
@@ -148,6 +158,8 @@ There is a public GrowthBook API endpoint for the feature definitions JSON:
 - http://localhost:3100/api/features/{MY_API_KEY} (Self-hosted)
 
 The API includes a cache header with a 30-second TTL (plus stale-while-revalidate and stale-if-error headers).
+
+**Note:** There are separate API keys for dev and production. Make sure you are using the right one for your environment.
 
 ### Load directly (client-side)
 
