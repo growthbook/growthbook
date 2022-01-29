@@ -13,6 +13,7 @@ import FeatureRow from "../../components/Features/FeatureRow";
 import { useSearch } from "../../services/search";
 import { useMemo } from "react";
 import Field from "../../components/Forms/Field";
+import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -128,6 +129,8 @@ export default function FeaturesPage() {
           </a>
         </div>
       )}
+
+      <ApiKeyUpgrade />
 
       {data.features.length > 0 && (
         <div>

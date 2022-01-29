@@ -3,12 +3,11 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft } from "../../components/Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
-import FeatureModal from "../../components/Features/FeatureModal";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
@@ -19,6 +18,7 @@ import { useMemo } from "react";
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
 import Toggle from "../../components/Forms/Toggle";
+import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -95,12 +95,10 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
   return (
     <div className="contents container-fluid pagecontents">
       {edit && (
-        <FeatureModal
+        <EditDefaultValueModal
           close={() => setEdit(false)}
-          existing={data.feature}
-          onSuccess={async (feature) => {
-            mutate({ feature, experiments: data.experiments });
-          }}
+          feature={data.feature}
+          mutate={mutate}
         />
       )}
       {ruleModal !== null && (
@@ -123,15 +121,6 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
-            <button
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                setEdit(true);
-              }}
-            >
-              edit feature
-            </button>
             <DeleteButton
               useIcon={false}
               displayName="Feature"
@@ -198,7 +187,12 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         </div>
       </div>
 
-      <h3>Value When Enabled</h3>
+      <h3>
+        Value When Enabled
+        <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+          <GBEdit />
+        </a>
+      </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
