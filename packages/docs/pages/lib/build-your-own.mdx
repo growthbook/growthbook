@@ -270,7 +270,7 @@ This converts and experiment's coverage and variation weights into an array of b
    for (w in weights) {
      start = cumulative;
      cumulative += w;
-     ranges.push(start, start + cumulative * w);
+     ranges.push(start, start + coverage * w);
    }
 
    return ranges;
