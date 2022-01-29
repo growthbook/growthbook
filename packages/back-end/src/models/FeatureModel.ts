@@ -11,6 +11,7 @@ const featureSchema = new mongoose.Schema({
   dateUpdated: Date,
   valueType: String,
   defaultValue: String,
+  environments: [String],
   rules: [
     {
       _id: false,

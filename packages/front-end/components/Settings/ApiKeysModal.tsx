@@ -14,6 +14,7 @@ const ApiKeysModal: FC<{
   const form = useForm({
     defaultValues: {
       description: defaultDescription,
+      environment: "dev",
     },
   });
 
@@ -22,7 +23,9 @@ const ApiKeysModal: FC<{
       method: "POST",
       body: JSON.stringify(value),
     });
-    track("Create API Key");
+    track("Create API Key", {
+      environment: value.environment,
+    });
     onCreate();
   });
 
@@ -38,6 +41,11 @@ const ApiKeysModal: FC<{
         label="Description (optional)"
         textarea
         {...form.register("description")}
+      />
+      <Field
+        label="Environment"
+        options={["dev", "production"]}
+        {...form.register("environment")}
       />
     </Modal>
   );

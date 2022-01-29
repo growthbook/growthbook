@@ -89,20 +89,34 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
   );
 
   // Create API key if one doesn't exist yet
-  const [apiKey, setApiKey] = useState("");
+  const [devApiKey, setDevApiKey] = useState("");
+  const [prodApiKey, setProdApiKey] = useState("");
   useEffect(() => {
-    apiCall<{ key: string }>(`/keys?preferExisting=true`, {
-      method: "POST",
-      body: JSON.stringify({
-        description: "Features SDK",
-      }),
-    })
-      .then(({ key }) => {
-        setApiKey(key);
-      })
-      .catch((e) => {
-        console.error(e);
-      });
+    (async () => {
+      const devKey = await apiCall<{ key: string }>(
+        `/keys?preferExisting=true`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            description: "Dev Features SDK",
+            environment: "dev",
+          }),
+        }
+      );
+      setDevApiKey(devKey.key);
+
+      const prodKey = await apiCall<{ key: string }>(
+        `/keys?preferExisting=true`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            description: "Production Features SDK",
+            environment: "production",
+          }),
+        }
+      );
+      setProdApiKey(prodKey.key);
+    })();
   }, []);
 
   useEffect(() => {
@@ -147,21 +161,39 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
       }}
       cta={"Finish"}
     >
-      {apiKey && (
-        <>
+      {devApiKey && (
+        <div className="mb-3">
           <p>
-            We generated an API endpoint for you that will contain all of your
+            We generated API endpoints for you that will contain all of your
             feature definitions:
           </p>
-          <input
-            readOnly
-            value={getFeaturesUrl(apiKey)}
-            className="form-control mb-3"
-            onFocus={(e) => {
-              (e.target as HTMLInputElement).select();
-            }}
-          />
-        </>
+          <div className="row mb-2 align-items-center">
+            <div className="col-auto" style={{ width: 90 }}>
+              <strong>Dev</strong>
+            </div>
+            <div className="col">
+              <input
+                readOnly
+                value={getFeaturesUrl(devApiKey)}
+                onFocus={(e) => e.target.select()}
+                className="form-control"
+              />
+            </div>
+          </div>
+          <div className="row align-items-center">
+            <div className="col-auto" style={{ width: 90 }}>
+              <strong>Production</strong>
+            </div>
+            <div className="col">
+              <input
+                readOnly
+                value={getFeaturesUrl(prodApiKey)}
+                onFocus={(e) => e.target.select()}
+                className="form-control"
+              />
+            </div>
+          </div>
+        </div>
       )}
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
@@ -191,9 +223,9 @@ import { GrowthBook } from "@growthbook/growthbook";
 ${
   isCloud()
     ? ""
-    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+    : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -214,7 +246,7 @@ const growthbook = new GrowthBook({
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
-    growthbook.setFeatures(json${apiKey ? ".features" : ""});
+    growthbook.setFeatures(json${devApiKey ? ".features" : ""});
   });
 
 // TODO: replace with real targeting attributes
@@ -251,9 +283,9 @@ import { useEffect } from "react";
 ${
   isCloud()
     ? ""
-    : `\n// In production, we recommend putting a CDN in front of this endpoint`
+    : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -276,7 +308,7 @@ export default function MyApp() {
     fetch(FEATURES_ENDPOINT)
       .then((res) => res.json())
       .then((json) => {
-        growthbook.setFeatures(json${apiKey ? ".features" : ""});
+        growthbook.setFeatures(json${devApiKey ? ".features" : ""});
       });
     
     // TODO: replace with real targeting attributes
@@ -337,7 +369,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
+	resp, err := http.Get("${getFeaturesUrl(devApiKey)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -412,9 +444,10 @@ ${Object.keys(exampleAttributes)
   .join("\n")}
 
 val gb = GBSDKBuilder(
-  // Fetch and cache feature definitions from GrowthBook API
-  // If self-hosting, we recommend using a CDN in production
-  apiKey = "${apiKey}",
+  // Fetch and cache feature definitions from GrowthBook API${
+    !isCloud() ? "\n  // We recommend using a CDN in production" : ""
+  }
+  apiKey = "${devApiKey}",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->

@@ -3,12 +3,10 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft } from "../../components/Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
-import FeatureModal from "../../components/Features/FeatureModal";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
@@ -18,6 +16,9 @@ import Code from "../../components/Code";
 import { useMemo } from "react";
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
+import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
+import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -64,12 +65,10 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
   return (
     <div className="contents container-fluid pagecontents">
       {edit && (
-        <FeatureModal
+        <EditDefaultValueModal
           close={() => setEdit(false)}
-          existing={data.feature}
-          onSuccess={async (feature) => {
-            mutate({ feature, experiments: data.experiments });
-          }}
+          feature={data.feature}
+          mutate={mutate}
         />
       )}
       {ruleModal !== null && (
@@ -92,15 +91,6 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
-            <button
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                setEdit(true);
-              }}
-            >
-              edit feature
-            </button>
             <DeleteButton
               useIcon={false}
               displayName="Feature"
@@ -119,11 +109,67 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <h1>{fid}</h1>
       <div className="mb-3">
-        <Markdown>{data.feature.description || "*no description*"}</Markdown>
+        <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
+          <MarkdownInlineEdit
+            value={data.feature.description}
+            canEdit={true}
+            canCreate={true}
+            save={async (description) => {
+              await apiCall(`/feature/${data.feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  description,
+                }),
+              });
+              track("Update Feature Description");
+              mutate();
+            }}
+          />
+        </div>
       </div>
 
+      <h3>Environments</h3>
       <div className="appbox mb-4 p-3">
-        <h3 className="mb-3">Default Behavior</h3>
+        <div className="row mb-2">
+          <div className="col-auto">
+            <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
+              Dev:{" "}
+            </label>
+            <EnvironmentToggle
+              feature={data.feature}
+              environment="dev"
+              mutate={mutate}
+              id="dev_toggle"
+            />
+          </div>
+          <div className="col-auto">
+            <label
+              className="font-weight-bold mr-2"
+              htmlFor={"production_toggle"}
+            >
+              Production:{" "}
+            </label>
+            <EnvironmentToggle
+              feature={data.feature}
+              environment="production"
+              mutate={mutate}
+              id="production_toggle"
+            />
+          </div>
+        </div>
+        <div>
+          In a disabled environment, the feature will always evaluate to{" "}
+          <code>null</code> and all override rules will be ignored.
+        </div>
+      </div>
+
+      <h3>
+        Value When Enabled
+        <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+          <GBEdit />
+        </a>
+      </h3>
+      <div className="appbox mb-4 p-3">
         <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
 

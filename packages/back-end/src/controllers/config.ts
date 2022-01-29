@@ -27,7 +27,7 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const organization = await lookupOrganizationByApiKey(key);
+    const { organization } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -89,7 +89,7 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const organization = await lookupOrganizationByApiKey(key);
+    const { organization } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res
         .status(400)
