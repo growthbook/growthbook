@@ -16,9 +16,9 @@ import Code from "../../components/Code";
 import { useMemo } from "react";
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
-import Toggle from "../../components/Forms/Toggle";
 import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -30,7 +30,6 @@ export default function FeaturePage() {
   const [ruleModal, setRuleModal] = useState<number | null>(null);
 
   const { apiCall } = useAuth();
-  const [toggling, setToggling] = useState(false);
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -59,35 +58,6 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
   }
   if (!data) {
     return <LoadingOverlay />;
-  }
-
-  async function updateEnvironments(environment: string, on: boolean) {
-    if (toggling || !data?.feature) return;
-    let envs = [...data.feature.environments];
-    if (on) {
-      if (envs.includes(environment)) {
-        return;
-      }
-      envs.push(environment);
-    } else {
-      if (!envs.includes(environment)) {
-        return;
-      }
-      envs = envs.filter((e) => e !== environment);
-    }
-    setToggling(true);
-    try {
-      await apiCall(`/feature/${data.feature.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          environments: envs,
-        }),
-      });
-      await mutate();
-    } catch (e) {
-      console.error(e);
-    }
-    setToggling(false);
   }
 
   const type = data.feature.valueType;
@@ -164,13 +134,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
               Dev:{" "}
             </label>
-            <Toggle
-              id={"dev_toggle"}
-              label="Dev"
-              value={data.feature.environments?.includes("dev") ?? false}
-              setValue={(on) => {
-                updateEnvironments("dev", on);
-              }}
+            <EnvironmentToggle
+              feature={data.feature}
+              environment="dev"
+              mutate={mutate}
+              id="dev_toggle"
             />
           </div>
           <div className="col-auto">
@@ -180,13 +148,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
             >
               Production:{" "}
             </label>
-            <Toggle
-              id={"production_toggle"}
-              label="Production"
-              value={data.feature.environments?.includes("production") ?? false}
-              setValue={(on) => {
-                updateEnvironments("production", on);
-              }}
+            <EnvironmentToggle
+              feature={data.feature}
+              environment="production"
+              mutate={mutate}
+              id="production_toggle"
             />
           </div>
         </div>

@@ -2,18 +2,21 @@ import useApi from "../../hooks/useApi";
 import { FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import { ago, datetime } from "../../services/dates";
+import Link from "next/link";
 import { useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
+import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import FeatureRow from "../../components/Features/FeatureRow";
 import { useSearch } from "../../services/search";
 import { useMemo } from "react";
 import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
+import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -114,7 +117,7 @@ export default function FeaturesPage() {
             )}
           </h4>
           <FeaturesGetStarted features={data.features || []} mutate={mutate} />
-          {!stepsRequired && <h4 mt-3>All Features</h4>}
+          {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
         <div className="mb-3">
@@ -153,11 +156,37 @@ export default function FeaturesPage() {
             <tbody>
               {sorted.map((feature) => {
                 return (
-                  <FeatureRow
-                    feature={feature}
-                    mutate={mutate}
-                    key={feature.id}
-                  />
+                  <tr key={feature.id}>
+                    <td>
+                      <Link href={`/features/${feature.id}`}>
+                        <a>{feature.id}</a>
+                      </Link>
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="dev"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="production"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td>
+                      <ValueDisplay
+                        value={feature.defaultValue}
+                        type={feature.valueType}
+                      />
+                    </td>
+                    <td>{feature.rules?.length > 0 ? "yes" : "no"}</td>
+                    <td title={datetime(feature.dateUpdated)}>
+                      {ago(feature.dateUpdated)}
+                    </td>
+                  </tr>
                 );
               })}
               {!sorted.length && (
