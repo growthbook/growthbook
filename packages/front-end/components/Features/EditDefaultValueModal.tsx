@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "../../../back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";

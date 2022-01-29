@@ -123,41 +123,42 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         ]}
       />
 
-      <div className="row mb-2">
+      <label>Enabled Environments</label>
+      <div className="row">
         <div className="col-auto">
           <div className="form-group">
-            <label htmlFor={"dev_toggle_create"}>Dev</label>
-            <div>
-              <Toggle
-                id={"dev_toggle_create"}
-                label="Dev"
-                value={environments.includes("dev") ?? false}
-                setValue={(on) => {
-                  let envs = [...environments];
-                  if (on) envs.push("dev");
-                  else envs = envs.filter((e) => e !== "dev");
-                  form.setValue("environments", uniq(envs));
-                }}
-              />
-            </div>
+            <label htmlFor={"dev_toggle_create"} className="mr-2 ml-3">
+              Dev:
+            </label>
+            <Toggle
+              id={"dev_toggle_create"}
+              label="Dev"
+              value={environments.includes("dev") ?? false}
+              setValue={(on) => {
+                let envs = [...environments];
+                if (on) envs.push("dev");
+                else envs = envs.filter((e) => e !== "dev");
+                form.setValue("environments", uniq(envs));
+              }}
+            />
           </div>
         </div>
         <div className="col-auto">
           <div className="form-group">
-            <label htmlFor={"production_toggle_create"}>Production</label>
-            <div>
-              <Toggle
-                id={"production_toggle_create"}
-                label="Production"
-                value={environments.includes("production") ?? false}
-                setValue={(on) => {
-                  let envs = [...environments];
-                  if (on) envs.push("production");
-                  else envs = envs.filter((e) => e !== "production");
-                  form.setValue("environments", uniq(envs));
-                }}
-              />
-            </div>
+            <label htmlFor={"production_toggle_create"} className="mr-2">
+              Production:
+            </label>
+            <Toggle
+              id={"production_toggle_create"}
+              label="Production"
+              value={environments.includes("production") ?? false}
+              setValue={(on) => {
+                let envs = [...environments];
+                if (on) envs.push("production");
+                else envs = envs.filter((e) => e !== "production");
+                form.setValue("environments", uniq(envs));
+              }}
+            />
           </div>
         </div>
       </div>

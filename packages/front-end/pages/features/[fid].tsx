@@ -5,7 +5,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import Markdown from "../../components/Markdown/Markdown";
 import useApi from "../../hooks/useApi";
 import { useState } from "react";
 import DeleteButton from "../../components/DeleteButton";
@@ -19,6 +18,7 @@ import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
 import Toggle from "../../components/Forms/Toggle";
 import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
+import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -139,13 +139,22 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <h1>{fid}</h1>
       <div className="mb-3">
-        {data.feature.description ? (
-          <div className="appbox mb-4 p-3">
-            <Markdown>{data.feature.description}</Markdown>
-          </div>
-        ) : (
-          <em>no description</em>
-        )}
+        <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
+          <MarkdownInlineEdit
+            value={data.feature.description}
+            canEdit={true}
+            canCreate={true}
+            save={async (description) => {
+              await apiCall(`/feature/${data.feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  description,
+                }),
+              });
+              mutate();
+            }}
+          />
+        </div>
       </div>
 
       <h3>Environments</h3>
