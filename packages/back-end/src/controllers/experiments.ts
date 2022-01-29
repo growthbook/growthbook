@@ -63,6 +63,7 @@ import { getValidDate } from "../util/dates";
 import { getIdeasByQuery } from "../services/ideas";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { getReportVariations } from "../services/reports";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -2037,7 +2038,7 @@ export async function postPastExperiments(
 
   const integration = getSourceIntegrationObject(datasourceObj);
   const start = new Date();
-  start.setDate(start.getDate() - 365);
+  start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
   const now = new Date();
 
   let model = await PastExperimentsModel.findOne({
