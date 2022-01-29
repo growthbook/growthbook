@@ -12,10 +12,9 @@ import { FaChrome } from "react-icons/fa";
 
 export interface Props {
   features: FeatureInterface[];
-  mutate: (data?: { features: FeatureInterface[] }) => void;
 }
 
-export default function FeaturesGetStarted({ features, mutate }: Props) {
+export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
 
@@ -38,10 +37,7 @@ export default function FeaturesGetStarted({ features, mutate }: Props) {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
-            mutate({
-              features: [...features, feature],
-            });
+            await router.push(`/features/${feature.id}`);
           }}
         />
       )}
