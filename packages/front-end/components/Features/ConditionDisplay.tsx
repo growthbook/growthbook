@@ -5,7 +5,10 @@ import {
 } from "../../services/features";
 import Code from "../Code";
 
-function operatorToText(operator: string, attribute?: AttributeData): string {
+export function operatorToText(
+  operator: string,
+  attribute?: AttributeData
+): string {
   switch (operator) {
     case "$eq":
       if (attribute?.array) return `contains`;
