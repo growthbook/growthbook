@@ -102,7 +102,7 @@ export default function ExperimentSummary({
         <div className="col-auto">
           <strong>TRACK</strong>
         </div>
-        <div className="col-auto">
+        <div className="col">
           {" "}
           the split with the key{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
@@ -114,6 +114,7 @@ export default function ExperimentSummary({
             )}`}
           >
             <a
+              className="btn btn-outline-primary float-right"
               onClick={() => {
                 track("Create Organization");
               }}
