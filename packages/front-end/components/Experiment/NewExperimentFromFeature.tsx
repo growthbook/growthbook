@@ -71,7 +71,6 @@ const NewExperimentFromFeature: FC<{
         variationWeights,
       };
       expInfo.phases = [phase];
-      console.log(expInfo);
       setSelected(expInfo);
     }
   }, [data?.feature]);
