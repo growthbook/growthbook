@@ -218,7 +218,6 @@ export default function ConditionInput(props: Props) {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
-                        console.log("Click delete");
                         const newConds = [...conds];
                         newConds.splice(i, 1);
                         setConds(newConds);
