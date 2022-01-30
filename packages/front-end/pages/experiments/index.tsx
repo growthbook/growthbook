@@ -91,7 +91,7 @@ const ExperimentsPage = (): React.ReactElement => {
       <div className="contents container pagecontents getstarted">
         <h1>Experiments</h1>
         <p>
-          Experiments pull data from your event data and generates results using
+          Experiments pull data from your database and generates a report using
           our statistics engine. Before you can run an an experiment report, you
           need to tell GrowthBook where it can find the experiment and metric
           data.
