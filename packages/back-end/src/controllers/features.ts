@@ -80,6 +80,9 @@ export async function postFeatures(
 
   if (feature.rules?.length) {
     feature.rules = feature.rules?.map((r) => {
+      if (r.type === "experiment" && !r?.trackingKey) {
+        r.trackingKey = feature.id;
+      }
       return {
         ...r,
         id: uniqid("fr_"),
@@ -123,6 +126,7 @@ export async function putFeature(
   if (updates.rules) {
     updates.rules = updates.rules.map((r) => {
       if (r.id) return r;
+      if (r.type === "experiment" && !r?.trackingKey) r.trackingKey = id;
       return {
         ...r,
         id: uniqid("fr_"),
