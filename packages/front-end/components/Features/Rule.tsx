@@ -31,7 +31,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   ({ i, rule, feature, setRuleModal, mutate, handle, ...props }, ref) => {
     const { apiCall } = useAuth();
     const type = feature.valueType;
-
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -183,6 +182,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <ExperimentSummary
                 values={rule.values}
                 type={type}
+                feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
                 trackingKey={rule.trackingKey || feature.id}
               />

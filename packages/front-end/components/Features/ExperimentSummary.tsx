@@ -1,5 +1,11 @@
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import {
+  ExperimentValue,
+  FeatureInterface,
+  FeatureValueType,
+} from "back-end/types/feature";
 import ValueDisplay from "./ValueDisplay";
+import Link from "next/link";
+import track from "../../services/track";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -11,11 +17,13 @@ export default function ExperimentSummary({
   type,
   hashAttribute,
   trackingKey,
+  feature,
 }: {
   values: ExperimentValue[];
   type: FeatureValueType;
   hashAttribute: string;
   trackingKey: string;
+  feature: FeatureInterface;
 }) {
   const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
 
@@ -99,7 +107,20 @@ export default function ExperimentSummary({
           the split with the key{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {trackingKey}
-          </span>
+          </span>{" "}
+          <Link
+            href={`/experiments/?experimentFromFeature=${encodeURIComponent(
+              feature.id
+            )}`}
+          >
+            <a
+              onClick={() => {
+                track("Create Organization");
+              }}
+            >
+              View experiment results
+            </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -8,7 +8,6 @@ import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tabs from "../../components/Tabs/Tabs";
@@ -17,17 +16,27 @@ import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
 import useUser from "../../hooks/useUser";
+import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
+import NewExperimentFromFeature from "../../components/Experiment/NewExperimentFromFeature";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
 
-  const { data, error } = useApi<{
+  const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project || ""}`);
 
   const [showOnlyMyDrafts, setShowOnlyMyDrafts] = useState(false);
-
+  const router = useRouter();
+  const featureQueryVal = router?.query?.experimentFromFeature;
+  const featureId = featureQueryVal
+    ? decodeURIComponent(featureQueryVal as string)
+    : null;
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openFeatureExperimentModal, setOpenFeatureExperimentModal] = useState(
+    !!featureId
+  );
+  const [showLoading, setShowLoading] = useState(false);
 
   const { getUserDisplay, permissions, userId, users } = useUser();
 
@@ -38,8 +47,6 @@ const ExperimentsPage = (): React.ReactElement => {
     draft: 1,
   });
   const [experimentsPerPage] = useState(20);
-
-  const router = useRouter();
 
   const transforms = useMemo(() => {
     return {
@@ -75,47 +82,36 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (!data || !ready || showLoading) {
     return <LoadingOverlay />;
   }
 
-  if (!data.experiments.length) {
+  if (!data.experiments.length && !project) {
     return (
-      <div className="container p-4">
+      <div className="contents container pagecontents getstarted">
         <h1>Experiments</h1>
         <p>
-          Experiments (also known as A/B Tests or Split Tests) are one of the
-          best ways to make data-driven decisions for your business.
+          Experiments pull data from your event data and generates results using
+          our statistics engine. Before you can run an an experiment report, you
+          need to tell GrowthBook where it can find the experiment and metric
+          data.
         </p>
-        <p>
-          At their core, Experiments are simple - randomly split your users,
-          show each group a different variation of a page, and use statistics
-          and data to pick a winner.
-        </p>
-        <p>
-          GrowthBook lets you add context to experiments (hypotheses,
-          screenshots, discussion threads) and makes them easily searchable. Our
-          Bayesian statistics engine produces intuitive graphs that make it easy
-          to interpret results and choose a winner.
-        </p>
-        {permissions.draftExperiments && (
-          <button
-            className="btn btn-success btn-lg"
-            onClick={() => {
-              setOpenNewExperimentModal(true);
+        <ExperimentsGetStarted
+          experiments={data?.experiments}
+          mutate={mutate}
+        />
+        {openFeatureExperimentModal && (
+          <NewExperimentFromFeature
+            featureId={featureId}
+            source={"from feature"}
+            onClose={() => {
+              setOpenNewExperimentModal(false);
             }}
-          >
-            <FaPlus /> Add your first Experiment
-          </button>
-        )}
-        {openNewExperimentModal && (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="first-experiment"
           />
         )}
       </div>
     );
+    //return <ExperimentGetStarted experiments={data?.experiments || []} />;
   }
 
   const byStatus: {
@@ -780,6 +776,20 @@ const ExperimentsPage = (): React.ReactElement => {
           </Tabs>
         </div>
       </div>
+      {openFeatureExperimentModal && (
+        <NewExperimentFromFeature
+          featureId={featureId}
+          source={"from feature"}
+          onClose={() => {
+            setOpenFeatureExperimentModal(false);
+          }}
+          onCreate={(eid) => {
+            mutate();
+            router.push(`/experiment/${eid}`);
+            setShowLoading(true);
+          }}
+        />
+      )}
       {openNewExperimentModal && (
         <ImportExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}

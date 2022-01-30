@@ -12,6 +12,8 @@ import {
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
+import { getExperimentByTrackingKey } from "../services/experiments";
+import { ExperimentDocument } from "../models/ExperimentModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -220,8 +222,22 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
+  const experiments: { [key: string]: ExperimentDocument } = {};
+  if (feature.rules) {
+    const promises = feature.rules.map(async (r) => {
+      if (r.type === "experiment" && r?.trackingKey) {
+        const exp = await getExperimentByTrackingKey(org.id, r.trackingKey);
+        if (exp) {
+          experiments[r.trackingKey] = exp;
+        }
+      }
+    });
+    await Promise.all(promises);
+  }
+
   res.status(200).json({
     status: 200,
     feature,
+    experiments,
   });
 }
