@@ -16,6 +16,7 @@ import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
 import ExperimentReportsList from "./ExperimentReportsList";
 import usePermissions from "../../hooks/usePermissions";
+import FilterSummary from "./FilterSummary";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -202,6 +203,9 @@ const Results: FC<{
         ))}
       {hasData && !snapshot.dimension && (
         <>
+          <div className="float-right pr-3">
+            <FilterSummary experiment={experiment} selectedPhase={phaseObj} />
+          </div>
           <CompactResults
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
