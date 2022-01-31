@@ -30,7 +30,6 @@ export type NewExperimentFormProps = {
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   initialNumVariations?: number;
   isImport?: boolean;
-  isFromFeature?: boolean;
   includeDescription?: boolean;
   source: string;
   idea?: string;
@@ -73,7 +72,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   onClose,
   onCreate = null,
   isImport,
-  isFromFeature = false,
   includeDescription,
   source,
   idea,
@@ -90,17 +88,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const initialPhases: Partial<ExperimentPhaseStringDates>[] = isImport
+  const initialPhases: ExperimentPhaseStringDates[] = isImport
     ? [
         {
-          coverage: 1,
+          coverage: initialValue.phases?.[0].coverage || 1,
           dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
           dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
-          phase: "main",
+          phase: initialValue.phases?.[0].phase || "main",
           reason: "",
           groups: [],
           variationWeights:
@@ -108,19 +106,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             getEvenSplit(
               initialValue.variations ? initialValue.variations.length : 2
             ),
-        },
-      ]
-    : isFromFeature
-    ? [
-        {
-          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
-            .toISOString()
-            .substr(0, 16),
-          coverage: initialValue.phases?.[0].coverage || 1,
-          phase: initialValue.phases?.[0].phase || "main",
-          reason: "",
-          groups: [],
-          variationWeights: initialValue.phases?.[0].variationWeights,
         },
       ]
     : [];
@@ -180,7 +165,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // TODO: more validation?
 
     const data = { ...value };
-    if (!isImport && !isFromFeature) {
+    if (!isImport) {
       data.status = "draft";
     }
 
@@ -216,13 +201,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={
-        isImport
-          ? "Import Experiment"
-          : isFromFeature
-          ? "Add Experiment from Feature Flag"
-          : "New Experiment"
-      }
+      header={"New Experiment Analysis"}
       close={onClose}
       submit={onSubmit}
       cta={"Save"}
@@ -234,7 +213,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
-        {visualEditorEnabled && !isImport && !isFromFeature && (
+        {visualEditorEnabled && !isImport && (
           <Field
             label="Use Visual Editor"
             options={[
@@ -346,19 +325,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           Swap right
                         </a>
                       )}
-                      {!isImport &&
-                        !isFromFeature &&
-                        variations.fields.length > 2 && (
-                          <a
-                            className=" dropdown-item text-danger"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              variations.remove(i);
-                            }}
-                          >
-                            Delete
-                          </a>
-                        )}
+                      {!isImport && variations.fields.length > 2 && (
+                        <a
+                          className=" dropdown-item text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.remove(i);
+                          }}
+                        >
+                          Delete
+                        </a>
+                      )}
                     </MoreMenu>
                   </div>
                   {showVariationIds && (
@@ -381,7 +358,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </div>
               </div>
             ))}
-            {!isImport && !isFromFeature && (
+            {!isImport && (
               <div
                 className="col-lg-6 col-md-6 mb-2 text-center"
                 style={{ minWidth: 200 }}

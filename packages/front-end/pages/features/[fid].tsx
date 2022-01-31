@@ -152,6 +152,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           <div className="appbox mb-4">
             <RuleList
               feature={data.feature}
+              experiments={data.experiments || {}}
               mutate={mutate}
               setRuleModal={setRuleModal}
             />

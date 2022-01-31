@@ -12,11 +12,13 @@ import React, { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
+import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
 
 interface SortableProps {
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
+  experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: (i: number) => void;
 }
@@ -28,7 +30,10 @@ type RuleProps = SortableProps &
 
 // eslint-disable-next-line
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
-  ({ i, rule, feature, setRuleModal, mutate, handle, ...props }, ref) => {
+  (
+    { i, rule, feature, setRuleModal, mutate, handle, experiments, ...props },
+    ref
+  ) => {
     const { apiCall } = useAuth();
     const type = feature.valueType;
     const title =
@@ -183,6 +188,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 values={rule.values}
                 type={type}
                 feature={feature}
+                description={rule.description || ""}
+                experiment={experiments[rule.trackingKey || feature.id]}
                 hashAttribute={rule.hashAttribute || ""}
                 trackingKey={rule.trackingKey || feature.id}
               />

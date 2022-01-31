@@ -447,7 +447,6 @@ app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );
-app.get("/experiment/key/:id", experimentsController.getExperimentByKey);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

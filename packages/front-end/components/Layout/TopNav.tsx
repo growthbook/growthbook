@@ -21,6 +21,7 @@ import ChangePasswordModal from "../Auth/ChangePasswordModal";
 import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import Head from "next/head";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -77,6 +78,9 @@ const TopNav: FC<{
 
   return (
     <>
+      <Head>
+        <title>GrowthBook - {pageTitle}</title>
+      </Head>
       {editUserOpen && (
         <Modal
           close={() => setEditUserOpen(false)}

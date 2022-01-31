@@ -6,6 +6,8 @@ import {
 import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
 import track from "../../services/track";
+import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -17,15 +19,48 @@ export default function ExperimentSummary({
   type,
   hashAttribute,
   trackingKey,
+  experiment,
   feature,
+  description,
 }: {
   values: ExperimentValue[];
   type: FeatureValueType;
   hashAttribute: string;
   trackingKey: string;
+  description: string;
   feature: FeatureInterface;
+  experiment?: ExperimentInterfaceStringDates;
 }) {
   const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
+  const { datasources } = useDefinitions();
+
+  const expDetails: Partial<ExperimentInterfaceStringDates> = {
+    trackingKey,
+    name: trackingKey + " experiment",
+    hypothesis: description,
+    description: `Experiment for the feature [**${feature.id}**](/features/${feature.id})`,
+    variations: values.map((v, i) => {
+      let name = i ? `Variation ${i}` : "Control";
+      if (type === "boolean") {
+        name = v.value === "true" ? "On" : "Off";
+      }
+
+      return {
+        name,
+        screenshots: [],
+        description: v.value,
+      };
+    }),
+    phases: [
+      {
+        coverage: totalPercent,
+        variationWeights: values.map((v) => v.weight / totalPercent),
+        phase: "main",
+        reason: "",
+        dateStarted: new Date().toISOString(),
+      },
+    ],
+  };
 
   return (
     <div>
@@ -98,7 +133,7 @@ export default function ExperimentSummary({
           )}
         </tbody>
       </table>
-      <div className="row">
+      <div className="row align-items-center">
         <div className="col-auto">
           <strong>TRACK</strong>
         </div>
@@ -108,21 +143,29 @@ export default function ExperimentSummary({
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {trackingKey}
           </span>{" "}
-          <Link
-            href={`/experiments/?experimentFromFeature=${encodeURIComponent(
-              feature.id
-            )}`}
-          >
-            <a
-              className="btn btn-outline-primary float-right"
-              onClick={() => {
-                track("Create Organization");
-              }}
-            >
-              View experiment results
-            </a>
-          </Link>
         </div>
+        {(experiment || datasources.length > 0) && (
+          <div className="col-auto">
+            <Link
+              href={
+                experiment
+                  ? `/experiment/${experiment.id}#results`
+                  : `/experiments/?source=feature-rule&create=${encodeURIComponent(
+                      JSON.stringify(expDetails)
+                    )}`
+              }
+            >
+              <a
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => {
+                  track("Create Organization");
+                }}
+              >
+                View results
+              </a>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

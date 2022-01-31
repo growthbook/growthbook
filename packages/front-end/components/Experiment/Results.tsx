@@ -160,7 +160,17 @@ const Results: FC<{
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
-          Add at least 1 metric to view results.
+          Add at least 1 metric to view results.{" "}
+          <button
+            className="btn btn-primary btn-sm ml-3"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              editMetrics();
+            }}
+          >
+            Add Metrics
+          </button>
         </div>
       )}
       {!hasData && status !== "running" && experiment.metrics.length > 0 && (

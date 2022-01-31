@@ -17,7 +17,6 @@ import {
   getMetricAnalysis,
   refreshMetric,
   getExperimentsByMetric,
-  getExperimentByTrackingKey,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import {
@@ -181,37 +180,6 @@ export async function getExperiment(
     status: 200,
     experiment,
     idea,
-  });
-}
-
-export async function getExperimentByKey(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-
-  const experiment = await getExperimentByTrackingKey(org.id, id);
-
-  if (!experiment) {
-    res.status(403).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, experiment.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this experiment",
-    });
-    return;
-  }
-
-  res.status(200).json({
-    status: 200,
-    experiment,
   });
 }
 
