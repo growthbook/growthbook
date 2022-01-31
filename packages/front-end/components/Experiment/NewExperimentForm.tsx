@@ -9,7 +9,6 @@ import {
   ExperimentPhaseStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { MdDeleteForever } from "react-icons/md";
 import MetricsSelector from "./MetricsSelector";
 import { useWatching } from "../../services/WatchProvider";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -21,6 +20,7 @@ import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -77,7 +77,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [showVariationIds] = useState(false);
+  const [showVariationIds] = useState(isImport);
 
   const {
     datasources,
@@ -288,43 +288,71 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 key={i}
                 style={{ minWidth: 200 }}
               >
-                <div className="graybox">
-                  <div className="row">
-                    <div className={showVariationIds ? "col-8" : "col-12"}>
-                      <Field
-                        label={i === 0 ? "Control Name" : `Variation ${i} Name`}
-                        {...form.register(`variations.${i}.name`)}
-                      />
-                    </div>
-                    <div
-                      className={`col-4 ${showVariationIds ? "" : "d-none"}`}
-                    >
-                      <Field
-                        label="Id"
-                        {...form.register(`variations.${i}.key`)}
-                        placeholder={i + ""}
-                      />
-                    </div>
+                <div className="graybox position-relative">
+                  <Field
+                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                    {...form.register(`variations.${i}.name`)}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 5,
+                      right: 5,
+                    }}
+                  >
+                    <MoreMenu id={`variation${i}`}>
+                      {i > 0 && (
+                        <a
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.swap(i, i - 1);
+                          }}
+                        >
+                          Swap left
+                        </a>
+                      )}
+                      {i < variations.fields.length - 1 && (
+                        <a
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.swap(i, i + 1);
+                          }}
+                        >
+                          Swap right
+                        </a>
+                      )}
+                      {!isImport && variations.fields.length > 2 && (
+                        <a
+                          className=" dropdown-item text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.remove(i);
+                          }}
+                        >
+                          Delete
+                        </a>
+                      )}
+                    </MoreMenu>
                   </div>
+                  {showVariationIds && (
+                    <Field
+                      label="Id"
+                      {...form.register(`variations.${i}.key`)}
+                      placeholder={i + ""}
+                      helpText={
+                        <span>
+                          Must match the <code>variation_id</code> field in your
+                          data source
+                        </span>
+                      }
+                    />
+                  )}
                   <Field
                     label="Description"
                     {...form.register(`variations.${i}.description`)}
                   />
-                  <div className="text-right">
-                    {!isImport && variations.fields.length > 2 ? (
-                      <a
-                        className="text-danger cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          variations.remove(i);
-                        }}
-                      >
-                        <MdDeleteForever /> Delete
-                      </a>
-                    ) : (
-                      ""
-                    )}
-                  </div>
                 </div>
               </div>
             ))}

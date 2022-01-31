@@ -17,11 +17,19 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   if (type === "boolean") return value === "false" ? false : true;
   return null;
 }
-export async function getFeatureDefinitions(organization: string) {
+export async function getFeatureDefinitions(
+  organization: string,
+  environment?: string
+) {
   const features = await getAllFeatures(organization);
 
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
+    if (environment && !feature.environments?.includes(environment)) {
+      defs[feature.id] = { defaultValue: null };
+      return;
+    }
+
     defs[feature.id] = {
       defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:

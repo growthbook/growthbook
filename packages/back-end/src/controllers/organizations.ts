@@ -1066,7 +1066,7 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 }
 
 export async function postApiKey(
-  req: AuthRequest<{ description?: string }>,
+  req: AuthRequest<{ description?: string; environment: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1077,9 +1077,11 @@ export async function postApiKey(
     });
   }
 
+  const { description, environment } = req.body;
+
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
-    const existing = await getFirstApiKey(org.id);
+    const existing = await getFirstApiKey(org.id, environment);
     if (existing) {
       return res.status(200).json({
         status: 200,
@@ -1088,9 +1090,7 @@ export async function postApiKey(
     }
   }
 
-  const { description } = req.body;
-
-  const key = await createApiKey(org.id, description);
+  const key = await createApiKey(org.id, environment, description);
 
   res.status(200).json({
     status: 200,

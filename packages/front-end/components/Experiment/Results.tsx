@@ -16,6 +16,7 @@ import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
 import ExperimentReportsList from "./ExperimentReportsList";
 import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "../../services/auth";
 import FilterSummary from "./FilterSummary";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
@@ -28,6 +29,8 @@ const Results: FC<{
   mutateExperiment: () => void;
 }> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
   const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
+
+  const { apiCall } = useAuth();
 
   const [phase, setPhase] = useState(experiment.phases.length - 1);
   const [dimension, setDimension] = useState("");
@@ -219,6 +222,37 @@ const Results: FC<{
             variations={variations}
             isUpdating={status === "running"}
             editMetrics={editMetrics}
+            setVariationIds={async (ids) => {
+              // Don't do anything if the query is currently running
+              if (status === "running") {
+                throw new Error("Cancel running query first");
+              }
+
+              // Update variation ids
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  variations: experiment.variations.map((v, i) => {
+                    return {
+                      ...v,
+                      key: ids[i] ?? v.key,
+                    };
+                  }),
+                }),
+              });
+
+              // Fetch results again
+              await apiCall(`/experiment/${experiment.id}/snapshot`, {
+                method: "POST",
+                body: JSON.stringify({
+                  phase,
+                  dimension,
+                }),
+              });
+
+              mutateExperiment();
+              mutate();
+            }}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">

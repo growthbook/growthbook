@@ -29,6 +29,7 @@ const CompactResults: FC<{
   status: ExperimentStatus;
   metrics: string[];
   id: string;
+  setVariationIds?: (ids: string[]) => Promise<void>;
 }> = ({
   results,
   variations,
@@ -42,6 +43,7 @@ const CompactResults: FC<{
   isLatestPhase,
   metrics,
   id,
+  setVariationIds,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -76,6 +78,7 @@ const CompactResults: FC<{
           unknownVariations={unknownVariations}
           variations={variations}
           isUpdating={isUpdating}
+          setVariationIds={setVariationIds}
         />
         <MultipleExposureWarning
           users={users}

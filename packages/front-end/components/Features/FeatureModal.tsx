@@ -2,12 +2,13 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
-import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import dJSON from "dirty-json";
 import FeatureValueField from "./FeatureValueField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import track from "../../services/track";
+import Toggle from "../Forms/Toggle";
+import uniq from "lodash/uniq";
 
 export type Props = {
   close: () => void;
@@ -40,15 +41,17 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
   const form = useForm<Partial<FeatureInterface>>({
     defaultValues: {
       valueType: existing?.valueType || "boolean",
-      defaultValue: existing?.defaultValue ?? "false",
+      defaultValue: existing?.defaultValue ?? "true",
       description: existing?.description || "",
       id: existing?.id || "",
       project: existing?.project ?? project,
+      environments: ["dev"],
     },
   });
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType");
+  const environments = form.watch("environments");
 
   return (
     <Modal
@@ -107,23 +110,11 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
       )}
 
       <Field
-        label="Description"
-        render={(id) => (
-          <MarkdownInput
-            value={form.watch("description")}
-            setValue={(val) => form.setValue("description", val)}
-            id={id}
-            placeholder="Describe the feature in more detail (optional)"
-          />
-        )}
-      />
-
-      <Field
         label="Value Type"
         {...form.register("valueType")}
         options={[
           {
-            display: "on/off",
+            display: "boolean (on/off)",
             value: "boolean",
           },
           "number",
@@ -132,8 +123,48 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         ]}
       />
 
+      <label>Enabled Environments</label>
+      <div className="row">
+        <div className="col-auto">
+          <div className="form-group">
+            <label htmlFor={"dev_toggle_create"} className="mr-2 ml-3">
+              Dev:
+            </label>
+            <Toggle
+              id={"dev_toggle_create"}
+              label="Dev"
+              value={environments.includes("dev") ?? false}
+              setValue={(on) => {
+                let envs = [...environments];
+                if (on) envs.push("dev");
+                else envs = envs.filter((e) => e !== "dev");
+                form.setValue("environments", uniq(envs));
+              }}
+            />
+          </div>
+        </div>
+        <div className="col-auto">
+          <div className="form-group">
+            <label htmlFor={"production_toggle_create"} className="mr-2">
+              Production:
+            </label>
+            <Toggle
+              id={"production_toggle_create"}
+              label="Production"
+              value={environments.includes("production") ?? false}
+              setValue={(on) => {
+                let envs = [...environments];
+                if (on) envs.push("production");
+                else envs = envs.filter((e) => e !== "production");
+                form.setValue("environments", uniq(envs));
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
       <FeatureValueField
-        label="Default Value"
+        label="Value When Enabled"
         form={form}
         field="defaultValue"
         valueType={valueType}

@@ -1,10 +1,10 @@
 # Webhooks
 
-Webhooks are one way to keep cached experiment and feature configuration up-to-date on your servers.
+Webhooks are one way to keep cached feature definitions up-to-date on your servers.
 
-With **Webhooks**, GrowthBook pushes config data to your servers as soon as they change.
+With **Webhooks**, GrowthBook pushes feature definitions to your servers as soon as they change.
 
-The other way is with the [API](/app/api), where your servers pull config data from GrowthBook in a cronjob (or similar).
+The other way is with the [API](/app/api), where your servers pull feature definitions from GrowthBook in a cronjob (or similar).
 
 ## Adding a Webhook Endpoint
 
@@ -16,7 +16,9 @@ This page is also where you can view the shared secret used to verify requests (
 
 ## Payload
 
-Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing experiment overrides in the same format as the API returns.
+Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing feature definitions in the same format as the API returns.
+
+**Note:** Only features enabled in production are sent via webhooks. The only way to retrieve dev features is via the [API](/app/api).
 
 Here's an example payload:
 
@@ -26,19 +28,6 @@ Here's an example payload:
   "features": {
     "feature1": {
       "defaultValue": true
-    }
-  },
-  "overrides": {
-    "experiment-key": {
-      "status": "running",
-      "weights": [0.5, 0.5],
-      "coverage": 1,
-      "groups": ["beta"],
-      "url": "^/post/[0-9]+$"
-    },
-    "another-experiment": {
-      "status": "stopped",
-      "force": 2
     }
   }
 }
@@ -54,15 +43,6 @@ The `features` field has one entry per feature definition. Features can have the
   - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
   - **weights[]** - Determines how traffic is split between variations in an experiment
   - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
-
-The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
-
-- **status** - Either "draft", "running", or "stopped". Stopped experiments are only included in the response if a non-control variation won.
-- **weights** - How traffic should be weighted between variations. Will add up to 1.
-- **coverage** - A float from 0 to 1 (inclusive) which specifies what percent of users to include in the experiment.
-- **groups** - An array of user groups who are eligible for the experiment
-- **url** - A regex for which URLs the experiment should run on
-- **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
 
 ## VPCs and Firewalls
 
@@ -100,7 +80,7 @@ app.post(
       throw new Error("Signatures do not match!");
     }
 
-    const { overrides, features } = JSON.parse(payload);
+    const { features } = JSON.parse(payload);
     // TODO: Store in a cache or database
 
     // Make sure to respond with a 200 status code

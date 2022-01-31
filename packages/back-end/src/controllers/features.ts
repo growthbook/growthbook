@@ -17,7 +17,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
 
   try {
-    const organization = await lookupOrganizationByApiKey(key);
+    const { organization, environment } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -25,7 +25,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
-    const features = await getFeatureDefinitions(organization);
+    const features = await getFeatureDefinitions(organization, environment);
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -69,6 +69,7 @@ export async function postFeatures(
     description: "",
     project: "",
     rules: [],
+    environments: ["dev"],
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -135,7 +136,8 @@ export async function putFeature(
     updates.defaultValue !== feature.defaultValue
   ) {
     requiresWebhook = true;
-  } else if ("rules" in updates) {
+  }
+  if ("rules" in updates) {
     if (updates.rules?.length !== feature.rules?.length) {
       requiresWebhook = true;
     } else {
@@ -151,6 +153,11 @@ export async function putFeature(
           requiresWebhook = true;
         }
       });
+    }
+  }
+  if ("environments" in updates) {
+    if (updates.environments?.length !== feature.environments?.length) {
+      requiresWebhook = true;
     }
   }
 

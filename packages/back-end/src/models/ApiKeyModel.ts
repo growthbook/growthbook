@@ -6,6 +6,7 @@ const apiKeySchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  environment: String,
   description: String,
   organization: String,
   dateCreated: Date,

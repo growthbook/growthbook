@@ -3,12 +3,12 @@ import { ReactElement } from "react";
 export default function Toggle({
   value,
   setValue,
-  label,
+  label = "",
   id,
 }: {
   id: string;
   value: boolean;
-  label: string | ReactElement;
+  label?: string | ReactElement;
   setValue: (value: boolean) => void;
 }) {
   return (
@@ -21,7 +21,7 @@ export default function Toggle({
           setValue(e.target.checked);
         }}
       />
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{label || id}</label>
     </div>
   );
 }

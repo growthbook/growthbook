@@ -8,6 +8,16 @@ You can set a global value for everyone, use advanced targeting to
 assign values to users, and run experiments to see which value is
 better.
 
+## Environments
+
+GrowthBook comes with two environments - **dev** and **production**, and each one has their own unique API endpoint for getting a list of features.
+
+Features can be enabled and disabled on a per-environment basis.
+
+When a feature is disabled in an environment, it will always evaluate to `null` and ignore any other targeting or override rules.
+
+**Note:** It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+
 ## Feature Keys
 
 Every feature is defined by a unique **key**. This is what the engineering team will reference in their code when they check the value of a feature. Feature keys cannot be changed after they are created, so take care when choosing one.
@@ -108,21 +118,19 @@ In advanced mode, you can specify conditions using the MongoDB query syntax. Thi
 
 **Note**: We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
 
-### Force Rules
+### Forced Value
 
-The simplest type of override rule is a "Force" rule. This forces everyone who matches the condition to get the specified value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
+The simplest type of override rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
 
-Force rules are most useful when you want to target a specific value to a subset of users. For example, you want beta users to get the new value and everyone else to get the old value.
+### Percentage Rollout
 
-### Rollout Rules
-
-Percent rollout rules let you gradually release a feature value to a random sample of your users.
+Percentage Rollout rules let you gradually release a feature value to a random sample of your users.
 
 Rollouts are most useful when you want to make sure a new feature doesn't break your app or site. You start by releasing to maybe 10% of users. Then after a while if your metrics look ok, you increase to 30% and so on.
 
 For rollout rules, you choose a user attribute to use for the random sample. Users with the same attribute value will be treated the same (either included or not included in the rollout). For example, if you choose a "company" attribute, then multiple employees in the same company will get the same experience.
 
-### Experiment Rules
+### Experiments
 
 The last type of rule is an Experiment. This randomly splits users into buckets, assigns them different values, and tracks that assignment in your data warehouse or analytics tool.
 
@@ -151,6 +159,8 @@ There is a public GrowthBook API endpoint for the feature definitions JSON:
 
 The API includes a cache header with a 30-second TTL (plus stale-while-revalidate and stale-if-error headers).
 
+**Note:** There are separate API keys for dev and production. Make sure you are using the right one for your environment.
+
 ### Load directly (client-side)
 
 You can use `window.fetch` (or similar) to fetch from the API when your app first loads on the client:
@@ -163,7 +173,7 @@ fetch(`https://cdn.growthbook.io/api/features/${MY_API_KEY}`)
   });
 ```
 
-For self-hosted deployments, we highly recommend using a CDN like Fastly or CloudFlare. The GrowthBook API alone is not meant to serve large amounts of production traffic.
+For self-hosted deployments, we highly recommend using a CDN like Fastly or CloudFlare. The GrowthBook API alone is not meant to serve large amounts of production traffic. The API returns standard cache headers (max-age, stale-while-revalidate, and stale-if-error) so no special CDN configuration is required.
 
 The downside of this approach is that you're adding a network request into your critical rendering path. If the HTTP request is slow (or if the API crashes) for whatever reason, your user experience will suffer.
 

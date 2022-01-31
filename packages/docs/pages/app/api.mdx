@@ -1,58 +1,20 @@
 # API
 
-The API is one way to keep cached experiment overrides and features up-to-date on your servers.
+The API is one way to keep cached features up-to-date on your servers.
 
-With the **API**, your servers pull configs from GrowthBook in a cronjob (or similar).
+With the **API**, your servers pull feature definitions from GrowthBook in a cronjob (or similar).
 
-With [Webhooks](/app/webhooks), GrowthBook pushes configs to your servers as soon as they change.
+With [Webhooks](/app/webhooks), GrowthBook calls out to your servers as soon as features change in GrowthBook.
 
-## Creating an API Key
+## Creating API Keys
 
-When logged into GrowthBook as an admin, navigate to **Settings -> API Keys**.
+When you first start setting up features in GrowthBook, we auto-generate two unique API keys for you - one for **dev** and one for **production**.
 
-There you can generate an API key and give it an optional description.
-
-There are two API endpoints. One for getting experiment overrides, and another for getting feature definitions.
-
-## Experiment Overrides Endpoint
-
-For **self-hosted** deployments, the endpoint is at [http://localhost:3100/config/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the default for the API)
-
-For **GrowthBook Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/config/{myKey}
-
-Here is an example API response:
-
-```json
-{
-  "status": 200,
-  "overrides": {
-    "experiment-key": {
-      "status": "running",
-      "weights": [0.5, 0.5],
-      "coverage": 1,
-      "groups": ["beta"],
-      "url": "^/post/[0-9]+$"
-    },
-    "another-experiment": {
-      "status": "stopped",
-      "force": 2
-    }
-  }
-}
-```
-
-The `status` field just mirrors the HTTP status code.
-
-The `overrides` field has one entry per experiment with overrides that should take precedence over hard-coded values in your code.
-
-- **status** - Either "draft", "running", or "stopped". Stopped experiments are only included in the response if a non-control variation won.
-- **weights** - How traffic should be weighted between variations. Will add up to 1.
-- **coverage** - A float from 0 to 1 (inclusive) which specifies what percent of users to include in the experiment.
-- **groups** - An array of user groups who are eligible for the experiment
-- **url** - A regex for which URLs the experiment should run on
-- **force** - Force all users to see the specified variation index (`0` = control, `1` = first variation, etc.).
+You can see these keys and create new ones if needed by going to **Settings -> API Keys**.
 
 ## Feature Definitions Endpoint
+
+The primary API endpoint is for fetching feature definitions.
 
 For **self-hosted** deployments, the endpoint is at [http://localhost:3100/api/features/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the default for the API)
 
@@ -84,16 +46,14 @@ Here is an example API response:
 
 The `status` field mirrors the HTTP status. The `features` field has feature definitions indexed by the feature key.
 
-Each feature definition has a default value and optional rules that override the value based on targeting conditions. Rules can also be experiments where values are randomly assigned to users.
+Each feature definition has a default value and optional rules that override the value based on targeting conditions. Rules can also be experiments or rollouts where values are randomly assigned to users.
 
-## Official Client Libraries
+## Official SDKs
 
-We offer official client libraries that work with these data structures in a few popular languages with more coming soon.
+We offer official SDKs that work with these data structures in a few popular languages with more coming soon.
 
-- [Javascript/Typescript](/lib/js) (experiments and features)
-- [React](/lib/react) (experiments and features)
-- [PHP](/lib/php) (experiments only)
-- [Ruby](/lib/ruby) (experiments only)
-- [Python](/lib/python) (experiments only)
-- [Go](/lib/go) (experiments and features)
-- [Build your own](/lib/build-your-own) (experiments only)
+- [Javascript/Typescript](/lib/js)
+- [React](/lib/react)
+- [Go](/lib/go)
+- [Kotlin (Android)](/lib/kotlin)
+- [Build your own](/lib/build-your-own)

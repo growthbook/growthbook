@@ -147,6 +147,40 @@ We query Mixpanel using JQL. We have sensible defaults for the event and propert
   - **URL Path Property** - in the event, the property name that stores the URL path for the pageview
   - **User Agent Property** - In the event, the property name that stores the user agent for the pageview
 
+Below is an example of what your Mixpanel tracking call would look like in Javascript using our default settings:
+
+```js
+// Tracking Callback for GrowthBook SDK
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: function(experiment, result) {
+    mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name":  result.variationId
+    })
+  }
+})
+
+// On page view (or similar event)
+mixpanel.track("Page view", {
+  "$current_url": location.pathname
+})
+```
+
+When we query Mixpanel, we group users by `distinct_id`. We recommend passing this into the GrowthBook SDK as the user attribute `id`. This varies by platform, but below is a javascript example:
+
+```js
+// Can only get the distinct_id after Mixpanel fully loads
+mixpanel.init("YOUR PROJECT TOKEN", {
+  loaded: function (mixpanel) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mixpanel.get_distinct_id(),
+    });
+  },
+});
+```
+
 ## Connection Info
 
 Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
