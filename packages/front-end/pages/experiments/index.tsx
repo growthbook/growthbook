@@ -761,7 +761,7 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
       {openNewExperimentModal && (
         <ImportExperimentModal
-          onClose={() => setOpenNewExperimentModal(null)}
+          onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
         />
       )}

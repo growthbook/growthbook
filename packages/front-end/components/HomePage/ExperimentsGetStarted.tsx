@@ -38,22 +38,21 @@ const ExperimentsGetStarted = ({
   const router = useRouter();
 
   // If this is coming from a feature experiment rule
-  const [showFeatureMessage, initialExperiment] = useMemo(() => {
-    if (!router?.query) {
-      return [false, null];
+  const featureExperiment = useMemo(() => {
+    if (!router?.query?.featureExperiment) {
+      return null;
     }
-    const showFeatureMessage = router?.query?.source === "feature-rule";
-    let initialExperiment: Partial<ExperimentInterfaceStringDates> | null = null;
-    if (showFeatureMessage && router?.query?.exp) {
-      try {
-        initialExperiment = JSON.parse(router?.query?.exp as string);
-        window.history.replaceState(null, null, window.location.pathname);
-      } catch (e) {
-        console.error(e);
-      }
+    try {
+      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
+        router?.query?.featureExperiment as string
+      );
+      window.history.replaceState(null, null, window.location.pathname);
+      return initialExperiment;
+    } catch (e) {
+      console.error(e);
+      return null;
     }
-    if (router?.query) return [showFeatureMessage, initialExperiment];
-  }, [router?.query]);
+  }, [router?.query?.featureExperiment]);
 
   const hasSampleExperiment = experiments.filter((m) =>
     m.id.match(/^exp_sample/)
@@ -122,8 +121,8 @@ const ExperimentsGetStarted = ({
         {experimentsOpen && (
           <ImportExperimentModal
             onClose={() => setExperimentsOpen(false)}
-            source={showFeatureMessage ? "feature-rule" : "get-started"}
-            initialValue={initialExperiment}
+            source={featureExperiment ? "feature-rule" : "get-started"}
+            initialValue={featureExperiment}
           />
         )}
         <div className="row">
@@ -136,7 +135,7 @@ const ExperimentsGetStarted = ({
                   View Documentation
                 </a>
               </div>
-            ) : showFeatureMessage ? (
+            ) : featureExperiment ? (
               <div className="alert alert-info mb-3">
                 First connect to your data source and define a metric. Then you
                 can view results for your experiment.

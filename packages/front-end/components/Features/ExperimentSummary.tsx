@@ -175,7 +175,7 @@ export default function ExperimentSummary({
             </a>
           ) : (
             <Link
-              href={`/experiments/?source=feature-rule&exp=${encodeURIComponent(
+              href={`/experiments/?featureExperiment=${encodeURIComponent(
                 JSON.stringify(expDefinition)
               )}`}
             >
