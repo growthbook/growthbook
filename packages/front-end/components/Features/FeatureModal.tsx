@@ -108,6 +108,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           track("Feature Created", {
             valueType: values.valueType,
             hasDescription: values.description.length > 0,
+            initialRule: values.rules?.[0]?.type ?? "none",
           });
           if (values.rules?.length > 0) {
             track("Save Feature Rule", {
