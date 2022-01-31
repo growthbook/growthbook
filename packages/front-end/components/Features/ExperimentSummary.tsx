@@ -5,9 +5,10 @@ import {
 } from "back-end/types/feature";
 import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
-import track from "../../services/track";
-import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useState } from "react";
+import NewExperimentForm from "../Experiment/NewExperimentForm";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -32,13 +33,14 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
 }) {
   const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
-  const { datasources } = useDefinitions();
+  const { datasources, metrics } = useDefinitions();
+  const [newExpModal, setNewExpModal] = useState(false);
 
-  const expDetails: Partial<ExperimentInterfaceStringDates> = {
+  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey,
     name: trackingKey + " experiment",
     hypothesis: description,
-    description: `Experiment for the feature [**${feature.id}**](/features/${feature.id})`,
+    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
       if (type === "boolean") {
@@ -54,7 +56,9 @@ export default function ExperimentSummary({
     phases: [
       {
         coverage: totalPercent,
-        variationWeights: values.map((v) => v.weight / totalPercent),
+        variationWeights: values.map((v) =>
+          totalPercent > 0 ? v.weight / totalPercent : 1 / values.length
+        ),
         phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),
@@ -64,6 +68,15 @@ export default function ExperimentSummary({
 
   return (
     <div>
+      {newExpModal && (
+        <NewExperimentForm
+          onClose={() => setNewExpModal(false)}
+          source="feature-rule"
+          isImport={true}
+          msg="We couldn't find an analysis yet for that feature. Create a new one now."
+          initialValue={expDefinition}
+        />
+      )}
       <div className="mb-3 row">
         <div className="col-auto">
           <strong>SPLIT</strong>
@@ -144,28 +157,32 @@ export default function ExperimentSummary({
             {trackingKey}
           </span>{" "}
         </div>
-        {(experiment || datasources.length > 0) && (
-          <div className="col-auto">
-            <Link
-              href={
-                experiment
-                  ? `/experiment/${experiment.id}#results`
-                  : `/experiments/?source=feature-rule&create=${encodeURIComponent(
-                      JSON.stringify(expDetails)
-                    )}`
-              }
-            >
-              <a
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => {
-                  track("Create Organization");
-                }}
-              >
-                View results
-              </a>
+        <div className="col-auto">
+          {experiment ? (
+            <Link href={`/experiment/${experiment.id}#results`}>
+              <a className="btn btn-outline-primary btn-sm">View results</a>
             </Link>
-          </div>
-        )}
+          ) : datasources.length > 0 && metrics.length > 0 ? (
+            <a
+              className="btn btn-outline-primary btn-sm"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setNewExpModal(true);
+              }}
+            >
+              View results
+            </a>
+          ) : (
+            <Link
+              href={`/experiments/?source=feature-rule&exp=${encodeURIComponent(
+                JSON.stringify(expDefinition)
+              )}`}
+            >
+              <a className="btn btn-outline-primary btn-sm">View results</a>
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );

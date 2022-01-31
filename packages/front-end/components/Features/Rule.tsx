@@ -12,7 +12,7 @@ import React, { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
-import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 interface SortableProps {
   i: number;

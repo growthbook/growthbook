@@ -17,7 +17,6 @@ import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
 import useUser from "../../hooks/useUser";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
-import { useEffect } from "react";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -28,11 +27,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const [showOnlyMyDrafts, setShowOnlyMyDrafts] = useState(false);
   const router = useRouter();
-  const [expModalSource, setExpModalSource] = useState("");
-  const [
-    openNewExperimentModal,
-    setOpenNewExperimentModal,
-  ] = useState<Partial<ExperimentInterfaceStringDates> | null>(null);
+  const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const { getUserDisplay, permissions, userId, users } = useUser();
 
@@ -43,37 +38,6 @@ const ExperimentsPage = (): React.ReactElement => {
     draft: 1,
   });
   const [experimentsPerPage] = useState(20);
-
-  // Experiment info passed in querystring
-  useEffect(() => {
-    if (!router?.query) return;
-    if (!data) return;
-    if (!router.query.create) return;
-
-    try {
-      const expPartial: Partial<ExperimentInterfaceStringDates> = JSON.parse(
-        router.query.create as string
-      );
-      if (!expPartial.trackingKey) return;
-
-      // Experiment with that trackingKey already exists, go there
-      const existing = data.experiments.filter(
-        (e) => e.trackingKey === expPartial.trackingKey
-      )[0];
-      if (existing) {
-        router.push(`/experiment/${existing.id}`);
-        return;
-      }
-
-      setOpenNewExperimentModal(expPartial);
-      setExpModalSource((router.query.source as string) || "query-string");
-
-      // Remove querystring so we don't end up in a redirect loop after creating
-      window.history.replaceState(null, null, window.location.pathname);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [router?.query, data]);
 
   const transforms = useMemo(() => {
     return {
@@ -113,37 +77,22 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  if (!data.experiments.length && !project) {
+  const hasExperiments =
+    data.experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+
+  if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
-        <h1>Experiments</h1>
+        <h1>Experiment Analysis</h1>
         <p>
-          Experiments pull data from your database and generates a report using
-          our statistics engine. Before you can run an an experiment report, you
-          need to tell GrowthBook where it can find the experiment and metric
-          data.
+          GrowthBook can pull experiment results directly from your data source
+          and analyze it with our statistics engine. Start by connecting to your
+          data source and defining metrics.
         </p>
         <ExperimentsGetStarted
           experiments={data?.experiments}
           mutate={mutate}
         />
-
-        {openNewExperimentModal && (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(null)}
-            source={expModalSource}
-            initialValue={
-              Object.keys(openNewExperimentModal).length > 0
-                ? openNewExperimentModal
-                : null
-            }
-            msg={
-              expModalSource === "feature-rule"
-                ? "No analysis found for this experiment yet. Create one now."
-                : ""
-            }
-          />
-        )}
       </div>
     );
   }
@@ -189,8 +138,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <button
                   className="btn btn-primary float-right"
                   onClick={() => {
-                    setExpModalSource("experiment-list");
-                    setOpenNewExperimentModal({});
+                    setOpenNewExperimentModal(true);
                   }}
                 >
                   <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -814,17 +762,7 @@ const ExperimentsPage = (): React.ReactElement => {
       {openNewExperimentModal && (
         <ImportExperimentModal
           onClose={() => setOpenNewExperimentModal(null)}
-          initialValue={
-            Object.keys(openNewExperimentModal).length > 0
-              ? openNewExperimentModal
-              : null
-          }
-          source={expModalSource}
-          msg={
-            expModalSource === "feature-rule"
-              ? "No analysis found for this experiment yet. Create one now."
-              : ""
-          }
+          source="experiment-list"
         />
       )}
     </>
