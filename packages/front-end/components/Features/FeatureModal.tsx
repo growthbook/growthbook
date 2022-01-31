@@ -12,17 +12,20 @@ import uniq from "lodash/uniq";
 import RadioSelector from "../Forms/RadioSelector";
 import ConditionInput from "./ConditionInput";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import {
+  getDefaultRuleValue,
+  getDefaultValue,
+  getDefaultVariationValue,
+  validateFeatureRule,
+} from "../../services/features";
+import RolloutPercentInput from "./RolloutPercentInput";
+import VariationsInput from "./VariationsInput";
 
 export type Props = {
   close: () => void;
   onSuccess: (feature: FeatureInterface) => Promise<void>;
   existing?: FeatureInterface;
 };
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 function parseDefaultValue(
   defaultValue: string,
@@ -49,7 +52,9 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
   const form = useForm<Partial<FeatureInterface>>({
     defaultValues: {
       valueType: existing?.valueType || "boolean",
-      defaultValue: existing?.defaultValue ?? "true",
+      defaultValue:
+        existing?.defaultValue ??
+        getDefaultValue(existing?.valueType || "boolean"),
       description: existing?.description || "",
       id: existing?.id || "",
       project: existing?.project ?? project,
@@ -59,7 +64,6 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
   });
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
-  const firstAttr = settings?.attributeSchema?.[0];
   const hasHashAttributes =
     settings?.attributeSchema?.filter((x) => x.hashAttribute)?.length > 0;
 
@@ -76,6 +80,10 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
       header="Create Feature"
       close={close}
       submit={form.handleSubmit(async (values) => {
+        if (values.rules.length > 0) {
+          validateFeatureRule(values.rules[0], valueType);
+        }
+
         const body = {
           ...values,
           defaultValue: parseDefaultValue(
@@ -86,8 +94,6 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
 
         if (existing) {
           delete body.id;
-        } else {
-          body.rules = [];
         }
 
         const res = await apiCall<{ feature: FeatureInterface }>(
@@ -103,6 +109,15 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             valueType: values.valueType,
             hasDescription: values.description.length > 0,
           });
+          if (values.rules?.length > 0) {
+            track("Save Feature Rule", {
+              source: "create-feature",
+              ruleIndex: 0,
+              type: values.rules[0].type,
+              hasCondition: values.rules[0].condition.length > 2,
+              hasDescription: false,
+            });
+          }
         }
 
         await onSuccess(res.feature);
@@ -118,7 +133,8 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
           helpText={
             <>
-              Only letters, numbers, and the characters <code>_-.:|</code>{" "}
+              Only letters, numbers, and the characters <code>_</code>,{" "}
+              <code>-</code>, <code>.</code>, <code>:</code>, and <code>|</code>{" "}
               allowed. No spaces. <strong>Cannot be changed later!</strong>
             </>
           }
@@ -170,7 +186,48 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
 
       <Field
         label="Value Type"
-        {...form.register("valueType")}
+        value={valueType}
+        onChange={(e) => {
+          const val = e.target.value as FeatureValueType;
+          const defaultValue = getDefaultValue(val);
+          form.setValue("valueType", val);
+
+          // Update values in rest of modal
+          if (!rule) {
+            form.setValue("defaultValue", defaultValue);
+          } else if (rule.type === "force") {
+            const otherVal = getDefaultVariationValue(defaultValue);
+            form.setValue("defaultValue", otherVal);
+            form.setValue("rules.0.value", defaultValue);
+          } else if (rule.type === "rollout") {
+            const otherVal = getDefaultVariationValue(defaultValue);
+            form.setValue("defaultValue", otherVal);
+            form.setValue("rules.0.value", defaultValue);
+          } else if (rule.type === "experiment") {
+            const otherVal = getDefaultVariationValue(defaultValue);
+            form.setValue("defaultValue", otherVal);
+
+            if (val === "boolean") {
+              form.setValue("rules.0.values", [
+                {
+                  value: otherVal,
+                  weight: 0.5,
+                },
+                {
+                  value: defaultValue,
+                  weight: 0.5,
+                },
+              ]);
+            } else {
+              for (let i = 0; i < rule.values.length; i++) {
+                form.setValue(
+                  `rules.0.values.${i}.value`,
+                  i ? defaultValue : otherVal
+                );
+              }
+            }
+          }
+        }}
         options={[
           {
             display: "boolean (on/off)",
@@ -215,66 +272,21 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             },
           ]}
           setValue={(value) => {
+            let defaultValue = getDefaultValue(valueType);
+
             if (!value) {
               form.setValue("rules", []);
-              form.setValue(
-                "defaultValue",
-                valueType === "boolean" ? "true" : ""
-              );
-            } else if (value === "force") {
+              form.setValue("defaultValue", defaultValue);
+            } else {
+              defaultValue = getDefaultVariationValue(defaultValue);
+              form.setValue("defaultValue", defaultValue);
               form.setValue("rules", [
                 {
-                  id: "",
-                  type: "force",
-                  description: "",
-                  value: valueType === "boolean" ? "true" : "",
-                  condition: firstAttr
-                    ? JSON.stringify({
-                        [firstAttr.property]:
-                          firstAttr.datatype === "boolean" ? "true" : "",
-                      })
-                    : "",
-                },
-              ]);
-              form.setValue(
-                "defaultValue",
-                valueType === "boolean" ? "false" : ""
-              );
-            } else if (value === "rollout") {
-              form.setValue("rules", [
-                {
-                  id: "",
-                  type: "rollout",
-                  description: "",
-                  value: valueType === "boolean" ? "true" : "",
-                  coverage: 0.5,
-                  hashAttribute: "id",
-                  condition: "",
-                },
-              ]);
-              form.setValue(
-                "defaultValue",
-                valueType === "boolean" ? "false" : ""
-              );
-            } else if (value === "experiment") {
-              form.setValue("rules", [
-                {
-                  id: "",
-                  type: "experiment",
-                  description: "",
-                  hashAttribute: "id",
-                  trackingKey: "",
-                  values: [
-                    {
-                      value: valueType === "boolean" ? "false" : "",
-                      weight: 0.5,
-                    },
-                    {
-                      value: valueType === "boolean" ? "true" : "",
-                      weight: 0.5,
-                    },
-                  ],
-                  condition: "",
+                  ...getDefaultRuleValue({
+                    defaultValue: defaultValue,
+                    ruleType: value,
+                    attributeSchema: settings?.attributeSchema,
+                  }),
                 },
               ]);
             }
@@ -299,29 +311,13 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
               .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
           />
-          <div className="form-group">
-            <label>Percent of users to include</label>
-            <div className="row align-items-center">
-              <div className="col">
-                <input
-                  {...form.register(`rules.0.coverage`, {
-                    valueAsNumber: true,
-                  })}
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  type="range"
-                  className="w-100"
-                />
-              </div>
-              <div
-                className="col-auto"
-                style={{ fontSize: "1.3em", width: "4em" }}
-              >
-                {percentFormatter.format(rule?.coverage)}
-              </div>
-            </div>
-          </div>
+          <RolloutPercentInput
+            value={form.watch("rules.0.coverage")}
+            setValue={(n) => {
+              form.setValue("rules.0.coverage", n);
+            }}
+            label="Percent of users to include"
+          />
           <FeatureValueField
             label={"Value when included"}
             form={form}
@@ -365,90 +361,26 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
           <Field
-            label="Assign variation based on attribute"
+            label="Sample users based on attribute"
             {...form.register("rules.0.hashAttribute")}
             options={settings.attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
-          <div className="form-group">
-            <label>Variations and Weights</label>
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>Variation</th>
-                  <th>Percent of Users</th>
-                  {rule.values.length > 2 && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {rule.values.map((val, i) => {
-                  return (
-                    <tr key={i}>
-                      <td>
-                        <FeatureValueField
-                          label=""
-                          form={form}
-                          field={`rules.0.values.${i}.value`}
-                          valueType={valueType}
-                        />
-                      </td>
-                      <td>
-                        <Field
-                          {...form.register(`rules.0.values.${i}.weight`, {
-                            valueAsNumber: true,
-                          })}
-                          type="number"
-                          min={0}
-                          max={1}
-                          step="0.01"
-                        />
-                      </td>
-                      {rule.values.length > 2 && (
-                        <td style={{ width: 100 }}>
-                          <button
-                            className="btn btn-link text-danger"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              form.setValue(
-                                `rules.0.values`,
-                                rule.values.filter((_, j) => j !== i)
-                              );
-                            }}
-                            type="button"
-                          >
-                            remove
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-                {valueType !== "boolean" && (
-                  <tr>
-                    <td colSpan={3}>
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          form.setValue(`rules.0.values`, [
-                            ...rule.values,
-                            {
-                              value: "",
-                              weight: 0,
-                            },
-                          ]);
-                        }}
-                      >
-                        add another variation
-                      </a>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <VariationsInput
+            form={form}
+            formPrefix="rules.0."
+            defaultValue={rule?.values?.[0]?.value}
+            valueType={valueType}
+          />
+          <FeatureValueField
+            label={"Fallback Value"}
+            helpText={"For people excluded from the experiment"}
+            form={form}
+            field="defaultValue"
+            valueType={valueType}
+          />
         </>
       )}
     </Modal>

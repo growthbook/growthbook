@@ -1,8 +1,12 @@
 import { useMemo } from "react";
-import { SDKAttributeType } from "back-end/types/organization";
-import { FeatureValueType } from "back-end/types/feature";
+import {
+  SDKAttributeSchema,
+  SDKAttributeType,
+} from "back-end/types/organization";
+import { FeatureRule, FeatureValueType } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import useOrgSettings from "../hooks/useOrgSettings";
+import uniq from "lodash/uniq";
 
 export interface Condition {
   field: string;
@@ -16,6 +20,146 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function validateFeatureRule(
+  rule: FeatureRule,
+  valueType: FeatureValueType
+) {
+  if (rule.condition) {
+    try {
+      const res = JSON.parse(rule.condition);
+      if (!res || typeof res !== "object") {
+        throw new Error("Condition is invalid");
+      }
+    } catch (e) {
+      throw new Error("Condition is invalid: " + e.message);
+    }
+  }
+  if (rule.type === "force") {
+    isValidValue(valueType, rule.value, "Forced value");
+  } else if (rule.type === "experiment") {
+    const ruleValues = rule.values;
+    if (!ruleValues || !ruleValues.length) {
+      throw new Error("Must set at least one value");
+    }
+    let totalWeight = 0;
+    ruleValues.forEach((val, i) => {
+      if (val.weight < 0) throw new Error("Percents cannot be negative");
+      totalWeight += val.weight;
+      isValidValue(valueType, val.value, "Value #" + (i + 1));
+    });
+    if (totalWeight > 1) {
+      throw new Error(
+        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+      );
+    }
+    if (uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length) {
+      throw new Error(`All variations must be unique`);
+    }
+  } else {
+    isValidValue(valueType, rule.value, "Rollout value");
+
+    if (rule.type === "rollout" && (rule.coverage < 0 || rule.coverage > 1)) {
+      throw new Error("Rollout percent must be between 0 and 1");
+    }
+  }
+}
+
+export function getDefaultValue(valueType: FeatureValueType): string {
+  if (valueType === "boolean") {
+    return "true";
+  }
+  if (valueType === "number") {
+    return "1";
+  }
+  if (valueType === "string") {
+    return "foo";
+  }
+  if (valueType === "json") {
+    return "{}";
+  }
+  return "";
+}
+export function getDefaultVariationValue(defaultValue: string) {
+  const map: Record<string, string> = {
+    true: "false",
+    false: "true",
+    "1": "0",
+    "0": "1",
+    foo: "bar",
+    bar: "foo",
+  };
+  return defaultValue in map ? map[defaultValue] : defaultValue;
+}
+
+export function getDefaultRuleValue({
+  defaultValue,
+  attributeSchema,
+  ruleType,
+}: {
+  defaultValue: string;
+  attributeSchema?: SDKAttributeSchema;
+  ruleType: string;
+}): FeatureRule {
+  const hashAttributes = attributeSchema
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
+  const hashAttribute = hashAttributes.includes("id")
+    ? "id"
+    : hashAttributes[0] || "id";
+
+  const value = getDefaultVariationValue(defaultValue);
+
+  if (ruleType === "rollout") {
+    return {
+      type: "rollout",
+      description: "",
+      id: "",
+      value,
+      coverage: 0.5,
+      condition: "",
+      enabled: true,
+      hashAttribute,
+    };
+  }
+  if (ruleType === "experiment") {
+    return {
+      type: "experiment",
+      description: "",
+      id: "",
+      condition: "",
+      enabled: true,
+      hashAttribute,
+      trackingKey: "",
+      values: [
+        {
+          value: defaultValue,
+          weight: 0.5,
+        },
+        {
+          value: value,
+          weight: 0.5,
+        },
+      ],
+    };
+  }
+
+  const firstAttr = attributeSchema?.[0];
+  const condition = firstAttr
+    ? JSON.stringify({
+        [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
+      })
+    : "";
+
+  return {
+    type: "force",
+    description: "",
+    id: "",
+    value,
+    enabled: true,
+    condition,
+  };
 }
 
 export function isValidValue(
