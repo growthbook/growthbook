@@ -155,6 +155,9 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {sorted.map((feature) => {
+                const firstRule = feature.rules?.[0];
+                const totalRules = feature.rules?.length || 0;
+
                 return (
                   <tr key={feature.id}>
                     <td>
@@ -180,9 +183,19 @@ export default function FeaturesPage() {
                       <ValueDisplay
                         value={feature.defaultValue}
                         type={feature.valueType}
+                        full={false}
                       />
                     </td>
-                    <td>{feature.rules?.length > 0 ? "yes" : "no"}</td>
+                    <td>
+                      {firstRule && (
+                        <span className="text-dark">{firstRule.type}</span>
+                      )}
+                      {totalRules > 1 && (
+                        <small className="text-muted ml-1">
+                          +{totalRules - 1} more
+                        </small>
+                      )}
+                    </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
                     </td>
