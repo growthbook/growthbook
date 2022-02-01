@@ -99,6 +99,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/projects/,
       },
       {
+        name: "Attributes",
+        href: "/settings/attributes",
+        path: /^settings\/attributes/,
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
