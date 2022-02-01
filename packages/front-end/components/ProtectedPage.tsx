@@ -13,6 +13,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
+import InAppHelp from "./Auth/InAppHelp";
 
 type User = { id: string; email: string; name: string };
 
@@ -212,6 +213,7 @@ const ProtectedPage: React.FC<{
 
   return (
     <UserContext.Provider value={userContextValue} key={orgId}>
+      <InAppHelp />
       {orgId ? (
         <WatchProvider>{children}</WatchProvider>
       ) : (

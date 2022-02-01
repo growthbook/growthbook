@@ -56,8 +56,8 @@ function App({
   }, [ready]);
 
   useEffect(() => {
-    // Load feature definitions JSON (from API, database, etc.)
-    fetch("https://cdn.growthbook.io/api/features/key_486336ff87c125f4")
+    // Load feature definitions JSON from GrowthBook API
+    fetch("https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44")
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
