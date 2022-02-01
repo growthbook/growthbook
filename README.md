@@ -1,5 +1,5 @@
-<p align="center"><a href="https://www.growthbook.io"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" alt="GrowthBook - The Open Source A/B Testing Platform" /></a></p>
-<p align="center"><b>The Open Source A/B Testing and Feature Flagging Platform</b></p>
+<p align="center"><a href="https://www.growthbook.io"><img src="https://www.growthbook.io/logos/growthbook-logo@2x.png" width="400px" alt="GrowthBook - Open Source Feature Flagging and A/B Testing" /></a></p>
+<p align="center"><b>Open Source Feature Flagging and A/B Testing</b></p>
 <p align="center">
     <a href="https://github.com/growthbook/growthbook/actions/workflows/ci.yml"><img src="https://img.shields.io/github/workflow/status/growthbook/growthbook/CI" alt="Build Status" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
@@ -17,27 +17,25 @@ docker-compose up -d
 
 Then visit http://localhost:3000
 
-[![GrowthBook Screenshot](/growthbook-screenshot.png)](https://www.growthbook.io)
+[![GrowthBook Screenshot](/features-screenshot.png)](https://www.growthbook.io)
 
 ## Our Philosophy
 
-The top 1% of companies spend thousands of hours building their own A/B testing and feature flagging platforms in-house.
+The top 1% of companies spend thousands of hours building their own feature flagging and A/B testing platforms in-house.
 The other 99% are left paying for expensive 3rd party SaaS tools or hacking together unmaintained open source libraries.
 
-GrowthBook gives you the flexibility and power of a fully-featured in-house platform without needing to build it yourself.
+We want to give all companies the flexibility and power of a fully-featured in-house platform without needing to build it themselves.
 
 ## Major Features
 
-- ❄️ Pull data from Snowflake, Redshift, BigQuery, Mixpanel, Google Analytics, [and more](https://docs.growthbook.io/app/datasources)
-- 🆎 Bayesian statistics engine with support for binomial, count, duration, and revenue metrics
-- ⬇️ Drill down into A/B test results by browser, country, or any other attribute
-- 🪐 Export results as a Jupyter Notebook!
+- 🏁 Feature flags with advanced targeting, gradual rollouts, and experiments
 - 💻 SDKs for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://docs.growthbook.io/lib/php), [Ruby](https://docs.growthbook.io/lib/ruby), [Python](https://docs.growthbook.io/lib/python), [Go](https://docs.growthbook.io/lib/go), and [Kotlin (Android)](https://docs.growthbook.io/lib/kotlin) with more coming soon
-- 🏁 Feature flags with targeting, gradual rollouts, and experiments
-- 👁️ [Visual Editor](https://docs.growthbook.io/app/visual) for non-technical users to create experiments _(beta)_
-- 📝 Document experiments with screenshots and GitHub Flavored Markdown
-- 🔔 Automated email alerts when tests become significant
-- 💡 Lightweight idea board and objective prioritization framework
+- 🆎 Powerful A/B test analysis with support for binomial, count, duration, and revenue metrics
+- ❄️ Use your existing data stack - BigQuery, Mixpanel, Redshift, Google Analytics, [and more](https://docs.growthbook.io/app/datasources)
+- ⬇️ Drill down into A/B test results by browser, country, or any other custom attribute
+- 🪐 Export reports as a Jupyter Notebook!
+- 📝 Document everything with screenshots and GitHub Flavored Markdown throughout
+- 🔔 Automated email alerts when A/B tests become significant
 
 ## Try GrowthBook
 

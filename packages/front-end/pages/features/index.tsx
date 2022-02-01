@@ -180,6 +180,7 @@ export default function FeaturesPage() {
                       <ValueDisplay
                         value={feature.defaultValue}
                         type={feature.valueType}
+                        full={false}
                       />
                     </td>
                     <td>{feature.rules?.length > 0 ? "yes" : "no"}</td>

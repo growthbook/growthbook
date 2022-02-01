@@ -6,9 +6,11 @@ import stringify from "json-stringify-pretty-compact";
 export default function ValueDisplay({
   value,
   type,
+  full = true,
 }: {
   value: string;
   type: FeatureValueType;
+  full?: boolean;
 }) {
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
@@ -36,6 +38,22 @@ export default function ValueDisplay({
         ></div>
         {value === "false" ? "OFF" : "ON"}
       </span>
+    );
+  }
+
+  if (!full) {
+    return (
+      <div
+        style={{
+          textOverflow: "ellipsis",
+          overflow: "hidden",
+          maxWidth: "180px",
+          whiteSpace: "nowrap",
+        }}
+        className="text-muted"
+      >
+        {formatted}
+      </div>
     );
   }
 
