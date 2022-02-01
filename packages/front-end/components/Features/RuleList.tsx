@@ -17,13 +17,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useAuth } from "../../services/auth";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export default function RuleList({
   feature,
   mutate,
+  experiments,
   setRuleModal,
 }: {
   feature: FeatureInterface;
+  experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: (i: number) => void;
 }) {
@@ -95,6 +98,7 @@ export default function RuleList({
             rule={rule}
             feature={feature}
             mutate={mutate}
+            experiments={experiments}
             setRuleModal={setRuleModal}
           />
         ))}
@@ -106,6 +110,7 @@ export default function RuleList({
             rule={activeRule}
             feature={feature}
             mutate={mutate}
+            experiments={experiments}
             setRuleModal={setRuleModal}
           />
         ) : null}

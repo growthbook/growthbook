@@ -17,6 +17,7 @@ import ImportExperimentModal from "../Experiment/ImportExperimentModal";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { useMemo } from "react";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -35,6 +36,23 @@ const ExperimentsGetStarted = ({
   const [experimentsOpen, setExperimentsOpen] = useState(false);
   const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const router = useRouter();
+
+  // If this is coming from a feature experiment rule
+  const featureExperiment = useMemo(() => {
+    if (!router?.query?.featureExperiment) {
+      return null;
+    }
+    try {
+      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
+        router?.query?.featureExperiment as string
+      );
+      window.history.replaceState(null, null, window.location.pathname);
+      return initialExperiment;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [router?.query?.featureExperiment]);
 
   const hasSampleExperiment = experiments.filter((m) =>
     m.id.match(/^exp_sample/)
@@ -103,7 +121,8 @@ const ExperimentsGetStarted = ({
         {experimentsOpen && (
           <ImportExperimentModal
             onClose={() => setExperimentsOpen(false)}
-            source="get-started"
+            source={featureExperiment ? "feature-rule" : "get-started"}
+            initialValue={featureExperiment}
           />
         )}
         <div className="row">
@@ -115,6 +134,11 @@ const ExperimentsGetStarted = ({
                 <a href="https://docs.growthbook.io/self-host/config#configyml">
                   View Documentation
                 </a>
+              </div>
+            ) : featureExperiment ? (
+              <div className="alert alert-info mb-3">
+                First connect to your data source and define a metric. Then you
+                can view results for your experiment.
               </div>
             ) : (
               allowImport && (

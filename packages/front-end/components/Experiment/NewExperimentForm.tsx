@@ -33,6 +33,7 @@ export type NewExperimentFormProps = {
   includeDescription?: boolean;
   source: string;
   idea?: string;
+  msg?: string;
   onClose: () => void;
   onCreate?: (id: string) => void;
 };
@@ -74,6 +75,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   includeDescription,
   source,
   idea,
+  msg,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -86,18 +88,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-
   const initialPhases: ExperimentPhaseStringDates[] = isImport
     ? [
         {
-          coverage: 1,
+          coverage: initialValue.phases?.[0].coverage || 1,
           dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
             .toISOString()
             .substr(0, 16),
           dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
             .toISOString()
             .substr(0, 16),
-          phase: "main",
+          phase: initialValue.phases?.[0].phase || "main",
           reason: "",
           groups: [],
           variationWeights:
@@ -200,7 +201,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={isImport ? "Import Experiment" : "New Experiment"}
+      header={"New Experiment Analysis"}
       close={onClose}
       submit={onSubmit}
       cta={"Save"}
@@ -210,6 +211,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
     >
       <Page display="Basic Info">
+        {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {visualEditorEnabled && !isImport && (
           <Field
