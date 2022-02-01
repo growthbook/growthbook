@@ -128,7 +128,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         </div>
       </div>
 
-      <h3>Environments</h3>
+      <h3>Enabled Environments</h3>
       <div className="appbox mb-4 p-3">
         <div className="row mb-2">
           <div className="col-auto">
@@ -164,7 +164,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       </div>
 
       <h3>
-        Value When Enabled
+        When Enabled
         <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
           <GBEdit />
         </a>
