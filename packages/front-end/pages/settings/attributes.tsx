@@ -8,7 +8,7 @@ import EditAttributesModal from "../../components/Features/EditAttributesModal";
 const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
   const { settings, permissions } = useUser();
-  const attributeSchema = settings?.attributeSchema;
+  const attributeSchema = settings?.attributeSchema || [];
 
   return (
     <>
@@ -55,16 +55,43 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {attributeSchema.map((v, i) => (
-                <tr key={i}>
-                  <td className="text-gray font-weight-bold">{v.property}</td>
-                  <td className="text-gray">
-                    {v.datatype}
-                    {v.datatype === "enum" && <>: ({v.enum})</>}
-                  </td>
-                  <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
-                </tr>
-              ))}
+              {attributeSchema && attributeSchema.length > 0 ? (
+                <>
+                  {attributeSchema.map((v, i) => (
+                    <tr key={i}>
+                      <td className="text-gray font-weight-bold">
+                        {v.property}
+                      </td>
+                      <td className="text-gray">
+                        {v.datatype}
+                        {v.datatype === "enum" && <>: ({v.enum})</>}
+                      </td>
+                      <td className="text-gray">
+                        {v.hashAttribute && <>yes</>}
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <tr>
+                    <td colSpan={3} className="text-center text-gray">
+                      <em>
+                        No attributes defined{" "}
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditOpen(true);
+                          }}
+                        >
+                          Add attributes now
+                        </a>
+                      </em>
+                    </td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
