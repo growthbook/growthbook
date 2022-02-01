@@ -97,6 +97,7 @@ export default function RuleModal({
       <Field
         label="Type of Rule"
         readOnly={!!feature.rules?.[i]}
+        disabled={!!feature.rules?.[i]}
         value={type}
         onChange={(e) => {
           const existingCondition = form.watch("condition");

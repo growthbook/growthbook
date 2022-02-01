@@ -131,6 +131,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           pattern="^[a-zA-Z0-9_.:|-]+$"
           required
           disabled={!!existing}
+          readOnly={!!existing}
           title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
           helpText={
             <>
