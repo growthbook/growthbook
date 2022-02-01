@@ -207,7 +207,11 @@ const Results: FC<{
       {hasData && !snapshot.dimension && (
         <>
           <div className="float-right pr-3">
-            <FilterSummary experiment={experiment} selectedPhase={phaseObj} />
+            <FilterSummary
+              experiment={experiment}
+              phase={phaseObj}
+              snapshot={snapshot}
+            />
           </div>
           <CompactResults
             id={experiment.id}

@@ -6,31 +6,18 @@ import {
 import { datetime } from "../../services/dates";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
-  selectedPhase?: ExperimentPhaseStringDates;
-}> = ({ experiment, selectedPhase }) => {
+  phase?: ExperimentPhaseStringDates;
+  snapshot: ExperimentSnapshotInterface;
+}> = ({ experiment, phase, snapshot }) => {
   const [showExpandedFilter, setShowExpandedFilter] = useState(false);
   const hasFilter =
-    experiment.segment || experiment.queryFilter || experiment.activationMetric;
-  const { metrics, segments } = useDefinitions();
-
-  const getSegmentName = (segmentId: string) => {
-    const segmentObj = segments.filter((s) => s.id === segmentId);
-    if (segmentObj) {
-      return segmentObj[0].name;
-    }
-    return "(unknown)";
-  };
-
-  const getMetricName = (metricId: string) => {
-    const metric = metrics.filter((m) => m.id === metricId);
-    if (metric) {
-      return metric[0].name;
-    }
-    return "(unknown)";
-  };
+    snapshot.segment || snapshot.queryFilter || snapshot.activationMetric;
+  const { getSegmentById, getMetricById, getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(experiment.datasource);
 
   return (
     <>
@@ -47,7 +34,7 @@ const FilterSummary: FC<{
               : "Click to see the report details"
           }
         >
-          {hasFilter ? "Report details*" : "Report details"}
+          Report details{hasFilter && "*"}
         </a>
       </span>
       <Modal
@@ -60,40 +47,54 @@ const FilterSummary: FC<{
         size="md"
       >
         <div className="text-gray">
-          {selectedPhase && (
-            <>
-              <div className="row mb-3">
-                <div className="col-5">
-                  <strong className="text-gray">Date range:</strong>
-                </div>
-                <div className="col">
-                  <strong>{datetime(selectedPhase.dateStarted)}</strong> to
-                  <br />
-                  {selectedPhase.dateEnded ? (
-                    datetime(selectedPhase.dateEnded)
-                  ) : (
-                    <>
-                      <strong>{datetime(experiment.dateUpdated)}</strong> (last
-                      update)
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
           <div className="row mb-3">
             <div className="col-5">
-              <strong className="text-gray">Segments:</strong>
-              <small className="form-text text-muted">
-                Only users in this segment are included in analysis
-              </small>
+              <strong className="text-gray">Tracking Key:</strong>
             </div>
-            <div className="col">
-              {experiment.segment
-                ? getSegmentName(experiment.segment)
-                : "No segments applied (all users)"}
-            </div>
+            <div className="col">{experiment.trackingKey}</div>
           </div>
+          {datasource?.properties?.userIds && (
+            <div className="row mb-3">
+              <div className="col-5">
+                <strong className="text-gray">User Id Type:</strong>
+              </div>
+              <div className="col">{experiment.userIdType}</div>
+            </div>
+          )}
+          {phase && (
+            <div className="row mb-3">
+              <div className="col-5">
+                <strong className="text-gray">Date range:</strong>
+              </div>
+              <div className="col">
+                <strong>{datetime(phase.dateStarted)}</strong> to
+                <br />
+                <strong>
+                  {datetime(phase.dateEnded || snapshot.dateCreated)}
+                </strong>
+                {!phase.dateEnded && " (last update)"}
+              </div>
+            </div>
+          )}
+          {datasource?.properties?.segments && (
+            <div className="row mb-3">
+              <div className="col-5">
+                <strong className="text-gray">Segment:</strong>
+                <small className="form-text text-muted">
+                  Only users in this segment are included in analysis
+                </small>
+              </div>
+              <div className="col">
+                {snapshot.segment ? (
+                  getSegmentById(snapshot.segment)?.name ?? "(unknown)"
+                ) : (
+                  <>
+                    <em>none</em> (all users included)
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div className="row mb-3">
             <div className="col-5">
               <strong className="text-gray">Activation Metric:</strong>
@@ -102,8 +103,8 @@ const FilterSummary: FC<{
               </small>
             </div>
             <div className="col">
-              {experiment.activationMetric ? (
-                getMetricName(experiment.activationMetric)
+              {snapshot.activationMetric ? (
+                getMetricById(snapshot.activationMetric)?.name ?? "(unknown)"
               ) : (
                 <em>none</em>
               )}
@@ -114,7 +115,7 @@ const FilterSummary: FC<{
               <strong className="text-gray">Metric Conversions:</strong>
             </div>
             <div className="col">
-              {experiment.skipPartialData
+              {snapshot.skipPartialData
                 ? "Excluding In-Progress Conversions"
                 : "Including In-Progress Conversions"}
             </div>
@@ -131,18 +132,20 @@ const FilterSummary: FC<{
                 : "Included in analysis"}
             </div>
           </div>
-          <div className="row mb-3">
-            <div className="col-5">
-              <strong className="text-gray">Custom filter query:</strong>
+          {datasource?.properties?.queryLanguage === "sql" && (
+            <div className="row mb-3">
+              <div className="col-5">
+                <strong className="text-gray">Custom SQL Filter:</strong>
+              </div>
+              <div className="col">
+                {snapshot.queryFilter ? (
+                  <code>{snapshot.queryFilter}</code>
+                ) : (
+                  <em>none</em>
+                )}
+              </div>
             </div>
-            <div className="col">
-              {experiment.queryFilter ? (
-                <code>{experiment.queryFilter}</code>
-              ) : (
-                <em>none</em>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </Modal>
     </>
