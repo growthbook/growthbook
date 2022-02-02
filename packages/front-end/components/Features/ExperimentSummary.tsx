@@ -171,7 +171,7 @@ export default function ExperimentSummary({
                 setNewExpModal(true);
               }}
             >
-              View results
+              Setup experiments to view results
             </a>
           ) : (
             <Link
