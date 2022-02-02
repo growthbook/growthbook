@@ -111,6 +111,10 @@ const navLinks = [
     ],
   },
   {
+    href: "/faq",
+    name: "FAQ",
+  },
+  {
     href: "/statistics",
     name: "Statistics",
   },
