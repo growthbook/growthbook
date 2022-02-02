@@ -10,8 +10,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaGithub,
-  FaCloud,
-  FaHome,
+  FaSlack,
 } from "react-icons/fa";
 
 type ModAppProps = AppProps & {
@@ -194,7 +193,9 @@ function App({
         ></link>
         <style>{`
         body {
-          font-family: 'Source Sans Pro', sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+          -webkit-font-smoothing: antialiased;
+          font-size: 14px;
         }
         pre[class*="language-"] {
           margin-bottom: 1rem;
@@ -281,21 +282,33 @@ function App({
             })}
           </div>
         </div>
-        <div className="flex flex-col h-screen flex-grow w-full">
+        <div className="flex flex-col h-screen flex-grow w-full content-right justify-center ">
           <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex max-w-3xl">
-              <div className="hidden md:block text-lg text-gray-600 dark:text-gray-400">
-                <a href="https://www.growthbook.io" className="mr-6">
-                  <FaHome className="inline" /> Home
+            <div className="flex max-w-3xl justify-end">
+              <div className="hidden md:block text-md text-gray-600 dark:text-gray-400">
+                <a
+                  href="https://www.growthbook.io"
+                  className="mr-6 cursor-pointer"
+                >
+                  Home
+                </a>
+                <a
+                  href="https://app.growthbook.io"
+                  className="mr-6 cursor-pointer"
+                >
+                  Log in/sign up
                 </a>
                 <a
                   href="https://github.com/growthbook/growthbook"
-                  className="mr-6"
+                  className="mr-6 cursor-pointer"
                 >
                   <FaGithub className="inline" /> GitHub
                 </a>
-                <a href="https://app.growthbook.io">
-                  <FaCloud className="inline" /> Try for free
+                <a
+                  href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                  className="mr-6 cursor-pointer"
+                >
+                  <FaSlack className="inline" /> Join our slack
                 </a>
               </div>
               <div className="flex md:hidden items-center text-sm">
@@ -326,9 +339,9 @@ function App({
                   ))}
                 </select>
               </div>
-              <div className="flex-grow"></div>
+
               <button
-                className="text-gray-100 text-xl bg-gray-800 w-8 h-8 text-center hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 rounded-full"
+                className="text-gray-100 text-md bg-gray-800 w-6 h-6 text-center hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-800 dark:hover:bg-gray-300 rounded-full"
                 onClick={(e) => {
                   e.preventDefault();
                   setDark(!dark);
@@ -345,22 +358,34 @@ function App({
           </nav>
           <main className="p-5 flex-grow overflow-y-auto w-full">
             {!currentIndex && (
-              <div className="md:hidden flex justify-center border-b border-gray-100 dark:border-gray-700 mb-4 pb-4 text-gray-600 dark:text-gray-400">
-                <a href="https://www.growthbook.io" className="mr-6">
-                  <FaHome className="inline" /> Home
+              <div className="md:hidden border-b border-gray-100 dark:border-gray-700 mb-4 pb-4 text-gray-600 dark:text-gray-400">
+                <a
+                  href="https://www.growthbook.io"
+                  className="mr-6 cursor-pointer"
+                >
+                  Home
+                </a>
+                <a
+                  href="https://app.growthbook.io"
+                  className="mr-6 cursor-pointer"
+                >
+                  Log in/sign up
                 </a>
                 <a
                   href="https://github.com/growthbook/growthbook"
-                  className="mr-6"
+                  className="mr-6 cursor-pointer"
                 >
                   <FaGithub className="inline" /> GitHub
                 </a>
-                <a href="https://app.growthbook.io">
-                  <FaCloud className="inline" /> Try for free
+                <a
+                  href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                  className="mr-6 cursor-pointer"
+                >
+                  <FaSlack className="inline" /> Join our slack
                 </a>
               </div>
             )}
-            <div className="prose prose-purple lg:prose-lg dark:prose-dark max-w-3xl w-full">
+            <div className="prose prose-purple  dark:prose-dark max-w-3xl w-full">
               <div className="float-right ml-4 mb-4 hidden lg:block">
                 <a
                   className="text-sm opacity-80 hover:opacity-100"
