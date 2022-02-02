@@ -63,10 +63,11 @@ checks to ensure the statistical inferences are valid and ready for interpretati
 We currently run a number of checks and plan to add even more in the future.
 
 1.  **Sample Ratio Mismatch** (SRM) detects when the traffic split doesn't match what you are expecting (e.g. a 48/52 split when you expect it to be 50/50)
-2.  **Guardrail Metrics** help ensure an experiment isn't inadvertently hurting core metrics like error rate or page load time
-3.  **Minimum Data Thresholds** so you aren't drawing conclusions too early (e.g. when it's 5 vs 2 conversions)
-4.  **Variation Id Mismatch** which can detect missing or improperly-tagged rows in your data warehouse
-5.  **Suspicious Uplift Detection** which alerts you when a metric changes by too much in a single experiment, indicating a likely bug
+2.  **Multiple Exposures** which alerts you if too many users were exposed to multiple variations of a single experiment (e.g. someone saw both A and B)
+3.  **Guardrail Metrics** help ensure an experiment isn't inadvertently hurting core metrics like error rate or page load time
+4.  **Minimum Data Thresholds** so you aren't drawing conclusions too early (e.g. when it's 5 vs 2 conversions)
+5.  **Variation Id Mismatch** which can detect missing or improperly-tagged rows in your data warehouse
+6.  **Suspicious Uplift Detection** which alerts you when a metric changes by too much in a single experiment, indicating a likely bug
 
 Many of these checks are customizeable at a per-metric level.
 So you can, for example, have stricter quality checks for revenue than you have for less important metrics.
@@ -80,9 +81,13 @@ of your users were affected by an A/B test variation. This is especially useful 
 
 However, too much slicing and dicing of data can lead to
 what is known as the Multiple Testing Problem. If you look at the data in enough ways, one of them
-will look significant just by random chance. Instead of trying to correct for this (using Bonferroni etc.),
-GrowthBook does not run statistical analysis on the breakdown at all. It simply shows the raw conversion numbers.
-This is enough data to either detect bugs or come up with followup ideas, but not enough to draw conclusions about the data.
+will look significant just by random chance.
+
+GrowthBook does not run any statistical corrections (e.g. Bonferroni). Instead, we change how much we show depending on the cardinality of the dimension. For example, if your dimension has only a few distinct values (e.g. "free" or "paid") we show the full statistical analysis since the impact to the false positive rate is low. However, if your dimension has many distinct values (e.g. `country`) we only show the raw conversion numbers without any statistical inferences at all.
+
+In addition, we apply automatic grouping to very high-cardinality dimensions. In the country example, only the top 20 countries will be shown individually. The rest will be lumped together into an `(other)` category.
+
+We have found this to be a good trade-off between false positives and false negatives.
 
 ## Conclusion
 
