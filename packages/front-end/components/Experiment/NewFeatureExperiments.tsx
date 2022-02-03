@@ -4,6 +4,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { getExperimentDefinitionFromFeature } from "../../services/features";
 import NewExperimentForm from "./NewExperimentForm";
+import { ago } from "../../services/dates";
 
 export default function NewFeatureExperiments() {
   const { project } = useDefinitions();
@@ -27,7 +28,8 @@ export default function NewFeatureExperiments() {
             <div className="d-flex align-items-center justify-content-between">
               <div>
                 New experiment feature found:{" "}
-                <code>{expDefinition.trackingKey}</code>{" "}
+                <strong>{expDefinition.trackingKey}</strong> (created{" "}
+                {ago(f.dateCreated)})
               </div>
               <a
                 className="btn btn-info btn-sm"
