@@ -64,6 +64,7 @@ import { getIdeasByQuery } from "../services/ideas";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+import { getAllFeatures } from "../models/FeatureModel";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -284,6 +285,40 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     snapshots,
+  });
+  return;
+}
+
+export async function getNewFeatures(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const allExperiments = await getExperimentsByOrganization(org.id);
+  const projectFeatures = await getAllFeatures(org.id, project);
+
+  const expMap = new Map();
+  allExperiments.forEach((exp) => {
+    const key = exp.trackingKey || exp.id;
+    expMap.set(key, exp);
+  });
+  const newFeatures = projectFeatures.filter((f) => {
+    let trackingKey = null;
+    if (f?.rules && f?.rules.length > 0) {
+      f.rules.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKey = r?.trackingKey;
+        }
+      });
+    }
+    return !!(trackingKey && !expMap.get(trackingKey));
+  });
+
+  res.status(200).json({
+    status: 200,
+    features: newFeatures,
   });
   return;
 }

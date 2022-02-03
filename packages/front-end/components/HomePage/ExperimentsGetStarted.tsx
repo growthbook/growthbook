@@ -255,10 +255,17 @@ const ExperimentsGetStarted = ({
                     className="border-top"
                     image="/images/getstarted-step3.svg"
                     title="3. Add an Experiment"
-                    text="Import an existing experiment from your data source or
-                    create a new draft from scratch."
+                    text={
+                      featureExperiment
+                        ? "Create a new experiment report to analyse the results of your feature."
+                        : "Import an existing experiment from your data source or create a new draft from scratch."
+                    }
                     hideCTA={false}
-                    cta="Add experiment"
+                    cta={
+                      featureExperiment
+                        ? "Add your experiment"
+                        : "Add experiment"
+                    }
                     finishedCTA="View experiments"
                     imageLeft={true}
                     onClick={(finished) => {

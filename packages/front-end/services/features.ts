@@ -3,10 +3,16 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
-import { FeatureRule, FeatureValueType } from "back-end/types/feature";
+import {
+  ExperimentRule,
+  FeatureInterface,
+  FeatureRule,
+  FeatureValueType,
+} from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import useOrgSettings from "../hooks/useOrgSettings";
 import uniq from "lodash/uniq";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export interface Condition {
   field: string;
@@ -364,4 +370,60 @@ export function useAttributeMap(): Map<string, AttributeData> {
 
     return map;
   }, [settings?.attributeSchema]);
+}
+
+export function getExperimentDefinitionFromFeature(
+  feature: FeatureInterface,
+  trackingKey: string = ""
+) {
+  let expRule: ExperimentRule;
+  if (feature?.rules && feature?.rules?.length > 0) {
+    feature.rules.forEach((r) => {
+      if (r.type === "experiment") {
+        // to handle the case where there are multiple experiment rules per feature, make sure it matches the requested one:
+        if (trackingKey) {
+          if (r.trackingKey === trackingKey) {
+            expRule = r;
+          }
+        } else {
+          expRule = r;
+        }
+      }
+    });
+  }
+  if (!expRule || !expRule.trackingKey) {
+    return null;
+  }
+
+  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
+
+  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
+    trackingKey: expRule.trackingKey,
+    name: expRule.trackingKey + " experiment",
+    hypothesis: feature.description || "",
+    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
+    variations: expRule.values.map((v, i) => {
+      let name = i ? `Variation ${i}` : "Control";
+      if (feature.valueType === "boolean") {
+        name = v.value === "true" ? "On" : "Off";
+      }
+      return {
+        name,
+        screenshots: [],
+        description: v.value,
+      };
+    }),
+    phases: [
+      {
+        coverage: totalPercent,
+        variationWeights: expRule.values.map((v) =>
+          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
+        ),
+        phase: "main",
+        reason: "",
+        dateStarted: new Date().toISOString(),
+      },
+    ],
+  };
+  return expDefinition;
 }
