@@ -1,0 +1,43 @@
+# GrowthBook Technical Overview
+
+GrowthBook's feature flagging and experimentation system is built for maximum flexibility and performance, and as such,
+works a bit differently than others. This page will go over how it all works together, and some of the common usage modes.
+
+#### TL;DR:
+
+At it's core, GrowthBook's feature flagging system produces a JSON file which is processed by the SDK to figure out which
+user sees which feature. If a feature is set up as an experiment, a tracking call will fire to your existing event tracking
+system to add this exposure data to your data warehouse.
+
+GrowthBook's experiments analyzes raw experiment data in your data warehouse, and runs statistical modeling to produce a
+report of the results. No raw event data is sent to GrowthBook, instead, we require read only access to your data. The
+experiment analysis can be used with feature flagging, or entirely separate as the statistics and reporting tool for your
+own experiment data.
+
+![GrowthBook: The Open Source A/B Testing Platform](/images/feature-flagging-experimentation-diagram-766.png)
+
+## Feature Flagging
+
+Feature flags allow you to decouple the deployment of code, from the release of the feature. You can choose how and when
+to release it to your users: slowly roll out a feature, target who gets to see it, or easily turn it into an experiment-
+all from the GrowthBook UI.
+
+When you make a new feature flag, you specify what type of flag it is. The options are:
+
+- Boolean - A simple on/off flag. Useful if you just want to toggle a feature
+- Number - A number will be passed as the value of the flag to the code
+- String - A text string will be passed to the code
+- JSON - A custom json object containing arbitrary keys and values
+
+On top of the flag type, you can add behavior rules are attached to the flag. You can add as many rules as you like, and
+the first matching rules is used. The rule types are:
+
+- Simple - All users get the same value
+- Targeted - Choose which users get to see the feature flag
+- Percentage rollout - A certain percentage of users will get to see the feature. Useful for de-risking feature deploys
+- A/B Experiment - Run an A/B test between different values of the flag
+
+The result of these flags are a json file with all the rules and states. This is processed by the SDKs along with the user attributes to evaluate what
+features are shown to the user. You can read more details about features here.
+
+## Experiments
