@@ -116,7 +116,10 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={data.features || []} />
+          <FeaturesGetStarted
+            features={data.features || []}
+            mutateFeatures={mutate}
+          />
           {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (

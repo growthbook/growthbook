@@ -67,6 +67,7 @@ export interface OrganizationSettings {
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
   sdkInstructionsViewed?: boolean;
+  sdkIntegrationWorking?: string;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];

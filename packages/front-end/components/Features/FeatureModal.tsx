@@ -25,6 +25,7 @@ export type Props = {
   close: () => void;
   onSuccess: (feature: FeatureInterface) => Promise<void>;
   existing?: FeatureInterface;
+  simple?: boolean;
 };
 
 function parseDefaultValue(
@@ -47,7 +48,12 @@ function parseDefaultValue(
   }
 }
 
-export default function FeatureModal({ close, existing, onSuccess }: Props) {
+export default function FeatureModal({
+  close,
+  existing,
+  onSuccess,
+  simple,
+}: Props) {
   const { project } = useDefinitions();
   const form = useForm<Partial<FeatureInterface>>({
     defaultValues: {
@@ -241,60 +247,62 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         ]}
       />
 
-      <div className="form-group">
-        <label>
-          Behavior <small className="text-muted">(can change later)</small>
-        </label>
-        <RadioSelector
-          name="ruleType"
-          value={rules?.[0]?.type || ""}
-          labelWidth={145}
-          options={[
-            {
-              key: "",
-              display: "Simple",
-              description: "All users get the same value",
-            },
-            {
-              key: "force",
-              display: "Targeted",
-              description:
-                "Most users get one value, a targeted segment gets another",
-            },
-            {
-              key: "rollout",
-              display: "Percentage Rollout",
-              description:
-                "Gradually release a value to users while everyone else gets a fallback",
-            },
-            {
-              key: "experiment",
-              display: "A/B Experiment",
-              description: "Run an A/B test between multiple values.",
-            },
-          ]}
-          setValue={(value) => {
-            let defaultValue = getDefaultValue(valueType);
+      {!simple && (
+        <div className="form-group">
+          <label>
+            Behavior <small className="text-muted">(can change later)</small>
+          </label>
+          <RadioSelector
+            name="ruleType"
+            value={rules?.[0]?.type || ""}
+            labelWidth={145}
+            options={[
+              {
+                key: "",
+                display: "Simple",
+                description: "All users get the same value",
+              },
+              {
+                key: "force",
+                display: "Targeted",
+                description:
+                  "Most users get one value, a targeted segment gets another",
+              },
+              {
+                key: "rollout",
+                display: "Percentage Rollout",
+                description:
+                  "Gradually release a value to users while everyone else gets a fallback",
+              },
+              {
+                key: "experiment",
+                display: "A/B Experiment",
+                description: "Run an A/B test between multiple values.",
+              },
+            ]}
+            setValue={(value) => {
+              let defaultValue = getDefaultValue(valueType);
 
-            if (!value) {
-              form.setValue("rules", []);
-              form.setValue("defaultValue", defaultValue);
-            } else {
-              defaultValue = getDefaultVariationValue(defaultValue);
-              form.setValue("defaultValue", defaultValue);
-              form.setValue("rules", [
-                {
-                  ...getDefaultRuleValue({
-                    defaultValue: defaultValue,
-                    ruleType: value,
-                    attributeSchema: settings?.attributeSchema,
-                  }),
-                },
-              ]);
-            }
-          }}
-        />
-      </div>
+              if (!value) {
+                form.setValue("rules", []);
+                form.setValue("defaultValue", defaultValue);
+              } else {
+                defaultValue = getDefaultVariationValue(defaultValue);
+                form.setValue("defaultValue", defaultValue);
+                form.setValue("rules", [
+                  {
+                    ...getDefaultRuleValue({
+                      defaultValue: defaultValue,
+                      ruleType: value,
+                      attributeSchema: settings?.attributeSchema,
+                    }),
+                  },
+                ]);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {!rule ? (
         <FeatureValueField
@@ -384,6 +392,12 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             valueType={valueType}
           />
         </>
+      )}
+      {simple && (
+        <div className="alert alert-info">
+          You&apos;ll be able to add an A/B test, percentage rollout, and/or
+          targeting rules after creating your feature.
+        </div>
       )}
     </Modal>
   );

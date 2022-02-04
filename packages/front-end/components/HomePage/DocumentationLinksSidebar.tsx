@@ -6,8 +6,10 @@ import track from "../../services/track";
 
 export default function DocumentationLinksSidebar({
   showVisualEditor = false,
+  showInviteTeam = true,
 }: {
   showVisualEditor?: boolean;
+  showInviteTeam?: boolean;
 }) {
   return (
     <div className="card gsbox mb-3">
@@ -83,19 +85,21 @@ export default function DocumentationLinksSidebar({
           </div>
         </div>
       </div>
-      <div className="card-body border-top">
-        <div className="card-title">
-          <h4 className="">Invite team</h4>
+      {showInviteTeam && (
+        <div className="card-body border-top">
+          <div className="card-title">
+            <h4 className="">Invite team</h4>
+          </div>
+          <p className="card-text">Add teammates to your account</p>
+          <span className="action-link non-active-step">
+            <Link href="/settings/team">
+              <a className="boxlink">
+                Invite team <FiArrowRight />
+              </a>
+            </Link>
+          </span>
         </div>
-        <p className="card-text">Add teammates to your account</p>
-        <span className="action-link non-active-step">
-          <Link href="/settings/team">
-            <a className="boxlink">
-              Invite team <FiArrowRight />
-            </a>
-          </Link>
-        </span>
-      </div>
+      )}
       {showVisualEditor && (
         <div className="card-body border-top">
           <div className="card-title">

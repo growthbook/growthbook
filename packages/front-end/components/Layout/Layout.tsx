@@ -145,6 +145,10 @@ const otherPageTitles = [
     path: /^experiments\/designer/,
     title: "Visual Experiment Designer",
   },
+  {
+    path: /^getstarted/,
+    title: "Get Started",
+  },
 ];
 
 const backgroundShade = (color: string) => {

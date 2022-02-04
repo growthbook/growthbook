@@ -17,7 +17,11 @@ const getStartedPage = (): React.ReactElement => {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
-  const { data: features, error: featuresError } = useApi<{
+  const {
+    data: features,
+    error: featuresError,
+    mutate: mutateFeatures,
+  } = useApi<{
     features: FeatureInterface[];
   }>(`/feature`);
 
@@ -44,6 +48,7 @@ const getStartedPage = (): React.ReactElement => {
           features={features?.features || []}
           mutateExperiments={mutateExperiments}
           onboardingType={null}
+          mutateFeatures={mutateFeatures}
         />
       </div>
     </>

@@ -6,15 +6,16 @@ import { FiArrowRight } from "react-icons/fi";
 export type Props = {
   current: boolean;
   finished: boolean;
-  image: string;
+  image?: string;
   title: string;
   text: string | ReactElement;
   hideCTA?: boolean;
-  onClick: (finished: boolean) => void;
-  cta: string;
-  finishedCTA: string;
+  onClick?: (finished: boolean) => void;
+  cta?: string;
+  finishedCTA?: string;
+  action?: ReactElement;
   className?: string;
-  imageLeft: boolean;
+  imageLeft?: boolean;
 };
 
 export default function GetStartedStep({
@@ -27,6 +28,7 @@ export default function GetStartedStep({
   onClick,
   cta,
   finishedCTA,
+  action,
   imageLeft,
   className = "",
 }: Props) {
@@ -49,8 +51,8 @@ export default function GetStartedStep({
       })}
     >
       <div className="row">
-        {imageLeft && imgEl}
-        <div className="col-12 col-sm-8">
+        {imageLeft && image && imgEl}
+        <div className={`col-12 col-sm-${image ? "8" : "12"}`}>
           <div className="card-title">
             <h3 className="">
               {title}
@@ -60,27 +62,30 @@ export default function GetStartedStep({
             </h3>
           </div>
           <div className="card-text mb-3">{text}</div>
-          <a
-            className={clsx(`action-link mr-3`, {
-              "btn btn-outline-primary": finished,
-              "btn btn-primary": !finished && current,
-              "non-active-step": !finished && !current,
-              "d-none": !finished && hideCTA,
-            })}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              if (finished) {
-                onClick(true);
-              } else {
-                onClick(false);
-              }
-            }}
-          >
-            {finished ? finishedCTA : cta} <FiArrowRight />
-          </a>
+          {action}
+          {cta && (
+            <a
+              className={clsx(`action-link mr-3`, {
+                "btn btn-outline-primary": finished,
+                "btn btn-primary": !finished && current,
+                "non-active-step": !finished && !current,
+                "d-none": !finished && hideCTA,
+              })}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (finished) {
+                  onClick(true);
+                } else {
+                  onClick(false);
+                }
+              }}
+            >
+              {finished ? finishedCTA : cta} <FiArrowRight />
+            </a>
+          )}
         </div>
-        {!imageLeft && imgEl}
+        {!imageLeft && image && imgEl}
       </div>
     </div>
   );

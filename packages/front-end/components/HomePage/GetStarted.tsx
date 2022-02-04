@@ -13,6 +13,7 @@ export interface Props {
   experiments: ExperimentInterfaceStringDates[];
   features: FeatureInterface[];
   mutateExperiments: () => void;
+  mutateFeatures: () => void;
 }
 
 export default function GetStarted({
@@ -20,6 +21,7 @@ export default function GetStarted({
   experiments,
   features,
   mutateExperiments,
+  mutateFeatures,
 }: Props) {
   const [tab, setTab] = useState("features");
 
@@ -40,7 +42,10 @@ export default function GetStarted({
         newStyle={true}
       >
         <Tab display="Feature Flags" id="features" padding={false}>
-          <FeaturesGetStarted features={features} />
+          <FeaturesGetStarted
+            features={features}
+            mutateFeatures={mutateFeatures}
+          />
         </Tab>
         <Tab display="Experiment Analysis" id="experiments" padding={false}>
           <ExperimentsGetStarted
