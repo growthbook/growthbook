@@ -53,8 +53,8 @@ including BigQuery, Redshift, and even Mixpanel, and Google Analytics.
 Once you create a read only connection to your data source you have to tell GrowthBook how to find [experiment exposure](app/datasources#1-experiments-query) information,
 [page view](/app/datasources#2-page-views-query) information (or screens for mobile), and then define [metrics](/app/metrics).
 
-Once these queries are defined, you can use GrowthBook to analyze the results of any experiment data that exists in your
-data warehouse. GrowthBook creates a combined query to pull aggregate experiment information from your data source.
+When these queries are defined, you can use GrowthBook to analyze the results of any experiment data that exists in your
+data warehouse. GrowthBook creates a combined query to pull aggregate experiment information from your data source (you can click _view queries_ to see them).
 This is run through our [Bayesian statistics engine](/statistics) to show you results. In this way no PII leaves your servers,
 and you get a single source of truth for your data.
 
