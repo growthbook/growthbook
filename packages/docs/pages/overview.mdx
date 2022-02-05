@@ -1,11 +1,11 @@
-# GrowthBook Technical Overview
+# How it works
 
-GrowthBook's feature flagging and experimentation system is built for maximum flexibility and performance, and as such,
+GrowthBook's feature flagging and experimentation platform is built for maximum flexibility and performance, and as such,
 works a bit differently than others. This page will go over how it all works together, and some of the common usage modes.
 
 #### TL;DR:
 
-At it's core, GrowthBook's feature flagging system produces a JSON file which is processed by the SDK to figure out which
+At it's core, GrowthBook's feature flagging system produces file which is processed by the SDK to figure out which
 user sees which feature. If a feature is set up as an experiment, a tracking call will fire to your existing event tracking
 system to add this exposure data to your data warehouse.
 
@@ -18,26 +18,83 @@ own experiment data.
 
 ## Feature Flagging
 
-Feature flags allow you to decouple the deployment of code, from the release of the feature. You can choose how and when
-to release it to your users: slowly roll out a feature, target who gets to see it, or easily turn it into an experiment-
-all from the GrowthBook UI.
+[Feature flags](/app/features) allow you to decouple the deployment of code, from the release of the feature. At it's simplest a feature
+flag is an on/off toggle for your feature. However, they can be far more useful than this. All flags have a **value**,
+that are passed to the code from the UI, and **rules**, which determine who gets to see it. With this, feature flags are extremely flexible. You can slowly roll out a
+feature, target a feature to certain users, quickly adjust the text on a page, or easily turn a feature into an A/B test to measure its impact.
 
-When you make a new feature flag, you specify what type of flag it is. The options are:
+For the [**values**](/app/features#feature-types) the options are:
 
-- Boolean - A simple on/off flag. Useful if you just want to toggle a feature
-- Number - A number will be passed as the value of the flag to the code
-- String - A text string will be passed to the code
-- JSON - A custom json object containing arbitrary keys and values
+- **Boolean** - A simple on/off flag. Useful if you just want to toggle a feature
+- **Number** - A number will be passed as the value of the flag to the code
+- **String** - A text string will be passed to the code
+- **JSON** - A custom json object containing arbitrary keys and values
 
-On top of the flag type, you can add behavior rules are attached to the flag. You can add as many rules as you like, and
+On top of the flag type, you can add behavior [**rules**](/app/features#override-rules) are attached to the flag. You can add as many rules as you like, and
 the first matching rules is used. The rule types are:
 
-- Simple - All users get the same value
-- Targeted - Choose which users get to see the feature flag
-- Percentage rollout - A certain percentage of users will get to see the feature. Useful for de-risking feature deploys
-- A/B Experiment - Run an A/B test between different values of the flag
+- **Simple** - All users get the same value
+- **Targeted** - Choose which users get to see the feature flag
+- **Percentage Rollout** - A certain percentage of users will get to see the feature. Useful for de-risking feature deploys
+- **A/B Experiment** - Run an A/B test between different values of the flag
 
-The result of these flags are a json file with all the rules and states. This is processed by the SDKs along with the user attributes to evaluate what
-features are shown to the user. You can read more details about features here.
+The result of these flags are a JSON file with all the rules and states. This file can be served directly from your servers,
+our CDN (if you're using cloud), or cache it locally for faster performance. This file processed by the [SDKs](/lib) along with the
+[user attributes](/app/features#targeting-attributes) to evaluate what features are shown to the user. You can read more details
+about [features here](/app/features).
 
 ## Experiments
+
+Experiments with the GrowthBook pull data from your existing data source. We support most major [data sources](/app/datasources),
+including BigQuery, Redshift, and even Mixpanel, and Google Analytics.
+
+![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
+
+Once you create a read only connection to your data source you have to tell GrowthBook how to find [experiment exposure](app/datasources#1-experiments-query) information,
+[page view](/app/datasources#2-page-views-query) information (or screens for mobile), and then define [metrics](/app/metrics).
+
+Once these queries are defined, you can use GrowthBook to analyze the results of any experiment data that exists in your
+data warehouse. GrowthBook creates a combined query to pull aggregate experiment information from your data source.
+This is run through our [Bayesian statistics engine](/statistics) to show you results. In this way no PII leaves your servers,
+and you get a single source of truth for your data.
+
+![Results Table](/images/results-table.png)
+
+## Experiment use cases
+
+There are a few ways to use GrowthBook for experiments: with **feature flags**, **webhooks**, or as a **Reporting Platform**:
+
+#### Feature Flags
+
+As described above, you can create a feature flags and attach an experiment rule. When the flag evaluated in this state,
+it will fire the [**tracking callback**](/lib/js#tracking-callback) so you can pass the event and exposure info back to
+your warehouse. Learn more about feature and [SDK](/lib) [integration here](/app/features#integration-options).
+
+#### Webhooks
+
+You can define webhooks in the GrowthBook UI to fire whenever an experiment state changes. With this you can pull in
+experiment changes either manually or using one of our [SDKs](/lib). Learn more about the [webhooks here](/app/webhooks).
+
+#### Reporting Platform
+
+If you already have your own way of doing variation assignment and data collection, you can use GrowthBook to do the
+reporting on the results. GrowthBook allows you to easily see and import any new experiments that are in your data base
+and automates a lot of the hard parts of doing experiment analysis.
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <a href="/self-host" class="no-underline" style={{ textDecoration: "none" }}>
+    <div class="p-4 rounded-lg text-white bg-gradient-to-b from-blue-400 to-blue-500 no-underline text-center">
+      How to Self-Host
+    </div>
+  </a>
+  <a href="/lib" class="no-underline" style={{ textDecoration: "none" }}>
+    <div class="p-4 rounded-lg text-white bg-gradient-to-b from-purple-400 to-purple-500 no-underline text-center">
+      SDK Docs
+    </div>
+  </a>
+  <a href="/faq" class="no-underline" style={{ textDecoration: "none" }}>
+    <div class="p-4 rounded-lg text-white bg-gradient-to-b from-purple-500 to-purple-600 no-underline text-center">
+      Frequently Asked Questions
+    </div>
+  </a>
+</div>

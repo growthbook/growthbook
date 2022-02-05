@@ -23,6 +23,10 @@ const navLinks = [
     name: "Docs Home",
   },
   {
+    href: "/overview",
+    name: "How it works",
+  },
+  {
     href: "/self-host",
     name: "Self-Host",
     links: [
