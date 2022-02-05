@@ -1,28 +1,34 @@
 import React, { useState } from "react";
 import useApi from "../../hooks/useApi";
-import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { getExperimentDefinitionFromFeature } from "../../services/features";
 import NewExperimentForm from "./NewExperimentForm";
 import { ago } from "../../services/dates";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export default function NewFeatureExperiments() {
-  const { project } = useDefinitions();
+  const { project, datasources } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [expDef, setExpDef] = useState(null);
   // get a list of all features that do not have an experiment report
   const { data, error } = useApi<{
-    features: FeatureInterface[];
+    features: {
+      feature: FeatureInterface;
+      rule: ExperimentRule;
+      trackingKey: string;
+      partialExperiment: Partial<ExperimentInterfaceStringDates>;
+    }[];
   }>(`/experiments/newfeatures/?project=${project || ""}`);
 
-  if (!data || error || data?.features.length === 0) {
+  if (!data || error || data?.features?.length === 0) {
     return null;
   }
 
   return (
     <div className="mb-3" style={{ maxHeight: "120px", overflowY: "auto" }}>
-      {data.features.map((f, i) => {
-        const expDefinition = getExperimentDefinitionFromFeature(f);
+      {data.features.map((o, i) => {
+        const f = o.feature;
+        const expDefinition = o.partialExperiment;
         return (
           <div key={i} className="mb-2 alert alert-info py-2">
             <div className="d-flex align-items-center justify-content-between">
@@ -31,17 +37,21 @@ export default function NewFeatureExperiments() {
                 <strong>{expDefinition.trackingKey}</strong> (created{" "}
                 {ago(f.dateCreated)})
               </div>
-              <a
-                className="btn btn-info btn-sm"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setExpDef(expDefinition);
-                  setNewExpModal(true);
-                }}
-              >
-                Add experiment report
-              </a>
+              {datasources?.length > 0 ? (
+                <a
+                  className="btn btn-info btn-sm"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setExpDef(expDefinition);
+                    setNewExpModal(true);
+                  }}
+                >
+                  Add experiment report
+                </a>
+              ) : (
+                <span>A data source is required before adding</span>
+              )}
             </div>
           </div>
         );

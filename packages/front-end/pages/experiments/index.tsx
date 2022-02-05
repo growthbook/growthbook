@@ -90,6 +90,7 @@ const ExperimentsPage = (): React.ReactElement => {
           and analyze it with our statistics engine. Start by connecting to your
           data source and defining metrics.
         </p>
+        <NewFeatureExperiments />
         <ExperimentsGetStarted
           experiments={data?.experiments}
           mutate={mutate}
