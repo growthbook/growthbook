@@ -1,4 +1,5 @@
 import {
+  ExperimentRule,
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
@@ -24,6 +25,7 @@ export default function ExperimentSummary({
   trackingKey,
   experiment,
   feature,
+  expRule,
 }: {
   values: ExperimentValue[];
   type: FeatureValueType;
@@ -31,16 +33,14 @@ export default function ExperimentSummary({
   trackingKey: string;
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
+  expRule: ExperimentRule;
 }) {
   const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
-  const expDefinition = getExperimentDefinitionFromFeature(
-    feature,
-    trackingKey
-  );
+  const expDefinition = getExperimentDefinitionFromFeature(feature, expRule);
 
   return (
     <div>

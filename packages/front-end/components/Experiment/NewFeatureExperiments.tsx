@@ -25,7 +25,7 @@ export default function NewFeatureExperiments() {
   }
 
   return (
-    <div className="mb-3" style={{ maxHeight: "120px", overflowY: "auto" }}>
+    <div className="mb-3" style={{ maxHeight: "107px", overflowY: "auto" }}>
       {data.features.map((o, i) => {
         const f = o.feature;
         const expDefinition = o.partialExperiment;

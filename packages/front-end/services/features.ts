@@ -374,32 +374,18 @@ export function useAttributeMap(): Map<string, AttributeData> {
 
 export function getExperimentDefinitionFromFeature(
   feature: FeatureInterface,
-  trackingKey: string = ""
+  expRule: ExperimentRule
 ) {
-  let expRule: ExperimentRule;
-  if (feature?.rules && feature?.rules?.length > 0) {
-    feature.rules.forEach((r) => {
-      if (r.type === "experiment") {
-        // to handle the case where there are multiple experiment rules per feature, make sure it matches the requested one:
-        if (trackingKey) {
-          if (r.trackingKey === trackingKey) {
-            expRule = r;
-          }
-        } else {
-          expRule = r;
-        }
-      }
-    });
-  }
-  if (!expRule || !expRule.trackingKey) {
+  const trackingKey = expRule?.trackingKey || feature.id;
+  if (!trackingKey) {
     return null;
   }
 
   const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
 
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: expRule.trackingKey,
-    name: expRule.trackingKey + " experiment",
+    trackingKey: trackingKey,
+    name: trackingKey + " experiment",
     hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {

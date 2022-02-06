@@ -310,18 +310,20 @@ export async function getNewFeatures(req: AuthRequest, res: Response) {
   projectFeatures.forEach((f) => {
     if (f?.rules && f?.rules.length > 0) {
       f.rules.forEach((r) => {
-        if (
-          r.type === "experiment" &&
-          r?.trackingKey &&
-          !expMap.get(r?.trackingKey)
-        ) {
-          // this feature experiment has no report:
-          newFeatures.set(r.trackingKey, {
-            feature: f,
-            rule: r,
-            trackingKey: r.trackingKey,
-            partialExperiment: getExperimentDefinitionFromFeatureAndRule(f, r),
-          });
+        if (r.type === "experiment") {
+          const tKey = r.trackingKey || f.id;
+          if (!expMap.get(tKey)) {
+            // this feature experiment has no report:
+            newFeatures.set(tKey, {
+              feature: f,
+              rule: r,
+              trackingKey: tKey,
+              partialExperiment: getExperimentDefinitionFromFeatureAndRule(
+                f,
+                r
+              ),
+            });
+          }
         }
       });
     }
@@ -343,8 +345,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
   const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
 
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: expRule.trackingKey,
-    name: expRule.trackingKey + " experiment",
+    trackingKey: expRule.trackingKey || feature.id,
+    name: (expRule.trackingKey || feature.id) + " experiment",
     hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {

@@ -88,27 +88,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const initialPhases: ExperimentPhaseStringDates[] = isImport
-    ? [
-        {
-          coverage: initialValue.phases?.[0].coverage || 1,
-          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
-            .toISOString()
-            .substr(0, 16),
-          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
-            .toISOString()
-            .substr(0, 16),
-          phase: initialValue.phases?.[0].phase || "main",
-          reason: "",
-          groups: [],
-          variationWeights:
-            initialValue.phases?.[0].variationWeights ||
-            getEvenSplit(
-              initialValue.variations ? initialValue.variations.length : 2
-            ),
-        },
-      ]
-    : [];
+  const initialPhases: ExperimentPhaseStringDates[] =
+    isImport && initialValue
+      ? [
+          {
+            coverage: initialValue.phases?.[0].coverage || 1,
+            dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
+              .toISOString()
+              .substr(0, 16),
+            dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
+              .toISOString()
+              .substr(0, 16),
+            phase: initialValue.phases?.[0].phase || "main",
+            reason: "",
+            groups: [],
+            variationWeights:
+              initialValue.phases?.[0].variationWeights ||
+              getEvenSplit(
+                initialValue.variations ? initialValue.variations.length : 2
+              ),
+          },
+        ]
+      : [];
 
   useEffect(() => {
     track("New Experiment Form", {
