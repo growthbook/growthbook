@@ -343,7 +343,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: expRule.trackingKey,
     name: expRule.trackingKey + " experiment",
-    hypothesis: feature.description || "",
+    hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
