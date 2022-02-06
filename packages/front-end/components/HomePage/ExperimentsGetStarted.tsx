@@ -72,6 +72,18 @@ const ExperimentsGetStarted = ({
     : 1;
   const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
 
+  const importSampleData = async () => {
+    const res = await apiCall<{
+      experiment: string;
+    }>(`/organization/sample-data`, {
+      method: "POST",
+    });
+    await mutateDefinitions();
+    await mutate();
+    track("Add Sample Data");
+    await router.push("/experiment/" + res.experiment);
+  };
+
   return (
     <>
       <div>
@@ -103,6 +115,12 @@ const ExperimentsGetStarted = ({
               setDataSourceOpen(false);
               setDataSourceQueriesOpen(true);
             }}
+            importSampleData={
+              !hasDataSource &&
+              allowImport &&
+              !hasSampleExperiment &&
+              importSampleData
+            }
           />
         )}
         {metricsOpen && (
@@ -159,17 +177,7 @@ const ExperimentsGetStarted = ({
                         <Button
                           color="info"
                           className="btn-sm ml-3 mr-2"
-                          onClick={async () => {
-                            const res = await apiCall<{
-                              experiment: string;
-                            }>(`/organization/sample-data`, {
-                              method: "POST",
-                            });
-                            await mutateDefinitions();
-                            await mutate();
-                            track("Add Sample Data");
-                            await router.push("/experiment/" + res.experiment);
-                          }}
+                          onClick={importSampleData}
                         >
                           <FaDatabase /> Import Sample Data
                         </Button>
