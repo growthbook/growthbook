@@ -17,6 +17,7 @@ import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
 import useUser from "../../hooks/useUser";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
+import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -89,6 +90,7 @@ const ExperimentsPage = (): React.ReactElement => {
           and analyze it with our statistics engine. Start by connecting to your
           data source and defining metrics.
         </p>
+        <NewFeatureExperiments />
         <ExperimentsGetStarted
           experiments={data?.experiments}
           mutate={mutate}
@@ -149,6 +151,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <NewFeatureExperiments />
           <Tabs
             defaultTab={
               byStatus.running.length > 0

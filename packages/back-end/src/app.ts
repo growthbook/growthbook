@@ -385,6 +385,7 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
+app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);

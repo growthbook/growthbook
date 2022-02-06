@@ -9,6 +9,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
+import { getExperimentDefinitionFromFeature } from "../../services/features";
+import Modal from "../Modal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -22,49 +24,23 @@ export default function ExperimentSummary({
   trackingKey,
   experiment,
   feature,
-  description,
 }: {
   values: ExperimentValue[];
   type: FeatureValueType;
   hashAttribute: string;
   trackingKey: string;
-  description: string;
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
 }) {
   const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
+  const [experimentInstructions, setExperimentInstructions] = useState(false);
 
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey,
-    name: trackingKey + " experiment",
-    hypothesis: description,
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (type === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-
-      return {
-        name,
-        screenshots: [],
-        description: v.value,
-      };
-    }),
-    phases: [
-      {
-        coverage: totalPercent,
-        variationWeights: values.map((v) =>
-          totalPercent > 0 ? v.weight / totalPercent : 1 / values.length
-        ),
-        phase: "main",
-        reason: "",
-        dateStarted: new Date().toISOString(),
-      },
-    ],
-  };
+  const expDefinition = getExperimentDefinitionFromFeature(
+    feature,
+    trackingKey
+  );
 
   return (
     <div>
@@ -76,6 +52,41 @@ export default function ExperimentSummary({
           msg="We couldn't find an analysis yet for that feature. Create a new one now."
           initialValue={expDefinition}
         />
+      )}
+      {experimentInstructions && (
+        <Modal
+          header={"Experiments need to be set up first"}
+          open={true}
+          size="lg"
+          close={() => {
+            setExperimentInstructions(false);
+          }}
+          cta={"Set up experiments"}
+        >
+          <div className="row">
+            <div className="col-8 pl-2 mt-2">
+              In order to view the results, you first have to set up experiments
+              by connecting to your data source, and adding a metric.
+              <div className="mt-5">
+                <Link
+                  href={`/experiments/?featureExperiment=${encodeURIComponent(
+                    JSON.stringify(expDefinition)
+                  )}`}
+                >
+                  <a className="btn btn-primary">Set up experiments</a>
+                </Link>
+              </div>
+            </div>
+            <div className="col-4">
+              <img
+                className=""
+                src="/images/add-graph.svg"
+                alt=""
+                style={{ width: "100%", maxWidth: "200px" }}
+              />
+            </div>
+          </div>
+        </Modal>
       )}
       <div className="mb-3 row">
         <div className="col-auto">
@@ -160,27 +171,31 @@ export default function ExperimentSummary({
         <div className="col-auto">
           {experiment ? (
             <Link href={`/experiment/${experiment.id}#results`}>
-              <a className="btn btn-outline-primary btn-sm">View results</a>
+              <a className="btn btn-outline-primary">View results</a>
             </Link>
           ) : datasources.length > 0 && metrics.length > 0 ? (
             <a
-              className="btn btn-outline-primary btn-sm"
+              className="btn btn-outline-primary"
               href="#"
               onClick={(e) => {
                 e.preventDefault();
                 setNewExpModal(true);
               }}
+              title="Create an experiment report from this rule"
             >
-              Setup experiments to view results
+              View results
             </a>
           ) : (
-            <Link
-              href={`/experiments/?featureExperiment=${encodeURIComponent(
-                JSON.stringify(expDefinition)
-              )}`}
+            <a
+              className="btn btn-outline-primary"
+              title="Setup experiments to view results"
+              onClick={(e) => {
+                e.preventDefault();
+                setExperimentInstructions(true);
+              }}
             >
-              <a className="btn btn-outline-primary btn-sm">View results</a>
-            </Link>
+              View results
+            </a>
           )}
         </div>
       </div>

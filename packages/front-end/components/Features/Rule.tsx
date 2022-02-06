@@ -188,7 +188,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 values={rule.values}
                 type={type}
                 feature={feature}
-                description={rule.description || ""}
                 experiment={experiments[rule.trackingKey || feature.id]}
                 hashAttribute={rule.hashAttribute || ""}
                 trackingKey={rule.trackingKey || feature.id}
