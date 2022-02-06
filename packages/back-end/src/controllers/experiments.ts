@@ -329,7 +329,9 @@ export async function getNewFeatures(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-    features: Array.from(newFeatures.values()),
+    features: Array.from(newFeatures.values()).sort(
+      (a, b) => b.feature.dateCreated - a.feature.dateCreated
+    ),
   });
   return;
 }
