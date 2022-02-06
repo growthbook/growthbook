@@ -7,11 +7,13 @@ import { useAuth } from "../../services/auth";
 import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
     "/webhooks"
   );
+  const { getProjectById } = useDefinitions();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 
@@ -49,6 +51,7 @@ const Webhooks: FC = () => {
             <tr>
               <th>Webhook</th>
               <th>Endpoint</th>
+              <th>Scope</th>
               <th>Shared Secret</th>
               <th>Status</th>
               <th></th>
@@ -59,6 +62,30 @@ const Webhooks: FC = () => {
               <tr key={webhook.id}>
                 <td>{webhook.name}</td>
                 <td>{webhook.endpoint}</td>
+                <td>
+                  <div>
+                    <small>environments: </small>{" "}
+                    {(webhook.environment === "dev" ||
+                      !webhook.environment) && (
+                      <span className="badge badge-secondary mr-1">dev</span>
+                    )}
+                    {(webhook.environment === "production" ||
+                      !webhook.environment) && (
+                      <span className="badge badge-primary mr-1">
+                        production
+                      </span>
+                    )}
+                  </div>
+                  {webhook.project && (
+                    <div className="mt-2">
+                      <small>project: </small>{" "}
+                      <strong>
+                        {getProjectById(webhook.project)?.name ||
+                          webhook.project}
+                      </strong>
+                    </div>
+                  )}
+                </td>
                 <td>
                   <code>{webhook.signingKey}</code>
                 </td>

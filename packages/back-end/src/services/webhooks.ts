@@ -6,7 +6,9 @@ import { WebhookInterface } from "../../types/webhook";
 export async function createWebhook(
   organization: string,
   name: string,
-  endpoint: string
+  endpoint: string,
+  project: string,
+  environment: string
 ): Promise<string> {
   const id = uniqid("wh_");
   const signingKey = "wk_" + md5(uniqid()).substr(0, 16);
@@ -16,6 +18,8 @@ export async function createWebhook(
     name,
     organization,
     endpoint,
+    project: project || "",
+    environment: environment || "",
     signingKey,
     created: new Date(),
     error: "",

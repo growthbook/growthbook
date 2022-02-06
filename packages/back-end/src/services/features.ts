@@ -19,9 +19,10 @@ function getJSONValue(type: FeatureValueType, value: string): any {
 }
 export async function getFeatureDefinitions(
   organization: string,
-  environment?: string
+  environment?: string,
+  project?: string
 ) {
-  const features = await getAllFeatures(organization);
+  const features = await getAllFeatures(organization, project);
 
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
@@ -93,7 +94,16 @@ export async function getFeatureDefinitions(
   return defs;
 }
 
-export async function featureUpdated(feature: FeatureInterface) {
+export async function featureUpdated(
+  feature: FeatureInterface,
+  previousEnvironments: string[] = [],
+  previousProject: string = ""
+) {
   // fire the webhook:
-  await queueWebhook(feature.organization);
+  await queueWebhook(
+    feature.organization,
+    [...feature.environments, ...previousEnvironments],
+    [previousProject || "", feature.project || ""],
+    true
+  );
 }

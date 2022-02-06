@@ -14,6 +14,10 @@ There you can add a webhook endpoint.
 
 This page is also where you can view the shared secret used to verify requests (see below) and see the status of your webhook and any errors.
 
+### Environment and Project Scoping
+
+You can optionally scope your webhook to a specific environment and/or project. If specified, only features which match the scope will trigger the webhook and be included in the payload.
+
 ## Payload
 
 Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing feature definitions in the same format as the API returns.

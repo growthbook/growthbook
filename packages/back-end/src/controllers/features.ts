@@ -18,6 +18,11 @@ import { ExperimentDocument } from "../models/ExperimentModel";
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
 
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
   try {
     const { organization, environment } = await lookupOrganizationByApiKey(key);
     if (!organization) {
@@ -27,7 +32,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
-    const features = await getFeatureDefinitions(organization, environment);
+    const features = await getFeatureDefinitions(
+      organization,
+      environment,
+      project
+    );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -173,7 +182,14 @@ export async function putFeature(
   });
 
   if (requiresWebhook) {
-    featureUpdated(feature);
+    featureUpdated(
+      {
+        ...feature,
+        ...updates,
+      },
+      feature.environments || [],
+      feature.project || ""
+    );
   }
 
   res.status(200).json({

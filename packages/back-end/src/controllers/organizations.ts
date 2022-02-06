@@ -1131,7 +1131,12 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
 }
 
 export async function postWebhook(
-  req: AuthRequest<{ name: string; endpoint: string }>,
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    project: string;
+    environment: string;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1142,9 +1147,15 @@ export async function postWebhook(
     });
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(org.id, name, endpoint);
+  const webhook = await createWebhook(
+    org.id,
+    name,
+    endpoint,
+    project,
+    environment
+  );
 
   res.status(200).json({
     status: 200,
@@ -1177,13 +1188,15 @@ export async function putWebhook(
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
 
   webhook.set("name", name);
   webhook.set("endpoint", endpoint);
+  webhook.set("project", project || "");
+  webhook.set("environment", environment || "");
 
   await webhook.save();
 

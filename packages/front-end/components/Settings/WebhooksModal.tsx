@@ -6,6 +6,7 @@ import track from "../../services/track";
 import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { WebhookInterface } from "back-end/types/webhook";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -14,10 +15,16 @@ const WebhooksModal: FC<{
   current: Partial<WebhookInterface>;
 }> = ({ close, onSave, current }) => {
   const { apiCall } = useAuth();
+
+  const { projects, project } = useDefinitions();
+
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
+      project: current.project || (current.id ? "" : project),
+      environment: current.environment || "",
+      featuresOnly: current.id ? !!current.featuresOnly : true,
     },
   });
 
@@ -65,6 +72,39 @@ const WebhooksModal: FC<{
           </>
         }
       />
+      <h4>
+        Scope your webhook to a specific environment
+        {projects.length > 0 && " and/or project"} (optional)
+      </h4>
+      <Field
+        label="Environment"
+        options={[
+          {
+            display: "Both dev and production",
+            value: "",
+          },
+          {
+            display: "Dev only",
+            value: "dev",
+          },
+          {
+            display: "Production only",
+            value: "production",
+          },
+        ]}
+        {...form.register("environment")}
+      />
+      {projects.length > 0 && (
+        <Field
+          label="Project"
+          options={projects.map((p) => ({
+            display: p.name,
+            value: p.id,
+          }))}
+          initialOption="All Projects"
+          {...form.register("project")}
+        />
+      )}
     </Modal>
   );
 };
