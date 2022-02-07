@@ -153,6 +153,7 @@ const MetricForm: FC<MetricFormProps> = ({
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
+      conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
@@ -732,6 +733,25 @@ GROUP BY
         )}
         {conversionWindowSupported && (
           <div className="form-group">
+            Conversion Delay (hours)
+            <input
+              type="number"
+              step="1"
+              min="0"
+              className="form-control"
+              placeholder={"0"}
+              {...form.register("conversionDelayHours", {
+                valueAsNumber: true,
+              })}
+            />
+            <small className="text-muted">
+              Ignore all conversions within the first X hours of being put into
+              an experiment.
+            </small>
+          </div>
+        )}
+        {conversionWindowSupported && (
+          <div className="form-group">
             Conversion Window (hours)
             <input
               type="number"
@@ -743,6 +763,10 @@ GROUP BY
                 valueAsNumber: true,
               })}
             />
+            <small className="text-muted">
+              After the conversion delay (if any), wait this many hours for a
+              conversion event.
+            </small>
           </div>
         )}
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (

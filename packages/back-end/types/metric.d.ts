@@ -39,6 +39,7 @@ export interface MetricInterface {
   ignoreNulls: boolean;
   cap?: number;
   conversionWindowHours?: number;
+  conversionDelayHours?: number;
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;

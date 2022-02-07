@@ -96,9 +96,13 @@ If set above zero, all values will be capped at this value. So in the above exam
 
 We recommend setting this at the 99th percentile in most cases.
 
+### Conversion Delay
+
+Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, you would set conversion delay to `24` hours..
+
 ### Conversion Window
 
-The number of hours the user has to convert after first being put into an experiment (default = `72`). Any conversions that happens after this time will be ignored. As always there's a tradeoff here.
+The number of hours the user has to convert after the conversion delay (default = `72`). Any conversions that happens after this time will be ignored. As always there's a tradeoff here.
 
 The lower you set this, the more you can be sure that your experiment directly contributed to the metric conversion. For example, a user who views your new checkout page and then completes the purchase right away is a much stronger signal than someone viewing your checkout page and then finally completing the purchase 7 days later.
 

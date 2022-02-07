@@ -730,8 +730,12 @@ const MetricPage: FC = () => {
                   type="commaList"
                   title="Conversion Window"
                 >
-                  {metric.conversionWindowHours ||
-                    getDefaultConversionWindowHours()}{" "}
+                  {metric.conversionDelayHours
+                    ? metric.conversionDelayHours + " to "
+                    : ""}
+                  {(metric.conversionDelayHours || 0) +
+                    (metric.conversionWindowHours ||
+                      getDefaultConversionWindowHours())}{" "}
                   hours
                 </RightRailSectionGroup>
               )}

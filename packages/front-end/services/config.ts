@@ -75,6 +75,7 @@ export function useConfigJson({
         "inverse",
         "cap",
         "conversionWindowHours",
+        "conversionDelayHours",
         "loseRisk",
         "winRisk",
         "maxPercentChange",

@@ -473,6 +473,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               state.queuedValues.forEach((q) => {
                 ${this.getConversionWindowCheck(
                   params.metric.conversionWindowHours,
+                  params.metric.conversionDelayHours,
                   "state.firstPageView",
                   "q.time",
                   "return"
@@ -495,6 +496,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               }
               ${this.getConversionWindowCheck(
                 params.metric.conversionWindowHours,
+                params.metric.conversionDelayHours,
                 "state.firstPageView"
               )}
               ${this.getMetricAggregationCode(
@@ -700,13 +702,23 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getConversionWindowCheck(
     conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionDelayHours: number = 0,
     startVar: string,
     eventTimeVar: string = "events[i].time",
     onFail: string = "continue;"
   ) {
-    return `// Check conversion window (${conversionWindowHours} hours)
-    if(${eventTimeVar} - ${startVar} > ${
-      conversionWindowHours * 60 * 60 * 1000
+    const delayCheck =
+      conversionDelayHours > 0
+        ? `${eventTimeVar} - ${startVar} < ${
+            conversionDelayHours * 60 * 60 * 1000
+          } || `
+        : "";
+
+    return `// Check conversion window (${conversionDelayHours} - ${
+      conversionDelayHours + conversionWindowHours
+    } hours)
+    if(${delayCheck}${eventTimeVar} - ${startVar} > ${
+      (conversionDelayHours + conversionWindowHours) * 60 * 60 * 1000
     }) {
       ${onFail}
     }`;

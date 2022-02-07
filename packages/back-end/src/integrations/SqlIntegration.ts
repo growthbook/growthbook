@@ -320,6 +320,14 @@ export default abstract class SqlIntegration
       metricEnd.getHours() +
         (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
     );
+    if (params.metric.conversionDelayHours) {
+      metricStart.setHours(
+        metricStart.getHours() + params.metric.conversionDelayHours
+      );
+      metricEnd.setHours(
+        metricEnd.getHours() + params.metric.conversionDelayHours
+      );
+    }
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -338,7 +346,8 @@ export default abstract class SqlIntegration
         __users as (${this.getPageUsersCTE(
           params,
           userId,
-          params.metric.conversionWindowHours
+          params.metric.conversionWindowHours,
+          params.metric.conversionDelayHours
         )})
         ${
           params.segmentQuery
@@ -714,6 +723,16 @@ export default abstract class SqlIntegration
       );
     }
 
+    // Add conversion delay
+    if (metric.conversionDelayHours) {
+      metricStart.setHours(
+        metricStart.getHours() + metric.conversionDelayHours
+      );
+      if (metricEnd) {
+        metricEnd.setHours(metricEnd.getHours() + metric.conversionDelayHours);
+      }
+    }
+
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     return format(
@@ -738,6 +757,10 @@ export default abstract class SqlIntegration
           (activationMetric
             ? activationMetric.conversionWindowHours
             : metric.conversionWindowHours) || 0,
+        conversionDelayHours:
+          (activationMetric
+            ? activationMetric.conversionDelayHours
+            : metric.conversionDelayHours) || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
       })})
@@ -769,6 +792,7 @@ export default abstract class SqlIntegration
           ? `, __activationMetric as (${this.getMetricCTE({
               metric: activationMetric,
               conversionWindowHours: metric.conversionWindowHours,
+              conversionDelayHours: metric.conversionDelayHours,
               userId,
               startDate: metricStart,
               endDate: metricEnd,
@@ -910,12 +934,14 @@ export default abstract class SqlIntegration
   private getMetricCTE({
     metric,
     conversionWindowHours = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionDelayHours = 0,
     userId = true,
     startDate,
     endDate,
   }: {
     metric: MetricInterface;
     conversionWindowHours?: number;
+    conversionDelayHours?: number;
     userId?: boolean;
     startDate: Date;
     endDate: Date | null;
@@ -971,9 +997,20 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as user_id,
         ${this.getRawMetricSqlValue(metric, "m")} as value,
-        ${timestampCol} as actual_start,
-        ${this.addHours(timestampCol, conversionWindowHours)} as conversion_end,
-        ${this.subtractHalfHour(timestampCol)} as session_start
+        ${
+          conversionDelayHours
+            ? this.addHours(timestampCol, conversionDelayHours)
+            : timestampCol
+        } as actual_start,
+        ${this.addHours(
+          timestampCol,
+          conversionWindowHours + conversionDelayHours
+        )} as conversion_end,
+        ${
+          conversionDelayHours
+            ? this.addHours(timestampCol, conversionDelayHours)
+            : this.subtractHalfHour(timestampCol)
+        } as session_start
       FROM
         ${
           metric.sql
@@ -1025,11 +1062,13 @@ export default abstract class SqlIntegration
     experiment,
     phase,
     conversionWindowHours = 0,
+    conversionDelayHours = 0,
     experimentDimension = null,
   }: {
     experiment: ExperimentInterface;
     phase: ExperimentPhase;
     conversionWindowHours: number;
+    conversionDelayHours: number;
     experimentDimension: string | null;
   }) {
     conversionWindowHours =
@@ -1041,17 +1080,28 @@ export default abstract class SqlIntegration
     const endDate = this.getExperimentEndDate(
       experiment,
       phase,
-      conversionWindowHours
+      conversionWindowHours + conversionDelayHours
     );
 
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
       ${this.castToString("e.variation_id")} as variation,
-      e.timestamp as actual_start,
+      ${
+        conversionDelayHours
+          ? this.addHours("e.timestamp", conversionDelayHours)
+          : "e.timestamp"
+      } as actual_start,
       ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
-      ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
-      ${this.subtractHalfHour("e.timestamp")} as session_start
+      ${this.addHours(
+        "e.timestamp",
+        conversionWindowHours + conversionDelayHours
+      )} as conversion_end,
+      ${
+        conversionDelayHours
+          ? this.addHours("e.timestamp", conversionDelayHours)
+          : this.subtractHalfHour("e.timestamp")
+      } as session_start
     FROM
         __rawExperiment e
     WHERE
@@ -1103,7 +1153,8 @@ export default abstract class SqlIntegration
   private getPageUsersCTE(
     params: MetricValueParams,
     userId: boolean = true,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS
+    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionDelayHours: number = 0
   ): string {
     // TODO: use identifies if table is missing the requested userId type
     const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
@@ -1111,12 +1162,20 @@ export default abstract class SqlIntegration
     return `-- Users visiting specific pages
     SELECT
       ${userIdCol} as user_id,
-      MIN(p.timestamp) as actual_start,
+      ${
+        conversionDelayHours > 0
+          ? this.addHours("MIN(p.timestamp)", conversionDelayHours)
+          : "MIN(p.timestamp)"
+      } as actual_start,
       ${this.addHours(
         `MIN(p.timestamp)`,
-        conversionWindowHours
+        conversionWindowHours + conversionDelayHours
       )} as conversion_end,
-      ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
+      ${
+        conversionDelayHours > 0
+          ? this.addHours("MIN(p.timestamp)", conversionDelayHours)
+          : this.subtractHalfHour(`MIN(p.timestamp)`)
+      } as session_start
     FROM
         __pageviews p
     WHERE
