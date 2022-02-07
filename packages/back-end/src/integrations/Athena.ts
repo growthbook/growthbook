@@ -19,11 +19,13 @@ export default class Athena extends SqlIntegration {
   runQuery(sql: string) {
     return runAthenaQuery(this.params, sql);
   }
-  addHours(col: string, hours: number) {
-    return `${col} + INTERVAL '${hours}' hour`;
-  }
-  subtractHalfHour(col: string) {
-    return `${col} - INTERVAL '30' minute`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
   regexMatch(col: string, regex: string) {
     return `regexp_like(${col}, '${regex}')`;

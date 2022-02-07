@@ -32,11 +32,15 @@ export default class Mysql extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  addHours(col: string, hours: number) {
-    return `DATE_ADD(${col}, INTERVAL ${hours} HOUR)`;
-  }
-  subtractHalfHour(col: string) {
-    return `SUBTIME(${col}, "0:30")`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `DATE_${
+      sign === "+" ? "ADD" : "SUB"
+    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
   regexMatch(col: string, regex: string) {
     return `${col} REGEXP '${regex}'`;

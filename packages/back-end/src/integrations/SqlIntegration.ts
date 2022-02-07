@@ -180,10 +180,24 @@ export default abstract class SqlIntegration
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
   addHours(col: string, hours: number) {
-    return `${col} + INTERVAL '${hours} hours'`;
+    if (!hours) return col;
+    let unit: "hour" | "minute" = "hour";
+    const sign = hours > 0 ? "+" : "-";
+    let amount = Math.round(Math.abs(hours));
+    if ((Math.abs(hours) * 10) % 10 > 1) {
+      amount = Math.round(hours * 60);
+      unit = "minute";
+    }
+
+    return this.addTime(col, unit, sign, amount);
   }
-  subtractHalfHour(col: string) {
-    return `${col} - INTERVAL '30 minutes'`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
   }
   regexMatch(col: string, regex: string) {
     return `${col} ~ '${regex}'`;
@@ -368,13 +382,12 @@ export default abstract class SqlIntegration
           SELECT
             u.user_id,
             MIN(u.conversion_end) as conversion_end,
-            MIN(u.session_start) as session_start,
-            MIN(u.actual_start) as actual_start
+            MIN(u.conversion_start) as conversion_start
           FROM
             __users u
             ${
               params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
+                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.conversion_start"
                 : ""
             }
           GROUP BY
@@ -390,10 +403,8 @@ export default abstract class SqlIntegration
               m.user_id = d.user_id
             )
             WHERE
-              m.actual_start >= d.${
-                params.metric.earlyStart ? "session_start" : "actual_start"
-              }
-              AND m.actual_start <= d.conversion_end
+              m.conversion_start >= d.conversion_start
+              AND m.conversion_start <= d.conversion_end
           GROUP BY
             d.user_id
         )
@@ -430,7 +441,7 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("d.actual_start")} as date,
+              ${this.dateTrunc("d.conversion_start")} as date,
               ${this.getAggregateMetricSqlValue(params.metric)} as value
             FROM
               __distinctUsers d
@@ -438,23 +449,21 @@ export default abstract class SqlIntegration
                 m.user_id = d.user_id
               )
               WHERE
-                m.actual_start >= d.${
-                  params.metric.earlyStart ? "session_start" : "actual_start"
-                }
-                AND m.actual_start <= d.conversion_end
+                m.conversion_start >= d.conversion_start
+                AND m.conversion_start <= d.conversion_end
             GROUP BY
-              ${this.dateTrunc("d.actual_start")},
+              ${this.dateTrunc("d.conversion_start")},
               d.user_id
           )
           , __usersByDate as (
             -- Number of users by date
             SELECT
-              ${this.dateTrunc("actual_start")} as date,
+              ${this.dateTrunc("conversion_start")} as date,
               COUNT(*) as users
             FROM
               __distinctUsers
             GROUP BY
-              ${this.dateTrunc("actual_start")}
+              ${this.dateTrunc("conversion_start")}
           )
           , __byDateOverall as (
             SELECT
@@ -673,8 +682,7 @@ export default abstract class SqlIntegration
     return `
       SELECT
         e.user_id,
-        a.actual_start,
-        a.session_start,
+        a.conversion_start,
         a.conversion_end
       FROM
         __experiment e
@@ -682,8 +690,8 @@ export default abstract class SqlIntegration
           a.user_id = e.user_id
         )
       WHERE
-        a.actual_start >= e.actual_start
-        AND a.actual_start <= e.conversion_end`;
+        a.conversion_start >= e.conversion_start
+        AND a.conversion_start <= e.conversion_end`;
   }
 
   private ifNullFallback(nullable: string | null, fallback: string) {
@@ -812,7 +820,7 @@ export default abstract class SqlIntegration
               : dimension?.type === "experiment"
               ? "e.dimension"
               : dimension?.type === "date"
-              ? this.formatDate(this.dateTrunc("e.actual_start"))
+              ? this.formatDate(this.dateTrunc("e.conversion_start"))
               : activationDimension
               ? this.ifElse(
                   "a.user_id IS NULL",
@@ -831,13 +839,9 @@ export default abstract class SqlIntegration
               : "e.variation"
           } as variation,
           MIN(${this.ifNullFallback(
-            activationMetric ? "a.actual_start" : null,
-            "e.actual_start"
-          )}) as actual_start,
-          MIN(${this.ifNullFallback(
-            activationMetric ? "a.session_start" : null,
-            "e.session_start"
-          )}) as session_start,
+            activationMetric ? "a.conversion_start" : null,
+            "e.conversion_start"
+          )}) as conversion_start,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.conversion_end" : null,
             "e.conversion_end"
@@ -858,7 +862,7 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.actual_start` : ""}
+        ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
           dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )
@@ -874,10 +878,8 @@ export default abstract class SqlIntegration
             m.user_id = d.user_id
           )
           WHERE
-            m.actual_start >= d.${
-              metric.earlyStart ? "session_start" : "actual_start"
-            }
-            AND m.actual_start <= d.conversion_end
+            m.conversion_start >= d.conversion_start
+            AND m.conversion_start <= d.conversion_end
         GROUP BY
           variation, dimension, d.user_id
       )
@@ -997,20 +999,14 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as user_id,
         ${this.getRawMetricSqlValue(metric, "m")} as value,
-        ${
-          conversionDelayHours
-            ? this.addHours(timestampCol, conversionDelayHours)
-            : timestampCol
-        } as actual_start,
         ${this.addHours(
           timestampCol,
-          conversionWindowHours + conversionDelayHours
-        )} as conversion_end,
-        ${
           conversionDelayHours
-            ? this.addHours(timestampCol, conversionDelayHours)
-            : this.subtractHalfHour(timestampCol)
-        } as session_start
+        )} as conversion_start,
+        ${this.addHours(
+          timestampCol,
+          conversionDelayHours + conversionWindowHours
+        )} as conversion_end
       FROM
         ${
           metric.sql
@@ -1087,21 +1083,12 @@ export default abstract class SqlIntegration
     SELECT
       ${userIdCol} as user_id,
       ${this.castToString("e.variation_id")} as variation,
-      ${
-        conversionDelayHours
-          ? this.addHours("e.timestamp", conversionDelayHours)
-          : "e.timestamp"
-      } as actual_start,
+      ${this.addHours("e.timestamp", conversionDelayHours)} as conversion_start,
       ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
       ${this.addHours(
         "e.timestamp",
-        conversionWindowHours + conversionDelayHours
-      )} as conversion_end,
-      ${
-        conversionDelayHours
-          ? this.addHours("e.timestamp", conversionDelayHours)
-          : this.subtractHalfHour("e.timestamp")
-      } as session_start
+        conversionDelayHours + conversionWindowHours
+      )} as conversion_end
     FROM
         __rawExperiment e
     WHERE
@@ -1162,20 +1149,14 @@ export default abstract class SqlIntegration
     return `-- Users visiting specific pages
     SELECT
       ${userIdCol} as user_id,
-      ${
-        conversionDelayHours > 0
-          ? this.addHours("MIN(p.timestamp)", conversionDelayHours)
-          : "MIN(p.timestamp)"
-      } as actual_start,
+      ${this.addHours(
+        "MIN(p.timestamp)",
+        conversionDelayHours
+      )} as conversion_start,
       ${this.addHours(
         `MIN(p.timestamp)`,
-        conversionWindowHours + conversionDelayHours
-      )} as conversion_end,
-      ${
-        conversionDelayHours > 0
-          ? this.addHours("MIN(p.timestamp)", conversionDelayHours)
-          : this.subtractHalfHour(`MIN(p.timestamp)`)
-      } as session_start
+        conversionDelayHours + conversionWindowHours
+      )} as conversion_end
     FROM
         __pageviews p
     WHERE
