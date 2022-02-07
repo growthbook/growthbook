@@ -1,85 +1,94 @@
-# How it works
+# What is GrowthBook?
 
-GrowthBook's feature flagging and experimentation platform is built for maximum flexibility and performance, and as such,
-works a bit differently than others. This page will go over how it all works together, and some of the common usage modes.
+GrowthBook is a modular platform. You can use it for either Feature Flags, Experiment Analysis, or both.
 
-#### TL;DR:
+[**Feature Flags**](/app/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an A/B test, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
 
-At it's core, GrowthBook's feature flagging system produces file which is processed by the SDK to figure out which
-user sees which feature. If a feature is set up as an experiment, a tracking call will fire to your existing event tracking
-system to add this exposure data to your data warehouse.
+[**Experiment Analysis**](/app/experiments) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (mean, stddev, etc.).
 
-GrowthBook's experiments analyzes raw experiment data in your data warehouse, and runs statistical modeling to produce a
-report of the results. No raw event data is sent to GrowthBook, instead, we require read only access to your data. The
-experiment analysis can be used with feature flagging, or entirely separate as the statistics and reporting tool for your
-own experiment data.
+![GrowthBook: How it Works Diagram](/images/feature-flagging-experimentation-diagram-766.png)
 
-![GrowthBook: The Open Source A/B Testing Platform](/images/feature-flagging-experimentation-diagram-766.png)
+## Feature Flags
 
-## Feature Flagging
+[Feature flags](/app/features) are a very powerful developer tool. They give you deep control over how and when new functionality is released to your users.
 
-[Feature flags](/app/features) allow you to decouple the deployment of code, from the release of the feature. At it's simplest a feature
-flag is an on/off toggle for your feature. However, they can be far more useful than this. All flags have a **value**,
-that are passed to the code from the UI, and **rules**, which determine who gets to see it. With this, feature flags are extremely flexible. You can slowly roll out a
-feature, target a feature to certain users, quickly adjust the text on a page, or easily turn a feature into an A/B test to measure its impact.
+GrowthBook supports 4 types of features:
 
-For the [**values**](/app/features#feature-types) the options are:
+- **Boolean (on/off)**
+- **Number**
+- **String**
+- **JSON**
 
-- **Boolean** - A simple on/off flag. Useful if you just want to toggle a feature
-- **Number** - A number will be passed as the value of the flag to the code
-- **String** - A text string will be passed to the code
-- **JSON** - A custom json object containing arbitrary keys and values
+Using features in your code is easy. Here's an example from our Javascript SDK:
 
-On top of the flag type, you can add behavior [**rules**](/app/features#override-rules) are attached to the flag. You can add as many rules as you like, and
-the first matching rules is used. The rule types are:
+```js
+// For boolean features
+if (growthbook.feature("my-feature").on) {
+  // ... Do something
+}
 
-- **Simple** - All users get the same value
-- **Targeted** - Choose which users get to see the feature flag
-- **Percentage Rollout** - A certain percentage of users will get to see the feature. Useful for de-risking feature deploys
-- **A/B Experiment** - Run an A/B test between different values of the flag
+// For number, string, and JSON features
+const value = growthbook.feature("other-feature").value;
+```
 
-The result of these flags are a JSON file with all the rules and states. This file can be served directly from your servers,
-our CDN (if you're using cloud), or cache it locally for faster performance. This file processed by the [SDKs](/lib) along with the
-[user attributes](/app/features#targeting-attributes) to evaluate what features are shown to the user. You can read more details
-about [features here](/app/features).
+GrowthBook also supports different environments, so you can, for example, have a feature enabled in **dev** but not **production**.
 
-## Experiments
+You can also change the value of a feature with **Override Rules**. The following types of rules are supported:
 
-Experiments with the GrowthBook pull data from your existing data source. We support most major [data sources](/app/datasources),
-including BigQuery, Redshift, and even Mixpanel, and Google Analytics.
+- **Targeted** - Choose a subset of users based on targeting attributes
+- **Percentage Rollout** - Use random sampling to pick a certain percent of users
+- **A/B Experiment** - Run an A/B test between different feature values
+
+You can pull feature definitions as a JSON file from the [API](/app/api) or setup a [Webhook](/app/webhooks) to push the same JSON to your servers automatically when something changes.
+
+This feature definitions JSON is passed into our [SDKs](/lib) along with [user targeting attributes](/app/features#targeting-attributes).
+
+Read more about [features here](/app/features).
+
+## Experiment Analysis
+
+GrowthBook needs to connect to your [Data Source](/app/datasources) in order to query experiment results. We support all of the popular SQL data warehouses in addition to Mixpanel and Google Analytics. GrowthBook is extremely flexible and can support almost any schema structure with a little bit of configuration.
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
-Once you create a read only connection to your data source you have to tell GrowthBook how to find [experiment exposure](app/datasources#1-experiments-query) information,
-[page view](/app/datasources#2-page-views-query) information (or screens for mobile), and then define [metrics](/app/metrics).
+Once connected to a data source, you need to build a re-usable library of [Metrics](/app/metrics). Metrics are what your experiments are trying to improve. Metrics are defined via SQL (if your data source supports it) or a simple query builder. The following types are supported:
 
-When these queries are defined, you can use GrowthBook to analyze the results of any experiment data that exists in your
-data warehouse. GrowthBook creates a combined query to pull aggregate experiment information from your data source (you can click _view queries_ to see them).
-This is run through our [Bayesian statistics engine](/statistics) to show you results. In this way no PII leaves your servers,
-and you get a single source of truth for your data.
+- **binomial** - simple yes/no conversion metrics (e.g. `started trial`, `bounce rate`, `purchased`)
+- **count** - when the number or magnitude of conversions matters (e.g. `downloads per user`, `points earned`)
+- **revenue** - the amount of revenue earned (e.g. `revenue per user`, `average order value`)
+- **duration** - the time it takes to do something (e.g. `page load time`, `time on site`)
+
+Once these are metrics are set up, you can import experiments and start analyzing the results. GrowthBook uses a [Bayesian statistics engine](/statistics) to determine the probability that a variation is better than the control, as well as how much better it is and how risky it is to stop the experiment now.
 
 ![Results Table](/images/results-table.png)
 
-## Experiment use cases
+Your data team can drill down into results by custom [dimensions](/app/dimensions), view the raw SQL that GrowthBook is running on your data warehouse, and export results to a Jupyter notebook for even deeper analysis.
 
-There are a few ways to use GrowthBook for experiments: with **feature flags**, **webhooks**, or as a **Reporting Platform**:
+Read more about [experiments here](/app/experiments).
 
-#### Feature Flags
+## Use Cases
 
-As described above, you can create a feature flags and attach an experiment rule. When the flag evaluated in this state,
-it will fire the [**tracking callback**](/lib/js#tracking-callback) so you can pass the event and exposure info back to
-your warehouse. Learn more about feature and [SDK](/lib) [integration here](/app/features#integration-options).
+There are typically three reasons that teams use GrowthBook.
 
-#### Webhooks
+### 1. Full Experimentation Platform
 
-You can define webhooks in the GrowthBook UI to fire whenever an experiment state changes. With this you can pull in
-experiment changes either manually or using one of our [SDKs](/lib). Learn more about the [webhooks here](/app/webhooks).
+In this use case, companies use Feature Flags and our SDKs to run experiments in their applications. Then they use our Experiment Analysis to look at the results and decide on a winner.
 
-#### Reporting Platform
+This is best for companies that are either just starting with experimentation or want to completely switch away from their current way of doing things.
 
-If you already have your own way of doing variation assignment and data collection, you can use GrowthBook to do the
-reporting on the results. GrowthBook allows you to easily see and import any new experiments that are in your data base
-and automates a lot of the hard parts of doing experiment analysis.
+### 2. Feature Flags Only
+
+In this use case, companies don't run experiments at all and just use GrowthBook feature flags within their engineering team.
+
+This is best for companies that don't have enough traffic to run full experiments, but still want all of the benefits that feature flags provide.
+
+### 3. Experiment Analysis Only
+
+In this use case, companies are already running experiments and analyzing results usually with either a home-built reporting system or by manually creating Jupyter notebooks. They use GrowthBook to automate and improve the analysis process to save time and make better decisions.
+
+This is best for companies that already have a robust process for running experiments and just need a little help analyzing results at scale.
+
+## Next Steps
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
   <a href="/self-host" class="no-underline" style={{ textDecoration: "none" }}>
