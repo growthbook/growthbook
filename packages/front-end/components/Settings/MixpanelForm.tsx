@@ -15,7 +15,7 @@ const MixpanelForm: FC<{
           target="_blank"
           rel="noreferrer noopener"
         >
-          Project Settings
+          Mixpanel Project Settings
         </a>
         .
       </div>

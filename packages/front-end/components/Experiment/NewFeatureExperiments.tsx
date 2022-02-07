@@ -20,7 +20,7 @@ export default function NewFeatureExperiments() {
     }[];
   }>(`/experiments/newfeatures/?project=${project || ""}`);
 
-  if (!data || error || data?.features?.length === 0) {
+  if (!data || error || data?.features?.length === 0 || !datasources.length) {
     return null;
   }
 
