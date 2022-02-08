@@ -4,6 +4,7 @@ import { createHmac } from "crypto";
 import fetch from "node-fetch";
 import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
+import { WebhookInterface } from "../../types/webhook";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -26,19 +27,28 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const { overrides, expIdMapping } = await getExperimentOverrides(
-      webhook.organization
-    );
     const features = await getFeatureDefinitions(
       webhook.organization,
-      "production"
+      webhook.environment === undefined ? "production" : webhook.environment,
+      webhook.project || ""
     );
-    const payload = JSON.stringify({
+
+    // eslint-disable-next-line
+    const body: any = {
       timestamp: Math.floor(Date.now() / 1000),
-      overrides,
-      experiments: expIdMapping,
       features,
-    });
+    };
+
+    if (!webhook.featuresOnly) {
+      const { overrides, expIdMapping } = await getExperimentOverrides(
+        webhook.organization,
+        webhook.project
+      );
+      body.overrides = overrides;
+      body.experiments = expIdMapping;
+    }
+
+    const payload = JSON.stringify(body);
 
     const signature = createHmac("sha256", webhook.signingKey)
       .update(payload)
@@ -92,8 +102,12 @@ export default function (ag: Agenda) {
   );
 }
 
-export async function queueWebhook(orgId: string) {
-  // Only queue if the organization has at least 1 webhook defined
+export async function queueWebhook(
+  orgId: string,
+  environments: string[],
+  projects: string[],
+  isFeature?: boolean
+) {
   const webhooks = await WebhookModel.find({
     organization: orgId,
   });
@@ -101,12 +115,33 @@ export async function queueWebhook(orgId: string) {
   if (!webhooks) return;
 
   for (let i = 0; i < webhooks.length; i++) {
-    const webhookId = webhooks[i].id as string;
+    const webhook: WebhookInterface = webhooks[i];
+
+    // Skip if this webhook is for another project
+    if (webhook.project && !projects.includes(webhook.project)) {
+      continue;
+    }
+    // Legacy webhook without an environment, default to "production" only
+    if (
+      webhook.environment === undefined &&
+      !environments.includes("production")
+    ) {
+      continue;
+    }
+    // Skip if this webhook is for another environment
+    if (webhook.environment && !environments.includes(webhook.environment)) {
+      continue;
+    }
+    // Skip if this webhook is only for features and this isn't a feature event
+    if (!isFeature && webhook.featuresOnly) {
+      continue;
+    }
+
     const job = agenda.create(WEBHOOK_JOB_NAME, {
-      webhookId,
+      webhookId: webhook.id,
       retryCount: 0,
     }) as WebhookJob;
-    job.unique({ webhookId });
+    job.unique({ webhookId: webhook.id });
     job.schedule(new Date());
     await job.save();
   }

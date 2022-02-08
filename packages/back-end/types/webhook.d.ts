@@ -3,6 +3,9 @@ export interface WebhookInterface {
   organization: string;
   name: string;
   endpoint: string;
+  project?: string;
+  environment?: string;
+  featuresOnly?: boolean;
   signingKey: string;
   lastSuccess: Date | null;
   error: string;

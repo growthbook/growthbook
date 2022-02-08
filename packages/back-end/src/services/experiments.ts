@@ -789,9 +789,17 @@ export async function processPastExperiments(
   );
 }
 
-export async function experimentUpdated(experiment: ExperimentInterface) {
+export async function experimentUpdated(
+  experiment: ExperimentInterface,
+  previousProject: string = ""
+) {
   // fire the webhook:
-  await queueWebhook(experiment.organization);
+  await queueWebhook(
+    experiment.organization,
+    ["dev", "production"],
+    [previousProject || "", experiment.project || ""],
+    false
+  );
 
   // invalidate the CDN
   await queueCDNInvalidate(experiment.organization, (key) => {

@@ -464,8 +464,11 @@ export async function getEmailFromUserId(userId: string) {
   return u?.email || "";
 }
 
-export async function getExperimentOverrides(organization: string) {
-  const experiments = await getExperimentsByOrganization(organization);
+export async function getExperimentOverrides(
+  organization: string,
+  project?: string
+) {
+  const experiments = await getExperimentsByOrganization(organization, project);
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
