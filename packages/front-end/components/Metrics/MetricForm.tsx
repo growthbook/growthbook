@@ -147,7 +147,6 @@ const MetricForm: FC<MetricFormProps> = ({
       type: current.type || "binomial",
       table: current.table || "",
       column: current.column || "",
-      earlyStart: !!current.earlyStart,
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
@@ -736,8 +735,7 @@ GROUP BY
             Conversion Delay (hours)
             <input
               type="number"
-              step="1"
-              min="0"
+              step="any"
               className="form-control"
               placeholder={"0"}
               {...form.register("conversionDelayHours", {
@@ -755,7 +753,7 @@ GROUP BY
             Conversion Window (hours)
             <input
               type="number"
-              step="1"
+              step="any"
               min="1"
               className="form-control"
               placeholder={getDefaultConversionWindowHours() + ""}
@@ -798,25 +796,6 @@ GROUP BY
           </a>
         ) : (
           <>
-            {capSupported && (
-              <div className="form-group">
-                In an Experiment,{" "}
-                {value.type === "binomial"
-                  ? "only count if a conversion happens"
-                  : "start counting"}
-                <BooleanSelect
-                  control={form.control}
-                  required
-                  name="earlyStart"
-                  falseLabel="After the user is assigned a variation"
-                  trueLabel={
-                    (value.type === "binomial"
-                      ? "Any time during the"
-                      : "At the start of the") + " user's session"
-                  }
-                />
-              </div>
-            )}
             <div className="form-group">
               Risk thresholds
               <div className="riskbar row align-items-center pt-3">

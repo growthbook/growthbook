@@ -721,7 +721,6 @@ const MetricPage: FC = () => {
                   metric.inverse ? "inverse" : null,
                   metric.cap > 0 ? `cap: ${metric.cap}` : null,
                   metric.ignoreNulls ? "converted users only" : null,
-                  metric.earlyStart ? "start of session" : null,
                 ]}
               </RightRailSectionGroup>
 

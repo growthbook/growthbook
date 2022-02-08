@@ -34,7 +34,7 @@ export interface MetricInterface {
   name: string;
   description: string;
   type: MetricType;
-  earlyStart: boolean;
+  earlyStart?: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;

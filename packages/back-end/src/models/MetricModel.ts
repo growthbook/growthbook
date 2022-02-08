@@ -86,7 +86,15 @@ type MetricDocument = mongoose.Document & MetricInterface;
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
-  return doc.toJSON();
+  return upgradeMetricDoc(doc.toJSON());
+}
+
+function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+  return {
+    ...doc,
+    conversionDelayHours:
+      doc.conversionDelayHours || (doc.earlyStart ? -0.5 : 0),
+  };
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {

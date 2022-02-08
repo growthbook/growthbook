@@ -169,6 +169,8 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
       id,
       ...m,
       description: m?.description || "",
+      conversionDelayHours:
+        m?.conversionDelayHours ?? (m?.earlyStart ? -0.5 : 0),
       organization,
       dateCreated: null,
       dateUpdated: null,
