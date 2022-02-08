@@ -20,6 +20,7 @@ export async function createWebhook(
     endpoint,
     project: project || "",
     environment: environment || "",
+    featuresOnly: true,
     signingKey,
     created: new Date(),
     error: "",

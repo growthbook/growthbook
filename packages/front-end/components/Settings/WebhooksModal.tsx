@@ -24,11 +24,13 @@ const WebhooksModal: FC<{
       endpoint: current.endpoint || "",
       project: current.project || (current.id ? "" : project),
       environment: current.environment || "",
-      featuresOnly: current.id ? !!current.featuresOnly : true,
     },
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (value.endpoint.match(/localhost/g)) {
+      throw new Error("Invalid endpoint");
+    }
     await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
       method: current.id ? "PUT" : "POST",
       body: JSON.stringify(value),
@@ -47,7 +49,7 @@ const WebhooksModal: FC<{
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
-        label="HTTP Endpoint"
+        label="HTTP(S) Endpoint"
         type="url"
         required
         placeholder="https://"
@@ -72,10 +74,20 @@ const WebhooksModal: FC<{
           </>
         }
       />
-      <h4>
-        Scope your webhook to a specific environment
-        {projects.length > 0 && " and/or project"} (optional)
-      </h4>
+      {form.watch("endpoint").match(/localhost/) && (
+        <div className="alert alert-danger">
+          <strong>Error: </strong>Localhost not supported directly. Try using{" "}
+          <a
+            href="https://www.npmjs.com/package/ngrok"
+            target="_blank"
+            rel="noreferrer"
+          >
+            ngrok
+          </a>{" "}
+          instead.
+        </div>
+      )}
+      <h4>Webhook Filter</h4>
       <Field
         label="Environment"
         options={[

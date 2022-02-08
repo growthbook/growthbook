@@ -175,6 +175,9 @@ export async function putFeature(
       requiresWebhook = true;
     }
   }
+  if ("project" in updates && updates.project !== feature.project) {
+    requiresWebhook = true;
+  }
 
   await updateFeature(feature.organization, id, {
     ...updates,

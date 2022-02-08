@@ -14,9 +14,9 @@ There you can add a webhook endpoint.
 
 This page is also where you can view the shared secret used to verify requests (see below) and see the status of your webhook and any errors.
 
-## Environment and Project Scoping
+## Environment and Project Filters
 
-You can optionally scope your webhook to a specific environment and/or project. If specified, only features which match the scope will trigger the webhook and be included in the payload.
+You can optionally filter your webhook to a specific environment and/or project. If specified, only matching features will trigger the webhook and be included in the payload.
 
 ## Payload
 
@@ -64,6 +64,7 @@ const bodyParser = require("body-parser");
 // Retrieve from GrowthBook settings
 const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
 
+const port = 1337;
 const app = express();
 
 app.post(
@@ -89,6 +90,10 @@ app.post(
     res.status(200).send("");
   }
 );
+
+app.listen(port, () => {
+  console.log(`Webhook endpoint listening on port ${port}`);
+});
 ```
 
 ## Errors and Retries
