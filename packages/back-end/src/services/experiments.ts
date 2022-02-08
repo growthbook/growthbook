@@ -782,15 +782,10 @@ export async function experimentUpdated(
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) {
-  const environments = ["dev"];
-  if (experiment.status !== "draft") {
-    environments.push("production");
-  }
-
   // fire the webhook:
   await queueWebhook(
     experiment.organization,
-    environments,
+    ["dev", "production"],
     [previousProject || "", experiment.project || ""],
     false
   );
