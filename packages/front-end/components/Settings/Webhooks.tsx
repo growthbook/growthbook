@@ -72,7 +72,8 @@ const Webhooks: FC = () => {
                 </td>
                 <td>{webhook.endpoint}</td>
                 <td>
-                  {(webhook.environment === "dev" || !webhook.environment) && (
+                  {(webhook.environment === "dev" ||
+                    webhook.environment === "") && (
                     <span className="badge badge-secondary mr-1">dev</span>
                   )}
                   {(webhook.environment === "production" ||

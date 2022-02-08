@@ -23,7 +23,8 @@ const WebhooksModal: FC<{
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
       project: current.project || (current.id ? "" : project),
-      environment: current.environment || "",
+      environment:
+        current.environment === undefined ? "production" : current.environment,
     },
   });
 
@@ -92,16 +93,16 @@ const WebhooksModal: FC<{
         label="Environment"
         options={[
           {
-            display: "Both dev and production",
-            value: "",
+            display: "Production only",
+            value: "production",
           },
           {
             display: "Dev only",
             value: "dev",
           },
           {
-            display: "Production only",
-            value: "production",
+            display: "Both Dev and Production",
+            value: "",
           },
         ]}
         {...form.register("environment")}

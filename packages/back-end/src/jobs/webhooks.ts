@@ -29,7 +29,7 @@ export default function (ag: Agenda) {
 
     const features = await getFeatureDefinitions(
       webhook.organization,
-      webhook.environment || "production",
+      webhook.environment === undefined ? "production" : webhook.environment,
       webhook.project || ""
     );
 
@@ -119,6 +119,13 @@ export async function queueWebhook(
 
     // Skip if this webhook is for another project
     if (webhook.project && !projects.includes(webhook.project)) {
+      continue;
+    }
+    // Legacy webhook without an environment, default to "production" only
+    if (
+      webhook.environment === undefined &&
+      !environments.includes("production")
+    ) {
       continue;
     }
     // Skip if this webhook is for another environment
