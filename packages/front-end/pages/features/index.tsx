@@ -12,6 +12,11 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { useSearch } from "../../services/search";
+import { useMemo } from "react";
+import Field from "../../components/Forms/Field";
+import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
+import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -29,6 +34,16 @@ export default function FeaturesPage() {
     !settings?.attributeSchema?.length ||
     !settings?.sdkInstructionsViewed ||
     (data && !data?.features?.length);
+
+  const { list, searchInputProps } = useSearch(data?.features || [], [
+    "id",
+    "description",
+    "tags",
+  ]);
+
+  const sorted = useMemo(() => {
+    return list.sort((a, b) => a.id.localeCompare(b.id));
+  }, [list]);
 
   if (error) {
     return (
@@ -101,8 +116,8 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={data.features || []} mutate={mutate} />
-          {!stepsRequired && <h4 mt-3>All Features</h4>}
+          <FeaturesGetStarted features={data.features || []} />
+          {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
         <div className="mb-3">
@@ -118,19 +133,31 @@ export default function FeaturesPage() {
         </div>
       )}
 
+      <ApiKeyUpgrade />
+
       {data.features.length > 0 && (
-        <div className="appbox p-3">
+        <div>
+          <div className="row mb-2">
+            <div className="col-auto">
+              <Field placeholder="Filter list..." {...searchInputProps} />
+            </div>
+          </div>
           <table className="table gbtable table-hover">
             <thead>
               <tr>
                 <th>Feature Key</th>
-                <th>Default Value</th>
-                <th>Has Overrides</th>
+                <th>Dev</th>
+                <th>Prod</th>
+                <th>Value When Enabled</th>
+                <th>Overrides Rules</th>
                 <th>Last Updated</th>
               </tr>
             </thead>
             <tbody>
-              {data.features.map((feature) => {
+              {sorted.map((feature) => {
+                const firstRule = feature.rules?.[0];
+                const totalRules = feature.rules?.length || 0;
+
                 return (
                   <tr key={feature.id}>
                     <td>
@@ -138,19 +165,48 @@ export default function FeaturesPage() {
                         <a>{feature.id}</a>
                       </Link>
                     </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="dev"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="production"
+                        mutate={mutate}
+                      />
+                    </td>
                     <td>
                       <ValueDisplay
                         value={feature.defaultValue}
                         type={feature.valueType}
+                        full={false}
                       />
                     </td>
-                    <td>{feature.rules?.length > 0 ? "yes" : "no"}</td>
+                    <td>
+                      {firstRule && (
+                        <span className="text-dark">{firstRule.type}</span>
+                      )}
+                      {totalRules > 1 && (
+                        <small className="text-muted ml-1">
+                          +{totalRules - 1} more
+                        </small>
+                      )}
+                    </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
                     </td>
                   </tr>
                 );
               })}
+              {!sorted.length && (
+                <tr>
+                  <td colSpan={6}>No matching features</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

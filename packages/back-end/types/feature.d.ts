@@ -10,6 +10,7 @@ export interface FeatureInterface {
   dateCreated: Date;
   dateUpdated: Date;
   valueType: FeatureValueType;
+  environments: string[];
   defaultValue: string;
   rules?: FeatureRule[];
 }

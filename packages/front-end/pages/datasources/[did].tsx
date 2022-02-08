@@ -17,6 +17,13 @@ import {
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
+function quotePropertyName(name: string) {
+  if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+    return name;
+  }
+  return JSON.stringify(name);
+}
+
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [editSettings, setEditSettings] = useState(false);
@@ -68,7 +75,8 @@ const DataSourcePage: FC = () => {
           <h1 className="mb-0">{d.name}</h1>
         </div>
         <div className="col-auto">
-          <span className="badge badge-secondary">{d.type}</span>
+          <span className="badge badge-secondary">{d.type}</span>{" "}
+          <span className="badge badge-success">connected</span>
         </div>
         <div style={{ flex: 1 }} />
         {canEdit && (
@@ -126,7 +134,7 @@ const DataSourcePage: FC = () => {
           {supportsEvents && (
             <>
               <h3 className="mb-3">Query Settings</h3>
-              <table className="table table-bordered">
+              <table className="table appbox gbtable mb-5">
                 <tbody>
                   {Object.keys(d.settings.events).map((k) => {
                     return (
@@ -143,6 +151,49 @@ const DataSourcePage: FC = () => {
                   })}
                 </tbody>
               </table>
+              {d.type === "mixpanel" && (
+                <div>
+                  <h3>Mixpanel Tracking Instructions</h3>
+                  <p>
+                    This example is for Javascript and uses the above settings.
+                    Other languages should be similar.
+                  </p>
+                  <Code
+                    language="javascript"
+                    code={`
+// Tracking Callback for GrowthBook SDK
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: function(experiment, result) {
+    mixpanel.track(${JSON.stringify(d.settings.events.experimentEvent)}, {
+      ${quotePropertyName(
+        d.settings.events.experimentIdProperty
+      )}: experiment.key,
+      ${quotePropertyName(
+        d.settings.events.variationIdProperty
+      )}:  result.variationId
+    })
+  }
+})
+
+// On page view (or similar event)
+mixpanel.track(${JSON.stringify(d.settings.events.pageviewEvent)}, {
+  ${quotePropertyName(d.settings.events.urlProperty)}: location.pathname
+})
+
+// When Mixpanel loads, pass the distinct_id into the SDK
+mixpanel.init('YOUR PROJECT TOKEN', {
+  loaded: function(mixpanel) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mixpanel.get_distinct_id()
+    })
+  }
+})
+                  `.trim()}
+                  />
+                </div>
+              )}
             </>
           )}
           {supportsSQL && (

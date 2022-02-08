@@ -32,6 +32,7 @@ export default function FeatureList({ features }: Props) {
                         <ValueDisplay
                           value={feature.defaultValue}
                           type={feature.valueType}
+                          full={false}
                         />
                       </div>
                     </div>

@@ -10,6 +10,7 @@ const Tab: FC<{
   action?: ReactElement;
   className?: string;
   padding?: boolean;
+  forceRenderOnFocus?: boolean;
 }> = ({ children }) => {
   return <>{children}</>;
 };

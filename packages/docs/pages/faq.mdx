@@ -1,0 +1,92 @@
+# FAQ
+
+Below are some frequently asked questions about GrowthBook.
+
+## Do users always get assigned the same experiment variation?
+
+GrowthBook SDKs use deterministic hashing to ensure the same user always gets assigned the same variation in an experiment.
+
+In a nutshell, GrowthBook hashes together the user id and the experiment `trackingKey` which produces a decimal between 0 and 1. Each variation is assigned a range of values (e.g. `0 to 0.5` and `0.5 to 1.0`) and the user is assigned to whichever one their hash falls into.
+
+This does mean, if you change the experiment configuration, some users may switch their assigned variation. For example, if someone has the hash `0.49` and you adjust the weights to a 40/60 experiment, the variation ranges become `0 to 0.4` and `0.4 to 1.0`. In this case, the user was previously in the control group, but will now be in the variation.
+
+GrowthBook will detect issues like this and will remove users who see both variations from the analysis automatically. However, to keep things simple and safe, we recommend not relying on this and treating experiments as immutable once they are running.
+
+## What do I use for an "id" attribute in the SDK if my users aren't logged in?
+
+If your application has both logged-in and anonymous users, we recommend using two identifier attributes:
+
+- `id` which is the database identifier of logged-in users (or empty string for anonymous)
+- `deviceId` (or `sessionId`, etc.) which is a random anonymous hash, persisted in a cookie or local storage. This should always be set for both anonymous and logged-in users.
+
+If your application only has anonymous users (e.g. a static marketing site), then we recommend a single `id` attribute which, similar to `deviceId` or `sessionId` above, is a random hash persisted in a cookie or local storage.
+
+## What is the "Page Views" query used for?
+
+When connecting to a SQL data source, we ask you for 2 queries: one to get experiment exposures (who saw which variation) and another for "page views".
+
+The "page views" query doesn't have to actually be page views. It should just be some table that represents historical activity of your users. For example, a mobile app might use screens instead of page views, or a back-end API might use requests.
+
+So what is this historical data actually used for? Currently it's used for two things:
+
+1. Predict running time of an experiment before you start
+2. Calculate overall metric conversion rates
+
+Beyond this, historical data is very useful for a number of additional analyses and we plan to make more use of this table in the future.
+
+## Why is the trackingCallback not firing in the SDK?
+
+The `trackingCallback` only fires when a user is included in an experiment. If you're expecting to be included and you're still not seeing the callback fire, it's likely for one of the following reasons:
+
+- You are missing the `hashAttribute` for the experiment. For example, when you are splitting users by "company", but the company attribute is empty.
+- The feature is disabled for the environment you are in (dev/prod)
+- The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
+- There is another feature rule that is taking precedence over the experiment.
+
+If you are using the Javascript or React SDK in a browser environment, you can install the [GrowthBook DevTools Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to help you debug.
+
+## How do I run an A/B test in GrowthBook?
+
+The recommended way to run an A/B test is by using Feature Flags and our SDKs.
+
+1. Create a feature in GrowthBook (e.g. `new-signup-form`) with an A/B Experiment rule
+2. Use our SDKs to serve the different variations
+   ```ts
+   if (growthbook.feature("new-signup-form").on) {
+     // Variation
+   } else {
+     // Control
+   }
+   ```
+
+## How much traffic do I need to run A/B tests?
+
+What matters most for A/B testing is not traffic, but conversions. The general rule of thumb is to have at least 100-200 conversions per variation before you might start reaching significance.
+
+So that means if you do 50 orders per week and that's the metric you are trying to optimize, you'll need to run a simple 2-way A/B test for at least 4-8 weeks. If you run a 3-way test, it will take 6-12 weeks.
+
+## Can I run multiple A/B tests at a time?
+
+Yes! In fact, we recommend running many experiments in parallel in your application. Most A/B tests fail, so the more shots-on-goal you take, the more likely you are to get a winner. Running tests in parallel is a great way to increase your velocity.
+
+Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal.
+
+As long as you apply a little common sense to avoid situations like the above, running multiple experiments has low risk and really high reward.
+
+## What is the difference between a Dimension and a Segment?
+
+A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
+
+A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
+
+Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
+
+Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
+
+## Can't find your question?
+
+If you can't find an answer to your question above, please let us know so we can help you out and improve the docs for future users!
+
+You can join our [Slack channel](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) for the fastest response times.
+
+Or send an email to hello@growthbook.io if Slack isn't your thing.

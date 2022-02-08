@@ -19,11 +19,7 @@ export default function Home(): React.ReactElement {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project}`);
 
-  const {
-    data: features,
-    error: featuresError,
-    mutate: mutateFeatures,
-  } = useApi<{
+  const { data: features, error: featuresError } = useApi<{
     features: FeatureInterface[];
   }>(`/feature?project=${project}`);
 
@@ -66,7 +62,6 @@ export default function Home(): React.ReactElement {
             experiments={experiments?.experiments || []}
             features={features?.features || []}
             mutateExperiments={mutateExperiments}
-            mutateFeatures={mutateFeatures}
             onboardingType={"features"}
           />
         )}

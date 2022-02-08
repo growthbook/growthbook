@@ -63,6 +63,9 @@ import { getValidDate } from "../util/dates";
 import { getIdeasByQuery } from "../services/ideas";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { getReportVariations } from "../services/reports";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+import { getAllFeatures } from "../models/FeatureModel";
+import { ExperimentRule, FeatureInterface } from "../../types/feature";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -286,6 +289,91 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
   });
   return;
 }
+
+export async function getNewFeatures(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const allExperiments = await getExperimentsByOrganization(org.id);
+  const projectFeatures = await getAllFeatures(org.id, project);
+
+  const expMap = new Map();
+  allExperiments.forEach((exp) => {
+    const key = exp.trackingKey || exp.id;
+    expMap.set(key, exp);
+  });
+  const newFeatures = new Map();
+  // a feature can have multiple experiments.
+  projectFeatures.forEach((f) => {
+    if (f?.rules && f?.rules.length > 0) {
+      f.rules.forEach((r) => {
+        if (r.type === "experiment") {
+          const tKey = r.trackingKey || f.id;
+          if (!expMap.get(tKey)) {
+            // this feature experiment has no report:
+            newFeatures.set(tKey, {
+              feature: f,
+              rule: r,
+              trackingKey: tKey,
+              partialExperiment: getExperimentDefinitionFromFeatureAndRule(
+                f,
+                r
+              ),
+            });
+          }
+        }
+      });
+    }
+  });
+
+  res.status(200).json({
+    status: 200,
+    features: Array.from(newFeatures.values()).sort(
+      (a, b) => b.feature.dateCreated - a.feature.dateCreated
+    ),
+  });
+  return;
+}
+
+const getExperimentDefinitionFromFeatureAndRule = (
+  feature: FeatureInterface,
+  expRule: ExperimentRule
+) => {
+  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
+
+  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
+    trackingKey: expRule.trackingKey || feature.id,
+    name: (expRule.trackingKey || feature.id) + " experiment",
+    hypothesis: expRule.description || "",
+    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
+    variations: expRule.values.map((v, i) => {
+      let name = i ? `Variation ${i}` : "Control";
+      if (feature.valueType === "boolean") {
+        name = v.value === "true" ? "On" : "Off";
+      }
+      return {
+        name,
+        screenshots: [],
+        description: v.value,
+      };
+    }),
+    phases: [
+      {
+        coverage: totalPercent,
+        variationWeights: expRule.values.map((v) =>
+          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
+        ),
+        phase: "main",
+        reason: "",
+        dateStarted: new Date().toISOString(),
+      },
+    ],
+  };
+  return expDefinition;
+};
 
 const validateVariationIds = (variations: Variation[]) => {
   const ids = variations.map((v, i) => v.key || i + "");
@@ -2037,7 +2125,7 @@ export async function postPastExperiments(
 
   const integration = getSourceIntegrationObject(datasourceObj);
   const start = new Date();
-  start.setDate(start.getDate() - 365);
+  start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
   const now = new Date();
 
   let model = await PastExperimentsModel.findOne({

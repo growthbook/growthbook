@@ -17,6 +17,7 @@ import ImportExperimentModal from "../Experiment/ImportExperimentModal";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { useMemo } from "react";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -36,6 +37,23 @@ const ExperimentsGetStarted = ({
   const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const router = useRouter();
 
+  // If this is coming from a feature experiment rule
+  const featureExperiment = useMemo(() => {
+    if (!router?.query?.featureExperiment) {
+      return null;
+    }
+    try {
+      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
+        router?.query?.featureExperiment as string
+      );
+      window.history.replaceState(null, null, window.location.pathname);
+      return initialExperiment;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [router?.query?.featureExperiment]);
+
   const hasSampleExperiment = experiments.filter((m) =>
     m.id.match(/^exp_sample/)
   )[0];
@@ -53,6 +71,20 @@ const ExperimentsGetStarted = ({
     ? 2
     : 1;
   const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
+
+  const importSampleData = (source: string) => async () => {
+    const res = await apiCall<{
+      experiment: string;
+    }>(`/organization/sample-data`, {
+      method: "POST",
+    });
+    await mutateDefinitions();
+    await mutate();
+    track("Add Sample Data", {
+      source,
+    });
+    await router.push("/experiment/" + res.experiment);
+  };
 
   return (
     <>
@@ -85,6 +117,12 @@ const ExperimentsGetStarted = ({
               setDataSourceOpen(false);
               setDataSourceQueriesOpen(true);
             }}
+            importSampleData={
+              !hasDataSource &&
+              allowImport &&
+              !hasSampleExperiment &&
+              importSampleData("datasource-form")
+            }
           />
         )}
         {metricsOpen && (
@@ -103,7 +141,8 @@ const ExperimentsGetStarted = ({
         {experimentsOpen && (
           <ImportExperimentModal
             onClose={() => setExperimentsOpen(false)}
-            source="get-started"
+            source={featureExperiment ? "feature-rule" : "get-started"}
+            initialValue={featureExperiment}
           />
         )}
         <div className="row">
@@ -115,6 +154,11 @@ const ExperimentsGetStarted = ({
                 <a href="https://docs.growthbook.io/self-host/config#configyml">
                   View Documentation
                 </a>
+              </div>
+            ) : featureExperiment ? (
+              <div className="alert alert-info mb-3">
+                First connect to your data source and define a metric. Then you
+                can view results for your experiment.
               </div>
             ) : (
               allowImport && (
@@ -135,17 +179,7 @@ const ExperimentsGetStarted = ({
                         <Button
                           color="info"
                           className="btn-sm ml-3 mr-2"
-                          onClick={async () => {
-                            const res = await apiCall<{
-                              experiment: string;
-                            }>(`/organization/sample-data`, {
-                              method: "POST",
-                            });
-                            await mutateDefinitions();
-                            await mutate();
-                            track("Add Sample Data");
-                            await router.push("/experiment/" + res.experiment);
-                          }}
+                          onClick={importSampleData("onboarding")}
                         >
                           <FaDatabase /> Import Sample Data
                         </Button>
@@ -231,10 +265,17 @@ const ExperimentsGetStarted = ({
                     className="border-top"
                     image="/images/getstarted-step3.svg"
                     title="3. Add an Experiment"
-                    text="Import an existing experiment from your data source or
-                    create a new draft from scratch."
+                    text={
+                      featureExperiment
+                        ? "Create a new experiment report to analyse the results of your feature."
+                        : "Import an existing experiment from your data source or create a new draft from scratch."
+                    }
                     hideCTA={false}
-                    cta="Add experiment"
+                    cta={
+                      featureExperiment
+                        ? "Add your experiment"
+                        : "Add experiment"
+                    }
                     finishedCTA="View experiments"
                     imageLeft={true}
                     onClick={(finished) => {

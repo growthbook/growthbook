@@ -23,6 +23,7 @@ import Modal from "../Modal";
 import PrestoForm from "./PrestoForm";
 import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
+import Button from "../Button";
 
 const typeOptions: {
   type: DataSourceType;
@@ -142,7 +143,8 @@ const DataSourceForm: FC<{
   source: string;
   onCancel: () => void;
   onSuccess: (id: string) => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing }) => {
+  importSampleData?: () => Promise<void>;
+}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -335,6 +337,29 @@ const DataSourceForm: FC<{
       header={existing ? "Edit Data Source" : "Add Data Source"}
       cta="Save"
     >
+      {importSampleData && !datasource.type && (
+        <div className="alert alert-info">
+          <div className="row align-items-center">
+            <div className="col">
+              <div>
+                <strong>Not ready to connect to your data source?</strong>
+              </div>{" "}
+              Try out GrowthBook first with a sample dataset.
+            </div>
+            <div className="col-auto">
+              <Button
+                color="info"
+                className="btn-sm"
+                onClick={async () => {
+                  await importSampleData();
+                }}
+              >
+                Use Sample Data
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <SelectField
         label="Data Source Type"
         value={datasource.type}

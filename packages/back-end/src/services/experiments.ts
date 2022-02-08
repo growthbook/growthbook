@@ -390,6 +390,17 @@ function generateTrackingKey(name: string, n: number): string {
   return key;
 }
 
+export async function getSampleExperiment(
+  organization: string
+): Promise<ExperimentInterface | null> {
+  const exp = await ExperimentModel.findOne({
+    organization,
+    id: /^exp_sample_/,
+  });
+
+  return exp ? exp.toJSON() : null;
+}
+
 export async function createExperiment(
   data: Partial<ExperimentInterface>,
   organization: OrganizationInterface

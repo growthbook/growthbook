@@ -1,4 +1,5 @@
 import { FC, useState } from "react";
+import { GBEdit } from "../Icons";
 import LoadingOverlay from "../LoadingOverlay";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
@@ -56,11 +57,31 @@ const MarkdownInlineEdit: FC<{
 
   return (
     <div className={className}>
-      {value ? (
-        <Markdown className="card-text">{value}</Markdown>
-      ) : (
-        <div className="card-text">
-          {canCreate ? (
+      <div className="row">
+        <div className="col">
+          {value ? (
+            <Markdown className="card-text">{value}</Markdown>
+          ) : (
+            <div className="card-text">
+              {canCreate ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setVal(value || "");
+                    setEdit(true);
+                  }}
+                >
+                  <em>Add {label}</em>
+                </a>
+              ) : (
+                <em>No {label}</em>
+              )}
+            </div>
+          )}
+        </div>
+        {value && canEdit && (
+          <div className="col-auto">
             <a
               href="#"
               onClick={(e) => {
@@ -69,28 +90,11 @@ const MarkdownInlineEdit: FC<{
                 setEdit(true);
               }}
             >
-              <em>Add {label}</em>
+              <GBEdit />
             </a>
-          ) : (
-            <em>No {label}</em>
-          )}
-        </div>
-      )}
-
-      {value && canEdit && (
-        <div className="text-right">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setVal(value || "");
-              setEdit(true);
-            }}
-          >
-            edit {label}
-          </a>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

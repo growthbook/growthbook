@@ -1,4 +1,4 @@
-import { useState, useMemo, ChangeEvent, HTMLProps } from "react";
+import { useState, useMemo, ChangeEvent } from "react";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -8,7 +8,9 @@ function tokenize(s: string): string[] {
   return s
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\-_: ]+/g, "")
+    .replace(/[^a-z0-9.\-_: ]+/g, "")
+    .replace(/[-_:.]+/g, " ")
+    .replace(/\s+/g, " ")
     .split(" ");
 }
 
@@ -31,7 +33,10 @@ export function useSearch<T>(
 ): {
   list: T[];
   isFiltered: boolean;
-  searchInputProps: HTMLProps<HTMLInputElement>;
+  searchInputProps: {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  };
 } {
   const [value, setValue] = useState("");
   const searchIndex = useMemo(() => {

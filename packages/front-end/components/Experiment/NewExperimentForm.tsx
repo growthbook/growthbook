@@ -9,7 +9,6 @@ import {
   ExperimentPhaseStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { MdDeleteForever } from "react-icons/md";
 import MetricsSelector from "./MetricsSelector";
 import { useWatching } from "../../services/WatchProvider";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -21,6 +20,7 @@ import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -33,6 +33,7 @@ export type NewExperimentFormProps = {
   includeDescription?: boolean;
   source: string;
   idea?: string;
+  msg?: string;
   onClose: () => void;
   onCreate?: (id: string) => void;
 };
@@ -74,10 +75,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   includeDescription,
   source,
   idea,
+  msg,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [showVariationIds] = useState(false);
+  const [showVariationIds] = useState(isImport);
 
   const {
     datasources,
@@ -86,28 +88,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-
-  const initialPhases: ExperimentPhaseStringDates[] = isImport
-    ? [
-        {
-          coverage: 1,
-          dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
-            .toISOString()
-            .substr(0, 16),
-          dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
-            .toISOString()
-            .substr(0, 16),
-          phase: "main",
-          reason: "",
-          groups: [],
-          variationWeights:
-            initialValue.phases?.[0].variationWeights ||
-            getEvenSplit(
-              initialValue.variations ? initialValue.variations.length : 2
-            ),
-        },
-      ]
-    : [];
+  const initialPhases: ExperimentPhaseStringDates[] =
+    isImport && initialValue
+      ? [
+          {
+            coverage: initialValue.phases?.[0].coverage || 1,
+            dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
+              .toISOString()
+              .substr(0, 16),
+            dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
+              .toISOString()
+              .substr(0, 16),
+            phase: initialValue.phases?.[0].phase || "main",
+            reason: "",
+            groups: [],
+            variationWeights:
+              initialValue.phases?.[0].variationWeights ||
+              getEvenSplit(
+                initialValue.variations ? initialValue.variations.length : 2
+              ),
+          },
+        ]
+      : [];
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -200,7 +202,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={isImport ? "Import Experiment" : "New Experiment"}
+      header={"New Experiment Analysis"}
       close={onClose}
       submit={onSubmit}
       cta={"Save"}
@@ -210,6 +212,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
     >
       <Page display="Basic Info">
+        {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {visualEditorEnabled && !isImport && (
           <Field
@@ -288,43 +291,71 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 key={i}
                 style={{ minWidth: 200 }}
               >
-                <div className="graybox">
-                  <div className="row">
-                    <div className={showVariationIds ? "col-8" : "col-12"}>
-                      <Field
-                        label={i === 0 ? "Control Name" : `Variation ${i} Name`}
-                        {...form.register(`variations.${i}.name`)}
-                      />
-                    </div>
-                    <div
-                      className={`col-4 ${showVariationIds ? "" : "d-none"}`}
-                    >
-                      <Field
-                        label="Id"
-                        {...form.register(`variations.${i}.key`)}
-                        placeholder={i + ""}
-                      />
-                    </div>
+                <div className="graybox position-relative">
+                  <Field
+                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                    {...form.register(`variations.${i}.name`)}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 5,
+                      right: 5,
+                    }}
+                  >
+                    <MoreMenu id={`variation${i}`}>
+                      {i > 0 && (
+                        <a
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.swap(i, i - 1);
+                          }}
+                        >
+                          Swap left
+                        </a>
+                      )}
+                      {i < variations.fields.length - 1 && (
+                        <a
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.swap(i, i + 1);
+                          }}
+                        >
+                          Swap right
+                        </a>
+                      )}
+                      {!isImport && variations.fields.length > 2 && (
+                        <a
+                          className=" dropdown-item text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            variations.remove(i);
+                          }}
+                        >
+                          Delete
+                        </a>
+                      )}
+                    </MoreMenu>
                   </div>
+                  {showVariationIds && (
+                    <Field
+                      label="Id"
+                      {...form.register(`variations.${i}.key`)}
+                      placeholder={i + ""}
+                      helpText={
+                        <span>
+                          Must match the <code>variation_id</code> field in your
+                          data source
+                        </span>
+                      }
+                    />
+                  )}
                   <Field
                     label="Description"
                     {...form.register(`variations.${i}.description`)}
                   />
-                  <div className="text-right">
-                    {!isImport && variations.fields.length > 2 ? (
-                      <a
-                        className="text-danger cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          variations.remove(i);
-                        }}
-                      >
-                        <MdDeleteForever /> Delete
-                      </a>
-                    ) : (
-                      ""
-                    )}
-                  </div>
                 </div>
               </div>
             ))}

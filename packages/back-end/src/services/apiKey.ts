@@ -4,14 +4,18 @@ import md5 from "md5";
 
 export async function createApiKey(
   organization: string,
+  environment: string,
   description?: string
 ): Promise<string> {
-  const key = "key_" + md5(uniqid()).substr(0, 16);
+  const envPrefix = environment === "production" ? "prod" : environment;
+
+  const key = "key_" + envPrefix + "_" + md5(uniqid()).substr(0, 16);
 
   await ApiKeyModel.create({
     organization,
     key,
     description,
+    environment,
     dateCreated: new Date(),
   });
 
@@ -31,13 +35,14 @@ export async function deleteByOrganizationAndApiKey(
 
 export async function lookupOrganizationByApiKey(
   key: string
-): Promise<string | null> {
+): Promise<{ organization?: string; environment?: string }> {
   const doc = await ApiKeyModel.findOne({
     key,
   });
 
-  if (!doc) return null;
-  return doc.organization || null;
+  if (!doc || !doc.organization) return {};
+  const { organization, environment } = doc;
+  return { organization, environment };
 }
 
 export async function getAllApiKeysByOrganization(organization: string) {
@@ -46,8 +51,12 @@ export async function getAllApiKeysByOrganization(organization: string) {
   });
 }
 
-export async function getFirstApiKey(organization: string) {
+export async function getFirstApiKey(
+  organization: string,
+  environment: string
+) {
   return ApiKeyModel.findOne({
     organization,
+    environment,
   });
 }

@@ -12,10 +12,9 @@ import { FaChrome } from "react-icons/fa";
 
 export interface Props {
   features: FeatureInterface[];
-  mutate: (data?: { features: FeatureInterface[] }) => void;
 }
 
-export default function FeaturesGetStarted({ features, mutate }: Props) {
+export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
 
@@ -38,10 +37,7 @@ export default function FeaturesGetStarted({ features, mutate }: Props) {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
-            mutate({
-              features: [...features, feature],
-            });
+            await router.push(`/features/${feature.id}`);
           }}
         />
       )}
@@ -97,7 +93,7 @@ export default function FeaturesGetStarted({ features, mutate }: Props) {
               className="border-top"
               image="/images/feature-icon.svg"
               title="3. Add your first feature"
-              text="Create a feature within GrowthBook. It could be a simple ON/OFF flag or a configurable property like a color or copy for a headline."
+              text="Create a feature within GrowthBook. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}

@@ -8,7 +8,6 @@ import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import { FaPlus } from "react-icons/fa";
 import WatchButton from "../../components/Experiment/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tabs from "../../components/Tabs/Tabs";
@@ -17,16 +16,18 @@ import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
 import useUser from "../../hooks/useUser";
+import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
+import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
 
-  const { data, error } = useApi<{
+  const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project || ""}`);
 
   const [showOnlyMyDrafts, setShowOnlyMyDrafts] = useState(false);
-
+  const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const { getUserDisplay, permissions, userId, users } = useUser();
@@ -38,8 +39,6 @@ const ExperimentsPage = (): React.ReactElement => {
     draft: 1,
   });
   const [experimentsPerPage] = useState(20);
-
-  const router = useRouter();
 
   const transforms = useMemo(() => {
     return {
@@ -79,41 +78,23 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  if (!data.experiments.length) {
+  const hasExperiments =
+    data.experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+
+  if (!hasExperiments) {
     return (
-      <div className="container p-4">
-        <h1>Experiments</h1>
+      <div className="contents container pagecontents getstarted">
+        <h1>Experiment Analysis</h1>
         <p>
-          Experiments (also known as A/B Tests or Split Tests) are one of the
-          best ways to make data-driven decisions for your business.
+          GrowthBook can pull experiment results directly from your data source
+          and analyze it with our statistics engine. Start by connecting to your
+          data source and defining metrics.
         </p>
-        <p>
-          At their core, Experiments are simple - randomly split your users,
-          show each group a different variation of a page, and use statistics
-          and data to pick a winner.
-        </p>
-        <p>
-          GrowthBook lets you add context to experiments (hypotheses,
-          screenshots, discussion threads) and makes them easily searchable. Our
-          Bayesian statistics engine produces intuitive graphs that make it easy
-          to interpret results and choose a winner.
-        </p>
-        {permissions.draftExperiments && (
-          <button
-            className="btn btn-success btn-lg"
-            onClick={() => {
-              setOpenNewExperimentModal(true);
-            }}
-          >
-            <FaPlus /> Add your first Experiment
-          </button>
-        )}
-        {openNewExperimentModal && (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="first-experiment"
-          />
-        )}
+        <NewFeatureExperiments />
+        <ExperimentsGetStarted
+          experiments={data?.experiments}
+          mutate={mutate}
+        />
       </div>
     );
   }
@@ -170,6 +151,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <NewFeatureExperiments />
           <Tabs
             defaultTab={
               byStatus.running.length > 0

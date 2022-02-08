@@ -12,12 +12,14 @@ import {
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
+import { getExperimentByTrackingKey } from "../services/experiments";
+import { ExperimentDocument } from "../models/ExperimentModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
 
   try {
-    const organization = await lookupOrganizationByApiKey(key);
+    const { organization, environment } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -25,7 +27,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
-    const features = await getFeatureDefinitions(organization);
+    const features = await getFeatureDefinitions(organization, environment);
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -69,6 +71,7 @@ export async function postFeatures(
     description: "",
     project: "",
     rules: [],
+    environments: ["dev"],
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -78,6 +81,9 @@ export async function postFeatures(
 
   if (feature.rules?.length) {
     feature.rules = feature.rules?.map((r) => {
+      if (r.type === "experiment" && !r?.trackingKey) {
+        r.trackingKey = feature.id;
+      }
       return {
         ...r,
         id: uniqid("fr_"),
@@ -121,6 +127,7 @@ export async function putFeature(
   if (updates.rules) {
     updates.rules = updates.rules.map((r) => {
       if (r.id) return r;
+      if (r.type === "experiment" && !r?.trackingKey) r.trackingKey = id;
       return {
         ...r,
         id: uniqid("fr_"),
@@ -135,7 +142,8 @@ export async function putFeature(
     updates.defaultValue !== feature.defaultValue
   ) {
     requiresWebhook = true;
-  } else if ("rules" in updates) {
+  }
+  if ("rules" in updates) {
     if (updates.rules?.length !== feature.rules?.length) {
       requiresWebhook = true;
     } else {
@@ -151,6 +159,11 @@ export async function putFeature(
           requiresWebhook = true;
         }
       });
+    }
+  }
+  if ("environments" in updates) {
+    if (updates.environments?.length !== feature.environments?.length) {
+      requiresWebhook = true;
     }
   }
 
@@ -220,8 +233,22 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
+  const experiments: { [key: string]: ExperimentDocument } = {};
+  if (feature.rules) {
+    const promises = feature.rules.map(async (r) => {
+      if (r.type === "experiment" && r?.trackingKey) {
+        const exp = await getExperimentByTrackingKey(org.id, r.trackingKey);
+        if (exp) {
+          experiments[r.trackingKey] = exp;
+        }
+      }
+    });
+    await Promise.all(promises);
+  }
+
   res.status(200).json({
     status: 200,
     feature,
+    experiments,
   });
 }
