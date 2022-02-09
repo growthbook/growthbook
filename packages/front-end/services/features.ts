@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   SDKAttributeSchema,
   SDKAttributeType,
@@ -10,9 +10,10 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import useOrgSettings from "../hooks/useOrgSettings";
 import uniq from "lodash/uniq";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import useUser from "../hooks/useUser";
+import { useAuth } from "./auth";
 
 export interface Condition {
   field: string;
@@ -26,6 +27,37 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useAttributeSchema() {
+  const { settings, update } = useUser();
+  const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (!settings?.attributeSchema) {
+      apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: {
+            attributeSchema: [
+              { property: "id", datatype: "string", hashAttribute: true },
+              { property: "deviceId", datatype: "string", hashAttribute: true },
+              { property: "company", datatype: "string", hashAttribute: true },
+              { property: "loggedIn", datatype: "boolean" },
+              { property: "employee", datatype: "boolean" },
+              { property: "country", datatype: "string" },
+              { property: "browser", datatype: "string" },
+              { property: "url", datatype: "string" },
+            ],
+          },
+        }),
+      }).then(() => {
+        update();
+      });
+    }
+  }, [settings?.attributeSchema]);
+
+  return settings?.attributeSchema || [];
 }
 
 export function validateFeatureRule(
@@ -347,15 +379,15 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
 
   return useMemo(() => {
-    if (!settings?.attributeSchema?.length) {
+    if (!attributeSchema.length) {
       return new Map();
     }
 
     const map = new Map<string, AttributeData>();
-    settings.attributeSchema.forEach((schema) => {
+    attributeSchema.forEach((schema) => {
       map.set(schema.property, {
         attribute: schema.property,
         datatype: getAttributeDataType(schema.datatype),
@@ -369,7 +401,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
     });
 
     return map;
-  }, [settings?.attributeSchema]);
+  }, [attributeSchema]);
 }
 
 export function getExperimentDefinitionFromFeature(

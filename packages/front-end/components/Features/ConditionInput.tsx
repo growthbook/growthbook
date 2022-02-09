@@ -1,10 +1,10 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
+  useAttributeSchema,
 } from "../../services/features";
 import Field from "../Forms/Field";
 
@@ -21,7 +21,7 @@ export default function ConditionInput(props: Props) {
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(() => jsonToConds(props.defaultValue));
 
-  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
 
   const attributes = useAttributeMap();
 
@@ -116,7 +116,7 @@ export default function ConditionInput(props: Props) {
                       }}
                       className="form-control mr-1"
                     >
-                      {settings.attributeSchema.map((s) => (
+                      {attributeSchema.map((s) => (
                         <option key={s.property}>{s.property}</option>
                       ))}
                     </select>
@@ -236,7 +236,7 @@ export default function ConditionInput(props: Props) {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {
@@ -271,7 +271,7 @@ export default function ConditionInput(props: Props) {
               className="ml-3"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {
