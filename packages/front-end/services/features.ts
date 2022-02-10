@@ -223,7 +223,10 @@ export function isValidValue(
   }
 }
 
-export function jsonToConds(json: string): null | Condition[] {
+export function jsonToConds(
+  json: string,
+  attributes?: Map<string, AttributeData>
+): null | Condition[] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
   if (json.match(/\$(or|nor|elemMatch|all|type|size)/)) return null;
@@ -236,6 +239,11 @@ export function jsonToConds(json: string): null | Condition[] {
     let valid = true;
 
     Object.keys(parsed).forEach((field) => {
+      if (attributes && !attributes.has(field)) {
+        valid = false;
+        return;
+      }
+
       const value = parsed[field];
       if (Array.isArray(value)) {
         valid = false;
