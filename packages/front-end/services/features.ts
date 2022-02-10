@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   SDKAttributeSchema,
   SDKAttributeType,
@@ -10,9 +10,10 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import useOrgSettings from "../hooks/useOrgSettings";
 import uniq from "lodash/uniq";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import useUser from "../hooks/useUser";
+import { useAuth } from "./auth";
 
 export interface Condition {
   field: string;
@@ -26,6 +27,37 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useAttributeSchema() {
+  const { settings, update } = useUser();
+  const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (!settings?.attributeSchema) {
+      apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: {
+            attributeSchema: [
+              { property: "id", datatype: "string", hashAttribute: true },
+              { property: "deviceId", datatype: "string", hashAttribute: true },
+              { property: "company", datatype: "string", hashAttribute: true },
+              { property: "loggedIn", datatype: "boolean" },
+              { property: "employee", datatype: "boolean" },
+              { property: "country", datatype: "string" },
+              { property: "browser", datatype: "string" },
+              { property: "url", datatype: "string" },
+            ],
+          },
+        }),
+      }).then(() => {
+        update();
+      });
+    }
+  }, [settings?.attributeSchema]);
+
+  return settings?.attributeSchema || [];
 }
 
 export function validateFeatureRule(
@@ -191,7 +223,10 @@ export function isValidValue(
   }
 }
 
-export function jsonToConds(json: string): null | Condition[] {
+export function jsonToConds(
+  json: string,
+  attributes?: Map<string, AttributeData>
+): null | Condition[] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
   if (json.match(/\$(or|nor|elemMatch|all|type|size)/)) return null;
@@ -204,6 +239,11 @@ export function jsonToConds(json: string): null | Condition[] {
     let valid = true;
 
     Object.keys(parsed).forEach((field) => {
+      if (attributes && !attributes.has(field)) {
+        valid = false;
+        return;
+      }
+
       const value = parsed[field];
       if (Array.isArray(value)) {
         valid = false;
@@ -347,15 +387,15 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
 
   return useMemo(() => {
-    if (!settings?.attributeSchema?.length) {
+    if (!attributeSchema.length) {
       return new Map();
     }
 
     const map = new Map<string, AttributeData>();
-    settings.attributeSchema.forEach((schema) => {
+    attributeSchema.forEach((schema) => {
       map.set(schema.property, {
         attribute: schema.property,
         datatype: getAttributeDataType(schema.datatype),
@@ -369,7 +409,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
     });
 
     return map;
-  }, [settings?.attributeSchema]);
+  }, [attributeSchema]);
 }
 
 export function getExperimentDefinitionFromFeature(

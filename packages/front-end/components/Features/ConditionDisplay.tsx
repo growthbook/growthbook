@@ -57,7 +57,14 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
 
   // Could not parse into simple conditions
   if (conds === null || !attributes.size) {
-    return <Code language="json" code={condition} />;
+    return (
+      <Code
+        language="json"
+        code={condition}
+        theme="light"
+        className="p-0 border-0"
+      />
+    );
   }
 
   return (

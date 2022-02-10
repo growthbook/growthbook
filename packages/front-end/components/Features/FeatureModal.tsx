@@ -11,11 +11,11 @@ import Toggle from "../Forms/Toggle";
 import uniq from "lodash/uniq";
 import RadioSelector from "../Forms/RadioSelector";
 import ConditionInput from "./ConditionInput";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   getDefaultRuleValue,
   getDefaultValue,
   getDefaultVariationValue,
+  useAttributeSchema,
   validateFeatureRule,
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
@@ -63,9 +63,11 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
     },
   });
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
+
+  const attributeSchema = useAttributeSchema();
+
   const hasHashAttributes =
-    settings?.attributeSchema?.filter((x) => x.hashAttribute)?.length > 0;
+    attributeSchema.filter((x) => x.hashAttribute)?.length > 0;
 
   const valueType = form.watch("valueType");
   const environments = form.watch("environments");
@@ -287,7 +289,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
                   ...getDefaultRuleValue({
                     defaultValue: defaultValue,
                     ruleType: value,
-                    attributeSchema: settings?.attributeSchema,
+                    attributeSchema,
                   }),
                 },
               ]);
@@ -308,7 +310,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           <Field
             label="Sample users based on attribute"
             {...form.register("rules.0.hashAttribute")}
-            options={settings.attributeSchema
+            options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
@@ -365,7 +367,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           <Field
             label="Sample users based on attribute"
             {...form.register("rules.0.hashAttribute")}
-            options={settings.attributeSchema
+            options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"

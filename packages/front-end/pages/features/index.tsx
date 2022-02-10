@@ -31,9 +31,7 @@ export default function FeaturesPage() {
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =
-    !settings?.attributeSchema?.length ||
-    !settings?.sdkInstructionsViewed ||
-    (data && !data?.features?.length);
+    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
 
   const { list, searchInputProps } = useSearch(data?.features || [], [
     "id",

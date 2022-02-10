@@ -19,9 +19,7 @@ export default function FeaturesGetStarted({ features }: Props) {
   const router = useRouter();
 
   let step = -1;
-  if (!settings?.attributeSchema?.length) {
-    step = 0;
-  } else if (!settings?.sdkInstructionsViewed) {
+  if (!settings?.sdkInstructionsViewed) {
     step = 1;
   } else if (!features.length) {
     step = 2;
@@ -51,29 +49,11 @@ export default function FeaturesGetStarted({ features }: Props) {
         <div className="col-12 col-lg-8 ">
           <div className={`card gsbox`} style={{ overflow: "hidden" }}>
             <GetStartedStep
-              current={step === 0}
-              finished={settings?.attributeSchema?.length > 0}
-              image="/images/attributes-icon.svg"
-              title="1. Choose targeting attributes"
-              text="Pick which user properties you want to pass into our SDKs. This enables you to use complex targeting rules and run experiments with your features."
-              cta="Choose attributes"
-              finishedCTA="Edit attributes"
-              imageLeft={true}
-              onClick={(finished) => {
-                setAttributeModalOpen(true);
-                if (!finished) {
-                  track("Viewed Attributes Modal", {
-                    source: "feature-onboarding",
-                  });
-                }
-              }}
-            />
-            <GetStartedStep
               current={step === 1}
               finished={settings?.sdkInstructionsViewed}
               className="border-top"
               image="/images/coding-icon.svg"
-              title="2. Install our SDK"
+              title="1. Install our SDK"
               text="Integrate GrowthBook into your Javascript, React, Golang, or Android application. More languages and frameworks coming soon!"
               cta="View instructions"
               finishedCTA="View instructions"
@@ -92,7 +72,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               finished={features.length > 0}
               className="border-top"
               image="/images/feature-icon.svg"
-              title="3. Add your first feature"
+              title="2. Add your first feature"
               text="Create a feature within GrowthBook. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
               cta="Add first feature"
               finishedCTA="Add a feature"
@@ -106,6 +86,44 @@ export default function FeaturesGetStarted({ features }: Props) {
                 }
               }}
             />
+            <div className="card-body extra-padding border-top">
+              <h3>Next Steps</h3>
+              <ul className="mb-0">
+                <li className="mb-2">
+                  <a
+                    href="https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => {
+                      track("Install DevTools", {
+                        type: "chrome",
+                        source: "feature-onboarding",
+                      });
+                    }}
+                  >
+                    Install our Chrome Extension
+                  </a>
+                </li>
+                <li className="mb-2">
+                  <a
+                    target="_blank"
+                    rel="noreferrer"
+                    href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                  >
+                    Join us on Slack
+                  </a>
+                </li>
+                <li>
+                  <a
+                    target="_blank"
+                    rel="noreferrer"
+                    href="https://docs.growthbook.io"
+                  >
+                    Read our Docs
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
         <div className="d-none d-lg-block col-lg-4">
