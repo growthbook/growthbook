@@ -150,7 +150,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     table: "pages",
     userIdType: "either",
     conditions: [],
-    conversionDelayHours: -0.5,
+    conversionDelayHours: -1,
   });
   const aov = await createMetric({
     organization: org.id,
@@ -173,7 +173,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     userIdType: "either",
     timestampColumn: "date_start",
     conditions: [],
-    conversionDelayHours: -0.5,
+    conversionDelayHours: -1,
   });
 
   // Example segment

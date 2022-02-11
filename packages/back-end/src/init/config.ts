@@ -20,6 +20,7 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
+import { upgradeMetricDoc } from "../models/MetricModel";
 
 export type ConfigFile = {
   organization?: {
@@ -164,19 +165,17 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
   return Object.keys(metrics).map((id) => {
     const m = metrics[id];
 
-    return {
+    return upgradeMetricDoc({
       tags: [],
       id,
       ...m,
       description: m?.description || "",
-      conversionDelayHours:
-        m?.conversionDelayHours ?? (m?.earlyStart ? -0.5 : 0),
       organization,
       dateCreated: null,
       dateUpdated: null,
       queries: [],
       runStarted: null,
-    };
+    });
   });
 }
 

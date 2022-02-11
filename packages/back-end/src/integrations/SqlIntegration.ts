@@ -183,10 +183,21 @@ export default abstract class SqlIntegration
     if (!hours) return col;
     let unit: "hour" | "minute" = "hour";
     const sign = hours > 0 ? "+" : "-";
-    let amount = Math.round(Math.abs(hours));
-    if ((Math.abs(hours) * 10) % 10 > 1) {
-      amount = Math.round(hours * 60);
+    hours = Math.abs(hours);
+
+    const roundedHours = Math.round(hours);
+    const roundedMinutes = Math.round(hours * 60);
+
+    let amount = roundedHours;
+
+    // If not within a few minutes of an even hour, go with minutes as the unit instead
+    if (Math.round(roundedMinutes / 15) % 4 > 0) {
       unit = "minute";
+      amount = roundedMinutes;
+    }
+
+    if (amount === 0) {
+      return col;
     }
 
     return this.addTime(col, unit, sign, amount);
@@ -328,7 +339,6 @@ export default abstract class SqlIntegration
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(params.from);
-    metricStart.setMinutes(metricStart.getMinutes() - 30);
     const metricEnd = new Date(params.to);
     metricEnd.setHours(
       metricEnd.getHours() +
@@ -716,7 +726,6 @@ export default abstract class SqlIntegration
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(phase.dateStarted);
-    metricStart.setMinutes(metricStart.getMinutes() - 30);
     const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
     if (metricEnd) {
       metricEnd.setHours(
@@ -799,7 +808,8 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE({
               metric: activationMetric,
-              conversionWindowHours: metric.conversionWindowHours,
+              conversionWindowHours:
+                metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
               conversionDelayHours: metric.conversionDelayHours,
               userId,
               startDate: metricStart,
@@ -935,7 +945,7 @@ export default abstract class SqlIntegration
 
   private getMetricCTE({
     metric,
-    conversionWindowHours = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionWindowHours = 0,
     conversionDelayHours = 0,
     userId = true,
     startDate,
