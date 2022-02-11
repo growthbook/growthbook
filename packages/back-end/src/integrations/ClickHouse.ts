@@ -52,11 +52,13 @@ export default class ClickHouse extends SqlIntegration {
       .substr(0, 19)
       .replace("T", " ")}')`;
   }
-  addHours(col: string, hours: number) {
-    return `dateAdd(hour, ${hours}, ${col})`;
-  }
-  subtractHalfHour(col: string) {
-    return `dateSub(minute, 30, ${col})`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
   regexMatch(col: string, regex: string) {
     return `match(${col}, '${regex.replace(/\\/g, "\\\\")}')`;

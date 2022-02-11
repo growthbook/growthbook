@@ -33,11 +33,15 @@ export default class BigQuery extends SqlIntegration {
   toTimestamp(date: Date) {
     return `DATETIME "${date.toISOString().substr(0, 19).replace("T", " ")}"`;
   }
-  addHours(col: string, hours: number) {
-    return `DATETIME_ADD(${col}, INTERVAL ${hours} HOUR)`;
-  }
-  subtractHalfHour(col: string) {
-    return `DATETIME_SUB(${col}, INTERVAL 30 MINUTE)`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `DATETIME_${
+      sign === "+" ? "ADD" : "SUB"
+    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
   regexMatch(col: string, regex: string) {
     return `REGEXP_CONTAINS(${col}, "${regex}")`;

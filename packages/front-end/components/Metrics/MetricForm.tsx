@@ -147,12 +147,12 @@ const MetricForm: FC<MetricFormProps> = ({
       type: current.type || "binomial",
       table: current.table || "",
       column: current.column || "",
-      earlyStart: !!current.earlyStart,
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
+      conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
@@ -732,10 +732,28 @@ GROUP BY
         )}
         {conversionWindowSupported && (
           <div className="form-group">
+            Conversion Delay (hours)
+            <input
+              type="number"
+              step="any"
+              className="form-control"
+              placeholder={"0"}
+              {...form.register("conversionDelayHours", {
+                valueAsNumber: true,
+              })}
+            />
+            <small className="text-muted">
+              Ignore all conversions within the first X hours of being put into
+              an experiment.
+            </small>
+          </div>
+        )}
+        {conversionWindowSupported && (
+          <div className="form-group">
             Conversion Window (hours)
             <input
               type="number"
-              step="1"
+              step="any"
               min="1"
               className="form-control"
               placeholder={getDefaultConversionWindowHours() + ""}
@@ -743,6 +761,10 @@ GROUP BY
                 valueAsNumber: true,
               })}
             />
+            <small className="text-muted">
+              After the conversion delay (if any), wait this many hours for a
+              conversion event.
+            </small>
           </div>
         )}
         {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
@@ -774,25 +796,6 @@ GROUP BY
           </a>
         ) : (
           <>
-            {capSupported && (
-              <div className="form-group">
-                In an Experiment,{" "}
-                {value.type === "binomial"
-                  ? "only count if a conversion happens"
-                  : "start counting"}
-                <BooleanSelect
-                  control={form.control}
-                  required
-                  name="earlyStart"
-                  falseLabel="After the user is assigned a variation"
-                  trueLabel={
-                    (value.type === "binomial"
-                      ? "Any time during the"
-                      : "At the start of the") + " user's session"
-                  }
-                />
-              </div>
-            )}
             <div className="form-group">
               Risk thresholds
               <div className="riskbar row align-items-center pt-3">

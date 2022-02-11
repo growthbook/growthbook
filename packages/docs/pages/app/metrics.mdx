@@ -96,9 +96,28 @@ If set above zero, all values will be capped at this value. So in the above exam
 
 We recommend setting this at the 99th percentile in most cases.
 
+### Conversion Delay
+
+Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, you would set conversion delay to `24` hours..
+
+#### Negative conversion delays
+
+The conversion delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
+
+Imagine the average person stays on your site for 60 seconds and your experiment can trigger at any time.
+
+If you just look at the average time spent after the experiment, the numbers will lose a lot of meaning. A value of `20 seconds` might be horrible if it happened to someone after only 5 seconds on your site since they are staying a lot less time than average. But, that same `20 seconds` might be great if it happened to someone after 55 seconds since their visit is a lot longer than usual.
+Over time, these things will average out and you can eventually see patterns, but you need an enormous amount of data to get to that point.
+
+If you set the conversion delay to something negative, say `-0.5` (30 minutes), you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
+
+Keep in mind, these two things are answering slightly different questions.
+`How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
+The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.
+
 ### Conversion Window
 
-The number of hours the user has to convert after first being put into an experiment (default = `72`). Any conversions that happens after this time will be ignored. As always there's a tradeoff here.
+The number of hours the user has to convert after the conversion delay (default = `72`). Any conversions that happens after this time will be ignored. As always there's a tradeoff here.
 
 The lower you set this, the more you can be sure that your experiment directly contributed to the metric conversion. For example, a user who views your new checkout page and then completes the purchase right away is a much stronger signal than someone viewing your checkout page and then finally completing the purchase 7 days later.
 
@@ -113,24 +132,3 @@ When set to `No` (the default), the average metric value is calculated as `(tota
 When set to `Yes`, the denominator only includes users who have a non-null value for this metric. So the average value is calculated as `(total value) / (number of users with non-null value)`.
 
 The most common use case is with Revenue. Setting to "No" gives you `Revenue per User`. Setting to "Yes" gives you `Average Order Value`.
-
-### In an Experiment, start counting...
-
-This controls when metrics start counting for a user.
-
-The vast majority of the time, you only want to count metrics **after** the user is assigned a variation (the default). So if someone clicks a button and then later views your experiment, that previous click doesn't count.
-
-If you instead pick `At the start of the user's session`, we will also include conversions that happen up to 30 minutes **before** being put into the experiment.
-
-Why would you ever want to do this?
-
-Imagine the average person stays on your site for 60 seconds and your experiment can trigger at any time.
-
-If you just look at the average time spent after the experiment, the numbers will lose a lot of meaning. A value of `20 seconds` might be horrible if it happened to someone after only 5 seconds on your site since they are staying a lot less time than average. But, that same `20 seconds` might be great if it happened to someone after 55 seconds since their visit is a lot longer than usual.
-Over time, these things will average out and you can eventually see patterns, but you need an enormous amount of data to get to that point.
-
-If instead, you consider the entire session duration, you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
-
-Keep in mind, these two things are answering slightly different questions.
-`How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
-The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.

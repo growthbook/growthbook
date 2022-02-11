@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { queriesSchema } from "./QueryModel";
 
 export const ALLOWED_METRIC_TYPES = [
@@ -27,6 +28,7 @@ const metricSchema = new mongoose.Schema({
   ignoreNulls: Boolean,
   cap: Number,
   conversionWindowHours: Number,
+  conversionDelayHours: Number,
   winRisk: Number,
   loseRisk: Number,
   maxPercentChange: Number,
@@ -85,7 +87,20 @@ type MetricDocument = mongoose.Document & MetricInterface;
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
-  return doc.toJSON();
+  return upgradeMetricDoc(doc.toJSON());
+}
+
+export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+  if (doc.conversionDelayHours == null && doc.earlyStart) {
+    return {
+      ...doc,
+      conversionDelayHours: -0.5,
+      conversionWindowHours:
+        (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
+    };
+  }
+
+  return doc;
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {

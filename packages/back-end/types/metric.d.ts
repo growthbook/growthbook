@@ -34,11 +34,12 @@ export interface MetricInterface {
   name: string;
   description: string;
   type: MetricType;
-  earlyStart: boolean;
+  earlyStart?: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
   conversionWindowHours?: number;
+  conversionDelayHours?: number;
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;

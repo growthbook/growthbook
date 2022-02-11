@@ -71,7 +71,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
     activationMetric: MetricInterface,
     dimension: DimensionInterface
   ): string {
-    const hasEarlyStartMetrics = metrics.filter((m) => m.earlyStart).length > 0;
+    const hasEarlyStartMetrics =
+      metrics.filter(
+        (m) => m.conversionDelayHours && m.conversionDelayHours < 0
+      ).length > 0;
 
     const onActivate = `
         ${activationMetric ? "state.activated = true;" : ""}
@@ -80,13 +83,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
           hasEarlyStartMetrics
             ? ` // Process queued values
         state.queuedEvents.forEach((q) => {
-          // Make sure event happened during the same session (within 30 minutes)
-          if(state.start - q.time > ${30 * 60 * 1000}) return;
           ${metrics
-            .filter((m) => m.earlyStart)
+            .filter((m) => m.conversionDelayHours && m.conversionDelayHours < 0)
             .map(
               (metric, i) => `// Metric - ${metric.name}
-          if(${this.getValidMetricCondition(metric, "q")}) {
+          if(q.time - state.start > ${
+            (metric.conversionDelayHours || 0) * 60 * 60 * 1000
+          } && ${this.getValidMetricCondition(metric, "q")}) {
             ${this.getMetricAggregationCode(
               metric,
               this.getMetricValueCode(metric, "q"),
@@ -444,6 +447,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
 
+    const earlyStart =
+      metric.conversionDelayHours && metric.conversionDelayHours < 0;
+
     return (
       formatQuery(`
       // ${params.name} - Metric value (${metric.name})
@@ -473,6 +479,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               state.queuedValues.forEach((q) => {
                 ${this.getConversionWindowCheck(
                   params.metric.conversionWindowHours,
+                  params.metric.conversionDelayHours,
                   "state.firstPageView",
                   "q.time",
                   "return"
@@ -480,12 +487,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 ${this.getMetricAggregationCode(metric, "q.value")}
               });
               state.queuedValues = [];
-              ${metric.earlyStart ? "" : "continue;"}
+              ${earlyStart ? "" : "continue;"}
             }
             if(${this.getValidMetricCondition(metric, "events[i]")}) {
               if(!state.firstPageView) {
                 ${
-                  metric.earlyStart
+                  earlyStart
                     ? `state.queuedValues.push({value: ${this.getMetricValueCode(
                         metric
                       )}, time: events[i].time});`
@@ -495,6 +502,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               }
               ${this.getConversionWindowCheck(
                 params.metric.conversionWindowHours,
+                params.metric.conversionDelayHours,
                 "state.firstPageView"
               )}
               ${this.getMetricAggregationCode(
@@ -700,13 +708,23 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getConversionWindowCheck(
     conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionDelayHours: number = 0,
     startVar: string,
     eventTimeVar: string = "events[i].time",
     onFail: string = "continue;"
   ) {
-    return `// Check conversion window (${conversionWindowHours} hours)
-    if(${eventTimeVar} - ${startVar} > ${
-      conversionWindowHours * 60 * 60 * 1000
+    const delayCheck =
+      conversionDelayHours !== 0
+        ? `${eventTimeVar} - ${startVar} < ${
+            conversionDelayHours * 60 * 60 * 1000
+          } || `
+        : "";
+
+    return `// Check conversion window (${conversionDelayHours} - ${
+      conversionDelayHours + conversionWindowHours
+    } hours)
+    if(${delayCheck}${eventTimeVar} - ${startVar} > ${
+      (conversionDelayHours + conversionWindowHours) * 60 * 60 * 1000
     }) {
       ${onFail}
     }`;
@@ -747,14 +765,17 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     // Within conversion window
     if (conversionWindowStart) {
-      checks.push(
-        `${event}.time - ${conversionWindowStart} < ${
-          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) *
+      const start = (metric.conversionDelayHours || 0) * 60 * 60 * 1000;
+      const end =
+        start +
+        (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) *
           60 *
           60 *
-          1000
-        }`
-      );
+          1000;
+      if (start) {
+        checks.push(`${event}.time - ${conversionWindowStart} >= ${start}`);
+      }
+      checks.push(`${event}.time - ${conversionWindowStart} < ${end}`);
     }
 
     if (metric.conditions) {

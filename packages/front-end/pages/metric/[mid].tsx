@@ -721,7 +721,6 @@ const MetricPage: FC = () => {
                   metric.inverse ? "inverse" : null,
                   metric.cap > 0 ? `cap: ${metric.cap}` : null,
                   metric.ignoreNulls ? "converted users only" : null,
-                  metric.earlyStart ? "start of session" : null,
                 ]}
               </RightRailSectionGroup>
 
@@ -730,8 +729,12 @@ const MetricPage: FC = () => {
                   type="commaList"
                   title="Conversion Window"
                 >
-                  {metric.conversionWindowHours ||
-                    getDefaultConversionWindowHours()}{" "}
+                  {metric.conversionDelayHours
+                    ? metric.conversionDelayHours + " to "
+                    : ""}
+                  {(metric.conversionDelayHours || 0) +
+                    (metric.conversionWindowHours ||
+                      getDefaultConversionWindowHours())}{" "}
                   hours
                 </RightRailSectionGroup>
               )}
