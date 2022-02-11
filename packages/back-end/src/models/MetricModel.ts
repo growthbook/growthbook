@@ -151,14 +151,14 @@ export async function getMetricsByDatasource(
   return docs.map(toInterface);
 }
 
-export async function hasSampleMetric(organization: string) {
-  if (usingFileConfig()) return false;
+export async function getSampleMetrics(organization: string) {
+  if (usingFileConfig()) return [];
 
-  const doc = await MetricModel.findOne({
+  const docs = await MetricModel.find({
     id: /^met_sample/,
     organization,
   });
-  return !!doc;
+  return docs.map(toInterface);
 }
 
 export async function getMetricById(
@@ -202,10 +202,11 @@ export async function getMetricsUsingSegment(
     );
   }
 
-  return MetricModel.find({
+  const docs = await MetricModel.find({
     organization,
     segment,
   });
+  return docs.map(toInterface);
 }
 
 const ALLOWED_UPDATE_FIELDS = [

@@ -19,6 +19,8 @@ import track from "../../services/track";
 import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import EditProjectForm from "../../components/Experiment/EditProjectForm";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -28,6 +30,9 @@ export default function FeaturePage() {
 
   const [ruleDefaultType, setRuleDefaultType] = useState<string>("");
   const [ruleModal, setRuleModal] = useState<number | null>(null);
+  const [editProjectModal, setEditProjectModal] = useState(false);
+
+  const { getProjectById, projects } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -80,6 +85,15 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           defaultType={ruleDefaultType}
         />
       )}
+      {editProjectModal && (
+        <EditProjectForm
+          apiEndpoint={`/feature/${data.feature.id}`}
+          cancel={() => setEditProjectModal(false)}
+          mutate={mutate}
+          method="PUT"
+          current={data.feature.project}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -108,6 +122,26 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       </div>
 
       <h1>{fid}</h1>
+      {projects.length > 0 && (
+        <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+          <div className="col-auto">
+            Project:{" "}
+            {data.feature.project ? (
+              <span className="badge badge-secondary">
+                {getProjectById(data.feature.project)?.name || "unknown"}
+              </span>
+            ) : (
+              <em className="text-muted">none</em>
+            )}
+            <a
+              className="ml-2 cursor-pointer"
+              onClick={() => setEditProjectModal(true)}
+            >
+              <GBEdit />
+            </a>
+          </div>
+        </div>
+      )}
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit

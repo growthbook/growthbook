@@ -390,6 +390,17 @@ function generateTrackingKey(name: string, n: number): string {
   return key;
 }
 
+export async function getSampleExperiment(
+  organization: string
+): Promise<ExperimentInterface | null> {
+  const exp = await ExperimentModel.findOne({
+    organization,
+    id: /^exp_sample_/,
+  });
+
+  return exp ? exp.toJSON() : null;
+}
+
 export async function createExperiment(
   data: Partial<ExperimentInterface>,
   organization: OrganizationInterface
@@ -778,9 +789,17 @@ export async function processPastExperiments(
   );
 }
 
-export async function experimentUpdated(experiment: ExperimentInterface) {
+export async function experimentUpdated(
+  experiment: ExperimentInterface,
+  previousProject: string = ""
+) {
   // fire the webhook:
-  await queueWebhook(experiment.organization);
+  await queueWebhook(
+    experiment.organization,
+    ["dev", "production"],
+    [previousProject || "", experiment.project || ""],
+    false
+  );
 
   // invalidate the CDN
   await queueCDNInvalidate(experiment.organization, (key) => {

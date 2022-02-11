@@ -42,6 +42,7 @@ const ProjectsPage: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
+              <th>Project Id</th>
               <th>Project Name</th>
               <th>Date Created</th>
               <th>Date Updated</th>
@@ -51,6 +52,7 @@ const ProjectsPage: FC = () => {
           <tbody>
             {projects.map((p) => (
               <tr key={p.id}>
+                <td>{p.id}</td>
                 <td>{p.name}</td>
                 <td>{date(p.dateCreated)}</td>
                 <td>{date(p.dateUpdated)}</td>

@@ -7,11 +7,14 @@ import { useAuth } from "../../services/auth";
 import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import Tooltip from "../Tooltip";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
     "/webhooks"
   );
+  const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 
@@ -44,11 +47,13 @@ const Webhooks: FC = () => {
       </p>
 
       {data.webhooks.length > 0 && (
-        <table className="table mb-3 appbox gbtable hover-highlight">
+        <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
               <th>Webhook</th>
               <th>Endpoint</th>
+              <th>Environments</th>
+              {projects.length > 0 && <th>Project</th>}
               <th>Shared Secret</th>
               <th>Status</th>
               <th></th>
@@ -57,14 +62,40 @@ const Webhooks: FC = () => {
           <tbody>
             {data.webhooks.map((webhook) => (
               <tr key={webhook.id}>
-                <td>{webhook.name}</td>
+                <td>
+                  {webhook.name}
+                  {!webhook.featuresOnly && (
+                    <Tooltip text="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
+                      <span className="badge badge-warning ml-2">legacy</span>
+                    </Tooltip>
+                  )}
+                </td>
                 <td>{webhook.endpoint}</td>
+                <td>
+                  {(webhook.environment === "dev" ||
+                    webhook.environment === "") && (
+                    <span className="badge badge-secondary mr-1">dev</span>
+                  )}
+                  {(webhook.environment === "production" ||
+                    !webhook.environment) && (
+                    <span className="badge badge-primary mr-1">production</span>
+                  )}
+                </td>
+                {projects.length > 0 && (
+                  <td>
+                    {webhook.project ? (
+                      getProjectById(webhook.project)?.name || webhook.project
+                    ) : (
+                      <em className="text-muted">All Projects</em>
+                    )}
+                  </td>
+                )}
                 <td>
                   <code>{webhook.signingKey}</code>
                 </td>
                 <td>
                   {webhook.error ? (
-                    <pre className="text-danger">{webhook.error}</pre>
+                    <pre className="text-danger mb-0 pb-0">{webhook.error}</pre>
                   ) : webhook.lastSuccess ? (
                     <em>
                       <FaCheck className="text-success" /> last fired{" "}

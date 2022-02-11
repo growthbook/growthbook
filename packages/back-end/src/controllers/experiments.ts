@@ -688,7 +688,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await experimentUpdated(exp);
+    await experimentUpdated(exp, existing.project || "");
   }
 
   res.status(200).json({

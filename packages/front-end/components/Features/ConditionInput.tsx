@@ -1,10 +1,10 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
+  useAttributeSchema,
 } from "../../services/features";
 import Field from "../Forms/Field";
 
@@ -14,16 +14,18 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
+  const attributes = useAttributeMap();
+
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue) === null
+    () => jsonToConds(props.defaultValue, attributes) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() => jsonToConds(props.defaultValue));
+  const [conds, setConds] = useState(() =>
+    jsonToConds(props.defaultValue, attributes)
+  );
 
-  const settings = useOrgSettings();
-
-  const attributes = useAttributeMap();
+  const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (advanced) return;
@@ -32,8 +34,8 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value) !== null);
-  }, [value]);
+    setSimpleAllowed(jsonToConds(value, attributes) !== null);
+  }, [value, attributes]);
 
   if (advanced || !attributes.size || !simpleAllowed) {
     return (
@@ -53,7 +55,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const newConds = jsonToConds(value);
+              const newConds = jsonToConds(value, attributes);
               // TODO: show error
               if (newConds === null) return;
               setConds(newConds);
@@ -116,7 +118,7 @@ export default function ConditionInput(props: Props) {
                       }}
                       className="form-control mr-1"
                     >
-                      {settings.attributeSchema.map((s) => (
+                      {attributeSchema.map((s) => (
                         <option key={s.property}>{s.property}</option>
                       ))}
                     </select>
@@ -140,7 +142,7 @@ export default function ConditionInput(props: Props) {
                           <option value="$exists">exists</option>
                           <option value="$notExists">does not exist</option>
                         </>
-                      ) : attribute.enum ? (
+                      ) : attribute.enum?.length > 0 ? (
                         <>
                           <option value="$eq">is equal to</option>
                           <option value="$ne">is not equal to</option>
@@ -236,7 +238,7 @@ export default function ConditionInput(props: Props) {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {
@@ -271,7 +273,7 @@ export default function ConditionInput(props: Props) {
               className="ml-3"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {

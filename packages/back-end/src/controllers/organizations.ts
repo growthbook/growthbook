@@ -41,7 +41,10 @@ import {
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
-import { createManualSnapshot } from "../services/experiments";
+import {
+  createManualSnapshot,
+  getSampleExperiment,
+} from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
 import {
   findDimensionsByDataSource,
@@ -59,14 +62,12 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
-import { ExperimentInterface } from "../../types/experiment";
 import {
   insertMetric,
   getMetricsByDatasource,
   getMetricsByOrganization,
-  hasSampleMetric,
+  getSampleMetrics,
 } from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
 import { WebhookModel } from "../models/WebhookModel";
@@ -121,141 +122,147 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const existingMetric = await hasSampleMetric(orgId);
-  if (existingMetric) {
-    throw new Error("Sample data already exists");
+  const existingMetrics = await getSampleMetrics(orgId);
+
+  let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];
+  if (!metric1) {
+    metric1 = {
+      id: uniqid("met_sample_"),
+      datasource: "",
+      ignoreNulls: false,
+      inverse: false,
+      queries: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      runStarted: null,
+      name: "Sample Conversions",
+      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
+      type: "binomial",
+      organization: orgId,
+      userIdType: "anonymous",
+    };
+    await insertMetric(metric1);
   }
 
-  const metric1: MetricInterface = {
-    id: uniqid("met_sample_"),
-    datasource: "",
-    ignoreNulls: false,
-    inverse: false,
-    queries: [],
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    runStarted: null,
-    name: "Sample Conversions",
-    description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-    type: "binomial",
-    organization: orgId,
-    userIdType: "anonymous",
-  };
-  await insertMetric(metric1);
+  let metric2 = existingMetrics.filter((m) => m.type === "revenue")[0];
+  if (!metric2) {
+    metric2 = {
+      id: uniqid("met_sample_"),
+      datasource: "",
+      ignoreNulls: false,
+      inverse: false,
+      queries: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      runStarted: null,
+      name: "Sample Revenue per User",
+      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
+      type: "revenue",
+      organization: orgId,
+      userIdType: "anonymous",
+    };
+    await insertMetric(metric2);
+  }
 
-  const metric2: MetricInterface = {
-    id: uniqid("met_sample_"),
-    datasource: "",
-    ignoreNulls: false,
-    inverse: false,
-    queries: [],
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    runStarted: null,
-    name: "Sample Revenue per User",
-    description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-    type: "revenue",
-    organization: orgId,
-    userIdType: "anonymous",
-  };
-  await insertMetric(metric2);
+  let experiment = await getSampleExperiment(orgId);
 
-  const lastWeek = new Date();
-  lastWeek.setDate(lastWeek.getDate() - 7);
-
-  const experiment: ExperimentInterface = {
-    id: uniqid("exp_sample_"),
-    organization: orgId,
-    archived: false,
-    name: "Sample Experiment",
-    status: "stopped",
-    description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-    hypothesis:
-      "Making the buttons green on the pricing page will increase conversions",
-    previewURL: "",
-    targetURLRegex: "",
-    variations: [
-      {
-        name: "Control",
-        value: `{"color": "blue"}`,
-        screenshots: [
-          {
-            path: "/images/pricing-default.png",
-          },
-        ],
-      },
-      {
-        name: "Variation",
-        value: `{"color": "green"}`,
-        screenshots: [
-          {
-            path: "/images/pricing-green.png",
-          },
-        ],
-      },
-    ],
-    autoAssign: false,
-    autoSnapshots: false,
-    datasource: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    implementation: "code",
-    metrics: [metric1.id, metric2.id],
-    owner: userId,
-    trackingKey: "sample-experiment",
-    userIdType: "anonymous",
-    tags: [],
-    results: "won",
-    winner: 1,
-    analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾
+  if (!experiment) {
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    experiment = {
+      id: uniqid("exp_sample_"),
+      organization: orgId,
+      archived: false,
+      name: "Sample Experiment",
+      status: "stopped",
+      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
+      hypothesis:
+        "Making the buttons green on the pricing page will increase conversions",
+      previewURL: "",
+      targetURLRegex: "",
+      variations: [
+        {
+          name: "Control",
+          value: `{"color": "blue"}`,
+          screenshots: [
+            {
+              path: "/images/pricing-default.png",
+            },
+          ],
+        },
+        {
+          name: "Variation",
+          value: `{"color": "green"}`,
+          screenshots: [
+            {
+              path: "/images/pricing-green.png",
+            },
+          ],
+        },
+      ],
+      autoAssign: false,
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      implementation: "code",
+      metrics: [metric1.id, metric2.id],
+      owner: userId,
+      trackingKey: "sample-experiment",
+      userIdType: "anonymous",
+      tags: [],
+      results: "won",
+      winner: 1,
+      analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾
 
 Revenue did not reach 95% significance, but the risk is so low it doesn't seem worth it to keep waiting.
 
 **Ready to get some wins yourself?** [Finish setting up your account](/getstarted)`,
-    phases: [
-      {
-        dateStarted: lastWeek,
-        dateEnded: new Date(),
-        phase: "main",
-        reason: "",
-        coverage: 1,
-        variationWeights: [0.5, 0.5],
-        groups: [],
-      },
-    ],
-  };
-  await ExperimentModel.create(experiment);
+      phases: [
+        {
+          dateStarted: lastWeek,
+          dateEnded: new Date(),
+          phase: "main",
+          reason: "",
+          coverage: 1,
+          variationWeights: [0.5, 0.5],
+          groups: [],
+        },
+      ],
+    };
+    await ExperimentModel.create(experiment);
 
-  await createManualSnapshot(experiment, 0, [15500, 15400], {
-    [metric1.id]: [
-      {
-        users: 15500,
-        count: 950,
-        mean: 1,
-        stddev: 1,
-      },
-      {
-        users: 15400,
-        count: 1025,
-        mean: 1,
-        stddev: 1,
-      },
-    ],
-    [metric2.id]: [
-      {
-        users: 15500,
-        count: 950,
-        mean: 26.54,
-        stddev: 16.75,
-      },
-      {
-        users: 15400,
-        count: 1025,
-        mean: 25.13,
-        stddev: 16.87,
-      },
-    ],
-  });
+    await createManualSnapshot(experiment, 0, [15500, 15400], {
+      [metric1.id]: [
+        {
+          users: 15500,
+          count: 950,
+          mean: 1,
+          stddev: 1,
+        },
+        {
+          users: 15400,
+          count: 1025,
+          mean: 1,
+          stddev: 1,
+        },
+      ],
+      [metric2.id]: [
+        {
+          users: 15500,
+          count: 950,
+          mean: 26.54,
+          stddev: 16.75,
+        },
+        {
+          users: 15400,
+          count: 1025,
+          mean: 25.13,
+          stddev: 16.87,
+        },
+      ],
+    });
+  }
 
   res.status(200).json({
     status: 200,
@@ -1129,7 +1136,12 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
 }
 
 export async function postWebhook(
-  req: AuthRequest<{ name: string; endpoint: string }>,
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    project: string;
+    environment: string;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1140,9 +1152,15 @@ export async function postWebhook(
     });
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(org.id, name, endpoint);
+  const webhook = await createWebhook(
+    org.id,
+    name,
+    endpoint,
+    project,
+    environment
+  );
 
   res.status(200).json({
     status: 200,
@@ -1175,13 +1193,15 @@ export async function putWebhook(
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
 
   webhook.set("name", name);
   webhook.set("endpoint", endpoint);
+  webhook.set("project", project || "");
+  webhook.set("environment", environment || "");
 
   await webhook.save();
 

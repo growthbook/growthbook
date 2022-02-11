@@ -6,6 +6,7 @@ import track from "../../services/track";
 import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { WebhookInterface } from "back-end/types/webhook";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -14,14 +15,23 @@ const WebhooksModal: FC<{
   current: Partial<WebhookInterface>;
 }> = ({ close, onSave, current }) => {
   const { apiCall } = useAuth();
+
+  const { projects, project } = useDefinitions();
+
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
+      project: current.project || (current.id ? "" : project),
+      environment:
+        current.environment === undefined ? "production" : current.environment,
     },
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (value.endpoint.match(/localhost/g)) {
+      throw new Error("Invalid endpoint");
+    }
     await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
       method: current.id ? "PUT" : "POST",
       body: JSON.stringify(value),
@@ -40,7 +50,7 @@ const WebhooksModal: FC<{
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
-        label="HTTP Endpoint"
+        label="HTTP(S) Endpoint"
         type="url"
         required
         placeholder="https://"
@@ -65,6 +75,49 @@ const WebhooksModal: FC<{
           </>
         }
       />
+      {form.watch("endpoint").match(/localhost/) && (
+        <div className="alert alert-danger">
+          <strong>Error: </strong>Localhost not supported directly. Try using{" "}
+          <a
+            href="https://www.npmjs.com/package/ngrok"
+            target="_blank"
+            rel="noreferrer"
+          >
+            ngrok
+          </a>{" "}
+          instead.
+        </div>
+      )}
+      <h4>Webhook Filter</h4>
+      <Field
+        label="Environment"
+        options={[
+          {
+            display: "Production only",
+            value: "production",
+          },
+          {
+            display: "Dev only",
+            value: "dev",
+          },
+          {
+            display: "Both Dev and Production",
+            value: "",
+          },
+        ]}
+        {...form.register("environment")}
+      />
+      {projects.length > 0 && (
+        <Field
+          label="Project"
+          options={projects.map((p) => ({
+            display: p.name,
+            value: p.id,
+          }))}
+          initialOption="All Projects"
+          {...form.register("project")}
+        />
+      )}
     </Modal>
   );
 };

@@ -10,6 +10,7 @@ import { useAuth } from "../../services/auth";
 import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
+import { useAttributeSchema } from "../../services/features";
 
 type Language = "tsx" | "javascript" | "go" | "kotlin";
 
@@ -19,11 +20,11 @@ function indentLines(code: string, indent: number | string = 2) {
 }
 
 function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
-  if (!attributeSchema) return {};
+  if (!attributeSchema?.length) return {};
 
   // eslint-disable-next-line
   const exampleAttributes: any = {};
-  (attributeSchema || []).forEach(({ property, datatype, enum: enumList }) => {
+  attributeSchema.forEach(({ property, datatype, enum: enumList }) => {
     const parts = property.split(".");
     const last = parts.pop();
     let current = exampleAttributes;
@@ -83,10 +84,10 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
 
   const { settings, update } = useUser();
 
+  const attributeSchema = useAttributeSchema();
+
   const { datasources } = useDefinitions();
-  const exampleAttributes = getExampleAttributes(
-    settings?.attributeSchema || []
-  );
+  const exampleAttributes = getExampleAttributes(attributeSchema);
 
   // Create API key if one doesn't exist yet
   const [devApiKey, setDevApiKey] = useState("");
