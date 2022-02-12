@@ -147,7 +147,7 @@ Overrides the defaultValue of a **Feature**. Has a number of optional properties
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
-- **trackingKey** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
+- **key** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
@@ -572,7 +572,7 @@ There are a few ordered steps to evaluate a feature
       ```ts
       const exp = {
         variations: rule.variations,
-        key: rule.trackingKey || featureKey,
+        key: rule.key || featureKey,
       };
       if (rule.coverage) exp.coverage = rule.coverage;
       if (rule.weights) exp.weights = rule.weights;
