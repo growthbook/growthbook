@@ -12,7 +12,14 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 
-type Language = "tsx" | "javascript" | "go" | "kotlin";
+type Language = "tsx" | "javascript" | "go" | "kotlin" | "php";
+
+function phpArrayFormat(json: unknown) {
+  return stringify(json)
+    .replace(/\{/g, "[")
+    .replace(/\}/g, "]")
+    .replace(/:/g, " =>");
+}
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -457,6 +464,47 @@ val gb = GBSDKBuilder(
 ).initialize()
 
 if (gb.feature("my-feature").on) {
+  // Feature is enabled!
+}
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="PHP" id="php">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/php"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full PHP SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="sh" code={`composer require growthbook/growthbook`} />
+          <Code
+            language="php"
+            code={`
+use Growthbook\\Growthbook;
+
+// TODO: Real user attributes
+$attributes = ${phpArrayFormat(exampleAttributes)};
+
+// Fetch feature definitions from GrowthBook API
+// In production, we recommend adding a db or cache layer
+const FEATURES_ENDPOINT = '${getFeaturesUrl(devApiKey)}';
+$apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
+$features = $apiResponse["features"];
+
+// Create a GrowthBook instance
+$growthbook = Growthbook::create()
+  ->withAttributes($attributes)
+  ->withFeatures($features)
+  ->withTrackingCallback(function ($experiment, $result) {
+    // TODO: track in your analytics system
+  });
+
+if ($growthbook->isOn("my-feature")) {
   // Feature is enabled!
 }
             `.trim()}

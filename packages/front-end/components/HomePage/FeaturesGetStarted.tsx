@@ -54,7 +54,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
-              text="Integrate GrowthBook into your Javascript, React, Golang, or Android application. More languages and frameworks coming soon!"
+              text="Integrate GrowthBook into your Javascript, React, Golang, PHP, or Android application. More languages and frameworks coming soon!"
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
