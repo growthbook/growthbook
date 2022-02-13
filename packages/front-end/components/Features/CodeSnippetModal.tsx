@@ -12,7 +12,7 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 
-type Language = "tsx" | "javascript" | "go" | "kotlin" | "php";
+type Language = "tsx" | "javascript" | "go" | "kotlin" | "php" | "python";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -507,6 +507,57 @@ $growthbook = Growthbook::create()
 if ($growthbook->isOn("my-feature")) {
   // Feature is enabled!
 }
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Python" id="python">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/python"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Python SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="sh" code={`pip install growthbook`} />
+          <Code
+            language="python"
+            code={`
+import requests
+from growthbook import GrowthBook
+
+# Fetch feature definitions from GrowthBook API
+# In production, we recommend adding a db or cache layer
+apiResp = requests.get(${getFeaturesUrl(devApiKey)})
+features = apiResp.json()["features"]
+
+# TODO: Real user attributes
+$attributes = ${stringify(exampleAttributes)
+              .replace(/: true/g, ": True")
+              .replace(/: false/g, ": False")
+              .replace(/: null/g, ": None")}
+
+# Tracking callback when someone is put in an experiment
+def on_experiment_viewed(experiment, result):
+  # Use whatever event tracking system you want
+  print({
+    'experimentId': experiment.key,
+    'variationId': result.variationId
+  })
+
+# Create a GrowthBook instance
+gb = GrowthBook(
+  attributes = attributes,
+  features = features,
+  trackingCallback = on_experiment_viewed
+)
+
+# Use a feature
+if gb.isOn("my-feature"):
+  print("Feature is enabled!")
             `.trim()}
           />
         </Tab>
