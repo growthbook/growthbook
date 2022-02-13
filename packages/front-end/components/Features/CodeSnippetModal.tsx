@@ -531,11 +531,11 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get(${getFeaturesUrl(devApiKey)})
+apiResp = requests.get("${getFeaturesUrl(devApiKey)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
-$attributes = ${stringify(exampleAttributes)
+attributes = ${stringify(exampleAttributes)
               .replace(/: true/g, ": True")
               .replace(/: false/g, ": False")
               .replace(/: null/g, ": None")}
