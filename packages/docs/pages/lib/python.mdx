@@ -9,76 +9,213 @@ View the full documentation on [GitHub](https://github.com/growthbook/growthbook
 ## Quick Usage
 
 ```python
-from growthbook import GrowthBook, Experiment
+import requests
+from growthbook import GrowthBook
 
-userId = "123"
+
+# We recommend using a db or cache layer in production
+apiResp = requests.get("https://cdn.growthbook.io/api/features/MY_API_KEY")
+features = apiResp.json()["features"]
+
+# User attributes for targeting and experimentation
+attributes = {
+  "id": "123",
+  "customUserAttribute": "foo"
+}
 
 def on_experiment_viewed(experiment, result):
   # Use whatever event tracking system you want
-  analytics.track(userId, "Experiment Viewed", {
+  analytics.track(attributes["id"], "Experiment Viewed", {
     'experimentId': experiment.key,
     'variationId': result.variationId
   })
 
+# Create a GrowthBook instance
 gb = GrowthBook(
-  user = {"id": userId},
+  attributes = attributes,
+  features = features,
   trackingCallback = on_experiment_viewed
 )
 
-result = gb.run(Experiment(
-  key = "my-experiment",
-  variations = ["A", "B"]
-))
+# Simple on/off feature gating
+if gb.isOn("my-feature"):
+  print("My feature is on!")
 
-print(result.value) # "A" or "B"
+# Get the value of a feature with a fallback
+color = gb.getFeatureValue("button-color-feature", "blue")
 ```
 
 ## GrowthBook class
 
 The GrowthBook constructor has the following parameters:
 
-- **enabled** (`boolean`) - Flag to globally disable all experiments. Default true.
-- **user** (`dict`) - Dictionary of user attributes that are used to assign variations
-- **groups** (`dict`) - A dictionary of which groups the user belongs to (key is the group name, value is boolean)
-- **url** (`string`) - The URL of the current request (if applicable)
-- **overrides** (`dict`) - Nested dictionary of experiment property overrides (used for Remote Config)
+- **enabled** (`bool`) - Flag to globally disable all experiments. Default true.
+- **attributes** (`dict`) - Dictionary of user attributes that are used for targeting and to assign variations
+- **url** (`str`) - The URL of the current request (if applicable)
+- **features** (`dict`) - Feature definitions from the GrowthBook API
 - **forcedVariations** (`dict`) - Dictionary of forced experiment variations (used for QA)
 - **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
 - **trackingCallback** (`callable`) - A function that takes `experiment` and `result` as arguments.
 
-## Experiment class
-
-Below are all of the possible properties you can set for an Experiment:
-
-- **key** (`string`) - The globally unique tracking key for the experiment
-- **variations** (`any[]`) - The different variations to choose between
-- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
-- **status** (`string`) - "running" is the default and always active. "draft" is only active during QA and development. "stopped" is only active when forcing a winning variation to 100% of users.
-- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
-- **url** (`string`) - Users can only be included in this experiment if the current URL matches this regex
-- **include** (`callable`) - A function that returns true if the user should be part of the experiment and false if they should not be
-- **groups** (`string[]`) - Limits the experiment to specific user groups
-- **force** (`int`) - All users included in the experiment will be forced into the specified variation index
-- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
-
-## Running Experiments
-
-Run experiments by calling `gb.run(experiment)` which returns an object with a few useful properties:
+There are also getter and setter methods for features and attributes if you need to update them later in the request:
 
 ```python
-result = gb.run(Experiment(
+gb.setFeatures(gb.getFeatures())
+gb.setAttributes(gb.getAttributes())
+```
+
+### Features
+
+Defines all of the available features plus rules for how to assign values to users. Features are usually fetched from the GrowthBook API and persisted in cache or a database in production.
+
+Feature definitions are defined in a JSON format. You can fetch them directly from the GrowthBook API:
+
+```python
+import requests
+
+apiResp = requests.get("https://cdn.growthbook.io/api/features/MY_API_KEY")
+features = apiResp.json()["features"]
+```
+
+Or, you can use a copy stored in your database or cache server instead:
+
+```python
+import json
+
+json_string = '{"feature-1":{...},"feature-2":{...},...}'
+features = json.loads(json_string)
+```
+
+We recommend using the db/cache approach for production.
+
+### Attributes
+
+You can specify attributes about the current user and request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
+
+Attributes can be any JSON data type - boolean, integer, float, string, list, or dict.
+
+```python
+attributes = {
+  'id': "123",
+  'loggedIn': True,
+  'age': 21.5,
+  'tags': ["tag1", "tag2"],
+  'account': {
+    'age': 90
+  ]
+}
+```
+
+### Tracking Experiments
+
+Any time an experiment is run to determine the value of a feature, you want to track that event in your analytics system.
+
+You can use the `trackingCallback` option to do this:
+
+```python
+from growthbook import GrowthBook, Experiment, Result
+
+def on_experiment_viewed(experiment: Experiment, result: Result):
+  # Use whatever event tracking system you want
+  analytics.track(attributes["id"], "Experiment Viewed", {
+    'experimentId': experiment.key,
+    'variationId': result.variationId
+  })
+
+gb = GrowthBook(
+  trackingCallback = on_experiment_viewed
+)
+```
+
+## Using Features
+
+There are 3 main methods for interacting with features.
+
+- `gb.isOn("feature-key")` returns true if the feature is on
+- `gb.isOff("feature-key")` returns false if the feature is on
+- `gb.getFeatureValue("feature-key", "default")` returns the value of the feature with a fallback
+
+In addition, you can use `gb.evalFeature("feature-key")` to get back a `FeatureResult` object with the following properties:
+
+- **value** - The JSON-decoded value of the feature (or `null` if not defined)
+- **on** and **off** - The JSON-decoded value cast to booleans
+- **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
+- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
+- **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
+
+## Inline Experiments
+
+Instead of declaring all features up-front and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb->run` method:
+
+```python
+from growthbook import Experiment
+
+exp = Experiment(
   key = "my-experiment",
-  variations = ["A", "B"]
-))
+  variations = ["red", "blue", "green"]
+)
+
+# Either "red", "blue", or "green"
+print(gb.run(exp).value)
+```
+
+As you can see, there are 2 required parameters for experiments, a string key, and an array of variations. Variations can be any data type, not just strings.
+
+There are a number of additional settings to control the experiment behavior:
+
+- **key** (`str`) - The globally unique tracking key for the experiment
+- **variations** (`any[]`) - The different variations to choose between
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **condition** (`dict`) - Targeting conditions
+- **force** (`int`) - All users included in the experiment will be forced into the specified variation index
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
+- **namespace** (`tuple[str,float,float]`) - Used to run mutually exclusive experiments.
+
+Here's an example that uses all of them:
+
+```python
+exp = Experiment(
+  key="my-test",
+  # Variations can be a list of any data type
+  variations=[0, 1],
+  # Run a 40/60 experiment instead of the default even split (50/50)
+  weights=[0.4, 0.6],
+  # Only include 20% of users in the experiment
+  coverage=0.2,
+  # Targeting condition using a MongoDB-like syntax
+  condition={
+    'country': 'US',
+    'browser': {
+      '$in': ['chrome', 'firefox']
+    }
+  },
+  # Use an alternate attribute for assigning variations (default is 'id')
+  hashAttribute="sessionId",
+  # Includes the first 50% of users in the "pricing" namespace
+  # Another experiment with a non-overlapping range will be mutually exclusive (e.g. [0.5, 1])
+  namespace=("pricing", 0, 0.5),
+)
+```
+
+### Inline Experiment Return Value
+
+A call to `run` returns a `Result` object with a few useful properties:
+
+```python
+result = gb.run(exp)
 
 # If user is part of the experiment
-print(result.inExperiment) # true or false
+print(result.inExperiment) # True or False
 
 # The index of the assigned variation
-print(result.variationId) # 0 or 1
+print(result.variationId) # e.g. 0 or 1
 
 # The value of the assigned variation
-print(result.value) # "A" or "B"
+print(result.value) # e.g. "A" or "B"
 
 # The user attribute used to assign a variation
 print(result.hashAttribute) # "id"
@@ -87,7 +224,7 @@ print(result.hashAttribute) # "id"
 print(result.hashValue) # e.g. "123"
 ```
 
-The `inExperiment` flag is only set to true if the user was randomly assigned a variation. If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
+The `inExperiment` flag is only set to True if the user was randomly assigned a variation. If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
 
 ### Example Experiments
 
@@ -101,97 +238,60 @@ gb.run(Experiment(
 ))
 ```
 
-Slow rollout (10% of users who opted into "beta" features):
+Slow rollout (10% of users who match the targeting condition):
 
 ```python
-# User is in the "qa" and "beta" groups
+# User is marked as being in "qa" and "beta"
 gb = GrowthBook(
-  user = {"id": "123"},
-  groups = {
-    "qa": isQATester(),
-    "beta": betaFeaturesEnabled()
-  }
+  attributes = {
+    "id": "123",
+    "beta": True,
+    "qa": True,
+  },
 )
 
 gb.run(Experiment(
   key = "slow-rollout",
   variations = ["A", "B"],
   coverage = 0.1,
-  groups = ["beta"]
+  condition = {
+    'beta': True
+  }
 ))
 ```
 
-Complex variations and custom targeting
+Complex variations
 
 ```python
 result = gb.run(Experiment(
   key = "complex-variations",
   variations = [
-    {'color': "blue", 'size': "large"},
-    {'color': "green", 'size': "small"}
+    ("blue", "large"),
+    ("green", "small")
   ],
-  url = "^/post/[0-9]+$"
-  include = lambda: isPremium or creditsRemaining > 50
 ))
 
 # Either "blue,large" OR "green,small"
-print(result.value["color"] + "," + result.value["size"])
+print(result.value[0] + "," + result.value[1])
 ```
 
 Assign variations based on something other than user id
 
 ```python
 gb = GrowthBook(
-  user = {
+  attributes = {
     "id": "123",
     "company": "growthbook"
   }
 )
 
+# Users in the same company will always get the same variation
 gb.run(Experiment(
   key = "by-company-id",
   variations = ["A", "B"],
   hashAttribute = "company"
 ))
-
-# Users in the same company will always get the same variation
 ```
-
-### Overriding Experiment Configuration
-
-It's common practice to adjust experiment settings after a test is live. For example, slowly ramping up traffic, stopping a test automatically if guardrail metrics go down, or rolling out a winning variation to 100% of users.
-
-For example, to roll out a winning variation to 100% of users:
-
-```python
-gb = GrowthBook(
-  user = {"id": "123"},
-  overrides = {
-    "experiment-key": {
-      "status": "stopped",
-      "force": 1
-    }
-  }
-)
-
-result = gb.run(Experiment(
-  key = "experiment-key",
-  variations = ["A", "B"]
-))
-
-print(result.value) # Always "B"
-```
-
-The full list of experiment properties you can override is:
-
-- status
-- force
-- weights
-- coverage
-- groups
-- url
-
-If you use the GrowthBook App (https://github.com/growthbook/growthbook) to manage experiments, there's a built-in API endpoint you can hit that returns overrides in this exact format. It's a great way to make sure your experiments are always up-to-date.
 
 ### Django
 
@@ -213,54 +313,10 @@ def growthbook_middleware(get_response):
     return middleware
 ```
 
-Then, you can easily run an experiment in any of your views:
+Then, you can easily evaluate a feature (or run an inline experiment) in any of your views:
 
 ```python
-from growthbook import Experiment
-
 def index(request):
-    result = request.gb.run(Experiment(
-      # ...
-    ))
+    featureEnabled = request.gb.isOn("my-feature")
     # ...
-```
-
-## Event Tracking and Analyzing Results
-
-This library only handles assigning variations to users. The 2 other parts required for an A/B testing platform are Tracking and Analysis.
-
-### Tracking
-
-It's likely you already have some event tracking on your site with the metrics you want to optimize (Segment, Mixpanel, etc.).
-
-For A/B tests, you just need to track one additional event - when someone views a variation.
-
-```python
-# Specify a tracking callback when instantiating the client
-gb = GrowthBook(
-  user = {"id": "123"},
-  trackingCallback = on_experiment_viewed
-})
-```
-
-Below are examples for a few popular event tracking tools:
-
-#### Segment
-
-```python
-def on_experiment_viewed(experiment, result):
-  analytics.track(userId, "Experiment Viewed", {
-    'experimentId': experiment.key,
-    'variationId': result.variationId
-  })
-```
-
-#### Mixpanel
-
-```python
-def on_experiment_viewed(experiment, result):
-  mp.track(userId, "$experiment_started", {
-    'Experiment name': experiment.key,
-    'Variant name': result.variationId
-  })
 ```
