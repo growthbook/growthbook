@@ -9,11 +9,16 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
+import {
+  getRealtimeFeatureByHour,
+  getRealtimeSummaryForOrg,
+} from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
+import { RealtimeUsageInterface } from "../../types/realtime";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -269,5 +274,55 @@ export async function getFeatureById(
     status: 200,
     feature,
     experiments,
+  });
+}
+
+export async function getRealtimeFeatures(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  let hours = 2;
+  if (req.query?.hours) {
+    hours = parseInt(req.query.hours);
+  }
+  if (!hours || hours > 5) {
+    hours = 2;
+  }
+  const realtime: { [key: number]: RealtimeUsageInterface } = {};
+  const promises = [...Array(hours).keys()].map(async (h) => {
+    // get the right hour block:
+    const firstHour = new Date();
+    firstHour.setHours(firstHour.getHours() - h, 0, 0, 0);
+    const realtimeFeature = await getRealtimeFeatureByHour(
+      org.id,
+      firstHour.getTime() / 1000
+    );
+    if (realtimeFeature) {
+      realtime[h] = realtimeFeature;
+    }
+  });
+  await Promise.all(promises);
+
+  if (!realtime) {
+    throw new Error("Could not find realtime data for this range");
+  }
+
+  res.status(200).json({
+    status: 200,
+    realtime,
+  });
+}
+export async function getRealtimeSummary(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const summary = getRealtimeSummaryForOrg(org.id);
+
+  res.status(200).json({
+    status: 200,
+    summary,
   });
 }
