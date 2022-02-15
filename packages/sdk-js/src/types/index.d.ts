@@ -105,6 +105,7 @@ export interface Context {
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
+  realtimeInterval?: number;
   /* @deprecated */
   user?: {
     id?: string;

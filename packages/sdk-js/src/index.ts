@@ -222,7 +222,7 @@ class GrowthBook {
           .catch(() => {
             // TODO: retry in case of network errors?
           });
-      }, 2000);
+      }, this.context.realtimeInterval || 2000);
     }
   }
 
