@@ -7,6 +7,9 @@ import type {
   FeatureDefinition,
   FeatureResultSource,
   Attributes,
+  JSONValue,
+  WidenPrimitives,
+  RealtimeUsageData,
 } from "./types/";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -40,8 +43,11 @@ class GrowthBook {
   private context: Context;
   private _renderer: null | (() => void) = null;
   private _trackedExperiments = new Set();
+  private _trackedFeatures: Record<string, string> = {};
   public debug = false;
   private subscriptions = new Set<SubscriptionFunction>();
+  private _rtQueue: RealtimeUsageData[] = [];
+  private _rtTimer = 0;
   private assigned = new Map<
     string,
     {
@@ -119,6 +125,11 @@ class GrowthBook {
     this.subscriptions.clear();
     this.assigned.clear();
     this._trackedExperiments.clear();
+    this._trackedFeatures = {};
+    this._rtQueue = [];
+    if (this._rtTimer) {
+      clearTimeout(this._rtTimer);
+    }
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
@@ -161,9 +172,65 @@ class GrowthBook {
     return result;
   }
 
+  private trackFeatureUsage(key: string, res: FeatureResult): void {
+    // Don't track feature usage that was forced via an override
+    if (res.source === "override") return;
+
+    // Only track a feature once, unless the assigned value changed
+    const stringifiedValue = JSON.stringify(res.value);
+    if (this._trackedFeatures[key] === stringifiedValue) return;
+    this._trackedFeatures[key] = stringifiedValue;
+
+    // Fire user-supplied callback
+    if (this.context.onFeatureUsage) {
+      try {
+        this.context.onFeatureUsage(key, res);
+      } catch (e) {
+        // Ignore feature usage callback errors
+      }
+    }
+
+    // In browser environments, queue up feature usage to be tracked in batches
+    if (!isBrowser || !window.fetch) return;
+    this._rtQueue.push({
+      key,
+      res: res.source,
+      rule: res.ruleId,
+      var: res.experimentResult?.variationId,
+    });
+    if (!this._rtTimer) {
+      this._rtTimer = window.setTimeout(() => {
+        // Reset the queue
+        this._rtTimer = 0;
+        const q = [...this._rtQueue];
+        this._rtQueue = [];
+
+        // Skip logging if a real-time usage key is not configured
+        if (!this.context.realtimeKey) return;
+
+        window
+          .fetch(
+            `https://rt.growthbook.io/?key=${
+              this.context.realtimeKey
+            }&events=${encodeURIComponent(JSON.stringify(q))}`,
+
+            {
+              cache: "no-cache",
+              mode: "no-cors",
+            }
+          )
+          .catch(() => {
+            // TODO: retry in case of network errors?
+          });
+      }, 2000);
+    }
+  }
+
   private getFeatureResult<T>(
+    key: string,
     value: T,
     source: FeatureResultSource,
+    ruleId?: string,
     experiment: Experiment<T> | null = null,
     result: Result<T> | null = null
   ): FeatureResult<T> {
@@ -172,14 +239,42 @@ class GrowthBook {
       on: !!value,
       off: !value,
       source,
+      ruleId: ruleId || "",
     };
     if (experiment) ret.experiment = experiment;
     if (result) ret.experimentResult = result;
+
+    // Track the usage of this feature in real-time
+    this.trackFeatureUsage(key, ret);
+
     return ret;
   }
 
+  public isOn(key: string): boolean {
+    return this.evalFeature(key).on;
+  }
+  public isOff(key: string): boolean {
+    return this.evalFeature(key).off;
+  }
+  public getFeatureValue<T extends JSONValue>(
+    key: string,
+    defaultValue: T
+  ): WidenPrimitives<T> {
+    return (
+      this.evalFeature<WidenPrimitives<T>>(key).value ??
+      (defaultValue as WidenPrimitives<T>)
+    );
+  }
+
   // eslint-disable-next-line
-  public feature<T = any>(id: string): FeatureResult<T | null> {
+  public feature<T extends JSONValue = any>(id: string): FeatureResult<T | null> {
+    return this.evalFeature(id);
+  }
+
+  // eslint-disable-next-line
+  public evalFeature<T extends JSONValue = any>(
+    id: string
+  ): FeatureResult<T | null> {
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -188,6 +283,7 @@ class GrowthBook {
           value: this._forcedFeatureValues.get(id),
         });
       return this.getFeatureResult(
+        id,
         this._forcedFeatureValues.get(id),
         "override"
       );
@@ -197,7 +293,7 @@ class GrowthBook {
     if (!this.context.features || !this.context.features[id]) {
       process.env.NODE_ENV !== "production" &&
         this.log("Unknown feature", { id });
-      return this.getFeatureResult(null, "unknownFeature");
+      return this.getFeatureResult(id, null, "unknownFeature");
     }
 
     // Get the feature
@@ -246,7 +342,7 @@ class GrowthBook {
             });
 
           // eslint-disable-next-line
-          return this.getFeatureResult(rule.force as T, "force");
+          return this.getFeatureResult(id, rule.force as T, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -270,7 +366,14 @@ class GrowthBook {
         // Only return a value if the user is part of the experiment
         const res = this.run(exp);
         if (res.inExperiment) {
-          return this.getFeatureResult(res.value, "experiment", exp, res);
+          return this.getFeatureResult(
+            id,
+            res.value,
+            "experiment",
+            rule.id,
+            exp,
+            res
+          );
         }
       }
     }
@@ -282,7 +385,11 @@ class GrowthBook {
       });
 
     // Fall back to using the default value
-    return this.getFeatureResult(feature.defaultValue ?? null, "defaultValue");
+    return this.getFeatureResult(
+      id,
+      feature.defaultValue ?? null,
+      "defaultValue"
+    );
   }
 
   private conditionPasses(condition: ConditionInterface): boolean {
@@ -405,7 +512,7 @@ class GrowthBook {
 
     // 9. Get bucket ranges and choose variation
     const ranges = getBucketRanges(
-      experiment.variations.length,
+      numVariations,
       experiment.coverage || 1,
       experiment.weights
     );
