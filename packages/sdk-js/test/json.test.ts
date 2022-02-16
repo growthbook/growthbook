@@ -2,7 +2,7 @@
 
 import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
 import { evalCondition } from "../src/mongrule";
-import { VariationRange } from "../src/types";
+import { VariationRange } from "../src/types/growthbook";
 import {
   chooseVariation,
   getBucketRanges,

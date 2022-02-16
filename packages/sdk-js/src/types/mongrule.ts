@@ -1,14 +1,14 @@
 type OrCondition = {
-  $or: Condition[];
+  $or: ConditionInterface[];
 };
 type NorCondition = {
-  $nor: Condition[];
+  $nor: ConditionInterface[];
 };
 type AndCondition = {
-  $and: Condition[];
+  $and: ConditionInterface[];
 };
 type NotCondition = {
-  $not: Condition;
+  $not: ConditionInterface;
 };
 export type Operator =
   | "$in"
@@ -26,7 +26,7 @@ export type Operator =
   | "$not"
   | "$type"
   | "$exists";
-type VarType =
+export type VarType =
   | "string"
   | "number"
   | "boolean"
@@ -48,7 +48,7 @@ export type OperatorConditionValue = {
   $all?: ConditionValue[];
   $size?: number | ConditionValue;
   $type?: VarType;
-  $elemMatch?: Condition | OperatorConditionValue;
+  $elemMatch?: ConditionInterface | OperatorConditionValue;
   $not?: ConditionValue;
 };
 
@@ -74,4 +74,4 @@ export type ConditionInterface =
   | OperatorCondition;
 
 // eslint-disable-next-line
-type TestedObj = Record<string, any>;
+export type TestedObj = Record<string, any>;

@@ -1,16 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import * as React from "react";
-import type { Experiment, Result, FeatureResult } from "@growthbook/growthbook";
-import { GrowthBook } from "@growthbook/growthbook";
-
-export { GrowthBook } from "@growthbook/growthbook";
-
-export type {
-  Context,
+import type {
   Experiment,
   Result,
-  ExperimentOverride,
+  FeatureResult,
+  JSONValue,
+  GrowthBook,
 } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
@@ -36,19 +31,20 @@ function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
   }
   return growthbook.run(exp);
 }
-function feature<T = any>(
+function feature<T extends JSONValue = any>(
   id: string,
   growthbook?: GrowthBook
-): FeatureResult<T> {
+): FeatureResult<T | null> {
   if (!growthbook) {
     return {
       value: null,
       on: false,
       off: true,
       source: "unknownFeature",
+      ruleId: "",
     };
   }
-  return growthbook.feature(id);
+  return growthbook.feature<T>(id);
 }
 
 export function useExperiment<T>(exp: Experiment<T>): Result<T> {
@@ -56,7 +52,9 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
   return run(exp, growthbook);
 }
 
-export function useFeature<T = any>(id: string): FeatureResult<T> {
+export function useFeature<T extends JSONValue = any>(
+  id: string
+): FeatureResult<T | null> {
   const { growthbook } = React.useContext(GrowthBookContext);
   return feature(id, growthbook);
 }

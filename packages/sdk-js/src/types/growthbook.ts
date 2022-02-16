@@ -130,7 +130,7 @@ export type JSONValue =
   | number
   | string
   | boolean
-  | array<JSONValue>
+  | Array<JSONValue>
   | { [key: string]: JSONValue };
 
 export type WidenPrimitives<T> = T extends string

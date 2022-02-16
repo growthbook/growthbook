@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.85KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.23KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -129,11 +129,27 @@ new GrowthBook({
 });
 ```
 
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+The `result` argument is the same thing returned from `growthbook.evalFeature`.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
 ## Using Features
 
-Every feature has a "value" for a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
+Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
 
-There are 4 main methods for interacting with features:
+There are 4 main methods for evaluating features:
 
 ```ts
 if (growthbook.isOn("my-feature")) {
@@ -147,11 +163,11 @@ if (growthbook.isOff("my-feature")) {
 // Get the value with a fallback for when it's null
 const value = growthbook.getFeatureValue("my-feature", 123);
 
-// Get detailed information about a feature
+// Get detailed information about the feature evaluation
 const result = growthbook.evalFeature("my-feature");
 ```
 
-T `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
+The `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
 
 - **value** - The value of the feature (or `null` if not defined)
 - **source** - Why the value was assigned to the user. One of `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
