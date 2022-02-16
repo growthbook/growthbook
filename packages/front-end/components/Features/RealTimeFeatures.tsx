@@ -20,7 +20,7 @@ export default function RealTimeFeatures({
 }) {
   //const [currentMin, setCurrentMin] = useState(new Date().getMinutes());
   const { data, error } = useApi<{
-    realtime: RealtimeUsageInterface[];
+    realtime: { [key: number]: RealtimeUsageInterface };
   }>(`/realtime/features`);
   const { data: summaryData, error: summaryError } = useApi<{
     summary: RealtimeUsageInterface[];
@@ -30,7 +30,7 @@ export default function RealTimeFeatures({
     return null;
   }
 
-  const points = {};
+  const points: { [key: string]: { time: number; value: number }[] } = {};
   Object.keys(data.realtime).forEach((h) => {
     Object.keys(data.realtime[h].counts).forEach((t) => {
       if (!(t in points)) {
@@ -66,6 +66,9 @@ export default function RealTimeFeatures({
 
   const margin = [15, 15, 30, 80];
   const allFeatures = Object.keys(points).map((key) => points[key]);
+  if (!allFeatures?.length) {
+    return null;
+  }
   const min = Math.min(...allFeatures[0].map((d) => d.time));
   const max = Math.max(...allFeatures[0].map((d) => d.time));
 
