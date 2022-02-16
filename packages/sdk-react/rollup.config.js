@@ -6,9 +6,9 @@ import commonjs from "@rollup/plugin-commonjs";
 const extensions = [".js", ".ts", ".tsx", ".jsx"];
 
 export default {
-  input: "src/index.tsx",
+  input: "src/index.ts",
   external: (id) => {
-    return !id.match(/sdk-react/);
+    return !id.match(/(sdk-react|^\.)/);
   },
   output: [
     {

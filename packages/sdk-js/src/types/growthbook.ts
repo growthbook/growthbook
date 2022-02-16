@@ -10,6 +10,7 @@ declare global {
 }
 
 export type FeatureRule<T = any> = {
+  id?: string;
   condition?: ConditionInterface;
   force?: T;
   variations?: T[];
@@ -37,6 +38,7 @@ export interface FeatureResult<T = any> {
   source: FeatureResultSource;
   on: boolean;
   off: boolean;
+  ruleId: string;
   experiment?: Experiment<T>;
   experimentResult?: Result<T>;
 }
@@ -84,23 +86,36 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
+export type RealtimeUsageData = {
+  key: string;
+  res: string;
+  rule: string;
+  var?: number;
+};
+
 export interface Context {
   enabled?: boolean;
-  user?: {
-    id?: string;
-    anonId?: string;
-    [key: string]: string | undefined;
-  };
   attributes?: Attributes;
-  groups?: Record<string, boolean>;
   url?: string;
-  overrides?: Record<string, ExperimentOverride>;
   features?: Record<string, FeatureDefinition>;
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
   disableDevTools?: boolean;
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
+  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  realtimeKey?: string;
+  realtimeInterval?: number;
+  /* @deprecated */
+  user?: {
+    id?: string;
+    anonId?: string;
+    [key: string]: string | undefined;
+  };
+  /* @deprecated */
+  overrides?: Record<string, ExperimentOverride>;
+  /* @deprecated */
+  groups?: Record<string, boolean>;
 }
 
 export type SubscriptionFunction = (
@@ -109,3 +124,19 @@ export type SubscriptionFunction = (
 ) => void;
 
 export type VariationRange = [number, number];
+
+export type JSONValue =
+  | null
+  | number
+  | string
+  | boolean
+  | Array<JSONValue>
+  | { [key: string]: JSONValue };
+
+export type WidenPrimitives<T> = T extends string
+  ? string
+  : T extends number
+  ? number
+  : T extends boolean
+  ? boolean
+  : T;

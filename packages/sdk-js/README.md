@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-2.85KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.23KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -46,19 +46,19 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook();
 
 // Load feature definitions (from API, database, etc.)
-await fetch("https://s3.amazonaws.com/myBucket/features.json")
+await fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
   .then((res) => res.json())
   .then((parsed) => {
     growthbook.setFeatures(parsed);
   });
 
-// Simple on/off feature flag
-if (growthbook.feature("my-feature").on) {
+// Simple boolean (on/off) feature flag
+if (growthbook.isOn("my-feature")) {
   console.log("Feature enabled!");
 }
 
-// Feature with multiple possible values
-const color = growthbook.feature("button-color").value || "blue";
+// Get the value of a non-boolean feature with a fallback
+const color = growthbook.getFeatureValue("button-color", "blue");
 ```
 
 ## The GrowthBook Context
@@ -129,36 +129,51 @@ new GrowthBook({
 });
 ```
 
-## Using Features
+### Feature Usage Callback
 
-The main method, `growthbook.feature(key)` takes a feature key and returns an object with a few properties:
-
-- **value** - The JSON value of the feature (or `null` if not defined)
-- **on** and **off** - The JSON value cast to booleans (to make your code easier to read)
-- **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
-- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
-
-Here's an example that uses all of them:
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
 
 ```ts
-const result = growthbook.feature("my-feature");
-
-// The JSON value (might be null, string, boolean, number, array, or object)
-console.log(result.value);
-
-if (result.on) {
-  // Feature value is truthy
-}
-if (result.off) {
-  // Feature value is falsy
-}
-
-// If the feature value was assigned as part of an experiment
-if (result.source === "experiment") {
-  // Get all the possible variations that could have been assigned
-  console.log(experiment.variations);
-}
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
 ```
+
+The `result` argument is the same thing returned from `growthbook.evalFeature`.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+## Using Features
+
+Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
+
+There are 4 main methods for evaluating features:
+
+```ts
+if (growthbook.isOn("my-feature")) {
+  // Value is truthy
+}
+
+if (growthbook.isOff("my-feature")) {
+  // Value is falsy (null, 0, "", or false)
+}
+
+// Get the value with a fallback for when it's null
+const value = growthbook.getFeatureValue("my-feature", 123);
+
+// Get detailed information about the feature evaluation
+const result = growthbook.evalFeature("my-feature");
+```
+
+The `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
+
+- **value** - The value of the feature (or `null` if not defined)
+- **source** - Why the value was assigned to the user. One of `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
+- **ruleId** - The string id of the rule (if any) which was used to assign the value to the user
+- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
+- **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
 
 ## Feature Definitions
 
@@ -202,6 +217,10 @@ You can override the default value with **rules**.
 
 Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
 
+#### Rule Ids
+
+Rules can specify a unique identifier with the `id` property. This can help with debugging and QA by letting you see exactly why a specific value was assigned to a user.
+
 #### Rule Conditions
 
 Rules can optionally define targeting conditions that limit which users the rule applies to. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
@@ -244,6 +263,7 @@ Force rules do what you'd expect - force a specific value for the feature
     defaultValue: "blue",
     rules: [
       {
+        id: "rule-123",
         condition: {
           browser: "firefox",
           country: {
@@ -489,11 +509,28 @@ The `inExperiment` flag is only set to true if the user was randomly assigned a 
 
 ## Typescript
 
-Feature values are `any` by default, but you can specify a more restrictive type if you want:
+When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
 
 ```ts
-// color will be type `string|null`
-const color = growthbook.feature<string>("button-color").value;
+// color will be type "string"
+const color = growthbook.getFeatureValue("button-color", "blue");
+```
+
+When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type:
+
+```ts
+// result.value will be type "number" now
+const result = growthbook.evalFeature<number>("button-size");
+```
+
+When using inline experiments, the returned value is inferred from the variations you pass in:
+
+```ts
+// result.value will be type "string"
+const result = growthbook.run({
+  key: "my-test",
+  variations: ["blue", "green"],
+});
 ```
 
 There are a number of types you can import as well if needed:
@@ -508,20 +545,3 @@ import type {
   ExperimentResult,
 } from "@growthbook/growthbook";
 ```
-
-## Dev Mode
-
-If you are using this library to run experiments client-side in a browser, you can use the GrowthBook Dev Mode widget to make development and testing easier.
-
-Simply add the following script tag to your development or staging site:
-
-```html
-<script
-  async
-  src="https://unpkg.com/@growthbook/dev/dist/bundles/index.min.js"
-></script>
-```
-
-and you should see the Dev Mode widget on the bottom-left of your screen
-
-![Dev Mode Variation Switcher](https://docs.growthbook.io/images/variation-switcher.png)
