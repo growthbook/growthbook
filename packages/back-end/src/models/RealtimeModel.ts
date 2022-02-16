@@ -7,15 +7,21 @@ import {
 const realtimeUsageSchema = new mongoose.Schema({
   _id: false,
   organization: String,
-  hour: Number,
-  counts: [
-    {
+  hour: {
+    type: Number,
+    index: true,
+  },
+  counts: {
+    type: Map,
+    of: {
       _id: false,
-      key: String,
       total: Number,
-      minutes: [Number],
+      minutes: {
+        type: Map,
+        of: Number,
+      },
     },
-  ],
+  },
 });
 
 export type RealtimeUsageDocument = mongoose.Document & RealtimeUsageInterface;
@@ -26,11 +32,11 @@ export const RealtimeUsageModel = mongoose.model<RealtimeUsageDocument>(
 );
 
 const summaryUsageSchema = new mongoose.Schema({
-  _id: false,
   organization: String,
   lastUsed: Date,
-  counts: [
-    {
+  counts: {
+    type: Map,
+    of: {
       _id: false,
       key: String,
       lastUsed: Date,
@@ -39,7 +45,7 @@ const summaryUsageSchema = new mongoose.Schema({
       last7days: Number,
       last30days: Number,
     },
-  ],
+  },
 });
 
 export type SummaryUsageDocument = mongoose.Document & SummaryUsageInterface;
@@ -66,6 +72,9 @@ export async function updateRealtimeUsage(
     { organization, hour },
     {
       $set: updates,
+    },
+    {
+      upsert: true,
     }
   );
 }

@@ -4,6 +4,7 @@ import addExperimentResultsJob from "../jobs/updateExperimentResults";
 import addWebhooksJob from "../jobs/webhooks";
 import addCacheInvalidateJob from "../jobs/cacheInvalidate";
 import addMetricUpdateJob from "../jobs/updateMetrics";
+import addRealtimeUpdateJob from "../jobs/tempRealTime";
 
 let agenda: Agenda;
 export async function queueInit() {
@@ -17,6 +18,7 @@ export async function queueInit() {
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
   addCacheInvalidateJob(agenda);
+  addRealtimeUpdateJob(agenda);
 
   await agenda.start();
 }

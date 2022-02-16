@@ -8,21 +8,23 @@ export interface RealtimeUsageInterface {
   organization: string;
   hour: number;
   counts: {
-    key: RealtimeUsageKeys;
-    total: number;
-    minutes: number[];
-  }[];
+    [key: string]: {
+      total: number;
+      minutes: { [key: number]: number };
+    };
+  };
 }
 
 export interface SummaryUsageInterface {
   organization: string;
   lastUsed: Date;
   counts: {
-    key: RealtimeUsageKeys;
-    lastUsed: Date;
-    allTime: number;
-    yesterday: number;
-    last7days: number;
-    last30days: number;
-  }[];
+    [key: string]: {
+      lastUsed: Date;
+      allTime: number;
+      yesterday: number;
+      last7days: number;
+      last30days: number;
+    };
+  };
 }
