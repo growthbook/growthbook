@@ -203,6 +203,43 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("re-fires feature usage when assigned value changes", () => {
+    const context: Context = {
+      attributes: { color: "green" },
+      features: {
+        feature: {
+          defaultValue: 0,
+          rules: [
+            {
+              condition: {
+                color: "blue",
+              },
+              force: 1,
+            },
+          ],
+        },
+      },
+    };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
+
+    // Fires for regular features
+    const res1 = growthbook.evalFeature("feature");
+    expect(res1.value).toEqual(0);
+    growthbook.setAttributes({
+      color: "blue",
+    });
+    // Fires when the assigned value changes
+    const res2 = growthbook.evalFeature("feature");
+    expect(res2.value).toEqual(1);
+
+    expect(mock.calls.length).toEqual(2);
+    expect(mock.calls[0]).toEqual(["feature", res1]);
+    expect(mock.calls[1]).toEqual(["feature", res2]);
+
+    growthbook.destroy();
+  });
+
   it("fires real-time usage call", async () => {
     const f = window.fetch;
     const mock = jest.fn((url, options) => {
@@ -277,6 +314,53 @@ describe("features", () => {
     ]);
 
     growthbook.destroy();
+    window.fetch = f;
+  });
+
+  it("uses fallbacks get getFeatureValue", () => {
+    const growthbook = new GrowthBook({
+      features: {
+        feature: {
+          defaultValue: "blue",
+        },
+      },
+    });
+
+    expect(growthbook.getFeatureValue("feature", "green")).toEqual("blue");
+    expect(growthbook.getFeatureValue("unknown", "green")).toEqual("green");
+    expect(growthbook.getFeatureValue("testing", null)).toEqual(null);
+
+    growthbook.destroy();
+  });
+
+  it("clears realtime timer on destroy", async () => {
+    const f = window.fetch;
+    const mock = jest.fn((url, options) => {
+      return Promise.resolve([url, options]);
+    });
+    // eslint-disable-next-line
+    (window.fetch as any) = mock;
+
+    const growthbook = new GrowthBook({
+      realtimeKey: "abc",
+      realtimeInterval: 50,
+      features: {
+        feature1: {
+          defaultValue: "1",
+        },
+      },
+    });
+
+    expect(growthbook.isOn("feature1")).toEqual(true);
+    growthbook.destroy();
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        resolve();
+      }, 100);
+    });
+
+    expect(mock.mock.calls.length).toEqual(0);
     window.fetch = f;
   });
 });
