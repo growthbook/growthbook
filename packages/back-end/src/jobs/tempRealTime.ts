@@ -41,12 +41,32 @@ export default async function (ag: Agenda) {
     // };
     const rt = await getRealtimeFeatureByHour(orgId, currentHour);
     let total = rt?.counts[key]?.total || 0;
-    const newAmount = Math.round(Math.random() * 100);
+    let newAmount = Math.round(Math.random() * 100);
     total += newAmount;
 
     await updateRealtimeUsage(orgId, currentHour, {
       [`counts.${key}.total`]: total,
       [`counts.${key}.minutes.${min}`]: newAmount,
+    });
+
+    const key2 = "title-experiment";
+    total = rt?.counts[key]?.total || 0;
+    newAmount = Math.round(Math.random() * 25);
+    total += newAmount;
+
+    await updateRealtimeUsage(orgId, currentHour, {
+      [`counts.${key2}.total`]: total,
+      [`counts.${key2}.minutes.${min}`]: newAmount,
+    });
+
+    const key3 = "test3";
+    total = rt?.counts[key]?.total || 0;
+    newAmount = Math.round(Math.random() * 55);
+    total += newAmount;
+
+    await updateRealtimeUsage(orgId, currentHour, {
+      [`counts.${key3}.total`]: total,
+      [`counts.${key3}.minutes.${min}`]: newAmount,
     });
   });
   agenda.on(

@@ -1,76 +1,129 @@
-//import { useState } from "react";
 import useApi from "../../hooks/useApi";
 import { RealtimeUsageInterface } from "back-end/types/realtime";
 import { GridColumns, GridRows } from "@visx/grid";
 import { AxisLeft, AxisBottom } from "@visx/axis";
-import { LinePath } from "@visx/shape";
+import { LinePath, AreaClosed, AreaStack } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import React, { Fragment } from "react";
+import React from "react";
 import { curveMonotoneX } from "@visx/curve";
 import { time } from "../../services/dates";
 
 export default function RealTimeFeatures({
   numMinutes = 60,
   height = 220,
+  autoUpdate = false,
+  margin = [15, 15, 30, 80],
+  graphType = "stacked",
+  includeOverall = false,
 }: {
   numMinutes?: number;
   height?: number;
+  autoUpdate?: boolean;
+  margin?: [number, number, number, number];
+  graphType?: "stacked" | "area" | "lines";
+  includeOverall?: boolean;
 }) {
-  //const [currentMin, setCurrentMin] = useState(new Date().getMinutes());
-  const { data, error } = useApi<{
+  const { data, error, mutate } = useApi<{
     realtime: { [key: number]: RealtimeUsageInterface };
   }>(`/realtime/features`);
-  const { data: summaryData, error: summaryError } = useApi<{
-    summary: RealtimeUsageInterface[];
-  }>(`/realtime/summary`);
+  // const { data: summaryData, error: summaryError } = useApi<{
+  //   summary: RealtimeUsageInterface[];
+  // }>(`/realtime/summary`);
 
-  if (!data || !summaryData || error || summaryError) {
+  const colors = [
+    "#1d63ea",
+    "#a51ef3",
+    "#ea8a1d",
+    "#0a7410",
+    "#06a9bd",
+    "#eae01d",
+    "#a12632",
+    "#065280",
+    "#680259",
+    "#0921a0",
+    "#efe97e",
+  ];
+
+  if (error) {
     return null;
   }
 
-  const points: { [key: string]: { time: number; value: number }[] } = {};
+  if (autoUpdate) {
+    setTimeout(() => {
+      mutate();
+    }, 60 * 1000);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  // At the end of this we want an array of objects, with one array element per minute
+  // [{ time: <timestamp>, _overall: <number>, feature-key-1: <number>}, {...}]
+  // for the graphing calls to render. We'll use a map to help with this
+  const timeMap = new Map();
+  let hasData = false;
+  // prefill time map with zeros:
+  const currentMinute = new Date().getMinutes();
+  let max = 0;
+  let min = 0;
+  for (let i = 0; i < numMinutes; i++) {
+    const currentTime = new Date().setMinutes(currentMinute - i, 0, 0);
+    timeMap.set(currentTime, { time: currentTime });
+    // while we're here, get the time domain for the x-axis.
+    if (i === 0) max = currentTime;
+    if (i === numMinutes - 1) min = currentTime;
+  }
+  let maxValue = 0;
+  const keyMap = new Map();
   Object.keys(data.realtime).forEach((h) => {
-    Object.keys(data.realtime[h].counts).forEach((t) => {
-      if (!(t in points)) {
-        points[t] = [];
-      }
-      Object.keys(data.realtime[h].counts).forEach((t) => {
-        const minutes = data.realtime[h].counts[t].minutes;
+    const d = new Date(data.realtime[h].hour * 1000);
+    Object.keys(data.realtime[h].counts).forEach((featureKey) => {
+      const minutes = data.realtime[h].counts[featureKey].minutes;
+      if (graphType === "stacked" && featureKey === "_overall") {
+        // need to get the max height for the stacked data:
         Object.keys(minutes).forEach((m) => {
-          const d = new Date(data.realtime[h].hour * 1000);
-          d.setMinutes(parseInt(m));
-          points[t].push({
-            time: d.getTime(),
-            value: parseInt(minutes[m]),
-          });
+          if (parseInt(minutes[m]) > maxValue) maxValue = parseInt(minutes[m]);
         });
+      }
+      if (!includeOverall && featureKey === "_overall") {
+        // don't include overall when asked not to
+        return;
+      }
+      keyMap.set(featureKey, 1);
+      Object.keys(minutes).forEach((m) => {
+        const currentTime = d.setMinutes(parseInt(m));
+        if (timeMap.has(currentTime)) {
+          hasData = true;
+          const currentValues = timeMap.get(currentTime);
+          currentValues[featureKey] = parseInt(minutes[m]);
+          timeMap.set(currentTime, currentValues);
+        }
+        if (parseInt(minutes[m]) > maxValue) maxValue = parseInt(minutes[m]);
       });
     });
   });
 
-  // sort and get max value:
-  let maxValue = 0;
-  Object.keys(points).forEach((k) => {
-    const thisMaxV = Math.max(...points[k].map((d) => d.value));
-    if (thisMaxV > maxValue) maxValue = thisMaxV;
-    points[k].sort((a, b) => {
-      return a.time > b.time ? 1 : -1;
-    });
-    // truncate if needed:
-    if (points[k].length > numMinutes) {
-      points[k] = points[k].slice(points[k].length - numMinutes);
-    }
+  //convert to arrays.
+  const points = Array.from(timeMap.values());
+  const keys = Array.from(keyMap.keys());
+
+  // sort
+  points.sort((a, b) => {
+    return a.time > b.time ? 1 : -1;
   });
 
-  const margin = [15, 15, 30, 80];
-  const allFeatures = Object.keys(points).map((key) => points[key]);
-  if (!allFeatures?.length) {
+  if (!hasData) {
     return null;
   }
-  const min = Math.min(...allFeatures[0].map((d) => d.time));
-  const max = Math.max(...allFeatures[0].map((d) => d.time));
+
+  const colorMap = new Map();
+  keys.forEach((k, i) => {
+    const colorIndex = i % colors.length;
+    colorMap.set(k, colors[colorIndex]);
+  });
 
   return (
     <div>
@@ -98,7 +151,6 @@ export default function RealTimeFeatures({
             range: [graphHeight, 0],
             round: true,
           });
-
           return (
             <>
               <svg width={width} height={height}>
@@ -109,15 +161,82 @@ export default function RealTimeFeatures({
                     height={graphHeight}
                     numTicks={numXTicks}
                   />
-                  <LinePath
-                    data={points["_overall"]}
-                    x={(d) => xScale(d.time) ?? 0}
-                    y={(d) => yScale(d.value) ?? 0}
-                    stroke={"#8884d8"}
-                    strokeWidth={2}
-                    curve={curveMonotoneX}
-                  />
-
+                  {graphType === "stacked" && (
+                    <AreaStack
+                      top={margin[0]}
+                      left={margin[3]}
+                      keys={keys}
+                      data={points}
+                      x={(d) => {
+                        return xScale(d.data.time) ?? 0;
+                      }}
+                      y0={(d) => yScale(d[0]) ?? 0}
+                      y1={(d) => yScale(d[1]) ?? 0}
+                    >
+                      {({ stacks, path }) => {
+                        return stacks.map((stack) => {
+                          return (
+                            <path
+                              key={`stack-${stack.key}`}
+                              d={path(stack) || ""}
+                              strokeWidth={0}
+                              stroke={"#fff"}
+                              fill={colorMap.get(stack.key)}
+                              fillOpacity={0.6}
+                              strokeLinecap="round"
+                            />
+                            // can't get this to work, even though it extends <path>
+                            // <LinePath
+                            //   key={`stack-${stack.key}`}
+                            //   data={stack}
+                            //   x={(d) => d[0] ?? 0}
+                            //   y={(d) => { console.log(d); return d[1] ?? 0 }}
+                            //   stroke={"#8884d8"}
+                            //   strokeWidth={2}
+                            //   curve={curveMonotoneX}
+                            // />
+                          );
+                        });
+                      }}
+                    </AreaStack>
+                  )}
+                  {graphType === "area" && (
+                    <>
+                      {keys.map((k) => {
+                        return (
+                          <AreaClosed
+                            key={k}
+                            data={points}
+                            x={(d) => xScale(d.time) ?? 0}
+                            y={(d) => yScale(d[k]) ?? 0}
+                            yScale={yScale}
+                            strokeWidth={1}
+                            stroke={colorMap.get(k)}
+                            curve={curveMonotoneX}
+                            fill={colorMap.get(k)}
+                            fillOpacity={0.2}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                  {graphType === "lines" && (
+                    <>
+                      {keys.map((k) => {
+                        return (
+                          <LinePath
+                            key={k}
+                            data={points}
+                            x={(d) => xScale(d.time) ?? 0}
+                            y={(d) => yScale(d[k]) ?? 0}
+                            stroke={colorMap.get(k)}
+                            strokeWidth={2}
+                            curve={curveMonotoneX}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
                   <AxisBottom
                     top={graphHeight}
                     scale={xScale}

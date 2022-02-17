@@ -18,6 +18,7 @@ import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatures from "../../components/Features/RealTimeFeatures";
+import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -152,6 +153,7 @@ export default function FeaturesPage() {
                   <th>Value When Enabled</th>
                   <th>Overrides Rules</th>
                   <th>Last Updated</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -199,6 +201,14 @@ export default function FeaturesPage() {
                       </td>
                       <td title={datetime(feature.dateUpdated)}>
                         {ago(feature.dateUpdated)}
+                      </td>
+                      <td>
+                        <RealTimeFeatureGraph
+                          featureId={feature.id}
+                          height={25}
+                          width={"150px"}
+                          graphType={"spark"}
+                        />
                       </td>
                     </tr>
                   );
