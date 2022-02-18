@@ -17,7 +17,6 @@ import { useMemo } from "react";
 import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
-import RealTimeFeatures from "../../components/Features/RealTimeFeatures";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 
 export default function FeaturesPage() {
@@ -137,7 +136,6 @@ export default function FeaturesPage() {
 
       {data.features.length > 0 && (
         <>
-          <RealTimeFeatures />
           <div>
             <div className="row mb-2">
               <div className="col-auto">
@@ -203,12 +201,16 @@ export default function FeaturesPage() {
                         {ago(feature.dateUpdated)}
                       </td>
                       <td>
-                        <RealTimeFeatureGraph
-                          featureId={feature.id}
-                          height={25}
-                          width={"150px"}
-                          graphType={"spark"}
-                        />
+                        <Link href={`/features/${feature.id}#realtime`}>
+                          <a>
+                            <RealTimeFeatureGraph
+                              featureId={feature.id}
+                              height={25}
+                              width={"150px"}
+                              graphType={"spark"}
+                            />
+                          </a>
+                        </Link>
                       </td>
                     </tr>
                   );

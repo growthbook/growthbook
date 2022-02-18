@@ -21,6 +21,9 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
+import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
+import Tabs from "../../components/Tabs/Tabs";
+import Tab from "../../components/Tabs/Tab";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -68,7 +71,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
   const type = data.feature.valueType;
 
   return (
-    <div className="contents container-fluid pagecontents">
+    <div className="contents container-fluid pagecontents feature-details">
       {edit && (
         <EditDefaultValueModal
           close={() => setEdit(false)}
@@ -162,170 +165,187 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         </div>
       </div>
 
-      <h3>Enabled Environments</h3>
-      <div className="appbox mb-4 p-3">
-        <div className="row mb-2">
-          <div className="col-auto">
-            <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
-              Dev:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="dev"
-              mutate={mutate}
-              id="dev_toggle"
-            />
-          </div>
-          <div className="col-auto">
-            <label
-              className="font-weight-bold mr-2"
-              htmlFor={"production_toggle"}
-            >
-              Production:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="production"
-              mutate={mutate}
-              id="production_toggle"
-            />
-          </div>
-        </div>
-        <div>
-          In a disabled environment, the feature will always evaluate to{" "}
-          <code>null</code> and all override rules will be ignored.
-        </div>
-      </div>
-
-      <h3>
-        When Enabled
-        <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-          <GBEdit />
-        </a>
-      </h3>
-      <div className="appbox mb-4 p-3">
-        <ForceSummary type={type} value={data.feature.defaultValue} />
-      </div>
-
-      {usage && (
-        <IfFeatureEnabled feature="feature-usage-code">
-          <div className="appbox p-3 mb-4">
-            <h3 className="mb-3">Usage Example</h3>
-            <Code
-              language="javascript"
-              code={usage}
-              theme="light"
-              className="border-0 p-0 m-0"
-            />
-          </div>
-        </IfFeatureEnabled>
-      )}
-
-      <h3>Override Rules</h3>
-      <p>
-        Add powerful logic on top of your feature.{" "}
-        {data.feature.rules?.length > 1 && "First matching rule applies."}
-      </p>
-
-      {data.feature.rules?.length > 0 && (
-        <>
-          <div className="appbox mb-4">
-            <RuleList
-              feature={data.feature}
-              experiments={data.experiments || {}}
-              mutate={mutate}
-              setRuleModal={setRuleModal}
-            />
-          </div>
-          <h4>Add more</h4>
-        </>
-      )}
-      <div className="row">
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>Forced Value</h4>
-            <p>Target groups of users and give them all the same value.</p>
-            <div style={{ flex: 1 }} />
+      <Tabs newStyle={true}>
+        <Tab display="Info" anchor="info">
+          <h3>Enabled Environments</h3>
+          <div className="appbox mb-4 p-3">
+            <div className="row mb-2">
+              <div className="col-auto">
+                <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
+                  Dev:{" "}
+                </label>
+                <EnvironmentToggle
+                  feature={data.feature}
+                  environment="dev"
+                  mutate={mutate}
+                  id="dev_toggle"
+                />
+              </div>
+              <div className="col-auto">
+                <label
+                  className="font-weight-bold mr-2"
+                  htmlFor={"production_toggle"}
+                >
+                  Production:{" "}
+                </label>
+                <EnvironmentToggle
+                  feature={data.feature}
+                  environment="production"
+                  mutate={mutate}
+                  id="production_toggle"
+                />
+              </div>
+            </div>
             <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleDefaultType("force");
-                  setRuleModal(data?.feature?.rules?.length || 0);
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "force",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Forced Rule
-              </button>
+              In a disabled environment, the feature will always evaluate to{" "}
+              <code>null</code> and all override rules will be ignored.
             </div>
           </div>
-        </div>
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>Percentage Rollout</h4>
-            <p>Release to a small percent of users while you monitor logs.</p>
-            <div style={{ flex: 1 }} />
-            <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleDefaultType("rollout");
-                  setRuleModal(data?.feature?.rules?.length || 0);
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "rollout",
-                  });
-                }}
+
+          <h3>
+            When Enabled
+            <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+              <GBEdit />
+            </a>
+          </h3>
+          <div className="appbox mb-4 p-3">
+            <ForceSummary type={type} value={data.feature.defaultValue} />
+          </div>
+
+          {usage && (
+            <IfFeatureEnabled feature="feature-usage-code">
+              <div className="appbox p-3 mb-4">
+                <h3 className="mb-3">Usage Example</h3>
+                <Code
+                  language="javascript"
+                  code={usage}
+                  theme="light"
+                  className="border-0 p-0 m-0"
+                />
+              </div>
+            </IfFeatureEnabled>
+          )}
+
+          <h3>Override Rules</h3>
+          <p>
+            Add powerful logic on top of your feature.{" "}
+            {data.feature.rules?.length > 1 && "First matching rule applies."}
+          </p>
+
+          {data.feature.rules?.length > 0 && (
+            <>
+              <div className="appbox mb-4">
+                <RuleList
+                  feature={data.feature}
+                  experiments={data.experiments || {}}
+                  mutate={mutate}
+                  setRuleModal={setRuleModal}
+                />
+              </div>
+              <h4>Add more</h4>
+            </>
+          )}
+          <div className="row">
+            <div className="col mb-3">
+              <div
+                className="bg-white border p-3 d-flex flex-column"
+                style={{ height: "100%" }}
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Rollout Rule
-              </button>
+                <h4>Forced Value</h4>
+                <p>Target groups of users and give them all the same value.</p>
+                <div style={{ flex: 1 }} />
+                <div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setRuleDefaultType("force");
+                      setRuleModal(data?.feature?.rules?.length || 0);
+                      track("Viewed Rule Modal", {
+                        source: "add-rule",
+                        type: "force",
+                      });
+                    }}
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Forced Rule
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="col mb-3">
+              <div
+                className="bg-white border p-3 d-flex flex-column"
+                style={{ height: "100%" }}
+              >
+                <h4>Percentage Rollout</h4>
+                <p>
+                  Release to a small percent of users while you monitor logs.
+                </p>
+                <div style={{ flex: 1 }} />
+                <div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setRuleDefaultType("rollout");
+                      setRuleModal(data?.feature?.rules?.length || 0);
+                      track("Viewed Rule Modal", {
+                        source: "add-rule",
+                        type: "rollout",
+                      });
+                    }}
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Rollout Rule
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="col mb-3">
+              <div
+                className="bg-white border p-3 d-flex flex-column"
+                style={{ height: "100%" }}
+              >
+                <h4>A/B Experiment</h4>
+                <p>Measure the impact of this feature on your key metrics.</p>
+                <div style={{ flex: 1 }} />
+                <div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setRuleDefaultType("experiment");
+                      setRuleModal(data?.feature?.rules?.length || 0);
+                      track("Viewed Rule Modal", {
+                        source: "add-rule",
+                        type: "experiment",
+                      });
+                    }}
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Experiment Rule
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>A/B Experiment</h4>
-            <p>Measure the impact of this feature on your key metrics.</p>
-            <div style={{ flex: 1 }} />
-            <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleDefaultType("experiment");
-                  setRuleModal(data?.feature?.rules?.length || 0);
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "experiment",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Experiment Rule
-              </button>
+        </Tab>
+        <Tab display="Debug & Realtime" anchor="realtime" lazy={true}>
+          <div className="row mb-3">
+            <div className="col-md-12">
+              <h3>Real time feature usage</h3>
+              <RealTimeFeatureGraph
+                featureId={data.feature.id}
+                graphType={"normal"}
+              />
             </div>
           </div>
-        </div>
-      </div>
+        </Tab>
+      </Tabs>
     </div>
   );
 }

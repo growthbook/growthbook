@@ -41,7 +41,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
     return (
-      <div className="p-3 border-bottom bg-white" {...props} ref={ref}>
+      <div className="p-3 bg-white" {...props} ref={ref}>
         <div className="d-flex mb-2 align-items-center">
           <div>
             <div

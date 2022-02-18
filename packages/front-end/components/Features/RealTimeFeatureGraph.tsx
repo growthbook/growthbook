@@ -1,5 +1,6 @@
 //import { useState } from "react";
 import useApi from "../../hooks/useApi";
+import styles from "./RealTimeFeatureGraph.module.scss";
 import { RealtimeUsageInterface } from "back-end/types/realtime";
 import { GridColumns, GridRows } from "@visx/grid";
 import { AxisLeft, AxisBottom } from "@visx/axis";
@@ -7,9 +8,20 @@ import { LinePath, AreaClosed } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import React, { Fragment } from "react";
-import { curveMonotoneX } from "@visx/curve";
+import React from "react";
+import { curveMonotoneX, curveStep } from "@visx/curve";
 import { time } from "../../services/dates";
+import {
+  TooltipWithBounds,
+  useTooltip,
+  useTooltipInPortal,
+} from "@visx/tooltip";
+
+type TooltipData = { x: number; y: number; d: Datapoint };
+interface Datapoint {
+  time: Date | number;
+  value: number;
+}
 
 export default function RealTimeFeatureGraph({
   featureId,
@@ -19,6 +31,7 @@ export default function RealTimeFeatureGraph({
   areaColor = "#3aa8e8",
   strokeColor = "#8884d8",
   graphType = "normal",
+  curve = "step",
   autoUpdate = true,
 }: {
   featureId: string;
@@ -28,12 +41,29 @@ export default function RealTimeFeatureGraph({
   areaColor?: string;
   strokeColor?: string;
   graphType?: "normal" | "spark";
+  curve?: "curve" | "step";
   autoUpdate?: boolean;
 }) {
   //const [currentMin, setCurrentMin] = useState(new Date().getMinutes());
   const { data, error, mutate } = useApi<{
     realtime: { [key: number]: RealtimeUsageInterface };
   }>(`/realtime/features`);
+
+  const margin = graphType === "spark" ? [0, 0, 0, 0] : [10, 20, 40, 50];
+
+  const { containerRef, containerBounds } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: true,
+  });
+
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipOpen,
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+  } = useTooltip<TooltipData>();
 
   if (error) {
     return null;
@@ -85,9 +115,31 @@ export default function RealTimeFeatureGraph({
     points = points.slice(points.length - numMinutes);
   }
 
-  const margin = [0, 0, 0, 0];
   const min = Math.min(...points.map((d) => d.time));
   const max = Math.max(...points.map((d) => d.time));
+
+  const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
+    const innerWidth =
+      width - margin[1] - margin[3] + width / points.length - 1;
+    const px = mx / innerWidth;
+    const index = Math.max(
+      Math.min(Math.round(px * points.length), points.length - 1),
+      0
+    );
+    const d = points[index];
+    const x = (points.length > 0 ? index / points.length : 0) * innerWidth;
+    const y = yScale(d.value) ?? 0;
+    return { x, y, d };
+  };
+
+  const getTooltipContents = (d: Datapoint) => {
+    return (
+      <>
+        <div className={styles.date}>{time(d.time as Date)}</div>
+        <div className={styles.val}>{d.value}</div>
+      </>
+    );
+  };
 
   return (
     <div style={{ width: width }}>
@@ -110,6 +162,18 @@ export default function RealTimeFeatureGraph({
             round: true,
           });
 
+          const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+            // coordinates should be relative to the container in which Tooltip is rendered
+            const containerX =
+              ("clientX" in event ? event.clientX : 0) - containerBounds.left;
+            const data = getTooltipData(containerX, width, yScale);
+            showTooltip({
+              tooltipLeft: data.x,
+              tooltipTop: data.y,
+              tooltipData: data,
+            });
+          };
+
           return (
             <>
               {!hasData && (
@@ -125,6 +189,41 @@ export default function RealTimeFeatureGraph({
                   No data
                 </div>
               )}
+              <div
+                ref={containerRef}
+                className={styles.tooltipDategraph}
+                style={{
+                  width: xMax,
+                  height: graphHeight,
+                  marginLeft: margin[3],
+                  marginTop: margin[0],
+                }}
+                onPointerMove={handlePointer}
+                onPointerLeave={hideTooltip}
+              >
+                {tooltipOpen && graphType !== "spark" && (
+                  <>
+                    <div
+                      className={styles.positionIndicator}
+                      style={{
+                        transform: `translate(${tooltipLeft}px, ${tooltipTop}px)`,
+                      }}
+                    />
+                    <div
+                      className={styles.crosshair}
+                      style={{ transform: `translateX(${tooltipLeft}px)` }}
+                    />
+                    <TooltipWithBounds
+                      left={tooltipLeft}
+                      top={tooltipTop}
+                      className={styles.tooltip}
+                      unstyled={true}
+                    >
+                      {getTooltipContents(tooltipData.d)}
+                    </TooltipWithBounds>
+                  </>
+                )}
+              </div>
               <svg width={width} height={height}>
                 <Group left={margin[3]} top={margin[0]}>
                   {graphType !== "spark" && (
@@ -141,23 +240,39 @@ export default function RealTimeFeatureGraph({
                       />
                     </>
                   )}
-                  <AreaClosed
-                    data={points}
-                    x={(d) => xScale(d.time) ?? 0}
-                    y={(d) => yScale(d.value) ?? 0}
-                    yScale={yScale}
-                    curve={curveMonotoneX}
-                    fill={areaColor}
-                    fillOpacity={0.2}
-                  />
-                  <LinePath
-                    data={points}
-                    x={(d) => xScale(d.time) ?? 0}
-                    y={(d) => yScale(d.value) ?? 0}
-                    stroke={strokeColor}
-                    strokeWidth={graphType === "spark" ? 1 : 2}
-                    curve={curveMonotoneX}
-                  />
+                  {graphType !== "spark" && (
+                    <AreaClosed
+                      data={points}
+                      x={(d) => xScale(d.time) ?? 0}
+                      y={(d) => yScale(d.value) ?? 0}
+                      yScale={yScale}
+                      curve={curve === "step" ? curveStep : curveMonotoneX}
+                      stroke={strokeColor}
+                      fill={areaColor}
+                      fillOpacity={0.2}
+                    />
+                  )}
+                  {graphType === "spark" && (
+                    <>
+                      <AreaClosed
+                        data={points}
+                        x={(d) => xScale(d.time) ?? 0}
+                        y={(d) => yScale(d.value) ?? 0}
+                        yScale={yScale}
+                        curve={curve === "step" ? curveStep : curveMonotoneX}
+                        fill={areaColor}
+                        fillOpacity={0.2}
+                      />
+                      <LinePath
+                        data={points}
+                        x={(d) => xScale(d.time) ?? 0}
+                        y={(d) => yScale(d.value) ?? 0}
+                        stroke={strokeColor}
+                        strokeWidth={graphType === "spark" ? 1 : 2}
+                        curve={curve === "step" ? curveStep : curveMonotoneX}
+                      />
+                    </>
+                  )}
 
                   <AxisBottom
                     top={graphHeight}
@@ -166,9 +281,16 @@ export default function RealTimeFeatureGraph({
                     tickFormat={(d) => {
                       return time(d as Date);
                     }}
+                    label={
+                      graphType === "spark" ? "" : `Last ${numMinutes} minutes`
+                    }
                   />
                   {graphType !== "spark" && (
-                    <AxisLeft scale={yScale} numTicks={numYTicks} />
+                    <AxisLeft
+                      scale={yScale}
+                      numTicks={numYTicks}
+                      label={"count"}
+                    />
                   )}
                 </Group>
               </svg>
