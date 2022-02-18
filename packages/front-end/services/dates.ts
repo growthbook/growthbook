@@ -11,10 +11,6 @@ export function datetime(date: string | Date): string {
   if (!date) return "";
   return format(getValidDate(date), "PPp");
 }
-export function time(date: string | Date): string {
-  if (!date) return "";
-  return format(getValidDate(date), "p");
-}
 export function ago(date: string | Date): string {
   if (!date) return "";
   return formatDistance(getValidDate(date), new Date(), { addSuffix: true });

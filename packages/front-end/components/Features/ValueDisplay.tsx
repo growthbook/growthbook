@@ -27,13 +27,13 @@ export default function ValueDisplay({
     return (
       <span>
         <div
-          className={value === "false" ? "bg-danger" : "bg-success"}
           style={{
             display: "inline-block",
             height: 10,
             width: 10,
             borderRadius: 10,
             marginRight: 5,
+            backgroundColor: value === "false" ? "#cccccc" : "#3aa8e8",
           }}
         ></div>
         {value === "false" ? "OFF" : "ON"}

@@ -482,10 +482,7 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
-
-// Real time
-app.get("/realtime/features", featuresController.getRealtimeFeatures);
-app.get("/realtime/summary", featuresController.getRealtimeSummary);
+app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);

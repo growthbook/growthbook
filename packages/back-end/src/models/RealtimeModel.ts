@@ -1,28 +1,12 @@
 import mongoose from "mongoose";
-import {
-  RealtimeUsageInterface,
-  SummaryUsageInterface,
-} from "../../types/realtime";
+import { RealtimeUsageInterface } from "../../types/realtime";
 
 const realtimeUsageSchema = new mongoose.Schema({
-  _id: false,
   organization: String,
-  hour: {
-    type: Number,
-    index: true,
-  },
-  counts: {
-    type: Map,
-    of: {
-      _id: false,
-      total: Number,
-      minutes: {
-        type: Map,
-        of: Number,
-      },
-    },
-  },
+  hour: String,
+  features: {},
 });
+realtimeUsageSchema.index({ organization: 1, hour: 1 }, { unique: true });
 
 export type RealtimeUsageDocument = mongoose.Document & RealtimeUsageInterface;
 
@@ -31,57 +15,10 @@ export const RealtimeUsageModel = mongoose.model<RealtimeUsageDocument>(
   realtimeUsageSchema
 );
 
-const summaryUsageSchema = new mongoose.Schema({
-  organization: String,
-  lastUsed: Date,
-  counts: {
-    type: Map,
-    of: {
-      _id: false,
-      key: String,
-      lastUsed: Date,
-      allTime: Number,
-      yesterday: Number,
-      last7days: Number,
-      last30days: Number,
-    },
-  },
-});
-
-export type SummaryUsageDocument = mongoose.Document & SummaryUsageInterface;
-
-export const SummaryUsageModel = mongoose.model<SummaryUsageDocument>(
-  "SummaryUsage",
-  summaryUsageSchema
-);
-
-export async function getRealtimeFeatureByHour(
+export async function getRealtimeUsageByHour(
   organization: string,
-  hour: number
+  hour: string
 ): Promise<RealtimeUsageInterface | null> {
   const realtimeDoc = await RealtimeUsageModel.findOne({ organization, hour });
   return realtimeDoc ? realtimeDoc.toJSON() : null;
-}
-
-export async function updateRealtimeUsage(
-  organization: string,
-  hour: number,
-  updates: Partial<RealtimeUsageInterface>
-) {
-  await RealtimeUsageModel.updateOne(
-    { organization, hour },
-    {
-      $set: updates,
-    },
-    {
-      upsert: true,
-    }
-  );
-}
-
-export async function getRealtimeSummaryForOrg(
-  organization: string
-): Promise<SummaryUsageInterface | null> {
-  const summary = await SummaryUsageModel.findOne({ organization });
-  return summary ? summary.toJSON() : null;
 }

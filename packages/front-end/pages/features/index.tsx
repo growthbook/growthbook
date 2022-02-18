@@ -18,15 +18,65 @@ import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
+import { useEffect } from "react";
+import { useFeature } from "@growthbook/growthbook-react";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
 
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
+
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+
+  const FAKE_DATA = !!router?.query?.mockdata;
+
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
   }>(`/feature?project=${project || ""}`);
+
+  const { data: usageData, mutate: mutateUsageData } = useApi<{
+    usage: Record<string, { usage: { used: number; skipped: number }[] }>;
+  }>(`/usage/features`);
+
+  // Mock data
+  const usage = useMemo(() => {
+    if (!FAKE_DATA || !data) {
+      return usageData?.usage || {};
+    }
+    const usage: Record<
+      string,
+      { usage: { used: number; skipped: number }[] }
+    > = {};
+    data.features.forEach((f) => {
+      usage[f.id] = { usage: [] };
+      const usedRatio = Math.random();
+      const volumeRatio = Math.random();
+      for (let i = 0; i < 30; i++) {
+        usage[f.id].usage.push({
+          used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
+          skipped: Math.floor(
+            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
+          ),
+        });
+      }
+    });
+    return usage;
+  }, [data, FAKE_DATA]);
+
+  // Update usage data every 10 seconds
+  useEffect(() => {
+    if (FAKE_DATA) return;
+    let timer = 0;
+    const cb = async () => {
+      await mutateUsageData();
+      timer = window.setTimeout(cb, 10000);
+    };
+    timer = window.setTimeout(cb, 10000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [FAKE_DATA]);
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
@@ -135,95 +185,100 @@ export default function FeaturesPage() {
       <ApiKeyUpgrade />
 
       {data.features.length > 0 && (
-        <>
-          <div>
-            <div className="row mb-2">
-              <div className="col-auto">
-                <Field placeholder="Filter list..." {...searchInputProps} />
-              </div>
+        <div>
+          <div className="row mb-2">
+            <div className="col-auto">
+              <Field placeholder="Filter list..." {...searchInputProps} />
             </div>
-            <table className="table gbtable table-hover">
-              <thead>
-                <tr>
-                  <th>Feature Key</th>
-                  <th>Dev</th>
-                  <th>Prod</th>
-                  <th>Value When Enabled</th>
-                  <th>Overrides Rules</th>
-                  <th>Last Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((feature) => {
-                  const firstRule = feature.rules?.[0];
-                  const totalRules = feature.rules?.length || 0;
-
-                  return (
-                    <tr key={feature.id}>
-                      <td>
-                        <Link href={`/features/${feature.id}`}>
-                          <a>{feature.id}</a>
-                        </Link>
-                      </td>
-                      <td className="position-relative">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment="dev"
-                          mutate={mutate}
-                        />
-                      </td>
-                      <td className="position-relative">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment="production"
-                          mutate={mutate}
-                        />
-                      </td>
-                      <td>
-                        <ValueDisplay
-                          value={feature.defaultValue}
-                          type={feature.valueType}
-                          full={false}
-                        />
-                      </td>
-                      <td>
-                        {firstRule && (
-                          <span className="text-dark">{firstRule.type}</span>
-                        )}
-                        {totalRules > 1 && (
-                          <small className="text-muted ml-1">
-                            +{totalRules - 1} more
-                          </small>
-                        )}
-                      </td>
-                      <td title={datetime(feature.dateUpdated)}>
-                        {ago(feature.dateUpdated)}
-                      </td>
-                      <td>
-                        <Link href={`/features/${feature.id}#realtime`}>
-                          <a>
-                            <RealTimeFeatureGraph
-                              featureId={feature.id}
-                              height={25}
-                              width={"150px"}
-                              graphType={"spark"}
-                            />
-                          </a>
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {!sorted.length && (
-                  <tr>
-                    <td colSpan={6}>No matching features</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
-        </>
+          <table className="table gbtable table-hover">
+            <thead>
+              <tr>
+                <th>Feature Key</th>
+                <th>Dev</th>
+                <th>Prod</th>
+                <th>Value When Enabled</th>
+                <th>Overrides Rules</th>
+                <th>Last Updated</th>
+                {showGraphs && <th>Recent Usage</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((feature) => {
+                const firstRule = feature.rules?.[0];
+                const totalRules = feature.rules?.length || 0;
+
+                return (
+                  <tr key={feature.id}>
+                    <td>
+                      <Link href={`/features/${feature.id}`}>
+                        <a>{feature.id}</a>
+                      </Link>
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="dev"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="production"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td>
+                      <ValueDisplay
+                        value={feature.defaultValue}
+                        type={feature.valueType}
+                        full={false}
+                      />
+                    </td>
+                    <td>
+                      {firstRule && (
+                        <span className="text-dark">{firstRule.type}</span>
+                      )}
+                      {totalRules > 1 && (
+                        <small className="text-muted ml-1">
+                          +{totalRules - 1} more
+                        </small>
+                      )}
+                    </td>
+                    <td title={datetime(feature.dateUpdated)}>
+                      {ago(feature.dateUpdated)}
+                    </td>
+                    {showGraphs && (
+                      <td style={{ width: 170 }}>
+                        <RealTimeFeatureGraph
+                          data={usage?.[feature.id]?.usage || []}
+                          yDomain={[
+                            0,
+                            Math.max(
+                              1,
+                              ...Object.values(usage).map((d) => {
+                                return Math.max(
+                                  1,
+                                  ...d.usage.map((u) => u.used + u.skipped)
+                                );
+                              })
+                            ),
+                          ]}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+              {!sorted.length && (
+                <tr>
+                  <td colSpan={6}>No matching features</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

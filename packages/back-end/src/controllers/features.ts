@@ -9,16 +9,12 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
-import {
-  getRealtimeFeatureByHour,
-  getRealtimeSummaryForOrg,
-} from "../models/RealtimeModel";
+import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
-import { RealtimeUsageInterface } from "../../types/realtime";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -277,52 +273,67 @@ export async function getFeatureById(
   });
 }
 
-export async function getRealtimeFeatures(
+export async function getRealtimeUsage(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  let hours = 2;
-  if (req.query?.hours) {
-    hours = parseInt(req.query.hours);
+
+  // Get feature usage for the current hour
+  const now = new Date();
+  const current = await getRealtimeUsageByHour(
+    org.id,
+    now.toISOString().substring(0, 13)
+  );
+
+  const usage: Record<
+    string,
+    { realtime: { used: number; skipped: number }[] }
+  > = {};
+  if (current) {
+    Object.keys(current.features).forEach((feature) => {
+      usage[feature] = { realtime: [] };
+      for (let i = now.getMinutes(); i >= 0; i--) {
+        usage[feature].realtime.push({
+          used: current.features[feature]?.used?.[i] || 0,
+          skipped: current.features[feature]?.skipped?.[i] || 0,
+        });
+      }
+    });
   }
-  if (!hours || hours > 5) {
-    hours = 2;
-  }
-  const realtime: { [key: number]: RealtimeUsageInterface } = {};
-  const promises = [...Array(hours).keys()].map(async (h) => {
-    // get the right hour block:
-    const firstHour = new Date();
-    firstHour.setHours(firstHour.getHours() - h, 0, 0, 0);
-    const realtimeFeature = await getRealtimeFeatureByHour(
+
+  // If needed, pull in part of the previous hour to get to 30 data points
+  if (now.getMinutes() < 30) {
+    const stop = 59 - (30 - now.getMinutes());
+    const lastHour = new Date(now);
+    lastHour.setHours(lastHour.getHours() - 1);
+
+    const lastHourData = await getRealtimeUsageByHour(
       org.id,
-      firstHour.getTime() / 1000
+      lastHour.toISOString().substring(0, 13)
     );
-    if (realtimeFeature) {
-      realtime[h] = realtimeFeature;
+    if (lastHourData) {
+      Object.keys(lastHourData.features).forEach((feature) => {
+        if (!usage[feature]) {
+          usage[feature] = {
+            realtime: Array(now.getMinutes() + 1).fill({
+              used: 0,
+              skipped: 0,
+            }),
+          };
+        }
+        for (let i = 59; i >= stop; i--) {
+          usage[feature].realtime.push({
+            used: lastHourData.features[feature]?.used?.[i] || 0,
+            skipped: lastHourData.features[feature]?.skipped?.[i] || 0,
+          });
+        }
+      });
     }
-  });
-  await Promise.all(promises);
-
-  if (!realtime) {
-    throw new Error("Could not find realtime data for this range");
   }
 
   res.status(200).json({
     status: 200,
-    realtime,
-  });
-}
-export async function getRealtimeSummary(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-
-  const summary = getRealtimeSummaryForOrg(org.id);
-
-  res.status(200).json({
-    status: 200,
-    summary,
+    usage,
   });
 }

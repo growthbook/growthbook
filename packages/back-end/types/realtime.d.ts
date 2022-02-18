@@ -6,25 +6,12 @@ export type RealtimeUsageKeys =
 
 export interface RealtimeUsageInterface {
   organization: string;
-  hour: number;
-  counts: {
-    [key: string]: {
-      total: number;
-      minutes: { [key: number]: number };
-    };
-  };
-}
-
-export interface SummaryUsageInterface {
-  organization: string;
-  lastUsed: Date;
-  counts: {
-    [key: string]: {
-      lastUsed: Date;
-      allTime: number;
-      yesterday: number;
-      last7days: number;
-      last30days: number;
-    };
-  };
+  hour: string;
+  features: Record<
+    string,
+    {
+      used: number[];
+      skipped: number[];
+    }
+  >;
 }
