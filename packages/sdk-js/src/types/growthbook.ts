@@ -88,9 +88,7 @@ export type Attributes = Record<string, any>;
 
 export type RealtimeUsageData = {
   key: string;
-  res: string;
-  rule: string;
-  var?: number;
+  on: boolean;
 };
 
 export interface Context {

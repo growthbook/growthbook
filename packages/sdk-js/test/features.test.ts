@@ -285,19 +285,15 @@ describe("features", () => {
     const events = [
       {
         key: "feature1",
-        res: "force",
-        rule: "f",
+        on: true,
       },
       {
         key: "feature2",
-        res: "unknownFeature",
-        rule: "",
+        on: false,
       },
       {
         key: "feature3",
-        res: "experiment",
-        rule: "",
-        var: 0,
+        on: true,
       },
     ];
     const expectedUrl = `https://rt.growthbook.io/?key=abc&events=${encodeURIComponent(

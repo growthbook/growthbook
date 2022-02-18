@@ -181,9 +181,7 @@ export class GrowthBook {
     if (!isBrowser || !window.fetch) return;
     this._rtQueue.push({
       key,
-      res: res.source,
-      rule: res.ruleId,
-      var: res.experimentResult?.variationId,
+      on: res.on,
     });
     if (!this._rtTimer) {
       this._rtTimer = window.setTimeout(() => {
