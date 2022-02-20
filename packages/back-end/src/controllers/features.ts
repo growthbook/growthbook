@@ -278,6 +278,7 @@ export async function getRealtimeUsage(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
+  const NUM_MINUTES = 30;
 
   // Get feature usage for the current hour
   const now = new Date();
@@ -303,8 +304,8 @@ export async function getRealtimeUsage(
   }
 
   // If needed, pull in part of the previous hour to get to 30 data points
-  if (now.getMinutes() < 30) {
-    const stop = 59 - (30 - now.getMinutes());
+  if (now.getMinutes() < NUM_MINUTES - 1) {
+    const stop = 59 - (NUM_MINUTES - 1 - now.getMinutes());
     const lastHour = new Date(now);
     lastHour.setHours(lastHour.getHours() - 1);
 
@@ -331,6 +332,19 @@ export async function getRealtimeUsage(
       });
     }
   }
+
+  // Pad out all usage arrays to 30 items and reverse arrays
+  Object.keys(usage).forEach((feature) => {
+    while (usage[feature].realtime.length < 30) {
+      usage[feature].realtime.push({
+        used: 0,
+        skipped: 0,
+      });
+    }
+    // Remove any extra items and reverse
+    usage[feature].realtime = usage[feature].realtime.slice(0, 30);
+    usage[feature].realtime.reverse();
+  });
 
   res.status(200).json({
     status: 200,

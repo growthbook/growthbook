@@ -665,15 +665,15 @@ There are a bunch of ordered steps to run an experiment:
 There are 3 tiny helper methods that wrap `evalFeature` for a better developer experience:
 
 ```js
-isOn(key) {
+public isOn(key) {
   return this.evalFeature(key).on
 }
 
-isOff(key) {
+public isOff(key) {
   return this.evalFeature(key).off
 }
 
-getFeatureValue(key, fallback) {
+public getFeatureValue(key, fallback) {
   value = this.evalFeature(key).value
   return value === null ? fallback : value
 }
@@ -685,9 +685,7 @@ For strongly typed languages, you can use generics (if supported) for `getFeatur
 
 Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for SDKs.
 
-If possible, use generics to type the return value. If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
-
-If your type system supports specifying a minimum array length, it's best to type `experiment.variations` as requiring at least 2 elements.
+If possible, use generics to type the return value. For example, if `experiment.variations` is type `T[]`, then `result.value` should be type `T`. Or, if the fallback of `getFeatureValue` is type `string`, the return type should also be type `string`.
 
 ## Handling Errors
 

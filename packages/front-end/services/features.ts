@@ -14,6 +14,7 @@ import uniq from "lodash/uniq";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
+import useApi from "../hooks/useApi";
 
 export interface Condition {
   field: string;
@@ -452,4 +453,54 @@ export function getExperimentDefinitionFromFeature(
     ],
   };
   return expDefinition;
+}
+
+export function useRealtimeData(
+  features: FeatureInterface[] = [],
+  mock = false
+) {
+  const { data, mutate } = useApi<{
+    usage: Record<string, { usage: { used: number; skipped: number }[] }>;
+  }>(`/usage/features`);
+
+  // Mock data
+  const usage = useMemo(() => {
+    if (!mock || !features) {
+      return data?.usage || {};
+    }
+    const usage: Record<
+      string,
+      { usage: { used: number; skipped: number }[] }
+    > = {};
+    features.forEach((f) => {
+      usage[f.id] = { usage: [] };
+      const usedRatio = Math.random();
+      const volumeRatio = Math.random();
+      for (let i = 0; i < 30; i++) {
+        usage[f.id].usage.push({
+          used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
+          skipped: Math.floor(
+            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
+          ),
+        });
+      }
+    });
+    return usage;
+  }, [features, mock, data?.usage]);
+
+  // Update usage data every 10 seconds
+  useEffect(() => {
+    let timer = 0;
+    const cb = async () => {
+      console.log("update realtime data");
+      await mutate();
+      timer = window.setTimeout(cb, 10000);
+    };
+    timer = window.setTimeout(cb, 10000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  return usage;
 }

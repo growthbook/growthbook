@@ -18,65 +18,20 @@ import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
-import { useEffect } from "react";
 import { useFeature } from "@growthbook/growthbook-react";
+import { useRealtimeData } from "../../services/features";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
-
-  const showGraphs = useFeature("feature-list-realtime-graphs").on;
-
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
-
-  const FAKE_DATA = !!router?.query?.mockdata;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
   }>(`/feature?project=${project || ""}`);
 
-  const { data: usageData, mutate: mutateUsageData } = useApi<{
-    usage: Record<string, { usage: { used: number; skipped: number }[] }>;
-  }>(`/usage/features`);
-
-  // Mock data
-  const usage = useMemo(() => {
-    if (!FAKE_DATA || !data) {
-      return usageData?.usage || {};
-    }
-    const usage: Record<
-      string,
-      { usage: { used: number; skipped: number }[] }
-    > = {};
-    data.features.forEach((f) => {
-      usage[f.id] = { usage: [] };
-      const usedRatio = Math.random();
-      const volumeRatio = Math.random();
-      for (let i = 0; i < 30; i++) {
-        usage[f.id].usage.push({
-          used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
-          skipped: Math.floor(
-            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
-          ),
-        });
-      }
-    });
-    return usage;
-  }, [data, FAKE_DATA]);
-
-  // Update usage data every 10 seconds
-  useEffect(() => {
-    if (FAKE_DATA) return;
-    let timer = 0;
-    const cb = async () => {
-      await mutateUsageData();
-      timer = window.setTimeout(cb, 10000);
-    };
-    timer = window.setTimeout(cb, 10000);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [FAKE_DATA]);
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
+  const usage = useRealtimeData(data?.features, !!router?.query?.mockdata);
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
@@ -273,7 +228,7 @@ export default function FeaturesPage() {
               })}
               {!sorted.length && (
                 <tr>
-                  <td colSpan={6}>No matching features</td>
+                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
                 </tr>
               )}
             </tbody>

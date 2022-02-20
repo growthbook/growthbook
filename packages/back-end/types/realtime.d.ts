@@ -1,17 +1,10 @@
-export type RealtimeUsageKeys =
-  | "_overall"
-  | "featureKey"
-  | "featureKey_ruleId"
-  | "featureKey_ruleId_variationId";
-
 export interface RealtimeUsageInterface {
   organization: string;
   hour: string;
-  features: Record<
-    string,
-    {
-      used: number[];
-      skipped: number[];
-    }
-  >;
+  features: Record<string, RealtimeFeatureUsage>;
+}
+
+export interface RealtimeFeatureUsage {
+  used: Record<number, number>;
+  skipped: Record<number, number>;
 }
