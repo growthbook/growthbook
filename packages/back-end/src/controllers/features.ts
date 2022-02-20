@@ -9,11 +9,13 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
+import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
+import { FeatureUsageRecords } from "../../types/realtime";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -269,5 +271,81 @@ export async function getFeatureById(
     status: 200,
     feature,
     experiments,
+  });
+}
+
+export async function getRealtimeUsage(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const NUM_MINUTES = 30;
+
+  // Get feature usage for the current hour
+  const now = new Date();
+  const current = await getRealtimeUsageByHour(
+    org.id,
+    now.toISOString().substring(0, 13)
+  );
+
+  const usage: FeatureUsageRecords = {};
+  if (current) {
+    Object.keys(current.features).forEach((feature) => {
+      usage[feature] = { realtime: [] };
+      for (let i = now.getMinutes(); i >= 0; i--) {
+        usage[feature].realtime.push({
+          used: current.features[feature]?.used?.[i] || 0,
+          skipped: current.features[feature]?.skipped?.[i] || 0,
+        });
+      }
+    });
+  }
+
+  // If needed, pull in part of the previous hour to get to 30 data points
+  if (now.getMinutes() < NUM_MINUTES - 1) {
+    const stop = 59 - (NUM_MINUTES - 1 - now.getMinutes());
+    const lastHour = new Date(now);
+    lastHour.setHours(lastHour.getHours() - 1);
+
+    const lastHourData = await getRealtimeUsageByHour(
+      org.id,
+      lastHour.toISOString().substring(0, 13)
+    );
+    if (lastHourData) {
+      Object.keys(lastHourData.features).forEach((feature) => {
+        if (!usage[feature]) {
+          usage[feature] = {
+            realtime: Array(now.getMinutes() + 1).fill({
+              used: 0,
+              skipped: 0,
+            }),
+          };
+        }
+        for (let i = 59; i >= stop; i--) {
+          usage[feature].realtime.push({
+            used: lastHourData.features[feature]?.used?.[i] || 0,
+            skipped: lastHourData.features[feature]?.skipped?.[i] || 0,
+          });
+        }
+      });
+    }
+  }
+
+  // Pad out all usage arrays to 30 items and reverse arrays
+  Object.keys(usage).forEach((feature) => {
+    while (usage[feature].realtime.length < 30) {
+      usage[feature].realtime.push({
+        used: 0,
+        skipped: 0,
+      });
+    }
+    // Remove any extra items and reverse
+    usage[feature].realtime = usage[feature].realtime.slice(0, 30);
+    usage[feature].realtime.reverse();
+  });
+
+  res.status(200).json({
+    status: 200,
+    usage,
   });
 }

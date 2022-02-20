@@ -14,6 +14,8 @@ import uniq from "lodash/uniq";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
+import useApi from "../hooks/useApi";
+import { FeatureUsageRecords } from "../../back-end/types/realtime";
 
 export interface Condition {
   field: string;
@@ -452,4 +454,61 @@ export function getExperimentDefinitionFromFeature(
     ],
   };
   return expDefinition;
+}
+
+export function useRealtimeData(
+  features: FeatureInterface[] = [],
+  mock = false,
+  update = false
+): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
+  const { data, mutate } = useApi<{
+    usage: FeatureUsageRecords;
+  }>(`/usage/features`);
+
+  // Mock data
+  const usage = useMemo(() => {
+    if (!mock || !features) {
+      return data?.usage || {};
+    }
+    const usage: FeatureUsageRecords = {};
+    features.forEach((f) => {
+      usage[f.id] = { realtime: [] };
+      const usedRatio = Math.random();
+      const volumeRatio = Math.random();
+      for (let i = 0; i < 30; i++) {
+        usage[f.id].realtime.push({
+          used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
+          skipped: Math.floor(
+            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
+          ),
+        });
+      }
+    });
+    return usage;
+  }, [features, mock, data?.usage]);
+
+  // Update usage data every 10 seconds
+  useEffect(() => {
+    if (!update) return;
+    let timer = 0;
+    const cb = async () => {
+      await mutate();
+      timer = window.setTimeout(cb, 10000);
+    };
+    timer = window.setTimeout(cb, 10000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [update]);
+
+  const max = useMemo(() => {
+    return Math.max(
+      1,
+      ...Object.values(usage).map((d) => {
+        return Math.max(1, ...d.realtime.map((u) => u.used + u.skipped));
+      })
+    );
+  }, [usage]);
+
+  return { usage, usageDomain: [0, max] };
 }

@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { Context, Experiment } from "../src/types";
+import { Context, Experiment } from "../src/types/growthbook";
 
 Object.defineProperty(window, "location", {
   value: {

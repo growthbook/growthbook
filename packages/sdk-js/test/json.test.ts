@@ -2,7 +2,7 @@
 
 import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
 import { evalCondition } from "../src/mongrule";
-import { VariationRange } from "../src/types";
+import { VariationRange } from "../src/types/growthbook";
 import {
   chooseVariation,
   getBucketRanges,
@@ -19,7 +19,7 @@ type Cases = {
   // name, context, experiment, value, inExperiment
   run: [string, Context, Experiment<any>, any, boolean][];
   // name, context, feature key, result
-  feature: [string, Context, string, FeatureResult][];
+  feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean][];
   // name, args ([numVariations, coverage, weights]), result
@@ -45,9 +45,12 @@ const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
 describe("json test suite", () => {
   it.each((cases as Cases).feature)(
     "feature[%#] %s",
-    (name, ctx, key, result) => {
+    (name, ctx, key, expected) => {
       const growthbook = new GrowthBook(ctx);
-      expect(growthbook.feature(key)).toEqual(result);
+      expect(growthbook.feature(key)).toEqual({
+        ruleId: "",
+        ...expected,
+      });
       growthbook.destroy();
     }
   );

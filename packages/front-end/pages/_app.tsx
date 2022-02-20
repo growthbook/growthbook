@@ -18,6 +18,7 @@ type ModAppProps = AppProps & {
 };
 
 const growthbook = new GrowthBook({
+  realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
@@ -61,6 +62,9 @@ function App({
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
+      })
+      .catch(() => {
+        console.log("Failed to fetch GrowthBook feature definitions");
       });
   }, [router.pathname]);
 
