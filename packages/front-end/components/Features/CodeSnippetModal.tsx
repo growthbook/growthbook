@@ -254,14 +254,17 @@ const growthbook = new GrowthBook({
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
-    growthbook.setFeatures(json${devApiKey ? ".features" : ""});
+    growthbook.setFeatures(json.features);
+  })
+  .catch(() => {
+    console.log("Failed to fetch feature definitions from GrowthBook");
   });
 
 // TODO: replace with real targeting attributes
 growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
 
 // Use a feature!
-if (growthbook.feature("my-feature").on) {
+if (growthbook.isOn("my-feature")) {
   // ...
 }
 `.trim()}
