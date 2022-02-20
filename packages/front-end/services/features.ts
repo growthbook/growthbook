@@ -15,6 +15,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
+import { FeatureUsageRecords } from "../../back-end/types/realtime";
 
 export interface Condition {
   field: string;
@@ -457,10 +458,11 @@ export function getExperimentDefinitionFromFeature(
 
 export function useRealtimeData(
   features: FeatureInterface[] = [],
-  mock = false
-) {
+  mock = false,
+  update = false
+): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{
-    usage: Record<string, { usage: { used: number; skipped: number }[] }>;
+    usage: FeatureUsageRecords;
   }>(`/usage/features`);
 
   // Mock data
@@ -468,16 +470,13 @@ export function useRealtimeData(
     if (!mock || !features) {
       return data?.usage || {};
     }
-    const usage: Record<
-      string,
-      { usage: { used: number; skipped: number }[] }
-    > = {};
+    const usage: FeatureUsageRecords = {};
     features.forEach((f) => {
-      usage[f.id] = { usage: [] };
+      usage[f.id] = { realtime: [] };
       const usedRatio = Math.random();
       const volumeRatio = Math.random();
       for (let i = 0; i < 30; i++) {
-        usage[f.id].usage.push({
+        usage[f.id].realtime.push({
           used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
           skipped: Math.floor(
             Math.random() * 1000 * (1 - usedRatio) * volumeRatio
@@ -490,9 +489,9 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
+    if (!update) return;
     let timer = 0;
     const cb = async () => {
-      console.log("update realtime data");
       await mutate();
       timer = window.setTimeout(cb, 10000);
     };
@@ -500,7 +499,16 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [update]);
 
-  return usage;
+  const max = useMemo(() => {
+    return Math.max(
+      1,
+      ...Object.values(usage).map((d) => {
+        return Math.max(1, ...d.realtime.map((u) => u.used + u.skipped));
+      })
+    );
+  }, [usage]);
+
+  return { usage, usageDomain: [0, max] };
 }

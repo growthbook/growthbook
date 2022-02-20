@@ -20,6 +20,7 @@ import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
 import { useRealtimeData } from "../../services/features";
+import Tooltip from "../../components/Tooltip";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
@@ -31,7 +32,11 @@ export default function FeaturesPage() {
   }>(`/feature?project=${project || ""}`);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
-  const usage = useRealtimeData(data?.features, !!router?.query?.mockdata);
+  const { usage, usageDomain } = useRealtimeData(
+    data?.features,
+    !!router?.query?.mockdata,
+    showGraphs
+  );
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
@@ -155,7 +160,12 @@ export default function FeaturesPage() {
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <th>Last Updated</th>
-                {showGraphs && <th>Recent Usage</th>}
+                {showGraphs && (
+                  <th>
+                    Recent Usage{" "}
+                    <Tooltip text="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -207,19 +217,8 @@ export default function FeaturesPage() {
                     {showGraphs && (
                       <td style={{ width: 170 }}>
                         <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.usage || []}
-                          yDomain={[
-                            0,
-                            Math.max(
-                              1,
-                              ...Object.values(usage).map((d) => {
-                                return Math.max(
-                                  1,
-                                  ...d.usage.map((u) => u.used + u.skipped)
-                                );
-                              })
-                            ),
-                          ]}
+                          data={usage?.[feature.id]?.realtime || []}
+                          yDomain={usageDomain}
                         />
                       </td>
                     )}

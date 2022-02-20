@@ -15,6 +15,7 @@ import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
+import { FeatureUsageRecords } from "../../types/realtime";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -287,10 +288,7 @@ export async function getRealtimeUsage(
     now.toISOString().substring(0, 13)
   );
 
-  const usage: Record<
-    string,
-    { realtime: { used: number; skipped: number }[] }
-  > = {};
+  const usage: FeatureUsageRecords = {};
   if (current) {
     Object.keys(current.features).forEach((feature) => {
       usage[feature] = { realtime: [] };

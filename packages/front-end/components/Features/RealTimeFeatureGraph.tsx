@@ -4,6 +4,7 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import React from "react";
+import { FeatureRealtimeUsageRecord } from "back-end/types/realtime";
 
 const usedColor = "#3aa8e8";
 const skippedColor = "#cccccc";
@@ -15,7 +16,7 @@ export default function RealTimeFeatureGraph({
   yDomain = [0, 10],
 }: {
   yDomain: [number, number];
-  data: { used: number; skipped: number }[];
+  data: FeatureRealtimeUsageRecord[];
   width?: "auto" | string;
   height?: number;
 }) {
