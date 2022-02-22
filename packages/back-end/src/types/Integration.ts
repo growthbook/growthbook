@@ -36,7 +36,6 @@ export type ExperimentQueryResponses = {
 export interface ImpactEstimationResult {
   query: string;
   metricTotal: number;
-  users: number;
   value: number;
 }
 
@@ -82,14 +81,12 @@ export type MetricValueParams = {
   userIdType?: "anonymous" | "user" | "either";
   segmentQuery?: string;
   segmentName?: string;
-  urlRegex?: string;
   includeByDate?: boolean;
   includePercentiles?: boolean;
 };
 
 export type MetricValueResultDate = {
   date: string;
-  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -99,7 +96,6 @@ export type MetricValueResult = {
   count: number;
   stddev: number;
   mean: number;
-  users: number;
   percentiles?: {
     [key: string]: number;
   };
@@ -118,7 +114,6 @@ export type PastExperimentResult = {
 
 export type MetricValueQueryResponseRow = {
   date: string;
-  users: number;
   count: number;
   mean: number;
   stddev: number;
@@ -173,7 +168,6 @@ export interface SourceIntegrationInterface {
   testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
   getImpactEstimation(
-    urlRegex: string,
     metric: MetricInterface,
     segment?: SegmentInterface
   ): Promise<ImpactEstimationResult>;

@@ -103,37 +103,6 @@ FROM
   }`;
 }
 
-export function getPageviewsQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.pageviewsQuery) {
-    return settings.queries.pageviewsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.pageviews?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.pageviews?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.pageviews?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url
-FROM 
-  ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.pageviews?.table || "pages"
-  }`;
-}
-
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -362,17 +331,6 @@ export default abstract class SqlIntegration
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
-        __pageviews as (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
-          params.from,
-          params.to
-        )}),
-        __users as (${this.getPageUsersCTE(
-          params,
-          userId,
-          params.metric.conversionWindowHours,
-          params.metric.conversionDelayHours
-        )})
         ${
           params.segmentQuery
             ? `, segment as (${this.getSegmentCTE(
@@ -388,42 +346,19 @@ export default abstract class SqlIntegration
           startDate: metricStart,
           endDate: metricEnd,
         })})
-        , __distinctUsers as (
-          SELECT
-            u.user_id,
-            MIN(u.conversion_end) as conversion_end,
-            MIN(u.conversion_start) as conversion_start
-          FROM
-            __users u
-            ${
-              params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.conversion_start"
-                : ""
-            }
-          GROUP BY
-            u.user_id
-        )
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
             ${this.getAggregateMetricSqlValue(params.metric)} as value
           FROM
-            __distinctUsers d
-            JOIN __metric m ON (
-              m.user_id = d.user_id
-            )
-            WHERE
-              m.conversion_start >= d.conversion_start
-              AND m.conversion_start <= d.conversion_end
+            __metric m
+            ${
+              params.segmentQuery
+                ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                : ""
+            }
           GROUP BY
-            d.user_id
-        )
-        , __overallUsers as (
-          -- Number of users overall
-          SELECT
-            COUNT(*) as users
-          FROM
-            __distinctUsers
+            m.user_id
         )
         , __overall as (
           SELECT
@@ -451,29 +386,13 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("d.conversion_start")} as date,
+              ${this.dateTrunc("m.conversion_start")} as date,
               ${this.getAggregateMetricSqlValue(params.metric)} as value
             FROM
-              __distinctUsers d
-              JOIN __metric m ON (
-                m.user_id = d.user_id
-              )
-              WHERE
-                m.conversion_start >= d.conversion_start
-                AND m.conversion_start <= d.conversion_end
+              __metric m
             GROUP BY
-              ${this.dateTrunc("d.conversion_start")},
-              d.user_id
-          )
-          , __usersByDate as (
-            -- Number of users by date
-            SELECT
-              ${this.dateTrunc("conversion_start")} as date,
-              COUNT(*) as users
-            FROM
-              __distinctUsers
-            GROUP BY
-              ${this.dateTrunc("conversion_start")}
+              ${this.dateTrunc("m.conversion_start")},
+              m.user_id
           )
           , __byDateOverall as (
             SELECT
@@ -497,20 +416,16 @@ export default abstract class SqlIntegration
         }
       SELECT
         ${params.includeByDate ? "null as date," : ""}
-        o.*,
-        u.users
+        o.*
       FROM
         __overall o
-        JOIN __overallUsers u ON (1=1)
       ${
         params.includeByDate
           ? `
         UNION ALL SELECT
-          o.*,
-          u.users
+          o.*
         FROM
           __byDateOverall o
-          JOIN __usersByDate u ON (o.date = u.date)
         ORDER BY
           date ASC
       `
@@ -541,11 +456,10 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, users, stddev, ...percentiles } = row;
+      const { date, count, mean, stddev, ...percentiles } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
-        users: parseInt(users) || 0,
         count: parseFloat(count) || 0,
         mean: parseFloat(mean) || 0,
         stddev: parseFloat(stddev) || 0,
@@ -568,7 +482,6 @@ export default abstract class SqlIntegration
   }
 
   async getImpactEstimation(
-    urlRegex: string,
     metric: MetricInterface,
     segment?: SegmentInterface
   ): Promise<ImpactEstimationResult> {
@@ -603,7 +516,6 @@ export default abstract class SqlIntegration
       name: "Metric Value - Selected Pages and Segment",
       metric,
       includePercentiles: false,
-      urlRegex,
       segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
@@ -626,7 +538,6 @@ export default abstract class SqlIntegration
 
     return {
       query: formatted,
-      users: value.users,
       value: (value.count * value.mean) / numDays,
       metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
     };
@@ -654,7 +565,7 @@ export default abstract class SqlIntegration
         anonymous_id
       FROM
         (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
+          getExperimentQuery(this.settings, this.getSchema()),
           from,
           to
         )}) i
@@ -1145,52 +1056,6 @@ export default abstract class SqlIntegration
     return `-- Dimension (${dimension.name})
     ${dimension.sql}
     `;
-  }
-
-  private getPageUsersCTE(
-    params: MetricValueParams,
-    userId: boolean = true,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    conversionDelayHours: number = 0
-  ): string {
-    // TODO: use identifies if table is missing the requested userId type
-    const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
-
-    return `-- Users visiting specific pages
-    SELECT
-      ${userIdCol} as user_id,
-      ${this.addHours(
-        "MIN(p.timestamp)",
-        conversionDelayHours
-      )} as conversion_start,
-      ${this.addHours(
-        `MIN(p.timestamp)`,
-        conversionDelayHours + conversionWindowHours
-      )} as conversion_end
-    FROM
-        __pageviews p
-    WHERE
-      p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
-      AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
-      ${
-        params.urlRegex && params.urlRegex !== ".*"
-          ? `AND ${this.regexMatch("p.url", params.urlRegex)}`
-          : ""
-      }
-    GROUP BY
-      ${userIdCol}
-    `;
-  }
-
-  private dateOnly(orig: Date) {
-    const date = new Date(orig);
-
-    date.setHours(0);
-    date.setMinutes(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
-
-    return date;
   }
 
   private capValue(cap: number | undefined, value: string) {

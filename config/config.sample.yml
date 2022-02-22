@@ -19,15 +19,7 @@ datasources:
             variation_id,
             context_location_country as country
           FROM
-            experiment_viewed
-        pageviewsQuery: >
-          SELECT
-            user_id,
-            anonymous_id,
-            received_at as timestamp,
-            path as url
-          FROM
-            pages
+            experiment_viewed]
       experimentDimensions:
         - country
 metrics:

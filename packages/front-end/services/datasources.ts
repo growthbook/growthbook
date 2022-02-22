@@ -33,34 +33,3 @@ FROM
     settings?.experiments?.table || "experiment_viewed"
   }`;
 }
-
-export function getPageviewsQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.pageviewsQuery) {
-    return settings.queries.pageviewsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.pageviews?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.pageviews?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.pageviews?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url
-FROM 
-  ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.pageviews?.table || "pages"
-  }`;
-}

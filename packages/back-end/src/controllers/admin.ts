@@ -92,13 +92,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     variation_id
   FROM
     experiment_viewed`,
-        pageviewsQuery: `SELECT
-    user_id,
-    user_id as anonymous_id,
-    received_at as timestamp,
-    '' as url
-  FROM
-    pages`,
       },
     }
   );

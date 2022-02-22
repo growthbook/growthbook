@@ -57,14 +57,11 @@ export type DataSourceSettings = {
   notebookRunQuery?: string;
   queries?: {
     experimentsQuery?: string;
-    pageviewsQuery?: string;
   };
   events?: {
     experimentEvent?: string;
     experimentIdProperty?: string;
     variationIdProperty?: string;
-    pageviewEvent?: string;
-    urlProperty?: string;
   };
   default?: {
     timestampColumn?: string;
@@ -87,13 +84,6 @@ export type DataSourceSettings = {
     table?: string;
     anonymousIdColumn?: string;
     userIdColumn?: string;
-  };
-  pageviews?: {
-    table?: string;
-    urlColumn?: string;
-    timestampColumn?: string;
-    userIdColumn?: string;
-    anonymousIdColumn?: string;
   };
 };
 

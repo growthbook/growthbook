@@ -1,9 +1,6 @@
 import { FC, useState, useEffect, ChangeEventHandler } from "react";
 import { useAuth } from "../../services/auth";
-import {
-  getExperimentQuery,
-  getPageviewsQuery,
-} from "../../services/datasources";
+import { getExperimentQuery } from "../../services/datasources";
 import track from "../../services/track";
 import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
@@ -45,17 +42,11 @@ const EditDataSourceSettingsForm: FC<{
               data.settings,
               (data.params as PostgresConnectionParams)?.defaultSchema
             ),
-            pageviewsQuery: getPageviewsQuery(
-              data.settings,
-              (data.params as PostgresConnectionParams)?.defaultSchema
-            ),
           },
           events: {
             experimentEvent: "",
             experimentIdProperty: "",
             variationIdProperty: "",
-            pageviewEvent: "",
-            urlProperty: "",
             ...data?.settings?.events,
           },
         },
@@ -183,30 +174,6 @@ const EditDataSourceSettingsForm: FC<{
               value={datasource.settings?.events?.variationIdProperty}
             />
           </div>
-          <hr />
-          <h4 className="font-weight-bold">Page Views</h4>
-          <div className="form-group">
-            <label>Page Views Event</label>
-            <input
-              type="text"
-              className="form-control"
-              name="pageviewEvent"
-              placeholder="Page view"
-              onChange={onSettingsChange("events")}
-              value={datasource.settings?.events?.pageviewEvent || ""}
-            />
-          </div>
-          <div className="form-group">
-            <label>URL Path Property</label>
-            <input
-              type="text"
-              className="form-control"
-              name="urlProperty"
-              placeholder="path"
-              onChange={onSettingsChange("events")}
-              value={datasource.settings?.events?.urlProperty || ""}
-            />
-          </div>
         </div>
       )}
       {datasource?.properties?.queryLanguage === "sql" && (
@@ -236,13 +203,6 @@ const EditDataSourceSettingsForm: FC<{
   context_location_country as country
 FROM
   experiment_viewed`,
-                        pageviewsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  path as url
-FROM
-  pages`,
                       },
                     },
                   });
@@ -329,46 +289,6 @@ FROM
               </div>
             </div>
           </div>
-
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Pageviews SQL</label>
-                <TextareaAutosize
-                  required
-                  className="form-control"
-                  name="pageviewsQuery"
-                  onChange={onSettingsChange("queries")}
-                  value={datasource.settings?.queries?.pageviewsQuery}
-                  minRows={8}
-                  maxRows={20}
-                />
-                <small className="form-text text-muted">
-                  Used to predict running time before an experiment starts.
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">
-                One row per page view. Required column names:
-              </div>
-              <ul>
-                <li>
-                  <code>user_id</code>
-                </li>
-                <li>
-                  <code>anonymous_id</code>
-                </li>
-                <li>
-                  <code>timestamp</code>
-                </li>
-                <li>
-                  <code>url</code>
-                </li>
-              </ul>
-            </div>
-          </div>
-
           <div className="row mb-3">
             <div className="col">
               <Field

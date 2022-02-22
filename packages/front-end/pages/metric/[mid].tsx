@@ -513,36 +513,34 @@ const MetricPage: FC = () => {
                             <div className="col-auto">
                               <h5>Metric Over Time</h5>
                             </div>
-                            {analysis.dates?.[0]?.u > 0 && (
-                              <div className="col-auto">
-                                <a
-                                  className={clsx("badge badge-pill mr-2", {
-                                    "badge-light": groupby === "week",
-                                    "badge-primary": groupby === "day",
-                                  })}
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setGroupby("day");
-                                  }}
-                                >
-                                  day
-                                </a>
-                                <a
-                                  className={clsx("badge badge-pill", {
-                                    "badge-light": groupby === "day",
-                                    "badge-primary": groupby === "week",
-                                  })}
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setGroupby("week");
-                                  }}
-                                >
-                                  week
-                                </a>
-                              </div>
-                            )}
+                            <div className="col-auto">
+                              <a
+                                className={clsx("badge badge-pill mr-2", {
+                                  "badge-light": groupby === "week",
+                                  "badge-primary": groupby === "day",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("day");
+                                }}
+                              >
+                                day
+                              </a>
+                              <a
+                                className={clsx("badge badge-pill", {
+                                  "badge-light": groupby === "day",
+                                  "badge-primary": groupby === "week",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("week");
+                                }}
+                              >
+                                week
+                              </a>
+                            </div>
                           </div>
 
                           <DateGraph

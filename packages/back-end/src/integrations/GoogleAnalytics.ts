@@ -73,7 +73,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
-    // TODO: support segments and url regex
+    // TODO: support segments
     return JSON.stringify(
       {
         viewId: this.params.viewId,
@@ -146,7 +146,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
         dates.push({
           date,
-          users,
           count,
           mean,
           stddev,

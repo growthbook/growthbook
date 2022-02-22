@@ -115,14 +115,6 @@ datasources:
             variation_id
           FROM
             experiment_viewed
-        pageviewsQuery: >
-          SELECT
-            user_id,
-            anonymous_id,
-            received_at as timestamp,
-            path as url
-          FROM
-            pages
 metrics:
   signups:
     type: binomial
@@ -260,16 +252,6 @@ settings:
         variation_id
       FROM
         experiment_viewed
-    # This query returns one row for every page view on your site
-    # It is used to predict running times before you start an experiment
-    pageviewsQuery: >
-      SELECT
-        user_id,
-        anonymous_id,
-        received_at as timestamp,
-        path as url
-      FROM
-        pages
   # Used when exporting experiment results to a Jupyter notebook
   # Define a `runQuery(sql)` function that returns a pandas data frame
   notebookRunQuery: >
@@ -299,8 +281,6 @@ settings:
     experimentEvent: Viewed Experiment
     experimentIdProperty: experiment_id
     variationIdProperty: variation_id
-    pageviewEvent: Page View
-    urlProperty: url
 ```
 
 ### Metrics

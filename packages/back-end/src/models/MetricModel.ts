@@ -59,7 +59,6 @@ const metricSchema = new mongoose.Schema({
   analysis: {
     createdAt: Date,
     segment: String,
-    users: Number,
     average: Number,
     stddev: Number,
     count: Number,
@@ -76,7 +75,7 @@ const metricSchema = new mongoose.Schema({
         d: Date,
         v: Number,
         s: Number,
-        u: Number,
+        c: Number,
       },
     ],
   },

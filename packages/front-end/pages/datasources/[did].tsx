@@ -10,10 +10,7 @@ import DataSourceForm from "../../components/Settings/DataSourceForm";
 import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
-import {
-  getExperimentQuery,
-  getPageviewsQuery,
-} from "../../services/datasources";
+import { getExperimentQuery } from "../../services/datasources";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
@@ -176,11 +173,6 @@ const growthbook = new GrowthBook({
   }
 })
 
-// On page view (or similar event)
-mixpanel.track(${JSON.stringify(d.settings.events.pageviewEvent)}, {
-  ${quotePropertyName(d.settings.events.urlProperty)}: location.pathname
-})
-
 // When Mixpanel loads, pass the distinct_id into the SDK
 mixpanel.init('YOUR PROJECT TOKEN', {
   loaded: function(mixpanel) {
@@ -228,27 +220,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 )}
               </div>
               <div className="mb-4">
-                <h3>Pageviews Query</h3>
-                <div>
-                  Returns all historical browsing activity on your website or
-                  app -{" "}
-                  <em className="text-muted">
-                    which pages/screens did each user view and when
-                  </em>
-                </div>
-                <div className="mt-2">
-                  This is used to predict ahead of time how much traffic an
-                  experiment will get and how long it will take to finish.
-                </div>
-                <Code
-                  language="sql"
-                  code={getPageviewsQuery(
-                    d.settings,
-                    (d.params as PostgresConnectionParams)?.defaultSchema
-                  )}
-                />
-              </div>
-              <div className="mb-4">
                 <h3>Jupyter Notebook Query Runner</h3>
                 <div>
                   Defines a Python <code>runQuery</code> function that executes
@@ -261,7 +232,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 <Code
                   code={
                     d.settings?.notebookRunQuery ||
-                    "def runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
+                    "import pandas as pd\n\ndef runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
                   }
                   language="python"
                 />

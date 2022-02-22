@@ -24,8 +24,8 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
   d: Date | number;
   v: number;
-  u?: number;
   s?: number;
+  c?: number;
 }
 
 function addStddev(
@@ -100,18 +100,18 @@ const DateGraph: FC<{
             dates: {
               key: number;
               total: number;
-              users: number;
               stddev: number;
+              count: number;
             }[],
-            { d, v, u, s }
+            { d, v, s, c }
           ) => {
             const key = (groupby === "day"
               ? getValidDate(d)
               : setDay(getValidDate(d), 0)
             ).getTime();
 
-            const users = u || 1;
-            const total = v * users;
+            const count = c || 1;
+            const total = v * count;
             const stddev = s;
 
             for (let i = 0; i < dates.length; i++) {
@@ -120,12 +120,12 @@ const DateGraph: FC<{
                 clone[i] = {
                   key,
                   total: dates[i].total + total,
-                  users: dates[i].users + users,
+                  count: dates[i].count + count,
                   stddev: correctStddev(
-                    dates[i].users,
-                    dates[i].total / dates[i].users,
+                    dates[i].count,
+                    dates[i].total / dates[i].count,
                     dates[i].stddev,
-                    users,
+                    count,
                     v,
                     stddev
                   ),
@@ -139,7 +139,7 @@ const DateGraph: FC<{
               {
                 key,
                 total,
-                users,
+                count,
                 stddev,
               },
             ];
@@ -149,9 +149,9 @@ const DateGraph: FC<{
         .map((row) => {
           return {
             d: row.key,
-            v: row.total / row.users,
+            v: row.total / row.count,
             s: row.stddev,
-            u: row.users,
+            c: row.count,
           };
         }),
     [dates, groupby]
@@ -180,11 +180,6 @@ const DateGraph: FC<{
         {type !== "binomial" && "s" in d && (
           <div className={styles.secondary}>
             &sigma;: {formatConversionRate(type, d.s)}
-          </div>
-        )}
-        {"u" in d && (
-          <div className={styles.secondary}>
-            <em>n</em>: {d.u.toLocaleString()}
           </div>
         )}
         <div className={styles.date}>{date(d.d as Date)}</div>

@@ -142,10 +142,6 @@ We query Mixpanel using JQL. We have sensible defaults for the event and propert
   - **Variation Id Format** - What format the variation id is stored in.
     1.  Numeric (0 = control, 1 = variation 1, etc.)
     2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
-- Page Views
-  - **Page Views Event** - the name of the event you are firing for every page view on your site
-  - **URL Path Property** - in the event, the property name that stores the URL path for the pageview
-  - **User Agent Property** - In the event, the property name that stores the user agent for the pageview
 
 Below is an example of what your Mixpanel tracking call would look like in Javascript using our default settings:
 
@@ -159,11 +155,6 @@ const growthbook = new GrowthBook({
       "Variant name":  result.variationId
     })
   }
-})
-
-// On page view (or similar event)
-mixpanel.track("Page view", {
-  "$current_url": location.pathname
 })
 ```
 

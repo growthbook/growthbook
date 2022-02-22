@@ -14,12 +14,11 @@ export interface MetricStats {
 export interface MetricAnalysis {
   createdAt: Date;
   segment?: string;
-  users: number;
   average: number;
   stddev?: number;
   count?: number;
   percentiles: { p: number; v: number }[];
-  dates: { d: Date; v: number; s?: number; u?: number }[];
+  dates: { d: Date; v: number; s?: number; c?: number }[];
 }
 
 export interface Condition {

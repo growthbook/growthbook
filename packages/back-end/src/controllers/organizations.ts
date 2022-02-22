@@ -923,8 +923,6 @@ export async function postDataSources(
       experimentEvent: "$experiment_started",
       experimentIdProperty: "Experiment name",
       variationIdProperty: "Variant name",
-      pageviewEvent: "Page view",
-      urlProperty: "$current_url",
       ...settings?.events,
     };
 
@@ -939,13 +937,6 @@ export async function postDataSources(
   variation_id
 FROM
   ${schema ? schema + "." : ""}experiment_viewed`,
-      pageviewsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  path as url
-FROM
-  ${schema ? schema + "." : ""}pages`,
       ...settings?.queries,
     };
 
