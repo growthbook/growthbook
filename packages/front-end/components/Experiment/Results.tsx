@@ -18,6 +18,7 @@ import ExperimentReportsList from "./ExperimentReportsList";
 import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";
 import FilterSummary from "./FilterSummary";
+import VariationIdWarning from "./VariationIdWarning";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -174,21 +175,63 @@ const Results: FC<{
           </button>
         </div>
       )}
-      {!hasData && status !== "running" && experiment.metrics.length > 0 && (
-        <div className="alert alert-info m-3">
-          No data yet.{" "}
-          {snapshot &&
-            phaseAgeMinutes >= 120 &&
-            "Make sure your experiment is tracking properly."}
-          {snapshot &&
-            phaseAgeMinutes < 120 &&
-            "It was just started " +
-              ago(experiment.phases[phase].dateStarted) +
-              ". Give it a little longer and click the 'Update' button above to check again."}
-          {!snapshot &&
-            permissions.runExperiments &&
-            `Click the "Update" button above.`}
-        </div>
+      {!hasData &&
+        !snapshot?.unknownVariations?.length &&
+        status !== "running" &&
+        experiment.metrics.length > 0 && (
+          <div className="alert alert-info m-3">
+            No data yet.{" "}
+            {snapshot &&
+              phaseAgeMinutes >= 120 &&
+              "Make sure your experiment is tracking properly."}
+            {snapshot &&
+              phaseAgeMinutes < 120 &&
+              "It was just started " +
+                ago(experiment.phases[phase].dateStarted) +
+                ". Give it a little longer and click the 'Update' button above to check again."}
+            {!snapshot &&
+              permissions.runExperiments &&
+              `Click the "Update" button above.`}
+          </div>
+        )}
+      {!snapshot.dimension && (
+        <VariationIdWarning
+          unknownVariations={snapshot.unknownVariations || []}
+          isUpdating={status === "running"}
+          results={snapshot.results?.[0]}
+          variations={variations}
+          setVariationIds={async (ids) => {
+            // Don't do anything if the query is currently running
+            if (status === "running") {
+              throw new Error("Cancel running query first");
+            }
+
+            // Update variation ids
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({
+                variations: experiment.variations.map((v, i) => {
+                  return {
+                    ...v,
+                    key: ids[i] ?? v.key,
+                  };
+                }),
+              }),
+            });
+
+            // Fetch results again
+            await apiCall(`/experiment/${experiment.id}/snapshot`, {
+              method: "POST",
+              body: JSON.stringify({
+                phase,
+                dimension,
+              }),
+            });
+
+            mutateExperiment();
+            mutate();
+          }}
+        />
       )}
       {hasData &&
         snapshot.dimension &&
@@ -231,42 +274,9 @@ const Results: FC<{
             results={snapshot.results?.[0]}
             status={experiment.status}
             startDate={phaseObj?.dateStarted}
-            unknownVariations={snapshot.unknownVariations || []}
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
-            isUpdating={status === "running"}
             editMetrics={editMetrics}
-            setVariationIds={async (ids) => {
-              // Don't do anything if the query is currently running
-              if (status === "running") {
-                throw new Error("Cancel running query first");
-              }
-
-              // Update variation ids
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({
-                  variations: experiment.variations.map((v, i) => {
-                    return {
-                      ...v,
-                      key: ids[i] ?? v.key,
-                    };
-                  }),
-                }),
-              });
-
-              // Fetch results again
-              await apiCall(`/experiment/${experiment.id}/snapshot`, {
-                method: "POST",
-                body: JSON.stringify({
-                  phase,
-                  dimension,
-                }),
-              });
-
-              mutateExperiment();
-              mutate();
-            }}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">
