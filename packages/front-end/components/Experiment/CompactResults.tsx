@@ -17,10 +17,8 @@ import { ExperimentStatus } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
-  isUpdating?: boolean;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
-  unknownVariations: string[];
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
   reportDate: Date;
@@ -29,12 +27,9 @@ const CompactResults: FC<{
   status: ExperimentStatus;
   metrics: string[];
   id: string;
-  setVariationIds?: (ids: string[]) => Promise<void>;
 }> = ({
   results,
   variations,
-  isUpdating,
-  unknownVariations,
   multipleExposures,
   editMetrics,
   reportDate,
@@ -43,7 +38,6 @@ const CompactResults: FC<{
   isLatestPhase,
   metrics,
   id,
-  setVariationIds,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -73,13 +67,7 @@ const CompactResults: FC<{
   return (
     <>
       <div className="px-3">
-        <DataQualityWarning
-          results={results}
-          unknownVariations={unknownVariations}
-          variations={variations}
-          isUpdating={isUpdating}
-          setVariationIds={setVariationIds}
-        />
+        <DataQualityWarning results={results} variations={variations} />
         <MultipleExposureWarning
           users={users}
           multipleExposures={multipleExposures}

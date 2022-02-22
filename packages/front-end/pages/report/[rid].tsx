@@ -28,6 +28,7 @@ import { useForm } from "react-hook-form";
 import Tooltip from "../../components/Tooltip";
 import { date } from "../../services/dates";
 import useUser from "../../hooks/useUser";
+import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -248,6 +249,7 @@ export default function ReportPage() {
               </div>
             )}
             {!hasData &&
+              !report.results.unknownVariations?.length &&
               status !== "running" &&
               report.args.metrics.length > 0 && (
                 <div className="alert alert-info">
@@ -288,6 +290,33 @@ export default function ReportPage() {
                 key={report.args.dimension}
               />
             ))}
+          {!report.args.dimension && (
+            <VariationIdWarning
+              unknownVariations={report.results?.unknownVariations || []}
+              isUpdating={status === "running"}
+              setVariationIds={async (ids) => {
+                const args: ExperimentReportArgs = {
+                  ...report.args,
+                  variations: report.args.variations.map((v, i) => {
+                    return {
+                      ...v,
+                      id: ids[i] ?? v.id,
+                    };
+                  }),
+                };
+
+                await apiCall(`/report/${report.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    args,
+                  }),
+                });
+                mutate();
+              }}
+              variations={variations}
+              results={report.results?.dimensions?.[0]}
+            />
+          )}
           {hasData && !report.args.dimension && (
             <>
               <CompactResults
@@ -298,29 +327,8 @@ export default function ReportPage() {
                 results={report.results?.dimensions?.[0]}
                 status={"stopped"}
                 startDate={getValidDate(report.args.startDate).toISOString()}
-                unknownVariations={report.results?.unknownVariations || []}
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
-                isUpdating={status === "running"}
-                setVariationIds={async (ids) => {
-                  const args: ExperimentReportArgs = {
-                    ...report.args,
-                    variations: report.args.variations.map((v, i) => {
-                      return {
-                        ...v,
-                        id: ids[i] ?? v.id,
-                      };
-                    }),
-                  };
-
-                  await apiCall(`/report/${report.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      args,
-                    }),
-                  });
-                  mutate();
-                }}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mb-3 p-3">
