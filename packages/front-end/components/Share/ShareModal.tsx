@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import { useState } from "react";
@@ -198,6 +198,26 @@ const ShareModal = ({
       sharable: existing?.sharable || true,
     },
   });
+
+  useEffect(() => {
+    if (existing?.slides) {
+      const newVal = {
+        ...form.getValues(),
+        title: existing?.title || "A/B Test Review",
+        description: existing?.description || date(new Date()),
+        theme: existing?.theme || defaultTheme,
+        customTheme: existing?.customTheme || {
+          backgroundColor: "#3400a3",
+          textColor: "#ffffff",
+          headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+          bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+        },
+        slides: existing?.slides || [],
+        sharable: existing?.sharable || true,
+      };
+      form.reset(newVal);
+    }
+  }, [existing?.slides]);
 
   const {
     list: experiments,
