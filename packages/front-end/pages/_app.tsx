@@ -12,7 +12,6 @@ import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
-import * as Sentry from "@sentry/react";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
@@ -27,12 +26,6 @@ const growthbook = new GrowthBook({
     });
   },
 });
-
-if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  });
-}
 
 function App({
   Component,
