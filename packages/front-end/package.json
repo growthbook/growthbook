@@ -15,6 +15,7 @@
     "@growthbook/growthbook-react": "^0.8.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
+    "@sentry/react": "^6.17.9",
     "@visx/axis": "^2.1.0",
     "@visx/curve": "^2.1.0",
     "@visx/grid": "^2.1.0",
