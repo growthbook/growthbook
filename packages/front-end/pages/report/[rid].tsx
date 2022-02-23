@@ -290,7 +290,7 @@ export default function ReportPage() {
                 key={report.args.dimension}
               />
             ))}
-          {!report.args.dimension && (
+          {report.results && !report.args.dimension && (
             <VariationIdWarning
               unknownVariations={report.results?.unknownVariations || []}
               isUpdating={status === "running"}

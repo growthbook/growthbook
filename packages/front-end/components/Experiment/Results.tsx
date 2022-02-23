@@ -194,7 +194,7 @@ const Results: FC<{
               `Click the "Update" button above.`}
           </div>
         )}
-      {!snapshot.dimension && (
+      {snapshot && !snapshot.dimension && (
         <VariationIdWarning
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
