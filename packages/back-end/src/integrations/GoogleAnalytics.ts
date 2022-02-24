@@ -1,7 +1,6 @@
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
-  ImpactEstimationResult,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
@@ -195,10 +194,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       refresh_token: this.params.refreshToken,
     });
     return client;
-  }
-
-  async getImpactEstimation(): Promise<ImpactEstimationResult> {
-    throw new Error("Not implemented for GA");
   }
 
   getExperimentResultsQuery(

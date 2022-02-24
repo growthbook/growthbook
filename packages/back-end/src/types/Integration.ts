@@ -33,12 +33,6 @@ export type ExperimentQueryResponses = {
   metrics: VariationMetricResult[];
 }[];
 
-export interface ImpactEstimationResult {
-  query: string;
-  metricTotal: number;
-  value: number;
-}
-
 export type UserDimension = {
   type: "user";
   dimension: DimensionInterface;
@@ -161,10 +155,6 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
-  getImpactEstimation(
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

@@ -5,8 +5,7 @@ export interface ImpactEstimateInterface {
   organization: string;
   metric: string;
   segment?: string;
-  metricTotal: number;
-  value: number;
+  conversionsPerDay: number;
   query: string;
   queryLanguage: QueryLanguage;
   dateCreated: Date;

@@ -6,13 +6,11 @@ import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
 import { MetricInterface } from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
-  ImpactEstimationResult,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -20,7 +18,6 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../services/queries";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
@@ -307,68 +304,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
       dimensions: true,
       hasSettings: true,
       events: true,
-    };
-  }
-
-  async getImpactEstimation(
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult> {
-    const numDays = 30;
-
-    const conversionWindowHours =
-      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-
-    // Ignore last X hours of data since we need to give people time to convert
-    const end = new Date();
-    end.setHours(end.getHours() - conversionWindowHours);
-    const start = new Date();
-    start.setDate(start.getDate() - numDays);
-    start.setHours(start.getHours() - conversionWindowHours);
-
-    const baseSettings = {
-      from: start,
-      to: end,
-      includeByDate: false,
-      userIdType: metric.userIdType || "either",
-      conversionWindowHours,
-    };
-
-    const metricQuery = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Entire Site",
-      metric,
-    });
-    const valueQuery = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Selected Pages and Segment",
-      metric,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
-    });
-
-    const [metricTotalResponse, valueResponse] = await Promise.all([
-      this.runMetricValueQuery(metricQuery),
-      this.runMetricValueQuery(valueQuery),
-    ]);
-
-    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
-    const value = processMetricValueQueryResponse(valueResponse);
-
-    const formatted = [metricQuery, valueQuery].join("\n\n\n") + ";";
-
-    if (metricTotal && value) {
-      return {
-        query: formatted,
-        value: (value.count * value.mean) / numDays || 0,
-        metricTotal: (metricTotal.count * metricTotal.mean) / numDays || 0,
-      };
-    }
-
-    return {
-      query: formatted,
-      value: 0,
-      metricTotal: 0,
     };
   }
 

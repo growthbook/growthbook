@@ -47,7 +47,12 @@ export async function getEstimatedImpact(
   const { metric, segment } = req.body;
 
   const { org } = getOrgFromReq(req);
-  const estimate = await getImpactEstimate(org.id, metric, segment);
+  const estimate = await getImpactEstimate(
+    org.id,
+    metric,
+    org.settings?.metricAnalysisDays || 30,
+    segment
+  );
 
   res.status(200).json({
     status: 200,
@@ -60,7 +65,7 @@ export async function postEstimatedImpactManual(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { value, metricTotal, metric } = req.body;
+  const { conversionsPerDay, metric } = req.body;
 
   if (!metric) {
     throw new Error("Missing required metric.");
@@ -69,8 +74,7 @@ export async function postEstimatedImpactManual(
   const estimate = await createImpactEstimate({
     organization: org.id,
     metric,
-    value,
-    metricTotal,
+    conversionsPerDay,
   });
 
   res.status(200).json({

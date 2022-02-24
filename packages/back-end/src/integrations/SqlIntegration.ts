@@ -4,7 +4,6 @@ import {
   DataSourceProperties,
 } from "../../types/datasource";
 import {
-  ImpactEstimationResult,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -18,9 +17,7 @@ import {
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
-import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
 
 // Replace `{{startDate}}` and `{{endDate}}` in SQL queries
@@ -437,66 +434,6 @@ export default abstract class SqlIntegration
   getFormatOptions(): FormatOptions {
     return {
       language: "redshift",
-    };
-  }
-
-  async getImpactEstimation(
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult> {
-    const numDays = 30;
-
-    const conversionWindowHours =
-      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-
-    // Ignore last X hours of data since we need to give people time to convert
-    const end = new Date();
-    end.setHours(end.getHours() - conversionWindowHours);
-    const start = new Date();
-    start.setDate(start.getDate() - numDays);
-    start.setHours(start.getHours() - conversionWindowHours);
-
-    const baseSettings = {
-      from: start,
-      to: end,
-      includeByDate: false,
-      userIdType: metric.userIdType || "either",
-      conversionWindowHours,
-    };
-
-    const metricSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Entire Site",
-      metric,
-    });
-    const valueSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Selected Pages and Segment",
-      metric,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
-    });
-
-    const [metricTotalResponse, valueResponse]: [
-      MetricValueQueryResponse,
-      MetricValueQueryResponse
-    ] = await Promise.all([
-      this.runMetricValueQuery(metricSql),
-      this.runMetricValueQuery(valueSql),
-    ]);
-
-    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
-    const value = processMetricValueQueryResponse(valueResponse);
-
-    const formatted =
-      [metricSql, valueSql]
-        .map((sql) => format(sql, this.getFormatOptions()))
-        .join(";\n\n") + ";";
-
-    return {
-      query: formatted,
-      value: (value.count * value.mean) / numDays,
-      metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
     };
   }
 

@@ -6,14 +6,15 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { SegmentModel } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
+import { processMetricValueQueryResponse } from "../services/queries";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
   organization: String,
   metric: String,
   segment: String,
-  metricTotal: Number,
-  value: Number,
+  conversionsPerDay: Number,
   query: String,
   queryLanguage: String,
   dateCreated: Date,
@@ -43,25 +44,9 @@ export async function createImpactEstimate(
 export async function getImpactEstimate(
   organization: string,
   metric: string,
+  numDays: number,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  // Only re-use estimates that happened within the last 30 days
-  const lastDate = new Date();
-  lastDate.setDate(lastDate.getDate() - 30);
-
-  const existing = await ImpactEstimateModel.findOne({
-    organization,
-    metric,
-    segment: segment || undefined,
-    dateCreated: {
-      $gt: lastDate,
-    },
-  });
-
-  if (existing) {
-    return existing;
-  }
-
   const metricObj = await getMetricById(metric, organization);
   if (!metricObj) {
     throw new Error("Metric not found");
@@ -90,18 +75,43 @@ export async function getImpactEstimate(
 
   const integration = getSourceIntegrationObject(datasource);
 
-  const data = await integration.getImpactEstimation(
-    metricObj,
-    segmentObj || undefined
-  );
+  const conversionWindowHours =
+    metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+
+  // Ignore last X hours of data since we need to give people time to convert
+  const end = new Date();
+  end.setHours(end.getHours() - conversionWindowHours);
+  const start = new Date();
+  start.setDate(start.getDate() - numDays);
+  start.setHours(start.getHours() - conversionWindowHours);
+
+  const query = integration.getMetricValueQuery({
+    from: start,
+    to: end,
+    userIdType: metricObj.userIdType || "either",
+    name: "Metric Value",
+    metric: metricObj,
+    includeByDate: true,
+    segmentQuery: segmentObj?.sql,
+    segmentName: segmentObj?.name,
+  });
+
+  const queryResponse = await integration.runMetricValueQuery(query);
+  const value = processMetricValueQueryResponse(queryResponse);
+
+  let daysWithData = numDays;
+  if (value.dates && value.dates.length > 0) {
+    daysWithData = value.dates.length;
+  }
+
+  const conversionsPerDay = value.count / daysWithData;
 
   return createImpactEstimate({
     organization,
     metric,
     segment: segment || undefined,
-    value: data.value,
-    metricTotal: data.metricTotal,
-    query: data.query,
+    conversionsPerDay: conversionsPerDay,
+    query: query,
     queryLanguage: integration.getSourceProperties().queryLanguage,
   });
 }

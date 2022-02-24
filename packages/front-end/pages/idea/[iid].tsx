@@ -409,8 +409,11 @@ const IdeaPage = (): ReactElement => {
                     <RightRailSectionGroup title="Metric" type="badge">
                       {getMetricById(estimate?.metric)?.name}
                     </RightRailSectionGroup>
-                    <RightRailSectionGroup title="URLs" type="code">
-                      {estimate?.regex || ".*"}
+                    <RightRailSectionGroup
+                      title="Percent of Traffic"
+                      type="code"
+                    >
+                      {idea?.estimateParams?.userAdjustment || "100"}%
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Number of Variations"
@@ -473,7 +476,6 @@ const IdeaPage = (): ReactElement => {
             description: idea.details,
             tags: idea.tags,
             project: idea.project || "",
-            targetURLRegex: data?.estimate?.regex || "",
             datasource: data?.estimate?.metric
               ? getMetricById(data?.estimate?.metric)?.datasource
               : undefined,
