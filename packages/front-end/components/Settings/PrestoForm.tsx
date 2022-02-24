@@ -72,7 +72,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="password"
-          required={!existing}
           value={params.password || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
