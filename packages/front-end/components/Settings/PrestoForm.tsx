@@ -72,7 +72,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="password"
-          required={!existing}
           value={params.password || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
@@ -84,7 +83,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="catalog"
-          required
           value={params.catalog || ""}
           onChange={onParamChange}
         />
@@ -95,7 +93,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="schema"
-          required
           value={params.schema || ""}
           onChange={onParamChange}
         />
