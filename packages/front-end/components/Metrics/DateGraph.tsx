@@ -166,21 +166,29 @@ const DateGraph: FC<{
     );
     const d = data[index];
     const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
-    const y = yScale(d.v) ?? 0;
+    const y = yScale(type === "binomial" ? d.c : d.v) ?? 0;
     return { x, y, d };
   };
 
   const getTooltipContents = (d: Datapoint) => {
     return (
       <>
-        <div className={styles.val}>
-          {type !== "binomial" && <span>&mu;: </span>}
-          {formatConversionRate(type, d.v as number)}
-        </div>
-        {type !== "binomial" && "s" in d && (
-          <div className={styles.secondary}>
-            &sigma;: {formatConversionRate(type, d.s)}
-          </div>
+        {type === "binomial" ? (
+          <div className={styles.val}>{d.c.toLocaleString()}</div>
+        ) : (
+          <>
+            <div className={styles.val}>
+              &mu;: {formatConversionRate(type, d.v as number)}
+            </div>
+            {"s" in d && (
+              <div className={styles.secondary}>
+                &sigma;: {formatConversionRate(type, d.s)}
+              </div>
+            )}
+            <div className={styles.secondary}>
+              <em>n</em>: {d.c.toLocaleString()}
+            </div>
+          </>
         )}
         <div className={styles.date}>{date(d.d as Date)}</div>
       </>
@@ -330,7 +338,11 @@ const DateGraph: FC<{
           domain: [
             0,
             Math.max(
-              ...data.map((d) => Math.min(d.v * 2, d.v + (d.s ?? 0) * 2))
+              ...data.map((d) =>
+                type === "binomial"
+                  ? d.c
+                  : Math.min(d.v * 2, d.v + (d.s ?? 0) * 2)
+              )
             ),
           ],
           range: [graphHeight, 0],
@@ -453,7 +465,7 @@ const DateGraph: FC<{
                 <LinePath
                   data={data}
                   x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(d.v) ?? 0}
+                  y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
                   stroke={"#8884d8"}
                   strokeWidth={2}
                   curve={curveMonotoneX}
@@ -470,7 +482,11 @@ const DateGraph: FC<{
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
-                  tickFormat={(v) => formatConversionRate(type, v as number)}
+                  tickFormat={(v) =>
+                    type === "binomial"
+                      ? (v as number).toLocaleString()
+                      : formatConversionRate(type, v as number)
+                  }
                 />
               </Group>
               {experiments && (

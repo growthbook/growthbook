@@ -304,7 +304,7 @@ export function processMetricValueQueryResponse(
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 
   rows.forEach((row) => {
-    const { date, count, mean, stddev, ...percentiles } = row;
+    const { date, count, mean, stddev } = row;
 
     // Row for each date
     if (date) {
@@ -321,13 +321,6 @@ export function processMetricValueQueryResponse(
       ret.count = count;
       ret.mean = mean;
       ret.stddev = stddev;
-
-      if (percentiles) {
-        Object.keys(percentiles).forEach((p) => {
-          ret.percentiles = ret.percentiles || {};
-          ret.percentiles[p.replace(/^p/, "")] = percentiles[p];
-        });
-      }
     }
   });
 

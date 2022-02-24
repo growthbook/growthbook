@@ -23,22 +23,6 @@ import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
 
-const percentileNumbers = [
-  0.01,
-  0.05,
-  0.1,
-  0.2,
-  0.3,
-  0.4,
-  0.5,
-  0.6,
-  0.7,
-  0.8,
-  0.9,
-  0.95,
-  0.99,
-];
-
 // Replace `{{startDate}}` and `{{endDate}}` in SQL queries
 function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   // If there's no end date, use a near future date by default
@@ -333,14 +317,14 @@ export default abstract class SqlIntegration
         })}
         ${
           params.segmentQuery
-            ? `, segment as (${this.getSegmentCTE(
+            ? `segment as (${this.getSegmentCTE(
                 params.segmentQuery,
                 params.segmentName || "",
                 userId
-              )})`
+              )}),`
             : ""
         }
-        , __metric as (${this.getMetricCTE({
+        __metric as (${this.getMetricCTE({
           metric: params.metric,
           userId,
           startDate: metricStart,
@@ -365,18 +349,6 @@ export default abstract class SqlIntegration
             COUNT(*) as count,
             ${this.avg("value")} as mean,
             ${this.stddev("value")} as stddev
-            ${
-              params.includePercentiles && params.metric.type !== "binomial"
-                ? `,${percentileNumbers
-                    .map(
-                      (n) =>
-                        `${this.percentile("value", n)} as p${Math.floor(
-                          n * 100
-                        )}`
-                    )
-                    .join("\n      ,")}`
-                : ""
-            }
           from
             __userMetric
         )
@@ -400,13 +372,6 @@ export default abstract class SqlIntegration
               COUNT(*) as count,
               ${this.avg("value")} as mean,
               ${this.stddev("value")} as stddev
-              ${
-                params.includePercentiles && params.metric.type !== "binomial"
-                  ? `,${percentileNumbers
-                      .map((n) => `0 as p${Math.floor(n * 100)}`)
-                      .join("\n      ,")}`
-                  : ""
-              }
             FROM
               __userMetricDates d
             GROUP BY
@@ -456,7 +421,7 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, stddev, ...percentiles } = row;
+      const { date, count, mean, stddev } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
@@ -464,12 +429,6 @@ export default abstract class SqlIntegration
         mean: parseFloat(mean) || 0,
         stddev: parseFloat(stddev) || 0,
       };
-
-      if (percentiles) {
-        Object.keys(percentiles).forEach((p) => {
-          ret[p] = parseFloat(percentiles[p]) || 0;
-        });
-      }
 
       return ret;
     });
@@ -509,13 +468,11 @@ export default abstract class SqlIntegration
       ...baseSettings,
       name: "Metric Value - Entire Site",
       metric,
-      includePercentiles: false,
     });
     const valueSql = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Selected Pages and Segment",
       metric,
-      includePercentiles: false,
       segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });

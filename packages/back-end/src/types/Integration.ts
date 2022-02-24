@@ -82,7 +82,6 @@ export type MetricValueParams = {
   segmentQuery?: string;
   segmentName?: string;
   includeByDate?: boolean;
-  includePercentiles?: boolean;
 };
 
 export type MetricValueResultDate = {
@@ -96,9 +95,6 @@ export type MetricValueResult = {
   count: number;
   stddev: number;
   mean: number;
-  percentiles?: {
-    [key: string]: number;
-  };
   dates?: MetricValueResultDate[];
 };
 
@@ -117,8 +113,6 @@ export type MetricValueQueryResponseRow = {
   count: number;
   mean: number;
   stddev: number;
-  // eslint-disable-next-line
-  [percentile: string]: any;
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {

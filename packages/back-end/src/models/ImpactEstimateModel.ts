@@ -3,7 +3,6 @@ import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import uniqid from "uniqid";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
-import { QueryLanguage } from "../../types/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { SegmentModel } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
@@ -12,10 +11,8 @@ const impactEstimateSchema = new mongoose.Schema({
   id: String,
   organization: String,
   metric: String,
-  regex: String,
   segment: String,
   metricTotal: Number,
-  users: Number,
   value: Number,
   query: String,
   queryLanguage: String,
@@ -30,27 +27,13 @@ export const ImpactEstimateModel = mongoose.model<ImpactEstimateDocument>(
 );
 
 export async function createImpactEstimate(
-  organization: string,
-  metric: string,
-  segment: string | null,
-  regex: string,
-  value: number,
-  users: number,
-  metricTotal: number,
-  query: string = "",
-  queryLanguage: QueryLanguage = "none"
+  data: Partial<ImpactEstimateInterface>
 ) {
   const doc = await ImpactEstimateModel.create({
+    query: "",
+    queryLanguage: "none",
+    ...data,
     id: uniqid("est_"),
-    organization,
-    metric,
-    segment,
-    regex,
-    users,
-    value,
-    metricTotal,
-    query,
-    queryLanguage,
     dateCreated: new Date(),
   });
 
@@ -60,14 +43,8 @@ export async function createImpactEstimate(
 export async function getImpactEstimate(
   organization: string,
   metric: string,
-  regex: string,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  // Sanity check (no quotes allowed)
-  if (!regex || regex.match(/['"]/g)) {
-    throw new Error("Invalid page regex");
-  }
-
   // Only re-use estimates that happened within the last 30 days
   const lastDate = new Date();
   lastDate.setDate(lastDate.getDate() - 30);
@@ -76,7 +53,6 @@ export async function getImpactEstimate(
     organization,
     metric,
     segment: segment || undefined,
-    regex,
     dateCreated: {
       $gt: lastDate,
     },
@@ -115,20 +91,17 @@ export async function getImpactEstimate(
   const integration = getSourceIntegrationObject(datasource);
 
   const data = await integration.getImpactEstimation(
-    regex,
     metricObj,
     segmentObj || undefined
   );
 
-  return createImpactEstimate(
+  return createImpactEstimate({
     organization,
     metric,
-    segment || null,
-    regex,
-    data.value,
-    data.users,
-    data.metricTotal,
-    data.query,
-    integration.getSourceProperties().queryLanguage
-  );
+    segment: segment || undefined,
+    value: data.value,
+    metricTotal: data.metricTotal,
+    query: data.query,
+    queryLanguage: integration.getSourceProperties().queryLanguage,
+  });
 }

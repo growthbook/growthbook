@@ -94,8 +94,6 @@ Large outliers can have an outsized effect on experiment results. For example, i
 
 If set above zero, all values will be capped at this value. So in the above example, if you set the cap to $100, the $5000 purchase will still be counted, but only as $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own.
 
-We recommend setting this at the 99th percentile in most cases.
-
 ### Conversion Delay
 
 Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, you would set conversion delay to `24` hours..

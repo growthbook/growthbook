@@ -273,14 +273,6 @@ export async function getMetricAnalysis(
     average,
     dates,
     segment: metric.segment || "",
-    percentiles: metricData.percentiles
-      ? Object.keys(metricData.percentiles).map((k) => {
-          return {
-            p: parseInt(k) / 100,
-            v: metricData.percentiles?.[k] || 0,
-          };
-        })
-      : [],
   };
 }
 
@@ -325,7 +317,7 @@ export async function refreshMetric(
     const baseParams = {
       from,
       to,
-      name: "Site-Wide",
+      name: `Last ${days} days`,
       includeByDate: true,
       segmentName,
       segmentQuery,
@@ -342,7 +334,6 @@ export async function refreshMetric(
         metric: getMetricValue(integration, {
           ...baseParams,
           metric,
-          includePercentiles: true,
         }),
       },
       (queryData) => getMetricAnalysis(metric, queryData)

@@ -16,15 +16,11 @@ import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
-import { createIdea } from "../services/ideas";
-import { createImpactEstimate } from "../models/ImpactEstimateModel";
-import { createPresentation } from "../services/presentations";
 import {
   getOrganizationsWithDatasources,
   createDataSource,
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
-import { PresentationSlide } from "../../types/presentation";
 import { processPastExperimentQueryResponse } from "../services/queries";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
@@ -361,48 +357,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       await createSnapshot(exp, 0, org, null);
     })
   );
-
-  // Example idea
-  const estimate = await createImpactEstimate(
-    org.id,
-    signup.id,
-    "",
-    ".*",
-    153.429,
-    1901.71,
-    153.429,
-    "-- Traffic to selected pages\nSELECT\n  COUNT(DISTINCT user_id) as users\nFROM\n  pages\nWHERE\n  received_at >= '2020-11-13 16:26:12'\n  AND received_at <= '2020-11-20 16:26:12'\n  AND path ~ '.*';\n\n-- Entire site: Signup (binomial)\nWITH metric as (\n  SELECT\n    1 as value\n  FROM\n    pages u\n    JOIN signup m ON (\n      m.user_id = u.user_id\n      AND m.received_at >= u.received_at\n      AND m.received_at <= u.received_at + INTERVAL '3 days'\n    )\n  WHERE\n    u.received_at >= '2020-11-13 16:26:12'\n    AND u.received_at <= '2020-11-20 16:26:12'\n  GROUP BY\n    u.user_id\n)\nSELECT\n  SUM(value) as total\nFROM\n  metric;\n\n-- Selected pages only: Signup (binomial)\nWITH metric as (\n  SELECT\n    1 as value\n  FROM\n    pages u\n    JOIN signup m ON (\n      m.user_id = u.user_id\n      AND m.received_at >= u.received_at\n      AND m.received_at <= u.received_at + INTERVAL '3 days'\n    )\n  WHERE\n    u.received_at >= '2020-11-13 16:26:12'\n    AND u.received_at <= '2020-11-20 16:26:12'\n    AND u.path ~ '.*'\n  GROUP BY\n    u.user_id\n)\nSELECT\n  SUM(value) as value\nFROM\n  metric;",
-    "sql"
-  );
-  await createIdea({
-    text: "Add Facebook Login",
-    details: "We saw a huge lift when we added Login with Google",
-    estimateParams: {
-      estimate: estimate.id,
-      improvement: 10,
-      numVariations: 2,
-      userAdjustment: 100,
-    },
-    experimentLength: 18,
-    impactScore: 38,
-    votes: [],
-    tags: [],
-    organization: org.id,
-    userId: "growthbook",
-    userName: "Example User",
-  });
-
-  // Example presentation
-  const exp: PresentationSlide = {
-    id: evidence[0],
-    type: "experiment",
-  };
-  await createPresentation({
-    title: "Example A/B Test Review",
-    slides: [exp],
-    organization: org.id,
-    description: "",
-  });
 
   res.json({
     status: 200,

@@ -62,11 +62,11 @@ const metricSchema = new mongoose.Schema({
     average: Number,
     stddev: Number,
     count: Number,
-    percentiles: [
+    histogram: [
       {
         _id: false,
-        p: Number,
-        v: Number,
+        b: String,
+        c: Number,
       },
     ],
     dates: [

@@ -22,22 +22,6 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../services/queries";
 
-const percentileNumbers = [
-  0.01,
-  0.05,
-  0.1,
-  0.2,
-  0.3,
-  0.4,
-  0.5,
-  0.6,
-  0.7,
-  0.8,
-  0.9,
-  0.95,
-  0.99,
-];
-
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
   params: MixpanelConnectionParams;
@@ -354,13 +338,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ...baseSettings,
       name: "Metric Value - Entire Site",
       metric,
-      includePercentiles: false,
     });
     const valueQuery = this.getMetricValueQuery({
       ...baseSettings,
       name: "Metric Value - Selected Pages and Segment",
       metric,
-      includePercentiles: false,
       segmentQuery: segment?.sql,
       segmentName: segment?.name,
     });
@@ -455,20 +437,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
               };
             }`
               : ""
-          }${
-      params.includePercentiles && metric.type !== "binomial"
-        ? `,
-          // Percentile breakdown
-          mixpanel.reducer.numeric_percentiles(
-            "value.metricValue",
-            ${JSON.stringify(percentileNumbers.map((n) => n * 100))}
-          )`
-        : ""
-    }
+          }
         ])
         // Transform into easy-to-use objects
         .map(vals => vals.map(val => {
-          if(val[0] && val[0].percentile) return {type: "percentile",percentiles:val};
           if(val.count) return {type: "overall", ...val};
           return val;
         }));
@@ -492,13 +464,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
               sum: number | null;
               avg: number | null;
               stddev: number | null;
-            }
-          | {
-              type: "percentile";
-              percentiles: {
-                percentile: number;
-                value: number;
-              }[];
             }
         )[]
       ]
@@ -528,10 +493,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
               mean: count > 0 ? (sum || 0) / count : 0,
               stddev: 0,
             });
-          });
-        } else if (row.type === "percentile") {
-          row.percentiles.forEach(({ percentile, value }) => {
-            overall["p" + percentile] = value;
           });
         }
       });

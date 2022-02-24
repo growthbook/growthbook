@@ -17,7 +17,7 @@ export interface MetricAnalysis {
   average: number;
   stddev?: number;
   count?: number;
-  percentiles: { p: number; v: number }[];
+  histogram?: { b: string; c: number }[];
   dates: { d: Date; v: number; s?: number; c?: number }[];
 }
 
