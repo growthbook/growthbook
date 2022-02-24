@@ -60,12 +60,6 @@ export default class ClickHouse extends SqlIntegration {
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
-  regexMatch(col: string, regex: string) {
-    return `match(${col}, '${regex.replace(/\\/g, "\\\\")}')`;
-  }
-  percentile(col: string, percentile: number) {
-    return `quantile(${percentile})(${col})`;
-  }
   dateTrunc(col: string) {
     return `dateTrunc('day', ${col})`;
   }

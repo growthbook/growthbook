@@ -19,7 +19,7 @@ datasources:
             variation_id,
             context_location_country as country
           FROM
-            experiment_viewed]
+            experiment_viewed
       experimentDimensions:
         - country
 metrics:

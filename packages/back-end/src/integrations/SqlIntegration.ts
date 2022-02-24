@@ -94,7 +94,6 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
-  abstract percentile(col: string, percentile: number): string;
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -159,9 +158,6 @@ export default abstract class SqlIntegration
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
-  }
-  regexMatch(col: string, regex: string) {
-    return `${col} ~ '${regex}'`;
   }
   dateTrunc(col: string) {
     return `date_trunc('day', ${col})`;
