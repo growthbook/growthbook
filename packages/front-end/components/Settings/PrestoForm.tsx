@@ -83,7 +83,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="catalog"
-          required
           value={params.catalog || ""}
           onChange={onParamChange}
         />
@@ -94,7 +93,6 @@ const PrestoForm: FC<{
           type="text"
           className="form-control"
           name="schema"
-          required
           value={params.schema || ""}
           onChange={onParamChange}
         />
