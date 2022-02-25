@@ -25,7 +25,7 @@ To effectively use GrowthBook, you'll need to tell us a little about the shape o
 
 GrowthBook can work with your existing SQL data, no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
 
-GrowthBook just needs one experiment SQL queries plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After defining these base queries and metrics, they can be reused across many experiments.
+GrowthBook just needs one experiment SQL query plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After building out this library of queries, they can easily be reused across many experiments.
 
 Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by GrowthBook result in fewer than 10 rows returned.
 
