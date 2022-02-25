@@ -9,9 +9,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 export default function NewFeatureExperiments() {
   const { project, datasources } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
-  const [expDef, setExpDef] = useState<Partial<ExperimentInterfaceStringDates>>(
-    null
-  );
+  const [
+    expDef,
+    setExpDef,
+  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(null);
   // get a list of all features that do not have an experiment report
   const { data, error } = useApi<{
     features: {
@@ -22,36 +23,32 @@ export default function NewFeatureExperiments() {
     }[];
   }>(`/experiments/newfeatures/?project=${project || ""}`);
 
-  if (!data || error || data?.features?.length === 0 || !datasources.length) {
+  if (!data || error || !data?.features?.length || !datasources.length) {
     return null;
   }
 
   const { feature, partialExperiment } = data.features[0];
 
   return (
-    <div className="mb-3" style={{ maxHeight: "107px", overflowY: "auto" }}>
+    <div className="mb-3">
       <div className="mb-2 alert alert-info py-2">
         <div className="d-flex align-items-center justify-content-between">
           <div>
-            New experiment feature found:{" "}
+            New feature experiment found:{" "}
             <strong>{partialExperiment.trackingKey}</strong> (created{" "}
             {ago(feature.dateCreated)})
           </div>
-          {datasources?.length > 0 ? (
-            <a
-              className="btn btn-info btn-sm"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setExpDef(partialExperiment);
-                setNewExpModal(true);
-              }}
-            >
-              Add experiment report
-            </a>
-          ) : (
-            <span>A data source is required before adding</span>
-          )}
+          <a
+            className="btn btn-info btn-sm"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setExpDef(partialExperiment);
+              setNewExpModal(true);
+            }}
+          >
+            Start Analysis
+          </a>
         </div>
       </div>
       {newExpModal && (

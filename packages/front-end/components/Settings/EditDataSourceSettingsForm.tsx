@@ -65,7 +65,6 @@ const EditDataSourceSettingsForm: FC<{
           },
         },
       };
-      console.log(data, newValue);
       setDatasource(newValue);
     }
   }, [data]);

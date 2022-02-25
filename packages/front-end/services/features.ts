@@ -15,7 +15,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
-import { FeatureUsageRecords } from "../../back-end/types/realtime";
+import { FeatureUsageRecords } from "back-end/types/realtime";
 
 export interface Condition {
   field: string;
