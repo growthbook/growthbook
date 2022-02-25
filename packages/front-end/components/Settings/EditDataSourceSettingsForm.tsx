@@ -5,7 +5,10 @@ import track from "../../services/track";
 import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  IdentityJoinQuery,
+} from "back-end/types/datasource";
 import Field from "../Forms/Field";
 import Code from "../Code";
 
@@ -32,6 +35,16 @@ const EditDataSourceSettingsForm: FC<{
   const { apiCall } = useAuth();
   useEffect(() => {
     if (data && !dirty) {
+      const identityJoins: IdentityJoinQuery[] = [
+        ...data.settings?.queries?.identityJoins,
+      ];
+      if (!identityJoins.length && data.settings?.queries?.pageviewsQuery) {
+        identityJoins.push({
+          ids: ["user_id", "anonymous_id"],
+          query: data.settings.queries.pageviewsQuery,
+        });
+      }
+
       const newValue: FormValue = {
         ...data,
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
@@ -42,6 +55,7 @@ const EditDataSourceSettingsForm: FC<{
               data.settings,
               (data.params as PostgresConnectionParams)?.defaultSchema
             ),
+            identityJoins,
           },
           events: {
             experimentEvent: "",
@@ -51,6 +65,7 @@ const EditDataSourceSettingsForm: FC<{
           },
         },
       };
+      console.log(data, newValue);
       setDatasource(newValue);
     }
   }, [data]);
@@ -90,7 +105,8 @@ const EditDataSourceSettingsForm: FC<{
     onSuccess();
   };
   const setSettings = (
-    settings: { [key: string]: string },
+    // eslint-disable-next-line
+    settings: { [key: string]: any },
     key: "queries" | "events"
   ) => {
     const newVal = {
@@ -203,6 +219,16 @@ const EditDataSourceSettingsForm: FC<{
   context_location_country as country
 FROM
   experiment_viewed`,
+                        identityJoins: [
+                          {
+                            ids: ["user_id", "anonymous_id"],
+                            query: `SELECT
+  user_id,
+  anonymous_id
+FROM
+  identifies`,
+                          },
+                        ],
                       },
                     },
                   });
@@ -287,6 +313,52 @@ FROM
                   use as dimensions to drill down into experiment results.
                 </p>
               </div>
+            </div>
+          </div>
+          <div className="row mb-3">
+            <div className="col">
+              <div className="form-group">
+                <label className="font-weight-bold">
+                  User Id Join Table{" "}
+                  <span style={{ fontWeight: "normal" }}>(optional)</span>
+                </label>
+                <TextareaAutosize
+                  className="form-control"
+                  onChange={(e) => {
+                    setSettings(
+                      {
+                        identityJoins: [
+                          {
+                            ids: ["user_id", "anonymous_id"],
+                            query: e.target.value,
+                          },
+                        ],
+                      },
+                      "queries"
+                    );
+                  }}
+                  value={
+                    datasource.settings?.queries?.identityJoins?.[0]?.query
+                  }
+                  minRows={5}
+                  maxRows={20}
+                />
+                <small className="form-text text-muted">
+                  Used to join between anonymous ids and logged-in user ids when
+                  needed.
+                </small>
+              </div>
+            </div>
+            <div className="col-md-5 col-lg-4">
+              <div className="pt-md-4">Columns to select:</div>
+              <ul>
+                <li>
+                  <code>user_id</code>
+                </li>
+                <li>
+                  <code>anonymous_id</code>
+                </li>
+              </ul>
             </div>
           </div>
           <div className="row mb-3">

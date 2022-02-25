@@ -57,13 +57,23 @@ If you have all of your events in a single denormalized table, the query will be
 
 Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names shown above. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
 
-#### Experiment Dimensions
+##### Experiment Dimensions
 
 In addition to the standard 5 columns above, you can return additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
 
+#### User Id Join Tables
+
+In some cases, we may need a use an additional join table between anonymous ids and logged-in user ids. For example, if an experiment is only running for anonymous users, but the conversion metric table only has logged-in user ids.
+
+This query is very simple and just needs to return 2 columns: `user_id` and `anonymous_id`. Here's an example using Segment's schema:
+
+```sql
+SELECT user_id, anonymous_id FROM identifies
+```
+
 #### SQL Template Variables
 
-Within your experiment query, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+Within your queries, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
 
 For example:
 

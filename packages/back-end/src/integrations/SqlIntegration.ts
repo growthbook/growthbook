@@ -449,38 +449,36 @@ export default abstract class SqlIntegration
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (
-      SELECT
-        user_id,
-        anonymous_id
-      FROM
-        (${replaceDateVars(
-          getExperimentQuery(this.settings, this.getSchema()),
-          from,
-          to
-        )}) i
-      WHERE
-        i.timestamp >= ${this.toTimestamp(from)}
-        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
-      GROUP BY
-        user_id, 
-        anonymous_id
-    ),`;
+    const id1 = userId ? "user_id" : "anonymous_id";
 
+    // See if we need to join to a different type of id
+    let id2 = id1;
     if (metrics) {
       for (let i = 0; i < metrics.length; i++) {
         if (!metrics[i]) continue;
         if (userId && metrics[i]?.userIdType === "anonymous") {
-          return select;
+          id2 = "anonymous_id";
         } else if (!userId && metrics[i]?.userIdType === "user") {
-          return select;
+          id2 = "user_id";
         }
       }
     }
-    if (dimension && !userId) return select;
-    if (segment && !userId) return select;
+    if (!userId && (segment || dimension)) {
+      id2 = "user_id";
+    }
 
-    return "";
+    // Don't need a join table, everything uses the same type of id
+    if (id1 === id2) {
+      return "";
+    }
+
+    return `__identities as (${this.getIdentitiesQuery(
+      this.settings,
+      id1,
+      id2,
+      from,
+      to
+    )}),`;
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
@@ -1024,5 +1022,50 @@ export default abstract class SqlIntegration
   }
   private getTimestampColumn(metric: MetricInterface): string {
     return metric.sql ? "timestamp" : metric.timestampColumn || "received_at";
+  }
+
+  private getIdentitiesQuery(
+    settings: DataSourceSettings,
+    id1: string,
+    id2: string,
+    from: Date,
+    to: Date | undefined
+  ) {
+    if (settings?.queries?.identityJoins) {
+      for (let i = 0; i < settings.queries.identityJoins.length; i++) {
+        const join = settings?.queries?.identityJoins[i];
+        if (
+          join.query.length > 6 &&
+          join.ids.includes(id1) &&
+          join.ids.includes(id2)
+        ) {
+          return replaceDateVars(join.query, from, to);
+        }
+      }
+    }
+
+    if (settings?.queries?.pageviewsQuery) {
+      if (
+        ["user_id", "anonymous_id"].includes(id1) &&
+        ["user_id", "anonymous_id"].includes(id2)
+      ) {
+        return `
+        SELECT
+          user_id,
+          anonymous_id
+        FROM
+          (${replaceDateVars(settings.queries.pageviewsQuery, from, to)}) i
+        WHERE
+          i.timestamp >= ${this.toTimestamp(from)}
+          ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+        GROUP BY
+          1, 2
+        `;
+      }
+    }
+
+    return `
+    -- ERROR: Missing User Id Join Table!
+    SELECT '' as ${id1}, '' as ${id2}`;
   }
 }

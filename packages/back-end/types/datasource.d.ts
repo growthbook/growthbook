@@ -52,11 +52,19 @@ type WithParams<B, P> = Omit<B, "params"> & {
   properties?: DataSourceProperties;
 };
 
+export type IdentityJoinQuery = {
+  ids: string[];
+  query: string;
+};
+
 export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   queries?: {
     experimentsQuery?: string;
+    identityJoins?: IdentityJoinQuery[];
+    // @deprecated
+    pageviewsQuery?: string;
   };
   events?: {
     experimentEvent?: string;

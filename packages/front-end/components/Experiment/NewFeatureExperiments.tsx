@@ -9,7 +9,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 export default function NewFeatureExperiments() {
   const { project, datasources } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
-  const [expDef, setExpDef] = useState(null);
+  const [expDef, setExpDef] = useState<Partial<ExperimentInterfaceStringDates>>(
+    null
+  );
   // get a list of all features that do not have an experiment report
   const { data, error } = useApi<{
     features: {
@@ -24,38 +26,34 @@ export default function NewFeatureExperiments() {
     return null;
   }
 
+  const { feature, partialExperiment } = data.features[0];
+
   return (
     <div className="mb-3" style={{ maxHeight: "107px", overflowY: "auto" }}>
-      {data.features.map((o, i) => {
-        const f = o.feature;
-        const expDefinition = o.partialExperiment;
-        return (
-          <div key={i} className="mb-2 alert alert-info py-2">
-            <div className="d-flex align-items-center justify-content-between">
-              <div>
-                New experiment feature found:{" "}
-                <strong>{expDefinition.trackingKey}</strong> (created{" "}
-                {ago(f.dateCreated)})
-              </div>
-              {datasources?.length > 0 ? (
-                <a
-                  className="btn btn-info btn-sm"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setExpDef(expDefinition);
-                    setNewExpModal(true);
-                  }}
-                >
-                  Add experiment report
-                </a>
-              ) : (
-                <span>A data source is required before adding</span>
-              )}
-            </div>
+      <div className="mb-2 alert alert-info py-2">
+        <div className="d-flex align-items-center justify-content-between">
+          <div>
+            New experiment feature found:{" "}
+            <strong>{partialExperiment.trackingKey}</strong> (created{" "}
+            {ago(feature.dateCreated)})
           </div>
-        );
-      })}
+          {datasources?.length > 0 ? (
+            <a
+              className="btn btn-info btn-sm"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setExpDef(partialExperiment);
+                setNewExpModal(true);
+              }}
+            >
+              Add experiment report
+            </a>
+          ) : (
+            <span>A data source is required before adding</span>
+          )}
+        </div>
+      </div>
       {newExpModal && (
         <NewExperimentForm
           onClose={() => setNewExpModal(false)}

@@ -219,6 +219,24 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 )}
               </div>
+              {(d.settings?.queries?.identityJoins?.[0]?.query?.length > 0 ||
+                d.settings?.queries?.pageviewsQuery) && (
+                <div className="mb-4">
+                  <h3>User Id Join Table</h3>
+                  <div>
+                    Joins anonymous ids with logged-in user ids when required
+                    during experiment analysis.
+                  </div>
+                  <Code
+                    language="sql"
+                    code={
+                      d.settings?.queries?.identityJoins?.[0]?.query ||
+                      d.settings?.queries?.pageviewsQuery ||
+                      ""
+                    }
+                  />
+                </div>
+              )}
               <div className="mb-4">
                 <h3>Jupyter Notebook Query Runner</h3>
                 <div>

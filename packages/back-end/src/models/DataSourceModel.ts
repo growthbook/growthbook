@@ -29,6 +29,15 @@ const dataSourceSchema = new mongoose.Schema({
     notebookRunQuery: String,
     queries: {
       experimentsQuery: String,
+      identityJoins: [
+        {
+          _id: false,
+          ids: [String],
+          query: String,
+        },
+      ],
+      // @deprecated
+      pageviewsQuery: String,
     },
     events: {
       experimentEvent: String,
