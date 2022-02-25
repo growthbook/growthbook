@@ -201,6 +201,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 </div>
                 <Code
                   language="sql"
+                  theme="light"
                   code={getExperimentQuery(
                     d.settings,
                     (d.params as PostgresConnectionParams)?.defaultSchema
@@ -224,11 +225,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 <div className="mb-4">
                   <h3>User Id Join Table</h3>
                   <div>
-                    Joins anonymous ids with logged-in user ids when required
+                    Joins anonymous ids with logged-in user ids when needed
                     during experiment analysis.
                   </div>
                   <Code
                     language="sql"
+                    theme="light"
                     code={
                       d.settings?.queries?.identityJoins?.[0]?.query ||
                       d.settings?.queries?.pageviewsQuery ||
@@ -248,6 +250,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   data source.
                 </div>
                 <Code
+                  theme="light"
                   code={
                     d.settings?.notebookRunQuery ||
                     "import pandas as pd\n\ndef runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
