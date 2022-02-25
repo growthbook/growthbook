@@ -25,22 +25,22 @@ To effectively use GrowthBook, you'll need to tell us a little about the shape o
 
 GrowthBook can work with your existing SQL data, no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
 
-GrowthBook just needs two base SQL queries plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After defining these base queries and metrics, they can be reused across many experiments.
+GrowthBook just needs one experiment SQL queries plus one additional SQL query for each metric. Writing this SQL is a (mostly) one-time setup task. After defining these base queries and metrics, they can be reused across many experiments.
 
 Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by GrowthBook result in fewer than 10 rows returned.
 
 In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
 
-#### 1. Experiments Query
+#### Experiments Query
 
-This is the most important query for GrowthBook. It needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
+This query needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
 
 | user_id | anonymous_id | timestamp           | experiment_id  | variation_id |
 | ------- | ------------ | ------------------- | -------------- | ------------ |
 | 123     | abcdef       | 2021-08-23-10:53:04 | my-button-test | 0            |
 | 456     | fedcba       | 2021-08-23 10:53:06 | my-button-test | 1            |
 
-If you use Segment to populate your data warehouse, the SQL will look something like this:
+As an example, if you use Segment to populate your data warehouse, the SQL will look something like this:
 
 ```sql
 SELECT
@@ -57,38 +57,13 @@ If you have all of your events in a single denormalized table, the query will be
 
 Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names shown above. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
 
-##### Experiment Dimensions
+#### Experiment Dimensions
 
 In addition to the standard 5 columns above, you can return additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
 
-#### 2. Page Views Query
-
-This needs to return one row for every page view (or similar event) in your app. This is used to analyze historical user behavior. For example, we can use this data to predict how long an experiment will take before you start. As another example, we can use this to plot your overall metric conversion rates over time.
-
-The end result should return data like this:
-
-| user_id | anonymous_id | timestamp           | url     |
-| ------- | ------------ | ------------------- | ------- |
-| 123     | abcdef       | 2021-08-23-10:53:04 | /search |
-| 456     | fedcba       | 2021-08-23 10:53:06 | /       |
-
-If you use Segment to populate your data warehouse, you can use the default `pages` table and your query will look like this:
-
-```sql
-SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  path as url
-FROM
-  pages
-```
-
-Similar to the experiment query, don’t worry about duplicate rows or ordering. Just make sure the column names you select exactly match the above.
-
 #### SQL Template Variables
 
-Within your experiment and page view queries, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+Within your experiment query, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
 
 For example:
 
@@ -97,14 +72,15 @@ SELECT
   user_id,
   anonymous_id,
   received_at as timestamp,
-  path as url
+  experiment_id,
+  variation_id
 FROM
-  pages
+  experiment_viewed
 WHERE
   received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
 ```
 
-#### 3. Jupyter Notebook Query Runner
+#### Jupyter Notebook Query Runner
 
 This setting is only required if you want to export experiment results as a Jupyter Notebook.
 

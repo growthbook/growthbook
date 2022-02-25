@@ -21,19 +21,6 @@ If your application has both logged-in and anonymous users, we recommend using t
 
 If your application only has anonymous users (e.g. a static marketing site), then we recommend a single `id` attribute which, similar to `deviceId` or `sessionId` above, is a random hash persisted in a cookie or local storage.
 
-## What is the "Page Views" query used for?
-
-When connecting to a SQL data source, we ask you for 2 queries: one to get experiment exposures (who saw which variation) and another for "page views".
-
-The "page views" query doesn't have to actually be page views. It should just be some table that represents historical activity of your users. For example, a mobile app might use screens instead of page views, or a back-end API might use requests.
-
-So what is this historical data actually used for? Currently it's used for two things:
-
-1. Predict running time of an experiment before you start
-2. Calculate overall metric conversion rates
-
-Beyond this, historical data is very useful for a number of additional analyses and we plan to make more use of this table in the future.
-
 ## Why is the trackingCallback not firing in the SDK?
 
 The `trackingCallback` only fires when a user is included in an experiment. If you're expecting to be included and you're still not seeing the callback fire, it's likely for one of the following reasons:
