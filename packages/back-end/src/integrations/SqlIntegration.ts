@@ -355,6 +355,11 @@ export default abstract class SqlIntegration
               ${this.getAggregateMetricSqlValue(params.metric)} as value
             FROM
               __metric m
+              ${
+                params.segmentQuery
+                  ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                  : ""
+              }
             GROUP BY
               ${this.dateTrunc("m.conversion_start")},
               m.user_id
@@ -433,6 +438,33 @@ export default abstract class SqlIntegration
     };
   }
 
+  private getUserIdTypes(
+    userId: boolean,
+    metrics: (MetricInterface | null)[],
+    dimension: boolean,
+    segment: boolean
+  ) {
+    const types = new Set<string>();
+
+    types.add(userId ? "user_id" : "anonymous_id");
+
+    metrics.forEach((m) => {
+      if (!m) return;
+      if (userId && m.userIdType === "anonymous") {
+        types.add("anonymous_id");
+      }
+      if (!userId && m.userIdType === "user") {
+        types.add("user_id");
+      }
+    });
+
+    if (segment || dimension) {
+      types.add("user_id");
+    }
+
+    return Array.from(types);
+  }
+
   private getIdentifiesCTE(
     userId: boolean,
     {
@@ -449,33 +481,23 @@ export default abstract class SqlIntegration
       segment?: boolean;
     }
   ): string {
-    const id1 = userId ? "user_id" : "anonymous_id";
-
-    // See if we need to join to a different type of id
-    let id2 = id1;
-    if (metrics) {
-      for (let i = 0; i < metrics.length; i++) {
-        if (!metrics[i]) continue;
-        if (userId && metrics[i]?.userIdType === "anonymous") {
-          id2 = "anonymous_id";
-        } else if (!userId && metrics[i]?.userIdType === "user") {
-          id2 = "user_id";
-        }
-      }
-    }
-    if (!userId && (segment || dimension)) {
-      id2 = "user_id";
-    }
+    const idTypes = this.getUserIdTypes(
+      userId,
+      metrics || [],
+      !!dimension,
+      !!segment
+    );
 
     // Don't need a join table, everything uses the same type of id
-    if (id1 === id2) {
+    if (idTypes.length < 2) {
       return "";
     }
 
+    // TODO: handle case when there are more than 2 required id types
     return `__identities as (${this.getIdentitiesQuery(
       this.settings,
-      id1,
-      id2,
+      idTypes[0],
+      idTypes[1],
       from,
       to
     )}),`;
@@ -1039,7 +1061,15 @@ export default abstract class SqlIntegration
           join.ids.includes(id1) &&
           join.ids.includes(id2)
         ) {
-          return replaceDateVars(join.query, from, to);
+          return `
+          SELECT
+            ${id1},
+            ${id2}
+          FROM
+            (${replaceDateVars(join.query, from, to)}) i
+          GROUP BY
+            1, 2
+          `;
         }
       }
     }

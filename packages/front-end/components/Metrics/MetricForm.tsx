@@ -379,16 +379,9 @@ const MetricForm: FC<MetricFormProps> = ({
             options={metricTypeOptions}
           />
         </div>
-        {datasourceType === "google_analytics" && (
-          <GoogleAnalyticsMetrics
-            inputProps={form.register("table")}
-            type={value.type}
-          />
-        )}
       </Page>
       <Page
         display="Query Settings"
-        enabled={datasourceSettingsSupport}
         validate={async () => {
           validateQuerySettings(
             datasourceSettingsSupport,
@@ -476,6 +469,11 @@ const MetricForm: FC<MetricFormProps> = ({
                   />
                 )}
               </div>
+            ) : datasourceType === "google_analytics" ? (
+              <GoogleAnalyticsMetrics
+                inputProps={form.register("table")}
+                type={value.type}
+              />
             ) : (
               <>
                 {["count", "duration", "revenue"].includes(value.type) && (
