@@ -327,7 +327,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         .groupByUser(function(state, events) {
           state = state || {date: null, metricValue: null};
           for(var i=0; i<events.length; i++) {
-            state.d = state.d || events[i].time;
+            state.date = state.date || events[i].time;
             if(${this.getValidMetricCondition(metric, "events[i]")}) {
               ${this.getMetricAggregationCode(
                 metric,
