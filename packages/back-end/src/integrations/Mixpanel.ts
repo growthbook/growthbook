@@ -6,13 +6,11 @@ import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
 import { MetricInterface } from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
-  ImpactEstimationResult,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -20,23 +18,6 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../services/queries";
-
-const percentileNumbers = [
-  0.01,
-  0.05,
-  0.1,
-  0.2,
-  0.3,
-  0.4,
-  0.5,
-  0.6,
-  0.7,
-  0.8,
-  0.9,
-  0.95,
-  0.99,
-];
 
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
@@ -52,8 +33,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
         experimentEvent: "$experiment_started",
         experimentIdProperty: "Experiment name",
         variationIdProperty: "Variant name",
-        pageviewEvent: "Page view",
-        urlProperty: "$current_url",
         ...settings.events,
       },
     };
@@ -328,130 +307,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
 
-  async getImpactEstimation(
-    urlRegex: string,
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult> {
-    const numDays = 30;
-
-    const conversionWindowHours =
-      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-
-    // Ignore last X hours of data since we need to give people time to convert
-    const end = new Date();
-    end.setHours(end.getHours() - conversionWindowHours);
-    const start = new Date();
-    start.setDate(start.getDate() - numDays);
-    start.setHours(start.getHours() - conversionWindowHours);
-
-    const baseSettings = {
-      from: start,
-      to: end,
-      includeByDate: false,
-      userIdType: metric.userIdType || "either",
-      conversionWindowHours,
-    };
-
-    const metricQuery = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Entire Site",
-      metric,
-      includePercentiles: false,
-    });
-    const valueQuery = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Selected Pages and Segment",
-      metric,
-      includePercentiles: false,
-      urlRegex,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
-    });
-
-    const [metricTotalResponse, valueResponse] = await Promise.all([
-      this.runMetricValueQuery(metricQuery),
-      this.runMetricValueQuery(valueQuery),
-    ]);
-
-    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
-    const value = processMetricValueQueryResponse(valueResponse);
-
-    const formatted = [metricQuery, valueQuery].join("\n\n\n") + ";";
-
-    if (metricTotal && value) {
-      return {
-        query: formatted,
-        users: value.users / numDays || 0,
-        value: (value.count * value.mean) / numDays || 0,
-        metricTotal: (metricTotal.count * metricTotal.mean) / numDays || 0,
-      };
-    }
-
-    return {
-      query: formatted,
-      users: 0,
-      value: 0,
-      metricTotal: 0,
-    };
-  }
-
-  getUsersQuery(params: MetricValueParams): string {
-    return formatQuery(`
-      // ${params.name} - Number of Users
-      return ${this.getEvents(params.from, params.to)}
-        .filter(function(event) {
-          ${
-            params.segmentQuery
-              ? `// Limit to Segment - ${params.segmentName}
-          if(!(${params.segmentQuery})) return false;`
-              : ""
-          }
-          // Valid page view
-          if(${this.getValidPageCondition(params.urlRegex)}) return true;
-          return false;
-        })
-        // One event per user
-        .groupByUser(mixpanel.reducer.min("time"))
-        .reduce([
-          // Overall count of users
-          mixpanel.reducer.count()${
-            params.includeByDate
-              ? `,
-          // Count of users per day
-          (prevs, events) => {
-            const dates = {};
-            prevs.forEach(prev => {
-              prev.dates.forEach(d=>dates[d.date] = (dates[d.date] || 0) + d.users)
-            });
-            events.forEach(e=>{
-              const date = (new Date(e.value)).toISOString().substr(0,10);
-              dates[date] = (dates[date] || 0) + 1;
-            });
-            return {
-              type: "byDate",
-              dates: Object.keys(dates).map(d => ({
-                date: d,
-                users: dates[d]
-              }))
-            };
-          }`
-              : ""
-          }
-        ])
-        // Transform into easy-to-use objects
-        .map(vals => vals.map(val => !val.type ? {type:"overall",users:val} : val))
-    `);
-  }
-
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
 
-    const earlyStart =
-      metric.conversionDelayHours && metric.conversionDelayHours < 0;
-
-    return (
-      formatQuery(`
+    return formatQuery(`
       // ${params.name} - Metric value (${metric.name})
       return ${this.getEvents(params.from, params.to)}
         .filter(function(event) {
@@ -461,50 +320,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(!(${params.segmentQuery})) return false;`
               : ""
           }
-          // Valid page view
-          if(${this.getValidPageCondition(params.urlRegex)}) return true;
           if(${this.getValidMetricCondition(metric, "event")}) return true;
           return false;
         })
         // Metric value per user
         .groupByUser(function(state, events) {
-          state = state || {firstPageView: false, metricValue: null, queuedValues: []};
+          state = state || {date: null, metricValue: null};
           for(var i=0; i<events.length; i++) {
-            if(!state.firstPageView && ${this.getValidPageCondition(
-              params.urlRegex,
-              "events[i]"
-            )}) {
-              state.firstPageView = events[i].time;
-              // Process queued values
-              state.queuedValues.forEach((q) => {
-                ${this.getConversionWindowCheck(
-                  params.metric.conversionWindowHours,
-                  params.metric.conversionDelayHours,
-                  "state.firstPageView",
-                  "q.time",
-                  "return"
-                )}
-                ${this.getMetricAggregationCode(metric, "q.value")}
-              });
-              state.queuedValues = [];
-              ${earlyStart ? "" : "continue;"}
-            }
+            state.date = state.date || events[i].time;
             if(${this.getValidMetricCondition(metric, "events[i]")}) {
-              if(!state.firstPageView) {
-                ${
-                  earlyStart
-                    ? `state.queuedValues.push({value: ${this.getMetricValueCode(
-                        metric
-                      )}, time: events[i].time});`
-                    : ""
-                }
-                continue;
-              }
-              ${this.getConversionWindowCheck(
-                params.metric.conversionWindowHours,
-                params.metric.conversionDelayHours,
-                "state.firstPageView"
-              )}
               ${this.getMetricAggregationCode(
                 metric,
                 this.getMetricValueCode(metric)
@@ -515,7 +339,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         })
         // Remove users that did not convert
         .filter(function(ev) {
-          return ev.value.firstPageView && ev.value.metricValue !== null;
+          return ev.value.date && ev.value.metricValue !== null;
         })
         .reduce([
           // Overall summary metrics
@@ -533,7 +357,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 })
               });
               events.forEach(e=>{
-                const date = (new Date(e.value.firstPageView)).toISOString().substr(0,10);
+                const date = (new Date(e.value.date)).toISOString().substr(0,10);
                 dates[date] = dates[date] || {count:0, sum:0};
                 dates[date].count++;
                 dates[date].sum += e.value.metricValue;
@@ -548,67 +372,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
               };
             }`
               : ""
-          }${
-        params.includePercentiles && metric.type !== "binomial"
-          ? `,
-          // Percentile breakdown
-          mixpanel.reducer.numeric_percentiles(
-            "value.metricValue",
-            ${JSON.stringify(percentileNumbers.map((n) => n * 100))}
-          )`
-          : ""
-      }
+          }
         ])
         // Transform into easy-to-use objects
         .map(vals => vals.map(val => {
-          if(val[0] && val[0].percentile) return {type: "percentile",percentiles:val};
           if(val.count) return {type: "overall", ...val};
           return val;
         }));
-        `) +
-      "\n/*USERS_QUERY_BELOW*/\n" +
-      this.getUsersQuery(params)
-    );
-  }
-  async runUsersQuery(query: string): Promise<{ [key: string]: number }> {
-    const rows = await runQuery<
-      [
-        (
-          | {
-              type: "byDate";
-              dates: {
-                date: string;
-                users: number;
-              }[];
-            }
-          | {
-              type: "overall";
-              users: number;
-            }
-        )[]
-      ]
-    >(this.params, query);
-
-    const result: { [key: string]: number } = {};
-
-    rows &&
-      rows[0] &&
-      rows[0].forEach((row) => {
-        if (row.type === "overall") {
-          result[""] = row.users;
-        } else if (row.type === "byDate") {
-          row.dates.sort((a, b) => a.date.localeCompare(b.date));
-          row.dates.forEach((d) => {
-            result[d.date] = d.users;
-          });
-        }
-      });
-
-    return result;
+        `);
   }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const [metricQuery, usersQuery] = query.split("/*USERS_QUERY_BELOW*/", 2);
-
     const rows = await runQuery<
       [
         (
@@ -627,23 +400,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
               avg: number | null;
               stddev: number | null;
             }
-          | {
-              type: "percentile";
-              percentiles: {
-                percentile: number;
-                value: number;
-              }[];
-            }
         )[]
       ]
-    >(this.params, metricQuery);
-
-    const usersDateMap = await this.runUsersQuery(usersQuery);
+    >(this.params, query);
 
     const result: MetricValueQueryResponse = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
-      users: 0,
       mean: 0,
       stddev: 0,
       count: 0,
@@ -656,21 +419,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
           overall.count = row.count;
           overall.mean = row.avg || 0;
           overall.stddev = row.stddev || 0;
-          overall.users = usersDateMap[""] || row.count;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
           row.dates.forEach(({ date, count, sum }) => {
             result.push({
               date,
-              users: usersDateMap[date] || count,
               count,
               mean: count > 0 ? (sum || 0) / count : 0,
               stddev: 0,
             });
-          });
-        } else if (row.type === "percentile") {
-          row.percentiles.forEach(({ percentile, value }) => {
-            overall["p" + percentile] = value;
           });
         }
       });
@@ -734,18 +491,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return `Events({from_date: "${from
       .toISOString()
       .substr(0, 10)}", to_date: "${to.toISOString().substr(0, 10)}"})`;
-  }
-  private getValidPageCondition(urlRegex?: string, event: string = "event") {
-    if (urlRegex && urlRegex !== ".*") {
-      const urlCol = this.settings.events?.urlProperty;
-      return `${event}.name === "${
-        this.settings.events?.pageviewEvent || "Page view"
-      }" && ${event}.properties["${urlCol}"] && ${event}.properties["${urlCol}"].match(/${urlRegex}/)`;
-    } else {
-      return `${event}.name === "${
-        this.settings.events?.pageviewEvent || "Page view"
-      }"`;
-    }
   }
   private getPropertyColumn(col: string, event: string = "e") {
     const colAccess = col.split(".").map((part) => {

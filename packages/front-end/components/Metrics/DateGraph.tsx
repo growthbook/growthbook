@@ -24,8 +24,8 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
   d: Date | number;
   v: number;
-  u?: number;
   s?: number;
+  c?: number;
 }
 
 function addStddev(
@@ -100,18 +100,18 @@ const DateGraph: FC<{
             dates: {
               key: number;
               total: number;
-              users: number;
               stddev: number;
+              count: number;
             }[],
-            { d, v, u, s }
+            { d, v, s, c }
           ) => {
             const key = (groupby === "day"
               ? getValidDate(d)
               : setDay(getValidDate(d), 0)
             ).getTime();
 
-            const users = u || 1;
-            const total = v * users;
+            const count = c || 1;
+            const total = v * count;
             const stddev = s;
 
             for (let i = 0; i < dates.length; i++) {
@@ -120,12 +120,12 @@ const DateGraph: FC<{
                 clone[i] = {
                   key,
                   total: dates[i].total + total,
-                  users: dates[i].users + users,
+                  count: dates[i].count + count,
                   stddev: correctStddev(
-                    dates[i].users,
-                    dates[i].total / dates[i].users,
+                    dates[i].count,
+                    dates[i].total / dates[i].count,
                     dates[i].stddev,
-                    users,
+                    count,
                     v,
                     stddev
                   ),
@@ -139,7 +139,7 @@ const DateGraph: FC<{
               {
                 key,
                 total,
-                users,
+                count,
                 stddev,
               },
             ];
@@ -149,9 +149,9 @@ const DateGraph: FC<{
         .map((row) => {
           return {
             d: row.key,
-            v: row.total / row.users,
+            v: row.total / row.count,
             s: row.stddev,
-            u: row.users,
+            c: row.count,
           };
         }),
     [dates, groupby]
@@ -166,26 +166,29 @@ const DateGraph: FC<{
     );
     const d = data[index];
     const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
-    const y = yScale(d.v) ?? 0;
+    const y = yScale(type === "binomial" ? d.c : d.v) ?? 0;
     return { x, y, d };
   };
 
   const getTooltipContents = (d: Datapoint) => {
     return (
       <>
-        <div className={styles.val}>
-          {type !== "binomial" && <span>&mu;: </span>}
-          {formatConversionRate(type, d.v as number)}
-        </div>
-        {type !== "binomial" && "s" in d && (
-          <div className={styles.secondary}>
-            &sigma;: {formatConversionRate(type, d.s)}
-          </div>
-        )}
-        {"u" in d && (
-          <div className={styles.secondary}>
-            <em>n</em>: {d.u.toLocaleString()}
-          </div>
+        {type === "binomial" ? (
+          <div className={styles.val}>{d.c.toLocaleString()}</div>
+        ) : (
+          <>
+            <div className={styles.val}>
+              &mu;: {formatConversionRate(type, d.v as number)}
+            </div>
+            {"s" in d && (
+              <div className={styles.secondary}>
+                &sigma;: {formatConversionRate(type, d.s)}
+              </div>
+            )}
+            <div className={styles.secondary}>
+              <em>n</em>: {d.c.toLocaleString()}
+            </div>
+          </>
         )}
         <div className={styles.date}>{date(d.d as Date)}</div>
       </>
@@ -335,7 +338,11 @@ const DateGraph: FC<{
           domain: [
             0,
             Math.max(
-              ...data.map((d) => Math.min(d.v * 2, d.v + (d.s ?? 0) * 2))
+              ...data.map((d) =>
+                type === "binomial"
+                  ? d.c
+                  : Math.min(d.v * 2, d.v + (d.s ?? 0) * 2)
+              )
             ),
           ],
           range: [graphHeight, 0],
@@ -458,7 +465,7 @@ const DateGraph: FC<{
                 <LinePath
                   data={data}
                   x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(d.v) ?? 0}
+                  y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
                   stroke={"#8884d8"}
                   strokeWidth={2}
                   curve={curveMonotoneX}
@@ -475,7 +482,11 @@ const DateGraph: FC<{
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
-                  tickFormat={(v) => formatConversionRate(type, v as number)}
+                  tickFormat={(v) =>
+                    type === "binomial"
+                      ? (v as number).toLocaleString()
+                      : formatConversionRate(type, v as number)
+                  }
                 />
               </Group>
               {experiments && (

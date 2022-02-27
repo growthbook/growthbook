@@ -1,4 +1,4 @@
-import { FC, HTMLProps } from "react";
+import { FC, Fragment, HTMLProps } from "react";
 import { MetricType } from "back-end/types/metric";
 
 const GoogleAnalyticsMetrics: FC<{
@@ -14,14 +14,14 @@ const GoogleAnalyticsMetrics: FC<{
           <>
             <option value="ga:bounceRate">Bounce Rate</option>
             {new Array(20).fill(1).map((_, i) => (
-              <>
+              <Fragment key={"goal" + i}>
                 <option value={`ga:goal${i + 1}Starts`}>
                   Goal {i + 1} Starts
                 </option>
                 <option value={`ga:goal${i + 1}Completions`}>
                   Goal {i + 1} Completions
                 </option>
-              </>
+              </Fragment>
             ))}
           </>
         )}

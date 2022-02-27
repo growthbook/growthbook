@@ -3,20 +3,18 @@ import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import uniqid from "uniqid";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
-import { QueryLanguage } from "../../types/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { SegmentModel } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
+import { processMetricValueQueryResponse } from "../services/queries";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
   organization: String,
   metric: String,
-  regex: String,
   segment: String,
-  metricTotal: Number,
-  users: Number,
-  value: Number,
+  conversionsPerDay: Number,
   query: String,
   queryLanguage: String,
   dateCreated: Date,
@@ -30,27 +28,13 @@ export const ImpactEstimateModel = mongoose.model<ImpactEstimateDocument>(
 );
 
 export async function createImpactEstimate(
-  organization: string,
-  metric: string,
-  segment: string | null,
-  regex: string,
-  value: number,
-  users: number,
-  metricTotal: number,
-  query: string = "",
-  queryLanguage: QueryLanguage = "none"
+  data: Partial<ImpactEstimateInterface>
 ) {
   const doc = await ImpactEstimateModel.create({
+    query: "",
+    queryLanguage: "none",
+    ...data,
     id: uniqid("est_"),
-    organization,
-    metric,
-    segment,
-    regex,
-    users,
-    value,
-    metricTotal,
-    query,
-    queryLanguage,
     dateCreated: new Date(),
   });
 
@@ -60,32 +44,9 @@ export async function createImpactEstimate(
 export async function getImpactEstimate(
   organization: string,
   metric: string,
-  regex: string,
+  numDays: number,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  // Sanity check (no quotes allowed)
-  if (!regex || regex.match(/['"]/g)) {
-    throw new Error("Invalid page regex");
-  }
-
-  // Only re-use estimates that happened within the last 30 days
-  const lastDate = new Date();
-  lastDate.setDate(lastDate.getDate() - 30);
-
-  const existing = await ImpactEstimateModel.findOne({
-    organization,
-    metric,
-    segment: segment || undefined,
-    regex,
-    dateCreated: {
-      $gt: lastDate,
-    },
-  });
-
-  if (existing) {
-    return existing;
-  }
-
   const metricObj = await getMetricById(metric, organization);
   if (!metricObj) {
     throw new Error("Metric not found");
@@ -114,21 +75,43 @@ export async function getImpactEstimate(
 
   const integration = getSourceIntegrationObject(datasource);
 
-  const data = await integration.getImpactEstimation(
-    regex,
-    metricObj,
-    segmentObj || undefined
-  );
+  const conversionWindowHours =
+    metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
 
-  return createImpactEstimate(
+  // Ignore last X hours of data since we need to give people time to convert
+  const end = new Date();
+  end.setHours(end.getHours() - conversionWindowHours);
+  const start = new Date();
+  start.setDate(start.getDate() - numDays);
+  start.setHours(start.getHours() - conversionWindowHours);
+
+  const query = integration.getMetricValueQuery({
+    from: start,
+    to: end,
+    userIdType: metricObj.userIdType || "either",
+    name: "Metric Value",
+    metric: metricObj,
+    includeByDate: true,
+    segmentQuery: segmentObj?.sql,
+    segmentName: segmentObj?.name,
+  });
+
+  const queryResponse = await integration.runMetricValueQuery(query);
+  const value = processMetricValueQueryResponse(queryResponse);
+
+  let daysWithData = numDays;
+  if (value.dates && value.dates.length > 0) {
+    daysWithData = value.dates.length;
+  }
+
+  const conversionsPerDay = value.count / daysWithData;
+
+  return createImpactEstimate({
     organization,
     metric,
-    segment || null,
-    regex,
-    data.value,
-    data.users,
-    data.metricTotal,
-    data.query,
-    integration.getSourceProperties().queryLanguage
-  );
+    segment: segment || undefined,
+    conversionsPerDay: conversionsPerDay,
+    query: query,
+    queryLanguage: integration.getSourceProperties().queryLanguage,
+  });
 }

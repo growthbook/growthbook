@@ -52,19 +52,24 @@ type WithParams<B, P> = Omit<B, "params"> & {
   properties?: DataSourceProperties;
 };
 
+export type IdentityJoinQuery = {
+  ids: string[];
+  query: string;
+};
+
 export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   queries?: {
     experimentsQuery?: string;
+    identityJoins?: IdentityJoinQuery[];
+    // @deprecated
     pageviewsQuery?: string;
   };
   events?: {
     experimentEvent?: string;
     experimentIdProperty?: string;
     variationIdProperty?: string;
-    pageviewEvent?: string;
-    urlProperty?: string;
   };
   default?: {
     timestampColumn?: string;
@@ -87,13 +92,6 @@ export type DataSourceSettings = {
     table?: string;
     anonymousIdColumn?: string;
     userIdColumn?: string;
-  };
-  pageviews?: {
-    table?: string;
-    urlColumn?: string;
-    timestampColumn?: string;
-    userIdColumn?: string;
-    anonymousIdColumn?: string;
   };
 };
 

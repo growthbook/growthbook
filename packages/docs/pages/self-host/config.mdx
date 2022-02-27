@@ -115,14 +115,9 @@ datasources:
             variation_id
           FROM
             experiment_viewed
-        pageviewsQuery: >
-          SELECT
-            user_id,
-            anonymous_id,
-            received_at as timestamp,
-            path as url
-          FROM
-            pages
+        identityJoins:
+          - ids: ["user_id", "anonymous_id"]
+            query: SELECT user_id, anonymous_id FROM identifies
 metrics:
   signups:
     type: binomial
@@ -242,7 +237,7 @@ The settings tell GrowthBook how to query your data.
 
 #### SQL Data Sources
 
-For data sources that support SQL, there are 2 queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
+For data sources that support SQL, there are a couple queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
 
 ```yml
 type: postgres
@@ -257,19 +252,17 @@ settings:
         anonymous_id,
         received_at as timestamp,
         experiment_id,
-        variation_id
+        variation_id,
+        country -- Not required, this is a custom dimension (see below)
       FROM
         experiment_viewed
-    # This query returns one row for every page view on your site
-    # It is used to predict running times before you start an experiment
-    pageviewsQuery: >
-      SELECT
-        user_id,
-        anonymous_id,
-        received_at as timestamp,
-        path as url
-      FROM
-        pages
+    # These optional queries map between different types of user ids
+    identityJoins:
+      - ids: ["user_id", "anonymous_id"]
+        query: SELECT user_id, anonymous_id FROM identifies
+  # List additional columns you selected in your experimentsQuery
+  # Can use these to drill down into experiment results
+  experimentDimensions: ["country"]
   # Used when exporting experiment results to a Jupyter notebook
   # Define a `runQuery(sql)` function that returns a pandas data frame
   notebookRunQuery: >
@@ -299,8 +292,6 @@ settings:
     experimentEvent: Viewed Experiment
     experimentIdProperty: experiment_id
     variationIdProperty: variation_id
-    pageviewEvent: Page View
-    urlProperty: url
 ```
 
 ### Metrics

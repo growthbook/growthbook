@@ -29,14 +29,20 @@ const dataSourceSchema = new mongoose.Schema({
     notebookRunQuery: String,
     queries: {
       experimentsQuery: String,
+      identityJoins: [
+        {
+          _id: false,
+          ids: [String],
+          query: String,
+        },
+      ],
+      // @deprecated
       pageviewsQuery: String,
     },
     events: {
       experimentEvent: String,
       experimentIdProperty: String,
       variationIdProperty: String,
-      pageviewEvent: String,
-      urlProperty: String,
     },
     experimentDimensions: [String],
 
@@ -60,13 +66,6 @@ const dataSourceSchema = new mongoose.Schema({
     },
     identifies: {
       table: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-    },
-    pageviews: {
-      table: String,
-      urlColumn: String,
-      timestampColumn: String,
       userIdColumn: String,
       anonymousIdColumn: String,
     },

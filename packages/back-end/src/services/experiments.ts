@@ -9,7 +9,7 @@ import {
   updateMetric,
 } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { addNonconvertingUsersToStats, analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "./tag";
 import { WatchModel } from "../models/WatchModel";
@@ -242,51 +242,37 @@ export async function getMetricAnalysis(
 
   let total = (metricData.count || 0) * (metricData.mean || 0);
   let count = metricData.count || 0;
-  let users = metricData.users || 0;
-  const dates: { d: Date; v: number; s: number; u: number }[] = [];
+  const dates: { d: Date; v: number; s: number; c: number }[] = [];
 
   // Calculate total from dates
   if (metricData.dates) {
     total = 0;
     count = 0;
-    users = 0;
 
     metricData.dates.forEach((d) => {
-      const { mean, stddev } = metric.ignoreNulls
-        ? { mean: d.mean, stddev: d.stddev }
-        : addNonconvertingUsersToStats(d);
+      const mean = d.mean;
+      const stddev = d.stddev;
 
-      const averageBase = (metric.ignoreNulls ? d.count : d.users) || 0;
       const dateTotal = (d.count || 0) * (d.mean || 0);
       total += dateTotal;
       count += d.count || 0;
-      users += d.users || 0;
       dates.push({
         d: getValidDate(d.date),
         v: mean,
-        u: averageBase,
+        c: d.count || 0,
         s: stddev,
       });
     });
   }
 
-  const averageBase = metric.ignoreNulls ? count : users;
+  const averageBase = count;
   const average = averageBase > 0 ? total / averageBase : 0;
 
   return {
     createdAt: new Date(),
     average,
-    users,
     dates,
     segment: metric.segment || "",
-    percentiles: metricData.percentiles
-      ? Object.keys(metricData.percentiles).map((k) => {
-          return {
-            p: parseInt(k) / 100,
-            v: metricData.percentiles?.[k] || 0,
-          };
-        })
-      : [],
   };
 }
 
@@ -331,7 +317,7 @@ export async function refreshMetric(
     const baseParams = {
       from,
       to,
-      name: "Site-Wide",
+      name: `Last ${days} days`,
       includeByDate: true,
       segmentName,
       segmentQuery,
@@ -348,7 +334,6 @@ export async function refreshMetric(
         metric: getMetricValue(integration, {
           ...baseParams,
           metric,
-          includePercentiles: true,
         }),
       },
       (queryData) => getMetricAnalysis(metric, queryData)

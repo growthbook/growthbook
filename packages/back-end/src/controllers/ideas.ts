@@ -41,13 +41,18 @@ export async function getIdeas(
 }
 
 export async function getEstimatedImpact(
-  req: AuthRequest<{ regex: string; metric: string; segment?: string }>,
+  req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  const { regex, metric, segment } = req.body;
+  const { metric, segment } = req.body;
 
   const { org } = getOrgFromReq(req);
-  const estimate = await getImpactEstimate(org.id, metric, regex, segment);
+  const estimate = await getImpactEstimate(
+    org.id,
+    metric,
+    org.settings?.metricAnalysisDays || 30,
+    segment
+  );
 
   res.status(200).json({
     status: 200,
@@ -60,21 +65,17 @@ export async function postEstimatedImpactManual(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { value, metricTotal, users, metric, regex } = req.body;
+  const { conversionsPerDay, metric } = req.body;
 
   if (!metric) {
     throw new Error("Missing required metric.");
   }
 
-  const estimate = await createImpactEstimate(
-    org.id,
+  const estimate = await createImpactEstimate({
+    organization: org.id,
     metric,
-    null,
-    regex,
-    value,
-    users,
-    metricTotal
-  );
+    conversionsPerDay,
+  });
 
   res.status(200).json({
     status: 200,

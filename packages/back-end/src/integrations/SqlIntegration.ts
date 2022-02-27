@@ -4,7 +4,6 @@ import {
   DataSourceProperties,
 } from "../../types/datasource";
 import {
-  ImpactEstimationResult,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -18,26 +17,8 @@ import {
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
-import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
-
-const percentileNumbers = [
-  0.01,
-  0.05,
-  0.1,
-  0.2,
-  0.3,
-  0.4,
-  0.5,
-  0.6,
-  0.7,
-  0.8,
-  0.9,
-  0.95,
-  0.99,
-];
 
 // Replace `{{startDate}}` and `{{endDate}}` in SQL queries
 function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
@@ -103,37 +84,6 @@ FROM
   }`;
 }
 
-export function getPageviewsQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.pageviewsQuery) {
-    return settings.queries.pageviewsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.pageviews?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.pageviews?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.pageviews?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url
-FROM 
-  ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.pageviews?.table || "pages"
-  }`;
-}
-
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -144,7 +94,6 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
-  abstract percentile(col: string, percentile: number): string;
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -209,9 +158,6 @@ export default abstract class SqlIntegration
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
-  }
-  regexMatch(col: string, regex: string) {
-    return `${col} ~ '${regex}'`;
   }
   dateTrunc(col: string) {
     return `date_trunc('day', ${col})`;
@@ -362,86 +308,40 @@ export default abstract class SqlIntegration
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
-        __pageviews as (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
-          params.from,
-          params.to
-        )}),
-        __users as (${this.getPageUsersCTE(
-          params,
-          userId,
-          params.metric.conversionWindowHours,
-          params.metric.conversionDelayHours
-        )})
         ${
           params.segmentQuery
-            ? `, segment as (${this.getSegmentCTE(
+            ? `segment as (${this.getSegmentCTE(
                 params.segmentQuery,
                 params.segmentName || "",
                 userId
-              )})`
+              )}),`
             : ""
         }
-        , __metric as (${this.getMetricCTE({
+        __metric as (${this.getMetricCTE({
           metric: params.metric,
           userId,
           startDate: metricStart,
           endDate: metricEnd,
         })})
-        , __distinctUsers as (
-          SELECT
-            u.user_id,
-            MIN(u.conversion_end) as conversion_end,
-            MIN(u.conversion_start) as conversion_start
-          FROM
-            __users u
-            ${
-              params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.conversion_start"
-                : ""
-            }
-          GROUP BY
-            u.user_id
-        )
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
             ${this.getAggregateMetricSqlValue(params.metric)} as value
           FROM
-            __distinctUsers d
-            JOIN __metric m ON (
-              m.user_id = d.user_id
-            )
-            WHERE
-              m.conversion_start >= d.conversion_start
-              AND m.conversion_start <= d.conversion_end
+            __metric m
+            ${
+              params.segmentQuery
+                ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                : ""
+            }
           GROUP BY
-            d.user_id
-        )
-        , __overallUsers as (
-          -- Number of users overall
-          SELECT
-            COUNT(*) as users
-          FROM
-            __distinctUsers
+            m.user_id
         )
         , __overall as (
           SELECT
             COUNT(*) as count,
             ${this.avg("value")} as mean,
             ${this.stddev("value")} as stddev
-            ${
-              params.includePercentiles && params.metric.type !== "binomial"
-                ? `,${percentileNumbers
-                    .map(
-                      (n) =>
-                        `${this.percentile("value", n)} as p${Math.floor(
-                          n * 100
-                        )}`
-                    )
-                    .join("\n      ,")}`
-                : ""
-            }
           from
             __userMetric
         )
@@ -451,29 +351,18 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("d.conversion_start")} as date,
+              ${this.dateTrunc("m.conversion_start")} as date,
               ${this.getAggregateMetricSqlValue(params.metric)} as value
             FROM
-              __distinctUsers d
-              JOIN __metric m ON (
-                m.user_id = d.user_id
-              )
-              WHERE
-                m.conversion_start >= d.conversion_start
-                AND m.conversion_start <= d.conversion_end
+              __metric m
+              ${
+                params.segmentQuery
+                  ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                  : ""
+              }
             GROUP BY
-              ${this.dateTrunc("d.conversion_start")},
-              d.user_id
-          )
-          , __usersByDate as (
-            -- Number of users by date
-            SELECT
-              ${this.dateTrunc("conversion_start")} as date,
-              COUNT(*) as users
-            FROM
-              __distinctUsers
-            GROUP BY
-              ${this.dateTrunc("conversion_start")}
+              ${this.dateTrunc("m.conversion_start")},
+              m.user_id
           )
           , __byDateOverall as (
             SELECT
@@ -481,13 +370,6 @@ export default abstract class SqlIntegration
               COUNT(*) as count,
               ${this.avg("value")} as mean,
               ${this.stddev("value")} as stddev
-              ${
-                params.includePercentiles && params.metric.type !== "binomial"
-                  ? `,${percentileNumbers
-                      .map((n) => `0 as p${Math.floor(n * 100)}`)
-                      .join("\n      ,")}`
-                  : ""
-              }
             FROM
               __userMetricDates d
             GROUP BY
@@ -497,20 +379,16 @@ export default abstract class SqlIntegration
         }
       SELECT
         ${params.includeByDate ? "null as date," : ""}
-        o.*,
-        u.users
+        o.*
       FROM
         __overall o
-        JOIN __overallUsers u ON (1=1)
       ${
         params.includeByDate
           ? `
         UNION ALL SELECT
-          o.*,
-          u.users
+          o.*
         FROM
           __byDateOverall o
-          JOIN __usersByDate u ON (o.date = u.date)
         ORDER BY
           date ASC
       `
@@ -541,21 +419,14 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, users, stddev, ...percentiles } = row;
+      const { date, count, mean, stddev } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
-        users: parseInt(users) || 0,
         count: parseFloat(count) || 0,
         mean: parseFloat(mean) || 0,
         stddev: parseFloat(stddev) || 0,
       };
-
-      if (percentiles) {
-        Object.keys(percentiles).forEach((p) => {
-          ret[p] = parseFloat(percentiles[p]) || 0;
-        });
-      }
 
       return ret;
     });
@@ -567,69 +438,31 @@ export default abstract class SqlIntegration
     };
   }
 
-  async getImpactEstimation(
-    urlRegex: string,
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult> {
-    const numDays = 30;
+  private getUserIdTypes(
+    userId: boolean,
+    metrics: (MetricInterface | null)[],
+    dimension: boolean,
+    segment: boolean
+  ) {
+    const types = new Set<string>();
 
-    const conversionWindowHours =
-      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+    types.add(userId ? "user_id" : "anonymous_id");
 
-    // Ignore last X hours of data since we need to give people time to convert
-    const end = new Date();
-    end.setHours(end.getHours() - conversionWindowHours);
-    const start = new Date();
-    start.setDate(start.getDate() - numDays);
-    start.setHours(start.getHours() - conversionWindowHours);
-
-    const baseSettings = {
-      from: start,
-      to: end,
-      includeByDate: false,
-      userIdType: metric.userIdType || "either",
-      conversionWindowHours,
-    };
-
-    const metricSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Entire Site",
-      metric,
-      includePercentiles: false,
-    });
-    const valueSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Selected Pages and Segment",
-      metric,
-      includePercentiles: false,
-      urlRegex,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
+    metrics.forEach((m) => {
+      if (!m) return;
+      if (userId && m.userIdType === "anonymous") {
+        types.add("anonymous_id");
+      }
+      if (!userId && m.userIdType === "user") {
+        types.add("user_id");
+      }
     });
 
-    const [metricTotalResponse, valueResponse]: [
-      MetricValueQueryResponse,
-      MetricValueQueryResponse
-    ] = await Promise.all([
-      this.runMetricValueQuery(metricSql),
-      this.runMetricValueQuery(valueSql),
-    ]);
+    if (segment || dimension) {
+      types.add("user_id");
+    }
 
-    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
-    const value = processMetricValueQueryResponse(valueResponse);
-
-    const formatted =
-      [metricSql, valueSql]
-        .map((sql) => format(sql, this.getFormatOptions()))
-        .join(";\n\n") + ";";
-
-    return {
-      query: formatted,
-      users: value.users,
-      value: (value.count * value.mean) / numDays,
-      metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
-    };
+    return Array.from(types);
   }
 
   private getIdentifiesCTE(
@@ -648,38 +481,26 @@ export default abstract class SqlIntegration
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (
-      SELECT
-        user_id,
-        anonymous_id
-      FROM
-        (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
-          from,
-          to
-        )}) i
-      WHERE
-        i.timestamp >= ${this.toTimestamp(from)}
-        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
-      GROUP BY
-        user_id, 
-        anonymous_id
-    ),`;
+    const idTypes = this.getUserIdTypes(
+      userId,
+      metrics || [],
+      !!dimension,
+      !!segment
+    );
 
-    if (metrics) {
-      for (let i = 0; i < metrics.length; i++) {
-        if (!metrics[i]) continue;
-        if (userId && metrics[i]?.userIdType === "anonymous") {
-          return select;
-        } else if (!userId && metrics[i]?.userIdType === "user") {
-          return select;
-        }
-      }
+    // Don't need a join table, everything uses the same type of id
+    if (idTypes.length < 2) {
+      return "";
     }
-    if (dimension && !userId) return select;
-    if (segment && !userId) return select;
 
-    return "";
+    // TODO: handle case when there are more than 2 required id types
+    return `__identities as (${this.getIdentitiesQuery(
+      this.settings,
+      idTypes[0],
+      idTypes[1],
+      from,
+      to
+    )}),`;
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
@@ -1147,52 +968,6 @@ export default abstract class SqlIntegration
     `;
   }
 
-  private getPageUsersCTE(
-    params: MetricValueParams,
-    userId: boolean = true,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    conversionDelayHours: number = 0
-  ): string {
-    // TODO: use identifies if table is missing the requested userId type
-    const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
-
-    return `-- Users visiting specific pages
-    SELECT
-      ${userIdCol} as user_id,
-      ${this.addHours(
-        "MIN(p.timestamp)",
-        conversionDelayHours
-      )} as conversion_start,
-      ${this.addHours(
-        `MIN(p.timestamp)`,
-        conversionDelayHours + conversionWindowHours
-      )} as conversion_end
-    FROM
-        __pageviews p
-    WHERE
-      p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
-      AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
-      ${
-        params.urlRegex && params.urlRegex !== ".*"
-          ? `AND ${this.regexMatch("p.url", params.urlRegex)}`
-          : ""
-      }
-    GROUP BY
-      ${userIdCol}
-    `;
-  }
-
-  private dateOnly(orig: Date) {
-    const date = new Date(orig);
-
-    date.setHours(0);
-    date.setMinutes(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
-
-    return date;
-  }
-
   private capValue(cap: number | undefined, value: string) {
     if (!cap) {
       return value;
@@ -1269,5 +1044,58 @@ export default abstract class SqlIntegration
   }
   private getTimestampColumn(metric: MetricInterface): string {
     return metric.sql ? "timestamp" : metric.timestampColumn || "received_at";
+  }
+
+  private getIdentitiesQuery(
+    settings: DataSourceSettings,
+    id1: string,
+    id2: string,
+    from: Date,
+    to: Date | undefined
+  ) {
+    if (settings?.queries?.identityJoins) {
+      for (let i = 0; i < settings.queries.identityJoins.length; i++) {
+        const join = settings?.queries?.identityJoins[i];
+        if (
+          join.query.length > 6 &&
+          join.ids.includes(id1) &&
+          join.ids.includes(id2)
+        ) {
+          return `
+          SELECT
+            ${id1},
+            ${id2}
+          FROM
+            (${replaceDateVars(join.query, from, to)}) i
+          GROUP BY
+            1, 2
+          `;
+        }
+      }
+    }
+
+    if (settings?.queries?.pageviewsQuery) {
+      if (
+        ["user_id", "anonymous_id"].includes(id1) &&
+        ["user_id", "anonymous_id"].includes(id2)
+      ) {
+        return `
+        SELECT
+          user_id,
+          anonymous_id
+        FROM
+          (${replaceDateVars(settings.queries.pageviewsQuery, from, to)}) i
+        WHERE
+          i.timestamp >= ${this.toTimestamp(from)}
+          ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+        GROUP BY
+          1, 2
+        `;
+      }
+    }
+
+    return `
+    -- ERROR: Missing User Id Join Table!
+    SELECT '' as ${id1}, '' as ${id2}`;
   }
 }

@@ -23,7 +23,6 @@ import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import HistoryTable from "../../components/HistoryTable";
-import DistributionGraph from "../../components/Metrics/DistributionGraph";
 import DateGraph from "../../components/Metrics/DateGraph";
 import { date } from "../../services/dates";
 import RunQueriesButton, {
@@ -496,53 +495,58 @@ const MetricPage: FC = () => {
                         )}
                       {analysis && (
                         <div className="mb-4">
-                          <div className="d-flex flex-row align-items-end">
-                            <div style={{ fontSize: "2.5em" }}>
-                              {formatConversionRate(
-                                metric.type,
-                                analysis.average
-                              )}
+                          {metric.type !== "binomial" && (
+                            <div className="d-flex flex-row align-items-end">
+                              <div style={{ fontSize: "2.5em" }}>
+                                {formatConversionRate(
+                                  metric.type,
+                                  analysis.average
+                                )}
+                              </div>
+                              <div className="pb-2 ml-1">average</div>
                             </div>
-                            <div className="pb-2 ml-1">average</div>
-                          </div>
+                          )}
                         </div>
                       )}
                       {analysis?.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
                           <div className="row mb-3">
                             <div className="col-auto">
-                              <h5>Metric Over Time</h5>
+                              <h5>
+                                {metric.type === "binomial"
+                                  ? "Conversions"
+                                  : "Metric Value"}{" "}
+                                Over Time
+                              </h5>
                             </div>
-                            {analysis.dates?.[0]?.u > 0 && (
-                              <div className="col-auto">
-                                <a
-                                  className={clsx("badge badge-pill mr-2", {
-                                    "badge-light": groupby === "week",
-                                    "badge-primary": groupby === "day",
-                                  })}
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setGroupby("day");
-                                  }}
-                                >
-                                  day
-                                </a>
-                                <a
-                                  className={clsx("badge badge-pill", {
-                                    "badge-light": groupby === "day",
-                                    "badge-primary": groupby === "week",
-                                  })}
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setGroupby("week");
-                                  }}
-                                >
-                                  week
-                                </a>
-                              </div>
-                            )}
+                            <div className="col-auto">
+                              <a
+                                className={clsx("badge badge-pill mr-2", {
+                                  "badge-light": groupby === "week",
+                                  "badge-primary": groupby === "day",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("day");
+                                }}
+                              >
+                                day
+                              </a>
+                              <a
+                                className={clsx("badge badge-pill", {
+                                  "badge-light": groupby === "day",
+                                  "badge-primary": groupby === "week",
+                                })}
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGroupby("week");
+                                }}
+                              >
+                                week
+                              </a>
+                            </div>
                           </div>
 
                           <DateGraph
@@ -552,16 +556,6 @@ const MetricPage: FC = () => {
                           />
                         </div>
                       )}
-                      {analysis?.percentiles &&
-                        analysis.percentiles.length > 0 && (
-                          <div className="mb-4">
-                            <h5 className="mb-3">Percentile Breakdown</h5>
-                            <DistributionGraph
-                              type={metric.type}
-                              percentiles={analysis.percentiles}
-                            />
-                          </div>
-                        )}
 
                       {!analysis && (
                         <div>

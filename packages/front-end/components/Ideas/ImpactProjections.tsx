@@ -31,23 +31,18 @@ const ImpactProjections: FC<{
   estimate?: ImpactEstimateInterface;
   length: number;
 }> = ({ estimate, estimateParams, length }) => {
-  let experimentLength: string, traffic: string, conversions: string;
+  let experimentLength: string, conversions: string;
 
   if (estimateParams && estimate) {
-    const cr = estimate.users ? estimate.value / estimate.users : 0;
-
-    const trafficPerVariationPerDay =
-      ((estimateParams.userAdjustment / 100) * estimate.users) /
-      estimateParams.numVariations;
-
-    const conversionsPerVariationPerDay = trafficPerVariationPerDay * cr;
+    const adjustedValue =
+      estimate.conversionsPerDay * (estimateParams.userAdjustment / 100);
+    const conversionsPerVariationPerDay =
+      adjustedValue / estimateParams.numVariations;
 
     experimentLength = formatDays(length);
-    traffic = formatNumber(trafficPerVariationPerDay);
     conversions = formatNumber(conversionsPerVariationPerDay);
   } else {
     experimentLength = "? days";
-    traffic = conversions = "?";
   }
 
   return (
@@ -64,20 +59,11 @@ const ImpactProjections: FC<{
       </div>
       <div className="mb-2">
         <small>
-          <em>User Traffic:</em>
-        </small>
-        <div className="pt-1">
-          <strong className="border p-1 mr-1">{traffic}</strong>
-          <small className="text-muted">/variation/day</small>
-        </div>
-      </div>
-      <div className="mb-2">
-        <small>
           <em>Conversions:</em>
         </small>
         <div className="pt-1">
           <strong className="border p-1 mr-1">{conversions}</strong>
-          <small className="text-muted">/variation/day</small>
+          <small className="text-muted">/ variation / day</small>
         </div>
       </div>
     </div>

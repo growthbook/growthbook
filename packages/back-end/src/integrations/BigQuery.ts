@@ -43,14 +43,6 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  regexMatch(col: string, regex: string) {
-    return `REGEXP_CONTAINS(${col}, "${regex}")`;
-  }
-  percentile(col: string, percentile: number) {
-    return `APPROX_QUANTILES(${col}, 100)[OFFSET(${Math.floor(
-      percentile * 100
-    )})]`;
-  }
   convertDate(fromDB: bq.BigQueryDatetime) {
     return getValidDate(fromDB.value + "Z");
   }

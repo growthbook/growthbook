@@ -75,12 +75,6 @@ export default class Presto extends SqlIntegration {
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
-  regexMatch(col: string, regex: string) {
-    return `regexp_like(${col}, '${regex}')`;
-  }
-  percentile(col: string, percentile: number) {
-    return `approx_percentile(${col}, ${percentile})`;
-  }
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),0,10)`;
   }
