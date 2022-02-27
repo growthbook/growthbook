@@ -937,6 +937,16 @@ export async function postDataSources(
   variation_id
 FROM
   ${schema ? schema + "." : ""}experiment_viewed`,
+      identityJoins: [
+        {
+          ids: ["user_id", "anonymous_id"],
+          query: `SELECT
+  user_id,
+  anonymous_id
+FROM
+  ${schema ? schema + "." : ""}identifies`,
+        },
+      ],
       ...settings?.queries,
     };
 
