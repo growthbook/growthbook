@@ -184,6 +184,9 @@ export default abstract class SqlIntegration
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
+  castUserDateCol(column: string): string {
+    return column;
+  }
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
@@ -203,16 +206,16 @@ export default abstract class SqlIntegration
         SELECT
           experiment_id,
           variation_id,
-          ${this.dateTrunc("timestamp")} as date,
+          ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
           count(distinct anonymous_id) as users
         FROM
           __experiments
         WHERE
-          timestamp > ${this.toTimestamp(params.from)}
+          ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
+        params.from
+      )}
         GROUP BY
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc("timestamp")}
+          1, 2, 3
       ),
       __userThresholds as (
         SELECT
@@ -806,7 +809,9 @@ export default abstract class SqlIntegration
           : this.getAnonymousIdColumn(metric));
     }
 
-    const timestampCol = "m." + this.getTimestampColumn(metric);
+    const timestampCol = this.castUserDateCol(
+      "m." + this.getTimestampColumn(metric)
+    );
 
     const schema = this.getSchema();
 
@@ -910,36 +915,56 @@ export default abstract class SqlIntegration
       conversionWindowHours + conversionDelayHours
     );
 
+    const timestampColumn = this.castUserDateCol("e.timestamp");
+
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
       ${this.castToString("e.variation_id")} as variation,
-      ${this.addHours("e.timestamp", conversionDelayHours)} as conversion_start,
+      ${this.addHours(
+        timestampColumn,
+        conversionDelayHours
+      )} as conversion_start,
       ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
       ${this.addHours(
-        "e.timestamp",
+        timestampColumn,
         conversionDelayHours + conversionWindowHours
       )} as conversion_end
     FROM
         __rawExperiment e
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
-        AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
-        ${endDate ? `AND e.timestamp <= ${this.toTimestamp(endDate)}` : ""}
+        AND ${timestampColumn} >= ${this.toTimestamp(phase.dateStarted)}
+        ${
+          endDate
+            ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
+            : ""
+        }
         ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
+    const dateCol = this.castUserDateCol("s.date");
+
     // Need to map user_id to anonymous_id
     if (!userId) {
       return `-- Segment (${name})
       SELECT
         i.anonymous_id as user_id,
-        s.date
+        ${dateCol} as date
       FROM
         (${sql}) s
         ${this.getIdentifiesJoinSql("s.user_id", true)}
       `;
+    }
+
+    if (dateCol !== "s.date") {
+      return `-- Segment (${name})
+      SELECT
+        s.user_id,
+        ${dateCol} as date
+      FROM
+        (${sql}) s`;
     }
 
     return `-- Segment (${name})
@@ -1075,6 +1100,8 @@ export default abstract class SqlIntegration
     }
 
     if (settings?.queries?.pageviewsQuery) {
+      const timestampColumn = this.castUserDateCol("i.timestamp");
+
       if (
         ["user_id", "anonymous_id"].includes(id1) &&
         ["user_id", "anonymous_id"].includes(id2)
@@ -1086,8 +1113,8 @@ export default abstract class SqlIntegration
         FROM
           (${replaceDateVars(settings.queries.pageviewsQuery, from, to)}) i
         WHERE
-          i.timestamp >= ${this.toTimestamp(from)}
-          ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
+          ${timestampColumn} >= ${this.toTimestamp(from)}
+          ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}
         GROUP BY
           1, 2
         `;

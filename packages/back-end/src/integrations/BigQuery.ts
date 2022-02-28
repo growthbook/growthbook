@@ -58,4 +58,7 @@ export default class BigQuery extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as string)`;
   }
+  castUserDateCol(column: string): string {
+    return `CAST(${column} as DATETIME)`;
+  }
 }
