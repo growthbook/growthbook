@@ -32,7 +32,7 @@ export default function DocumentationLinksSidebar({
             <div className="p-1 w-100">
               Watch a quick{" "}
               <a
-                href="https://youtu.be/0-gugX_dICM"
+                href="https://youtu.be/1ASe3K46BEw"
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => {
