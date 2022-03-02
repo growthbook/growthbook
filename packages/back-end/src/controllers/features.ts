@@ -14,6 +14,8 @@ import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
+import format from "date-fns/format";
+import { getValidDate } from "../util/dates";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -250,5 +252,61 @@ export async function getFeatureById(
     status: 200,
     feature,
     experiments,
+  });
+}
+
+export async function getFeaturesFrequencyMonth(
+  req: AuthRequest<null, { num: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const { num } = req.params;
+  const features = await getAllFeatures(org.id, project);
+
+  const allData: { name: string; numFeatures: number }[] = [];
+
+  // make the data array with all the months needed and 0 experiments.
+  for (let i = parseInt(num) - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const ob = {
+      name: format(d, "MMM yyy"),
+      numFeatures: 0,
+    };
+    allData.push(ob);
+  }
+
+  // create stubs for each month by all the statuses:
+  const dataByType = {
+    rollout: JSON.parse(JSON.stringify(allData)),
+    experiment: JSON.parse(JSON.stringify(allData)),
+    force: JSON.parse(JSON.stringify(allData)),
+  };
+
+  // now get the right number of experiments:
+  features.forEach((f) => {
+    const monthYear = format(getValidDate(f.dateCreated), "MMM yyy");
+
+    allData.forEach((md, i) => {
+      if (md.name === monthYear) {
+        md.numFeatures++;
+        // I can do this because the indexes will represent the same month
+        if (f?.rules && f.rules.length > 0) {
+          f.rules.forEach((o) => {
+            dataByType[o.type][i].numFeatures++;
+          });
+        }
+      }
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: { all: allData, ...dataByType },
   });
 }

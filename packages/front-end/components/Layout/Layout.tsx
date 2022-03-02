@@ -5,139 +5,22 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
 import { FaArrowRight } from "react-icons/fa";
-import {
-  GBHome,
-  GBIdea,
-  GBDimensions,
-  GBExperiment,
-  GBMetrics,
-  GBPresentations,
-  GBSegments,
-  GBSettings,
-} from "../Icons";
+import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
-const navlinks: SidebarLinkProps[] = [
-  {
-    name: "Home",
-    href: "/",
-    Icon: GBHome,
-    path: /^$/,
-    className: styles.first,
-  },
-  {
-    name: "Ideas",
-    href: "/ideas",
-    Icon: GBIdea,
-    path: /^idea/,
-  },
-  {
-    name: "Experiments",
-    href: "/experiments",
-    Icon: GBExperiment,
-    path: /^experiment/,
-  },
-  {
-    name: "Features",
-    href: "/features",
-    Icon: BsFlag,
-    path: /^features/,
-    beta: false,
-  },
-  {
-    name: "Presentations",
-    href: "/presentations",
-    Icon: GBPresentations,
-    path: /^presentations/,
-  },
-  {
-    name: "Metrics",
-    href: "/metrics",
-    Icon: GBMetrics,
-    divider: true,
-    sectionTitle: "Definitions",
-    path: /^metric/,
-  },
-  {
-    name: "Segments",
-    href: "/segments",
-    Icon: GBSegments,
-    path: /^segment/,
-  },
-  {
-    name: "Dimensions",
-    href: "/dimensions",
-    Icon: GBDimensions,
-    path: /^dimension/,
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    Icon: GBSettings,
-    divider: true,
-    path: /^(settings|admin|datasources)/,
-    settingsPermission: true,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "General",
-        href: "/settings",
-        path: /^settings$/,
-      },
-      {
-        name: "Team",
-        href: "/settings/team",
-        path: /^settings\/team/,
-      },
-      {
-        name: "Projects",
-        href: "/settings/projects",
-        path: /^settings\/projects/,
-      },
-      {
-        name: "Attributes",
-        href: "/settings/attributes",
-        path: /^settings\/attributes/,
-      },
-      {
-        name: "Billing",
-        href: "/settings/billing",
-        path: /^settings\/billing/,
-        cloudOnly: true,
-      },
-      {
-        name: "API Keys",
-        href: "/settings/keys",
-        path: /^settings\/keys/,
-      },
-      {
-        name: "Webhooks",
-        href: "/settings/webhooks",
-        path: /^settings\/webhooks/,
-      },
-      {
-        name: "Data Sources",
-        href: "/datasources",
-        path: /^datasources/,
-      },
-      {
-        name: "Admin",
-        href: "/admin",
-        path: /^admin/,
-        cloudOnly: true,
-        divider: true,
-        superAdmin: true,
-      },
-    ],
-  },
-];
-
 // move experiments inside of 'analysis' menu
-const navlinksSimple: SidebarLinkProps[] = [
+const navlinks: SidebarLinkProps[] = [
+  // {
+  //   name: "Home",
+  //   href: "/",
+  //   Icon: GBHome,
+  //   path: /^$/,
+  //   className: styles.first,
+  // },
   {
     name: "Features",
     href: "/features",
@@ -149,7 +32,7 @@ const navlinksSimple: SidebarLinkProps[] = [
   {
     name: "Analysis",
     href: "/analysis",
-    Icon: GBMetrics,
+    Icon: GBExperiment,
     path: /^(analysis|experiment|presentations|metric|segment|dimension|datasources)/,
     autoClose: true,
     subLinks: [
@@ -165,12 +48,6 @@ const navlinksSimple: SidebarLinkProps[] = [
         //Icon: GBExperiment,
         path: /^experiment/,
       },
-      // {
-      //   name: "Presentations",
-      //   href: "/presentations",
-      //   //Icon: GBPresentations,
-      //   path: /^presentations/,
-      // },
       {
         name: "Metrics",
         href: "/metrics",
@@ -190,19 +67,20 @@ const navlinksSimple: SidebarLinkProps[] = [
         //Icon: GBDimensions,
         path: /^dimension/,
       },
-      // {
-      //   name: "Data Sources",
-      //   href: "/datasources",
-      //   path: /^datasources/,
-      // },
+      {
+        name: "Ideas",
+        href: "/ideas",
+        path: /^idea/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        //Icon: GBPresentations,
+        path: /^presentations/,
+      },
     ],
   },
-  // {
-  //   name: "Ideas",
-  //   href: "/ideas",
-  //   Icon: GBIdea,
-  //   path: /^idea/,
-  // },
+
   {
     name: "Settings",
     href: "/settings",
@@ -290,9 +168,6 @@ const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
 
-  const newNavFeature = true;
-  // add flagging here
-  const usedNav = newNavFeature ? navlinksSimple : navlinks;
   // hacky:
   const router = useRouter();
   const path = router.route.substr(1);
@@ -307,7 +182,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  usedNav.forEach((o) => {
+  navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (s.path.test(path)) {
@@ -423,7 +298,7 @@ const Layout = (): React.ReactElement => {
                   </a>
                 </li>
                 <ProjectSelector />
-                {usedNav.map((v, i) => (
+                {navlinks.map((v, i) => (
                   <SidebarLink {...v} key={i} />
                 ))}
               </ul>

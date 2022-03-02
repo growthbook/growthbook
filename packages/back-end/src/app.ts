@@ -482,6 +482,10 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
+app.get(
+  "/feature/frequency/month/:num",
+  featuresController.getFeaturesFrequencyMonth
+);
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);
