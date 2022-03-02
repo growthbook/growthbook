@@ -20,7 +20,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 
-// Replace `{{startDate}}` and `{{endDate}}` in SQL queries
+// Replace vars in SQL queries (e.g. '{{startDate}}')
 function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -38,16 +38,23 @@ function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     );
   }
 
-  return sql
-    .replace(
-      /\{\{\s*startDate\s*\}\}/g,
-      startDate.toISOString().substr(0, 19).replace("T", " ")
-    )
-    .replace(
-      /\{\{\s*endDate\s*\}\}/g,
-      // Give an extra day buffer to account for any timezones, etc.
-      endDate.toISOString().substr(0, 19).replace("T", " ")
-    );
+  const replacements: Record<string, string> = {
+    startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
+    startYear: startDate.toISOString().substr(0, 4),
+    startMonth: startDate.toISOString().substr(6, 2),
+    startDay: startDate.toISOString().substr(9, 2),
+    endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
+    endYear: endDate.toISOString().substr(0, 4),
+    endMonth: endDate.toISOString().substr(6, 2),
+    endDay: endDate.toISOString().substr(9, 2),
+  };
+
+  Object.keys(replacements).forEach((key) => {
+    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+    sql = sql.replace(re, replacements[key]);
+  });
+
+  return sql;
 }
 
 export function getExperimentQuery(

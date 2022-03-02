@@ -27,6 +27,7 @@ const dataSourceSchema = new mongoose.Schema({
   params: String,
   settings: {
     notebookRunQuery: String,
+    schemaFormat: String,
     queries: {
       experimentsQuery: String,
       identityJoins: [
@@ -148,6 +149,8 @@ export async function createDataSource(
     );
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
+
+  // Set initial queries based on the selected schema type
 
   const datasource: DataSourceInterface = {
     id,

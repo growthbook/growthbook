@@ -33,6 +33,15 @@ export type DataSourceParams =
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
+export type SchemaFormat =
+  | "segment"
+  | "snowplow"
+  | "ga4"
+  | "matomo"
+  | "jitsu"
+  | "rudderstack"
+  | "custom";
+
 export interface DataSourceProperties {
   queryLanguage: QueryLanguage;
   metricCaps?: boolean;
@@ -60,6 +69,7 @@ export type IdentityJoinQuery = {
 export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
+  schemaFormat?: SchemaFormat;
   queries?: {
     experimentsQuery?: string;
     identityJoins?: IdentityJoinQuery[];
