@@ -7,6 +7,7 @@ import { MysqlConnectionParams } from "./integrations/mysql";
 import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
+import { MetricType } from "./metric";
 
 export type DataSourceType =
   | "redshift"
@@ -42,6 +43,14 @@ export type SchemaFormat =
   | "rudderstack"
   | "custom";
 
+export interface SchemaInterface {
+  getExperimentSQL(tablePrefix: string): string;
+  getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
+  experimentDimensions: string[];
+  metricUserIdType: "user" | "anonymous" | "both";
+  getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
+}
+
 export interface DataSourceProperties {
   queryLanguage: QueryLanguage;
   metricCaps?: boolean;
@@ -70,6 +79,7 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
+  tablePrefix?: string;
   queries?: {
     experimentsQuery?: string;
     identityJoins?: IdentityJoinQuery[];

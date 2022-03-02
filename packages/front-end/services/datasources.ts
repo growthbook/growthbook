@@ -1,18 +1,22 @@
 import {
+  DataSourceInterface,
   DataSourceSettings,
-  DataSourceType,
   SchemaFormat,
+  SchemaInterface,
 } from "back-end/types/datasource";
+import { MetricType } from "../../back-end/types/metric";
 
-export function getInitialSettings(
-  datasource: DataSourceType,
-  type: SchemaFormat,
-  tablePrefix: string = ""
-): Partial<DataSourceSettings> {
-  if (type === "ga4" && datasource === "bigquery") {
-    return {
-      queries: {
-        experimentsQuery: `SELECT
+const GA4Schema: SchemaInterface = {
+  experimentDimensions: [
+    "country",
+    "source",
+    "medium",
+    "device",
+    "browser",
+    "os",
+  ],
+  getExperimentSQL: (tablePrefix) => {
+    return `SELECT
   user_id,
   user_pseudo_id as anonymous_id,
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
@@ -24,7 +28,7 @@ export function getInitialSettings(
   (
     SELECT p.value.string_value 
     FROM UNNEST(event_params) as p 
-    WHERE p.key = 'experiment_id' LIMIT 1
+    WHERE p.key = 'variation_id' LIMIT 1
   ) as variation_id,
   geo.country as country,
   traffic_source.source as source,
@@ -37,45 +41,107 @@ FROM
 WHERE
   event_name = 'viewed_experiment'  
   AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
-  `,
-        identityJoins: [],
+  `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  metricUserIdType: "both",
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  user_pseudo_id as anonymous_id,
+  TIMESTAMP_MICROS(event_timestamp) as timestamp${
+    type === "revenue"
+      ? ",\n  event_value_in_usd as value"
+      : type === "binomial"
+      ? ""
+      : `,
+  (
+    SELECT p.value.${type === "count" ? "int" : "float"}_value
+    FROM UNNEST(event_params) as p
+    WHERE p.key = 'value'
+  )`
+  }
+FROM
+  \`${tablePrefix}events_*\`
+WHERE
+  event_name = '${name}'  
+  AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+    `;
+  },
+};
+
+const SegmentSchema: SchemaInterface = {
+  experimentDimensions: ["country"],
+  getExperimentSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  context_location_country as country
+FROM
+  ${tablePrefix}experiment_viewed`;
+  },
+  getIdentitySQL: (tablePrefix) => {
+    return [
+      {
+        ids: ["user_id", "anonymous_id"],
+        query: `SELECT
+  user_id,
+  anonymous_id
+FROM
+  ${tablePrefix}identifies`,
       },
-      experimentDimensions: [
-        "country",
-        "source",
-        "medium",
-        "device",
-        "browser",
-        "os",
-      ],
-    };
+    ];
+  },
+  metricUserIdType: "both",
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${name.toLowerCase().replace(/\s*/g, "_")}`;
+  },
+};
+
+function getSchemaObject(type?: SchemaFormat) {
+  if (type === "ga4") {
+    return GA4Schema;
   }
 
-  // Default to Segment
+  return SegmentSchema;
+}
+
+export function getInitialSettings(
+  type: SchemaFormat,
+  tablePrefix: string = ""
+): Partial<DataSourceSettings> {
+  const schema = getSchemaObject(type);
+
   return {
+    experimentDimensions: schema.experimentDimensions,
     queries: {
-      experimentsQuery: `SELECT
-user_id,
-anonymous_id,
-received_at as timestamp,
-experiment_id,
-variation_id,
-context_location_country as country
-FROM
-${tablePrefix}experiment_viewed`,
-      identityJoins: [
-        {
-          ids: ["user_id", "anonymous_id"],
-          query: `SELECT
-user_id,
-anonymous_id
-FROM
-${tablePrefix}identifies`,
-        },
-      ],
+      experimentsQuery: schema.getExperimentSQL(tablePrefix),
+      identityJoins: schema.getIdentitySQL(tablePrefix),
     },
-    experimentDimensions: ["country"],
   };
+}
+
+export function getInitialMetricQuery(
+  datasource: DataSourceInterface,
+  type: MetricType,
+  name: string
+): ["user" | "anonymous" | "both", string] {
+  const schema = getSchemaObject(datasource.settings?.schemaFormat);
+
+  return [
+    schema.metricUserIdType,
+    schema.getMetricSQL(name, type, datasource.settings?.tablePrefix || ""),
+  ];
 }
 
 export function getExperimentQuery(

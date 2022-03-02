@@ -28,6 +28,7 @@ const dataSourceSchema = new mongoose.Schema({
   settings: {
     notebookRunQuery: String,
     schemaFormat: String,
+    tablePrefix: String,
     queries: {
       experimentsQuery: String,
       identityJoins: [
