@@ -122,7 +122,11 @@ export default function ExperimentSummary({
                   <div style={{ flex: 1 }}>
                     <div
                       className="progress d-none d-md-flex"
-                      style={{ minWidth: 150 }}
+                      style={{
+                        minWidth: 150,
+                        border: "1px solid #17a2b8",
+                        backgroundColor: "#f3f3f3",
+                      }}
                     >
                       <div
                         className="progress-bar bg-info"
