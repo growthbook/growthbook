@@ -101,12 +101,18 @@ export default function ExperimentSummary({
         </div>
       </div>
       <strong>SERVE</strong>
-      <table className="table mt-1 mb-3 ml-3 w-auto">
+      <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
           {values.map((r, j) => (
             <tr key={j}>
               <td>
                 <ValueDisplay value={r.value} type={type} />
+              </td>
+              <td
+                className="text-muted"
+                style={{ fontSize: "0.9em", lineHeight: "1.1em" }}
+              >
+                variation id: {j}
               </td>
               <td>
                 <div className="d-flex">

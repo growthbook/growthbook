@@ -7,6 +7,8 @@ import {
   useAttributeSchema,
 } from "../../services/features";
 import Field from "../Forms/Field";
+import styles from "./ConditionInput.module.scss";
+import { GBAddCircle } from "../Icons";
 
 interface Props {
   defaultValue: string;
@@ -70,13 +72,13 @@ export default function ConditionInput(props: Props) {
   }
 
   return (
-    <div className="mb-3">
-      <div>
-        <label>Targeting Conditions</label>
+    <div className={`mb-3 bg-light px-4 py-3 ${styles.conditionbox}`}>
+      <div className="">
+        <label className="mb-0">Targeting Conditions</label>
       </div>
       {conds.length > 0 ? (
         <>
-          <ul className="mb-2 pl-4">
+          <ul className={styles.conditionslist}>
             {conds.map(({ field, operator, value }, i) => {
               const attribute = attributes.get(field);
               const onChange = (
@@ -91,97 +93,105 @@ export default function ConditionInput(props: Props) {
                 setConds(newConds);
               };
               return (
-                <li key={i} className="mb-1">
-                  <div className="form-inline">
-                    {i > 0 && <span className="mr-1">AND</span>}
-                    <select
-                      value={field}
-                      name="field"
-                      onChange={(e) => {
-                        const value: string | number = e.target.value;
+                <li key={i} className={styles.listitem}>
+                  <div className={`row ${styles.listrow}`}>
+                    {i > 0 && <span className={`${styles.and} mr-2`}>AND</span>}
+                    <div className="col-sm-12 col-md mb-2">
+                      <select
+                        value={field}
+                        name="field"
+                        onChange={(e) => {
+                          const value: string | number = e.target.value;
 
-                        const newConds = [...conds];
-                        newConds[i] = { ...newConds[i] };
-                        newConds[i]["field"] = value;
+                          const newConds = [...conds];
+                          newConds[i] = { ...newConds[i] };
+                          newConds[i]["field"] = value;
 
-                        const newAttribute = attributes.get(value);
-                        if (newAttribute.datatype !== attribute.datatype) {
-                          if (newAttribute.datatype === "boolean") {
-                            newConds[i]["operator"] = "$true";
-                          } else {
-                            newConds[i]["operator"] = "$eq";
-                            newConds[i]["value"] = newConds[i]["value"] || "";
+                          const newAttribute = attributes.get(value);
+                          if (newAttribute.datatype !== attribute.datatype) {
+                            if (newAttribute.datatype === "boolean") {
+                              newConds[i]["operator"] = "$true";
+                            } else {
+                              newConds[i]["operator"] = "$eq";
+                              newConds[i]["value"] = newConds[i]["value"] || "";
+                            }
                           }
-                        }
 
-                        setConds(newConds);
-                      }}
-                      className="form-control mr-1"
-                    >
-                      {attributeSchema.map((s) => (
-                        <option key={s.property}>{s.property}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={operator}
-                      name="operator"
-                      onChange={onChange}
-                      className="form-control mr-1"
-                    >
-                      {attribute.datatype === "boolean" ? (
-                        <>
-                          <option value="$true">is true</option>
-                          <option value="$false">is false</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.array ? (
-                        <>
-                          <option value="$eq">contains</option>
-                          <option value="$ne">does not contain</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.enum?.length > 0 ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.datatype === "string" ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$regex">matches regex</option>
-                          <option value="$gt">is greater than</option>
-                          <option value="$gte">
-                            is greater than or equal to
-                          </option>
-                          <option value="$lt">is less than</option>
-                          <option value="$lte">is less than or equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                        </>
-                      ) : attribute.datatype === "number" ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$gt">is greater than</option>
-                          <option value="$gte">
-                            is greater than or equal to
-                          </option>
-                          <option value="$lt">is less than</option>
-                          <option value="$lte">is less than or equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                        </>
-                      ) : (
-                        ""
-                      )}
-                    </select>
+                          setConds(newConds);
+                        }}
+                        className={`${styles.firstselect} form-control`}
+                      >
+                        {attributeSchema.map((s) => (
+                          <option key={s.property}>{s.property}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-sm-12 col-md mb-2">
+                      <select
+                        value={operator}
+                        name="operator"
+                        onChange={onChange}
+                        className="form-control"
+                      >
+                        {attribute.datatype === "boolean" ? (
+                          <>
+                            <option value="$true">is true</option>
+                            <option value="$false">is false</option>
+                            <option value="$exists">exists</option>
+                            <option value="$notExists">does not exist</option>
+                          </>
+                        ) : attribute.array ? (
+                          <>
+                            <option value="$eq">contains</option>
+                            <option value="$ne">does not contain</option>
+                            <option value="$exists">exists</option>
+                            <option value="$notExists">does not exist</option>
+                          </>
+                        ) : attribute.enum?.length > 0 ? (
+                          <>
+                            <option value="$eq">is equal to</option>
+                            <option value="$ne">is not equal to</option>
+                            <option value="$in">is in the list</option>
+                            <option value="$nin">is not in the list</option>
+                            <option value="$exists">exists</option>
+                            <option value="$notExists">does not exist</option>
+                          </>
+                        ) : attribute.datatype === "string" ? (
+                          <>
+                            <option value="$eq">is equal to</option>
+                            <option value="$ne">is not equal to</option>
+                            <option value="$regex">matches regex</option>
+                            <option value="$gt">is greater than</option>
+                            <option value="$gte">
+                              is greater than or equal to
+                            </option>
+                            <option value="$lt">is less than</option>
+                            <option value="$lte">
+                              is less than or equal to
+                            </option>
+                            <option value="$in">is in the list</option>
+                            <option value="$nin">is not in the list</option>
+                          </>
+                        ) : attribute.datatype === "number" ? (
+                          <>
+                            <option value="$eq">is equal to</option>
+                            <option value="$ne">is not equal to</option>
+                            <option value="$gt">is greater than</option>
+                            <option value="$gte">
+                              is greater than or equal to
+                            </option>
+                            <option value="$lt">is less than</option>
+                            <option value="$lte">
+                              is less than or equal to
+                            </option>
+                            <option value="$in">is in the list</option>
+                            <option value="$nin">is not in the list</option>
+                          </>
+                        ) : (
+                          ""
+                        )}
+                      </select>
+                    </div>
                     {["$exists", "$notExists", "$true", "$false"].includes(
                       operator
                     ) ? (
@@ -193,6 +203,7 @@ export default function ConditionInput(props: Props) {
                         value={value}
                         onChange={onChange}
                         name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
                       />
                     ) : attribute.enum.length ? (
                       <Field
@@ -201,6 +212,7 @@ export default function ConditionInput(props: Props) {
                         onChange={onChange}
                         name="value"
                         initialOption="Choose One..."
+                        containerClassName="col-sm-12 col-md mb-2"
                       />
                     ) : attribute.datatype === "number" ? (
                       <Field
@@ -209,24 +221,32 @@ export default function ConditionInput(props: Props) {
                         value={value}
                         onChange={onChange}
                         name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
                       />
                     ) : attribute.datatype === "string" ? (
-                      <Field value={value} onChange={onChange} name="value" />
+                      <Field
+                        value={value}
+                        onChange={onChange}
+                        name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
+                      />
                     ) : (
                       ""
                     )}
-                    <button
-                      className="btn btn-link text-danger"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        remove
+                      </button>
+                    </div>
                   </div>
                 </li>
               );
@@ -234,7 +254,7 @@ export default function ConditionInput(props: Props) {
           </ul>
           <div className="d-flex align-items-center">
             <a
-              className="mr-3"
+              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -249,6 +269,11 @@ export default function ConditionInput(props: Props) {
                 ]);
               }}
             >
+              <span
+                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
+              >
+                <GBAddCircle />
+              </span>
               Add another condition
             </a>
             <a
@@ -260,32 +285,43 @@ export default function ConditionInput(props: Props) {
                 setAdvanced(true);
               }}
             >
-              advanced mode
+              Advanced mode
             </a>
           </div>
         </>
       ) : (
         <>
-          <div>
-            <em className="text-muted ml-2">Applied to everyone.</em>{" "}
-            <a
-              href="#"
-              className="ml-3"
-              onClick={(e) => {
-                e.preventDefault();
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
-            >
-              Add targeting condition
-            </a>
+          <div className="row mb-3 mt-2">
+            <div className="col">
+              <em className="text-muted ml-2">Applied to everyone.</em>{" "}
+            </div>
+          </div>
+          <div className="row">
+            <div className="col">
+              <a
+                href="#"
+                className="btn btn-outline-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const prop = attributeSchema[0];
+                  setConds([
+                    ...conds,
+                    {
+                      field: prop?.property || "",
+                      operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <span
+                  className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
+                >
+                  <GBAddCircle />
+                </span>
+                Add targeting condition
+              </a>
+            </div>
           </div>
         </>
       )}

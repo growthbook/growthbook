@@ -3,6 +3,9 @@ import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { getDefaultVariationValue } from "../../services/features";
 import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
+import Tooltip from "../Tooltip";
+import { GBAddCircle } from "../Icons";
+import React from "react";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -43,13 +46,19 @@ export default function VariationsInput({
 
   return (
     <div className="form-group">
-      <label>Variations and Weights</label>
-      <table className="table table-bordered">
+      <label>Variations and Weights</label>{" "}
+      <Tooltip
+        innerClassName="text-left"
+        tipMinWidth={"200px"}
+        text={
+          "Select the percentage of users to see each variation. eg: selecting 0.2 and 0.2 will expose 40% of your total users to the experiment. You can add more than two variations for non-binary flags"
+        }
+      />
+      <table className="table table-bordered gbtable bg-light">
         <thead>
           <tr>
             <th>Variation</th>
             <th>Percent of Users</th>
-            {values.fields.length > 2 && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -57,38 +66,49 @@ export default function VariationsInput({
             return (
               <tr key={i}>
                 <td>
-                  <FeatureValueField
-                    label=""
-                    form={form}
-                    field={`${formPrefix}values.${i}.value`}
-                    valueType={valueType}
-                  />
+                  <div className="row align-items-center">
+                    <div className="col-auto ">
+                      <span className="small text-muted">id: {i}</span>
+                    </div>
+                    <div className="col">
+                      <FeatureValueField
+                        label=""
+                        form={form}
+                        field={`${formPrefix}values.${i}.value`}
+                        valueType={valueType}
+                      />
+                    </div>
+                  </div>
                 </td>
                 <td>
-                  <Field
-                    {...form.register(`${formPrefix}values.${i}.weight`, {
-                      valueAsNumber: true,
-                    })}
-                    type="number"
-                    min={0}
-                    max={1}
-                    step="0.01"
-                  />
+                  <div className="row">
+                    <div className="col">
+                      <Field
+                        {...form.register(`${formPrefix}values.${i}.weight`, {
+                          valueAsNumber: true,
+                        })}
+                        type="number"
+                        min={0}
+                        max={1}
+                        step="0.01"
+                      />
+                    </div>
+                    {values.fields.length > 2 && (
+                      <div className="col-auto">
+                        <button
+                          className="btn btn-link text-danger"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            values.remove(i);
+                          }}
+                          type="button"
+                        >
+                          remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </td>
-                {values.fields.length > 2 && (
-                  <td style={{ width: 100 }}>
-                    <button
-                      className="btn btn-link text-danger"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        values.remove(i);
-                      }}
-                      type="button"
-                    >
-                      remove
-                    </button>
-                  </td>
-                )}
               </tr>
             );
           })}
@@ -98,6 +118,7 @@ export default function VariationsInput({
                 <div className="row">
                   <div className="col">
                     <a
+                      className="btn btn-outline-primary"
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
@@ -107,6 +128,9 @@ export default function VariationsInput({
                         });
                       }}
                     >
+                      <span className={`h4 pr-2 m-0 d-inline-block align-top`}>
+                        <GBAddCircle />
+                      </span>
                       add another variation
                     </a>
                   </div>
