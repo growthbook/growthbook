@@ -1,10 +1,14 @@
-import { SchemaFormat } from "back-end/types/datasource";
+import { DataSourceType, SchemaFormat } from "back-end/types/datasource";
 import clsx from "clsx";
 
 const options: { value: SchemaFormat; label: string }[] = [
   {
     value: "segment",
     label: "Segment",
+  },
+  {
+    value: "snowplow",
+    label: "Snowplow",
   },
   {
     value: "ga4",
@@ -24,16 +28,8 @@ const options: { value: SchemaFormat; label: string }[] = [
     label: "RudderStack",
   },
   {
-    value: "snowplow",
-    label: "Snowplow",
-  },
-  {
     value: "amplitude",
     label: "Amplitude",
-  },
-  {
-    value: "custom",
-    label: "Custom",
   },
   */
 ];
@@ -41,9 +37,11 @@ const options: { value: SchemaFormat; label: string }[] = [
 export default function DataSourceSchemaChooser({
   format,
   setValue,
+  datasource,
 }: {
   format?: SchemaFormat;
   setValue: (format: SchemaFormat) => void;
+  datasource?: DataSourceType;
 }) {
   return (
     <div>
@@ -54,7 +52,8 @@ export default function DataSourceSchemaChooser({
       </p>
       <div className="d-flex flex-wrap">
         {options
-          .filter((o) => o.value !== "custom")
+          // GA4 only works when the datasource is bigquery
+          .filter((o) => datasource === "bigquery" || o.value !== "ga4")
           .map(({ value, label }) => (
             <a
               href="#"

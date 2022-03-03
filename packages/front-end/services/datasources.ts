@@ -4,7 +4,7 @@ import {
   SchemaFormat,
   SchemaInterface,
 } from "back-end/types/datasource";
-import { MetricType } from "../../back-end/types/metric";
+import { MetricType } from "back-end/types/metric";
 
 const GA4Schema: SchemaInterface = {
   experimentDimensions: [
@@ -37,7 +37,7 @@ const GA4Schema: SchemaInterface = {
   device.web_info.browser as browser,
   device.operating_system as os
 FROM
-  \`${tablePrefix}events_*\`
+  ${tablePrefix}\`events_*\`
 WHERE
   event_name = 'viewed_experiment'  
   AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
@@ -64,10 +64,61 @@ WHERE
   )`
   }
 FROM
-  \`${tablePrefix}events_*\`
+  ${tablePrefix}\`events_*\`
 WHERE
   event_name = '${name}'  
   AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+    `;
+  },
+};
+
+const SnowplowSchema: SchemaInterface = {
+  experimentDimensions: [
+    "country",
+    "source",
+    "medium",
+    "device",
+    "browser",
+    "os",
+  ],
+  getExperimentSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  domain_userid as anonymous_id,
+  collector_tstamp as timestamp,
+  se_label as experiment_id,
+  se_property as variation_id,
+  dvce_type as device,
+  os_name as os,
+  geo_country as country,
+  mkt_source as source,
+  mkt_medium as medium,
+  br_family as browser
+FROM
+  ${tablePrefix}events
+WHERE
+  se_action = 'Experiment Viewed'
+  `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  metricUserIdType: "both",
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  domain_userid as anonymous_id,
+  collector_tstamp as timestamp${
+    type === "revenue"
+      ? ",\n  tr_total as value"
+      : type === "binomial"
+      ? ""
+      : `,\n  se_value as value`
+  }
+FROM
+  ${tablePrefix}events
+WHERE
+  ${type === "revenue" ? "event_name = 'transaction'" : `se_action = '${name}'`}
     `;
   },
 };
@@ -111,6 +162,9 @@ FROM
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4") {
     return GA4Schema;
+  }
+  if (type === "snowplow") {
+    return SnowplowSchema;
   }
 
   return SegmentSchema;

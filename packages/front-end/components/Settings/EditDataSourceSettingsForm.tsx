@@ -195,6 +195,7 @@ const EditDataSourceSettingsForm: FC<{
           {firstTime && datasource?.settings?.schemaFormat !== "custom" ? (
             <DataSourceSchemaChooser
               format={datasource?.settings?.schemaFormat}
+              datasource={datasource?.type}
               setValue={(format) => {
                 let tablePrefix = datasource?.settings?.tablePrefix;
 
