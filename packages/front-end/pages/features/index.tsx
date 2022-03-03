@@ -118,7 +118,7 @@ export default function FeaturesPage() {
       )}
 
       <ApiKeyUpgrade />
-      <FeaturesList />
+      <FeaturesList showAddFeature={false} />
     </div>
   );
 }

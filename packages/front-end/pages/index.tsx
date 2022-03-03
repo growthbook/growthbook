@@ -7,10 +7,13 @@ import GetStarted from "../components/HomePage/GetStarted";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 import { FeatureInterface } from "back-end/types/feature";
+import FeaturesList from "../components/Features/FeaturesList";
+import useUser from "../hooks/useUser";
+import Link from "next/link";
 
 export default function Home(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();
-
+  const { name } = useUser();
   const {
     data: experiments,
     error: experimentsError,
@@ -52,7 +55,18 @@ export default function Home(): React.ReactElement {
       </Head>
 
       <div className="container pagecontents position-relative">
-        {hasExperiments || hasFeatures ? (
+        {hasFeatures ? (
+          <div className="">
+            <h1>Hello {name}</h1>
+            <h2>
+              Features{" "}
+              <Link href="/features">
+                <a className="ml-3 h6">(see all)</a>
+              </Link>
+            </h2>
+            <FeaturesList />
+          </div>
+        ) : hasExperiments ? (
           <Dashboard
             features={features?.features || []}
             experiments={experiments?.experiments || []}
