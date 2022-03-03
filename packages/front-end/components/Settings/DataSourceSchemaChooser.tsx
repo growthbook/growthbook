@@ -14,6 +14,10 @@ const options: { value: SchemaFormat; label: string }[] = [
     value: "ga4",
     label: "Google Analytics v4",
   },
+  {
+    value: "rudderstack",
+    label: "RudderStack",
+  },
   /*
   {
     value: "jitsu",
@@ -22,10 +26,6 @@ const options: { value: SchemaFormat; label: string }[] = [
   {
     value: "matomo",
     label: "Matomo",
-  },
-  {
-    value: "rudderstack",
-    label: "RudderStack",
   },
   {
     value: "amplitude",
