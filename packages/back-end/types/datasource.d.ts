@@ -41,6 +41,7 @@ export type SchemaFormat =
   | "matomo"
   | "jitsu"
   | "rudderstack"
+  | "amplitude"
   | "custom";
 
 export interface SchemaInterface {
