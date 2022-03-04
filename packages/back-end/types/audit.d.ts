@@ -1,5 +1,6 @@
 export type EntityType =
   | "experiment"
+  | "feature"
   | "metric"
   | "datasource"
   | "comment"
@@ -21,6 +22,9 @@ export type EventType =
   | "experiment.analysis"
   | "experiment.screenshot.create"
   | "experiment.screenshot.delete"
+  | "feature.create"
+  | "feature.update"
+  | "feature.delete"
   | "metric.create"
   | "metric.update"
   | "metric.delete"

@@ -104,6 +104,15 @@ export async function postFeatures(
 
   await createFeature(feature);
 
+  await req.audit({
+    event: "feature.create",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify(feature),
+  });
+
   featureUpdated(feature);
 
   res.status(200).json({
@@ -186,6 +195,15 @@ export async function putFeature(
     dateUpdated: new Date(),
   });
 
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify(feature),
+  });
+
   if (requiresWebhook) {
     featureUpdated(
       {
@@ -218,6 +236,14 @@ export async function deleteFeatureById(
 
   if (feature) {
     await deleteFeature(org.id, id);
+    await req.audit({
+      event: "feature.delete",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: JSON.stringify(feature),
+    });
     featureUpdated(feature);
   }
 
