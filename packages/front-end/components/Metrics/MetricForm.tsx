@@ -765,7 +765,7 @@ GROUP BY
             </small>
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && value.type !== "binomial" && (
           <div className="form-group">
             Converted Users Only
             <BooleanSelect
