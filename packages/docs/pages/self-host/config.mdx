@@ -397,30 +397,47 @@ aggregation: MAX(value) # use MAX instead of the default SUM
 
 #### Mixpanel
 
-For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics),
-and optional conditions.
+For Mixpanel, instead of SQL we just need some info about what events and properties to use.
 
-A full example:
-
-```yml
-type: count
-# The event name
-table: PDF Downloads
-# The numeric property to count (optional)
-column: num_pages
-# Filter the event by properties
-conditions:
-  - column: language # property
-    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
-    value: en
-```
-
-And a simple binomial metric:
+Here's a simple binomial metric:
 
 ```yml
 type: binomial
 # The event name
 table: Purchased
+```
+
+Any metric can have optional conditions as well:
+
+```yml
+type: binomial
+table: Purchased
+conditions:
+  - column: category #property
+    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
+    value: clothing
+```
+
+For count, duration, and revenue metrics, you can sum a numeric property:
+
+```yml
+# A "Revenue per user" metric
+type: revenue
+table: Purchases
+# If a user has multiple "Purchases" events, this property will be summed together
+column: event.properties.grand_total
+```
+
+For count metrics, we also support the equivalent of `COUNT DISTINCT` in sql:
+
+```yml
+type: count
+# The event name
+table: PDF Downloads
+# Javascript expression that we can to count
+column: event.properties.file
+# Tell it do a distinct count
+countDistinct: true
 ```
 
 ### Dimensions
