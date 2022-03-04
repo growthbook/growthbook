@@ -111,6 +111,7 @@ const MetricPage: FC = () => {
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
+  const countDistinct = datasource?.properties?.countDistinct || false;
 
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
@@ -667,10 +668,15 @@ const MetricPage: FC = () => {
                       </RightRailSectionGroup>
                       {metric.type !== "binomial" && metric.column && (
                         <RightRailSectionGroup
-                          title={supportsSQL ? "Column" : "Property"}
+                          title={supportsSQL ? "Column" : "Value Expression"}
                           type="code"
                         >
                           {metric.column}
+                        </RightRailSectionGroup>
+                      )}
+                      {countDistinct && metric.countDistinct && (
+                        <RightRailSectionGroup title="" type="badge">
+                          count distinct
                         </RightRailSectionGroup>
                       )}
                       {metric.userIdType !== "anonymous" && customizeUserIds && (

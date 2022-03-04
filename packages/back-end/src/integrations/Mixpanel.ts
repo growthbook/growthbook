@@ -55,25 +55,25 @@ export default class Mixpanel implements SourceIntegrationInterface {
         (m) => m.conversionDelayHours && m.conversionDelayHours < 0
       ).length > 0;
 
+    const rollups = metrics
+      .map((m, i) => this.getMetricRollupCode(m, `m${i}`, true))
+      .filter(Boolean);
+
     const onActivate = `
         ${activationMetric ? "state.activated = true;" : ""}
-        state.start = e.time;
+        state.start = event.time;
         ${
           hasEarlyStartMetrics
             ? ` // Process queued values
-        state.queuedEvents.forEach((q) => {
+        state.queuedEvents.forEach((event) => {
           ${metrics
             .filter((m) => m.conversionDelayHours && m.conversionDelayHours < 0)
             .map(
               (metric, i) => `// Metric - ${metric.name}
-          if(q.time - state.start > ${
+          if(event.time - state.start > ${
             (metric.conversionDelayHours || 0) * 60 * 60 * 1000
-          } && ${this.getValidMetricCondition(metric, "q")}) {
-            ${this.getMetricAggregationCode(
-              metric,
-              this.getMetricValueCode(metric, "q"),
-              `state.m${i}`
-            )}
+          } && ${this.getValidMetricCondition(metric)}) {
+            ${this.getMetricAggregationCode(metric, `state.m${i}`)}
           }`
             )
             .join("\n")}
@@ -93,10 +93,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
           phase.dateStarted,
           phase.dateEnded || new Date()
         )}
-        .filter(function(e) {
+        .filter(function(event) {
           if(${this.getValidExperimentCondition(
             experiment.trackingKey,
-            "e",
             phase.dateStarted,
             phase.dateEnded
           )}) return true;
@@ -124,28 +123,25 @@ export default class Mixpanel implements SourceIntegrationInterface {
             start: null,
             variation: null,
             ${metrics.map((m, i) => `m${i}: null,`).join("\n")} ${
-      hasEarlyStartMetrics ? "queuedEvents: []" : ""
+      hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
     }
           };
           for(var i=0; i<events.length; i++) {
-            const e = events[i];
+            const event = events[i];
             // User is put into the experiment
             if(!state.inExperiment && ${this.getValidExperimentCondition(
               experiment.trackingKey,
-              "e",
               phase.dateStarted,
               phase.dateEnded
             )}) {
               state.inExperiment = true;
               state.variation = ${this.getPropertyColumn(
-                this.settings.events?.variationIdProperty || "Variant name",
-                "e"
+                this.settings.events?.variationIdProperty || "Variant name"
               )};
               ${
                 dimension
                   ? `state.dimension = ${this.getPropertyColumn(
-                      dimension.sql,
-                      "e"
+                      dimension.sql
                     )} || null;`
                   : ""
               }
@@ -155,7 +151,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   
             // Not in the experiment yet
             if(!state.inExperiment) {
-              ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
+              ${hasEarlyStartMetrics ? "state.queuedEvents.push(event);" : ""}
               continue;
             }
             ${
@@ -170,7 +166,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
                   ${onActivate}
                 }
                 else {
-                  ${hasEarlyStartMetrics ? "state.queuedEvents.push(e);" : ""}
+                  ${
+                    hasEarlyStartMetrics
+                      ? "state.queuedEvents.push(event);"
+                      : ""
+                  }
                   continue;
                 }
               }
@@ -181,12 +181,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ${metrics
               .map(
                 (metric, i) => `// Metric - ${metric.name}
-              if(${this.getValidMetricCondition(metric, "e", "state.start")}) {
-                ${this.getMetricAggregationCode(
-                  metric,
-                  this.getMetricValueCode(metric),
-                  `state.m${i}`
-                )}
+              if(${this.getValidMetricCondition(metric, "state.start")}) {
+                ${this.getMetricAggregationCode(metric, `state.m${i}`)}
               }
             `
               )
@@ -200,7 +196,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(ev.value.variation === null || ev.value.variation === undefined) return false;
           ${activationMetric ? "if(!ev.value.activated) return false;" : ""}
           return true;
-        })
+        })${
+          rollups.length
+            ? `
+        // Post-process metric values
+        .map(function(row) {
+          ${rollups.join("\n          ")}
+          return row;
+        })`
+            : ""
+        }
         // One group per experiment variation${
           dimension ? "/dimension" : ""
         } with summary data
@@ -304,11 +309,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
       dimensions: true,
       hasSettings: true,
       events: true,
+      countDistinct: true,
     };
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
+
+    const rollup = this.getMetricRollupCode(metric, "metricValue", false);
 
     return formatQuery(`
       // ${params.name} - Metric value (${metric.name})
@@ -320,7 +328,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(!(${params.segmentQuery})) return false;`
               : ""
           }
-          if(${this.getValidMetricCondition(metric, "event")}) return true;
+          if(${this.getValidMetricCondition(metric)}) return true;
           return false;
         })
         // Metric value per user
@@ -328,11 +336,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
           state = state || {date: null, metricValue: null};
           for(var i=0; i<events.length; i++) {
             state.date = state.date || events[i].time;
-            if(${this.getValidMetricCondition(metric, "events[i]")}) {
-              ${this.getMetricAggregationCode(
-                metric,
-                this.getMetricValueCode(metric)
-              )}
+            const event = events[i];
+            if(${this.getValidMetricCondition(metric)}) {
+              ${this.getMetricAggregationCode(metric)}
             }
           }
           return state;
@@ -340,7 +346,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
         // Remove users that did not convert
         .filter(function(ev) {
           return ev.value.date && ev.value.metricValue !== null;
-        })
+        })${
+          rollup
+            ? `
+        // Post-process metric value
+        .map(function(row) {
+          ${rollup}
+          return row;
+        })`
+            : ""
+        }
         .reduce([
           // Overall summary metrics
           mixpanel.reducer.numeric_summary('value.metricValue')${
@@ -445,46 +460,65 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return ["secret"];
   }
 
-  private getMetricValueCode(
+  private getMetricRollupCode(
     metric: MetricInterface,
-    eventVar: string = "events[i]"
+    property: string,
+    maybeNull: boolean
   ) {
-    return metric.column
-      ? this.getPropertyColumn(metric.column, eventVar) + "||0"
-      : "1";
+    // Doing a distinct count
+    const ret: string[] = [];
+    if (metric.type === "count" && metric.column && metric.countDistinct) {
+      ret.push(`// Distinct count - ${metric.name}`);
+      ret.push(`row.value.${property} = row.value.${property}.size;`);
+    }
+    if (metric.cap && metric.cap > 0) {
+      ret.push(`// Capped value - ${metric.name}`);
+      ret.push(
+        `row.value.${property} = Math.min(row.value.${property}, ${metric.cap})`
+      );
+    }
+
+    if (!ret.length) return "";
+
+    if (!maybeNull) {
+      return ret.join("\n");
+    }
+
+    return `if(row.value.${property} !== null) {\n${ret.join("\n")}\n}`;
   }
   private getMetricAggregationCode(
     metric: MetricInterface,
-    value: string,
     destVar: string = "state.metricValue"
   ) {
-    const cap = metric.type === "binomial" ? 1 : metric.cap;
-    return `${destVar} = ${
-      cap ? `Math.min(${cap},` : ""
-    }(${destVar} || 0) + ${value}${cap ? ")" : ""};`;
-  }
-  private getConversionWindowCheck(
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS,
-    conversionDelayHours: number = 0,
-    startVar: string,
-    eventTimeVar: string = "events[i].time",
-    onFail: string = "continue;"
-  ) {
-    const delayCheck =
-      conversionDelayHours !== 0
-        ? `${eventTimeVar} - ${startVar} < ${
-            conversionDelayHours * 60 * 60 * 1000
-          } || `
-        : "";
+    // Distinct count
+    if (metric.type === "count" && metric.column && metric.countDistinct) {
+      return `${destVar} = ${destVar} || new Set();\n${destVar}.add(${metric.column});`;
+    }
 
-    return `// Check conversion window (${conversionDelayHours} - ${
-      conversionDelayHours + conversionWindowHours
-    } hours)
-    if(${delayCheck}${eventTimeVar} - ${startVar} > ${
-      (conversionDelayHours + conversionWindowHours) * 60 * 60 * 1000
-    }) {
-      ${onFail}
-    }`;
+    // Simple binomial metric
+    if (metric.type === "binomial") {
+      return `${destVar} = 1;`;
+    }
+
+    // Sum the value together
+    return `${destVar} = (${destVar} || 0) + ${this.getMetricValueExpression(
+      metric.column
+    )}`;
+  }
+
+  private getMetricValueExpression(col?: string) {
+    if (!col) return "1";
+
+    // Use the column directly if it contains a reference to `event`
+    if (col.match(/\bevent\b/)) {
+      return col;
+    }
+    // Use the column directly if it's a number
+    if (col.match(/^[0-9][0-9.]*/)) {
+      return col;
+    }
+
+    return this.getPropertyColumn(col);
   }
 
   private getEvents(from: Date, to: Date) {
@@ -492,21 +526,20 @@ export default class Mixpanel implements SourceIntegrationInterface {
       .toISOString()
       .substr(0, 10)}", to_date: "${to.toISOString().substr(0, 10)}"})`;
   }
-  private getPropertyColumn(col: string, event: string = "e") {
+  private getPropertyColumn(col: string) {
     const colAccess = col.split(".").map((part) => {
       if (part.substr(0, 1) !== "[") return `["${part}"]`;
       return part;
     });
-    return `${event}.properties${colAccess}`;
+    return `event.properties${colAccess}`;
   }
   private getValidMetricCondition(
     metric: MetricInterface,
-    event: string = "e",
     conversionWindowStart: string = ""
   ) {
     const checks: string[] = [];
     // Right event name
-    checks.push(`${event}.name === "${metric.table}"`);
+    checks.push(`event.name === "${metric.table}"`);
 
     // Within conversion window
     if (conversionWindowStart) {
@@ -518,14 +551,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
           60 *
           1000;
       if (start) {
-        checks.push(`${event}.time - ${conversionWindowStart} >= ${start}`);
+        checks.push(`event.time - ${conversionWindowStart} >= ${start}`);
       }
-      checks.push(`${event}.time - ${conversionWindowStart} < ${end}`);
+      checks.push(`event.time - ${conversionWindowStart} < ${end}`);
     }
 
     if (metric.conditions) {
       metric.conditions.forEach(({ operator, value, column }) => {
-        const col = this.getPropertyColumn(column, event);
+        const col = this.getPropertyColumn(column);
         const encoded = JSON.stringify(value);
 
         // Some operators map to special javascript syntax
@@ -544,22 +577,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return checks.join(" && ");
   }
-  private getValidExperimentCondition(
-    id: string,
-    event: string = "e",
-    start: Date,
-    end?: Date
-  ) {
+  private getValidExperimentCondition(id: string, start: Date, end?: Date) {
     const experimentEvent =
       this.settings.events?.experimentEvent || "$experiment_started";
     const experimentIdCol = this.getPropertyColumn(
-      this.settings.events?.experimentIdProperty || "Experiment name",
-      event
+      this.settings.events?.experimentIdProperty || "Experiment name"
     );
-    let timeCheck = `${event}.time >= ${start.getTime()}`;
+    let timeCheck = `event.time >= ${start.getTime()}`;
     if (end) {
-      timeCheck += ` && ${event}.time <= ${end.getTime()}`;
+      timeCheck += ` && event.time <= ${end.getTime()}`;
     }
-    return `${event}.name === "${experimentEvent}" && ${experimentIdCol} === "${id}" && ${timeCheck}`;
+    return `event.name === "${experimentEvent}" && ${experimentIdCol} === "${id}" && ${timeCheck}`;
   }
 }

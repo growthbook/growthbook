@@ -59,6 +59,7 @@ export interface MetricInterface {
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;
+  countDistinct?: boolean;
   userIdColumn?: string;
   anonymousIdColumn?: string;
   timestampColumn?: string;
