@@ -660,19 +660,48 @@ const MetricPage: FC = () => {
                   ) : (
                     <>
                       <RightRailSectionGroup
-                        title={supportsSQL ? "Table" : "Event"}
+                        title={supportsSQL ? "Table Name" : "Event Name"}
                         type="code"
                       >
                         {metric.table}
                       </RightRailSectionGroup>
-                      {metric.type !== "binomial" && metric.column && (
-                        <RightRailSectionGroup
-                          title={supportsSQL ? "Column" : "Property"}
-                          type="code"
-                        >
-                          {metric.column}
+                      {metric.conditions?.length > 0 && (
+                        <RightRailSectionGroup title="Conditions" type="list">
+                          {metric.conditions.map(
+                            (c) => `${c.column} ${c.operator} "${c.value}"`
+                          )}
                         </RightRailSectionGroup>
                       )}
+                      {metric.type !== "binomial" &&
+                        metric.column &&
+                        supportsSQL && (
+                          <RightRailSectionGroup title="Column" type="code">
+                            {metric.column}
+                          </RightRailSectionGroup>
+                        )}
+                      {metric.type !== "binomial" &&
+                        metric.column &&
+                        !supportsSQL && (
+                          <div className="mt-2">
+                            <span className="text-muted">
+                              Event Value Expression
+                            </span>
+                            <Code language="javascript" code={metric.column} />
+                          </div>
+                        )}
+                      {metric.type !== "binomial" &&
+                        metric.aggregation &&
+                        !supportsSQL && (
+                          <div className="mt-2">
+                            <span className="text-muted">
+                              User Value Aggregation:
+                            </span>
+                            <Code
+                              language="javascript"
+                              code={metric.aggregation}
+                            />
+                          </div>
+                        )}
                       {metric.userIdType !== "anonymous" && customizeUserIds && (
                         <RightRailSectionGroup title="User Id Col" type="code">
                           {metric.userIdColumn}
@@ -689,13 +718,6 @@ const MetricPage: FC = () => {
                           type="code"
                         >
                           {metric.timestampColumn}
-                        </RightRailSectionGroup>
-                      )}
-                      {metric.conditions?.length > 0 && (
-                        <RightRailSectionGroup title="Conditions" type="list">
-                          {metric.conditions.map(
-                            (c) => `${c.column} ${c.operator} "${c.value}"`
-                          )}
                         </RightRailSectionGroup>
                       )}
                     </>
