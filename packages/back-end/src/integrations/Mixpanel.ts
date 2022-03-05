@@ -57,18 +57,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }
 
     return `// Metric - ${metric.name}
-      if (!${destVar}.length) {
-        ${destVar} = null;
-      } 
-      else {
-        ${destVar} = (values => ${this.getMetricAggregationExpression(metric)})(
-          ${destVar}
-        );${
-          metric.cap && metric.cap > 0
-            ? `\n${destVar} = Math.min(${destVar}, ${metric.cap});`
-            : ""
-        }
-      }
+    ${destVar} = !${destVar}.length ? null : (
+      (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
+    );${
+      metric.cap && metric.cap > 0
+        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cap});`
+        : ""
+    }
     `;
   }
 
@@ -110,7 +105,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     const query = formatQuery(`const metricIds = [
           ${metrics
             .map((m) => `// ${m.name}\n${JSON.stringify(m.id)}`)
-            .join("\n")}
+            .join(",\n")}
         ]
         
         return ${this.getEvents(
