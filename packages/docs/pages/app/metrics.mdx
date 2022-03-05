@@ -17,7 +17,7 @@ Need a metric type we don't support yet? Let us know!
 
 ## Query settings
 
-For metrics to work, you need to tell GrowthBook how to query the data from your data source. There are 2 ways to do this:
+For metrics to work, you need to tell GrowthBook how to query the data from your data source. There are a few ways to do this depending on your data source.
 
 ### 1. SQL (recommended)
 
@@ -85,11 +85,46 @@ WHERE
 
 **Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
 
-### 2. Query Builder (legacy)
+### 2. Javascript (Mixpanel only)
 
-The query builder prompts you for things such as table/column names and constructs a query behind the scenes.
+We query Mixpanel data sources using their proprietary JQL language based on Javascript. This allows for extreme flexibility when defining metrics.
 
-For non-SQL data sources (e.g. Google Analytics, Mixpanel), this is the only option. Otherwise, if you data sources supports it, inputting raw SQL is easier and more flexible.
+All metrics at minimum need to specify an **Event Name** which must exactly match what is used in Mixpanel.
+
+You can optionally add **Conditions** which filters the events further based on properties. For example, if Event Name is `Page view`, you can add a condition `path = "/blog"`.
+
+The above is all that's required for binomial metrics. If a matching event exists for a user, they are considered converted.
+
+Count, duration, and revenue metrics have two additional steps. We first extract all event values for a user into an array and then reduce that array down to a single number, which is the final metric value for the user.
+
+The **Event Value** is a Javascript expression to extract a value from a raw Mixpanel event. If you are just extracting a single property as-is, you can just enter the property name as a shortcut. Otherwise, you can reference the `event` variable in your expression.
+
+Here are some example Event Value expressions:
+
+- `grand_total`, equivalent to `event.properties.grand_total`
+- `1` (hard-code the value to a specific number)
+- `(event.properties.endTime - event.properties.startTime) / (60 * 60)` (difference in hours between two unix timestamps)
+- `new Date(event.time).toISOString().substr(0, 10)` (event timestamp in YYYY-MM-DD format)
+
+For count metrics, you can leave Event Value blank and it will default to hard-coding the value to `1`, which is perfect for when you just want to count the number of events and don't care about specific properties.
+
+The **User Value Aggregation** is another Javascript expression that reduces the array of Event Values to a single number (or null if the user did not convert). Reference the variable `values` in your expression.
+
+Here are some examples of aggregation expressions:
+
+- `values.length` (number of events)
+- `values.filter(v=>v%2).length || null` (number of events with odd values)
+- `new Set(values).size` (number of distinct values)
+- `Math.max(...values)` (max value)
+- `values.reduce((sum,n) => sum+n, 0)` (sum)
+
+If the aggregation is left blank, we do a sum by default (last example above).
+
+### 3. SQL Query Builder (legacy)
+
+The query builder prompts you for things such as table/column names and constructs a SQL query behind the scenes.
+
+We only recommend this for extremely simple metrics. Inputting raw SQL is more more flexible.
 
 ## Behavior
 

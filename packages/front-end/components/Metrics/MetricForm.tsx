@@ -476,19 +476,6 @@ const MetricForm: FC<MetricFormProps> = ({
               />
             ) : (
               <>
-                {["count", "duration", "revenue"].includes(value.type) && (
-                  <div className="form-group ">
-                    {value.type === "count"
-                      ? `Distinct ${column} for Counting`
-                      : column}
-                    <input
-                      type="text"
-                      required={value.type !== "count"}
-                      className="form-control"
-                      {...form.register("column")}
-                    />
-                  </div>
-                )}
                 <div className="form-group">
                   {table} Name
                   <input
@@ -498,6 +485,34 @@ const MetricForm: FC<MetricFormProps> = ({
                     {...form.register("table")}
                   />
                 </div>
+                {value.type !== "binomial" && (
+                  <div className="form-group ">
+                    {supportsSQL ? "Column" : "Event Value"}
+                    <input
+                      type="text"
+                      required={value.type !== "count"}
+                      placeholder={supportsSQL ? "" : "1"}
+                      className="form-control"
+                      {...form.register("column")}
+                    />
+                    {!supportsSQL && (
+                      <small className="form-text text-muted">
+                        Javascript expression to extract a value from each
+                        event.
+                      </small>
+                    )}
+                  </div>
+                )}
+                {value.type !== "binomial" && !supportsSQL && (
+                  <Field
+                    label="User Value Aggregation"
+                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    textarea
+                    minRows={1}
+                    {...form.register("aggregation")}
+                    helpText="Javascript expression to aggregate multiple event values for a user."
+                  />
+                )}
                 {conditionsSupported && (
                   <div className="mb-3">
                     {conditions.fields.length > 0 && <h6>Conditions</h6>}
@@ -541,6 +556,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         <div className="col-auto">
                           <button
                             className="btn btn-danger"
+                            type="button"
                             onClick={(e) => {
                               e.preventDefault();
                               conditions.remove(i);
@@ -553,6 +569,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     ))}
                     <button
                       className="btn btn-outline-success"
+                      type="button"
                       onClick={(e) => {
                         e.preventDefault();
 
@@ -765,7 +782,7 @@ GROUP BY
             </small>
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && value.type !== "binomial" && (
           <div className="form-group">
             Converted Users Only
             <BooleanSelect
