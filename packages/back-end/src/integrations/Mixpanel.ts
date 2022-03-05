@@ -48,6 +48,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     if (metric.aggregation) {
       return `${metric.aggregation}`;
     }
+    if (metric.type === "count" && !metric.column) {
+      return "values.length";
+    }
     return "values.reduce((sum, x) => sum + x, 0)";
   }
   private aggregateMetricValues(metric: MetricInterface, destVar: string) {
