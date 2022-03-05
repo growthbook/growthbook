@@ -45,7 +45,6 @@ export interface DataSourceProperties {
   userIds?: boolean;
   pastExperiments?: boolean;
   separateExperimentResultQueries?: boolean;
-  countDistinct?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

@@ -43,6 +43,35 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
+
+  private getMetricAggregationExpression(metric: MetricInterface) {
+    if (metric.aggregation) {
+      return `${metric.aggregation}`;
+    }
+    return "values.reduce((sum, x) => sum + x, 0)";
+  }
+  private aggregateMetricValues(metric: MetricInterface, destVar: string) {
+    if (metric.type === "binomial") {
+      return `// Metric - ${metric.name}
+      ${destVar} = ${destVar}.length ? 1 : null;`;
+    }
+
+    return `// Metric - ${metric.name}
+      if (!${destVar}.length) {
+        ${destVar} = null;
+      } 
+      else {
+        ${destVar} = (values => ${this.getMetricAggregationExpression(metric)})(
+          ${destVar} || []
+        );${
+          metric.cap && metric.cap > 0
+            ? `\n${destVar} = Math.min(${destVar}, ${metric.cap});`
+            : ""
+        }
+      }
+    `;
+  }
+
   getExperimentResultsQuery(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -54,10 +83,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
       metrics.filter(
         (m) => m.conversionDelayHours && m.conversionDelayHours < 0
       ).length > 0;
-
-    const rollups = metrics
-      .map((m, i) => this.getMetricRollupCode(m, `m${i}`, true))
-      .filter(Boolean);
 
     const onActivate = `
         ${activationMetric ? "state.activated = true;" : ""}
@@ -73,7 +98,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(event.time - state.start > ${
             (metric.conversionDelayHours || 0) * 60 * 60 * 1000
           } && ${this.getValidMetricCondition(metric)}) {
-            ${this.getMetricAggregationCode(metric, `state.m${i}`)}
+            state.m${i}.push(${this.getMetricValueExpression(metric.column)});
           }`
             )
             .join("\n")}
@@ -122,7 +147,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ${activationMetric ? "activated: false," : ""}
             start: null,
             variation: null,
-            ${metrics.map((m, i) => `m${i}: null,`).join("\n")} ${
+            ${metrics.map((m, i) => `m${i}: [],`).join("\n")} ${
       hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
     }
           };
@@ -182,7 +207,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
               .map(
                 (metric, i) => `// Metric - ${metric.name}
               if(${this.getValidMetricCondition(metric, "state.start")}) {
-                ${this.getMetricAggregationCode(metric, `state.m${i}`)}
+                state.m${i}.push(${this.getMetricValueExpression(
+                  metric.column
+                )});
               }
             `
               )
@@ -196,16 +223,17 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(ev.value.variation === null || ev.value.variation === undefined) return false;
           ${activationMetric ? "if(!ev.value.activated) return false;" : ""}
           return true;
-        })${
-          rollups.length
-            ? `
-        // Post-process metric values
-        .map(function(row) {
-          ${rollups.join("\n          ")}
-          return row;
-        })`
-            : ""
-        }
+        })
+        // Aggregate metric values per user
+        .map(function(user) {
+          ${metrics
+            .map((metric, i) =>
+              this.aggregateMetricValues(metric, `user.value.m${i}`)
+            )
+            .join("\n")}
+
+          return user;
+        })
         // One group per experiment variation${
           dimension ? "/dimension" : ""
         } with summary data
@@ -309,14 +337,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
       dimensions: true,
       hasSettings: true,
       events: true,
-      countDistinct: true,
     };
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
     const metric = params.metric;
-
-    const rollup = this.getMetricRollupCode(metric, "metricValue", false);
 
     return formatQuery(`
       // ${params.name} - Metric value (${metric.name})
@@ -333,29 +358,27 @@ export default class Mixpanel implements SourceIntegrationInterface {
         })
         // Metric value per user
         .groupByUser(function(state, events) {
-          state = state || {date: null, metricValue: null};
+          state = state || {date: null, metricValue: []};
           for(var i=0; i<events.length; i++) {
             state.date = state.date || events[i].time;
             const event = events[i];
             if(${this.getValidMetricCondition(metric)}) {
-              ${this.getMetricAggregationCode(metric)}
+              state.metricValue.push(${this.getMetricValueExpression(
+                metric.column
+              )});
             }
           }
           return state;
         })
         // Remove users that did not convert
         .filter(function(ev) {
-          return ev.value.date && ev.value.metricValue !== null;
-        })${
-          rollup
-            ? `
-        // Post-process metric value
-        .map(function(row) {
-          ${rollup}
-          return row;
-        })`
-            : ""
-        }
+          return ev.value.date && ev.value.metricValue.length > 0;
+        })
+        // Aggregate metric values per user
+        .map(function(user) {
+          ${this.aggregateMetricValues(metric, "user.value.metricValue")}
+          return user;
+        })
         .reduce([
           // Overall summary metrics
           mixpanel.reducer.numeric_summary('value.metricValue')${
@@ -458,52 +481,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getSensitiveParamKeys(): string[] {
     return ["secret"];
-  }
-
-  private getMetricRollupCode(
-    metric: MetricInterface,
-    property: string,
-    maybeNull: boolean
-  ) {
-    // Doing a distinct count
-    const ret: string[] = [];
-    if (metric.type === "count" && metric.column && metric.countDistinct) {
-      ret.push(`// Distinct count - ${metric.name}`);
-      ret.push(`row.value.${property} = row.value.${property}.size;`);
-    }
-    if (metric.cap && metric.cap > 0) {
-      ret.push(`// Capped value - ${metric.name}`);
-      ret.push(
-        `row.value.${property} = Math.min(row.value.${property}, ${metric.cap})`
-      );
-    }
-
-    if (!ret.length) return "";
-
-    if (!maybeNull) {
-      return ret.join("\n");
-    }
-
-    return `if(row.value.${property} !== null) {\n${ret.join("\n")}\n}`;
-  }
-  private getMetricAggregationCode(
-    metric: MetricInterface,
-    destVar: string = "state.metricValue"
-  ) {
-    // Distinct count
-    if (metric.type === "count" && metric.column && metric.countDistinct) {
-      return `${destVar} = ${destVar} || new Set();\n${destVar}.add(${metric.column});`;
-    }
-
-    // Simple binomial metric
-    if (metric.type === "binomial") {
-      return `${destVar} = 1;`;
-    }
-
-    // Sum the value together
-    return `${destVar} = (${destVar} || 0) + ${this.getMetricValueExpression(
-      metric.column
-    )}`;
   }
 
   private getMetricValueExpression(col?: string) {

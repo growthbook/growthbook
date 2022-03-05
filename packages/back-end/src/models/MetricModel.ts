@@ -23,7 +23,6 @@ const metricSchema = new mongoose.Schema({
   type: { type: String },
   table: { type: String },
   column: String,
-  countDistinct: Boolean,
   earlyStart: Boolean,
   inverse: Boolean,
   ignoreNulls: Boolean,

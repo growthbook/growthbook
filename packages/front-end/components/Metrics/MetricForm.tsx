@@ -23,7 +23,6 @@ import {
 import BooleanSelect from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -148,7 +147,6 @@ const MetricForm: FC<MetricFormProps> = ({
       type: current.type || "binomial",
       table: current.table || "",
       column: current.column || "",
-      countDistinct: current.countDistinct || false,
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
@@ -205,9 +203,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const conversionWindowSupported = capSupported;
 
   const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
-
-  const supportsCountDistinct =
-    currentDataSource?.properties?.countDistinct || false;
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -481,67 +476,6 @@ const MetricForm: FC<MetricFormProps> = ({
               />
             ) : (
               <>
-                {value.type === "count" ? (
-                  <div>
-                    <Field
-                      label={
-                        supportsSQL
-                          ? "Distinct Column for Counting"
-                          : "Count Expression"
-                      }
-                      placeholder={supportsSQL ? "" : "1"}
-                      {...form.register("column")}
-                      required={form.watch("countDistinct")}
-                      helpText={
-                        supportsSQL ? (
-                          ""
-                        ) : (
-                          <>
-                            The javascript expression to count. Reference the
-                            variable <code>event</code> for dynamic values.
-                          </>
-                        )
-                      }
-                    />
-                    {supportsCountDistinct && (
-                      <div className="form-group">
-                        Distinct Count per User{" "}
-                        <Toggle
-                          id="count-distinct-toggle"
-                          value={form.watch("countDistinct")}
-                          setValue={(countDistinct) => {
-                            form.setValue("countDistinct", countDistinct);
-                          }}
-                        />
-                        <small className="form-text text-muted">
-                          If enabled, the number of unique values will be
-                          counted. Otherwise, the values will be parsed as
-                          floats and summed together.
-                        </small>
-                      </div>
-                    )}
-                  </div>
-                ) : value.type === "duration" || value.type === "revenue" ? (
-                  <div>
-                    <Field
-                      label={supportsSQL ? "Column" : "Value Expression"}
-                      helpText={
-                        supportsSQL ? (
-                          ""
-                        ) : (
-                          <>
-                            The javascript expression to sum per user. Reference
-                            the variable <code>event</code> for dynamic values.
-                          </>
-                        )
-                      }
-                      required
-                      {...form.register("column")}
-                    />
-                  </div>
-                ) : (
-                  ""
-                )}
                 <div className="form-group">
                   {table} Name
                   <input
@@ -551,6 +485,34 @@ const MetricForm: FC<MetricFormProps> = ({
                     {...form.register("table")}
                   />
                 </div>
+                {value.type !== "binomial" && (
+                  <div className="form-group ">
+                    {supportsSQL ? "Column" : "Event Value"}
+                    <input
+                      type="text"
+                      required={value.type !== "count"}
+                      placeholder={supportsSQL ? "" : "1"}
+                      className="form-control"
+                      {...form.register("column")}
+                    />
+                    {!supportsSQL && (
+                      <small className="form-text text-muted">
+                        Javascript expression. Use the variable{" "}
+                        <code>event</code> for dynamic values.
+                      </small>
+                    )}
+                  </div>
+                )}
+                {value.type !== "binomial" && !supportsSQL && (
+                  <Field
+                    label="User Value Aggregation"
+                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    textarea
+                    minRows={1}
+                    {...form.register("aggregation")}
+                    helpText="Javascript expression to aggregate multiple event values for a user."
+                  />
+                )}
                 {conditionsSupported && (
                   <div className="mb-3">
                     {conditions.fields.length > 0 && <h6>Conditions</h6>}
@@ -818,7 +780,7 @@ GROUP BY
             </small>
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && value.type !== "binomial" && (
           <div className="form-group">
             Converted Users Only
             <BooleanSelect

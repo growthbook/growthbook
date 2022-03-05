@@ -111,7 +111,6 @@ const MetricPage: FC = () => {
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
-  const countDistinct = datasource?.properties?.countDistinct || false;
 
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
@@ -661,23 +660,21 @@ const MetricPage: FC = () => {
                   ) : (
                     <>
                       <RightRailSectionGroup
-                        title={supportsSQL ? "Table" : "Event"}
+                        title={supportsSQL ? "Table Name" : "Event Name"}
                         type="code"
                       >
                         {metric.table}
                       </RightRailSectionGroup>
                       {metric.type !== "binomial" && metric.column && (
-                        <RightRailSectionGroup
-                          title={supportsSQL ? "Column" : "Value Expression"}
-                          type="code"
-                        >
-                          {metric.column}
-                        </RightRailSectionGroup>
-                      )}
-                      {countDistinct && metric.countDistinct && (
-                        <RightRailSectionGroup title="" type="badge">
-                          count distinct
-                        </RightRailSectionGroup>
+                        <div className="mt-2">
+                          <span className="text-muted">
+                            {supportsSQL ? "Column" : "Event Value Expression"}:
+                          </span>
+                          <Code
+                            language={supportsSQL ? "sql" : "javascript"}
+                            code={metric.column}
+                          />
+                        </div>
                       )}
                       {metric.userIdType !== "anonymous" && customizeUserIds && (
                         <RightRailSectionGroup title="User Id Col" type="code">
@@ -703,6 +700,17 @@ const MetricPage: FC = () => {
                             (c) => `${c.column} ${c.operator} "${c.value}"`
                           )}
                         </RightRailSectionGroup>
+                      )}
+                      {metric.type !== "binomial" && metric.aggregation && (
+                        <div className="mt-2">
+                          <span className="text-muted">
+                            User Value Aggregation:
+                          </span>
+                          <Code
+                            language="javascript"
+                            code={metric.aggregation}
+                          />
+                        </div>
                       )}
                     </>
                   )}

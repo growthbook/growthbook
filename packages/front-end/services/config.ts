@@ -92,7 +92,6 @@ export function useConfigJson({
         fields.push("userIdColumn");
         fields.push("table");
         fields.push("column");
-        fields.push("countDistinct");
         fields.push("conditions");
       }
 
