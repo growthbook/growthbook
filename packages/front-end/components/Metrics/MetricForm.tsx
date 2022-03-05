@@ -497,8 +497,8 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                     {!supportsSQL && (
                       <small className="form-text text-muted">
-                        Javascript expression. Use the variable{" "}
-                        <code>event</code> for dynamic values.
+                        Javascript expression to extract a value from each
+                        event.
                       </small>
                     )}
                   </div>
@@ -556,6 +556,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         <div className="col-auto">
                           <button
                             className="btn btn-danger"
+                            type="button"
                             onClick={(e) => {
                               e.preventDefault();
                               conditions.remove(i);
@@ -568,6 +569,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     ))}
                     <button
                       className="btn btn-outline-success"
+                      type="button"
                       onClick={(e) => {
                         e.preventDefault();
 
