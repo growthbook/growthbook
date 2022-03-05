@@ -1,7 +1,11 @@
 import { DataSourceType, SchemaFormat } from "back-end/types/datasource";
 import clsx from "clsx";
 
-const options: { value: SchemaFormat; label: string }[] = [
+const options: {
+  value: SchemaFormat;
+  label: string;
+  types?: DataSourceType[];
+}[] = [
   {
     value: "segment",
     label: "Segment",
@@ -13,10 +17,16 @@ const options: { value: SchemaFormat; label: string }[] = [
   {
     value: "ga4",
     label: "Google Analytics v4",
+    types: ["bigquery"],
   },
   {
     value: "rudderstack",
     label: "RudderStack",
+  },
+  {
+    value: "amplitude",
+    label: "Amplitude",
+    types: ["snowflake"],
   },
   /*
   {
@@ -26,10 +36,6 @@ const options: { value: SchemaFormat; label: string }[] = [
   {
     value: "matomo",
     label: "Matomo",
-  },
-  {
-    value: "amplitude",
-    label: "Amplitude",
   },
   */
 ];
@@ -52,8 +58,8 @@ export default function DataSourceSchemaChooser({
       </p>
       <div className="d-flex flex-wrap">
         {options
-          // GA4 only works when the datasource is bigquery
-          .filter((o) => datasource === "bigquery" || o.value !== "ga4")
+          // Some schemas only work with specific data sources
+          .filter((o) => !o.types || o.types.includes(datasource))
           .map(({ value, label }) => (
             <a
               href="#"

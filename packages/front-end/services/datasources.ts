@@ -123,6 +123,48 @@ WHERE
   },
 };
 
+const AmplitudeSchema: SchemaInterface = {
+  experimentDimensions: ["country", "device", "os", "paying"],
+  getExperimentSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  $amplitude_id as anonymous_id,
+  event_time as timestamp,
+  event_properties:experiment_id as experiment_id,
+  event_properties:variation_id as variation_id,
+  device_family as device,
+  os_name as os,
+  country,
+  paying
+FROM
+  ${tablePrefix}$events
+WHERE
+  event_type = 'Experiment Viewed'
+  `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  metricUserIdType: "both",
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  $amplitude_id as anonymous_id,
+  event_time as timestamp${
+    type === "revenue"
+      ? ",\n  event_properties:revenue as value"
+      : type === "binomial"
+      ? ""
+      : `,\n  event_properties:value as value`
+  }
+FROM
+  ${tablePrefix}$events
+WHERE
+  event_type = '${name}'
+    `;
+  },
+};
+
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["country"],
   getExperimentSQL: (tablePrefix) => {
@@ -165,6 +207,9 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "snowplow") {
     return SnowplowSchema;
+  }
+  if (type === "amplitude") {
+    return AmplitudeSchema;
   }
 
   return SegmentSchema;
