@@ -43,6 +43,7 @@ export default function RuleModal({
   const form = useForm({
     defaultValues,
   });
+
   const { apiCall } = useAuth();
 
   const type = form.watch("type");

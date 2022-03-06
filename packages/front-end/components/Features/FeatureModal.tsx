@@ -98,7 +98,6 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         if (existing) {
           delete body.id;
         }
-        console.log("about to submit values: ", body);
 
         const res = await apiCall<{ feature: FeatureInterface }>(
           existing ? `/feature/${existing.id}` : `/feature`,

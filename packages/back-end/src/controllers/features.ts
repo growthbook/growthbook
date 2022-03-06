@@ -101,6 +101,7 @@ export async function postFeatures(
       };
     });
   }
+
   await createFeature(feature);
 
   featureUpdated(feature);
@@ -133,6 +134,7 @@ export async function putFeature(
   if (newId || organization || dateUpdated || dateCreated) {
     throw new Error("Invalid update fields for feature");
   }
+
   if (updates.rules) {
     updates.rules = updates.rules.map((r) => {
       if (r.id) return r;
@@ -247,6 +249,7 @@ export async function getFeatureById(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const feature = await getFeature(org.id, id);
+
   if (!feature) {
     throw new Error("Could not find feature");
   }
