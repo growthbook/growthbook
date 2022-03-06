@@ -13,6 +13,7 @@ import {
 import track from "../../services/track";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
+import NamespaceSelector from "./NamespaceSelector";
 
 export interface Props {
   close: () => void;
@@ -42,7 +43,6 @@ export default function RuleModal({
   const form = useForm({
     defaultValues,
   });
-
   const { apiCall } = useAuth();
 
   const type = form.watch("type");
@@ -184,6 +184,11 @@ export default function RuleModal({
             form={form}
             defaultValue={feature.defaultValue}
             valueType={feature.valueType}
+            formPrefix=""
+          />
+          <NamespaceSelector
+            form={form}
+            experimentKey={feature.id}
             formPrefix=""
           />
         </div>

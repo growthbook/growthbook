@@ -74,6 +74,13 @@ export async function getFeatureDefinitions(
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
               }
+              if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+                rule.namespace = [
+                  r.namespace.name,
+                  r.namespace.range[0],
+                  r.namespace.range[1],
+                ];
+              }
             } else if (r.type === "rollout") {
               rule.force = getJSONValue(feature.valueType, r.value);
               rule.coverage =

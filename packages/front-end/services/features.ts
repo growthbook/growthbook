@@ -182,6 +182,11 @@ export function getDefaultRuleValue({
           weight: 0.5,
         },
       ],
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 0.5],
+      },
     };
   }
 

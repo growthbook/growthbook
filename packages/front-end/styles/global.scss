@@ -521,6 +521,14 @@ pre {
         border-bottom-color: $blue;
       }
     }
+    &.bs-tooltip-left {
+      .arrow {
+        display: none;
+      }
+      .arrow::before {
+        border-left-color: $blue;
+      }
+    }
     .arrow {
       left: 50%;
       margin-left: -0.4rem;

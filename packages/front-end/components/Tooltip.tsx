@@ -6,7 +6,7 @@ import { MdInfoOutline } from "react-icons/md";
 interface Props extends HTMLAttributes<HTMLDivElement> {
   text: string;
   tipMinWidth?: string;
-  tipPosition?: "bottom" | "top";
+  tipPosition?: "bottom" | "top" | "left" | "right";
 }
 const Tooltip: FC<Props> = ({
   text,

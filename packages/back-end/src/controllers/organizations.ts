@@ -81,6 +81,7 @@ import {
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
+import { getAllFeatures } from "../models/FeatureModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -571,6 +572,199 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       settings,
     },
   });
+}
+
+export async function getNamespaces(req: AuthRequest, res: Response) {
+  if (!req.organization) {
+    return res.status(200).json({
+      status: 200,
+      organization: null,
+    });
+  }
+  const { org } = getOrgFromReq(req);
+
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const namespaceMap = new Map();
+  const ranges = new Map();
+  if (org.settings?.namespaces) {
+    org.settings.namespaces.forEach((n) => {
+      namespaceMap.set(n.name, {
+        ...n,
+        experiments: [],
+        rangeRemaining: 1,
+        largestGapRange: [0, 1],
+      });
+    });
+    // get all the experiments that might have this namespace:
+    const allFeatures = await getAllFeatures(org.id);
+    allFeatures.forEach((f) => {
+      if (f?.rules && f?.rules.length > 0) {
+        f.rules.forEach((r) => {
+          if (r.type === "experiment" && r?.namespace) {
+            if (namespaceMap.has(r.namespace.name)) {
+              const existing = namespaceMap.get(r.namespace.name);
+              existing.experiments.push({
+                enabled: r.namespace.enabled,
+                namespace: r.namespace.name,
+                range: r.namespace.range,
+                experimentRule: r,
+                featureId: f.id,
+                experimentKey: r.trackingKey || f.id,
+              });
+              const newRange = [...(ranges.get(r.namespace.name) || [])];
+              newRange.push(r.namespace.range);
+              ranges.set(r.namespace.name, newRange);
+            }
+          }
+        });
+      }
+    });
+
+    // figure out the largest percent remaining in each namespace:
+    ranges.forEach((allRanges, n) => {
+      allRanges.sort((a: [number, number], b: [number, number]) => {
+        return a[0] - b[0];
+      });
+      let largestGap = 0;
+      let largestGapRange = [0, 1];
+      allRanges.forEach((r: [number, number], i: number) => {
+        if (i === 0) {
+          // first one, check if there is a gap between 0 and it.
+          if (r[0] > largestGap) {
+            largestGap = r[0];
+            largestGapRange = [0, r[0]];
+          }
+        }
+        if (allRanges[i + 1]) {
+          const gap = allRanges[i + 1][0] - r[1];
+          if (gap > largestGap) {
+            largestGap = gap;
+            largestGapRange = [r[1], allRanges[i + 1][0]];
+          }
+        }
+        if (i === allRanges.length - 1) {
+          // last one, lets see if there is a gap to 1.
+          if (1 - r[1] > largestGap) {
+            largestGap = 1 - r[1];
+            largestGapRange = [r[1], 1];
+          }
+        }
+      });
+      // save in the main namespace map:
+      namespaceMap.set(n, {
+        ...namespaceMap.get(n),
+        rangeRemaining: largestGap,
+        largestGapRange: largestGapRange,
+      });
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    namespaces: Array.from(namespaceMap.values()),
+  });
+  return;
+}
+
+export async function postNamespaces(
+  req: AuthRequest<{ name: string; description: string }>,
+  res: Response
+) {
+  const { name, description } = req.body;
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  try {
+    if (org.settings?.namespaces) {
+      // make sure it doesn't already exist:
+      org.settings.namespaces.forEach((n) => {
+        if (n.name === name) {
+          return res.status(400).json({
+            status: 400,
+            message: "This namespace already exists.",
+          });
+        }
+      });
+    }
+    const updates: Partial<OrganizationInterface> = {};
+    updates.settings = {
+      ...org.settings,
+      ...{
+        namespaces: [
+          ...(org.settings?.namespaces || []),
+          { name, description },
+        ],
+      },
+    };
+    await updateOrganization(org.id, updates);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function putNamespaces(
+  req: AuthRequest<{ name: string; description: string }, { id: string }>,
+  res: Response
+) {
+  const { name, description } = req.body;
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+  const { id } = req.params;
+
+  try {
+    if (org.settings?.namespaces) {
+      const updates: Partial<OrganizationInterface> = {};
+      const namespaces = [...(org.settings.namespaces || [])];
+      // find it:
+      namespaces.forEach((n, i) => {
+        if (n.name === id) {
+          // update
+          namespaces[i] = { name, description };
+        }
+      });
+
+      updates.settings = {
+        ...org.settings,
+        ...{ namespaces },
+      };
+      await updateOrganization(org.id, updates);
+      res.status(200).json({
+        status: 200,
+      });
+    }
+    res.status(400).json({
+      status: 400,
+      message: "Namespace does not exist",
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 }
 
 export async function postInviteAccept(req: AuthRequest, res: Response) {

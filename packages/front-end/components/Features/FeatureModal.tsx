@@ -20,6 +20,7 @@ import {
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
+import NamespaceSelector from "./NamespaceSelector";
 
 export type Props = {
   close: () => void;
@@ -97,6 +98,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         if (existing) {
           delete body.id;
         }
+        console.log("about to submit values: ", body);
 
         const res = await apiCall<{ feature: FeatureInterface }>(
           existing ? `/feature/${existing.id}` : `/feature`,
@@ -378,6 +380,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />
+          <NamespaceSelector form={form} formPrefix="rules.0." />
           <FeatureValueField
             label={"Fallback Value"}
             helpText={"For people excluded from the experiment"}
