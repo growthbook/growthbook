@@ -1,10 +1,10 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
-import { FeatureInterface } from "back-end/types/feature";
 import GetStarted from "../components/HomePage/GetStarted";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useDefinitions } from "../services/DefinitionsContext";
+import { useFeaturesList } from "../services/features";
 
 const getStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();
@@ -17,9 +17,7 @@ const getStartedPage = (): React.ReactElement => {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
-  const { data: features, error: featuresError } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature`);
+  const { features, error: featuresError } = useFeaturesList();
 
   if (featuresError || experimentsError || definitionsError) {
     return (
@@ -41,7 +39,7 @@ const getStartedPage = (): React.ReactElement => {
       <div className="container pagecontents position-relative">
         <GetStarted
           experiments={experiments?.experiments || []}
-          features={features?.features || []}
+          features={features}
           mutateExperiments={mutateExperiments}
           onboardingType={null}
         />

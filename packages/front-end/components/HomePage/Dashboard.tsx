@@ -10,16 +10,13 @@ import ExperimentGraph from "../Experiment/ExperimentGraph";
 import useUser from "../../hooks/useUser";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
-import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import FeatureList from "../Features/FeatureList";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];
-  features: FeatureInterface[];
 }
 
-export default function Dashboard({ experiments, features }: Props) {
+export default function Dashboard({ experiments }: Props) {
   const { data, error } = useApi<{
     events: AuditInterface[];
   }>("/activity");
@@ -59,7 +56,18 @@ export default function Dashboard({ experiments, features }: Props) {
               />
             </div>
           </div>
-          <div className="col-xl-4 col-md-6 mb-3">
+          <div className="col-md-4 mb-3">
+            <div className="list-group activity-box fixed-height overflow-auto">
+              <h4 className="">
+                Recent Activity{" "}
+                <Link href="/activity">
+                  <a className="float-right h6">See all</a>
+                </Link>
+              </h4>
+              <ActivityList num={3} />
+            </div>
+          </div>
+          <div className="col-md-4 col-xl-6 mb-4">
             <div className="list-group activity-box fixed-height overflow-auto">
               <h4>
                 Running Experiments
@@ -74,7 +82,7 @@ export default function Dashboard({ experiments, features }: Props) {
               />
             </div>
           </div>
-          <div className="col-xl-4 col-md-6 mb-3">
+          <div className="col-md-4 col-xl-6 mb-3">
             <div className="list-group activity-box fixed-height overflow-auto ">
               <h4>
                 Recent Ideas{" "}
@@ -84,29 +92,6 @@ export default function Dashboard({ experiments, features }: Props) {
               </h4>
               <IdeasFeed num={5} />
             </div>
-          </div>
-          <div className="col-xl-4 col-md-6 mb-3">
-            <div className="list-group activity-box fixed-height overflow-auto">
-              <h4 className="mb-3">
-                Recent Features{" "}
-                <Link href={`/features`}>
-                  <a className="float-right h6">See all</a>
-                </Link>
-              </h4>
-              <FeatureList features={features} />
-            </div>
-          </div>
-          <div className="col-xl-4 col-md-6 mb-4">
-            <div className="list-group activity-box fixed-height overflow-auto">
-              <h4 className="">
-                Recent activity{" "}
-                <Link href="/activity">
-                  <a className="float-right h6">See all</a>
-                </Link>
-              </h4>
-              <ActivityList num={3} />
-            </div>
-            <div className="text-center"></div>
           </div>
         </div>
       </div>

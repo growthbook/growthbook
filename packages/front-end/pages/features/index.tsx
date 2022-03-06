@@ -1,6 +1,3 @@
-import useApi from "../../hooks/useApi";
-import { FeatureInterface } from "back-end/types/feature";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
@@ -10,22 +7,20 @@ import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
-import FeaturesList from "../../components/Features/FeaturesList";
+import FeatureList from "../../components/Features/FeatureList";
+import { useFeaturesList } from "../../services/features";
 
 export default function FeaturesPage() {
-  const { project } = useDefinitions();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
 
-  const { data, error, mutate } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature?project=${project || ""}`);
+  const { features, error, loading, mutate } = useFeaturesList();
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
+    !settings?.sdkInstructionsViewed || (!loading && !features.length);
 
   if (error) {
     return (
@@ -34,7 +29,7 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (!data) {
+  if (loading) {
     return <LoadingOverlay />;
   }
 
@@ -46,7 +41,7 @@ export default function FeaturesPage() {
           onSuccess={async (feature) => {
             router.push(`/features/${feature.id}`);
             mutate({
-              features: [...data.features, feature],
+              features: [...features, feature],
             });
           }}
         />
@@ -55,7 +50,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {data?.features?.length > 0 && (
+        {features.length > 0 && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -98,7 +93,7 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={data.features || []} />
+          <FeaturesGetStarted features={features} />
           {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
@@ -116,7 +111,7 @@ export default function FeaturesPage() {
       )}
 
       <ApiKeyUpgrade />
-      <FeaturesList showAddFeature={false} />
+      <FeatureList features={features} mutate={mutate} />
     </div>
   );
 }

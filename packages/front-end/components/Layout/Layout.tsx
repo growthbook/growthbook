@@ -14,13 +14,6 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
-  // {
-  //   name: "Home",
-  //   href: "/",
-  //   Icon: GBHome,
-  //   path: /^$/,
-  //   className: styles.first,
-  // },
   {
     name: "Features",
     href: "/features",
@@ -33,7 +26,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Analysis",
     href: "/analysis",
     Icon: GBExperiment,
-    path: /^(analysis|experiment|presentations|metric|segment|dimension|datasources)/,
+    path: /^(analysis|experiment|presentations|metric|segment|dimension)/,
     autoClose: true,
     subLinks: [
       {
@@ -80,7 +73,6 @@ const navlinks: SidebarLinkProps[] = [
       },
     ],
   },
-
   {
     name: "Settings",
     href: "/settings",
@@ -140,12 +132,20 @@ const navlinks: SidebarLinkProps[] = [
 
 const otherPageTitles = [
   {
+    path: /^$/,
+    title: "Home",
+  },
+  {
     path: /^activity/,
     title: "Activity Feed",
   },
   {
     path: /^experiments\/designer/,
     title: "Visual Experiment Designer",
+  },
+  {
+    path: /^getstarted/,
+    title: "Get Started",
   },
 ];
 

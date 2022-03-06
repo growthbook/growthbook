@@ -3,10 +3,9 @@ import Head from "next/head";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
-import GetStarted from "../components/HomePage/GetStarted";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
-import { FeatureInterface } from "back-end/types/feature";
+import ExperimentsGetStarted from "../components/HomePage/ExperimentsGetStarted";
 
 export default function Analysis(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();
@@ -19,30 +18,21 @@ export default function Analysis(): React.ReactElement {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project}`);
 
-  const { data: features, error: featuresError } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature?project=${project}`);
-
-  if (featuresError || experimentsError || definitionsError) {
+  if (experimentsError || definitionsError) {
     return (
       <div className="alert alert-danger">
-        An error occurred:{" "}
-        {featuresError?.message ||
-          experimentsError?.message ||
-          definitionsError}
+        An error occurred: {experimentsError?.message || definitionsError}
       </div>
     );
   }
 
-  if (!experiments || !features || !ready) {
+  if (!experiments || !ready) {
     return <LoadingOverlay />;
   }
 
   const hasExperiments =
     experiments?.experiments?.filter((e) => !e.id.match(/^exp_sample/))
       ?.length > 0;
-
-  const hasFeatures = features?.features?.length > 0;
 
   return (
     <>
@@ -52,18 +42,21 @@ export default function Analysis(): React.ReactElement {
       </Head>
 
       <div className="container pagecontents position-relative">
-        {hasExperiments || hasFeatures ? (
-          <Dashboard
-            features={features?.features || []}
-            experiments={experiments?.experiments || []}
-          />
+        {hasExperiments ? (
+          <Dashboard experiments={experiments?.experiments || []} />
         ) : (
-          <GetStarted
-            experiments={experiments?.experiments || []}
-            features={features?.features || []}
-            mutateExperiments={mutateExperiments}
-            onboardingType={"experiments"}
-          />
+          <div className="getstarted">
+            <h1>Experiment Analysis</h1>
+            <p>
+              GrowthBook can pull experiment results directly from your data
+              source and analyze it with our statistics engine. Start by
+              connecting to your data source and defining metrics.
+            </p>
+            <ExperimentsGetStarted
+              experiments={experiments?.experiments || []}
+              mutate={mutateExperiments}
+            />
+          </div>
         )}
       </div>
     </>
