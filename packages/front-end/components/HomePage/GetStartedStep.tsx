@@ -34,7 +34,7 @@ export default function GetStartedStep({
     <div className="col-4 d-none d-sm-block">
       <img
         className=""
-        style={{ width: "100%", maxWidth: "200px" }}
+        style={{ width: "100%", maxWidth: "200px", maxHeight: "160px" }}
         src={image}
         alt=""
       />

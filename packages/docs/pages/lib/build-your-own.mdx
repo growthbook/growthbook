@@ -147,7 +147,7 @@ Overrides the defaultValue of a **Feature**. Has a number of optional properties
 - **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
-- **trackingKey** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
+- **key** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
 - **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
@@ -270,7 +270,7 @@ This converts and experiment's coverage and variation weights into an array of b
    for (w in weights) {
      start = cumulative;
      cumulative += w;
-     ranges.push(start, start + coverage * w);
+     ranges.push([start, start + coverage * w]);
    }
 
    return ranges;
@@ -543,13 +543,13 @@ The method is pretty simple:
    };
    ```
 
-### public feature(key: string): FeatureResult
+### public evalFeature(key: string): FeatureResult
 
-The `feature` method takes a single string argument, which is the unique identifier for the feature and returns a `FeatureResult` object.
+The `evalFeature` method takes a single string argument, which is the unique identifier for the feature and returns a `FeatureResult` object.
 
 ```js
 growthbook = new GrowthBook(context);
-myFeature = growthbook.feature("my-feature");
+myFeature = growthbook.evalFeature("my-feature");
 ```
 
 There are a few ordered steps to evaluate a feature
@@ -572,7 +572,7 @@ There are a few ordered steps to evaluate a feature
       ```ts
       const exp = {
         variations: rule.variations,
-        key: rule.trackingKey || featureKey,
+        key: rule.key || featureKey,
       };
       if (rule.coverage) exp.coverage = rule.coverage;
       if (rule.weights) exp.weights = rule.weights;
@@ -660,71 +660,38 @@ There are a bunch of ordered steps to run an experiment:
 14. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
 15. Return `result`
 
-## Developer Experience
+### Feature helper methods
 
-Having a good developer experience is super important.
-
-### Basic Usage
-
-It should be extremely easy and natural to use features, both on/off flags and full remote config features.
+There are 3 tiny helper methods that wrap `evalFeature` for a better developer experience:
 
 ```js
-// On/off flag
-if (growthbook.feature("my-feature").on) {
-  // ...
+public isOn(key) {
+  return this.evalFeature(key).on
 }
 
-// Remote config
-color = growthbook.feature("signup-button-color").value || "blue";
+public isOff(key) {
+  return this.evalFeature(key).off
+}
+
+public getFeatureValue(key, fallback) {
+  value = this.evalFeature(key).value
+  return value === null ? fallback : value
+}
 ```
 
-The developer doesn't need to care how the value of a feature was determined, whether it came from a default, an experiment, or through complex targeting rules.
+For strongly typed languages, you can use generics (if supported) for `getFeatureValue` and coerce the return value to always match the data type of fallback. If generics are not supported, you can use type-specific versions of the function such as `getFeatureValueAsString`.
 
-In most cases, this is all the developer will ever need to do. If they do need to run an inline experiment, it should be very simple to run a basic A/B test:
-
-```js
-result = growthbook.run({
-  key: "my-experiment",
-  variations: ["A", "B"],
-});
-
-print(result.value); // "A" or "B"
-```
-
-And it should feel natural to scale up to more complex use cases:
-
-```js
-// 50% of beta testers, 80/20 split between variations
-result = growthbook.run({
-  key: "complex-experiment",
-  variations: [
-    { color: "blue", size: "small" },
-    { color: "green", size: "large" },
-  ],
-  weights: [0.8, 0.2],
-  coverage: 0.5,
-  condition: {
-    beta: true,
-  },
-});
-
-print(result.value.color, result.value.size);
-// "blue,small" OR "green,large"
-```
-
-### Type Hinting
+## Type Hinting
 
 Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for SDKs.
 
-If possible, use generics to type the return value. If `experiment.variations` is type `T[]`, then `result.value` should be type `T`.
+If possible, use generics to type the return value. For example, if `experiment.variations` is type `T[]`, then `result.value` should be type `T`. Or, if the fallback of `getFeatureValue` is type `string`, the return type should also be type `string`.
 
-If your type system supports specifying a minimum array length, it's best to type `experiment.variations` as requiring at least 2 elements.
-
-### Handling Errors
+## Handling Errors
 
 The general rule is to be strict in development and lenient in production.
 
-You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.feature` or `growthbook.run`.
+You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.evalFeature` or `growthbook.run`.
 
 For the below edge cases in production, just act as if the problematic property didn't exist and ignore errors:
 
@@ -741,7 +708,7 @@ For the below edge cases in production, the experiment should be disabled (every
 - `context.forcedVariations` specifies an invalid variation index
 - `experiment.hashAttribute` is an empty string
 
-### Subscriptions
+## Subscriptions
 
 Sometimes it's useful to be able to "subscribe" to a GrowthBook instance and be alerted every time `growthbook.run` is called. This is different from the tracking callback since it also fires when a user is _not_ included in an experiment.
 
@@ -762,7 +729,7 @@ unsubscriber()
 
 In addition to subscriptions you may also want to expose a `growthbook.getAllResults` method that returns a map of the latest results indexed by experiment key.
 
-### Memory Management
+## Memory Management
 
 Subscriptions and tracking calls require storing references to many objects and functions. If it makes sense for your language, libraries should provide a `growthbook.destroy` method to remove all of these references and release their memory.
 
@@ -805,7 +772,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - condition
   - attributes
   - expected return value (boolean)
-- **feature**
+- **feature** (evalFeature)
   - name of the test case (string)
   - context passed into GrowthBook constructor
   - name of the feature (string)

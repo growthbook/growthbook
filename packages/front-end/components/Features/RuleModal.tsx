@@ -7,10 +7,10 @@ import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
+  useAttributeSchema,
   validateFeatureRule,
 } from "../../services/features";
 import track from "../../services/track";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 
@@ -29,13 +29,13 @@ export default function RuleModal({
   mutate,
   defaultType = "force",
 }: Props) {
-  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
 
   const defaultValues = {
     ...getDefaultRuleValue({
       defaultValue: feature.defaultValue,
       ruleType: defaultType,
-      attributeSchema: settings?.attributeSchema,
+      attributeSchema,
     }),
     ...((feature?.rules?.[i] as FeatureRule) || {}),
   };
@@ -48,13 +48,14 @@ export default function RuleModal({
   const type = form.watch("type");
 
   const hasHashAttributes =
-    settings?.attributeSchema?.filter((x) => x.hashAttribute)?.length > 0;
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   return (
     <Modal
       open={true}
       close={close}
       size="lg"
+      cta="Save"
       header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === feature.rules?.length ? "add" : "edit";
@@ -105,7 +106,7 @@ export default function RuleModal({
             ...getDefaultRuleValue({
               defaultValue: feature.defaultValue,
               ruleType: e.target.value,
-              attributeSchema: settings?.attributeSchema,
+              attributeSchema,
             }),
             description: form.watch("description"),
           };
@@ -157,7 +158,7 @@ export default function RuleModal({
           <Field
             label="Sample users based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema
+            options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
@@ -175,7 +176,7 @@ export default function RuleModal({
           <Field
             label="Assign value based on attribute"
             {...form.register("hashAttribute")}
-            options={settings.attributeSchema
+            options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"

@@ -130,7 +130,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       id: uniqid("met_sample_"),
       datasource: "",
       ignoreNulls: false,
-      earlyStart: false,
       inverse: false,
       queries: [],
       dateCreated: new Date(),
@@ -151,7 +150,6 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       id: uniqid("met_sample_"),
       datasource: "",
       ignoreNulls: false,
-      earlyStart: false,
       inverse: false,
       queries: [],
       dateCreated: new Date(),
@@ -925,8 +923,6 @@ export async function postDataSources(
       experimentEvent: "$experiment_started",
       experimentIdProperty: "Experiment name",
       variationIdProperty: "Variant name",
-      pageviewEvent: "Page view",
-      urlProperty: "$current_url",
       ...settings?.events,
     };
 
@@ -941,13 +937,16 @@ export async function postDataSources(
   variation_id
 FROM
   ${schema ? schema + "." : ""}experiment_viewed`,
-      pageviewsQuery: `SELECT
+      identityJoins: [
+        {
+          ids: ["user_id", "anonymous_id"],
+          query: `SELECT
   user_id,
-  anonymous_id,
-  received_at as timestamp,
-  path as url
+  anonymous_id
 FROM
-  ${schema ? schema + "." : ""}pages`,
+  ${schema ? schema + "." : ""}identifies`,
+        },
+      ],
       ...settings?.queries,
     };
 
@@ -1138,7 +1137,12 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
 }
 
 export async function postWebhook(
-  req: AuthRequest<{ name: string; endpoint: string }>,
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    project: string;
+    environment: string;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1149,9 +1153,15 @@ export async function postWebhook(
     });
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(org.id, name, endpoint);
+  const webhook = await createWebhook(
+    org.id,
+    name,
+    endpoint,
+    project,
+    environment
+  );
 
   res.status(200).json({
     status: 200,
@@ -1184,13 +1194,15 @@ export async function putWebhook(
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint } = req.body;
+  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
 
   webhook.set("name", name);
   webhook.set("endpoint", endpoint);
+  webhook.set("project", project || "");
+  webhook.set("environment", environment || "");
 
   await webhook.save();
 

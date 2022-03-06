@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
-    "outDir": "dist/types",
+    "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
     "jsx": "react",
     "strict": true,
     "esModuleInterop": true
   },
-  "include": ["./src/index.tsx"]
+  "include": ["src/"]
 }

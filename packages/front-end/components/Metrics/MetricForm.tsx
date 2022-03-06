@@ -147,12 +147,12 @@ const MetricForm: FC<MetricFormProps> = ({
       type: current.type || "binomial",
       table: current.table || "",
       column: current.column || "",
-      earlyStart: !!current.earlyStart,
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
+      conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
@@ -379,16 +379,9 @@ const MetricForm: FC<MetricFormProps> = ({
             options={metricTypeOptions}
           />
         </div>
-        {datasourceType === "google_analytics" && (
-          <GoogleAnalyticsMetrics
-            inputProps={form.register("table")}
-            type={value.type}
-          />
-        )}
       </Page>
       <Page
         display="Query Settings"
-        enabled={datasourceSettingsSupport}
         validate={async () => {
           validateQuerySettings(
             datasourceSettingsSupport,
@@ -476,21 +469,13 @@ const MetricForm: FC<MetricFormProps> = ({
                   />
                 )}
               </div>
+            ) : datasourceType === "google_analytics" ? (
+              <GoogleAnalyticsMetrics
+                inputProps={form.register("table")}
+                type={value.type}
+              />
             ) : (
               <>
-                {["count", "duration", "revenue"].includes(value.type) && (
-                  <div className="form-group ">
-                    {value.type === "count"
-                      ? `Distinct ${column} for Counting`
-                      : column}
-                    <input
-                      type="text"
-                      required={value.type !== "count"}
-                      className="form-control"
-                      {...form.register("column")}
-                    />
-                  </div>
-                )}
                 <div className="form-group">
                   {table} Name
                   <input
@@ -500,6 +485,34 @@ const MetricForm: FC<MetricFormProps> = ({
                     {...form.register("table")}
                   />
                 </div>
+                {value.type !== "binomial" && (
+                  <div className="form-group ">
+                    {supportsSQL ? "Column" : "Event Value"}
+                    <input
+                      type="text"
+                      required={value.type !== "count"}
+                      placeholder={supportsSQL ? "" : "1"}
+                      className="form-control"
+                      {...form.register("column")}
+                    />
+                    {!supportsSQL && (
+                      <small className="form-text text-muted">
+                        Javascript expression to extract a value from each
+                        event.
+                      </small>
+                    )}
+                  </div>
+                )}
+                {value.type !== "binomial" && !supportsSQL && (
+                  <Field
+                    label="User Value Aggregation"
+                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    textarea
+                    minRows={1}
+                    {...form.register("aggregation")}
+                    helpText="Javascript expression to aggregate multiple event values for a user."
+                  />
+                )}
                 {conditionsSupported && (
                   <div className="mb-3">
                     {conditions.fields.length > 0 && <h6>Conditions</h6>}
@@ -543,6 +556,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         <div className="col-auto">
                           <button
                             className="btn btn-danger"
+                            type="button"
                             onClick={(e) => {
                               e.preventDefault();
                               conditions.remove(i);
@@ -555,6 +569,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     ))}
                     <button
                       className="btn btn-outline-success"
+                      type="button"
                       onClick={(e) => {
                         e.preventDefault();
 
@@ -732,10 +747,28 @@ GROUP BY
         )}
         {conversionWindowSupported && (
           <div className="form-group">
+            Conversion Delay (hours)
+            <input
+              type="number"
+              step="any"
+              className="form-control"
+              placeholder={"0"}
+              {...form.register("conversionDelayHours", {
+                valueAsNumber: true,
+              })}
+            />
+            <small className="text-muted">
+              Ignore all conversions within the first X hours of being put into
+              an experiment.
+            </small>
+          </div>
+        )}
+        {conversionWindowSupported && (
+          <div className="form-group">
             Conversion Window (hours)
             <input
               type="number"
-              step="1"
+              step="any"
               min="1"
               className="form-control"
               placeholder={getDefaultConversionWindowHours() + ""}
@@ -743,9 +776,13 @@ GROUP BY
                 valueAsNumber: true,
               })}
             />
+            <small className="text-muted">
+              After the conversion delay (if any), wait this many hours for a
+              conversion event.
+            </small>
           </div>
         )}
-        {ignoreNullsSupported && ["duration", "revenue"].includes(value.type) && (
+        {ignoreNullsSupported && value.type !== "binomial" && (
           <div className="form-group">
             Converted Users Only
             <BooleanSelect
@@ -774,25 +811,6 @@ GROUP BY
           </a>
         ) : (
           <>
-            {capSupported && (
-              <div className="form-group">
-                In an Experiment,{" "}
-                {value.type === "binomial"
-                  ? "only count if a conversion happens"
-                  : "start counting"}
-                <BooleanSelect
-                  control={form.control}
-                  required
-                  name="earlyStart"
-                  falseLabel="After the user is assigned a variation"
-                  trueLabel={
-                    (value.type === "binomial"
-                      ? "Any time during the"
-                      : "At the start of the") + " user's session"
-                  }
-                />
-              </div>
-            )}
             <div className="form-group">
               Risk thresholds
               <div className="riskbar row align-items-center pt-3">

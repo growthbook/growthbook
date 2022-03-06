@@ -1,4 +1,4 @@
-import { VariationRange } from "./types";
+import { VariationRange } from "./types/growthbook";
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;

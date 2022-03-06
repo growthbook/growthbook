@@ -27,7 +27,16 @@ const auth0AuthSource: AuthSource = {
     };
   },
   login: async ({ router }) => {
+    let screen = "login";
+    try {
+      if (window.localStorage.getItem("gb_current_project") === null) {
+        screen = "signup";
+      }
+    } catch (e) {
+      // ignore
+    }
     await auth0Client.loginWithRedirect({
+      screen_hint: screen,
       appState: {
         path: router.route,
         as: router.asPath,

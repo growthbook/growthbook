@@ -486,6 +486,7 @@ app.get(
   "/feature/frequency/month/:num",
   featuresController.getFeaturesFrequencyMonth
 );
+app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
 app.get("/datasources", organizationsController.getDataSources);

@@ -19,9 +19,6 @@ export default class Postgres extends SqlIntegration {
   getSchema(): string {
     return this.params.defaultSchema || "";
   }
-  percentile(col: string, percentile: number) {
-    return `PERCENTILE_DISC ( ${percentile} ) WITHIN GROUP (ORDER BY ${col})`;
-  }
   dateDiff(startCol: string, endCol: string) {
     return `${endCol}::DATE - ${startCol}::DATE`;
   }

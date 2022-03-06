@@ -14,9 +14,9 @@ import FeaturesList from "../../components/Features/FeaturesList";
 
 export default function FeaturesPage() {
   const { project } = useDefinitions();
-
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
   }>(`/feature?project=${project || ""}`);
@@ -25,9 +25,7 @@ export default function FeaturesPage() {
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =
-    !settings?.attributeSchema?.length ||
-    !settings?.sdkInstructionsViewed ||
-    (data && !data?.features?.length);
+    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
 
   if (error) {
     return (

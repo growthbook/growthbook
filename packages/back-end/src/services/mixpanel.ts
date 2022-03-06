@@ -17,8 +17,8 @@ function indentJs(js: string) {
       .split(/\n/g)
       // Add new indentation
       .map((line) => {
-        // Remove an indent when the line closes a block.  e.g. ");" or "}))];"
-        if (line.match(/^[})\]\s]+;?\s*$/)) indent--;
+        // Remove an indent when the line closes a block.  e.g. ");" or "}))];" or "],"
+        if (line.match(/^[})\]\s]+[;,]?\s*$/)) indent--;
         line = "  ".repeat(Math.max(0, indent)) + line;
         // Add an indent when the line starts a block. e.g. "if(...) {" or "const a = ["
         if (line.match(/[{([]+\s*$/)) indent++;

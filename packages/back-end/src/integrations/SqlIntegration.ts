@@ -4,7 +4,6 @@ import {
   DataSourceProperties,
 } from "../../types/datasource";
 import {
-  ImpactEstimationResult,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -18,26 +17,8 @@ import {
 import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
-import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../services/queries";
 import { getValidDate } from "../util/dates";
-
-const percentileNumbers = [
-  0.01,
-  0.05,
-  0.1,
-  0.2,
-  0.3,
-  0.4,
-  0.5,
-  0.6,
-  0.7,
-  0.8,
-  0.9,
-  0.95,
-  0.99,
-];
 
 // Replace `{{startDate}}` and `{{endDate}}` in SQL queries
 function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
@@ -103,37 +84,6 @@ FROM
   }`;
 }
 
-export function getPageviewsQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.pageviewsQuery) {
-    return settings.queries.pageviewsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.pageviews?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.pageviews?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.pageviews?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${settings?.pageviews?.urlColumn || "path"} as url
-FROM 
-  ${schema && !settings?.pageviews?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.pageviews?.table || "pages"
-  }`;
-}
-
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -144,7 +94,6 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
-  abstract percentile(col: string, percentile: number): string;
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -180,13 +129,35 @@ export default abstract class SqlIntegration
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
   addHours(col: string, hours: number) {
-    return `${col} + INTERVAL '${hours} hours'`;
+    if (!hours) return col;
+    let unit: "hour" | "minute" = "hour";
+    const sign = hours > 0 ? "+" : "-";
+    hours = Math.abs(hours);
+
+    const roundedHours = Math.round(hours);
+    const roundedMinutes = Math.round(hours * 60);
+
+    let amount = roundedHours;
+
+    // If not within a few minutes of an even hour, go with minutes as the unit instead
+    if (Math.round(roundedMinutes / 15) % 4 > 0) {
+      unit = "minute";
+      amount = roundedMinutes;
+    }
+
+    if (amount === 0) {
+      return col;
+    }
+
+    return this.addTime(col, unit, sign, amount);
   }
-  subtractHalfHour(col: string) {
-    return `${col} - INTERVAL '30 minutes'`;
-  }
-  regexMatch(col: string, regex: string) {
-    return `${col} ~ '${regex}'`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
   }
   dateTrunc(col: string) {
     return `date_trunc('day', ${col})`;
@@ -213,6 +184,9 @@ export default abstract class SqlIntegration
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
+  castUserDateCol(column: string): string {
+    return column;
+  }
 
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
@@ -232,16 +206,16 @@ export default abstract class SqlIntegration
         SELECT
           experiment_id,
           variation_id,
-          ${this.dateTrunc("timestamp")} as date,
+          ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
           count(distinct anonymous_id) as users
         FROM
           __experiments
         WHERE
-          timestamp > ${this.toTimestamp(params.from)}
+          ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
+        params.from
+      )}
         GROUP BY
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc("timestamp")}
+          1, 2, 3
       ),
       __userThresholds as (
         SELECT
@@ -314,12 +288,19 @@ export default abstract class SqlIntegration
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(params.from);
-    metricStart.setMinutes(metricStart.getMinutes() - 30);
     const metricEnd = new Date(params.to);
     metricEnd.setHours(
       metricEnd.getHours() +
         (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
     );
+    if (params.metric.conversionDelayHours) {
+      metricStart.setHours(
+        metricStart.getHours() + params.metric.conversionDelayHours
+      );
+      metricEnd.setHours(
+        metricEnd.getHours() + params.metric.conversionDelayHours
+      );
+    }
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -330,88 +311,40 @@ export default abstract class SqlIntegration
           segment: !!params.segmentQuery,
           metrics: [params.metric],
         })}
-        __pageviews as (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
-          params.from,
-          params.to
-        )}),
-        __users as (${this.getPageUsersCTE(
-          params,
-          userId,
-          params.metric.conversionWindowHours
-        )})
         ${
           params.segmentQuery
-            ? `, segment as (${this.getSegmentCTE(
+            ? `segment as (${this.getSegmentCTE(
                 params.segmentQuery,
                 params.segmentName || "",
                 userId
-              )})`
+              )}),`
             : ""
         }
-        , __metric as (${this.getMetricCTE({
+        __metric as (${this.getMetricCTE({
           metric: params.metric,
           userId,
           startDate: metricStart,
           endDate: metricEnd,
         })})
-        , __distinctUsers as (
-          SELECT
-            u.user_id,
-            MIN(u.conversion_end) as conversion_end,
-            MIN(u.session_start) as session_start,
-            MIN(u.actual_start) as actual_start
-          FROM
-            __users u
-            ${
-              params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = u.user_id) WHERE s.date <= u.actual_start"
-                : ""
-            }
-          GROUP BY
-            u.user_id
-        )
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
             ${this.getAggregateMetricSqlValue(params.metric)} as value
           FROM
-            __distinctUsers d
-            JOIN __metric m ON (
-              m.user_id = d.user_id
-            )
-            WHERE
-              m.actual_start >= d.${
-                params.metric.earlyStart ? "session_start" : "actual_start"
-              }
-              AND m.actual_start <= d.conversion_end
+            __metric m
+            ${
+              params.segmentQuery
+                ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                : ""
+            }
           GROUP BY
-            d.user_id
-        )
-        , __overallUsers as (
-          -- Number of users overall
-          SELECT
-            COUNT(*) as users
-          FROM
-            __distinctUsers
+            m.user_id
         )
         , __overall as (
           SELECT
             COUNT(*) as count,
             ${this.avg("value")} as mean,
             ${this.stddev("value")} as stddev
-            ${
-              params.includePercentiles && params.metric.type !== "binomial"
-                ? `,${percentileNumbers
-                    .map(
-                      (n) =>
-                        `${this.percentile("value", n)} as p${Math.floor(
-                          n * 100
-                        )}`
-                    )
-                    .join("\n      ,")}`
-                : ""
-            }
           from
             __userMetric
         )
@@ -421,31 +354,18 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("d.actual_start")} as date,
+              ${this.dateTrunc("m.conversion_start")} as date,
               ${this.getAggregateMetricSqlValue(params.metric)} as value
             FROM
-              __distinctUsers d
-              JOIN __metric m ON (
-                m.user_id = d.user_id
-              )
-              WHERE
-                m.actual_start >= d.${
-                  params.metric.earlyStart ? "session_start" : "actual_start"
-                }
-                AND m.actual_start <= d.conversion_end
+              __metric m
+              ${
+                params.segmentQuery
+                  ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                  : ""
+              }
             GROUP BY
-              ${this.dateTrunc("d.actual_start")},
-              d.user_id
-          )
-          , __usersByDate as (
-            -- Number of users by date
-            SELECT
-              ${this.dateTrunc("actual_start")} as date,
-              COUNT(*) as users
-            FROM
-              __distinctUsers
-            GROUP BY
-              ${this.dateTrunc("actual_start")}
+              ${this.dateTrunc("m.conversion_start")},
+              m.user_id
           )
           , __byDateOverall as (
             SELECT
@@ -453,13 +373,6 @@ export default abstract class SqlIntegration
               COUNT(*) as count,
               ${this.avg("value")} as mean,
               ${this.stddev("value")} as stddev
-              ${
-                params.includePercentiles && params.metric.type !== "binomial"
-                  ? `,${percentileNumbers
-                      .map((n) => `0 as p${Math.floor(n * 100)}`)
-                      .join("\n      ,")}`
-                  : ""
-              }
             FROM
               __userMetricDates d
             GROUP BY
@@ -469,20 +382,16 @@ export default abstract class SqlIntegration
         }
       SELECT
         ${params.includeByDate ? "null as date," : ""}
-        o.*,
-        u.users
+        o.*
       FROM
         __overall o
-        JOIN __overallUsers u ON (1=1)
       ${
         params.includeByDate
           ? `
         UNION ALL SELECT
-          o.*,
-          u.users
+          o.*
         FROM
           __byDateOverall o
-          JOIN __usersByDate u ON (o.date = u.date)
         ORDER BY
           date ASC
       `
@@ -513,21 +422,14 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, users, stddev, ...percentiles } = row;
+      const { date, count, mean, stddev } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
-        users: parseInt(users) || 0,
         count: parseFloat(count) || 0,
         mean: parseFloat(mean) || 0,
         stddev: parseFloat(stddev) || 0,
       };
-
-      if (percentiles) {
-        Object.keys(percentiles).forEach((p) => {
-          ret[p] = parseFloat(percentiles[p]) || 0;
-        });
-      }
 
       return ret;
     });
@@ -539,69 +441,31 @@ export default abstract class SqlIntegration
     };
   }
 
-  async getImpactEstimation(
-    urlRegex: string,
-    metric: MetricInterface,
-    segment?: SegmentInterface
-  ): Promise<ImpactEstimationResult> {
-    const numDays = 30;
+  private getUserIdTypes(
+    userId: boolean,
+    metrics: (MetricInterface | null)[],
+    dimension: boolean,
+    segment: boolean
+  ) {
+    const types = new Set<string>();
 
-    const conversionWindowHours =
-      metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+    types.add(userId ? "user_id" : "anonymous_id");
 
-    // Ignore last X hours of data since we need to give people time to convert
-    const end = new Date();
-    end.setHours(end.getHours() - conversionWindowHours);
-    const start = new Date();
-    start.setDate(start.getDate() - numDays);
-    start.setHours(start.getHours() - conversionWindowHours);
-
-    const baseSettings = {
-      from: start,
-      to: end,
-      includeByDate: false,
-      userIdType: metric.userIdType || "either",
-      conversionWindowHours,
-    };
-
-    const metricSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Entire Site",
-      metric,
-      includePercentiles: false,
-    });
-    const valueSql = this.getMetricValueQuery({
-      ...baseSettings,
-      name: "Metric Value - Selected Pages and Segment",
-      metric,
-      includePercentiles: false,
-      urlRegex,
-      segmentQuery: segment?.sql,
-      segmentName: segment?.name,
+    metrics.forEach((m) => {
+      if (!m) return;
+      if (userId && m.userIdType === "anonymous") {
+        types.add("anonymous_id");
+      }
+      if (!userId && m.userIdType === "user") {
+        types.add("user_id");
+      }
     });
 
-    const [metricTotalResponse, valueResponse]: [
-      MetricValueQueryResponse,
-      MetricValueQueryResponse
-    ] = await Promise.all([
-      this.runMetricValueQuery(metricSql),
-      this.runMetricValueQuery(valueSql),
-    ]);
+    if (segment || dimension) {
+      types.add("user_id");
+    }
 
-    const metricTotal = processMetricValueQueryResponse(metricTotalResponse);
-    const value = processMetricValueQueryResponse(valueResponse);
-
-    const formatted =
-      [metricSql, valueSql]
-        .map((sql) => format(sql, this.getFormatOptions()))
-        .join(";\n\n") + ";";
-
-    return {
-      query: formatted,
-      users: value.users,
-      value: (value.count * value.mean) / numDays,
-      metricTotal: (metricTotal.count * metricTotal.mean) / numDays,
-    };
+    return Array.from(types);
   }
 
   private getIdentifiesCTE(
@@ -620,38 +484,26 @@ export default abstract class SqlIntegration
       segment?: boolean;
     }
   ): string {
-    const select = `__identities as (
-      SELECT
-        user_id,
-        anonymous_id
-      FROM
-        (${replaceDateVars(
-          getPageviewsQuery(this.settings, this.getSchema()),
-          from,
-          to
-        )}) i
-      WHERE
-        i.timestamp >= ${this.toTimestamp(from)}
-        ${to ? `AND i.timestamp <= ${this.toTimestamp(to)}` : ""}
-      GROUP BY
-        user_id, 
-        anonymous_id
-    ),`;
+    const idTypes = this.getUserIdTypes(
+      userId,
+      metrics || [],
+      !!dimension,
+      !!segment
+    );
 
-    if (metrics) {
-      for (let i = 0; i < metrics.length; i++) {
-        if (!metrics[i]) continue;
-        if (userId && metrics[i]?.userIdType === "anonymous") {
-          return select;
-        } else if (!userId && metrics[i]?.userIdType === "user") {
-          return select;
-        }
-      }
+    // Don't need a join table, everything uses the same type of id
+    if (idTypes.length < 2) {
+      return "";
     }
-    if (dimension && !userId) return select;
-    if (segment && !userId) return select;
 
-    return "";
+    // TODO: handle case when there are more than 2 required id types
+    return `__identities as (${this.getIdentitiesQuery(
+      this.settings,
+      idTypes[0],
+      idTypes[1],
+      from,
+      to
+    )}),`;
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
@@ -664,8 +516,7 @@ export default abstract class SqlIntegration
     return `
       SELECT
         e.user_id,
-        a.actual_start,
-        a.session_start,
+        a.conversion_start,
         a.conversion_end
       FROM
         __experiment e
@@ -673,8 +524,8 @@ export default abstract class SqlIntegration
           a.user_id = e.user_id
         )
       WHERE
-        a.actual_start >= e.actual_start
-        AND a.actual_start <= e.conversion_end`;
+        a.conversion_start >= e.conversion_start
+        AND a.conversion_start <= e.conversion_end`;
   }
 
   private ifNullFallback(nullable: string | null, fallback: string) {
@@ -699,7 +550,6 @@ export default abstract class SqlIntegration
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(phase.dateStarted);
-    metricStart.setMinutes(metricStart.getMinutes() - 30);
     const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
     if (metricEnd) {
       metricEnd.setHours(
@@ -712,6 +562,16 @@ export default abstract class SqlIntegration
               DEFAULT_CONVERSION_WINDOW_HOURS
             : 0)
       );
+    }
+
+    // Add conversion delay
+    if (metric.conversionDelayHours) {
+      metricStart.setHours(
+        metricStart.getHours() + metric.conversionDelayHours
+      );
+      if (metricEnd) {
+        metricEnd.setHours(metricEnd.getHours() + metric.conversionDelayHours);
+      }
     }
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
@@ -738,6 +598,10 @@ export default abstract class SqlIntegration
           (activationMetric
             ? activationMetric.conversionWindowHours
             : metric.conversionWindowHours) || 0,
+        conversionDelayHours:
+          (activationMetric
+            ? activationMetric.conversionDelayHours
+            : metric.conversionDelayHours) || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
       })})
@@ -768,7 +632,9 @@ export default abstract class SqlIntegration
         activationMetric
           ? `, __activationMetric as (${this.getMetricCTE({
               metric: activationMetric,
-              conversionWindowHours: metric.conversionWindowHours,
+              conversionWindowHours:
+                metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
+              conversionDelayHours: metric.conversionDelayHours,
               userId,
               startDate: metricStart,
               endDate: metricEnd,
@@ -788,7 +654,7 @@ export default abstract class SqlIntegration
               : dimension?.type === "experiment"
               ? "e.dimension"
               : dimension?.type === "date"
-              ? this.formatDate(this.dateTrunc("e.actual_start"))
+              ? this.formatDate(this.dateTrunc("e.conversion_start"))
               : activationDimension
               ? this.ifElse(
                   "a.user_id IS NULL",
@@ -807,13 +673,9 @@ export default abstract class SqlIntegration
               : "e.variation"
           } as variation,
           MIN(${this.ifNullFallback(
-            activationMetric ? "a.actual_start" : null,
-            "e.actual_start"
-          )}) as actual_start,
-          MIN(${this.ifNullFallback(
-            activationMetric ? "a.session_start" : null,
-            "e.session_start"
-          )}) as session_start,
+            activationMetric ? "a.conversion_start" : null,
+            "e.conversion_start"
+          )}) as conversion_start,
           MIN(${this.ifNullFallback(
             activationMetric ? "a.conversion_end" : null,
             "e.conversion_end"
@@ -834,7 +696,7 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.actual_start` : ""}
+        ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
           dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
       )
@@ -850,10 +712,8 @@ export default abstract class SqlIntegration
             m.user_id = d.user_id
           )
           WHERE
-            m.actual_start >= d.${
-              metric.earlyStart ? "session_start" : "actual_start"
-            }
-            AND m.actual_start <= d.conversion_end
+            m.conversion_start >= d.conversion_start
+            AND m.conversion_start <= d.conversion_end
         GROUP BY
           variation, dimension, d.user_id
       )
@@ -909,13 +769,15 @@ export default abstract class SqlIntegration
 
   private getMetricCTE({
     metric,
-    conversionWindowHours = DEFAULT_CONVERSION_WINDOW_HOURS,
+    conversionWindowHours = 0,
+    conversionDelayHours = 0,
     userId = true,
     startDate,
     endDate,
   }: {
     metric: MetricInterface;
     conversionWindowHours?: number;
+    conversionDelayHours?: number;
     userId?: boolean;
     startDate: Date;
     endDate: Date | null;
@@ -947,7 +809,9 @@ export default abstract class SqlIntegration
           : this.getAnonymousIdColumn(metric));
     }
 
-    const timestampCol = "m." + this.getTimestampColumn(metric);
+    const timestampCol = this.castUserDateCol(
+      "m." + this.getTimestampColumn(metric)
+    );
 
     const schema = this.getSchema();
 
@@ -971,9 +835,14 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as user_id,
         ${this.getRawMetricSqlValue(metric, "m")} as value,
-        ${timestampCol} as actual_start,
-        ${this.addHours(timestampCol, conversionWindowHours)} as conversion_end,
-        ${this.subtractHalfHour(timestampCol)} as session_start
+        ${this.addHours(
+          timestampCol,
+          conversionDelayHours
+        )} as conversion_start,
+        ${this.addHours(
+          timestampCol,
+          conversionDelayHours + conversionWindowHours
+        )} as conversion_end
       FROM
         ${
           metric.sql
@@ -1025,11 +894,13 @@ export default abstract class SqlIntegration
     experiment,
     phase,
     conversionWindowHours = 0,
+    conversionDelayHours = 0,
     experimentDimension = null,
   }: {
     experiment: ExperimentInterface;
     phase: ExperimentPhase;
     conversionWindowHours: number;
+    conversionDelayHours: number;
     experimentDimension: string | null;
   }) {
     conversionWindowHours =
@@ -1041,37 +912,59 @@ export default abstract class SqlIntegration
     const endDate = this.getExperimentEndDate(
       experiment,
       phase,
-      conversionWindowHours
+      conversionWindowHours + conversionDelayHours
     );
+
+    const timestampColumn = this.castUserDateCol("e.timestamp");
 
     return `-- Viewed Experiment
     SELECT
       ${userIdCol} as user_id,
       ${this.castToString("e.variation_id")} as variation,
-      e.timestamp as actual_start,
+      ${this.addHours(
+        timestampColumn,
+        conversionDelayHours
+      )} as conversion_start,
       ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
-      ${this.addHours("e.timestamp", conversionWindowHours)} as conversion_end,
-      ${this.subtractHalfHour("e.timestamp")} as session_start
+      ${this.addHours(
+        timestampColumn,
+        conversionDelayHours + conversionWindowHours
+      )} as conversion_end
     FROM
         __rawExperiment e
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
-        AND e.timestamp >= ${this.toTimestamp(phase.dateStarted)}
-        ${endDate ? `AND e.timestamp <= ${this.toTimestamp(endDate)}` : ""}
+        AND ${timestampColumn} >= ${this.toTimestamp(phase.dateStarted)}
+        ${
+          endDate
+            ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
+            : ""
+        }
         ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
+    const dateCol = this.castUserDateCol("s.date");
+
     // Need to map user_id to anonymous_id
     if (!userId) {
       return `-- Segment (${name})
       SELECT
         i.anonymous_id as user_id,
-        s.date
+        ${dateCol} as date
       FROM
         (${sql}) s
         ${this.getIdentifiesJoinSql("s.user_id", true)}
       `;
+    }
+
+    if (dateCol !== "s.date") {
+      return `-- Segment (${name})
+      SELECT
+        s.user_id,
+        ${dateCol} as date
+      FROM
+        (${sql}) s`;
     }
 
     return `-- Segment (${name})
@@ -1098,49 +991,6 @@ export default abstract class SqlIntegration
     return `-- Dimension (${dimension.name})
     ${dimension.sql}
     `;
-  }
-
-  private getPageUsersCTE(
-    params: MetricValueParams,
-    userId: boolean = true,
-    conversionWindowHours: number = DEFAULT_CONVERSION_WINDOW_HOURS
-  ): string {
-    // TODO: use identifies if table is missing the requested userId type
-    const userIdCol = userId ? "p.user_id" : "p.anonymous_id";
-
-    return `-- Users visiting specific pages
-    SELECT
-      ${userIdCol} as user_id,
-      MIN(p.timestamp) as actual_start,
-      ${this.addHours(
-        `MIN(p.timestamp)`,
-        conversionWindowHours
-      )} as conversion_end,
-      ${this.subtractHalfHour(`MIN(p.timestamp)`)} as session_start
-    FROM
-        __pageviews p
-    WHERE
-      p.timestamp >= ${this.toTimestamp(this.dateOnly(params.from))}
-      AND p.timestamp <= ${this.toTimestamp(this.dateOnly(params.to))}
-      ${
-        params.urlRegex && params.urlRegex !== ".*"
-          ? `AND ${this.regexMatch("p.url", params.urlRegex)}`
-          : ""
-      }
-    GROUP BY
-      ${userIdCol}
-    `;
-  }
-
-  private dateOnly(orig: Date) {
-    const date = new Date(orig);
-
-    date.setHours(0);
-    date.setMinutes(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
-
-    return date;
   }
 
   private capValue(cap: number | undefined, value: string) {
@@ -1219,5 +1069,60 @@ export default abstract class SqlIntegration
   }
   private getTimestampColumn(metric: MetricInterface): string {
     return metric.sql ? "timestamp" : metric.timestampColumn || "received_at";
+  }
+
+  private getIdentitiesQuery(
+    settings: DataSourceSettings,
+    id1: string,
+    id2: string,
+    from: Date,
+    to: Date | undefined
+  ) {
+    if (settings?.queries?.identityJoins) {
+      for (let i = 0; i < settings.queries.identityJoins.length; i++) {
+        const join = settings?.queries?.identityJoins[i];
+        if (
+          join.query.length > 6 &&
+          join.ids.includes(id1) &&
+          join.ids.includes(id2)
+        ) {
+          return `
+          SELECT
+            ${id1},
+            ${id2}
+          FROM
+            (${replaceDateVars(join.query, from, to)}) i
+          GROUP BY
+            1, 2
+          `;
+        }
+      }
+    }
+
+    if (settings?.queries?.pageviewsQuery) {
+      const timestampColumn = this.castUserDateCol("i.timestamp");
+
+      if (
+        ["user_id", "anonymous_id"].includes(id1) &&
+        ["user_id", "anonymous_id"].includes(id2)
+      ) {
+        return `
+        SELECT
+          user_id,
+          anonymous_id
+        FROM
+          (${replaceDateVars(settings.queries.pageviewsQuery, from, to)}) i
+        WHERE
+          ${timestampColumn} >= ${this.toTimestamp(from)}
+          ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}
+        GROUP BY
+          1, 2
+        `;
+      }
+    }
+
+    return `
+    -- ERROR: Missing User Id Join Table!
+    SELECT '' as ${id1}, '' as ${id2}`;
   }
 }

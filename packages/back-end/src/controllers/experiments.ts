@@ -688,7 +688,7 @@ export async function postExperiment(
   await ensureWatching(userId, org.id, exp.id);
 
   if (requiresWebhook) {
-    await experimentUpdated(exp);
+    await experimentUpdated(exp, existing.project || "");
   }
 
   res.status(200).json({
@@ -1465,9 +1465,9 @@ export async function postMetrics(
     column,
     inverse,
     ignoreNulls,
-    earlyStart,
     cap,
     conversionWindowHours,
+    conversionDelayHours,
     sql,
     aggregation,
     segment,
@@ -1506,10 +1506,10 @@ export async function postMetrics(
     table,
     column,
     inverse,
-    earlyStart,
     ignoreNulls,
     cap,
     conversionWindowHours,
+    conversionDelayHours,
     userIdType,
     sql,
     aggregation,
@@ -1566,11 +1566,11 @@ export async function putMetric(
     "description",
     "segment",
     "type",
-    "earlyStart",
     "inverse",
     "ignoreNulls",
     "cap",
     "conversionWindowHours",
+    "conversionDelayHours",
     "sql",
     "aggregation",
     "status",

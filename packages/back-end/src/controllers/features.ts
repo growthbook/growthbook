@@ -1,4 +1,3 @@
-import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
@@ -9,6 +8,7 @@ import {
   getFeature,
   updateFeature,
 } from "../models/FeatureModel";
+import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import { featureUpdated, getFeatureDefinitions } from "../services/features";
 import uniqid from "uniqid";
@@ -16,9 +16,16 @@ import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import format from "date-fns/format";
 import { getValidDate } from "../util/dates";
+import { FeatureUsageRecords } from "../../types/realtime";
+import { AuthRequest } from "../types/AuthRequest";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
+
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
 
   try {
     const { organization, environment } = await lookupOrganizationByApiKey(key);
@@ -29,7 +36,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
-    const features = await getFeatureDefinitions(organization, environment);
+    const features = await getFeatureDefinitions(
+      organization,
+      environment,
+      project
+    );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -168,6 +179,9 @@ export async function putFeature(
       requiresWebhook = true;
     }
   }
+  if ("project" in updates && updates.project !== feature.project) {
+    requiresWebhook = true;
+  }
 
   await updateFeature(feature.organization, id, {
     ...updates,
@@ -175,7 +189,14 @@ export async function putFeature(
   });
 
   if (requiresWebhook) {
-    featureUpdated(feature);
+    featureUpdated(
+      {
+        ...feature,
+        ...updates,
+      },
+      feature.environments || [],
+      feature.project || ""
+    );
   }
 
   res.status(200).json({
@@ -308,5 +329,81 @@ export async function getFeaturesFrequencyMonth(
   res.status(200).json({
     status: 200,
     data: { all: allData, ...dataByType },
+  });
+}
+
+export async function getRealtimeUsage(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const NUM_MINUTES = 30;
+
+  // Get feature usage for the current hour
+  const now = new Date();
+  const current = await getRealtimeUsageByHour(
+    org.id,
+    now.toISOString().substring(0, 13)
+  );
+
+  const usage: FeatureUsageRecords = {};
+  if (current) {
+    Object.keys(current.features).forEach((feature) => {
+      usage[feature] = { realtime: [] };
+      for (let i = now.getMinutes(); i >= 0; i--) {
+        usage[feature].realtime.push({
+          used: current.features[feature]?.used?.[i] || 0,
+          skipped: current.features[feature]?.skipped?.[i] || 0,
+        });
+      }
+    });
+  }
+
+  // If needed, pull in part of the previous hour to get to 30 data points
+  if (now.getMinutes() < NUM_MINUTES - 1) {
+    const stop = 59 - (NUM_MINUTES - 1 - now.getMinutes());
+    const lastHour = new Date(now);
+    lastHour.setHours(lastHour.getHours() - 1);
+
+    const lastHourData = await getRealtimeUsageByHour(
+      org.id,
+      lastHour.toISOString().substring(0, 13)
+    );
+    if (lastHourData) {
+      Object.keys(lastHourData.features).forEach((feature) => {
+        if (!usage[feature]) {
+          usage[feature] = {
+            realtime: Array(now.getMinutes() + 1).fill({
+              used: 0,
+              skipped: 0,
+            }),
+          };
+        }
+        for (let i = 59; i >= stop; i--) {
+          usage[feature].realtime.push({
+            used: lastHourData.features[feature]?.used?.[i] || 0,
+            skipped: lastHourData.features[feature]?.skipped?.[i] || 0,
+          });
+        }
+      });
+    }
+  }
+
+  // Pad out all usage arrays to 30 items and reverse arrays
+  Object.keys(usage).forEach((feature) => {
+    while (usage[feature].realtime.length < 30) {
+      usage[feature].realtime.push({
+        used: 0,
+        skipped: 0,
+      });
+    }
+    // Remove any extra items and reverse
+    usage[feature].realtime = usage[feature].realtime.slice(0, 30);
+    usage[feature].realtime.reverse();
+  });
+
+  res.status(200).json({
+    status: 200,
+    usage,
   });
 }

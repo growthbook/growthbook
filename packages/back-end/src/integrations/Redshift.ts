@@ -19,9 +19,6 @@ export default class Redshift extends SqlIntegration {
   getSchema(): string {
     return this.params.defaultSchema || "";
   }
-  percentile(col: string, percentile: number) {
-    return `APPROXIMATE  PERCENTILE_DISC ( ${percentile} ) WITHIN GROUP (ORDER BY ${col})`;
-  }
   avg(col: string) {
     return `AVG(${col}::float)`;
   }

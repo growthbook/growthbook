@@ -20,6 +20,7 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
+import { upgradeMetricDoc } from "../models/MetricModel";
 
 export type ConfigFile = {
   organization?: {
@@ -164,7 +165,7 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
   return Object.keys(metrics).map((id) => {
     const m = metrics[id];
 
-    return {
+    return upgradeMetricDoc({
       tags: [],
       id,
       ...m,
@@ -174,7 +175,7 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
       dateUpdated: null,
       queries: [],
       runStarted: null,
-    };
+    });
   });
 }
 

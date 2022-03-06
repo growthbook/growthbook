@@ -13,6 +13,14 @@ const ExpandableQuery: FC<{
 }> = ({ query, i, total }) => {
   const [queryOpen, setQueryOpen] = useState(false);
 
+  let title = "";
+  if (query.language === "sql") {
+    const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
+    if (comments && comments[2]) {
+      title = comments[2];
+    }
+  }
+
   return (
     <div className="mb-4">
       <h4>
@@ -23,7 +31,11 @@ const ExpandableQuery: FC<{
         {query.status === "succeeded" && (
           <FaCheck className="text-success mr-2" />
         )}
-        Query {i + 1} of {total}
+        {title}
+        <span style={{ fontWeight: "normal" }}>
+          {title && " - "}
+          Query {i + 1} of {total}
+        </span>
       </h4>
       <div
         className={clsx("expandable-container text-light", {

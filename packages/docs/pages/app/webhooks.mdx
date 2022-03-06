@@ -14,11 +14,13 @@ There you can add a webhook endpoint.
 
 This page is also where you can view the shared secret used to verify requests (see below) and see the status of your webhook and any errors.
 
+## Environment and Project Filters
+
+You can optionally filter your webhook to a specific environment and/or project. If specified, only matching features will trigger the webhook and be included in the payload.
+
 ## Payload
 
 Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing feature definitions in the same format as the API returns.
-
-**Note:** Only features enabled in production are sent via webhooks. The only way to retrieve dev features is via the [API](/app/api).
 
 Here's an example payload:
 
@@ -62,6 +64,7 @@ const bodyParser = require("body-parser");
 // Retrieve from GrowthBook settings
 const GROWTHBOOK_WEBHOOK_SECRET = "abc123";
 
+const port = 1337;
 const app = express();
 
 app.post(
@@ -87,6 +90,10 @@ app.post(
     res.status(200).send("");
   }
 );
+
+app.listen(port, () => {
+  console.log(`Webhook endpoint listening on port ${port}`);
+});
 ```
 
 ## Errors and Retries

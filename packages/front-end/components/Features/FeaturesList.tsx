@@ -14,6 +14,10 @@ import FeatureModal from "./FeatureModal";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import { GBAddCircle } from "../Icons";
+import RealTimeFeatureGraph from "./RealTimeFeatureGraph";
+import { useFeature } from "@growthbook/growthbook-react";
+import { useRealtimeData } from "../../services/features";
+import Tooltip from "../Tooltip";
 
 export default function FeaturesList({
   showPagination = true,
@@ -33,7 +37,14 @@ export default function FeaturesList({
     "description",
     "tags",
   ]);
+
   const router = useRouter();
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
+  const { usage, usageDomain } = useRealtimeData(
+    data?.features,
+    !!router?.query?.mockdata,
+    showGraphs
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [featuresPerPage] = useState(numPerPage);
@@ -53,7 +64,7 @@ export default function FeaturesList({
   }
 
   if (data.features.length === 0) {
-    return <></>;
+    return null;
   }
 
   return (
@@ -96,6 +107,7 @@ export default function FeaturesList({
           </>
         )}
       </div>
+
       <table className="table gbtable table-hover">
         <thead>
           <tr>
@@ -105,68 +117,74 @@ export default function FeaturesList({
             <th>Value When Enabled</th>
             <th>Overrides Rules</th>
             <th>Last Updated</th>
+            {showGraphs && (
+              <th>
+                Recent Usage{" "}
+                <Tooltip text="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {sorted
-            .filter((f, i) => {
-              if (
-                i >= (currentPage - 1) * featuresPerPage &&
-                i < currentPage * featuresPerPage
-              )
-                return true;
-            })
-            .map((feature) => {
-              const firstRule = feature.rules?.[0];
-              const totalRules = feature.rules?.length || 0;
+          {sorted.map((feature) => {
+            const firstRule = feature.rules?.[0];
+            const totalRules = feature.rules?.length || 0;
 
-              return (
-                <tr key={feature.id}>
-                  <td>
-                    <Link href={`/features/${feature.id}`}>
-                      <a>{feature.id}</a>
-                    </Link>
-                  </td>
-                  <td className="position-relative">
-                    <EnvironmentToggle
-                      feature={feature}
-                      environment="dev"
-                      mutate={mutate}
+            return (
+              <tr key={feature.id}>
+                <td>
+                  <Link href={`/features/${feature.id}`}>
+                    <a>{feature.id}</a>
+                  </Link>
+                </td>
+                <td className="position-relative">
+                  <EnvironmentToggle
+                    feature={feature}
+                    environment="dev"
+                    mutate={mutate}
+                  />
+                </td>
+                <td className="position-relative">
+                  <EnvironmentToggle
+                    feature={feature}
+                    environment="production"
+                    mutate={mutate}
+                  />
+                </td>
+                <td>
+                  <ValueDisplay
+                    value={feature.defaultValue}
+                    type={feature.valueType}
+                    full={false}
+                  />
+                </td>
+                <td>
+                  {firstRule && (
+                    <span className="text-dark">{firstRule.type}</span>
+                  )}
+                  {totalRules > 1 && (
+                    <small className="text-muted ml-1">
+                      +{totalRules - 1} more
+                    </small>
+                  )}
+                </td>
+                <td title={datetime(feature.dateUpdated)}>
+                  {ago(feature.dateUpdated)}
+                </td>
+                {showGraphs && (
+                  <td style={{ width: 170 }}>
+                    <RealTimeFeatureGraph
+                      data={usage?.[feature.id]?.realtime || []}
+                      yDomain={usageDomain}
                     />
                   </td>
-                  <td className="position-relative">
-                    <EnvironmentToggle
-                      feature={feature}
-                      environment="production"
-                      mutate={mutate}
-                    />
-                  </td>
-                  <td>
-                    <ValueDisplay
-                      value={feature.defaultValue}
-                      type={feature.valueType}
-                      full={false}
-                    />
-                  </td>
-                  <td>
-                    {firstRule && (
-                      <span className="text-dark">{firstRule.type}</span>
-                    )}
-                    {totalRules > 1 && (
-                      <small className="text-muted ml-1">
-                        +{totalRules - 1} more
-                      </small>
-                    )}
-                  </td>
-                  <td title={datetime(feature.dateUpdated)}>
-                    {ago(feature.dateUpdated)}
-                  </td>
-                </tr>
-              );
-            })}
+                )}
+              </tr>
+            );
+          })}
           {!sorted.length && (
             <tr>
-              <td colSpan={6}>No matching features</td>
+              <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
             </tr>
           )}
         </tbody>

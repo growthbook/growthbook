@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/react";
+
 const env: {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
@@ -8,18 +10,26 @@ const env: {
     sha: string;
     date: string;
   };
+  sentryDSN: string;
 } = {
   telemetry: "enable",
   cloud: false,
   apiHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
+  sentryDSN: "",
 };
 
 export async function initEnv() {
   const res = await fetch("/api/init");
   const json = await res.json();
   Object.assign(env, json);
+
+  if (env.sentryDSN) {
+    Sentry.init({
+      dsn: env.sentryDSN,
+    });
+  }
 }
 
 export function getApiHost(): string {

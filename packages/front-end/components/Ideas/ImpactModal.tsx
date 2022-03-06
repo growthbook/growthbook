@@ -23,7 +23,6 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      page: estimate?.regex || ".*",
       userAdjustment: idea.estimateParams?.userAdjustment || 100,
       numVariations: idea.estimateParams?.numVariations || 2,
       improvement: idea.estimateParams?.improvement || 10,
@@ -49,7 +48,6 @@ const ImpactModal: FC<{
         let est = estimate;
         if (
           !estimate ||
-          estimate.regex !== value.page ||
           estimate.metric !== value.metric ||
           (estimate.segment || "") !== value.segment
         ) {
@@ -59,7 +57,6 @@ const ImpactModal: FC<{
               method: "POST",
               body: JSON.stringify({
                 metric: value.metric,
-                regex: value.page,
                 segment: value.segment || null,
               }),
             }
@@ -73,23 +70,23 @@ const ImpactModal: FC<{
           );
         }
 
-        const cr = est.users ? est.value / est.users : 0;
+        const adjustedValue =
+          est.conversionsPerDay * (value.userAdjustment / 100);
 
-        const trafficPerVariationPerDay =
-          ((value.userAdjustment / 100) * est.users) / value.numVariations;
+        const sampleSize = (150 - 2 * value.improvement) * value.numVariations;
 
-        const variance = cr * (1 - cr);
-
-        const sampleSize =
-          (15.3664 * variance) / Math.pow((value.improvement / 100) * cr, 2);
-
-        const days = sampleSize / trafficPerVariationPerDay;
+        const days = adjustedValue ? sampleSize / adjustedValue : 7;
         const experimentLength = days < 7 ? 7 : days;
 
-        const impact = (est.value / est.metricTotal) * (7 / experimentLength);
+        const improvementAdjustment = value.improvement < 5 ? 0.5 : 1;
+
+        const trafficAdjustment = value.userAdjustment / 100;
+
+        const impact =
+          (trafficAdjustment * improvementAdjustment * 7) / experimentLength;
 
         const data: Partial<IdeaInterface> = {
-          impactScore: Math.floor(impact * 100),
+          impactScore: est.conversionsPerDay ? Math.floor(impact * 100) : 0,
           experimentLength,
           estimateParams: {
             estimate: est.id,
@@ -141,9 +138,16 @@ const ImpactModal: FC<{
         helpText="Including the baseline"
       />
       <Field
-        label="Experiment URLs"
-        {...form.register("page")}
-        helpText="URLs where this experiment will run (regular expression)"
+        label="Percent of Total Traffic"
+        {...form.register("userAdjustment", {
+          valueAsNumber: true,
+        })}
+        type="number"
+        step="1"
+        min="0"
+        max="100"
+        append="%"
+        helpText="If this experiment is on a subset of your application, approx what percent of users will see it?"
       />
       <SelectField
         label="User Segment"

@@ -301,17 +301,16 @@ export function processExperimentResultsResponse(
 export function processMetricValueQueryResponse(
   rows: MetricValueQueryResponse
 ): MetricValueResult {
-  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0, users: 0 };
+  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 
   rows.forEach((row) => {
-    const { date, count, mean, stddev, users, ...percentiles } = row;
+    const { date, count, mean, stddev } = row;
 
     // Row for each date
     if (date) {
       ret.dates = ret.dates || [];
       ret.dates.push({
         date,
-        users,
         count,
         mean,
         stddev,
@@ -322,14 +321,6 @@ export function processMetricValueQueryResponse(
       ret.count = count;
       ret.mean = mean;
       ret.stddev = stddev;
-      ret.users = users;
-
-      if (percentiles) {
-        Object.keys(percentiles).forEach((p) => {
-          ret.percentiles = ret.percentiles || {};
-          ret.percentiles[p.replace(/^p/, "")] = percentiles[p];
-        });
-      }
     }
   });
 

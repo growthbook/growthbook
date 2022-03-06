@@ -70,11 +70,11 @@ export function useConfigJson({
       const fields: (keyof MetricInterface)[] = [
         "datasource",
         "description",
-        "earlyStart",
         "ignoreNulls",
         "inverse",
         "cap",
         "conversionWindowHours",
+        "conversionDelayHours",
         "loseRisk",
         "winRisk",
         "maxPercentChange",

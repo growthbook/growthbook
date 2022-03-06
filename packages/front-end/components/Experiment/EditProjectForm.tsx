@@ -10,7 +10,8 @@ const EditProjectForm: FC<{
   current?: string;
   cancel: () => void;
   mutate: () => void;
-}> = ({ current, apiEndpoint, cancel, mutate }) => {
+  method?: string;
+}> = ({ current, apiEndpoint, cancel, mutate, method = "POST" }) => {
   const { apiCall } = useAuth();
   const { projects } = useDefinitions();
 
@@ -27,7 +28,7 @@ const EditProjectForm: FC<{
       close={cancel}
       submit={form.handleSubmit(async (data) => {
         await apiCall(apiEndpoint, {
-          method: "POST",
+          method,
           body: JSON.stringify(data),
         });
         mutate();

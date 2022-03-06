@@ -1,12 +1,14 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   condToJson,
   jsonToConds,
   useAttributeMap,
+  useAttributeSchema,
 } from "../../services/features";
 import Field from "../Forms/Field";
+import styles from "./ConditionInput.module.scss";
+import { GBAddCircle } from "../Icons";
 
 interface Props {
   defaultValue: string;
@@ -14,16 +16,18 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
+  const attributes = useAttributeMap();
+
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue) === null
+    () => jsonToConds(props.defaultValue, attributes) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() => jsonToConds(props.defaultValue));
+  const [conds, setConds] = useState(() =>
+    jsonToConds(props.defaultValue, attributes)
+  );
 
-  const settings = useOrgSettings();
-
-  const attributes = useAttributeMap();
+  const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (advanced) return;
@@ -32,8 +36,8 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value) !== null);
-  }, [value]);
+    setSimpleAllowed(jsonToConds(value, attributes) !== null);
+  }, [value, attributes]);
 
   if (advanced || !attributes.size || !simpleAllowed) {
     return (
@@ -53,7 +57,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const newConds = jsonToConds(value);
+              const newConds = jsonToConds(value, attributes);
               // TODO: show error
               if (newConds === null) return;
               setConds(newConds);
@@ -67,31 +71,60 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  return (
-    <div className="mb-3">
-      <div>
-        <label>Targeting Conditions</label>
+  if (!conds.length) {
+    return (
+      <div className="form-group">
+        <label className="mb-0">Targeting Conditions</label>
+        <div className="m-2">
+          <em className="text-muted mr-3">Applied to everyone by default.</em>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              const prop = attributeSchema[0];
+              setConds([
+                {
+                  field: prop?.property || "",
+                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  value: "",
+                },
+              ]);
+            }}
+          >
+            Add targeting condition
+          </a>
+        </div>
       </div>
-      {conds.length > 0 ? (
-        <>
-          <ul className="mb-2 pl-4">
-            {conds.map(({ field, operator, value }, i) => {
-              const attribute = attributes.get(field);
-              const onChange = (
-                e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
-              ) => {
-                const name = e.target.name;
-                const value: string | number = e.target.value;
+    );
+  }
 
-                const newConds = [...conds];
-                newConds[i] = { ...newConds[i] };
-                newConds[i][name] = value;
-                setConds(newConds);
-              };
-              return (
-                <li key={i} className="mb-1">
-                  <div className="form-inline">
-                    {i > 0 && <span className="mr-1">AND</span>}
+  return (
+    <div className="form-group">
+      <label>Targeting Conditions</label>
+      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
+        <ul className={styles.conditionslist}>
+          {conds.map(({ field, operator, value }, i) => {
+            const attribute = attributes.get(field);
+            const onChange = (
+              e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+            ) => {
+              const name = e.target.name;
+              const value: string | number = e.target.value;
+
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i][name] = value;
+              setConds(newConds);
+            };
+            return (
+              <li key={i} className={styles.listitem}>
+                <div className={`row ${styles.listrow}`}>
+                  {i > 0 ? (
+                    <span className={`${styles.and} mr-2`}>AND</span>
+                  ) : (
+                    <span className={`${styles.and} mr-2`}>IF</span>
+                  )}
+                  <div className="col-sm-12 col-md mb-2">
                     <select
                       value={field}
                       name="field"
@@ -114,17 +147,19 @@ export default function ConditionInput(props: Props) {
 
                         setConds(newConds);
                       }}
-                      className="form-control mr-1"
+                      className={`${styles.firstselect} form-control`}
                     >
-                      {settings.attributeSchema.map((s) => (
+                      {attributeSchema.map((s) => (
                         <option key={s.property}>{s.property}</option>
                       ))}
                     </select>
+                  </div>
+                  <div className="col-sm-12 col-md mb-2">
                     <select
                       value={operator}
                       name="operator"
                       onChange={onChange}
-                      className="form-control mr-1"
+                      className="form-control"
                     >
                       {attribute.datatype === "boolean" ? (
                         <>
@@ -140,7 +175,7 @@ export default function ConditionInput(props: Props) {
                           <option value="$exists">exists</option>
                           <option value="$notExists">does not exist</option>
                         </>
-                      ) : attribute.enum ? (
+                      ) : attribute.enum?.length > 0 ? (
                         <>
                           <option value="$eq">is equal to</option>
                           <option value="$ne">is not equal to</option>
@@ -180,41 +215,51 @@ export default function ConditionInput(props: Props) {
                         ""
                       )}
                     </select>
-                    {["$exists", "$notExists", "$true", "$false"].includes(
-                      operator
-                    ) ? (
-                      ""
-                    ) : ["$in", "$nin"].includes(operator) ? (
-                      <Field
-                        textarea
-                        placeholder="comma separated"
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                      />
-                    ) : attribute.enum.length ? (
-                      <Field
-                        options={attribute.enum}
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        initialOption="Choose One..."
-                      />
-                    ) : attribute.datatype === "number" ? (
-                      <Field
-                        type="number"
-                        step="any"
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                      />
-                    ) : attribute.datatype === "string" ? (
-                      <Field value={value} onChange={onChange} name="value" />
-                    ) : (
-                      ""
-                    )}
+                  </div>
+                  {["$exists", "$notExists", "$true", "$false"].includes(
+                    operator
+                  ) ? (
+                    ""
+                  ) : ["$in", "$nin"].includes(operator) ? (
+                    <Field
+                      textarea
+                      placeholder="comma separated"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.enum.length ? (
+                    <Field
+                      options={attribute.enum}
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      initialOption="Choose One..."
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.datatype === "number" ? (
+                    <Field
+                      type="number"
+                      step="any"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.datatype === "string" ? (
+                    <Field
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : (
+                    ""
+                  )}
+                  <div className="col-md-auto col-sm-12">
                     <button
-                      className="btn btn-link text-danger"
+                      className="btn btn-link text-danger float-right"
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
@@ -226,67 +271,48 @@ export default function ConditionInput(props: Props) {
                       remove
                     </button>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="d-flex align-items-center">
-            <a
-              className="mr-3"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="d-flex align-items-center">
+          <a
+            className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              const prop = attributeSchema[0];
+              setConds([
+                ...conds,
+                {
+                  field: prop?.property || "",
+                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  value: "",
+                },
+              ]);
+            }}
+          >
+            <span
+              className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
             >
-              Add another condition
-            </a>
-            <a
-              href="#"
-              className="ml-auto"
-              style={{ fontSize: "0.9em" }}
-              onClick={(e) => {
-                e.preventDefault();
-                setAdvanced(true);
-              }}
-            >
-              advanced mode
-            </a>
-          </div>
-        </>
-      ) : (
-        <>
-          <div>
-            <em className="text-muted ml-2">Applied to everyone.</em>{" "}
-            <a
-              href="#"
-              className="ml-3"
-              onClick={(e) => {
-                e.preventDefault();
-                const prop = settings?.attributeSchema?.[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
-            >
-              Add targeting condition
-            </a>
-          </div>
-        </>
-      )}
+              <GBAddCircle />
+            </span>
+            Add another condition
+          </a>
+          <a
+            href="#"
+            className="ml-auto"
+            style={{ fontSize: "0.9em" }}
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvanced(true);
+            }}
+          >
+            Advanced mode
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

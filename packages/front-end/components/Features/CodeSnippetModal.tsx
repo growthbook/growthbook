@@ -10,8 +10,16 @@ import { useAuth } from "../../services/auth";
 import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
+import { useAttributeSchema } from "../../services/features";
 
-type Language = "tsx" | "javascript" | "go" | "kotlin";
+type Language = "tsx" | "javascript" | "go" | "kotlin" | "php" | "python";
+
+function phpArrayFormat(json: unknown) {
+  return stringify(json)
+    .replace(/\{/g, "[")
+    .replace(/\}/g, "]")
+    .replace(/:/g, " =>");
+}
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -19,11 +27,11 @@ function indentLines(code: string, indent: number | string = 2) {
 }
 
 function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
-  if (!attributeSchema) return {};
+  if (!attributeSchema?.length) return {};
 
   // eslint-disable-next-line
   const exampleAttributes: any = {};
-  (attributeSchema || []).forEach(({ property, datatype, enum: enumList }) => {
+  attributeSchema.forEach(({ property, datatype, enum: enumList }) => {
     const parts = property.split(".");
     const last = parts.pop();
     let current = exampleAttributes;
@@ -83,10 +91,10 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
 
   const { settings, update } = useUser();
 
+  const attributeSchema = useAttributeSchema();
+
   const { datasources } = useDefinitions();
-  const exampleAttributes = getExampleAttributes(
-    settings?.attributeSchema || []
-  );
+  const exampleAttributes = getExampleAttributes(attributeSchema);
 
   // Create API key if one doesn't exist yet
   const [devApiKey, setDevApiKey] = useState("");
@@ -246,14 +254,17 @@ const growthbook = new GrowthBook({
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
-    growthbook.setFeatures(json${devApiKey ? ".features" : ""});
+    growthbook.setFeatures(json.features);
+  })
+  .catch(() => {
+    console.log("Failed to fetch feature definitions from GrowthBook");
   });
 
 // TODO: replace with real targeting attributes
 growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
 
 // Use a feature!
-if (growthbook.feature("my-feature").on) {
+if (growthbook.isOn("my-feature")) {
   // ...
 }
 `.trim()}
@@ -458,6 +469,98 @@ val gb = GBSDKBuilder(
 if (gb.feature("my-feature").on) {
   // Feature is enabled!
 }
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="PHP" id="php">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/php"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full PHP SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="sh" code={`composer require growthbook/growthbook`} />
+          <Code
+            language="php"
+            code={`
+use Growthbook\\Growthbook;
+
+// TODO: Real user attributes
+$attributes = ${phpArrayFormat(exampleAttributes)};
+
+// Fetch feature definitions from GrowthBook API
+// In production, we recommend adding a db or cache layer
+const FEATURES_ENDPOINT = '${getFeaturesUrl(devApiKey)}';
+$apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
+$features = $apiResponse["features"];
+
+// Create a GrowthBook instance
+$growthbook = Growthbook::create()
+  ->withAttributes($attributes)
+  ->withFeatures($features)
+  ->withTrackingCallback(function ($experiment, $result) {
+    // TODO: track in your analytics system
+  });
+
+if ($growthbook->isOn("my-feature")) {
+  // Feature is enabled!
+}
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Python" id="python">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/python"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Python SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="sh" code={`pip install growthbook`} />
+          <Code
+            language="python"
+            code={`
+import requests
+from growthbook import GrowthBook
+
+# Fetch feature definitions from GrowthBook API
+# In production, we recommend adding a db or cache layer
+apiResp = requests.get("${getFeaturesUrl(devApiKey)}")
+features = apiResp.json()["features"]
+
+# TODO: Real user attributes
+attributes = ${stringify(exampleAttributes)
+              .replace(/: true/g, ": True")
+              .replace(/: false/g, ": False")
+              .replace(/: null/g, ": None")}
+
+# Tracking callback when someone is put in an experiment
+def on_experiment_viewed(experiment, result):
+  # Use whatever event tracking system you want
+  print({
+    'experimentId': experiment.key,
+    'variationId': result.variationId
+  })
+
+# Create a GrowthBook instance
+gb = GrowthBook(
+  attributes = attributes,
+  features = features,
+  trackingCallback = on_experiment_viewed
+)
+
+# Use a feature
+if gb.isOn("my-feature"):
+  print("Feature is enabled!")
             `.trim()}
           />
         </Tab>

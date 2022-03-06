@@ -14,12 +14,11 @@ export interface MetricStats {
 export interface MetricAnalysis {
   createdAt: Date;
   segment?: string;
-  users: number;
   average: number;
   stddev?: number;
   count?: number;
-  percentiles: { p: number; v: number }[];
-  dates: { d: Date; v: number; s?: number; u?: number }[];
+  histogram?: { b: string; c: number }[];
+  dates: { d: Date; v: number; s?: number; c?: number }[];
 }
 
 export interface Condition {
@@ -34,11 +33,12 @@ export interface MetricInterface {
   name: string;
   description: string;
   type: MetricType;
-  earlyStart: boolean;
+  earlyStart?: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
   conversionWindowHours?: number;
+  conversionDelayHours?: number;
   tags?: string[];
   winRisk?: number;
   loseRisk?: number;

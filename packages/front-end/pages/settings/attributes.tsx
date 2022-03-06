@@ -4,11 +4,12 @@ import Tooltip from "../../components/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import { GBEdit } from "../../components/Icons";
 import EditAttributesModal from "../../components/Features/EditAttributesModal";
+import { useAttributeSchema } from "../../services/features";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
-  const { settings, permissions } = useUser();
-  const attributeSchema = settings?.attributeSchema || [];
+  const { permissions } = useUser();
+  const attributeSchema = useAttributeSchema();
 
   return (
     <>

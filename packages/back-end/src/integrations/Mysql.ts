@@ -25,21 +25,18 @@ export default class Mysql extends SqlIntegration {
     const [rows] = await conn.query(sql);
     return rows as RowDataPacket[];
   }
-  percentile() {
-    // TODO: find workaround since mysql doesn't natively support percentiles
-    return `0`;
-  }
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  addHours(col: string, hours: number) {
-    return `DATE_ADD(${col}, INTERVAL ${hours} HOUR)`;
-  }
-  subtractHalfHour(col: string) {
-    return `SUBTIME(${col}, "0:30")`;
-  }
-  regexMatch(col: string, regex: string) {
-    return `${col} REGEXP '${regex}'`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `DATE_${
+      sign === "+" ? "ADD" : "SUB"
+    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
   dateTrunc(col: string) {
     return `DATE(${col})`;

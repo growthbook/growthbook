@@ -10,10 +10,7 @@ import DataSourceForm from "../../components/Settings/DataSourceForm";
 import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
-import {
-  getExperimentQuery,
-  getPageviewsQuery,
-} from "../../services/datasources";
+import { getExperimentQuery } from "../../services/datasources";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
@@ -176,11 +173,6 @@ const growthbook = new GrowthBook({
   }
 })
 
-// On page view (or similar event)
-mixpanel.track(${JSON.stringify(d.settings.events.pageviewEvent)}, {
-  ${quotePropertyName(d.settings.events.urlProperty)}: location.pathname
-})
-
 // When Mixpanel loads, pass the distinct_id into the SDK
 mixpanel.init('YOUR PROJECT TOKEN', {
   loaded: function(mixpanel) {
@@ -209,6 +201,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 </div>
                 <Code
                   language="sql"
+                  theme="light"
                   code={getExperimentQuery(
                     d.settings,
                     (d.params as PostgresConnectionParams)?.defaultSchema
@@ -227,27 +220,25 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 )}
               </div>
-              <div className="mb-4">
-                <h3>Pageviews Query</h3>
-                <div>
-                  Returns all historical browsing activity on your website or
-                  app -{" "}
-                  <em className="text-muted">
-                    which pages/screens did each user view and when
-                  </em>
+              {(d.settings?.queries?.identityJoins?.[0]?.query?.length > 0 ||
+                d.settings?.queries?.pageviewsQuery) && (
+                <div className="mb-4">
+                  <h3>User Id Join Table</h3>
+                  <div>
+                    Joins anonymous ids with logged-in user ids when needed
+                    during experiment analysis.
+                  </div>
+                  <Code
+                    language="sql"
+                    theme="light"
+                    code={
+                      d.settings?.queries?.identityJoins?.[0]?.query ||
+                      d.settings?.queries?.pageviewsQuery ||
+                      ""
+                    }
+                  />
                 </div>
-                <div className="mt-2">
-                  This is used to predict ahead of time how much traffic an
-                  experiment will get and how long it will take to finish.
-                </div>
-                <Code
-                  language="sql"
-                  code={getPageviewsQuery(
-                    d.settings,
-                    (d.params as PostgresConnectionParams)?.defaultSchema
-                  )}
-                />
-              </div>
+              )}
               <div className="mb-4">
                 <h3>Jupyter Notebook Query Runner</h3>
                 <div>
@@ -259,9 +250,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   data source.
                 </div>
                 <Code
+                  theme="light"
                   code={
                     d.settings?.notebookRunQuery ||
-                    "def runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
+                    "import pandas as pd\n\ndef runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
                   }
                   language="python"
                 />

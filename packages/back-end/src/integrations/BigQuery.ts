@@ -33,19 +33,15 @@ export default class BigQuery extends SqlIntegration {
   toTimestamp(date: Date) {
     return `DATETIME "${date.toISOString().substr(0, 19).replace("T", " ")}"`;
   }
-  addHours(col: string, hours: number) {
-    return `DATETIME_ADD(${col}, INTERVAL ${hours} HOUR)`;
-  }
-  subtractHalfHour(col: string) {
-    return `DATETIME_SUB(${col}, INTERVAL 30 MINUTE)`;
-  }
-  regexMatch(col: string, regex: string) {
-    return `REGEXP_CONTAINS(${col}, "${regex}")`;
-  }
-  percentile(col: string, percentile: number) {
-    return `APPROX_QUANTILES(${col}, 100)[OFFSET(${Math.floor(
-      percentile * 100
-    )})]`;
+  addTime(
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number
+  ): string {
+    return `DATETIME_${
+      sign === "+" ? "ADD" : "SUB"
+    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
   convertDate(fromDB: bq.BigQueryDatetime) {
     return getValidDate(fromDB.value + "Z");
@@ -61,5 +57,8 @@ export default class BigQuery extends SqlIntegration {
   }
   castToString(col: string): string {
     return `cast(${col} as string)`;
+  }
+  castUserDateCol(column: string): string {
+    return `CAST(${column} as DATETIME)`;
   }
 }
