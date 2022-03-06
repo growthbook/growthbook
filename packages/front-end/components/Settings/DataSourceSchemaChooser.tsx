@@ -28,16 +28,6 @@ const options: {
     label: "Amplitude",
     types: ["snowflake"],
   },
-  /*
-  {
-    value: "jitsu",
-    label: "Jitsu",
-  },
-  {
-    value: "matomo",
-    label: "Matomo",
-  },
-  */
 ];
 
 export default function DataSourceSchemaChooser({

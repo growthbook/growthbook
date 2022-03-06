@@ -1,5 +1,5 @@
 import {
-  DataSourceInterface,
+  DataSourceInterfaceWithParams,
   DataSourceSettings,
   SchemaFormat,
   SchemaInterface,
@@ -46,7 +46,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "both",
+  metricUserIdType: "either",
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -103,7 +103,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "both",
+  metricUserIdType: "either",
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -120,6 +120,38 @@ FROM
 WHERE
   ${type === "revenue" ? "event_name = 'transaction'" : `se_action = '${name}'`}
     `;
+  },
+};
+
+const CustomSchema: SchemaInterface = {
+  experimentDimensions: [],
+  getExperimentSQL: (tablePrefix) => {
+    return `SELECT
+  user_id as user_id,
+  anonymous_id as anonymous_id,
+  timestamp as timestamp,
+  experiment_id as experiment_id,
+  variation_id as variation_id
+FROM
+  ${tablePrefix}viewed_experiment`;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  metricUserIdType: "either",
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  anonymous_id as anonymous_id,
+  timestamp as timestamp${
+    type === "revenue"
+      ? ",\n  revenue as value"
+      : type === "binomial"
+      ? ""
+      : `,\n  value as value`
+  }
+FROM
+  ${tablePrefix}${name.toLowerCase().replace(/\s*/g, "_")}`;
   },
 };
 
@@ -145,7 +177,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "both",
+  metricUserIdType: "either",
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -190,7 +222,7 @@ FROM
       },
     ];
   },
-  metricUserIdType: "both",
+  metricUserIdType: "either",
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -211,8 +243,11 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "amplitude") {
     return AmplitudeSchema;
   }
+  if (type === "segment" || type === "rudderstack") {
+    return SegmentSchema;
+  }
 
-  return SegmentSchema;
+  return CustomSchema;
 }
 
 export function getInitialSettings(
@@ -231,10 +266,10 @@ export function getInitialSettings(
 }
 
 export function getInitialMetricQuery(
-  datasource: DataSourceInterface,
+  datasource: DataSourceInterfaceWithParams,
   type: MetricType,
   name: string
-): ["user" | "anonymous" | "both", string] {
+): ["user" | "anonymous" | "either", string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   return [

@@ -23,6 +23,7 @@ import {
 import BooleanSelect from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import { getInitialMetricQuery } from "../../services/datasources";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -174,6 +175,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const { apiCall } = useAuth();
 
   const value = {
+    name: form.watch("name"),
     datasource: form.watch("datasource"),
     timestampColumn: form.watch("timestampColumn"),
     userIdColumn: form.watch("userIdColumn"),
@@ -325,7 +327,22 @@ const MetricForm: FC<MetricFormProps> = ({
     >
       <Page
         display="Basic Info"
-        validate={async () => validateBasicInfo(form.getValues())}
+        validate={async () => {
+          validateBasicInfo(form.getValues());
+
+          // Initial metric SQL based on the data source
+          if (supportsSQL && currentDataSource && !value.sql) {
+            const [userType, sql] = getInitialMetricQuery(
+              currentDataSource,
+              value.type,
+              value.name
+            );
+
+            form.setValue("sql", sql);
+            form.setValue("userIdType", userType);
+            setSqlInput(true);
+          }
+        }}
       >
         <div className="form-group">
           Metric Name

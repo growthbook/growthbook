@@ -38,8 +38,6 @@ export type SchemaFormat =
   | "segment"
   | "snowplow"
   | "ga4"
-  | "matomo"
-  | "jitsu"
   | "rudderstack"
   | "amplitude"
   | "custom";
@@ -48,7 +46,7 @@ export interface SchemaInterface {
   getExperimentSQL(tablePrefix: string): string;
   getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
   experimentDimensions: string[];
-  metricUserIdType: "user" | "anonymous" | "both";
+  metricUserIdType: "user" | "anonymous" | "either";
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
 }
 
