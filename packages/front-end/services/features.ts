@@ -91,7 +91,9 @@ export function validateFeatureRule(
     });
     if (totalWeight > 1) {
       throw new Error(
-        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+        `Sum of weights cannot be greater than 1 (currently equals ${
+          Math.round(totalWeight * 100000) / 100000
+        })`
       );
     }
     if (uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length) {
