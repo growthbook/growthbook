@@ -8,7 +8,7 @@ import { FaArrowRight } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
@@ -24,41 +24,49 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Analysis",
-    href: "/analysis",
+    href: "/experiments",
     Icon: GBExperiment,
-    path: /^(analysis|experiment|presentations|metric|segment|dimension)/,
+    path: /^(experiment|metric|segment|dimension|datasources)/,
     autoClose: true,
     subLinks: [
       {
-        name: "Overview",
-        href: "/analysis",
-        //Icon: GBHome,
-        path: /^analysis/,
-      },
-      {
         name: "Experiments",
         href: "/experiments",
-        //Icon: GBExperiment,
         path: /^experiment/,
       },
       {
         name: "Metrics",
         href: "/metrics",
-        //Icon: GBMetrics,
         path: /^metric/,
-        //divider: true,
       },
       {
         name: "Segments",
         href: "/segments",
-        //Icon: GBSegments,
         path: /^segment/,
       },
       {
         name: "Dimensions",
         href: "/dimensions",
-        //Icon: GBDimensions,
         path: /^dimension/,
+      },
+      {
+        name: "Data Sources",
+        href: "/datasources",
+        path: /^datasources/,
+      },
+    ],
+  },
+  {
+    name: "Planning",
+    href: "/dashboard",
+    Icon: BsClipboardCheck,
+    path: /^(dashboard|idea|presentation)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
       },
       {
         name: "Ideas",
@@ -68,8 +76,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Presentations",
         href: "/presentations",
-        //Icon: GBPresentations,
-        path: /^presentations/,
+        path: /^presentation/,
       },
     ],
   },
@@ -77,8 +84,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    divider: true,
-    path: /^(settings|admin|datasources)/,
+    path: /^(settings|admin)/,
     settingsPermission: true,
     autoClose: true,
     subLinks: [
@@ -102,11 +108,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/billing",
         path: /^settings\/billing/,
         cloudOnly: true,
-      },
-      {
-        name: "Data Sources",
-        href: "/datasources",
-        path: /^datasources/,
       },
       {
         name: "API Keys",

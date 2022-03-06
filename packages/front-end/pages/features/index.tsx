@@ -1,26 +1,58 @@
+import useApi from "../../hooks/useApi";
+import { FeatureInterface } from "back-end/types/feature";
+import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import { ago, datetime } from "../../services/dates";
+import Link from "next/link";
 import { useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
+import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { useSearch } from "../../services/search";
+import { useMemo } from "react";
+import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
-import FeatureList from "../../components/Features/FeatureList";
-import { useFeaturesList } from "../../services/features";
+import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
+import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
+import { useFeature } from "@growthbook/growthbook-react";
+import { useRealtimeData } from "../../services/features";
+import Tooltip from "../../components/Tooltip";
 
 export default function FeaturesPage() {
+  const { project } = useDefinitions();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
 
-  const { features, error, loading, mutate } = useFeaturesList();
+  const { data, error, mutate } = useApi<{
+    features: FeatureInterface[];
+  }>(`/feature?project=${project || ""}`);
+
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
+  const { usage, usageDomain } = useRealtimeData(
+    data?.features,
+    !!router?.query?.mockdata,
+    showGraphs
+  );
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (!loading && !features.length);
+    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
+
+  const { list, searchInputProps } = useSearch(data?.features || [], [
+    "id",
+    "description",
+    "tags",
+  ]);
+
+  const sorted = useMemo(() => {
+    return list.sort((a, b) => a.id.localeCompare(b.id));
+  }, [list]);
 
   if (error) {
     return (
@@ -29,7 +61,7 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (loading) {
+  if (!data) {
     return <LoadingOverlay />;
   }
 
@@ -41,7 +73,7 @@ export default function FeaturesPage() {
           onSuccess={async (feature) => {
             router.push(`/features/${feature.id}`);
             mutate({
-              features: [...features, feature],
+              features: [...data.features, feature],
             });
           }}
         />
@@ -50,7 +82,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 && (
+        {data?.features?.length > 0 && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -93,7 +125,7 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={features} />
+          <FeaturesGetStarted features={data.features || []} />
           {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
@@ -111,7 +143,97 @@ export default function FeaturesPage() {
       )}
 
       <ApiKeyUpgrade />
-      <FeatureList features={features} mutate={mutate} />
+
+      {data.features.length > 0 && (
+        <div>
+          <div className="row mb-2">
+            <div className="col-auto">
+              <Field placeholder="Filter list..." {...searchInputProps} />
+            </div>
+          </div>
+          <table className="table gbtable table-hover">
+            <thead>
+              <tr>
+                <th>Feature Key</th>
+                <th>Dev</th>
+                <th>Prod</th>
+                <th>Value When Enabled</th>
+                <th>Overrides Rules</th>
+                <th>Last Updated</th>
+                {showGraphs && (
+                  <th>
+                    Recent Usage{" "}
+                    <Tooltip text="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((feature) => {
+                const firstRule = feature.rules?.[0];
+                const totalRules = feature.rules?.length || 0;
+
+                return (
+                  <tr key={feature.id}>
+                    <td>
+                      <Link href={`/features/${feature.id}`}>
+                        <a>{feature.id}</a>
+                      </Link>
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="dev"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="production"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td>
+                      <ValueDisplay
+                        value={feature.defaultValue}
+                        type={feature.valueType}
+                        full={false}
+                      />
+                    </td>
+                    <td>
+                      {firstRule && (
+                        <span className="text-dark">{firstRule.type}</span>
+                      )}
+                      {totalRules > 1 && (
+                        <small className="text-muted ml-1">
+                          +{totalRules - 1} more
+                        </small>
+                      )}
+                    </td>
+                    <td title={datetime(feature.dateUpdated)}>
+                      {ago(feature.dateUpdated)}
+                    </td>
+                    {showGraphs && (
+                      <td style={{ width: 170 }}>
+                        <RealTimeFeatureGraph
+                          data={usage?.[feature.id]?.realtime || []}
+                          yDomain={usageDomain}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+              {!sorted.length && (
+                <tr>
+                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

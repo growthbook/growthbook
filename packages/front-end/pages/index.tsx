@@ -22,7 +22,7 @@ export default function Home(): React.ReactElement {
     if (features.length) {
       router.replace("/features");
     } else if (data.experiments?.length) {
-      router.replace("/analysis");
+      router.replace("/experiments");
     } else {
       router.replace("/getstarted");
     }
