@@ -57,7 +57,7 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Planning",
+    name: "Program",
     href: "/dashboard",
     Icon: BsClipboardCheck,
     path: /^(dashboard|idea|presentation)/,
@@ -102,6 +102,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Projects",
         href: "/settings/projects",
         path: /^settings\/projects/,
+      },
+      {
+        name: "Attributes",
+        href: "/settings/attributes",
+        path: /^settings\/attributes/,
       },
       {
         name: "Billing",
