@@ -71,260 +71,248 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  return (
-    <div className={`mb-3 bg-light px-4 py-3 ${styles.conditionbox}`}>
-      <div className="">
+  if (!conds.length) {
+    return (
+      <div className="form-group">
         <label className="mb-0">Targeting Conditions</label>
+        <div className="m-2">
+          <em className="text-muted mr-3">Applied to everyone by default.</em>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              const prop = attributeSchema[0];
+              setConds([
+                {
+                  field: prop?.property || "",
+                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  value: "",
+                },
+              ]);
+            }}
+          >
+            Add targeting condition
+          </a>
+        </div>
       </div>
-      {conds.length > 0 ? (
-        <>
-          <ul className={styles.conditionslist}>
-            {conds.map(({ field, operator, value }, i) => {
-              const attribute = attributes.get(field);
-              const onChange = (
-                e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
-              ) => {
-                const name = e.target.name;
-                const value: string | number = e.target.value;
+    );
+  }
 
-                const newConds = [...conds];
-                newConds[i] = { ...newConds[i] };
-                newConds[i][name] = value;
-                setConds(newConds);
-              };
-              return (
-                <li key={i} className={styles.listitem}>
-                  <div className={`row ${styles.listrow}`}>
-                    {i > 0 && <span className={`${styles.and} mr-2`}>AND</span>}
-                    <div className="col-sm-12 col-md mb-2">
-                      <select
-                        value={field}
-                        name="field"
-                        onChange={(e) => {
-                          const value: string | number = e.target.value;
+  return (
+    <div className="form-group">
+      <label>Targeting Conditions</label>
+      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
+        <ul className={styles.conditionslist}>
+          {conds.map(({ field, operator, value }, i) => {
+            const attribute = attributes.get(field);
+            const onChange = (
+              e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+            ) => {
+              const name = e.target.name;
+              const value: string | number = e.target.value;
 
-                          const newConds = [...conds];
-                          newConds[i] = { ...newConds[i] };
-                          newConds[i]["field"] = value;
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i][name] = value;
+              setConds(newConds);
+            };
+            return (
+              <li key={i} className={styles.listitem}>
+                <div className={`row ${styles.listrow}`}>
+                  {i > 0 ? (
+                    <span className={`${styles.and} mr-2`}>AND</span>
+                  ) : (
+                    <span className={`${styles.and} mr-2`}>IF</span>
+                  )}
+                  <div className="col-sm-12 col-md mb-2">
+                    <select
+                      value={field}
+                      name="field"
+                      onChange={(e) => {
+                        const value: string | number = e.target.value;
 
-                          const newAttribute = attributes.get(value);
-                          if (newAttribute.datatype !== attribute.datatype) {
-                            if (newAttribute.datatype === "boolean") {
-                              newConds[i]["operator"] = "$true";
-                            } else {
-                              newConds[i]["operator"] = "$eq";
-                              newConds[i]["value"] = newConds[i]["value"] || "";
-                            }
+                        const newConds = [...conds];
+                        newConds[i] = { ...newConds[i] };
+                        newConds[i]["field"] = value;
+
+                        const newAttribute = attributes.get(value);
+                        if (newAttribute.datatype !== attribute.datatype) {
+                          if (newAttribute.datatype === "boolean") {
+                            newConds[i]["operator"] = "$true";
+                          } else {
+                            newConds[i]["operator"] = "$eq";
+                            newConds[i]["value"] = newConds[i]["value"] || "";
                           }
+                        }
 
-                          setConds(newConds);
-                        }}
-                        className={`${styles.firstselect} form-control`}
-                      >
-                        {attributeSchema.map((s) => (
-                          <option key={s.property}>{s.property}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-sm-12 col-md mb-2">
-                      <select
-                        value={operator}
-                        name="operator"
-                        onChange={onChange}
-                        className="form-control"
-                      >
-                        {attribute.datatype === "boolean" ? (
-                          <>
-                            <option value="$true">is true</option>
-                            <option value="$false">is false</option>
-                            <option value="$exists">exists</option>
-                            <option value="$notExists">does not exist</option>
-                          </>
-                        ) : attribute.array ? (
-                          <>
-                            <option value="$eq">contains</option>
-                            <option value="$ne">does not contain</option>
-                            <option value="$exists">exists</option>
-                            <option value="$notExists">does not exist</option>
-                          </>
-                        ) : attribute.enum?.length > 0 ? (
-                          <>
-                            <option value="$eq">is equal to</option>
-                            <option value="$ne">is not equal to</option>
-                            <option value="$in">is in the list</option>
-                            <option value="$nin">is not in the list</option>
-                            <option value="$exists">exists</option>
-                            <option value="$notExists">does not exist</option>
-                          </>
-                        ) : attribute.datatype === "string" ? (
-                          <>
-                            <option value="$eq">is equal to</option>
-                            <option value="$ne">is not equal to</option>
-                            <option value="$regex">matches regex</option>
-                            <option value="$gt">is greater than</option>
-                            <option value="$gte">
-                              is greater than or equal to
-                            </option>
-                            <option value="$lt">is less than</option>
-                            <option value="$lte">
-                              is less than or equal to
-                            </option>
-                            <option value="$in">is in the list</option>
-                            <option value="$nin">is not in the list</option>
-                          </>
-                        ) : attribute.datatype === "number" ? (
-                          <>
-                            <option value="$eq">is equal to</option>
-                            <option value="$ne">is not equal to</option>
-                            <option value="$gt">is greater than</option>
-                            <option value="$gte">
-                              is greater than or equal to
-                            </option>
-                            <option value="$lt">is less than</option>
-                            <option value="$lte">
-                              is less than or equal to
-                            </option>
-                            <option value="$in">is in the list</option>
-                            <option value="$nin">is not in the list</option>
-                          </>
-                        ) : (
-                          ""
-                        )}
-                      </select>
-                    </div>
-                    {["$exists", "$notExists", "$true", "$false"].includes(
-                      operator
-                    ) ? (
-                      ""
-                    ) : ["$in", "$nin"].includes(operator) ? (
-                      <Field
-                        textarea
-                        placeholder="comma separated"
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        containerClassName="col-sm-12 col-md mb-2"
-                      />
-                    ) : attribute.enum.length ? (
-                      <Field
-                        options={attribute.enum}
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        initialOption="Choose One..."
-                        containerClassName="col-sm-12 col-md mb-2"
-                      />
-                    ) : attribute.datatype === "number" ? (
-                      <Field
-                        type="number"
-                        step="any"
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        containerClassName="col-sm-12 col-md mb-2"
-                      />
-                    ) : attribute.datatype === "string" ? (
-                      <Field
-                        value={value}
-                        onChange={onChange}
-                        name="value"
-                        containerClassName="col-sm-12 col-md mb-2"
-                      />
-                    ) : (
-                      ""
-                    )}
-                    <div className="col-md-auto col-sm-12">
-                      <button
-                        className="btn btn-link text-danger float-right"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const newConds = [...conds];
-                          newConds.splice(i, 1);
-                          setConds(newConds);
-                        }}
-                      >
-                        remove
-                      </button>
-                    </div>
+                        setConds(newConds);
+                      }}
+                      className={`${styles.firstselect} form-control`}
+                    >
+                      {attributeSchema.map((s) => (
+                        <option key={s.property}>{s.property}</option>
+                      ))}
+                    </select>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="d-flex align-items-center">
-            <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
+                  <div className="col-sm-12 col-md mb-2">
+                    <select
+                      value={operator}
+                      name="operator"
+                      onChange={onChange}
+                      className="form-control"
+                    >
+                      {attribute.datatype === "boolean" ? (
+                        <>
+                          <option value="$true">is true</option>
+                          <option value="$false">is false</option>
+                          <option value="$exists">exists</option>
+                          <option value="$notExists">does not exist</option>
+                        </>
+                      ) : attribute.array ? (
+                        <>
+                          <option value="$eq">contains</option>
+                          <option value="$ne">does not contain</option>
+                          <option value="$exists">exists</option>
+                          <option value="$notExists">does not exist</option>
+                        </>
+                      ) : attribute.enum?.length > 0 ? (
+                        <>
+                          <option value="$eq">is equal to</option>
+                          <option value="$ne">is not equal to</option>
+                          <option value="$in">is in the list</option>
+                          <option value="$nin">is not in the list</option>
+                          <option value="$exists">exists</option>
+                          <option value="$notExists">does not exist</option>
+                        </>
+                      ) : attribute.datatype === "string" ? (
+                        <>
+                          <option value="$eq">is equal to</option>
+                          <option value="$ne">is not equal to</option>
+                          <option value="$regex">matches regex</option>
+                          <option value="$gt">is greater than</option>
+                          <option value="$gte">
+                            is greater than or equal to
+                          </option>
+                          <option value="$lt">is less than</option>
+                          <option value="$lte">is less than or equal to</option>
+                          <option value="$in">is in the list</option>
+                          <option value="$nin">is not in the list</option>
+                        </>
+                      ) : attribute.datatype === "number" ? (
+                        <>
+                          <option value="$eq">is equal to</option>
+                          <option value="$ne">is not equal to</option>
+                          <option value="$gt">is greater than</option>
+                          <option value="$gte">
+                            is greater than or equal to
+                          </option>
+                          <option value="$lt">is less than</option>
+                          <option value="$lte">is less than or equal to</option>
+                          <option value="$in">is in the list</option>
+                          <option value="$nin">is not in the list</option>
+                        </>
+                      ) : (
+                        ""
+                      )}
+                    </select>
+                  </div>
+                  {["$exists", "$notExists", "$true", "$false"].includes(
+                    operator
+                  ) ? (
+                    ""
+                  ) : ["$in", "$nin"].includes(operator) ? (
+                    <Field
+                      textarea
+                      placeholder="comma separated"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.enum.length ? (
+                    <Field
+                      options={attribute.enum}
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      initialOption="Choose One..."
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.datatype === "number" ? (
+                    <Field
+                      type="number"
+                      step="any"
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : attribute.datatype === "string" ? (
+                    <Field
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : (
+                    ""
+                  )}
+                  <div className="col-md-auto col-sm-12">
+                    <button
+                      className="btn btn-link text-danger float-right"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newConds = [...conds];
+                        newConds.splice(i, 1);
+                        setConds(newConds);
+                      }}
+                    >
+                      remove
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="d-flex align-items-center">
+          <a
+            className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              const prop = attributeSchema[0];
+              setConds([
+                ...conds,
+                {
+                  field: prop?.property || "",
+                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  value: "",
+                },
+              ]);
+            }}
+          >
+            <span
+              className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
             >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
-              Add another condition
-            </a>
-            <a
-              href="#"
-              className="ml-auto"
-              style={{ fontSize: "0.9em" }}
-              onClick={(e) => {
-                e.preventDefault();
-                setAdvanced(true);
-              }}
-            >
-              Advanced mode
-            </a>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="row mb-3 mt-2">
-            <div className="col">
-              <em className="text-muted ml-2">Applied to everyone.</em>{" "}
-            </div>
-          </div>
-          <div className="row">
-            <div className="col">
-              <a
-                href="#"
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const prop = attributeSchema[0];
-                  setConds([
-                    ...conds,
-                    {
-                      field: prop?.property || "",
-                      operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                      value: "",
-                    },
-                  ]);
-                }}
-              >
-                <span
-                  className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-                >
-                  <GBAddCircle />
-                </span>
-                Add targeting condition
-              </a>
-            </div>
-          </div>
-        </>
-      )}
+              <GBAddCircle />
+            </span>
+            Add another condition
+          </a>
+          <a
+            href="#"
+            className="ml-auto"
+            style={{ fontSize: "0.9em" }}
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvanced(true);
+            }}
+          >
+            Advanced mode
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

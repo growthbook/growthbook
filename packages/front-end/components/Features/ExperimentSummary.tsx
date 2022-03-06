@@ -105,14 +105,14 @@ export default function ExperimentSummary({
         <tbody>
           {values.map((r, j) => (
             <tr key={j}>
-              <td>
-                <ValueDisplay value={r.value} type={type} />
-              </td>
               <td
                 className="text-muted"
-                style={{ fontSize: "0.9em", lineHeight: "1.1em" }}
+                style={{ fontSize: "0.9em", width: 25 }}
               >
-                variation id: {j}
+                {j}.
+              </td>
+              <td>
+                <ValueDisplay value={r.value} type={type} />
               </td>
               <td>
                 <div className="d-flex">
@@ -124,8 +124,6 @@ export default function ExperimentSummary({
                       className="progress d-none d-md-flex"
                       style={{
                         minWidth: 150,
-                        border: "1px solid #17a2b8",
-                        backgroundColor: "#f3f3f3",
                       }}
                     >
                       <div
@@ -142,7 +140,7 @@ export default function ExperimentSummary({
           ))}
           {totalPercent < 1 && (
             <tr>
-              <td>
+              <td colSpan={2}>
                 <em className="text-muted">unallocated, skip rule</em>
               </td>
               <td>

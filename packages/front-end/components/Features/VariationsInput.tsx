@@ -46,39 +46,36 @@ export default function VariationsInput({
 
   return (
     <div className="form-group">
-      <label>Variations and Weights</label>{" "}
-      <Tooltip
-        innerClassName="text-left"
-        tipMinWidth={"200px"}
-        text={
-          "Select the percentage of users to see each variation. eg: selecting 0.2 and 0.2 will expose 40% of your total users to the experiment. You can add more than two variations for non-binary flags"
-        }
-      />
+      <label>Variations and Weights</label>
       <table className="table table-bordered gbtable bg-light">
         <thead>
           <tr>
+            <th>Id</th>
             <th>Variation</th>
-            <th>Percent of Users</th>
+            <th>
+              Percent of Users{" "}
+              <Tooltip
+                innerClassName="text-left"
+                tipMinWidth={"200px"}
+                text={
+                  "The ratio of users (from 0 to 1) that sees each variation. Total sum must be less than or equal to 1. Anything left over will be excluded from the experiment."
+                }
+              />
+            </th>
           </tr>
         </thead>
         <tbody>
           {values.fields.map((val, i) => {
             return (
               <tr key={i}>
+                <td style={{ width: 40 }}>{i}</td>
                 <td>
-                  <div className="row align-items-center">
-                    <div className="col-auto ">
-                      <span className="small text-muted">id: {i}</span>
-                    </div>
-                    <div className="col">
-                      <FeatureValueField
-                        label=""
-                        form={form}
-                        field={`${formPrefix}values.${i}.value`}
-                        valueType={valueType}
-                      />
-                    </div>
-                  </div>
+                  <FeatureValueField
+                    label=""
+                    form={form}
+                    field={`${formPrefix}values.${i}.value`}
+                    valueType={valueType}
+                  />
                 </td>
                 <td>
                   <div className="row">

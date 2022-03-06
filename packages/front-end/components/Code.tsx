@@ -34,7 +34,6 @@ export default function Code({
 }) {
   light['code[class*="language-"]'].fontSize = "1em";
   light['code[class*="language-"]'].fontWeight = "600";
-  //light['pre[class*="language-"]'].fontSize = "1em";
   return (
     <Prism
       language={language}
