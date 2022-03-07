@@ -215,7 +215,9 @@ export default abstract class SqlIntegration
         params.from
       )}
         GROUP BY
-          1, 2, 3
+          experiment_id,
+          variation_id,
+          ${this.dateTrunc(this.castUserDateCol("timestamp"))}
       ),
       __userThresholds as (
         SELECT
@@ -1093,7 +1095,7 @@ export default abstract class SqlIntegration
           FROM
             (${replaceDateVars(join.query, from, to)}) i
           GROUP BY
-            1, 2
+            ${id1}, ${id2}
           `;
         }
       }
@@ -1116,7 +1118,7 @@ export default abstract class SqlIntegration
           ${timestampColumn} >= ${this.toTimestamp(from)}
           ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}
         GROUP BY
-          1, 2
+          user_id, anonymous_id
         `;
       }
     }
