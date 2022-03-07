@@ -96,6 +96,25 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
   const { datasources } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
 
+  // Record the fact that the SDK instructions have been seen
+  useEffect(() => {
+    if (!settings) return;
+    if (settings.sdkInstructionsViewed) return;
+    (async () => {
+      {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify({
+            settings: {
+              sdkInstructionsViewed: true,
+            },
+          }),
+        });
+        await update();
+      }
+    })();
+  }, [settings]);
+
   // Create API key if one doesn't exist yet
   const [devApiKey, setDevApiKey] = useState("");
   const [prodApiKey, setProdApiKey] = useState("");
@@ -156,16 +175,7 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
       size="lg"
       header="Implementation Instructions"
       submit={async () => {
-        if (settings?.sdkInstructionsViewed) return;
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              sdkInstructionsViewed: true,
-            },
-          }),
-        });
-        await update();
+        return;
       }}
       cta={"Finish"}
     >
