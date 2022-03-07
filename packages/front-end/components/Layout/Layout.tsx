@@ -57,7 +57,7 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Program",
+    name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
     path: /^(dashboard|idea|presentation)/,
@@ -153,6 +153,10 @@ const otherPageTitles = [
     path: /^getstarted/,
     title: "Get Started",
   },
+  {
+    path: /^dashboard/,
+    title: "Program Management",
+  },
 ];
 
 const backgroundShade = (color: string) => {
@@ -191,7 +195,7 @@ const Layout = (): React.ReactElement => {
   navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
-        if (s.path.test(path)) {
+        if (!pageTitle && s.path.test(path)) {
           pageTitle = s.name;
         }
       });
