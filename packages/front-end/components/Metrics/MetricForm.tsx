@@ -654,34 +654,10 @@ const MetricForm: FC<MetricFormProps> = ({
             <div className="col-lg pt-2">
               {sqlInput ? (
                 <div>
-                  Example SQL
-                  <Code
-                    language="sql"
-                    code={`SELECT
-${value.userIdType !== "anonymous" ? `  ${"user_id"} as user_id,\n` : ""}${
-                      value.userIdType !== "user"
-                        ? `  ${"anonymous_id"} as anonymous_id,\n`
-                        : ""
-                    }${
-                      value.type === "binomial"
-                        ? ""
-                        : value.type === "count"
-                        ? "  1 as value,\n"
-                        : value.type === "revenue"
-                        ? "  amount as value,\n"
-                        : "  duration as value,\n"
-                    }  ${"received_at"} as timestamp
-FROM
-  ${
-    value.type === "binomial" || value.type === "count"
-      ? "downloads"
-      : value.type === "revenue"
-      ? "purchases"
-      : "sessions"
-  }`}
-                  />
+                  <h4>SQL Query Instructions</h4>
                   <p className="mt-3">
-                    Your SELECT statement must return the following columns:
+                    Your SELECT statement must return the following column
+                    names:
                   </p>
                   <ol>
                     {value.userIdType !== "anonymous" && (
@@ -700,10 +676,8 @@ FROM
                       <li>
                         <strong>value</strong> -{" "}
                         {value.type === "count"
-                          ? "The number of conversions (multiple rows for a user will be summed)"
-                          : "The " +
-                            value.type +
-                            " amount (multiple rows for a user will be summed)"}
+                          ? "The number of conversions"
+                          : "The " + value.type + " amount"}
                       </li>
                     )}
                     <li>

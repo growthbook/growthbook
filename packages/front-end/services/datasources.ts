@@ -7,6 +7,13 @@ import {
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
 
+function safeTableName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^-a-zA-Z0-9_]+/g, "");
+}
+
 const GA4Schema: SchemaInterface = {
   experimentDimensions: [
     "country",
@@ -149,7 +156,7 @@ FROM
       : `,\n  value as value`
   }
 FROM
-  ${tablePrefix}${name.toLowerCase().replace(/\s*/g, "_")}`;
+  ${tablePrefix}${safeTableName(name)}`;
   },
 };
 
@@ -240,7 +247,7 @@ FROM
   anonymous_id,
   received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
 FROM
-  ${tablePrefix}${name.toLowerCase().replace(/\s*/g, "_")}`;
+  ${tablePrefix}${safeTableName(name)}`;
   },
 };
 
