@@ -7,6 +7,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   text: string;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top";
+  innerClassName?: string;
 }
 const Tooltip: FC<Props> = ({
   text,
@@ -14,6 +15,7 @@ const Tooltip: FC<Props> = ({
   className,
   tipMinWidth = "140px",
   tipPosition = "bottom",
+  innerClassName = "",
   ...otherProps
 }) => {
   if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
@@ -24,7 +26,7 @@ const Tooltip: FC<Props> = ({
         <div className={`tooltip bs-tooltip-${tipPosition}`} role="tooltip">
           <div className="arrow" />
           <div
-            className="tooltip-inner"
+            className={`tooltip-inner ${innerClassName}`}
             style={tipMinWidth ? { minWidth: tipMinWidth } : {}}
           >
             {text}

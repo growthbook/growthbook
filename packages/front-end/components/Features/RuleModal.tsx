@@ -55,6 +55,7 @@ export default function RuleModal({
       open={true}
       close={close}
       size="lg"
+      cta="Save"
       header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === feature.rules?.length ? "add" : "edit";

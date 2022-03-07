@@ -80,6 +80,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
       open={true}
       size="lg"
       header="Create Feature"
+      cta="Create"
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.rules.length > 0) {
@@ -362,7 +363,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             label="Tracking Key"
             {...form.register(`rules.0.trackingKey`)}
             placeholder={form.watch("id")}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            helpText="Unique identifier for this experiment, used to track impressions and analyze results."
           />
           <Field
             label="Sample users based on attribute"

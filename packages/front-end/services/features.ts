@@ -16,6 +16,7 @@ import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
+import { useDefinitions } from "./DefinitionsContext";
 
 export interface Condition {
   field: string;
@@ -29,6 +30,23 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useFeaturesList(withProject = true) {
+  const { project } = useDefinitions();
+
+  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+
+  const { data, error, mutate } = useApi<{
+    features: FeatureInterface[];
+  }>(url);
+
+  return {
+    features: data?.features || [],
+    loading: !data,
+    error,
+    mutate,
+  };
 }
 
 export function useAttributeSchema() {
@@ -91,7 +109,9 @@ export function validateFeatureRule(
     });
     if (totalWeight > 1) {
       throw new Error(
-        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+        `Sum of weights cannot be greater than 1 (currently equals ${
+          Math.round(totalWeight * 100000) / 100000
+        })`
       );
     }
     if (uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length) {
