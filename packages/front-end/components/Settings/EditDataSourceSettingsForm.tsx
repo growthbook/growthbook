@@ -54,7 +54,6 @@ const EditDataSourceSettingsForm: FC<{
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
           schemaFormat: data?.settings?.schemaFormat,
-          tablePrefix: data?.settings?.tablePrefix || "",
           notebookRunQuery: data?.settings?.notebookRunQuery || "",
           queries: {
             experimentsQuery: getExperimentQuery(
@@ -142,7 +141,11 @@ const EditDataSourceSettingsForm: FC<{
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="max"
+      size={
+        firstTime && datasource?.settings?.schemaFormat !== "custom"
+          ? "md"
+          : "max"
+      }
       header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
@@ -197,12 +200,7 @@ const EditDataSourceSettingsForm: FC<{
               format={datasource?.settings?.schemaFormat}
               datasource={datasource?.type}
               setValue={(format) => {
-                let tablePrefix = datasource?.settings?.tablePrefix;
-
-                if (!tablePrefix && "defaultSchema" in datasource?.params) {
-                  tablePrefix = datasource.params.defaultSchema + ".";
-                }
-                const settings = getInitialSettings(format, tablePrefix);
+                const settings = getInitialSettings(format, datasource.params);
 
                 setDatasource({
                   ...datasource,
@@ -210,7 +208,6 @@ const EditDataSourceSettingsForm: FC<{
                   settings: {
                     ...datasource.settings,
                     schemaFormat: format,
-                    tablePrefix,
                     queries: {
                       experimentsQuery:
                         settings?.queries?.experimentsQuery || "",

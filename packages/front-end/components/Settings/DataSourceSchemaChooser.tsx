@@ -17,7 +17,7 @@ const options: {
   {
     value: "ga4",
     label: "Google Analytics v4",
-    types: ["bigquery"],
+    types: ["bigquery", "postgres"],
   },
   {
     value: "rudderstack",
@@ -26,7 +26,7 @@ const options: {
   {
     value: "amplitude",
     label: "Amplitude",
-    types: ["snowflake"],
+    types: ["snowflake", "postgres"],
   },
 ];
 

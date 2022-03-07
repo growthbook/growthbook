@@ -78,7 +78,6 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
-  tablePrefix?: string;
   queries?: {
     experimentsQuery?: string;
     identityJoins?: IdentityJoinQuery[];

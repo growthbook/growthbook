@@ -1,5 +1,6 @@
 import {
   DataSourceInterfaceWithParams,
+  DataSourceParams,
   DataSourceSettings,
   SchemaFormat,
   SchemaInterface,
@@ -20,16 +21,8 @@ const GA4Schema: SchemaInterface = {
   user_id,
   user_pseudo_id as anonymous_id,
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  (
-    SELECT p.value.string_value 
-    FROM UNNEST(event_params) as p 
-    WHERE p.key = 'experiment_id' LIMIT 1
-  ) as experiment_id,
-  (
-    SELECT p.value.string_value 
-    FROM UNNEST(event_params) as p 
-    WHERE p.key = 'variation_id' LIMIT 1
-  ) as variation_id,
+  experiment_id_param.value.string_value AS experiment_id,
+  variation_id_param.value.int_value AS variation_id,
   geo.country as country,
   traffic_source.source as source,
   traffic_source.medium as medium,
@@ -37,10 +30,14 @@ const GA4Schema: SchemaInterface = {
   device.web_info.browser as browser,
   device.operating_system as os
 FROM
-  ${tablePrefix}\`events_*\`
+  ${tablePrefix}\`events_*\`,
+  UNNEST(event_params) AS experiment_id_param,
+  UNNEST(event_params) AS variation_id_param
 WHERE
-  event_name = 'viewed_experiment'  
-  AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  AND event_name = 'viewed_experiment'  
+  AND experiment_id_param.key = 'experiment_id'
+  AND variation_id_param.key = 'variation_id'
   `;
   },
   getIdentitySQL: () => {
@@ -56,17 +53,18 @@ WHERE
       ? ",\n  event_value_in_usd as value"
       : type === "binomial"
       ? ""
-      : `,
-  (
-    SELECT p.value.${type === "count" ? "int" : "float"}_value
-    FROM UNNEST(event_params) as p
-    WHERE p.key = 'value'
-  )`
+      : `,\n  value_param.value.${type === "count" ? "int" : "float"}_value`
   }
 FROM
-  ${tablePrefix}\`events_*\`
+  ${tablePrefix}\`events_*\`${
+      type === "count" || type === "duration"
+        ? `,
+  UNNEST(event_params) AS value_param`
+        : ""
+    }
 WHERE
   event_name = '${name}'  
+  AND value_param.key = 'value'
   AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
     `;
   },
@@ -198,7 +196,7 @@ WHERE
 };
 
 const SegmentSchema: SchemaInterface = {
-  experimentDimensions: ["country"],
+  experimentDimensions: ["source", "medium", "device", "browser"],
   getExperimentSQL: (tablePrefix) => {
     return `SELECT
   user_id,
@@ -206,7 +204,20 @@ const SegmentSchema: SchemaInterface = {
   received_at as timestamp,
   experiment_id,
   variation_id,
-  context_location_country as country
+  context_campaign_source as source,
+  context_campaign_medium as medium,
+  (CASE
+    WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+    ELSE 'Tablet/Desktop' END
+  ) as device,
+  (CASE 
+    WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+    WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+    WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+    ELSE 'Other' END
+  ) as browser
 FROM
   ${tablePrefix}experiment_viewed`;
   },
@@ -250,17 +261,47 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
+function getTablePrefix(params: DataSourceParams) {
+  // Postgres / Redshift
+  if ("defaultSchema" in params) {
+    return params.defaultSchema + ".";
+  }
+  // BigQuery
+  else if ("defaultProject" in params) {
+    return (
+      "`" +
+      (params.defaultProject || "my_project") +
+      "`.`" +
+      (params.defaultDataset || "my_dataset") +
+      "`."
+    );
+  }
+  // Snowflake
+  else if ("warehouse" in params) {
+    return (
+      (params.database || "MY_DB") + "." + (params.schema || "PUBLIC") + "."
+    );
+  }
+  // PrestoDB
+  else if ("catalog" in params) {
+    return `${params.catalog ? params.catalog + "." : ""}${
+      params.schema || "public"
+    }.`;
+  }
+
+  return "";
+}
+
 export function getInitialSettings(
   type: SchemaFormat,
-  tablePrefix: string = ""
+  params: DataSourceParams
 ): Partial<DataSourceSettings> {
   const schema = getSchemaObject(type);
-
   return {
     experimentDimensions: schema.experimentDimensions,
     queries: {
-      experimentsQuery: schema.getExperimentSQL(tablePrefix),
-      identityJoins: schema.getIdentitySQL(tablePrefix),
+      experimentsQuery: schema.getExperimentSQL(getTablePrefix(params)),
+      identityJoins: schema.getIdentitySQL(getTablePrefix(params)),
     },
   };
 }
@@ -274,7 +315,7 @@ export function getInitialMetricQuery(
 
   return [
     schema.metricUserIdType,
-    schema.getMetricSQL(name, type, datasource.settings?.tablePrefix || ""),
+    schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
 }
 

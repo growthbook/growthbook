@@ -24,7 +24,6 @@ import PrestoForm from "./PrestoForm";
 import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
-import Field from "../Forms/Field";
 
 const typeOptions: {
   type: DataSourceType;
@@ -172,10 +171,6 @@ const DataSourceForm: FC<{
     return null;
   }
 
-  const isSQL =
-    datasource.type &&
-    !["google_analytics", "mixpanel"].includes(datasource.type);
-
   const handleSubmit = async () => {
     if (!dirty && data.id) return;
     setHasError(false);
@@ -322,7 +317,11 @@ const DataSourceForm: FC<{
     );
   } else if (datasource.type === "bigquery") {
     connSettings = (
-      <BigQueryForm setParams={setParams} params={datasource.params} />
+      <BigQueryForm
+        setParams={setParams}
+        params={datasource.params}
+        onParamChange={onParamChange}
+      />
     );
   } else if (datasource.type === "mixpanel") {
     connSettings = (
@@ -406,22 +405,6 @@ const DataSourceForm: FC<{
         />
       </div>
       {connSettings}
-      {isSQL && (
-        <Field
-          label="Default Table Prefix"
-          placeholder="(optional)"
-          value={datasource.settings?.tablePrefix || ""}
-          onChange={(e) => {
-            setDatasource({
-              ...datasource,
-              settings: {
-                ...datasource.settings,
-                tablePrefix: e.target.value,
-              },
-            });
-          }}
-        />
-      )}
     </Modal>
   );
 };

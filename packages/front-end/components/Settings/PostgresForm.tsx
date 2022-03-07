@@ -80,6 +80,17 @@ const PostgresForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
+        <div className="form-group col-md-12">
+          <label>Default Schema</label>
+          <input
+            type="text"
+            className="form-control"
+            name="defaultSchema"
+            value={params.defaultSchema || ""}
+            onChange={onParamChange}
+            placeholder="(optional)"
+          />
+        </div>
         <div className="col-md-12">
           <div className="form-group">
             <label htmlFor="require-ssl" className="mr-2">
