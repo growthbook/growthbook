@@ -17,7 +17,7 @@
     "next": "^10.2.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
-    "react-icons": "^4.2.0",
+    "react-icons": "^4.3.1",
     "rehype-slug": "^4.0.1",
     "rehype-autolink-headings": "^5.1.0"
   },

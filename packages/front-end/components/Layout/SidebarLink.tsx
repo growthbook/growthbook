@@ -107,6 +107,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   styles.link,
                   styles.sublink,
                   {
+                    [styles.subdivider]: l.divider,
                     [styles.selected]: l.path.test(path),
                     selected: l.path.test(path),
                   }

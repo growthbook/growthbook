@@ -59,8 +59,6 @@ $topbarheight: 60px;
     margin-bottom: 6px;
     background-color: inherit;
   }
-  &.sublinks {
-  }
   &.sublink {
     padding-left: 24px;
     margin-bottom: 6px;
@@ -86,8 +84,14 @@ $topbarheight: 60px;
     }
   }
 }
+.sublinks {
+  margin-bottom: 2em !important;
+}
 .divider {
   margin-top: 3em;
+}
+.subdivider {
+  margin-top: 1em;
 }
 .menuSection {
   font-size: 0.8em;
