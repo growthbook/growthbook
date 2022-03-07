@@ -73,7 +73,18 @@ SELECT user_id, anonymous_id FROM identifies
 
 #### SQL Template Variables
 
-Within your queries, you can use the variables `{{ startDate }}` and `{{ endDate }}`, which will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+
+The variables are:
+
+- **startDate** - `YYYY-MM-DD HH:mm:ss` of the earliest data that needs to be included
+- **startYear** - Just the `YYYY` of the startDate
+- **startMonth** - Just the `MM` of the startDate
+- **startDay** - Just the `DD` of the startDate
+- **endDate** - `YYYY-MM-DD HH:mm:ss` of the latest data that needs to be included
+- **endYear** - Just the `YYYY` of the endDate
+- **endMonth** - Just the `MM` of the endDate
+- **endDay** - Just the `DD` of the endDate
 
 For example:
 
@@ -89,6 +100,8 @@ FROM
 WHERE
   received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
 ```
+
+**Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
 
 #### Jupyter Notebook Query Runner
 
