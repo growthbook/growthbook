@@ -21,7 +21,7 @@ import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 
 // Replace vars in SQL queries (e.g. '{{startDate}}')
-function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
   // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
@@ -41,12 +41,12 @@ function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   const replacements: Record<string, string> = {
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
     startYear: startDate.toISOString().substr(0, 4),
-    startMonth: startDate.toISOString().substr(6, 2),
-    startDay: startDate.toISOString().substr(9, 2),
+    startMonth: startDate.toISOString().substr(5, 2),
+    startDay: startDate.toISOString().substr(8, 2),
     endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
     endYear: endDate.toISOString().substr(0, 4),
-    endMonth: endDate.toISOString().substr(6, 2),
-    endDay: endDate.toISOString().substr(9, 2),
+    endMonth: endDate.toISOString().substr(5, 2),
+    endDay: endDate.toISOString().substr(8, 2),
   };
 
   Object.keys(replacements).forEach((key) => {
