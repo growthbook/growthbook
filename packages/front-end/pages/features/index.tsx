@@ -1,6 +1,3 @@
-import useApi from "../../hooks/useApi";
-import { FeatureInterface } from "back-end/types/feature";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
@@ -19,21 +16,26 @@ import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
-import { useRealtimeData } from "../../services/features";
+import { useFeaturesList, useRealtimeData } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
+import Pagination from "../../components/Pagination";
+import { useEffect } from "react";
+
+const NUM_PER_PAGE = 20;
 
 export default function FeaturesPage() {
-  const { project } = useDefinitions();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data, error, mutate } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature?project=${project || ""}`);
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+
+  const { features, loading, error, mutate } = useFeaturesList();
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
-    data?.features,
+    features,
     !!router?.query?.mockdata,
     showGraphs
   );
@@ -42,9 +44,9 @@ export default function FeaturesPage() {
   const [showSteps, setShowSteps] = useState(false);
 
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
+    !settings?.sdkInstructionsViewed || (!loading && !features.length);
 
-  const { list, searchInputProps } = useSearch(data?.features || [], [
+  const { list, searchInputProps } = useSearch(features || [], [
     "id",
     "description",
     "tags",
@@ -54,6 +56,11 @@ export default function FeaturesPage() {
     return list.sort((a, b) => a.id.localeCompare(b.id));
   }, [list]);
 
+  // Reset to page 1 when a filter is applied
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sorted.length]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -61,7 +68,7 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (!data) {
+  if (loading) {
     return <LoadingOverlay />;
   }
 
@@ -73,7 +80,7 @@ export default function FeaturesPage() {
           onSuccess={async (feature) => {
             router.push(`/features/${feature.id}`);
             mutate({
-              features: [...data.features, feature],
+              features: [...features, feature],
             });
           }}
         />
@@ -82,7 +89,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {data?.features?.length > 0 && (
+        {features.length > 0 && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -125,7 +132,7 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={data.features || []} />
+          <FeaturesGetStarted features={features} />
           {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
@@ -144,7 +151,7 @@ export default function FeaturesPage() {
 
       <ApiKeyUpgrade />
 
-      {data.features.length > 0 && (
+      {features.length > 0 && (
         <div>
           <div className="row mb-2">
             <div className="col-auto">
@@ -169,7 +176,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((feature) => {
+              {sorted.slice(start, end).map((feature) => {
                 const firstRule = feature.rules?.[0];
                 const totalRules = feature.rules?.length || 0;
 
@@ -232,6 +239,16 @@ export default function FeaturesPage() {
               )}
             </tbody>
           </table>
+          {Math.ceil(sorted.length / NUM_PER_PAGE) > 1 && (
+            <Pagination
+              numItemsTotal={sorted.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={(d) => {
+                setCurrentPage(d);
+              }}
+            />
+          )}
         </div>
       )}
     </div>
