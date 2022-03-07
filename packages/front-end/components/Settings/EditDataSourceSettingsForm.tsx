@@ -149,11 +149,6 @@ const EditDataSourceSettingsForm: FC<{
       header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
-      {firstTime && (
-        <div className="alert alert-success mb-4">
-          <strong>Connection successful!</strong>
-        </div>
-      )}
       {datasource.properties?.events && (
         <div>
           <h4 className="font-weight-bold">Experiments</h4>

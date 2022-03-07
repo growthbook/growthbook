@@ -676,7 +676,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       <li>
                         <strong>value</strong> -{" "}
                         {value.type === "count"
-                          ? "The number of conversions"
+                          ? "The numeric value to be counted"
                           : "The " + value.type + " amount"}
                       </li>
                     )}
