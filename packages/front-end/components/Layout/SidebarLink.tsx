@@ -1,11 +1,11 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import useUser from "../../hooks/useUser";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
-import { FiChevronDown } from "react-icons/fi";
+import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
 
 export type SidebarLinkProps = {
@@ -45,6 +45,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const selected = props.path.test(path);
   const showSubMenuIcons = true;
 
+  const [open, setOpen] = useState(selected);
+
   return (
     <>
       {props.divider && (
@@ -62,32 +64,45 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           [styles.selected]: selected,
           selected: selected,
           [styles.submenusection]: selected && props.subLinks,
+          [styles.expanded]: open,
         })}
       >
-        <Link href={props.href}>
-          <a
-            className={clsx("align-middle", {
-              "no-close": props.subLinks && !props.autoClose,
-            })}
-          >
-            {props.Icon && <props.Icon className={styles.icon} />}
-            {props.icon && (
-              <span>
-                <img src={`/icons/${props.icon}`} />
-              </span>
-            )}
-            {props.name}
-            {props.beta && <div className="badge badge-warning ml-2">beta</div>}
-            {props.subLinks && (
-              <div className="float-right">
-                <FiChevronDown />
-              </div>
-            )}
-          </a>
-        </Link>
+        <a
+          className={clsx("align-middle", {
+            "no-close": props.subLinks && !props.autoClose,
+          })}
+          href={props.href}
+          onClick={(e) => {
+            e.preventDefault();
+            if (props.subLinks) {
+              setOpen(!open);
+              e.stopPropagation();
+            } else {
+              router.push(props.href);
+            }
+          }}
+        >
+          {props.Icon && <props.Icon className={styles.icon} />}
+          {props.icon && (
+            <span>
+              <img src={`/icons/${props.icon}`} />
+            </span>
+          )}
+          {props.name}
+          {props.beta && <div className="badge badge-warning ml-2">beta</div>}
+          {props.subLinks && (
+            <div className={clsx("float-right", styles.chevron)}>
+              <FiChevronRight />
+            </div>
+          )}
+        </a>
       </li>
-      {selected && props.subLinks && (
-        <ul className={styles.sublinks}>
+      {props.subLinks && (
+        <ul
+          className={clsx(styles.sublinks, {
+            [styles.open]: open || selected,
+          })}
+        >
           {props.subLinks.map((l) => {
             if (l.superAdmin && !admin) return null;
             if (l.settingsPermission && !permissions.organizationSettings)
@@ -99,6 +114,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               return null;
             }
 
+            const sublinkSelected = l.path.test(path);
+
             return (
               <li
                 key={l.href}
@@ -108,8 +125,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   styles.sublink,
                   {
                     [styles.subdivider]: l.divider,
-                    [styles.selected]: l.path.test(path),
-                    selected: l.path.test(path),
+                    [styles.selected]: sublinkSelected,
+                    selected: sublinkSelected,
+                    [styles.collapsed]: !open && !sublinkSelected,
                   }
                 )}
               >
