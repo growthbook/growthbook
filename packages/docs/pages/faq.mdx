@@ -70,6 +70,22 @@ Dimensions are used to explore experiment results. For example, you can use a `c
 
 Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
 
+## Which docker image tag should I use when self-hosting?
+
+We recommend using the `latest` tag for both dev and production self-hosted deployments. This tag represents the latest stable build of GrowthBook and is what the Cloud app uses.
+
+Specific version tags (e.g. `v1.1.0`) are only released periodically (about once a month) and you will miss out on the many bug fixes and features added between major releases.
+
+We also recommend updating the image regularly. You can do that by downloading the latest image (`docker pull growthbook/growthbook:latest`) and restarting the container.
+
+## What are the hardware requirements for self-hosting GrowthBook?
+
+The GrowthBook application is very lightweight and efficient. For most usecases, 2GB of memory is sufficient even for large production deployments.
+
+GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
+
+If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. This could either be a CDN or a local cache server like Redis. Learn more about how to keep a local cache up-to-date using [API polling](/app/api) or [Webhooks](/app/webhooks).
+
 ## Can't find your question?
 
 If you can't find an answer to your question above, please let us know so we can help you out and improve the docs for future users!

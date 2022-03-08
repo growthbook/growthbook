@@ -232,6 +232,13 @@ function App({
             `,
           }}
         />
+        {process.env.NEXT_PUBLIC_SCRIPT_HEAD && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: process.env.NEXT_PUBLIC_SCRIPT_HEAD,
+            }}
+          />
+        )}
       </Head>
       <div className="flex h-full w-full">
         <div className="max-w-0 md:max-w-lg p-0 overflow-x-hidden h-full md:p-5 overflow-y-auto border-r border-gray-100 text-gray-800 dark:border-gray-700 dark:text-gray-200">
