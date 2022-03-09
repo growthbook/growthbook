@@ -99,7 +99,7 @@ export default function ExperimentReportsList({
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
-                    router.push("/report/[rid]", `/report/${report.id}`);
+                    router.push(`/report/${report.id}`);
                   }}
                 >
                   <Link href={`/report/${report.id}`}>
@@ -112,7 +112,7 @@ export default function ExperimentReportsList({
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
-                    router.push("/report/[rid]", `/report/${report.id}`);
+                    router.push(`/report/${report.id}`);
                   }}
                 >
                   <Link href={`/report/${report.id}`}>

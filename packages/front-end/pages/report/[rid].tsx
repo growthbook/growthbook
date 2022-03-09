@@ -154,10 +154,7 @@ export default function ReportPage() {
                     method: "DELETE",
                   }
                 );
-                router.push(
-                  "/experiment/[eid]#results",
-                  `/experiment/${report.experimentId}#results`
-                );
+                router.push(`/experiment/${report.experimentId}#results`);
               }}
             />
           )}
