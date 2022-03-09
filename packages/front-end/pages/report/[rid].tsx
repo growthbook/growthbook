@@ -29,6 +29,7 @@ import Tooltip from "../../components/Tooltip";
 import { date } from "../../services/dates";
 import useUser from "../../hooks/useUser";
 import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
+import DeleteButton from "../../components/DeleteButton";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -138,6 +139,28 @@ export default function ReportPage() {
             </a>
           </Link>
         )}
+        {permissions.runExperiments &&
+          (userId === report?.userId || !report?.userId) && (
+            <DeleteButton
+              displayName="Custom Report"
+              link={false}
+              className="float-right btn-sm"
+              text="delete"
+              useIcon={true}
+              onClick={async () => {
+                await apiCall<{ status: number; message?: string }>(
+                  `/report/${report.id}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+                router.push(
+                  "/experiment/[eid]#results",
+                  `/experiment/${report.experimentId}#results`
+                );
+              }}
+            />
+          )}
         <h1 className="mb-0 mt-2">
           {report.title}{" "}
           {permissions.runExperiments &&

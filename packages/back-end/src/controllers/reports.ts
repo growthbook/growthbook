@@ -8,6 +8,7 @@ import {
   updateReport,
   getReportsByOrg,
   getReportsByExperimentId,
+  deleteReportById,
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
@@ -140,6 +141,28 @@ export async function getReport(
   res.status(200).json({
     status: 200,
     report,
+  });
+}
+
+export async function deleteReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const report = await getReportById(org.id, req.params.id);
+
+  if (!report) {
+    throw new Error("Could not find report");
+  }
+
+  if (report.userId !== req.userId || !req.permissions.runExperiments) {
+    throw new Error("You do not have permission to do this");
+  }
+
+  await deleteReportById(org.id, req.params.id);
+
+  res.status(200).json({
+    status: 200,
   });
 }
 
