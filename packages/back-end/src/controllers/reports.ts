@@ -155,7 +155,7 @@ export async function deleteReport(
     throw new Error("Could not find report");
   }
 
-  if (report.userId !== req.userId || !req.permissions.runExperiments) {
+  if (report.userId !== req.userId && !req.permissions.runExperiments) {
     throw new Error("You do not have permission to do this");
   }
 
