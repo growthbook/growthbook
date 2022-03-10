@@ -15,7 +15,7 @@ let s3: AWS.S3;
 function getS3(): AWS.S3 {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
-    s3 = new AWS.S3();
+    s3 = new AWS.S3({ signatureVersion: "v4" });
   }
   return s3;
 }
