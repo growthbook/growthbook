@@ -35,6 +35,7 @@ const featureSchema = new mongoose.Schema({
       ],
     },
   ],
+  environmentRules: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -42,6 +43,21 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 type FeatureDocument = mongoose.Document & FeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
+
+function upgradeFeatureInterface(feature: FeatureInterface): FeatureInterface {
+  if (!feature.environmentRules) {
+    feature.environmentRules = {
+      dev: {
+        rules: feature.rules || [],
+      },
+      production: {
+        rules: feature.rules || [],
+      },
+    };
+  }
+
+  return feature;
+}
 
 export async function getAllFeatures(
   organization: string,
@@ -52,7 +68,9 @@ export async function getAllFeatures(
     q.project = project;
   }
 
-  return (await FeatureModel.find(q)).map((m) => m.toJSON());
+  return (await FeatureModel.find(q)).map((m) =>
+    upgradeFeatureInterface(m.toJSON())
+  );
 }
 
 export async function getFeature(
@@ -60,7 +78,7 @@ export async function getFeature(
   id: string
 ): Promise<FeatureInterface | null> {
   const feature = await FeatureModel.findOne({ organization, id });
-  return feature ? feature.toJSON() : null;
+  return feature ? upgradeFeatureInterface(feature.toJSON()) : null;
 }
 
 export async function createFeature(data: FeatureInterface) {
