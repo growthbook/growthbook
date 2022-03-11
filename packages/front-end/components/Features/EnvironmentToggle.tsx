@@ -20,29 +20,34 @@ export default function EnvironmentToggle({
   const [toggling, setToggling] = useState(false);
   const { apiCall } = useAuth();
 
-  const envs = feature.environments || [];
-
   id = id || feature.id + "__" + environment;
+
+  const envs = feature.environmentSettings;
+  const env = envs?.[environment];
 
   return (
     <Toggle
-      value={envs.includes(environment) ?? false}
+      value={env?.enabled ?? false}
       id={id}
       setValue={async (on) => {
         if (toggling) return;
-        if (on && envs.includes(environment)) return;
-        if (!on && !envs.includes(environment)) return;
+        if (on && env?.enabled) return;
+        if (!on && !env?.enabled) return;
 
-        let newEnvs = [...envs];
-        if (on) newEnvs.push(environment);
-        else newEnvs = newEnvs.filter((e) => e !== environment);
+        const newEnvs = {
+          ...envs,
+          [environment]: {
+            ...env,
+            enabled: on,
+          },
+        };
 
         setToggling(true);
         try {
           await apiCall(`/feature/${feature.id}`, {
             method: "PUT",
             body: JSON.stringify({
-              environments: newEnvs,
+              environmentSettings: newEnvs,
             }),
           });
           track("Feature Environment Toggle", {

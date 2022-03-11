@@ -35,7 +35,7 @@ const featureSchema = new mongoose.Schema({
       ],
     },
   ],
-  environmentRules: {},
+  environmentSettings: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -45,16 +45,21 @@ type FeatureDocument = mongoose.Document & FeatureInterface;
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
 function upgradeFeatureInterface(feature: FeatureInterface): FeatureInterface {
-  if (!feature.environmentRules) {
-    feature.environmentRules = {
+  if (!feature.environmentSettings) {
+    feature.environmentSettings = {
       dev: {
+        enabled: feature.environments?.includes("dev") || false,
         rules: feature.rules || [],
       },
       production: {
+        enabled: feature.environments?.includes("production") || false,
         rules: feature.rules || [],
       },
     };
   }
+
+  // delete feature.environments
+  // delete feature.rules
 
   return feature;
 }

@@ -17,6 +17,7 @@ import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export interface Condition {
   field: string;
@@ -30,6 +31,10 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useEnvironment() {
+  return useLocalStorage("currentEnvironment", "dev");
 }
 
 export function useFeaturesList(withProject = true) {

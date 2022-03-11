@@ -10,12 +10,15 @@ export interface FeatureInterface {
   dateCreated: Date;
   dateUpdated: Date;
   valueType: FeatureValueType;
+  /** @deprecated */
   environments: string[];
   defaultValue: string;
+  /** @deprecated */
   rules?: FeatureRule[];
-  environmentRules?: Record<
+  environmentSettings?: Record<
     string,
     {
+      enabled: boolean;
       defaultValue?: string;
       rules: FeatureRule[];
     }
