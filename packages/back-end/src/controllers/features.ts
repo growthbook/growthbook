@@ -1,6 +1,6 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import { FeatureInterface } from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   createFeature,
@@ -11,8 +11,12 @@ import {
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
-import { featureUpdated, getFeatureDefinitions } from "../services/features";
-import uniqid from "uniqid";
+import {
+  addIdsToRules,
+  featureUpdated,
+  getEnabledEnvironments,
+  getFeatureDefinitions,
+} from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
@@ -81,8 +85,16 @@ export async function postFeatures(
     valueType: "boolean",
     description: "",
     project: "",
-    rules: [],
-    environments: ["dev"],
+    environmentSettings: {
+      dev: {
+        enabled: true,
+        rules: [],
+      },
+      production: {
+        enabled: false,
+        rules: [],
+      },
+    },
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -90,17 +102,7 @@ export async function postFeatures(
     id: id.toLowerCase(),
   };
 
-  if (feature.rules?.length) {
-    feature.rules = feature.rules?.map((r) => {
-      if (r.type === "experiment" && !r?.trackingKey) {
-        r.trackingKey = feature.id;
-      }
-      return {
-        ...r,
-        id: uniqid("fr_"),
-      };
-    });
-  }
+  addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(feature);
 
@@ -135,16 +137,7 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  if (updates.rules) {
-    updates.rules = updates.rules.map((r) => {
-      if (r.id) return r;
-      if (r.type === "experiment" && !r?.trackingKey) r.trackingKey = id;
-      return {
-        ...r,
-        id: uniqid("fr_"),
-      };
-    });
-  }
+  addIdsToRules(updates.environmentSettings, id);
 
   // See if anything important changed that requires firing a webhook
   let requiresWebhook = false;
@@ -154,26 +147,12 @@ export async function putFeature(
   ) {
     requiresWebhook = true;
   }
-  if ("rules" in updates) {
-    if (updates.rules?.length !== feature.rules?.length) {
-      requiresWebhook = true;
-    } else {
-      updates.rules?.forEach((rule, i) => {
-        const a = { ...rule } as Partial<FeatureRule>;
-        const b = { ...feature.rules?.[i] } as Partial<FeatureRule>;
-        delete a.description;
-        delete a.id;
-        delete b.description;
-        delete b.id;
-
-        if (JSON.stringify(a) !== JSON.stringify(b)) {
-          requiresWebhook = true;
-        }
-      });
-    }
-  }
-  if ("environments" in updates) {
-    if (updates.environments?.length !== feature.environments?.length) {
+  if ("environmentSettings" in updates) {
+    // TODO: don't fire a webhook if only a rule description was changed
+    if (
+      JSON.stringify(updates.environmentSettings) !==
+      JSON.stringify(feature.environmentSettings)
+    ) {
       requiresWebhook = true;
     }
   }
@@ -192,7 +171,7 @@ export async function putFeature(
         ...feature,
         ...updates,
       },
-      feature.environments || [],
+      getEnabledEnvironments(feature),
       feature.project || ""
     );
   }
@@ -254,17 +233,27 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const experiments: { [key: string]: ExperimentDocument } = {};
-  if (feature.rules) {
-    const promises = feature.rules.map(async (r) => {
-      if (r.type === "experiment" && r?.trackingKey) {
-        const exp = await getExperimentByTrackingKey(org.id, r.trackingKey);
-        if (exp) {
-          experiments[r.trackingKey] = exp;
+  const expIds: Set<string> = new Set();
+  if (feature.environmentSettings) {
+    Object.values(feature.environmentSettings).forEach((env) => {
+      env.rules?.forEach((r) => {
+        if (r.type === "experiment" && r.trackingKey) {
+          expIds.add(r.trackingKey);
         }
-      }
+      });
     });
-    await Promise.all(promises);
+  }
+
+  const experiments: { [key: string]: ExperimentDocument } = {};
+  if (expIds.size > 0) {
+    await Promise.all(
+      Array.from(expIds).map(async (id) => {
+        const exp = await getExperimentByTrackingKey(org.id, id);
+        if (exp) {
+          experiments[id] = exp;
+        }
+      })
+    );
   }
 
   res.status(200).json({

@@ -2,6 +2,12 @@
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
+export interface FeatureEnvironment {
+  enabled: boolean;
+  defaultValue?: string;
+  rules: FeatureRule[];
+}
+
 export interface FeatureInterface {
   id: string;
   description?: string;
@@ -11,18 +17,11 @@ export interface FeatureInterface {
   dateUpdated: Date;
   valueType: FeatureValueType;
   /** @deprecated */
-  environments: string[];
+  environments?: string[];
   defaultValue: string;
   /** @deprecated */
   rules?: FeatureRule[];
-  environmentSettings?: Record<
-    string,
-    {
-      enabled: boolean;
-      defaultValue?: string;
-      rules: FeatureRule[];
-    }
-  >;
+  environmentSettings?: Record<string, FeatureEnvironment>;
 }
 
 export interface BaseRule {
