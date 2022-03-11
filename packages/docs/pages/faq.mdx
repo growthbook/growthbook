@@ -86,6 +86,14 @@ GrowthBook only deals with aggregate data and the bulk of the processing is offl
 
 If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. This could either be a CDN or a local cache server like Redis. Learn more about how to keep a local cache up-to-date using [API polling](/app/api) or [Webhooks](/app/webhooks).
 
+## I can't upload to S3/getting 400 error when uploading to S3?
+
+* Make sure you've correctly set the `S3_BUCKET` and `S3_REGION` environment variables
+* Enable bucket ACL and set ownership to Bucket owner preferred: [https://stackoverflow.com/questions/70333681/for-an-amazon-s3-bucket-deplolyent-from-guithub-how-do-i-fix-the-error-accesscon](read more here).
+* Make sure the S3 bucket is publically accessible
+* Make sure CORS settings are correct. Add your URLs to the AllowedOrigins array or set to "*"
+
+
 ## Can't find your question?
 
 If you can't find an answer to your question above, please let us know so we can help you out and improve the docs for future users!
