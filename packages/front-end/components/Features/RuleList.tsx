@@ -18,25 +18,30 @@ import {
 } from "@dnd-kit/sortable";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getEnvironmentUpdates, getRules } from "../../services/features";
 
 export default function RuleList({
   feature,
   mutate,
   experiments,
+  environment,
   setRuleModal,
 }: {
   feature: FeatureInterface;
   experiments: Record<string, ExperimentInterfaceStringDates>;
+  environment: string;
   mutate: () => void;
-  setRuleModal: (i: number) => void;
+  setRuleModal: ({ environment: string, i: number }) => void;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string>(null);
-  const [items, setItems] = useState(feature.rules);
+  const [items, setItems] = useState(getRules(feature, environment));
 
   useEffect(() => {
-    setItems(feature.rules);
-  }, [feature.rules]);
+    setItems(getRules(feature, environment));
+  }, [getRules(feature, environment)]);
+
+  console.log(items, feature, environment);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -45,7 +50,7 @@ export default function RuleList({
     })
   );
 
-  if (!feature.rules?.length) {
+  if (!items.length) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -60,7 +65,7 @@ export default function RuleList({
     return -1;
   }
 
-  const activeRule = activeId ? feature.rules[getRuleIndex(activeId)] : null;
+  const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   return (
     <DndContext
@@ -78,9 +83,9 @@ export default function RuleList({
           setItems(newRules);
           await apiCall(`/feature/${feature.id}`, {
             method: "PUT",
-            body: JSON.stringify({
-              rules: newRules,
-            }),
+            body: JSON.stringify(
+              getEnvironmentUpdates(feature, environment, { rules: newRules })
+            ),
           });
           mutate();
         }
@@ -94,6 +99,7 @@ export default function RuleList({
         {items.map(({ ...rule }, i) => (
           <SortableRule
             key={rule.id}
+            environment={environment}
             i={i}
             rule={rule}
             feature={feature}
@@ -107,6 +113,7 @@ export default function RuleList({
         {activeRule ? (
           <Rule
             i={getRuleIndex(activeId)}
+            environment={environment}
             rule={activeRule}
             feature={feature}
             mutate={mutate}

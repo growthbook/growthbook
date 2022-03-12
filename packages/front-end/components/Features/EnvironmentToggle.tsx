@@ -3,6 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Toggle from "../Forms/Toggle";
 import track from "../../services/track";
+import { getEnvironmentUpdates } from "../../services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -34,21 +35,13 @@ export default function EnvironmentToggle({
         if (on && env?.enabled) return;
         if (!on && !env?.enabled) return;
 
-        const newEnvs = {
-          ...envs,
-          [environment]: {
-            ...env,
-            enabled: on,
-          },
-        };
-
         setToggling(true);
         try {
           await apiCall(`/feature/${feature.id}`, {
             method: "PUT",
-            body: JSON.stringify({
-              environmentSettings: newEnvs,
-            }),
+            body: JSON.stringify(
+              getEnvironmentUpdates(feature, environment, { enabled: on })
+            ),
           });
           track("Feature Environment Toggle", {
             environment,

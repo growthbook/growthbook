@@ -21,6 +21,7 @@ const ControlledTabs: FC<{
   navExtra?: ReactElement;
   active?: string | null;
   setActive: (tab: string | null) => void;
+  showActiveCount?: boolean;
 }> = ({
   active,
   setActive,
@@ -32,6 +33,7 @@ const ControlledTabs: FC<{
   defaultTab,
   newStyle = false,
   navExtra,
+  showActiveCount = false,
 }) => {
   const [loaded, setLoaded] = useState({});
 
@@ -106,6 +108,7 @@ const ControlledTabs: FC<{
         display={display}
         count={count}
         action={action}
+        showActiveCount={showActiveCount}
       />
     );
 

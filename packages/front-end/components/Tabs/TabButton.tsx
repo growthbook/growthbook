@@ -11,6 +11,7 @@ export interface Props {
   action?: ReactElement;
   newStyle?: boolean;
   className?: string;
+  showActiveCount?: boolean;
 }
 
 export default function TabButton({
@@ -23,6 +24,7 @@ export default function TabButton({
   action,
   newStyle = true,
   className,
+  showActiveCount = false,
 }: Props) {
   return (
     <a
@@ -42,7 +44,7 @@ export default function TabButton({
       }}
     >
       {display}
-      {!active && (count === 0 || count > 0) ? (
+      {(showActiveCount || !active) && (count === 0 || count > 0) ? (
         <span className={`badge badge-gray ml-2`}>{count}</span>
       ) : (
         ""

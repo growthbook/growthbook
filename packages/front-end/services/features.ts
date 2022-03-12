@@ -5,6 +5,7 @@ import {
 } from "back-end/types/organization";
 import {
   ExperimentRule,
+  FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
@@ -35,6 +36,28 @@ export interface AttributeData {
 
 export function useEnvironment() {
   return useLocalStorage("currentEnvironment", "dev");
+}
+
+export function getRules(feature: FeatureInterface, environment: string) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+
+export function getEnvironmentUpdates(
+  feature: FeatureInterface,
+  environment: string,
+  settings: Partial<FeatureEnvironment>
+) {
+  return {
+    environmentSettings: {
+      ...feature.environmentSettings,
+      [environment]: {
+        enabled: false,
+        rules: [],
+        ...feature.environmentSettings?.[environment],
+        ...settings,
+      },
+    },
+  };
 }
 
 export function useFeaturesList(withProject = true) {
