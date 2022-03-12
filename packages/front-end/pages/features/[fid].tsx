@@ -240,8 +240,9 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       <ControlledTabs
         setActive={setEnv}
         active={env}
-        newStyle={true}
         showActiveCount={true}
+        newStyle={false}
+        buttonsClassName="px-3 py-2 h4"
       >
         {Object.keys(data.feature.environmentSettings).map((e) => {
           const rules = getRules(data.feature, e);
@@ -253,7 +254,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               count={rules.length}
               padding={false}
             >
-              <div className="appbox mb-4">
+              <div className="appbox mb-4 border-top-0">
                 {rules.length > 0 ? (
                   <RuleList
                     environment={e}

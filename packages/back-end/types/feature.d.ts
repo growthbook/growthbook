@@ -4,7 +4,6 @@ export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
 export interface FeatureEnvironment {
   enabled: boolean;
-  defaultValue?: string;
   rules: FeatureRule[];
 }
 

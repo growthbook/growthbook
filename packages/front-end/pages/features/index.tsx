@@ -182,13 +182,12 @@ export default function FeaturesPage() {
               <Field placeholder="Filter list..." {...searchInputProps} />
             </div>
           </div>
-          <div className="row mb-2"></div>
           <table className="table gbtable table-hover">
             <thead>
               <tr>
                 <th>Feature Key</th>
                 <th>{env}</th>
-                <th>Value When Enabled</th>
+                <th>Default Value</th>
                 <th>Overrides Rules</th>
                 <th>Last Updated</th>
                 {showGraphs && (
@@ -223,9 +222,7 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <ValueDisplay
-                        value={
-                          envSettings?.defaultValue ?? feature.defaultValue
-                        }
+                        value={feature.defaultValue}
                         type={feature.valueType}
                         full={false}
                       />

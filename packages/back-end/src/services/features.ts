@@ -39,10 +39,7 @@ export async function getFeatureDefinitions(
     }
 
     defs[feature.id] = {
-      defaultValue: getJSONValue(
-        feature.valueType,
-        settings.defaultValue ?? feature.defaultValue
-      ),
+      defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:
         settings.rules
           ?.filter((r) => r.enabled)

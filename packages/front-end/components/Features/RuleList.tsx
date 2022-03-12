@@ -41,8 +41,6 @@ export default function RuleList({
     setItems(getRules(feature, environment));
   }, [getRules(feature, environment)]);
 
-  console.log(items, feature, environment);
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {

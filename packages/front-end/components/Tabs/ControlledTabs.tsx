@@ -22,6 +22,7 @@ const ControlledTabs: FC<{
   active?: string | null;
   setActive: (tab: string | null) => void;
   showActiveCount?: boolean;
+  buttonsClassName?: string;
 }> = ({
   active,
   setActive,
@@ -34,6 +35,7 @@ const ControlledTabs: FC<{
   newStyle = false,
   navExtra,
   showActiveCount = false,
+  buttonsClassName = "",
 }) => {
   const [loaded, setLoaded] = useState({});
 
@@ -109,6 +111,7 @@ const ControlledTabs: FC<{
         count={count}
         action={action}
         showActiveCount={showActiveCount}
+        className={buttonsClassName}
       />
     );
 

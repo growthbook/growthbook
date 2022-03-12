@@ -143,6 +143,28 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               >
                 {rule.enabled ? "Disable" : "Enable"}
               </Button>
+              <Button
+                color=""
+                className="dropdown-item"
+                onClick={async () => {
+                  const newEnv = environment === "dev" ? "production" : "dev";
+                  const newRules = [
+                    ...getRules(feature, newEnv),
+                    { ...rule, id: "" },
+                  ];
+                  await apiCall(`/feature/${feature.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify(
+                      getEnvironmentUpdates(feature, newEnv, {
+                        rules: newRules,
+                      })
+                    ),
+                  });
+                  mutate();
+                }}
+              >
+                Copy to {environment === "dev" ? "production" : "dev"}
+              </Button>
               <DeleteButton
                 className="dropdown-item"
                 displayName="Rule"
