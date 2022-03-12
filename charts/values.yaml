@@ -10,6 +10,12 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: latest
 
+externalSecretName: growthbook-external-secret
+
+port:
+  frontendPort: 3000
+  backendPort: 3100
+
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
@@ -20,20 +26,42 @@ serviceAccount:
   name: ""
 
 env:
-  mongodbUri: mongodb://root:password@growthbook-mongodb:27017/
-  # Specify env
-  # appOrigin: https://my-app-origin.io:443 
-  # apiHost: https://my-api-host.io:443
-  # jwtSecret: my-jwt-secret
-  # encryptionKey: my-encryption-key
+  - name: NODE_ENV
+    value: production
+  - name: MONGODB_URI
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: mongo-connection-uri
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: jwt-secret
+  - name: ENCRYPTION_KEY
+    valueFrom:
+      secretKeyRef:
+        name: growthbook-external-secret
+        key: encryption-key      
+  # Specify your app_origin, api_host
+  #- name: APP_ORIGIN
+  #  value: https://my-app-origin.io:443
+  #- name: API_HOST
+  #  value: https://my-api-host.io:443
+
+# Set your nodeSelector setting, following example uses AWS on_demand node.
+#nodeSelector:
+#  capacity-type: on_demand
+
+# Specify your storage class spec for persisting upload images to external file system
+#pvc:
+#  claimName: growthbook-efs-claim
+#  storageClassName: efs-sc
+#  storage: 5Gi
 
 volume:
-  name: uploads
+  name: uploads-persistent-storage
   mountPath: /usr/local/src/app/packages/back-end/uploads
-
-port:
-  frontendPort: 3000
-  backendPort: 3100
 
 service:
   type: ClusterIP
@@ -41,11 +69,9 @@ service:
 ingress:
   name: growthbook-ingress
   enabled: true
-  # Specify following properties
-  # appOriginName: my-app-origin.io
-  # apiHostName: my-api-host.io
-  # Make sure you create tls secret(https://kubernetes.io/docs/concepts/services-networking/ingress/#tls)
-  # tlsSecretName: my-secret-name
+  # Specify you app-origin, api-host without 'https://' prefix
+  #appOriginName: my-app-origin.io
+  #apiHostName: my-api-host.io
 
 autoscaling:
   enabled: false
@@ -53,3 +79,22 @@ autoscaling:
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+
+# Make sure you specify right mongodb credential in secret
+# Example below assumes prometheus is running at sys-monitoring namespace
+# For more configurations and explanations, visit https://github.com/bitnami/charts/tree/master/bitnami/mongodb
+# mongodb:
+#   auth:
+#     existingSecret: growthbook-external-secret
+#   metrics:
+#     enabled: true
+#     serviceMonitor:
+#       enabled: true
+#       namespace: sys-monitoring
+#       interval: 30s
+#       scrapeTimeout: 30s
+#       additionalLabels: {}
+#     service:
+#       annotations:
+#         prometheus.io/scrape: "true"
+#         prometheus.io/path: "/metrics"

@@ -34,16 +34,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: MONGODB_URI
-              value: {{ .Values.env.mongodbUri }}
-            - name: JWT_SECRET
-              value: {{ .Values.env.jwtSecret }}
-            - name: ENCRYPTION_KEY
-              value: {{ .Values.env.encryptionKey }}
-            - name: APP_ORIGIN
-              value: {{ .Values.env.appOrigin }}
-            - name: API_HOST
-              value: {{ .Values.env.apiHost }}
+            {{- toYaml .Values.env | nindent 10 }}
           volumeMounts:
             - name: {{ .Values.volume.name }}
               mountPath: {{ .Values.volume.mountPath }}
@@ -53,12 +44,15 @@ spec:
               protocol: TCP
             - name: backend-port
               containerPort: {{ .Values.port.backendPort }}
-              protocol: TCP          
+              protocol: TCP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
         - name: {{ .Values.volume.name }}
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.claimName }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

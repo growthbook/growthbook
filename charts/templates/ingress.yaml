@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Values.ingress.name }}
@@ -16,17 +16,21 @@ spec:
           - path: /
             pathType: Prefix
             backend:
-              serviceName: {{ include "growthbook.fullname" . }}
-              servicePort: {{ .Values.port.frontendPort }}
+              service:
+                name: {{ include "growthbook.fullname" . }}
+                port: 
+                  number: {{ .Values.port.frontendPort }}
     - host: {{ .Values.ingress.apiHostName }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
-              serviceName: {{ include "growthbook.fullname" . }}
-              servicePort: {{ .Values.port.backendPort }}
+              service:
+                name: {{ include "growthbook.fullname" . }}
+                port:
+                  number: {{ .Values.port.backendPort }}
   tls:
     - hosts:
         - {{ .Values.ingress.appOriginName }}
-      secretName: {{ .Values.ingress.tlsSecretName }}
+      secretName: {{ .Values.externalSecretName }}
