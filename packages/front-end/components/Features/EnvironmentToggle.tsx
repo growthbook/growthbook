@@ -3,7 +3,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Toggle from "../Forms/Toggle";
 import track from "../../services/track";
-import { getEnvironmentUpdates } from "../../services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -37,11 +36,12 @@ export default function EnvironmentToggle({
 
         setToggling(true);
         try {
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
-            body: JSON.stringify(
-              getEnvironmentUpdates(feature, environment, { enabled: on })
-            ),
+          await apiCall(`/feature/${feature.id}/toggle`, {
+            method: "POST",
+            body: JSON.stringify({
+              environment,
+              state: on,
+            }),
           });
           track("Feature Environment Toggle", {
             environment,

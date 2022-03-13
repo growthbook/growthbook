@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getEnvironmentUpdates, getRules } from "../../services/features";
+import { getRules } from "../../services/features";
 
 export default function RuleList({
   feature,
@@ -79,11 +79,13 @@ export default function RuleList({
           const newRules = arrayMove(items, oldIndex, newIndex);
 
           setItems(newRules);
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
-            body: JSON.stringify(
-              getEnvironmentUpdates(feature, environment, { rules: newRules })
-            ),
+          await apiCall(`/feature/${feature.id}/reorder`, {
+            method: "POST",
+            body: JSON.stringify({
+              environment,
+              from: oldIndex,
+              to: newIndex,
+            }),
           });
           mutate();
         }

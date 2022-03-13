@@ -13,7 +13,7 @@ import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getEnvironmentUpdates, getRules } from "../../services/features";
+import { getRules } from "../../services/features";
 
 interface SortableProps {
   i: number;
@@ -117,9 +117,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 color=""
                 className="dropdown-item"
                 onClick={async () => {
-                  const newRules = [...rules];
-                  newRules[i] = { ...newRules[i] };
-                  newRules[i].enabled = !newRules[i].enabled;
                   track(
                     rule.enabled
                       ? "Disable Feature Rule"
@@ -127,16 +124,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {
                       ruleIndex: i,
                       environment,
-                      type: newRules[i].type,
+                      type: rule.type,
                     }
                   );
-                  await apiCall(`/feature/${feature.id}`, {
+                  await apiCall(`/feature/${feature.id}/rule`, {
                     method: "PUT",
-                    body: JSON.stringify(
-                      getEnvironmentUpdates(feature, environment, {
-                        rules: newRules,
-                      })
-                    ),
+                    body: JSON.stringify({
+                      environment,
+                      rule: {
+                        ...rule,
+                        enabled: !rule.enabled,
+                      },
+                      i,
+                    }),
                   });
                   mutate();
                 }}
@@ -148,17 +148,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 className="dropdown-item"
                 onClick={async () => {
                   const newEnv = environment === "dev" ? "production" : "dev";
-                  const newRules = [
-                    ...getRules(feature, newEnv),
-                    { ...rule, id: "" },
-                  ];
-                  await apiCall(`/feature/${feature.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify(
-                      getEnvironmentUpdates(feature, newEnv, {
-                        rules: newRules,
-                      })
-                    ),
+                  await apiCall(`/feature/${feature.id}/rule`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      environment: newEnv,
+                      rule: { ...rule, id: "" },
+                    }),
+                  });
+                  track("Clone Feature Rule", {
+                    ruleIndex: i,
+                    environment,
+                    type: rule.type,
                   });
                   mutate();
                 }}
@@ -174,17 +174,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   track("Delete Feature Rule", {
                     ruleIndex: i,
                     environment,
-                    type: rules[i].type,
+                    type: rule.type,
                   });
-                  const newRules = [...rules];
-                  newRules.splice(i, 1);
-                  await apiCall(`/feature/${feature.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify(
-                      getEnvironmentUpdates(feature, environment, {
-                        rules: newRules,
-                      })
-                    ),
+                  await apiCall(`/feature/${feature.id}/rule`, {
+                    method: "DELETE",
+                    body: JSON.stringify({
+                      environment,
+                      i,
+                    }),
                   });
                   mutate();
                 }}

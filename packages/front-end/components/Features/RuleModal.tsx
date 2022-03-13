@@ -7,7 +7,6 @@ import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
-  getEnvironmentUpdates,
   getRules,
   useAttributeSchema,
   validateFeatureRule,
@@ -65,27 +64,27 @@ export default function RuleModal({
       header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
+        const rule = values as FeatureRule;
 
         try {
-          const newRules = [...rules];
-          newRules[i] = values as FeatureRule;
-
-          validateFeatureRule(newRules[i], feature.valueType);
+          validateFeatureRule(rule, feature.valueType);
 
           track("Save Feature Rule", {
             source: ruleAction,
             ruleIndex: i,
             environment,
             type: values.type,
-            hasCondition: values.condition.length > 2,
-            hasDescription: values.description.length > 0,
+            hasCondition: rule.condition.length > 2,
+            hasDescription: rule.description.length > 0,
           });
 
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
-            body: JSON.stringify(
-              getEnvironmentUpdates(feature, environment, { rules: newRules })
-            ),
+          await apiCall(`/feature/${feature.id}/rule`, {
+            method: i === rules.length ? "POST" : "PUT",
+            body: JSON.stringify({
+              rule,
+              environment,
+              i,
+            }),
           });
           mutate();
         } catch (e) {
@@ -93,9 +92,9 @@ export default function RuleModal({
             source: ruleAction,
             ruleIndex: i,
             environment,
-            type: values.type,
-            hasCondition: values.condition.length > 2,
-            hasDescription: values.description.length > 0,
+            type: rule.type,
+            hasCondition: rule.condition.length > 2,
+            hasDescription: rule.description.length > 0,
             error: e.message,
           });
 

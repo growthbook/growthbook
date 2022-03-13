@@ -1,18 +1,23 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
-import { FeatureInterface } from "../../types/feature";
+import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
+  addFeatureRule,
   createFeature,
   deleteFeature,
+  editFeatureEnvironment,
+  editFeatureRule,
   getAllFeatures,
   getFeature,
+  toggleFeatureEnvironment,
   updateFeature,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import {
   addIdsToRules,
+  arrayMove,
   featureUpdated,
   getEnabledEnvironments,
   getFeatureDefinitions,
@@ -107,12 +112,133 @@ export async function postFeatures(
   await createFeature(feature);
 
   featureUpdated(feature);
-
   res.status(200).json({
     status: 200,
     feature,
   });
 }
+
+export async function postFeatureRule(
+  req: AuthRequest<
+    { rule: Partial<FeatureRule>; environment: string },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { environment, rule } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await addFeatureRule(feature, environment, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putFeatureRule(
+  req: AuthRequest<
+    { rule: Partial<FeatureRule>; environment: string; i: number },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { environment, rule, i } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await editFeatureRule(feature, environment, i, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureToggle(
+  req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { environment, state } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await toggleFeatureEnvironment(feature, environment, state);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureMoveRule(
+  req: AuthRequest<
+    { environment: string; from: number; to: number },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { environment, from, to } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
+  if (!rules[from] || !rules[to]) {
+    throw new Error("Invalid rule index");
+  }
+
+  const newRules = arrayMove(rules, from, to);
+
+  await editFeatureEnvironment(feature, environment, { rules: newRules });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteFeatureRule(
+  req: AuthRequest<{ environment: string; i: number }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { environment, i } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
+
+  const newRules = rules.slice();
+  newRules.splice(i, 1);
+
+  await editFeatureEnvironment(feature, environment, { rules: newRules });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response

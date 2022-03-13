@@ -1,6 +1,12 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
-import { FeatureInterface } from "../../types/feature";
+import {
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureRule,
+} from "../../types/feature";
+import { featureUpdated, generateRuleId } from "../services/features";
+import cloneDeep from "lodash/cloneDeep";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -105,4 +111,136 @@ export async function updateFeature(
       $set: updates,
     }
   );
+}
+
+function setEnvironmentSettings(
+  feature: FeatureInterface,
+  environment: string,
+  settings: Partial<FeatureEnvironment>
+) {
+  const newFeature = cloneDeep(feature);
+
+  newFeature.environmentSettings = newFeature.environmentSettings || {};
+  newFeature.environmentSettings[environment] = newFeature.environmentSettings[
+    environment
+  ] || { enabled: false, rules: [] };
+
+  newFeature.environmentSettings[environment] = {
+    ...newFeature.environmentSettings[environment],
+    ...settings,
+  };
+
+  return newFeature;
+}
+
+export async function toggleFeatureEnvironment(
+  feature: FeatureInterface,
+  environment: string,
+  state: boolean
+) {
+  const currentState =
+    feature.environmentSettings?.[environment]?.enabled ?? false;
+
+  if (currentState === state) return;
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        [`environmentSettings.${environment}.enabled`]: state,
+      },
+    }
+  );
+
+  featureUpdated(
+    setEnvironmentSettings(feature, environment, { enabled: state }),
+    currentState ? [environment] : []
+  );
+}
+
+export async function addFeatureRule(
+  feature: FeatureInterface,
+  environment: string,
+  rule: Partial<FeatureRule>
+) {
+  if (!rule.id) {
+    rule.id = generateRuleId();
+  }
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+      },
+      $push: {
+        [`environmentSettings.${environment}.rules`]: rule,
+      },
+    }
+  );
+
+  featureUpdated(feature);
+}
+
+export async function editFeatureRule(
+  feature: FeatureInterface,
+  environment: string,
+  i: number,
+  updates: Partial<FeatureRule>
+) {
+  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
+
+  if (!rules[i]) {
+    throw new Error("Unknown rule");
+  }
+
+  // eslint-disable-next-line
+  const sets: Record<string, any> = {dateUpdated: new Date()};
+
+  Object.keys(updates).forEach((key: keyof FeatureRule) => {
+    sets[`environmentSettings.${environment}.rules.${i}.${key}`] = updates[key];
+  });
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: sets,
+    }
+  );
+
+  featureUpdated(feature);
+}
+
+export async function editFeatureEnvironment(
+  feature: FeatureInterface,
+  environment: string,
+  updates: Partial<FeatureEnvironment>
+) {
+  // eslint-disable-next-line
+  const sets: Record<string, any> = {dateUpdated: new Date()};
+  Object.keys(updates).forEach((key: keyof FeatureEnvironment) => {
+    sets[`environmentSettings.${environment}.${key}`] = updates[key];
+  });
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: sets,
+    }
+  );
+
+  featureUpdated(feature);
 }
