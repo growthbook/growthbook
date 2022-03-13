@@ -4,6 +4,7 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  LegacyFeatureInterface,
 } from "../../types/feature";
 import { featureUpdated, generateRuleId } from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
@@ -46,28 +47,29 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
-type FeatureDocument = mongoose.Document & FeatureInterface;
+type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
-function upgradeFeatureInterface(feature: FeatureInterface): FeatureInterface {
-  if (!feature.environmentSettings) {
-    feature.environmentSettings = {
+function upgradeFeatureInterface(
+  feature: LegacyFeatureInterface
+): FeatureInterface {
+  const { environments, rules, ...newFeature } = feature;
+
+  if (!newFeature.environmentSettings) {
+    newFeature.environmentSettings = {
       dev: {
-        enabled: feature.environments?.includes("dev") || false,
-        rules: feature.rules || [],
+        enabled: environments?.includes("dev") || false,
+        rules: rules || [],
       },
       production: {
-        enabled: feature.environments?.includes("production") || false,
-        rules: feature.rules || [],
+        enabled: environments?.includes("production") || false,
+        rules: rules || [],
       },
     };
   }
 
-  // delete feature.environments
-  // delete feature.rules
-
-  return feature;
+  return newFeature;
 }
 
 export async function getAllFeatures(

@@ -7,6 +7,13 @@ export interface FeatureEnvironment {
   rules: FeatureRule[];
 }
 
+export type LegacyFeatureInterface = FeatureInterface & {
+  /** @deprecated */
+  environments?: string[];
+  /** @deprecated */
+  rules?: FeatureRule[];
+};
+
 export interface FeatureInterface {
   id: string;
   description?: string;
@@ -15,11 +22,7 @@ export interface FeatureInterface {
   dateCreated: Date;
   dateUpdated: Date;
   valueType: FeatureValueType;
-  /** @deprecated */
-  environments?: string[];
   defaultValue: string;
-  /** @deprecated */
-  rules?: FeatureRule[];
   environmentSettings?: Record<string, FeatureEnvironment>;
 }
 
