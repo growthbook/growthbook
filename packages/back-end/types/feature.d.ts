@@ -13,6 +13,7 @@ export interface FeatureInterface {
   environments: string[];
   defaultValue: string;
   rules?: FeatureRule[];
+  tags?: string[];
 }
 
 export interface BaseRule {

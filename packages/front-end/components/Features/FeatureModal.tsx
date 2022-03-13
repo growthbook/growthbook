@@ -20,6 +20,7 @@ import {
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
+import TagsInput from "../TagsInput";
 
 export type Props = {
   close: () => void;
@@ -48,7 +49,7 @@ function parseDefaultValue(
 }
 
 export default function FeatureModal({ close, existing, onSuccess }: Props) {
-  const { project } = useDefinitions();
+  const { project, refreshTags } = useDefinitions();
   const form = useForm<Partial<FeatureInterface>>({
     defaultValues: {
       valueType: existing?.valueType || "boolean",
@@ -58,6 +59,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
       description: existing?.description || "",
       id: existing?.id || "",
       project: existing?.project ?? project,
+      tags: existing?.tags || [],
       environments: ["dev"],
       rules: [],
     },
@@ -123,6 +125,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             });
           }
         }
+        refreshTags(values.tags);
 
         await onSuccess(res.feature);
       })}
@@ -145,7 +148,13 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           }
         />
       )}
-
+      <div className="form-group">
+        <label>Tags</label>
+        <TagsInput
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+      </div>
       <label>Enabled Environments</label>
       <div className="row">
         <div className="col-auto">

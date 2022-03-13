@@ -6,7 +6,7 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import useApi from "../../hooks/useApi";
-import { useState } from "react";
+import React, { useState } from "react";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
@@ -21,6 +21,7 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
+import EditTagsForm from "../../components/Experiment/EditTagsForm";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function FeaturePage() {
   const [ruleDefaultType, setRuleDefaultType] = useState<string>("");
   const [ruleModal, setRuleModal] = useState<number | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
+  const [editTagsModal, setEditTagsModal] = useState(false);
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -94,6 +96,13 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           current={data.feature.project}
         />
       )}
+      {editTagsModal && (
+        <EditTagsForm
+          feature={data.feature}
+          cancel={() => setEditTagsModal(false)}
+          mutate={mutate}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -122,8 +131,9 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       </div>
 
       <h1>{fid}</h1>
-      {projects.length > 0 && (
-        <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+
+      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+        {projects.length > 0 && (
           <div className="col-auto">
             Project:{" "}
             {data.feature.project ? (
@@ -140,8 +150,26 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <GBEdit />
             </a>
           </div>
+        )}
+
+        <div className="col-auto">
+          Tags:{" "}
+          {data.feature?.tags?.map((tag, i) => {
+            return (
+              <span className={`badge badge-primary mr-2`} key={i}>
+                {tag}
+              </span>
+            );
+          })}
+          <a
+            className="ml-2 cursor-pointer"
+            onClick={() => setEditTagsModal(true)}
+          >
+            <GBEdit />
+          </a>
         </div>
-      )}
+      </div>
+
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
