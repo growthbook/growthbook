@@ -35,8 +35,8 @@ GrowthBook also supports different environments, so you can, for example, have a
 
 You can also change the value of a feature with **Override Rules**. The following types of rules are supported:
 
-- **Targeted** - Choose a subset of users based on targeting attributes
-- **Percentage Rollout** - Use random sampling to pick a certain percent of users
+- **Targeted** - Choose a subset of users based on targeting attributes and assign them all the same value
+- **Percentage Rollout** - Use random sampling to roll out a new feature value to a percent of users
 - **A/B Experiment** - Run an A/B test between different feature values
 
 You can pull feature definitions as a JSON file from the [API](/app/api) or setup a [Webhook](/app/webhooks) to push the same JSON to your servers automatically when something changes.
@@ -80,7 +80,7 @@ This is best for companies that are either just starting with experimentation or
 
 In this use case, companies don't run experiments at all and just use GrowthBook feature flags within their engineering team.
 
-This is best for companies that don't have enough traffic to run full experiments, but still want all of the benefits that feature flags provide.
+This is best for companies that don't have enough traffic to run full experiments, but still want all of the benefits that feature flags provide. It's also good for companies that know they will want to run experiments in the future and want to start instrumenting their applications today to get ready.
 
 ### 3. Experiment Analysis Only
 
