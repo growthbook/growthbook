@@ -104,7 +104,8 @@ export function validateFeatureRule(
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
       if (val.weight < 0) throw new Error("Percents cannot be negative");
-      totalWeight += val.weight;
+      // without this rounding here, JS floating point messes up simple addition.
+      totalWeight = Math.round((val.weight + totalWeight) * 100000) / 100000;
       isValidValue(valueType, val.value, "Value #" + (i + 1));
     });
     if (totalWeight > 1) {
