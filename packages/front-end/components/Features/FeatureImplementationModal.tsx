@@ -184,7 +184,7 @@ echo $value;`,
                   Read the{" "}
                   <a href={o.docs} target="_blank" rel="noopener noreferrer">
                     {o.display} SDK docs
-                  </a>
+                  </a>{" "}
                   or view the{" "}
                   <a
                     href="#"
