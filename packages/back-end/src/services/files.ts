@@ -54,7 +54,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     svg: "text/svg",
   };
 
-  if (!mimetypes[ext]) {
+  if (!mimetypes[ext.toLowerCase()]) {
     throw new Error(
       `Invalid image file type. Only ${Object.keys(mimetypes).join(
         ", "
