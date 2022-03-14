@@ -21,7 +21,6 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import { useFeaturesList } from "../../services/features";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 
 export default function FeaturePage() {
@@ -43,9 +42,7 @@ export default function FeaturePage() {
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
 
-  const { features } = useFeaturesList();
-
-  const firstFeature = features?.length === 0;
+  const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const usage = useMemo(() => {
@@ -141,7 +138,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 router.push("/features");
               }}
               className="dropdown-item"
-              text="delete feature"
+              text="Delete feature"
             />
           </MoreMenu>
         </div>

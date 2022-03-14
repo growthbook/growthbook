@@ -78,7 +78,10 @@ export default function FeaturesPage() {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
+            const url = `/features/${feature.id}${
+              features.length > 0 ? "" : "?first"
+            }`;
+            router.push(url);
             mutate({
               features: [...features, feature],
             });

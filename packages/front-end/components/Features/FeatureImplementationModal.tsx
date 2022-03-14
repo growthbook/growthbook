@@ -32,8 +32,10 @@ export default function FeatureImplementationModal({
       id: "react",
       display: "React",
       language: "tsx",
-      boolean: `import { useFeature } from "@growthbook/growthbook-react";
+      boolean: `import { useFeature, IfFeatureEnabled } from "@growthbook/growthbook-react";
+
 //...
+
 <IfFeatureEnabled feature=${JSON.stringify(feature.id)}>
   <p>Welcome to our site!</p>
 </IfFeatureEnabled>
@@ -89,10 +91,10 @@ console.log(growthbook.getFeatureValue(${JSON.stringify(
       boolean: `if gb.Feature(${JSON.stringify(feature.id)}).On {
   // serve the feature
 }`,
-      value: `color := gb.Feature(${JSON.stringify(
+      value: `value := gb.Feature(${JSON.stringify(
         feature.id
-      )}).GetValueWithDefault("blue")
-fmt.Println(color)`,
+      )}).GetValueWithDefault("default value")
+fmt.Println(value)`,
       docs: "https://docs.growthbook.io/lib/go",
     },
 
@@ -118,11 +120,11 @@ println(feature.value)
 } else {
   echo "It's off :(";
 }`,
-      value: `$color = $growthbook->getValue(${JSON.stringify(
+      value: `$value = $growthbook->getValue(${JSON.stringify(
         feature.id
-      )}, "blue");
+      )}, "default value");
 
-echo "<button style="color:\${color}">Click Me!</button>";`,
+echo $value;`,
       docs: "https://docs.growthbook.io/lib/php",
     },
 
@@ -181,7 +183,7 @@ echo "<button style="color:\${color}">Click Me!</button>";`,
                 <p>
                   Read the{" "}
                   <a href={o.docs} target="_blank" rel="noopener noreferrer">
-                    {o.id} SDK docs
+                    {o.display} SDK docs
                   </a>
                   or view the{" "}
                   <a
@@ -191,7 +193,7 @@ echo "<button style="color:\${color}">Click Me!</button>";`,
                       setFullSnippet(true);
                     }}
                   >
-                    full implementation guide
+                    full implementation example
                   </a>
                   .
                 </p>
