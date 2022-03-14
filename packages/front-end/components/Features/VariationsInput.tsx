@@ -19,17 +19,17 @@ export interface Props {
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.34, 0.33, 0.33]
 function getEqualWeights(n: number): number[] {
-  const w = Math.round(100 / n) / 100;
+  const w = Math.round(1000 / n) / 1000;
   const diff = w * n - 1;
-  const nDiffs = Math.round(Math.abs(diff) * 100);
+  const nDiffs = Math.round(Math.abs(diff) * 1000);
   return Array(n)
     .fill(0)
     .map((v, i) => {
       const j = n - i - 1;
       let d = 0;
-      if (diff < 0 && i < nDiffs) d = 0.01;
-      else if (diff > 0 && j < nDiffs) d = -0.01;
-      return +(w + d).toFixed(2);
+      if (diff < 0 && i < nDiffs) d = 0.001;
+      else if (diff > 0 && j < nDiffs) d = -0.001;
+      return +(w + d).toFixed(3);
     });
 }
 
@@ -87,7 +87,7 @@ export default function VariationsInput({
                         type="number"
                         min={0}
                         max={1}
-                        step="0.01"
+                        step="any"
                       />
                     </div>
                     {values.fields.length > 2 && (
