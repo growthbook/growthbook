@@ -51,21 +51,39 @@ type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
+function updateEnvironmentSettings(
+  rules: FeatureRule[],
+  environments: string[],
+  environment: string,
+  feature: FeatureInterface
+) {
+  feature.environmentSettings = feature.environmentSettings || {};
+  feature.environmentSettings[environment] =
+    feature.environmentSettings[environment] || {};
+
+  const settings = feature.environmentSettings[environment];
+
+  if (!("rules" in settings)) {
+    feature.environmentSettings[environment].rules = rules;
+  }
+  if (!("enabled" in settings)) {
+    feature.environmentSettings[environment].enabled =
+      environments?.includes(environment) || false;
+  }
+}
+
 function upgradeFeatureInterface(
   feature: LegacyFeatureInterface
 ): FeatureInterface {
   const { environments, rules, ...newFeature } = feature;
 
-  newFeature.environmentSettings = newFeature.environmentSettings || {};
-  newFeature.environmentSettings.dev = newFeature.environmentSettings.dev || {
-    enabled: environments?.includes("dev") || false,
-    rules: rules || [],
-  };
-  newFeature.environmentSettings.production = newFeature.environmentSettings
-    .production || {
-    enabled: environments?.includes("production") || false,
-    rules: rules || [],
-  };
+  updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
+  updateEnvironmentSettings(
+    rules || [],
+    environments || [],
+    "production",
+    newFeature
+  );
 
   return newFeature;
 }
