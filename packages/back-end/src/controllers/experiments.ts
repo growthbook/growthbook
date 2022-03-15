@@ -308,8 +308,8 @@ export async function getNewFeatures(req: AuthRequest, res: Response) {
   const newFeatures = new Map();
   // a feature can have multiple experiments.
   projectFeatures.forEach((f) => {
-    if (f?.rules && f?.rules.length > 0) {
-      f.rules.forEach((r) => {
+    Object.values(f.environmentSettings || {}).forEach((e) => {
+      e.rules.forEach((r) => {
         if (r.type === "experiment") {
           const tKey = r.trackingKey || f.id;
           if (!expMap.get(tKey)) {
@@ -326,7 +326,7 @@ export async function getNewFeatures(req: AuthRequest, res: Response) {
           }
         }
       });
-    }
+    });
   });
 
   res.status(200).json({

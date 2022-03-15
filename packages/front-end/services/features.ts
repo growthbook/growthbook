@@ -17,6 +17,7 @@ import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export interface Condition {
   field: string;
@@ -32,6 +33,12 @@ export interface AttributeData {
   enum: string[];
 }
 
+export function useEnvironment() {
+  return useLocalStorage("currentEnvironment", "dev");
+}
+export function getRules(feature: FeatureInterface, environment: string) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }

@@ -1,7 +1,12 @@
 import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
-import { FeatureInterface, FeatureValueType } from "../../types/feature";
+import {
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureValueType,
+} from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
+import uniqid from "uniqid";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -38,14 +43,16 @@ function getJSONValue(type: FeatureValueType, value: string): any {
 }
 export async function getFeatureDefinitions(
   organization: string,
-  environment?: string,
+  environment: string = "production",
   project?: string
 ) {
   const features = await getAllFeatures(organization, project);
 
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
-    if (environment && !feature.environments?.includes(environment)) {
+    const settings = feature.environmentSettings?.[environment];
+
+    if (!settings || !settings.enabled) {
       defs[feature.id] = { defaultValue: null };
       return;
     }
@@ -53,7 +60,7 @@ export async function getFeatureDefinitions(
     defs[feature.id] = {
       defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:
-        feature.rules
+        settings.rules
           ?.filter((r) => r.enabled)
           ?.map((r) => {
             const rule: FeatureDefinitionRule = {};
@@ -114,16 +121,57 @@ export async function getFeatureDefinitions(
   return defs;
 }
 
+export function getEnabledEnvironments(feature: FeatureInterface) {
+  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    return !!feature.environmentSettings?.[env]?.enabled;
+  });
+}
+
+export function generateRuleId() {
+  return uniqid("fr_");
+}
+
+export function addIdsToRules(
+  environmentSettings: Record<string, FeatureEnvironment> = {},
+  featureId: string
+) {
+  Object.values(environmentSettings).forEach((env) => {
+    if (env.rules && env.rules.length) {
+      env.rules.forEach((r) => {
+        if (r.type === "experiment" && !r?.trackingKey) {
+          r.trackingKey = featureId;
+        }
+        if (!r.id) {
+          r.id = generateRuleId();
+        }
+      });
+    }
+  });
+}
+
 export async function featureUpdated(
   feature: FeatureInterface,
   previousEnvironments: string[] = [],
   previousProject: string = ""
 ) {
+  const currentEnvironments = getEnabledEnvironments(feature);
+
   // fire the webhook:
   await queueWebhook(
     feature.organization,
-    [...feature.environments, ...previousEnvironments],
+    [...currentEnvironments, ...previousEnvironments],
     [previousProject || "", feature.project || ""],
     true
   );
+}
+
+// eslint-disable-next-line
+export function arrayMove(array: Array<any>, from: number, to: number) {
+  const newArray = array.slice();
+  newArray.splice(
+    to < 0 ? newArray.length + to : to,
+    0,
+    newArray.splice(from, 1)[0]
+  );
+  return newArray;
 }

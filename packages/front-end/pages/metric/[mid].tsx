@@ -587,11 +587,7 @@ const MetricPage: FC = () => {
               <p>The most recent 10 experiments using this metric.</p>
               <div className="list-group">
                 {experiments.map((e) => (
-                  <Link
-                    href="/experiment/[eid]"
-                    as={`/experiment/${e.id}`}
-                    key={e.id}
-                  >
+                  <Link href={`/experiment/${e.id}`} key={e.id}>
                     <a className="list-group-item list-group-item-action">
                       <div className="d-flex">
                         <strong className="mr-3">{e.name}</strong>

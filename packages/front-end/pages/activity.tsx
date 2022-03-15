@@ -49,10 +49,7 @@ const Activity: FC = () => {
             <div>
               <Avatar email={event.user.email} className="mr-2" />
             </div>
-            <Link
-              href="/experiment/[eid]"
-              as={`/experiment/${event.entity.id}`}
-            >
+            <Link href={`/experiment/${event.entity.id}`}>
               <a className="list-group-item list-group-item-action">
                 <div className="d-flex w-100">
                   <div className="mb-1">

@@ -21,6 +21,9 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
+import ControlledTabs from "../../components/Tabs/ControlledTabs";
+import { getRules, useEnvironment } from "../../services/features";
+import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 
 export default function FeaturePage() {
@@ -29,8 +32,13 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
-  const [ruleDefaultType, setRuleDefaultType] = useState<string>("");
-  const [ruleModal, setRuleModal] = useState<number | null>(null);
+  const [env, setEnv] = useEnvironment();
+
+  const [ruleModal, setRuleModal] = useState<{
+    i: number;
+    environment: string;
+    defaultType?: string;
+  } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
 
   const { getProjectById, projects } = useDefinitions();
@@ -84,9 +92,10 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <RuleModal
           feature={data.feature}
           close={() => setRuleModal(null)}
-          i={ruleModal}
+          i={ruleModal.i}
+          environment={ruleModal.environment}
           mutate={mutate}
-          defaultType={ruleDefaultType}
+          defaultType={ruleModal.defaultType || ""}
         />
       )}
       {editProjectModal && (
@@ -216,12 +225,13 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         </div>
         <div>
           In a disabled environment, the feature will always evaluate to{" "}
-          <code>null</code> and all override rules will be ignored.
+          <code>null</code>. The default value and override rules will be
+          ignored.
         </div>
       </div>
 
       <h3>
-        When Enabled
+        Default Value
         <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
           <GBEdit />
         </a>
@@ -246,23 +256,47 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <h3>Override Rules</h3>
       <p>
-        Add powerful logic on top of your feature.{" "}
-        {data.feature.rules?.length > 1 && "First matching rule applies."}
+        Add powerful logic on top of your feature. The first matching rule
+        applies and overrides the default value.
       </p>
 
-      {data.feature.rules?.length > 0 && (
-        <>
-          <div className="appbox mb-4">
-            <RuleList
-              feature={data.feature}
-              experiments={data.experiments || {}}
-              mutate={mutate}
-              setRuleModal={setRuleModal}
-            />
-          </div>
-          <h4>Add more</h4>
-        </>
-      )}
+      <ControlledTabs
+        setActive={setEnv}
+        active={env}
+        showActiveCount={true}
+        newStyle={false}
+        buttonsClassName="px-3 py-2 h4"
+      >
+        {Object.keys(data.feature.environmentSettings).map((e) => {
+          const rules = getRules(data.feature, e);
+          return (
+            <Tab
+              key={e}
+              id={e}
+              display={e}
+              count={rules.length}
+              padding={false}
+            >
+              <div className="appbox mb-4 border-top-0">
+                {rules.length > 0 ? (
+                  <RuleList
+                    environment={e}
+                    feature={data.feature}
+                    experiments={data.experiments || {}}
+                    mutate={mutate}
+                    setRuleModal={setRuleModal}
+                  />
+                ) : (
+                  <div className="p-3">
+                    <em>No override rules for this environment yet</em>
+                  </div>
+                )}
+              </div>
+            </Tab>
+          );
+        })}
+      </ControlledTabs>
+
       <div className="row">
         <div className="col mb-3">
           <div
@@ -276,8 +310,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("force");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "force",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "force",
@@ -304,8 +341,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("rollout");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "rollout",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "rollout",
@@ -332,8 +372,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("experiment");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "experiment",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "experiment",
