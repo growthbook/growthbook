@@ -17,15 +17,13 @@ import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
 import {
-  useEnvironment,
+  getRules,
   useFeaturesList,
   useRealtimeData,
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
 import { useEffect } from "react";
-import TabButtons from "../../components/Tabs/TabButtons";
-import TabButton from "../../components/Tabs/TabButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -33,7 +31,6 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
-  const [env, setEnv] = useEnvironment();
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -85,7 +82,10 @@ export default function FeaturesPage() {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
+            const url = `/features/${feature.id}${
+              features.length > 0 ? "" : "?first"
+            }`;
+            router.push(url);
             mutate({
               features: [...features, feature],
             });
@@ -160,24 +160,7 @@ export default function FeaturesPage() {
 
       {features.length > 0 && (
         <div>
-          <div className="row align-items-center mb-3">
-            <div className="col-auto mr-4">
-              <TabButtons newStyle={true} className="mb-0">
-                <TabButton
-                  display="dev"
-                  active={env === "dev"}
-                  onClick={() => setEnv("dev")}
-                  newStyle={true}
-                />
-                <TabButton
-                  display="production"
-                  active={env === "production"}
-                  onClick={() => setEnv("production")}
-                  last={true}
-                  newStyle={true}
-                />
-              </TabButtons>
-            </div>
+          <div className="row mb-2">
             <div className="col-auto">
               <Field placeholder="Filter list..." {...searchInputProps} />
             </div>
@@ -186,8 +169,9 @@ export default function FeaturesPage() {
             <thead>
               <tr>
                 <th>Feature Key</th>
-                <th>{env}</th>
-                <th>Default Value</th>
+                <th>Dev</th>
+                <th>Prod</th>
+                <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <th>Last Updated</th>
                 {showGraphs && (
@@ -200,11 +184,20 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {sorted.slice(start, end).map((feature) => {
-                const envSettings = feature.environmentSettings?.[env];
-                const envRules = envSettings?.rules;
+                const rules = [
+                  ...getRules(feature, "dev"),
+                  ...getRules(feature, "production"),
+                ];
 
-                const firstRule = envRules?.[0];
-                const totalRules = envRules?.length || 0;
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
 
                 return (
                   <tr key={feature.id}>
@@ -216,7 +209,14 @@ export default function FeaturesPage() {
                     <td className="position-relative">
                       <EnvironmentToggle
                         feature={feature}
-                        environment={env}
+                        environment="dev"
+                        mutate={mutate}
+                      />
+                    </td>
+                    <td className="position-relative">
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment="production"
                         mutate={mutate}
                       />
                     </td>
