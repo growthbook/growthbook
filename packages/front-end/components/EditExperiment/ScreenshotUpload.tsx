@@ -30,26 +30,31 @@ const ScreenshotUpload = ({
     setLoading(loading + files.length);
 
     files.forEach(async (file) => {
-      const { fileURL } = await uploadFile(apiCall, file);
+      try {
+        const { fileURL } = await uploadFile(apiCall, file);
 
-      await apiCall(
-        `/experiment/${experiment}/variation/${variation}/screenshot`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            url: fileURL,
-            // TODO: allow customizing description
-            description: "",
-          }),
-        }
-      );
+        await apiCall(
+          `/experiment/${experiment}/variation/${variation}/screenshot`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              url: fileURL,
+              // TODO: allow customizing description
+              description: "",
+            }),
+          }
+        );
 
-      setLoading(loading - 1);
+        setLoading(loading - 1);
 
-      onSuccess(variation, {
-        path: fileURL,
-        description: "",
-      });
+        onSuccess(variation, {
+          path: fileURL,
+          description: "",
+        });
+      } catch (e) {
+        alert(e.message);
+        setLoading(loading - 1);
+      }
     });
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });

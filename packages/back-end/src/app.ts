@@ -235,6 +235,17 @@ app.get(
   }),
   featuresController.getFeaturesPublic
 );
+// For preflight requests
+app.options(
+  "/api/features/:key",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  function (req, res) {
+    res.send(200);
+  }
+);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];

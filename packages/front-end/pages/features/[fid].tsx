@@ -24,6 +24,7 @@ import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import { getRules, useEnvironment } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
+import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -48,6 +49,9 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
+
+  const firstFeature = "first" in router?.query;
+  const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const usage = useMemo(() => {
     if (!data?.feature) return "";
@@ -103,6 +107,15 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           current={data.feature.project}
         />
       )}
+      {showImplementation && (
+        <FeatureImplementationModal
+          feature={data.feature}
+          first={firstFeature}
+          close={() => {
+            setShowImplementation(false);
+          }}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -114,6 +127,16 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
+            <a
+              className="dropdown-item"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowImplementation(true);
+              }}
+            >
+              Show implementation
+            </a>
             <DeleteButton
               useIcon={false}
               displayName="Feature"
@@ -124,7 +147,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 router.push("/features");
               }}
               className="dropdown-item"
-              text="delete feature"
+              text="Delete feature"
             />
           </MoreMenu>
         </div>

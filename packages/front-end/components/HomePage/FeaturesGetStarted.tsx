@@ -35,7 +35,10 @@ export default function FeaturesGetStarted({ features }: Props) {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            await router.push(`/features/${feature.id}`);
+            const url = `/features/${feature.id}${
+              features.length > 0 ? "" : "?first"
+            }`;
+            await router.push(url);
           }}
         />
       )}
