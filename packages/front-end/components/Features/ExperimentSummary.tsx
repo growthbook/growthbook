@@ -10,7 +10,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import { getExperimentDefinitionFromFeature } from "../../services/features";
+import {
+  getExperimentDefinitionFromFeature,
+  getTotalVariationWeight,
+} from "../../services/features";
 import Modal from "../Modal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -35,7 +38,7 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
   expRule: ExperimentRule;
 }) {
-  const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
+  const totalPercent = getTotalVariationWeight(values.map((v) => v.weight));
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
@@ -138,7 +141,7 @@ export default function ExperimentSummary({
               </td>
             </tr>
           ))}
-          {totalPercent < 1 && (
+          {totalPercent < 0.999 && (
             <tr>
               <td colSpan={2}>
                 <em className="text-muted">unallocated, skip rule</em>
