@@ -70,6 +70,11 @@ function updateEnvironmentSettings(
     feature.environmentSettings[environment].enabled =
       environments?.includes(environment) || false;
   }
+
+  // If Rules is an object instead of array, fix it
+  if (!Array.isArray(settings.rules)) {
+    settings.rules = Object.values(settings.rules);
+  }
 }
 
 function upgradeFeatureInterface(
@@ -180,31 +185,22 @@ export async function toggleFeatureEnvironment(
   );
 }
 
+function getRules(feature: FeatureInterface, environment: string) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+
 export async function addFeatureRule(
   feature: FeatureInterface,
   environment: string,
-  rule: Partial<FeatureRule>
+  rule: FeatureRule
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
 
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-      },
-      $push: {
-        [`environmentSettings.${environment}.rules`]: rule,
-      },
-    }
-  );
-
-  featureUpdated(feature);
+  await editFeatureEnvironment(feature, environment, {
+    rules: [...getRules(feature, environment), rule],
+  });
 }
 
 export async function editFeatureRule(
@@ -213,30 +209,19 @@ export async function editFeatureRule(
   i: number,
   updates: Partial<FeatureRule>
 ) {
-  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
-
+  const rules = getRules(feature, environment);
   if (!rules[i]) {
     throw new Error("Unknown rule");
   }
 
-  // eslint-disable-next-line
-  const sets: Record<string, any> = {dateUpdated: new Date()};
+  rules[i] = {
+    ...rules[i],
+    ...updates,
+  } as FeatureRule;
 
-  Object.keys(updates).forEach((key: keyof FeatureRule) => {
-    sets[`environmentSettings.${environment}.rules.${i}.${key}`] = updates[key];
+  await editFeatureEnvironment(feature, environment, {
+    rules,
   });
-
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: sets,
-    }
-  );
-
-  featureUpdated(feature);
 }
 
 export async function editFeatureEnvironment(

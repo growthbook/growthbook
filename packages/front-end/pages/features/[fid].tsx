@@ -267,7 +267,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         newStyle={false}
         buttonsClassName="px-3 py-2 h4"
       >
-        {Object.keys(data.feature.environmentSettings).map((e) => {
+        {["dev", "production"].map((e) => {
           const rules = getRules(data.feature, e);
           return (
             <Tab

@@ -119,10 +119,7 @@ export async function postFeatures(
 }
 
 export async function postFeatureRule(
-  req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string },
-    { id: string }
-  >,
+  req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
