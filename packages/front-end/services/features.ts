@@ -111,6 +111,7 @@ export function validateFeatureRule(
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
       if (val.weight < 0) throw new Error("Percents cannot be negative");
+      val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
       isValidValue(valueType, val.value, "Value #" + (i + 1));
     });

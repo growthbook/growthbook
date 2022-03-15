@@ -141,7 +141,7 @@ export default function ExperimentSummary({
               </td>
             </tr>
           ))}
-          {totalPercent < 0.9999 && (
+          {totalPercent < 0.999 && (
             <tr>
               <td colSpan={2}>
                 <em className="text-muted">unallocated, skip rule</em>

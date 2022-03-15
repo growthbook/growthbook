@@ -87,7 +87,7 @@ export default function VariationsInput({
                         type="number"
                         min={0}
                         max={1}
-                        step="any"
+                        step=".001"
                       />
                     </div>
                     {values.fields.length > 2 && (

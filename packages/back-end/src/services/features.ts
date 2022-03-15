@@ -79,7 +79,7 @@ export async function getFeatureDefinitions(
               const totalWeight = getTotalVariationWeight(weights);
               if (totalWeight <= 0) {
                 rule.coverage = 0;
-              } else if (totalWeight < 0.9999) {
+              } else if (totalWeight < 0.999) {
                 rule.coverage = totalWeight;
               }
 
