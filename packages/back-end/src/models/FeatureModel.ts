@@ -56,18 +56,16 @@ function upgradeFeatureInterface(
 ): FeatureInterface {
   const { environments, rules, ...newFeature } = feature;
 
-  if (!newFeature.environmentSettings) {
-    newFeature.environmentSettings = {
-      dev: {
-        enabled: environments?.includes("dev") || false,
-        rules: rules || [],
-      },
-      production: {
-        enabled: environments?.includes("production") || false,
-        rules: rules || [],
-      },
-    };
-  }
+  newFeature.environmentSettings = newFeature.environmentSettings || {};
+  newFeature.environmentSettings.dev = newFeature.environmentSettings.dev || {
+    enabled: environments?.includes("dev") || false,
+    rules: rules || [],
+  };
+  newFeature.environmentSettings.production = newFeature.environmentSettings
+    .production || {
+    enabled: environments?.includes("production") || false,
+    rules: rules || [],
+  };
 
   return newFeature;
 }

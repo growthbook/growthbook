@@ -309,7 +309,7 @@ export async function getNewFeatures(req: AuthRequest, res: Response) {
   // a feature can have multiple experiments.
   projectFeatures.forEach((f) => {
     Object.values(f.environmentSettings || {}).forEach((e) => {
-      e.rules.forEach((r) => {
+      (e.rules || []).forEach((r) => {
         if (r.type === "experiment") {
           const tKey = r.trackingKey || f.id;
           if (!expMap.get(tKey)) {
