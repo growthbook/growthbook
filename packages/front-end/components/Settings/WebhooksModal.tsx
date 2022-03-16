@@ -40,6 +40,26 @@ const WebhooksModal: FC<{
     onSave();
   });
 
+  const envOptions = [
+    {
+      display: "Production only",
+      value: "production",
+    },
+    {
+      display: "Dev only",
+      value: "dev",
+    },
+  ];
+
+  // New webhooks must select a single environment
+  // Add the option to select both only when required for backwards compatibility
+  if (current && current.environment === "") {
+    envOptions.push({
+      display: "Both Dev and Production",
+      value: "",
+    });
+  }
+
   return (
     <Modal
       close={close}
@@ -91,20 +111,7 @@ const WebhooksModal: FC<{
       <h4>Webhook Filter</h4>
       <Field
         label="Environment"
-        options={[
-          {
-            display: "Production only",
-            value: "production",
-          },
-          {
-            display: "Dev only",
-            value: "dev",
-          },
-          {
-            display: "Both Dev and Production",
-            value: "",
-          },
-        ]}
+        options={envOptions}
         {...form.register("environment")}
       />
       {projects.length > 0 && (

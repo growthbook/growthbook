@@ -19,19 +19,36 @@ npm install --save @growthbook/growthbook-react
 ### Step 1: Configure your app
 
 ```tsx
+import { useEffect } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
-const growthbook = new GrowthBook();
-
-// Load feature definitions (from API, database, etc.)
-await fetch("https://s3.amazonaws.com/myBucket/features.json")
-  .then((res) => res.json())
-  .then((parsed) => {
-    growthbook.setFeatures(parsed);
-  });
+const growthbook = new GrowthBook({
+  // Callback when a user is put into an A/B experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
 
 export default function App() {
+  useEffect(() => {
+    // Load feature definitions from GrowthBook API
+    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+      .then((res) => res.json())
+      .then((parsed) => {
+        growthbook.setFeatures(parsed.features);
+      });
+
+    // Set user attributes for targeting (from cookie, auth system, etc.)
+    growthbook.setAttributes({
+      id: "123",
+      company: "acme",
+    });
+  }, []);
+
   return (
     <GrowthBookProvider growthbook={growthbook}>
       <OtherComponent />
@@ -111,7 +128,31 @@ export default function OtherComponent() {
 }
 ```
 
-### Step 3: Use Targeting Attributes
+## The GrowthBook Context
+
+The `GrowthBook` constructor takes a number of optional settings.
+
+### Features
+
+If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+
+```ts
+new GrowthBook({
+  features: {
+    "feature-1": {...},
+    "feature-2": {...},
+    "another-feature": {...},
+  }
+})
+```
+
+If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
+
+If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+
+If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](/lib/js#feature-definitions) section in the Javascript SDK docs.
+
+### Attributes
 
 You can specify attributes about the current user and request. These are used for two things:
 
@@ -124,7 +165,6 @@ The following are some comonly used attributes, but use whatever makes sense for
 new GrowthBook({
   attributes: {
     id: "123",
-    environment: "prod",
     loggedIn: true,
     deviceId: "abc123def456",
     company: "acme",
@@ -139,7 +179,7 @@ new GrowthBook({
 
 If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
-### Step 4: Set up a Tracking Callback
+### Tracking Callback
 
 Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
 
@@ -154,6 +194,22 @@ new GrowthBook({
   },
 });
 ```
+
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+The `result` argument is the same thing returned from the `useFeature` hook.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
 ## Inline Experiments
 

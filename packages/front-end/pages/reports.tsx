@@ -339,7 +339,7 @@ const ReportsPage = (): React.ReactElement => {
                 key={report.id}
                 onClick={(e) => {
                   e.preventDefault();
-                  router.push("/report/[rid]", `/report/${report.id}`);
+                  router.push(`/report/${report.id}`);
                 }}
                 style={{ cursor: "pointer" }}
                 className=""

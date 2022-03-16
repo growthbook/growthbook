@@ -17,6 +17,7 @@ import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export interface Condition {
   field: string;
@@ -30,6 +31,19 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useEnvironment() {
+  return useLocalStorage("currentEnvironment", "dev");
+}
+export function getRules(feature: FeatureInterface, environment: string) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+export function roundVariationWeight(num: number): number {
+  return Math.round(num * 1000) / 1000;
+}
+export function getTotalVariationWeight(weights: number[]): number {
+  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
 }
 
 export function useFeaturesList(withProject = true) {
@@ -104,15 +118,16 @@ export function validateFeatureRule(
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
       if (val.weight < 0) throw new Error("Percents cannot be negative");
-      // without this rounding here, JS floating point messes up simple addition.
-      totalWeight = Math.round((val.weight + totalWeight) * 100000) / 100000;
+      val.weight = roundVariationWeight(val.weight);
+      totalWeight += val.weight;
       isValidValue(valueType, val.value, "Value #" + (i + 1));
     });
+    // Without this rounding here, JS floating point messes up simple addition.
+    totalWeight = roundVariationWeight(totalWeight);
+
     if (totalWeight > 1) {
       throw new Error(
-        `Sum of weights cannot be greater than 1 (currently equals ${
-          Math.round(totalWeight * 100000) / 100000
-        })`
+        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
     if (uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length) {

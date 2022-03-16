@@ -1,22 +1,20 @@
 import { FC } from "react";
-import { useAuth } from "../../services/auth";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import TagsInput from "../TagsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useForm } from "react-hook-form";
 
 const EditTagsForm: FC<{
-  experiment: ExperimentInterfaceStringDates;
+  tags: string[];
+  save: (tags: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
-  const { apiCall } = useAuth();
+}> = ({ tags = [], save, cancel, mutate }) => {
   const { refreshTags } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
-      tags: experiment.tags || [],
+      tags,
     },
   });
 
@@ -26,10 +24,7 @@ const EditTagsForm: FC<{
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        await save(data.tags);
         refreshTags(data.tags);
         mutate();
       })}
