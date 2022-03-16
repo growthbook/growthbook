@@ -8,7 +8,6 @@ import FeatureValueField from "./FeatureValueField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import track from "../../services/track";
 import Toggle from "../Forms/Toggle";
-import uniq from "lodash/uniq";
 import RadioSelector from "../Forms/RadioSelector";
 import ConditionInput from "./ConditionInput";
 import {
@@ -21,11 +20,11 @@ import {
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import TagsInput from "../TagsInput";
+import cloneDeep from "lodash/cloneDeep";
 
 export type Props = {
   close: () => void;
   onSuccess: (feature: FeatureInterface) => Promise<void>;
-  existing?: FeatureInterface;
 };
 
 function parseDefaultValue(
@@ -48,20 +47,21 @@ function parseDefaultValue(
   }
 }
 
-export default function FeatureModal({ close, existing, onSuccess }: Props) {
+export default function FeatureModal({ close, onSuccess }: Props) {
   const { project, refreshTags } = useDefinitions();
-  const form = useForm<Partial<FeatureInterface>>({
+  const form = useForm({
     defaultValues: {
-      valueType: existing?.valueType || "boolean",
-      defaultValue:
-        existing?.defaultValue ??
-        getDefaultValue(existing?.valueType || "boolean"),
-      description: existing?.description || "",
-      id: existing?.id || "",
-      project: existing?.project ?? project,
-      tags: existing?.tags || [],
-      environments: ["dev"],
-      rules: [],
+      valueType: "boolean",
+      defaultValue: getDefaultValue("boolean"),
+      description: "",
+      id: "",
+      project: project,
+      tags: [],
+      environmentSettings: {
+        dev: { enabled: true, rules: [] },
+        production: { enabled: false, rules: [] },
+      },
+      rule: null,
     },
   });
   const { apiCall } = useAuth();
@@ -71,11 +71,10 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute)?.length > 0;
 
-  const valueType = form.watch("valueType");
-  const environments = form.watch("environments");
+  const valueType = form.watch("valueType") as FeatureValueType;
+  const environmentSettings = form.watch("environmentSettings");
 
-  const rules = form.watch("rules");
-  const rule = rules?.[0];
+  const rule = form.watch("rule");
 
   return (
     <Modal
@@ -85,69 +84,69 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
       cta="Create"
       close={close}
       submit={form.handleSubmit(async (values) => {
-        if (values.rules.length > 0) {
-          validateFeatureRule(values.rules[0], valueType);
+        const { rule, defaultValue, ...feature } = values;
+        const valueType = feature.valueType as FeatureValueType;
+
+        // Validate rule and add to all enabled environments (or just dev if none are enabled)
+        if (rule) {
+          feature.environmentSettings = cloneDeep(feature.environmentSettings);
+          validateFeatureRule(rule, valueType);
+          let envEnabled = false;
+          Object.keys(feature.environmentSettings).forEach((env) => {
+            if (feature.environmentSettings[env].enabled) {
+              envEnabled = true;
+              feature.environmentSettings[env].rules.push(rule);
+            }
+          });
+          if (!envEnabled) {
+            feature.environmentSettings.dev.rules.push(rule);
+          }
         }
 
         const body = {
-          ...values,
-          defaultValue: parseDefaultValue(
-            values.defaultValue,
-            values.valueType
-          ),
+          ...feature,
+          defaultValue: parseDefaultValue(defaultValue, valueType),
         };
 
-        if (existing) {
-          delete body.id;
-        }
+        const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
 
-        const res = await apiCall<{ feature: FeatureInterface }>(
-          existing ? `/feature/${existing.id}` : `/feature`,
-          {
-            method: existing ? "PUT" : "POST",
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!existing) {
-          track("Feature Created", {
-            valueType: values.valueType,
-            hasDescription: values.description.length > 0,
-            initialRule: values.rules?.[0]?.type ?? "none",
+        track("Feature Created", {
+          valueType: values.valueType,
+          hasDescription: values.description.length > 0,
+          initialRule: rule?.type ?? "none",
+        });
+        if (rule) {
+          track("Save Feature Rule", {
+            source: "create-feature",
+            ruleIndex: 0,
+            type: rule.type,
+            hasCondition: rule.condition.length > 2,
+            hasDescription: false,
           });
-          if (values.rules?.length > 0) {
-            track("Save Feature Rule", {
-              source: "create-feature",
-              ruleIndex: 0,
-              type: values.rules[0].type,
-              hasCondition: values.rules[0].condition.length > 2,
-              hasDescription: false,
-            });
-          }
         }
         refreshTags(values.tags);
 
         await onSuccess(res.feature);
       })}
     >
-      {!existing && (
-        <Field
-          label="Feature Key"
-          {...form.register("id")}
-          pattern="^[a-zA-Z0-9_.:|-]+$"
-          required
-          disabled={!!existing}
-          readOnly={!!existing}
-          title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
-          helpText={
-            <>
-              Only letters, numbers, and the characters <code>_</code>,{" "}
-              <code>-</code>, <code>.</code>, <code>:</code>, and <code>|</code>{" "}
-              allowed. No spaces. <strong>Cannot be changed later!</strong>
-            </>
-          }
-        />
-      )}
+      <Field
+        label="Feature Key"
+        {...form.register("id")}
+        pattern="^[a-zA-Z0-9_.:|-]+$"
+        required
+        title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
+        helpText={
+          <>
+            Only letters, numbers, and the characters <code>_</code>,{" "}
+            <code>-</code>, <code>.</code>, <code>:</code>, and <code>|</code>{" "}
+            allowed. No spaces. <strong>Cannot be changed later!</strong>
+          </>
+        }
+      />
+
       <div className="form-group">
         <label>Tags</label>
         <TagsInput
@@ -155,6 +154,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
+
       <label>Enabled Environments</label>
       <div className="row">
         <div className="col-auto">
@@ -165,12 +165,10 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             <Toggle
               id={"dev_toggle_create"}
               label="Dev"
-              value={environments.includes("dev") ?? false}
+              value={environmentSettings.dev.enabled}
               setValue={(on) => {
-                let envs = [...environments];
-                if (on) envs.push("dev");
-                else envs = envs.filter((e) => e !== "dev");
-                form.setValue("environments", uniq(envs));
+                environmentSettings.dev.enabled = on;
+                form.setValue("environmentSettings", environmentSettings);
               }}
             />
           </div>
@@ -183,12 +181,10 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             <Toggle
               id={"production_toggle_create"}
               label="Production"
-              value={environments.includes("production") ?? false}
+              value={environmentSettings.production.enabled}
               setValue={(on) => {
-                let envs = [...environments];
-                if (on) envs.push("production");
-                else envs = envs.filter((e) => e !== "production");
-                form.setValue("environments", uniq(envs));
+                environmentSettings.production.enabled = on;
+                form.setValue("environmentSettings", environmentSettings);
               }}
             />
           </div>
@@ -212,17 +208,17 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           } else if (rule.type === "force") {
             const otherVal = getDefaultVariationValue(defaultValue);
             form.setValue("defaultValue", otherVal);
-            form.setValue("rules.0.value", defaultValue);
+            form.setValue("rule.value", defaultValue);
           } else if (rule.type === "rollout") {
             const otherVal = getDefaultVariationValue(defaultValue);
             form.setValue("defaultValue", otherVal);
-            form.setValue("rules.0.value", defaultValue);
+            form.setValue("rule.value", defaultValue);
           } else if (rule.type === "experiment") {
             const otherVal = getDefaultVariationValue(defaultValue);
             form.setValue("defaultValue", otherVal);
 
             if (val === "boolean") {
-              form.setValue("rules.0.values", [
+              form.setValue("rule.values", [
                 {
                   value: otherVal,
                   weight: 0.5,
@@ -235,7 +231,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             } else {
               for (let i = 0; i < rule.values.length; i++) {
                 form.setValue(
-                  `rules.0.values.${i}.value`,
+                  `rule.values.${i}.value`,
                   i ? defaultValue : otherVal
                 );
               }
@@ -259,7 +255,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         </label>
         <RadioSelector
           name="ruleType"
-          value={rules?.[0]?.type || ""}
+          value={rule?.type || ""}
           labelWidth={145}
           options={[
             {
@@ -289,20 +285,18 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
             let defaultValue = getDefaultValue(valueType);
 
             if (!value) {
-              form.setValue("rules", []);
+              form.setValue("rule", null);
               form.setValue("defaultValue", defaultValue);
             } else {
               defaultValue = getDefaultVariationValue(defaultValue);
               form.setValue("defaultValue", defaultValue);
-              form.setValue("rules", [
-                {
-                  ...getDefaultRuleValue({
-                    defaultValue: defaultValue,
-                    ruleType: value,
-                    attributeSchema,
-                  }),
-                },
-              ]);
+              form.setValue("rule", {
+                ...getDefaultRuleValue({
+                  defaultValue: defaultValue,
+                  ruleType: value,
+                  attributeSchema,
+                }),
+              });
             }
           }}
         />
@@ -319,23 +313,23 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         <>
           <Field
             label="Sample users based on attribute"
-            {...form.register("rules.0.hashAttribute")}
+            {...form.register("rule.hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
           />
           <RolloutPercentInput
-            value={form.watch("rules.0.coverage")}
+            value={form.watch("rule.coverage")}
             setValue={(n) => {
-              form.setValue("rules.0.coverage", n);
+              form.setValue("rule.coverage", n);
             }}
             label="Percent of users to include"
           />
           <FeatureValueField
             label={"Value when included"}
             form={form}
-            field="rules.0.value"
+            field="rule.value"
             valueType={valueType}
           />
           <FeatureValueField
@@ -350,13 +344,13 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           <ConditionInput
             defaultValue={rule?.condition}
             onChange={(cond) => {
-              form.setValue("rules.0.condition", cond);
+              form.setValue("rule.condition", cond);
             }}
           />
           <FeatureValueField
             label={"Value When Targeted"}
             form={form}
-            field="rules.0.value"
+            field="rule.value"
             valueType={valueType}
           />
           <FeatureValueField
@@ -370,13 +364,13 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
         <>
           <Field
             label="Tracking Key"
-            {...form.register(`rules.0.trackingKey`)}
+            {...form.register(`rule.trackingKey`)}
             placeholder={form.watch("id")}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results."
           />
           <Field
             label="Sample users based on attribute"
-            {...form.register("rules.0.hashAttribute")}
+            {...form.register("rule.hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
@@ -384,7 +378,7 @@ export default function FeatureModal({ close, existing, onSuccess }: Props) {
           />
           <VariationsInput
             form={form}
-            formPrefix="rules.0."
+            formPrefix="rule."
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />

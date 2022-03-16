@@ -15,7 +15,11 @@ import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
-import { useFeaturesList, useRealtimeData } from "../../services/features";
+import {
+  getRules,
+  useFeaturesList,
+  useRealtimeData,
+} from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
@@ -99,7 +103,10 @@ export default function FeaturesPage() {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
+            const url = `/features/${feature.id}${
+              features.length > 0 ? "" : "?first"
+            }`;
+            router.push(url);
             mutate({
               features: [...features, feature],
             });
@@ -255,8 +262,20 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {sorted.slice(start, end).map((feature) => {
-                const firstRule = feature.rules?.[0];
-                const totalRules = feature.rules?.length || 0;
+                const rules = [
+                  ...getRules(feature, "dev"),
+                  ...getRules(feature, "production"),
+                ];
+
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
 
                 return (
                   <tr key={feature.id}>

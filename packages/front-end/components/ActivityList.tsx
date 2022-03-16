@@ -49,10 +49,7 @@ const ActivityList: FC<{
 
           return (
             <li key={event.id} className="media d-flex w-100 hover-highlight">
-              <Link
-                href="/experiment/[eid]"
-                as={`/experiment/${event.entity.id}`}
-              >
+              <Link href={`/experiment/${event.entity.id}`}>
                 <a className="no-link-color w-100">
                   <Avatar
                     email={event.user.email}

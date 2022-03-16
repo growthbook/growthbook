@@ -84,6 +84,8 @@ Each attribute has 3 parts:
 
 Every feature has a default value that is served to all users. The real power comes when you define **override rules** that let you run experiments and/or change the value based on targeting attributes.
 
+Override rules are defined separately for each environment (dev and production). This way you can, for example, test an experiment rule in dev first before deploying it to production.
+
 The first matching rule for a user will be applied, so order matters. If there are no matching rules, the default value will be used.
 
 ### Conditions
@@ -150,9 +152,9 @@ You can analyze the result of an Experiment the same way you would any experimen
 
 There are few ways to integrate GrowthBook features into your application.
 
-At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file. The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
+At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file for each environment (dev and production). The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
 
-There is a public GrowthBook API endpoint for the feature definitions JSON:
+There is a public GrowthBook [API endpoint](/app/api) for the feature definitions JSON:
 
 - https://cdn.growthbook.io/api/features/{MY_API_KEY} (GrowthBook Cloud)
 - http://localhost:3100/api/features/{MY_API_KEY} (Self-hosted)
@@ -161,7 +163,7 @@ The API includes a cache header with a 30-second TTL (plus stale-while-revalidat
 
 **Note:** There are separate API keys for dev and production. Make sure you are using the right one for your environment.
 
-### Load directly (client-side)
+### Load directly (client-side rendering)
 
 You can use `window.fetch` (or similar) to fetch from the API when your app first loads on the client:
 
@@ -173,19 +175,25 @@ fetch(`https://cdn.growthbook.io/api/features/${MY_API_KEY}`)
   });
 ```
 
-For self-hosted deployments, we highly recommend using a CDN like Fastly or CloudFlare. The GrowthBook API alone is not meant to serve large amounts of production traffic. The API returns standard cache headers (max-age, stale-while-revalidate, and stale-if-error) so no special CDN configuration is required.
+For self-hosted deployments, we highly recommend using a CDN like Fastly or CloudFlare. The GrowthBook API alone is not meant to serve large amounts of production traffic. The API returns standard cache headers (max-age, stale-while-revalidate, and stale-if-error) so no special CDN configuration is required most of the time.
 
 The downside of this approach is that you're adding a network request into your critical rendering path. If the HTTP request is slow (or if the API crashes) for whatever reason, your user experience will suffer.
 
-### Cache in Redis/Memcached/etc.
+### Cache in memory (server-side rendering)
 
-You can keep your own copy of the feature definition JSON within a cache system like Redis or Memcached. To keep your cache up-to-date, you can poll the GrowthBook API endpoint every few minutes.
+One option for server-side integration is to fetch the features once when your application starts up, cache the JSON in memory in the server, and re-use the cached copy for subsequent requests.
 
-There are two benefits to this approach. First, reading from a cache is usually orders of magnitude faster than an HTTP fetch request. Second, you are protected in case the API goes down or is slow for whatever reason.
+If your servers are long-lived, you may want to build in some logic to refetch the JSON periodically to pick up any new changes.
 
-The downside is that if you currently don't have a cache system, this approach increases complexity of your stack. Also, your polling script to keep the cache up-to-date could fail without you knowing about it and features could get out of date.
+The benefit of this approach is the simplicity (no additional dependencies) and the speed (once loaded, feature evaluations are almost instant). The downside is that this may lead to longer cold start times and you need to handle the refresh logic yourself.
 
-### Load at build-time
+### Cache in a distributed store (server-side rendering)
+
+Another option for server-side rendering is to use a distributed cache store like Redis or Memcached, or even a full database like Postgres.
+
+The main difference between this and the in-memory approach is in how you load and keep the feature definitions up-to-date. With a distributed system, you can have an external process like a cron job or [webhook](/app/webhooks) listener update the cache. This keeps your application logic simple and eliminates the cold start problem.
+
+### Load at build-time (static generation)
 
 Another approach is to fetch the feature definitions JSON once at build time and bundle them with your app.
 
