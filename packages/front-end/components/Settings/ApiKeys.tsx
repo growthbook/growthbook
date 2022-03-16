@@ -7,6 +7,8 @@ import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
+import ConfirmButton from "../ConfirmButton";
+import { MdRefresh } from "react-icons/md";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -20,6 +22,15 @@ const ApiKeys: FC = () => {
     return <LoadingOverlay />;
   }
 
+  const envCounts = new Map();
+  data.keys.forEach((k) => {
+    if (k.environment) {
+      envCounts.set(
+        k.environment,
+        envCounts.has(k.environment) ? envCounts.get(k.environment) + 1 : 1
+      );
+    }
+  });
   return (
     <div>
       {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
@@ -49,17 +60,39 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
-                <td>{key.environment ?? "dev, production"}</td>
+                <td>{key.environment ?? "[all]"}</td>
                 <td>{key.description}</td>
                 <td>
-                  <DeleteButton
-                    onClick={async () => {
-                      await apiCall(`/key/${key.key}`, { method: "DELETE" });
-                      mutate();
-                    }}
-                    displayName="Api Key"
-                    className="tr-hover"
-                  />
+                  {key.environment && envCounts.get(key.environment) === 1 ? (
+                    <ConfirmButton
+                      icon={<MdRefresh />}
+                      onClick={async () => {
+                        await apiCall(`/key/regen/${key.key}`, {
+                          method: "PUT",
+                        });
+                        mutate();
+                      }}
+                      color="info"
+                      header="Regenerate API key"
+                      title="Regenerate API key"
+                      message="Regenerating this API key will cause all instances of the old key to fail, are you sure?"
+                      cta="Regenerate"
+                      className="tr-hover"
+                      style={{ fontSize: "19px" }}
+                    />
+                  ) : (
+                    <DeleteButton
+                      onClick={async () => {
+                        await apiCall(`/key/${key.key}`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }}
+                      displayName="Api Key"
+                      className="tr-hover"
+                      style={{ fontSize: "19px" }}
+                    />
+                  )}
                 </td>
               </tr>
             ))}

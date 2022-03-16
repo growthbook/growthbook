@@ -39,7 +39,7 @@ const ApiKeysModal: FC<{
   const envs = data.environments.map((e) => {
     return {
       value: e.id,
-      display: e.name,
+      display: `${e.name} (${e.id})`,
     };
   });
   return (

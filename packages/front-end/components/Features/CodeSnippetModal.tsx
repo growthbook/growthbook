@@ -128,35 +128,31 @@ export default function CodeSnippetModal({
   }, [settings]);
 
   // Create API key if one doesn't exist yet
-  /*const [devApiKey, setDevApiKey] = useState("");
-  const [prodApiKey, setProdApiKey] = useState("");
   useEffect(() => {
     (async () => {
-      const devKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Dev Features SDK",
-            environment: "dev",
-          }),
-        }
-      );
-      setDevApiKey(devKey.key);
-
-      const prodKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Production Features SDK",
-            environment: "production",
-          }),
-        }
-      );
-      setProdApiKey(prodKey.key);
+      console.log("use effect called", data);
+      if (
+        data &&
+        "environments" in data &&
+        data.apiKeys.filter((k) => k.environment).length === 0
+      ) {
+        console.log("API calling");
+        await apiCall(`/environments/makedefault`, {
+          method: "PUT",
+        })
+          .then(() => {
+            setErrorMsg("");
+            mutate();
+          })
+          .catch((e) => {
+            setErrorMsg(
+              "Some environments already exist, adjust in the environment and API keys settings"
+            );
+            console.log(e.message);
+          });
+      }
     })();
-  }, []);*/
+  }, []);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -208,7 +204,7 @@ export default function CodeSnippetModal({
           <div className="api-keys-wrap">
             {apiKeys.map((k, i) => (
               <div key={i} className="row mb-2 align-items-center">
-                <div className="col-auto" style={{ width: 90 }}>
+                <div className="col-auto" style={{ width: 120 }}>
                   <strong>
                     {environments.get(k.environment) || k.environment}
                   </strong>

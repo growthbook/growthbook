@@ -30,6 +30,7 @@ import {
   deleteByOrganizationAndApiKey,
   getFirstApiKey,
   deleteByOrganizationAndEnvironment,
+  regenApiKey,
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
@@ -1130,6 +1131,27 @@ export async function deleteApiKey(
   });
 }
 
+export async function putRegenApiKey(
+  req: AuthRequest<null, { key: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+  const { key } = req.params;
+
+  const newKey = regenApiKey(org.id, key);
+
+  res.status(200).json({
+    status: 200,
+    key: newKey,
+  });
+}
+
 export async function getWebhooks(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const webhooks = await WebhookModel.find({
@@ -1463,10 +1485,23 @@ export async function putDefaultEnvironments(
   }
 
   try {
-    if (org.settings?.environments && org.settings.environments.length > 0) {
+    const apiKeys = await getAllApiKeysByOrganization(org.id);
+
+    if (apiKeys.filter((k) => k.environment).length) {
       return res.status(404).json({
         status: 404,
-        message: "Environments already exist",
+        message: "API keys already exist",
+      });
+    }
+
+    // Check if we have environments without api keys, and if so, add them
+    if (org.settings?.environments && org.settings.environments.length > 0) {
+      const promises = org.settings.environments.map(async (en) => {
+        await createApiKey(org.id, en.id, en.name + " Features SDK");
+      });
+      await Promise.all(promises);
+      res.status(200).json({
+        status: 200,
       });
     }
 
@@ -1493,24 +1528,12 @@ export async function putDefaultEnvironments(
     };
     await updateOrganization(org.id, updates);
 
-    // create the keys, if needed
-    const apiKeys = await getAllApiKeysByOrganization(org.id);
-    let foundDev = false;
-    let foundProd = false;
-    apiKeys.forEach((k) => {
-      if (k.environment === "prod") {
-        foundProd = true;
-      }
-      if (k.environment === "dev") {
-        foundDev = true;
-      }
+    // create the keys for the new environments:
+    const promises = environments.map(async (en) => {
+      await createApiKey(org.id, en.id, en.name + " Features SDK");
     });
-    if (!foundProd) {
-      await createApiKey(org.id, "prod", "Production Features SDK");
-    }
-    if (!foundDev) {
-      await createApiKey(org.id, "dev", "Development Features SDK");
-    }
+    await Promise.all(promises);
+
     res.status(200).json({
       status: 200,
     });

@@ -7,9 +7,7 @@ export async function createApiKey(
   environment: string,
   description?: string
 ): Promise<string> {
-  const envPrefix = environment === "production" ? "prod" : environment;
-
-  const key = "key_" + envPrefix + "_" + md5(uniqid()).substr(0, 16);
+  const key = "key_" + environment + "_" + md5(uniqid()).substr(0, 16);
 
   await ApiKeyModel.create({
     organization,
@@ -20,6 +18,25 @@ export async function createApiKey(
   });
 
   return key;
+}
+
+export async function regenApiKey(
+  organization: string,
+  key: string
+): Promise<string | null> {
+  const existing = await ApiKeyModel.findOne({ organization, key });
+
+  if (!existing) {
+    return null;
+  }
+
+  const newKey =
+    "key_" + existing.environment + "_" + md5(uniqid()).substr(0, 16);
+
+  if (newKey && existing._id) {
+    await ApiKeyModel.updateOne({ _id: existing._id }, { key: newKey });
+  }
+  return newKey;
 }
 
 export async function deleteByOrganizationAndApiKey(
