@@ -1,4 +1,5 @@
-import { useState, useMemo, ChangeEvent } from "react";
+import { useState, useMemo, ChangeEvent, FC } from "react";
+import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -137,4 +138,74 @@ export function search<T>(index: IndexedObject<T>[], q: string): T[] {
   res.sort((a, b) => scores.get(b) - scores.get(a));
 
   return res;
+}
+
+export function useSort<T>(
+  items: T[],
+  defaultField: string,
+  defaultDir: number = 1,
+  compFunctions?: Record<string, (a: T, b: T) => number>
+) {
+  const [sort, setSort] = useState({
+    field: defaultField,
+    dir: defaultDir,
+  });
+  const sorted = useMemo(() => {
+    const sorted = [...items];
+    if (compFunctions && sort.field in compFunctions) {
+      sorted.sort(compFunctions[sort.field]);
+    } else {
+      sorted.sort((a, b) => {
+        const comp1 = a[sort.field];
+        const comp2 = b[sort.field];
+        if (typeof comp1 === "string") {
+          return comp1.localeCompare(comp2) * sort.dir;
+        }
+        return (comp1 - comp2) * sort.dir;
+      });
+    }
+    return sorted;
+  }, [sort, items]);
+
+  const SortableTH = useMemo(() => {
+    const th: FC<{
+      field: string;
+      className?: string;
+    }> = ({ children, field, className = "" }) => (
+      <th className={className}>
+        <span
+          className="cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            setSort({
+              field,
+              dir: sort.field === field ? sort.dir * -1 : 1,
+            });
+          }}
+        >
+          {children}{" "}
+          <a
+            href="#"
+            className={sort.field === field ? "activesort" : "inactivesort"}
+          >
+            {sort.field === field ? (
+              sort.dir < 0 ? (
+                <FaSortDown />
+              ) : (
+                <FaSortUp />
+              )
+            ) : (
+              <FaSort />
+            )}
+          </a>
+        </span>
+      </th>
+    );
+    return th;
+  }, [sort.dir, sort.field]);
+
+  return {
+    sorted,
+    SortableTH,
+  };
 }

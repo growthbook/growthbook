@@ -1,7 +1,7 @@
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useSearch } from "../../services/search";
+import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
@@ -22,7 +22,6 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
-import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 
 const NUM_PER_PAGE = 20;
 
@@ -49,37 +48,13 @@ export default function FeaturesPage() {
   const stepsRequired =
     !settings?.sdkInstructionsViewed || (!loading && !features.length);
 
-  const [featureSort, setFeatureSort] = useState({
-    field: "dateUpdated", // <- default sort
-    dir: -1,
-  });
   const { list, searchInputProps } = useSearch(features || [], [
     "id",
     "description",
     "tags",
   ]);
 
-  const setSort = (field: string) => {
-    if (featureSort.field === field) {
-      // switch dir:
-      setFeatureSort({ ...featureSort, dir: featureSort.dir * -1 });
-    } else {
-      setFeatureSort({ field, dir: 1 });
-    }
-  };
-
-  const sorted = useMemo(() => {
-    // sort the features:
-    //return list.sort((a, b) => a.id.localeCompare(b.id));
-    return list.sort((a, b) => {
-      const comp1 = a[featureSort.field];
-      const comp2 = b[featureSort.field];
-      if (typeof comp1 === "string") {
-        return comp1.localeCompare(comp2) * featureSort.dir;
-      }
-      return (comp1 - comp2) * featureSort.dir;
-    });
-  }, [list, featureSort]);
+  const { sorted, SortableTH } = useSort(list, "id", 1);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -189,69 +164,13 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
-                <th>
-                  <span
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSort("id");
-                    }}
-                  >
-                    Feature Key{" "}
-                    <a
-                      href="#"
-                      className={
-                        featureSort.field === "id"
-                          ? "activesort"
-                          : "inactivesort"
-                      }
-                    >
-                      {featureSort.field === "id" ? (
-                        featureSort.dir < 0 ? (
-                          <FaSortUp />
-                        ) : (
-                          <FaSortDown />
-                        )
-                      ) : (
-                        <FaSort />
-                      )}
-                    </a>
-                  </span>
-                </th>
+                <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
                 <th>Dev</th>
                 <th>Prod</th>
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
-                <th>
-                  <span
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSort("dateUpdated");
-                    }}
-                  >
-                    Last Updated{" "}
-                    <a
-                      href="#"
-                      className={
-                        featureSort.field === "dateUpdated"
-                          ? "activesort"
-                          : "inactivesort"
-                      }
-                    >
-                      {featureSort.field === "dateUpdated" ? (
-                        featureSort.dir < 0 ? (
-                          <FaSortUp />
-                        ) : (
-                          <FaSortDown />
-                        )
-                      ) : (
-                        <FaSort />
-                      )}
-                    </a>
-                  </span>
-                </th>
+                <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
