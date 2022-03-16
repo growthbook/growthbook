@@ -1,7 +1,7 @@
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -9,8 +9,7 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useSearch } from "../../services/search";
-import { useMemo } from "react";
+import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
@@ -23,7 +22,6 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
-import { useEffect } from "react";
 
 const NUM_PER_PAGE = 20;
 
@@ -56,9 +54,7 @@ export default function FeaturesPage() {
     "tags",
   ]);
 
-  const sorted = useMemo(() => {
-    return list.sort((a, b) => a.id.localeCompare(b.id));
-  }, [list]);
+  const { sorted, SortableTH } = useSort(list, "id", 1);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -168,12 +164,13 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
-                <th>Feature Key</th>
+                <SortableTH field="id">Feature Key</SortableTH>
+                <th>Tags</th>
                 <th>Dev</th>
                 <th>Prod</th>
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
-                <th>Last Updated</th>
+                <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
@@ -205,6 +202,15 @@ export default function FeaturesPage() {
                       <Link href={`/features/${feature.id}`}>
                         <a>{feature.id}</a>
                       </Link>
+                    </td>
+                    <td>
+                      {feature?.tags?.map((tag, i) => {
+                        return (
+                          <span className={`badge badge-primary mr-2`} key={i}>
+                            {tag}
+                          </span>
+                        );
+                      })}
                     </td>
                     <td className="position-relative">
                       <EnvironmentToggle

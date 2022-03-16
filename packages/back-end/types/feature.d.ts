@@ -23,6 +23,7 @@ export interface FeatureInterface {
   dateUpdated: Date;
   valueType: FeatureValueType;
   defaultValue: string;
+  tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
 }
 

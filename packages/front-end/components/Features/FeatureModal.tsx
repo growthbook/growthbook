@@ -19,6 +19,7 @@ import {
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
+import TagsInput from "../TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 
 export type Props = {
@@ -47,7 +48,7 @@ function parseDefaultValue(
 }
 
 export default function FeatureModal({ close, onSuccess }: Props) {
-  const { project } = useDefinitions();
+  const { project, refreshTags } = useDefinitions();
   const form = useForm({
     defaultValues: {
       valueType: "boolean",
@@ -55,6 +56,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
       description: "",
       id: "",
       project: project,
+      tags: [],
       environmentSettings: {
         dev: { enabled: true, rules: [] },
         production: { enabled: false, rules: [] },
@@ -125,6 +127,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             hasDescription: false,
           });
         }
+        refreshTags(values.tags);
 
         await onSuccess(res.feature);
       })}
@@ -143,6 +146,14 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           </>
         }
       />
+
+      <div className="form-group">
+        <label>Tags</label>
+        <TagsInput
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+      </div>
 
       <label>Enabled Environments</label>
       <div className="row">

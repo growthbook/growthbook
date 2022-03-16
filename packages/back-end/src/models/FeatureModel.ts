@@ -19,6 +19,7 @@ const featureSchema = new mongoose.Schema({
   valueType: String,
   defaultValue: String,
   environments: [String],
+  tags: [String],
   rules: [
     {
       _id: false,
