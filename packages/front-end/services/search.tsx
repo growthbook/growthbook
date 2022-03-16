@@ -152,18 +152,18 @@ export function useSort<T>(
   });
   const sorted = useMemo(() => {
     const sorted = [...items];
-    if (compFunctions && sort.field in compFunctions) {
-      sorted.sort(compFunctions[sort.field]);
-    } else {
-      sorted.sort((a, b) => {
-        const comp1 = a[sort.field];
-        const comp2 = b[sort.field];
-        if (typeof comp1 === "string") {
-          return comp1.localeCompare(comp2) * sort.dir;
-        }
-        return (comp1 - comp2) * sort.dir;
-      });
-    }
+    sorted.sort((a, b) => {
+      if (compFunctions && sort.field in compFunctions) {
+        return compFunctions[sort.field](a, b) * sort.dir;
+      }
+
+      const comp1 = a[sort.field];
+      const comp2 = b[sort.field];
+      if (typeof comp1 === "string") {
+        return comp1.localeCompare(comp2) * sort.dir;
+      }
+      return (comp1 - comp2) * sort.dir;
+    });
     return sorted;
   }, [sort, items]);
 
