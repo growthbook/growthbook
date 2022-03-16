@@ -12,6 +12,9 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
+import useApi from "../../hooks/useApi";
+import { EnvironmentApiResponse } from "../../pages/settings/environments";
+import Link from "next/link";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -85,7 +88,9 @@ export default function CodeSnippetModal({
   featureId?: string;
   defaultLanguage?: Language;
 }) {
+  const { data, mutate } = useApi<EnvironmentApiResponse>("/environments");
   const [language, setLanguage] = useState<Language>(defaultLanguage);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -123,7 +128,7 @@ export default function CodeSnippetModal({
   }, [settings]);
 
   // Create API key if one doesn't exist yet
-  const [devApiKey, setDevApiKey] = useState("");
+  /*const [devApiKey, setDevApiKey] = useState("");
   const [prodApiKey, setProdApiKey] = useState("");
   useEffect(() => {
     (async () => {
@@ -151,7 +156,7 @@ export default function CodeSnippetModal({
       );
       setProdApiKey(prodKey.key);
     })();
-  }, []);
+  }, []);*/
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -175,8 +180,19 @@ export default function CodeSnippetModal({
     }
   }, [datasources?.[0]?.type]);
 
+  const environments = new Map();
+  if (data?.environments) {
+    data.environments.forEach((en) => {
+      environments.set(en.id, en.name);
+    });
+  }
+  const apiKeys = data?.apiKeys.filter((k) => !!k.environment) || [];
+  const devApiKey =
+    apiKeys.length > 0 ? apiKeys[0].key : `<insert API key here>`;
+
   return (
     <Modal
+      error={errorMsg}
       close={close}
       open={true}
       size="lg"
@@ -186,38 +202,57 @@ export default function CodeSnippetModal({
       }}
       cta={"Finish"}
     >
-      {devApiKey && (
+      {apiKeys.length ? (
         <div className="mb-3">
-          <p>
-            We generated API endpoints for you that will contain all of your
-            feature definitions:
-          </p>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Dev</strong>
-            </div>
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(devApiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
+          <p>API endpoints</p>
+          <div className="api-keys-wrap">
+            {apiKeys.map((k, i) => (
+              <div key={i} className="row mb-2 align-items-center">
+                <div className="col-auto" style={{ width: 90 }}>
+                  <strong>
+                    {environments.get(k.environment) || k.environment}
+                  </strong>
+                </div>
+                <div className="col">
+                  <input
+                    readOnly
+                    value={getFeaturesUrl(k.key)}
+                    onFocus={(e) => e.target.select()}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="row align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Production</strong>
-            </div>
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(prodApiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
-          </div>
+        </div>
+      ) : (
+        <div className="alert alert-danger">
+          No Environment keys created!{" "}
+          <Link href={`settings/environments`}>
+            <a>Create your own</a>
+          </Link>{" "}
+          or{" "}
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              await apiCall<{ key: string }>(`/environments/makedefault`, {
+                method: "PUT",
+              })
+                .then(() => {
+                  setErrorMsg("");
+                  mutate();
+                })
+                .catch((e) => {
+                  setErrorMsg(
+                    "Some environments already exist, adjust in the environment and API keys settings"
+                  );
+                  console.log(e.message);
+                });
+            }}
+          >
+            automatically add the dev and production
+          </a>
         </div>
       )}
       <p>

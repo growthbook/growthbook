@@ -33,6 +33,17 @@ export async function deleteByOrganizationAndApiKey(
   return;
 }
 
+export async function deleteByOrganizationAndEnvironment(
+  organization: string,
+  environment: string
+) {
+  await ApiKeyModel.deleteMany({
+    organization,
+    environment,
+  });
+  return;
+}
+
 export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<{ organization?: string; environment?: string }> {

@@ -29,10 +29,15 @@ import {
   createApiKey,
   deleteByOrganizationAndApiKey,
   getFirstApiKey,
+  deleteByOrganizationAndEnvironment,
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  Environment,
+  MemberRole,
+  OrganizationInterface,
+} from "../../types/organization";
 import {
   getWatchedAudits,
   findByEntity,
@@ -1234,6 +1239,287 @@ export async function deleteWebhook(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getEnvironments(req: AuthRequest, res: Response) {
+  if (!req.organization) {
+    return res.status(200).json({
+      status: 200,
+      organization: null,
+    });
+  }
+  const { org } = getOrgFromReq(req);
+
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const apiKeys = await getAllApiKeysByOrganization(org.id);
+
+  // backwards compatibility - add the default two environments: (if they are deleted, their will be an empty array)
+  if (!org.settings?.environments) {
+    const settings = { ...org.settings };
+    settings.environments = [
+      { name: "Dev", id: "dev", toggleOnList: true },
+      { name: "Production", id: "production", toggleOnList: true },
+    ];
+    await updateOrganization(org.id, { settings });
+    org.settings = settings;
+  }
+
+  res.status(200).json({
+    status: 200,
+    environments: org.settings?.environments || [],
+    apiKeys,
+  });
+}
+
+export async function putEnvironment(
+  req: AuthRequest<Partial<Environment>>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const environment = req.body;
+  const { id } = req.params;
+
+  try {
+    const updates: Partial<OrganizationInterface> = {};
+
+    let found = false;
+    let dupId = false;
+    const environments = org.settings?.environments
+      ? [...org.settings.environments]
+      : [];
+    environments.forEach((en, i) => {
+      if (en.id === id) {
+        found = true;
+        environments[i] = { ...en, ...environment };
+      } else if ("id" in environment && en.id === environment.id) {
+        dupId = true;
+      }
+    });
+
+    if (!found) {
+      return res.status(404).json({
+        status: 404,
+        message: "Cannot environment to update",
+      });
+    }
+    if (dupId) {
+      return res.status(404).json({
+        status: 404,
+        message: "Cannot use the same ID as another environment",
+      });
+    }
+
+    updates.settings = {
+      ...org.settings,
+      environments,
+    };
+
+    await updateOrganization(org.id, updates);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postEnvironment(
+  req: AuthRequest<Environment>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const env = req.body;
+
+  //check for dups:
+  let found = false;
+  org.settings?.environments?.forEach((e) => {
+    if (e.id === env.id || e.name === env.name) {
+      found = true;
+    }
+  });
+  if (found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Environment already exists",
+    });
+  }
+  try {
+    const updates: Partial<OrganizationInterface> = {};
+    updates.settings = {
+      ...org.settings,
+      ...{
+        environments: [...(org.settings?.environments || []), env],
+      },
+    };
+    await updateOrganization(org.id, updates);
+
+    // create api key:
+    const key = await createApiKey(
+      org.id,
+      env.id,
+      env.description || env.name + " Features SDK"
+    );
+
+    res.status(200).json({
+      status: 200,
+      env,
+      key,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function deleteEnvironment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { id } = req.params;
+
+  let found = false;
+  const environments = [...(org.settings?.environments || [])].filter((en) => {
+    if (en.id === id) {
+      found = true;
+      return false;
+    }
+    return true;
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find environment to delete",
+    });
+  }
+  try {
+    const updates: Partial<OrganizationInterface> = {};
+    updates.settings = {
+      ...org.settings,
+      ...{
+        environments: environments,
+      },
+    };
+    await updateOrganization(org.id, updates);
+
+    // delete api keys:
+    await deleteByOrganizationAndEnvironment(org.id, id);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function putDefaultEnvironments(
+  req: AuthRequest<Partial<Environment>>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  try {
+    if (org.settings?.environments && org.settings.environments.length > 0) {
+      return res.status(404).json({
+        status: 404,
+        message: "Environments already exist",
+      });
+    }
+
+    const updates: Partial<OrganizationInterface> = {};
+
+    const environments: Environment[] = [
+      {
+        id: "prod",
+        name: "Production",
+        description: "Production environment",
+        toggleOnList: true,
+      },
+      {
+        id: "dev",
+        name: "Development",
+        description: "Development environment",
+        toggleOnList: true,
+      },
+    ];
+
+    updates.settings = {
+      ...org.settings,
+      environments,
+    };
+    await updateOrganization(org.id, updates);
+
+    // create the keys, if needed
+    const apiKeys = await getAllApiKeysByOrganization(org.id);
+    let foundDev = false;
+    let foundProd = false;
+    apiKeys.forEach((k) => {
+      if (k.environment === "prod") {
+        foundProd = true;
+      }
+      if (k.environment === "dev") {
+        foundDev = true;
+      }
+    });
+    if (!foundProd) {
+      await createApiKey(org.id, "prod", "Production Features SDK");
+    }
+    if (!foundDev) {
+      await createApiKey(org.id, "dev", "Development Features SDK");
+    }
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 }
 
 export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {

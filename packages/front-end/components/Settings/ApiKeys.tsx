@@ -6,6 +6,7 @@ import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
+import Link from "next/link";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -75,6 +76,9 @@ const ApiKeys: FC = () => {
       >
         <FaKey /> Create New Key
       </button>
+      <Link href={`/settings/environments`}>
+        <a className="btn btn-outline-primary ml-3">View environments</a>
+      </Link>
     </div>
   );
 };

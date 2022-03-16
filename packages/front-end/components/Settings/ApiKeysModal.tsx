@@ -4,6 +4,9 @@ import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
+import useApi from "../../hooks/useApi";
+import { EnvironmentApiResponse } from "../../pages/settings/environments";
+import LoadingOverlay from "../LoadingOverlay";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -11,6 +14,7 @@ const ApiKeysModal: FC<{
   defaultDescription?: string;
 }> = ({ close, onCreate, defaultDescription = "" }) => {
   const { apiCall } = useAuth();
+  const { data, error } = useApi<EnvironmentApiResponse>(`/environments`);
   const form = useForm({
     defaultValues: {
       description: defaultDescription,
@@ -29,6 +33,15 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
+  if (!data || error) {
+    return <LoadingOverlay />;
+  }
+  const envs = data.environments.map((e) => {
+    return {
+      value: e.id,
+      display: e.name,
+    };
+  });
   return (
     <Modal
       close={close}
@@ -44,7 +57,7 @@ const ApiKeysModal: FC<{
       />
       <Field
         label="Environment"
-        options={["dev", "production"]}
+        options={envs}
         {...form.register("environment")}
       />
     </Modal>

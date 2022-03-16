@@ -51,6 +51,7 @@ import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
 } from "../../types/organization";
+import { getOrganizationById } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -778,10 +779,15 @@ export async function experimentUpdated(
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) {
+  const org = await getOrganizationById(experiment.organization);
+  const envs = org?.settings?.environments?.map((e) => e.id) || [
+    "dev",
+    "production",
+  ];
   // fire the webhook:
   await queueWebhook(
     experiment.organization,
-    ["dev", "production"],
+    envs,
     [previousProject || "", experiment.project || ""],
     false
   );
