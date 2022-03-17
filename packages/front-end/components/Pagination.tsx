@@ -35,9 +35,9 @@ const Pagination: FC<PaginationProps> = ({
         pageCount={Math.ceil(numItemsTotal / perPage)}
         marginPagesDisplayed={2}
         pageRangeDisplayed={5}
-        initialPage={currentPage - 1}
+        forcePage={currentPage - 1}
         onPageChange={(d) => {
-          onPageChange(parseInt(d.selected) + 1);
+          onPageChange(d.selected + 1);
         }}
         containerClassName={`pagination justify-content-center mb-0`}
         pageClassName={"page-item"}

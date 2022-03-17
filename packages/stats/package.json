@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test": "pytest",
-    "lint": "black gbstats tests && flake8"
+    "lint": "black gbstats tests && flake8",
+    "setup": "poetry install"
   }
 }

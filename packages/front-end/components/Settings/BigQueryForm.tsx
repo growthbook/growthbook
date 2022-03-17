@@ -1,10 +1,12 @@
 import { FC } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { ChangeEventHandler } from "react";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, setParams }) => {
+  onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+}> = ({ params, setParams, onParamChange }) => {
   return (
     <div className="row">
       <div className="form-group col-md-12">
@@ -78,6 +80,28 @@ const BigQueryForm: FC<{
             key file.
           </div>
         )}
+      </div>
+      <div className="form-group col-md-12">
+        <label>Default Project Name</label>
+        <input
+          type="text"
+          className="form-control"
+          name="defaultProject"
+          value={params.defaultProject || ""}
+          onChange={onParamChange}
+          placeholder="(optional)"
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>Default Dataset</label>
+        <input
+          type="text"
+          className="form-control"
+          name="defaultDataset"
+          value={params.defaultDataset || ""}
+          onChange={onParamChange}
+          placeholder="(optional)"
+        />
       </div>
     </div>
   );

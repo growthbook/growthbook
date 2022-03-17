@@ -5,81 +5,86 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
 import { FaArrowRight } from "react-icons/fa";
-import {
-  GBHome,
-  GBIdea,
-  GBDimensions,
-  GBExperiment,
-  GBMetrics,
-  GBPresentations,
-  GBSegments,
-  GBSettings,
-} from "../Icons";
+import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
+// move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
-  {
-    name: "Home",
-    href: "/",
-    Icon: GBHome,
-    path: /^$/,
-    className: styles.first,
-  },
-  {
-    name: "Ideas",
-    href: "/ideas",
-    Icon: GBIdea,
-    path: /^idea/,
-  },
-  {
-    name: "Experiments",
-    href: "/experiments",
-    Icon: GBExperiment,
-    path: /^experiment/,
-  },
   {
     name: "Features",
     href: "/features",
     Icon: BsFlag,
     path: /^features/,
     beta: false,
+    className: styles.first,
   },
   {
-    name: "Presentations",
-    href: "/presentations",
-    Icon: GBPresentations,
-    path: /^presentations/,
+    name: "Analysis",
+    href: "/experiments",
+    Icon: GBExperiment,
+    path: /^(experiment|metric|segment|dimension|datasources)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Experiments",
+        href: "/experiments",
+        path: /^experiment/,
+      },
+      {
+        name: "Metrics",
+        href: "/metrics",
+        path: /^metric/,
+      },
+      {
+        name: "Segments",
+        href: "/segments",
+        path: /^segment/,
+      },
+      {
+        name: "Dimensions",
+        href: "/dimensions",
+        path: /^dimension/,
+      },
+      {
+        name: "Data Sources",
+        href: "/datasources",
+        path: /^datasources/,
+      },
+    ],
   },
   {
-    name: "Metrics",
-    href: "/metrics",
-    Icon: GBMetrics,
-    divider: true,
-    sectionTitle: "Definitions",
-    path: /^metric/,
-  },
-  {
-    name: "Segments",
-    href: "/segments",
-    Icon: GBSegments,
-    path: /^segment/,
-  },
-  {
-    name: "Dimensions",
-    href: "/dimensions",
-    Icon: GBDimensions,
-    path: /^dimension/,
+    name: "Management",
+    href: "/dashboard",
+    Icon: BsClipboardCheck,
+    path: /^(dashboard|idea|presentation)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Ideas",
+        href: "/ideas",
+        path: /^idea/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
+    ],
   },
   {
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    divider: true,
-    path: /^(settings|admin|datasources)/,
+    path: /^(settings|admin)/,
     settingsPermission: true,
     autoClose: true,
     subLinks: [
@@ -125,11 +130,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/webhooks/,
       },
       {
-        name: "Data Sources",
-        href: "/datasources",
-        path: /^datasources/,
-      },
-      {
         name: "Admin",
         href: "/admin",
         path: /^admin/,
@@ -143,12 +143,24 @@ const navlinks: SidebarLinkProps[] = [
 
 const otherPageTitles = [
   {
+    path: /^$/,
+    title: "Home",
+  },
+  {
     path: /^activity/,
     title: "Activity Feed",
   },
   {
     path: /^experiments\/designer/,
     title: "Visual Experiment Designer",
+  },
+  {
+    path: /^getstarted/,
+    title: "Get Started",
+  },
+  {
+    path: /^dashboard/,
+    title: "Program Management",
   },
 ];
 
@@ -188,7 +200,7 @@ const Layout = (): React.ReactElement => {
   navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
-        if (s.path.test(path)) {
+        if (!pageTitle && s.path.test(path)) {
           pageTitle = s.name;
         }
       });

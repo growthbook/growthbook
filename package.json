@@ -10,6 +10,7 @@
     "dev": "wsrun -p '*-end' -m dev",
     "build": "wsrun -p '*-end' -m build",
     "start": "wsrun -p '*-end' -m start",
+    "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
     "prepare": "husky install"
   },
   "workspaces": [

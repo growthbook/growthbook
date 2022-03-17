@@ -1,6 +1,9 @@
 import { FC, useState, useEffect, ChangeEventHandler } from "react";
 import { useAuth } from "../../services/auth";
-import { getExperimentQuery } from "../../services/datasources";
+import {
+  getExperimentQuery,
+  getInitialSettings,
+} from "../../services/datasources";
 import track from "../../services/track";
 import Modal from "../Modal";
 import TextareaAutosize from "react-textarea-autosize";
@@ -11,6 +14,7 @@ import {
 } from "back-end/types/datasource";
 import Field from "../Forms/Field";
 import Code from "../Code";
+import DataSourceSchemaChooser from "./DataSourceSchemaChooser";
 
 type FormValue = Partial<DataSourceInterfaceWithParams> & {
   dimensions: string;
@@ -49,6 +53,7 @@ const EditDataSourceSettingsForm: FC<{
         ...data,
         dimensions: data?.settings?.experimentDimensions?.join(", ") || "",
         settings: {
+          schemaFormat: data?.settings?.schemaFormat,
           notebookRunQuery: data?.settings?.notebookRunQuery || "",
           queries: {
             experimentsQuery: getExperimentQuery(
@@ -97,6 +102,7 @@ const EditDataSourceSettingsForm: FC<{
 
     track("Edit Data Source Queries", {
       type: data.type,
+      schema: data.settings?.schemaFormat || "none",
       source,
     });
 
@@ -135,23 +141,14 @@ const EditDataSourceSettingsForm: FC<{
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="max"
+      size={
+        firstTime && datasource?.settings?.schemaFormat !== "custom"
+          ? "md"
+          : "max"
+      }
       header={firstTime ? "Query Settings" : "Edit Query Settings"}
       cta="Save"
     >
-      {firstTime && (
-        <div className="alert alert-success mb-4">
-          <strong>Connection successful!</strong> Customize the queries that
-          GrowthBook uses to pull experiment results. Need help?{" "}
-          <a
-            href="https://docs.growthbook.io/app/datasources#configuration-settings"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View Documentation
-          </a>
-        </div>
-      )}
       {datasource.properties?.events && (
         <div>
           <h4 className="font-weight-bold">Experiments</h4>
@@ -193,206 +190,193 @@ const EditDataSourceSettingsForm: FC<{
       )}
       {datasource?.properties?.queryLanguage === "sql" && (
         <div>
-          <div
-            className="row py-2 mb-3 align-items-center bg-light border-bottom"
-            style={{ marginTop: "-1rem" }}
-          >
-            <div className="col-auto">Quick Presets:</div>
-            <div className="col-auto">
-              <button
-                className="btn btn-outline-secondary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setDatasource({
-                    ...datasource,
-                    dimensions: "country",
-                    settings: {
-                      ...datasource.settings,
-                      queries: {
-                        experimentsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  experiment_id,
-  variation_id,
-  context_location_country as country
-FROM
-  experiment_viewed`,
-                        identityJoins: [
-                          {
-                            ids: ["user_id", "anonymous_id"],
-                            query: `SELECT
-  user_id,
-  anonymous_id
-FROM
-  identifies`,
-                          },
-                        ],
-                      },
-                    },
-                  });
-                  setDirty(true);
-                }}
-              >
-                Segment
-              </button>
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Experiments SQL</label>
-                <TextareaAutosize
-                  required
-                  className="form-control"
-                  name="experimentsQuery"
-                  onChange={onSettingsChange("queries")}
-                  value={datasource.settings?.queries?.experimentsQuery}
-                  minRows={10}
-                  maxRows={20}
-                />
-                <small className="form-text text-muted">
-                  Used to pull experiment results.
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">
-                One row per variation assignment event. <br />
-                <br />
-                Minimum required columns:
-              </div>
-              <ul>
-                <li>
-                  <code>user_id</code>
-                </li>
-                <li>
-                  <code>anonymous_id</code>
-                </li>
-                <li>
-                  <code>timestamp</code>
-                </li>
-                <li>
-                  <code>experiment_id</code>
-                </li>
-                <li>
-                  <code>variation_id</code>
-                </li>
-              </ul>
-              <div>Add additional columns to use as dimensions (see below)</div>
-            </div>
-          </div>
+          {firstTime && datasource?.settings?.schemaFormat !== "custom" ? (
+            <DataSourceSchemaChooser
+              format={datasource?.settings?.schemaFormat}
+              datasource={datasource?.type}
+              setValue={(format) => {
+                const settings = getInitialSettings(format, datasource.params);
 
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">Dimension Columns</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="dimensions"
-                  value={datasource.dimensions}
-                  onChange={(e) => {
-                    setDatasource({
-                      ...datasource,
-                      dimensions: e.target.value,
-                    });
-                    setDirty(true);
-                  }}
-                />
-                <small className="form-text text-muted">
-                  Separate multiple columns by commas
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-3">
-                <p>
-                  List any columns from the above query here that you want to
-                  use as dimensions to drill down into experiment results.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col">
-              <div className="form-group">
-                <label className="font-weight-bold">
-                  User Id Join Table{" "}
-                  <span style={{ fontWeight: "normal" }}>(optional)</span>
-                </label>
-                <TextareaAutosize
-                  className="form-control"
-                  onChange={(e) => {
-                    setSettings(
-                      {
-                        identityJoins: [
-                          {
-                            ids: ["user_id", "anonymous_id"],
-                            query: e.target.value,
-                          },
-                        ],
-                      },
-                      "queries"
-                    );
-                  }}
-                  value={
-                    datasource.settings?.queries?.identityJoins?.[0]?.query
-                  }
-                  minRows={5}
-                  maxRows={20}
-                />
-                <small className="form-text text-muted">
-                  Used to join between anonymous ids and logged-in user ids when
-                  needed.
-                </small>
-              </div>
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">Columns to select:</div>
-              <ul>
-                <li>
-                  <code>user_id</code>
-                </li>
-                <li>
-                  <code>anonymous_id</code>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col">
-              <Field
-                label="Jupyter Notebook Query Runner (optional)"
-                placeholder="def runQuery(sql):"
-                labelClassName="font-weight-bold"
-                value={datasource.settings?.notebookRunQuery}
-                onChange={(e) => {
-                  setDatasource({
-                    ...datasource,
-                    settings: {
-                      ...datasource.settings,
-                      notebookRunQuery: e.target.value,
+                setDatasource({
+                  ...datasource,
+                  dimensions: settings.experimentDimensions?.join(", ") || "",
+                  settings: {
+                    ...datasource.settings,
+                    schemaFormat: format,
+                    queries: {
+                      experimentsQuery:
+                        settings?.queries?.experimentsQuery || "",
+                      identityJoins: settings?.queries?.identityJoins || [
+                        { ids: ["user_id", "anonymous_id"], query: "" },
+                      ],
                     },
-                  });
-                  setDirty(true);
-                }}
-                textarea
-                minRows={5}
-                maxRows={20}
-                helpText="Used when exporting experiment results to a Jupyter notebook"
-              />
-            </div>
-            <div className="col-md-5 col-lg-4">
-              <div className="pt-md-4">
-                <p>
-                  Define a <code>runQuery</code> Python function for this data
-                  source that takes a SQL string argument and returns a pandas
-                  data frame. For example:
-                </p>
-                <Code
-                  language="python"
-                  code={`import os
+                  },
+                });
+                setDirty(true);
+              }}
+            />
+          ) : (
+            <>
+              <div className="row mb-3">
+                <div className="col">
+                  <div className="form-group">
+                    <label className="font-weight-bold">Experiments SQL</label>
+                    <TextareaAutosize
+                      required
+                      className="form-control"
+                      name="experimentsQuery"
+                      onChange={onSettingsChange("queries")}
+                      value={datasource.settings?.queries?.experimentsQuery}
+                      minRows={10}
+                      maxRows={20}
+                    />
+                    <small className="form-text text-muted">
+                      Used to pull experiment results.
+                    </small>
+                  </div>
+                </div>
+                <div className="col-md-5 col-lg-4">
+                  <div className="pt-md-4">
+                    One row per variation assignment event. <br />
+                    <br />
+                    Minimum required columns:
+                  </div>
+                  <ul>
+                    <li>
+                      <code>user_id</code>
+                    </li>
+                    <li>
+                      <code>anonymous_id</code>
+                    </li>
+                    <li>
+                      <code>timestamp</code>
+                    </li>
+                    <li>
+                      <code>experiment_id</code>
+                    </li>
+                    <li>
+                      <code>variation_id</code>
+                    </li>
+                  </ul>
+                  <div>
+                    Add additional columns to use as dimensions (see below)
+                  </div>
+                </div>
+              </div>
+
+              <div className="row mb-3">
+                <div className="col">
+                  <div className="form-group">
+                    <label className="font-weight-bold">
+                      Dimension Columns
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="dimensions"
+                      value={datasource.dimensions}
+                      onChange={(e) => {
+                        setDatasource({
+                          ...datasource,
+                          dimensions: e.target.value,
+                        });
+                        setDirty(true);
+                      }}
+                    />
+                    <small className="form-text text-muted">
+                      Separate multiple columns by commas
+                    </small>
+                  </div>
+                </div>
+                <div className="col-md-5 col-lg-4">
+                  <div className="pt-md-3">
+                    <p>
+                      List any columns from the above query here that you want
+                      to use as dimensions to drill down into experiment
+                      results.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col">
+                  <div className="form-group">
+                    <label className="font-weight-bold">
+                      User Id Join Table{" "}
+                      <span style={{ fontWeight: "normal" }}>(optional)</span>
+                    </label>
+                    <TextareaAutosize
+                      className="form-control"
+                      onChange={(e) => {
+                        setSettings(
+                          {
+                            identityJoins: [
+                              {
+                                ids: ["user_id", "anonymous_id"],
+                                query: e.target.value,
+                              },
+                            ],
+                          },
+                          "queries"
+                        );
+                      }}
+                      value={
+                        datasource.settings?.queries?.identityJoins?.[0]?.query
+                      }
+                      minRows={5}
+                      maxRows={20}
+                    />
+                    <small className="form-text text-muted">
+                      Used to join between anonymous ids and logged-in user ids
+                      when needed.
+                    </small>
+                  </div>
+                </div>
+                <div className="col-md-5 col-lg-4">
+                  <div className="pt-md-4">Columns to select:</div>
+                  <ul>
+                    <li>
+                      <code>user_id</code>
+                    </li>
+                    <li>
+                      <code>anonymous_id</code>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col">
+                  <Field
+                    label="Jupyter Notebook Query Runner (optional)"
+                    placeholder="def runQuery(sql):"
+                    labelClassName="font-weight-bold"
+                    value={datasource.settings?.notebookRunQuery}
+                    onChange={(e) => {
+                      setDatasource({
+                        ...datasource,
+                        settings: {
+                          ...datasource.settings,
+                          notebookRunQuery: e.target.value,
+                        },
+                      });
+                      setDirty(true);
+                    }}
+                    textarea
+                    minRows={5}
+                    maxRows={20}
+                    helpText="Used when exporting experiment results to a Jupyter notebook"
+                  />
+                </div>
+                <div className="col-md-5 col-lg-4">
+                  <div className="pt-md-4">
+                    <p>
+                      Define a <code>runQuery</code> Python function for this
+                      data source that takes a SQL string argument and returns a
+                      pandas data frame. For example:
+                    </p>
+                    <Code
+                      language="python"
+                      code={`import os
 import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -404,10 +388,12 @@ dbConnection = create_engine(connStr).connect();
 
 def runQuery(sql):
   return pd.read_sql(text(sql), dbConnection)`}
-                />
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
     </Modal>

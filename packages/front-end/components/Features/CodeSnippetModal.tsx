@@ -11,8 +11,7 @@ import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
-
-type Language = "tsx" | "javascript" | "go" | "kotlin" | "php" | "python";
+import { Language } from "../Code";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -77,8 +76,16 @@ function getFeaturesUrl(apiKey?: string) {
   return getApiBaseUrl() + `api/features/${apiKey}`;
 }
 
-export default function CodeSnippetModal({ close }: { close: () => void }) {
-  const [language, setLanguage] = useState<Language>("javascript");
+export default function CodeSnippetModal({
+  close,
+  featureId = "my-feature",
+  defaultLanguage = "javascript",
+}: {
+  close: () => void;
+  featureId?: string;
+  defaultLanguage?: Language;
+}) {
+  const [language, setLanguage] = useState<Language>(defaultLanguage);
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -95,6 +102,25 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
 
   const { datasources } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
+
+  // Record the fact that the SDK instructions have been seen
+  useEffect(() => {
+    if (!settings) return;
+    if (settings.sdkInstructionsViewed) return;
+    (async () => {
+      {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify({
+            settings: {
+              sdkInstructionsViewed: true,
+            },
+          }),
+        });
+        await update();
+      }
+    })();
+  }, [settings]);
 
   // Create API key if one doesn't exist yet
   const [devApiKey, setDevApiKey] = useState("");
@@ -156,16 +182,7 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
       size="lg"
       header="Implementation Instructions"
       submit={async () => {
-        if (settings?.sdkInstructionsViewed) return;
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              sdkInstructionsViewed: true,
-            },
-          }),
-        });
-        await update();
+        return;
       }}
       cta={"Finish"}
     >
@@ -264,7 +281,7 @@ fetch(FEATURES_ENDPOINT)
 growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
 
 // Use a feature!
-if (growthbook.isOn("my-feature")) {
+if (growthbook.isOn(${JSON.stringify(featureId)})) {
   // ...
 }
 `.trim()}
@@ -335,7 +352,7 @@ export default function MyApp() {
 
 // Use a feature!
 function MyComponent() {
-  const feature = useFeature("my-feature")
+  const feature = useFeature(${JSON.stringify(featureId)})
   return feature.on ? "New version" : "Old version"
 }
             `.trim()}
@@ -412,7 +429,7 @@ func main() {
 	gb := growthbook.New(context)
 
 	// Use a feature!
-	if gb.Feature("my-feature").On {
+	if gb.Feature(${JSON.stringify(featureId)}).On {
 		// ...
 	}
 }
@@ -466,7 +483,7 @@ val gb = GBSDKBuilder(
   }
 ).initialize()
 
-if (gb.feature("my-feature").on) {
+if (gb.feature(${JSON.stringify(featureId)}).on) {
   // Feature is enabled!
 }
             `.trim()}
@@ -507,7 +524,7 @@ $growthbook = Growthbook::create()
     // TODO: track in your analytics system
   });
 
-if ($growthbook->isOn("my-feature")) {
+if ($growthbook->isOn(${JSON.stringify(featureId)})) {
   // Feature is enabled!
 }
             `.trim()}
@@ -559,7 +576,7 @@ gb = GrowthBook(
 )
 
 # Use a feature
-if gb.isOn("my-feature"):
+if gb.isOn(${JSON.stringify(featureId)}):
   print("Feature is enabled!")
             `.trim()}
           />

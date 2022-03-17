@@ -7,6 +7,7 @@ import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
+  getRules,
   useAttributeSchema,
   validateFeatureRule,
 } from "../../services/features";
@@ -20,6 +21,7 @@ export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
   i: number;
+  environment: string;
   defaultType?: string;
 }
 
@@ -28,9 +30,12 @@ export default function RuleModal({
   feature,
   i,
   mutate,
+  environment,
   defaultType = "force",
 }: Props) {
   const attributeSchema = useAttributeSchema();
+
+  const rules = getRules(feature, environment);
 
   const defaultValues = {
     ...getDefaultRuleValue({
@@ -38,7 +43,7 @@ export default function RuleModal({
       ruleType: defaultType,
       attributeSchema,
     }),
-    ...((feature?.rules?.[i] as FeatureRule) || {}),
+    ...((rules[i] as FeatureRule) || {}),
   };
   const form = useForm({
     defaultValues,
@@ -56,28 +61,30 @@ export default function RuleModal({
       open={true}
       close={close}
       size="lg"
-      header={feature.rules[i] ? "Edit Override Rule" : "New Override Rule"}
+      cta="Save"
+      header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
-        const ruleAction = i === feature.rules?.length ? "add" : "edit";
+        const ruleAction = i === rules.length ? "add" : "edit";
+        const rule = values as FeatureRule;
 
         try {
-          const rules = [...feature.rules];
-          rules[i] = values as FeatureRule;
-
-          validateFeatureRule(rules[i], feature.valueType);
+          validateFeatureRule(rule, feature.valueType);
 
           track("Save Feature Rule", {
             source: ruleAction,
             ruleIndex: i,
+            environment,
             type: values.type,
-            hasCondition: values.condition.length > 2,
-            hasDescription: values.description.length > 0,
+            hasCondition: rule.condition.length > 2,
+            hasDescription: rule.description.length > 0,
           });
 
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
+          await apiCall(`/feature/${feature.id}/rule`, {
+            method: i === rules.length ? "POST" : "PUT",
             body: JSON.stringify({
-              rules,
+              rule,
+              environment,
+              i,
             }),
           });
           mutate();
@@ -85,9 +92,10 @@ export default function RuleModal({
           track("Feature Rule Error", {
             source: ruleAction,
             ruleIndex: i,
-            type: values.type,
-            hasCondition: values.condition.length > 2,
-            hasDescription: values.description.length > 0,
+            environment,
+            type: rule.type,
+            hasCondition: rule.condition.length > 2,
+            hasDescription: rule.description.length > 0,
             error: e.message,
           });
 
@@ -95,10 +103,11 @@ export default function RuleModal({
         }
       })}
     >
+      <h3>{environment}</h3>
       <Field
         label="Type of Rule"
-        readOnly={!!feature.rules?.[i]}
-        disabled={!!feature.rules?.[i]}
+        readOnly={!!rules[i]}
+        disabled={!!rules[i]}
         value={type}
         onChange={(e) => {
           const existingCondition = form.watch("condition");

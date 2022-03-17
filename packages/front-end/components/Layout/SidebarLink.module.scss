@@ -7,7 +7,7 @@ $topbarheight: 60px;
 .link {
   display: block;
   transition: all 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
-  margin-bottom: 14px;
+  margin-bottom: 6px;
   border-radius: 4px;
 
   a {
@@ -47,6 +47,14 @@ $topbarheight: 60px;
     }
     /*border-left: 2px solid #fff;*/
   }
+  .chevron {
+    transition: transform 0.3s;
+  }
+  &.expanded {
+    .chevron {
+      transform: rotate(90deg);
+    }
+  }
   &.selected {
     //background: scale-color($dark-purple, $lightness: +20%);
     background-color: $highlight-purple;
@@ -59,11 +67,14 @@ $topbarheight: 60px;
     margin-bottom: 6px;
     background-color: inherit;
   }
-  &.sublinks {
-  }
   &.sublink {
     padding-left: 24px;
     margin-bottom: 6px;
+    max-height: 40px;
+    overflow-y: hidden;
+    opacity: 1;
+    transition: all 0.3s;
+
     &.selected {
       //background: scale-color($dark-purple, $lightness: +25%);
       background-color: $highlight-purple;
@@ -84,10 +95,31 @@ $topbarheight: 60px;
     a {
       padding: 0 0 0 20px;
     }
+    &.collapsed {
+      max-height: 0px;
+      opacity: 0;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
   }
+}
+.sublinks {
+  margin-bottom: 0;
+  overflow-y: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s, opacity 0.2s, margin-bottom 0.3s;
+}
+.open {
+  margin-bottom: 1em !important;
+  max-height: 300px;
+  opacity: 1;
 }
 .divider {
   margin-top: 3em;
+}
+.subdivider {
+  margin-top: 1em;
 }
 .menuSection {
   font-size: 0.8em;

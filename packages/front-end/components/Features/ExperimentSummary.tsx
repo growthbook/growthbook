@@ -10,7 +10,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import { getExperimentDefinitionFromFeature } from "../../services/features";
+import {
+  getExperimentDefinitionFromFeature,
+  getTotalVariationWeight,
+} from "../../services/features";
 import Modal from "../Modal";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -35,7 +38,7 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
   expRule: ExperimentRule;
 }) {
-  const totalPercent = values.reduce((sum, w) => sum + w.weight, 0);
+  const totalPercent = getTotalVariationWeight(values.map((v) => v.weight));
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
@@ -117,10 +120,16 @@ export default function ExperimentSummary({
         </div>
       </div>
       <strong>SERVE</strong>
-      <table className="table mt-1 mb-3 ml-3 w-auto">
+      <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
           {values.map((r, j) => (
             <tr key={j}>
+              <td
+                className="text-muted"
+                style={{ fontSize: "0.9em", width: 25 }}
+              >
+                {j}.
+              </td>
               <td>
                 <ValueDisplay value={r.value} type={type} />
               </td>
@@ -132,7 +141,9 @@ export default function ExperimentSummary({
                   <div style={{ flex: 1 }}>
                     <div
                       className="progress d-none d-md-flex"
-                      style={{ minWidth: 150 }}
+                      style={{
+                        minWidth: 150,
+                      }}
                     >
                       <div
                         className="progress-bar bg-info"
@@ -146,9 +157,9 @@ export default function ExperimentSummary({
               </td>
             </tr>
           ))}
-          {totalPercent < 1 && (
+          {totalPercent < 0.999 && (
             <tr>
-              <td>
+              <td colSpan={2}>
                 <em className="text-muted">unallocated, skip rule</em>
               </td>
               <td>

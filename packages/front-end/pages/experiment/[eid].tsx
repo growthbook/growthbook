@@ -175,7 +175,13 @@ const ExperimentPage = (): ReactElement => {
       )}
       {tagsModalOpen && (
         <EditTagsForm
-          experiment={experiment}
+          tags={experiment.tags}
+          save={async (tags) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ tags }),
+            });
+          }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
         />

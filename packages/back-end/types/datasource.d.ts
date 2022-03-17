@@ -7,6 +7,7 @@ import { MysqlConnectionParams } from "./integrations/mysql";
 import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
+import { MetricType } from "./metric";
 
 export type DataSourceType =
   | "redshift"
@@ -32,6 +33,22 @@ export type DataSourceParams =
   | MixpanelConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
+
+export type SchemaFormat =
+  | "segment"
+  | "snowplow"
+  | "ga4"
+  | "rudderstack"
+  | "amplitude"
+  | "custom";
+
+export interface SchemaInterface {
+  getExperimentSQL(tablePrefix: string): string;
+  getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
+  experimentDimensions: string[];
+  metricUserIdType: "user" | "anonymous" | "either";
+  getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
+}
 
 export interface DataSourceProperties {
   queryLanguage: QueryLanguage;
@@ -60,6 +77,7 @@ export type IdentityJoinQuery = {
 export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
+  schemaFormat?: SchemaFormat;
   queries?: {
     experimentsQuery?: string;
     identityJoins?: IdentityJoinQuery[];

@@ -235,6 +235,17 @@ app.get(
   }),
   featuresController.getFeaturesPublic
 );
+// For preflight requests
+app.options(
+  "/api/features/:key",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  function (req, res) {
+    res.send(200);
+  }
+);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
@@ -455,6 +466,7 @@ app.post(
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
+app.delete("/report/:id", reportsController.deleteReport);
 app.get("/report/:id/status", reportsController.getReportStatus);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
@@ -485,6 +497,11 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
+app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
+app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.put("/feature/:id/rule", featuresController.putFeatureRule);
+app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
+app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources

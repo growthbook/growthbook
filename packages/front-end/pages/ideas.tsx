@@ -155,7 +155,7 @@ const IdeasPage = (): React.ReactElement => {
                             </div>
                           )}
                           <h5 className="card-title">
-                            <Link href="/idea/[iid]" as={`/idea/${idea.id}`}>
+                            <Link href={`/idea/${idea.id}`}>
                               <a>{idea.text}</a>
                             </Link>
                           </h5>

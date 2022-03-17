@@ -15,7 +15,7 @@ let s3: AWS.S3;
 function getS3(): AWS.S3 {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
-    s3 = new AWS.S3();
+    s3 = new AWS.S3({ signatureVersion: "v4" });
   }
   return s3;
 }
@@ -54,7 +54,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     svg: "text/svg",
   };
 
-  if (!mimetypes[ext]) {
+  if (!mimetypes[ext.toLowerCase()]) {
     throw new Error(
       `Invalid image file type. Only ${Object.keys(mimetypes).join(
         ", "
@@ -77,7 +77,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
 
     return {
       uploadURL,
-      fileURL: S3_DOMAIN + "/" + filePath,
+      fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
     };
   }
   // Otherwise, use the local file system

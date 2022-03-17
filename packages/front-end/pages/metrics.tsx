@@ -343,7 +343,7 @@ const MetricsPage = (): React.ReactElement => {
               key={metric.id}
               onClick={(e) => {
                 e.preventDefault();
-                router.push("/metric/[mid]", `/metric/${metric.id}`);
+                router.push(`/metric/${metric.id}`);
               }}
               style={{ cursor: "pointer" }}
               className={metric.status === "archived" ? "text-muted" : ""}

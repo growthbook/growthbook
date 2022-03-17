@@ -317,7 +317,11 @@ const DataSourceForm: FC<{
     );
   } else if (datasource.type === "bigquery") {
     connSettings = (
-      <BigQueryForm setParams={setParams} params={datasource.params} />
+      <BigQueryForm
+        setParams={setParams}
+        params={datasource.params}
+        onParamChange={onParamChange}
+      />
     );
   } else if (datasource.type === "mixpanel") {
     connSettings = (

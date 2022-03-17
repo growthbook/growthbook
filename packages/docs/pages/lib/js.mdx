@@ -32,10 +32,10 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook();
 
 // Load feature definitions (from API, database, etc.)
-await fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
+await fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
   .then((parsed) => {
-    growthbook.setFeatures(parsed);
+    growthbook.setFeatures(parsed.features);
   });
 
 // Simple boolean (on/off) feature flag
@@ -84,7 +84,6 @@ The following are some comonly used attributes, but use whatever makes sense for
 new GrowthBook({
   attributes: {
     id: "123",
-    environment: "prod",
     loggedIn: true,
     deviceId: "abc123def456",
     company: "acme",

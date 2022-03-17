@@ -30,7 +30,7 @@ export default function RolloutSummary({
           <div className="col-auto">
             <strong>ROLLOUT</strong>
           </div>
-          <div className="col" style={{ maxWidth: 150 }}>
+          <div className="col" style={{ maxWidth: 250 }}>
             <div className="progress d-none d-md-flex">
               <div
                 className="progress-bar bg-info"
