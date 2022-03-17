@@ -34,7 +34,10 @@ export async function regenApiKey(
     "key_" + existing.environment + "_" + md5(uniqid()).substr(0, 16);
 
   if (newKey && existing._id) {
-    await ApiKeyModel.updateOne({ _id: existing._id }, { key: newKey });
+    await ApiKeyModel.updateOne(
+      { _id: existing._id },
+      { $set: { key: newKey } }
+    );
   }
   return newKey;
 }

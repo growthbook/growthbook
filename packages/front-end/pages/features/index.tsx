@@ -22,6 +22,8 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
+import useApi from "../../hooks/useApi";
+import { EnvironmentApiResponse } from "../settings/environments";
 
 const NUM_PER_PAGE = 20;
 
@@ -34,6 +36,9 @@ export default function FeaturesPage() {
   const end = start + NUM_PER_PAGE;
 
   const { features, loading, error, mutate } = useFeaturesList();
+  const { data: envData, error: envError } = useApi<EnvironmentApiResponse>(
+    `/environments`
+  );
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
@@ -68,9 +73,19 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (loading) {
+  if (envError) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {envError.message}
+      </div>
+    );
+  }
+  if (loading || !envData) {
     return <LoadingOverlay />;
   }
+  console.log(envData);
+
+  const toggleEnvs = envData.environments.filter((en) => en.toggleOnList);
 
   return (
     <div className="contents container pagecontents">
@@ -166,8 +181,9 @@ export default function FeaturesPage() {
               <tr>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
-                <th>Dev</th>
-                <th>Prod</th>
+                {toggleEnvs.map((en, i) => (
+                  <th key={i}>{en.id}</th>
+                ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -212,20 +228,15 @@ export default function FeaturesPage() {
                         );
                       })}
                     </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="dev"
-                        mutate={mutate}
-                      />
-                    </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="production"
-                        mutate={mutate}
-                      />
-                    </td>
+                    {toggleEnvs.map((en, i) => (
+                      <td key={i} className="position-relative">
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={en.id}
+                          mutate={mutate}
+                        />
+                      </td>
+                    ))}
                     <td>
                       <ValueDisplay
                         value={feature.defaultValue}

@@ -130,13 +130,11 @@ export default function CodeSnippetModal({
   // Create API key if one doesn't exist yet
   useEffect(() => {
     (async () => {
-      console.log("use effect called", data);
       if (
         data &&
         "environments" in data &&
         data.apiKeys.filter((k) => k.environment).length === 0
       ) {
-        console.log("API calling");
         await apiCall(`/environments/makedefault`, {
           method: "PUT",
         })
@@ -148,7 +146,7 @@ export default function CodeSnippetModal({
             setErrorMsg(
               "Some environments already exist, adjust in the environment and API keys settings"
             );
-            console.log(e.message);
+            console.error(e.message);
           });
       }
     })();

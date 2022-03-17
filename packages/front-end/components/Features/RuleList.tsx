@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules } from "../../services/features";
+import { Environment } from "back-end/types/organization";
 
 export default function RuleList({
   feature,
@@ -26,12 +27,14 @@ export default function RuleList({
   experiments,
   environment,
   setRuleModal,
+  environments,
 }: {
   feature: FeatureInterface;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
   setRuleModal: ({ environment: string, i: number }) => void;
+  environments: Environment[];
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string>(null);
@@ -106,6 +109,7 @@ export default function RuleList({
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
+            environments={environments}
           />
         ))}
       </SortableContext>
@@ -119,6 +123,7 @@ export default function RuleList({
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
+            environments={environments}
           />
         ) : null}
       </DragOverlay>
