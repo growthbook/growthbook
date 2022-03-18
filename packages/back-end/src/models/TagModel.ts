@@ -7,6 +7,7 @@ const tagSchema = new mongoose.Schema({
     index: true,
   },
   tags: [String],
+  settings: {},
 });
 
 export type TagDocument = mongoose.Document & TagInterface;

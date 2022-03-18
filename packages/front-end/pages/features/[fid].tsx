@@ -26,6 +26,7 @@ import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import { getRules, useEnvironment } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
+import Tag from "../../components/Tag";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -193,11 +194,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div className="col-auto">
           Tags:{" "}
           {data.feature?.tags?.map((tag, i) => {
-            return (
-              <span className={`badge badge-primary mr-2`} key={i}>
-                {tag}
-              </span>
-            );
+            return <Tag key={i} tag={tag} />;
           })}
           <a
             className="ml-2 cursor-pointer"

@@ -15,7 +15,7 @@ const TagsInput: FC<{
       labelKey="name"
       multiple={true}
       allowNew={true}
-      options={tags.map((tag) => {
+      options={tags.tags.map((tag) => {
         return {
           id: tag,
           name: tag,

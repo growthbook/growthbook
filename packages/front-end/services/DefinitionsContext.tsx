@@ -6,6 +6,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { TagInterface } from "back-end/types/tag";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -14,7 +15,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   groups: string[];
-  tags: string[];
+  tags: Partial<TagInterface>;
 };
 
 type DefinitionContextValue = Definitions & {
@@ -51,7 +52,7 @@ const defaultValue: DefinitionContextValue = {
   datasources: [],
   dimensions: [],
   segments: [],
-  tags: [],
+  tags: { tags: [], settings: [] },
   groups: [],
   projects: [],
   getMetricById: () => null,
@@ -149,12 +150,14 @@ export const DefinitionsProvider: FC = ({ children }) => {
         }
       },
       refreshTags: async (tags) => {
-        const newTags = tags.filter((t) => !data.tags.includes(t));
+        const newTags = tags.filter((t) => !data.tags.tags.includes(t));
         if (newTags.length > 0) {
           await mutate(
             {
               ...data,
-              tags: data.tags.concat(newTags),
+              tags: {
+                tags: { ...data.tags.tags.concat(newTags) },
+              },
             },
             false
           );

@@ -5,7 +5,7 @@ export async function getAllTags(organization: string) {
     organization,
   });
   if (doc) {
-    return doc.tags;
+    return doc;
   }
 
   return [];
@@ -28,6 +28,43 @@ export async function addTags(organization: string, tags: string[]) {
   );
 }
 
+export async function addTag(
+  organization: string,
+  tag: string,
+  color: string,
+  description: string
+) {
+  const settingIndex = `setting.${tag}`;
+  const setting = { [settingIndex]: { color, description } };
+  console.log(setting);
+  const x = await TagModel.updateOne(
+    { organization },
+    {
+      $addToSet: {
+        tags: { $each: [tag] },
+      },
+      $set: setting,
+    },
+    {
+      upsert: true,
+    }
+  );
+  console.log(x);
+}
+
+export async function removeTag(organization: string, tag: string) {
+  const tagDoc = await getAllTags(organization);
+  if (tagDoc && "tags" in tagDoc) {
+    const newTags = tagDoc.tags.filter((t) => !(t === tag));
+    const newSetting = { ...tagDoc?.settings };
+    delete newSetting[tag];
+    await TagModel.updateOne(
+      { organization },
+      { $set: { tags: newTags, settings: newSetting } }
+    );
+  }
+}
+
 export async function addTagsDiff(
   organization: string,
   oldTags: string[],
@@ -35,7 +72,6 @@ export async function addTagsDiff(
 ) {
   const diff = newTags.filter((x) => !oldTags.includes(x));
   if (diff.length) {
-    console.log(diff);
     await addTags(organization, diff);
   }
 }

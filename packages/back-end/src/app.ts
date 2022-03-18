@@ -355,6 +355,8 @@ app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);
 app.put("/member/:id/role", organizationsController.putMemberRole);
 app.get("/tags", organizationsController.getTags);
+app.put("/tag", organizationsController.putTag);
+app.delete("/tag/:id", organizationsController.deleteTag);
 app.post("/oauth/google", organizationsController.postGoogleOauthRedirect);
 app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
