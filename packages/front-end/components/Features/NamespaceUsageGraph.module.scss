@@ -12,12 +12,11 @@
   vertical-align: middle;
   border: 1px solid #ccc;
 }
-
-.unused {
-  background: $light-green;
-}
 .used {
-  background: $gray1;
+  background-color: $gray1;
+}
+.unused {
+  background-color: $light-green;
 }
 
 .bar {
@@ -30,7 +29,8 @@
   position: relative;
   border: 1px solid #ccc;
   height: 30px;
-  margin: 5px 0 40px 0;
+  margin: 5px 0 30px 0;
+  background-color: $gray1;
 }
 
 .hmarker {

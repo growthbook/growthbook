@@ -385,8 +385,9 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           />
           <NamespaceSelector
             form={form}
-            formPrefix="rules.0."
+            formPrefix="rule."
             featureId={form.watch("id")}
+            trackingKey={form.watch("rule.trackingKey")}
           />
           <FeatureValueField
             label={"Fallback Value"}

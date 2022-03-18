@@ -61,23 +61,20 @@ export default function NamespaceUsageGraph({
         </div>
         <div className={clsx("col-auto", styles.legend)}>Legend:</div>
         <div className={clsx("col-auto", styles.legend)}>
-          <div className={clsx(styles.legend_box, styles.used)} /> In-use
+          <div
+            className={clsx(
+              styles.legend_box,
+              styles.used,
+              "progress-bar-striped"
+            )}
+          />{" "}
+          In-use
         </div>
         <div className={clsx("col-auto", styles.legend)}>
           <div className={clsx(styles.legend_box, styles.unused)} /> Available
         </div>
       </div>
-      <div className={clsx(styles.bar_holder)}>
-        {experiments.map((e, i) => (
-          <div
-            key={i}
-            className={clsx(styles.bar, styles.used)}
-            style={{
-              left: `${+(e.start * 100).toFixed(4)}%`,
-              width: `${+(e.end * 100 - e.start * 100).toFixed(4)}%`,
-            }}
-          />
-        ))}
+      <div className={clsx(styles.bar_holder, "progress-bar-striped")}>
         {gaps.map((g, i) => (
           <div
             key={`gap${i}`}

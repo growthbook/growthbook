@@ -112,7 +112,7 @@ export default function NamespaceSelector({
                   title="Allocation"
                   trackingKey={trackingKey}
                 />
-                <div className="row align-items-center">
+                <div className="row align-items-center pt-2">
                   <div className="col-auto">
                     <label className="mb-0">Selected Range</label>
                   </div>
