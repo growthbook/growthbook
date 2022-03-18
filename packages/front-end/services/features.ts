@@ -33,6 +33,8 @@ export interface AttributeData {
   enum: string[];
 }
 
+export type Ranges = { start: number; end: number }[];
+
 export function useEnvironment() {
   return useLocalStorage("currentEnvironment", "dev");
 }
@@ -44,6 +46,27 @@ export function roundVariationWeight(num: number): number {
 }
 export function getTotalVariationWeight(weights: number[]): number {
   return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
+}
+
+export function findGaps(ranges: Ranges): Ranges {
+  // Sort by range start, ascending
+  ranges = [...ranges, { start: 1, end: 1 }];
+  ranges.sort((a, b) => a.start - b.start);
+
+  // Look for gaps between ranges
+  const gaps: Ranges = [];
+  let lastEnd = 0;
+  ranges.forEach(({ start, end }) => {
+    if (start > lastEnd) {
+      gaps.push({
+        start: lastEnd,
+        end: start,
+      });
+    }
+    lastEnd = Math.max(lastEnd, end);
+  });
+
+  return gaps;
 }
 
 export function useFeaturesList(withProject = true) {

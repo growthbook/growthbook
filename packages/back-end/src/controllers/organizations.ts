@@ -32,7 +32,11 @@ import {
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  MemberRole,
+  NamespaceUsage,
+  OrganizationInterface,
+} from "../../types/organization";
 import {
   getWatchedAudits,
   findByEntity,
@@ -82,6 +86,7 @@ import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
+import { ExperimentRule, NamespaceValue } from "../../types/feature";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -590,84 +595,39 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   }
 
-  const namespaceMap = new Map();
-  const ranges = new Map();
-  if (org.settings?.namespaces) {
-    org.settings.namespaces.forEach((n) => {
-      namespaceMap.set(n.name, {
-        ...n,
-        experiments: [],
-        rangeRemaining: 1,
-        largestGapRange: [0, 1],
-      });
-    });
-    // get all the experiments that might have this namespace:
-    const allFeatures = await getAllFeatures(org.id);
-    allFeatures.forEach((f) => {
-      if (f?.rules && f?.rules.length > 0) {
-        f.rules.forEach((r) => {
-          if (r.type === "experiment" && r?.namespace) {
-            if (namespaceMap.has(r.namespace.name)) {
-              const existing = namespaceMap.get(r.namespace.name);
-              existing.experiments.push({
-                enabled: r.namespace.enabled,
-                namespace: r.namespace.name,
-                range: r.namespace.range,
-                experimentRule: r,
-                featureId: f.id,
-                experimentKey: r.trackingKey || f.id,
-              });
-              const newRange = [...(ranges.get(r.namespace.name) || [])];
-              newRange.push(r.namespace.range);
-              ranges.set(r.namespace.name, newRange);
-            }
-          }
-        });
-      }
-    });
+  const namespaces: NamespaceUsage = {};
 
-    // figure out the largest percent remaining in each namespace:
-    ranges.forEach((allRanges, n) => {
-      allRanges.sort((a: [number, number], b: [number, number]) => {
-        return a[0] - b[0];
-      });
-      let largestGap = 0;
-      let largestGapRange = [0, 1];
-      allRanges.forEach((r: [number, number], i: number) => {
-        if (i === 0) {
-          // first one, check if there is a gap between 0 and it.
-          if (r[0] > largestGap) {
-            largestGap = r[0];
-            largestGapRange = [0, r[0]];
-          }
-        }
-        if (allRanges[i + 1]) {
-          const gap = allRanges[i + 1][0] - r[1];
-          if (gap > largestGap) {
-            largestGap = gap;
-            largestGapRange = [r[1], allRanges[i + 1][0]];
-          }
-        }
-        if (i === allRanges.length - 1) {
-          // last one, lets see if there is a gap to 1.
-          if (1 - r[1] > largestGap) {
-            largestGap = 1 - r[1];
-            largestGapRange = [r[1], 1];
-          }
-        }
-      });
-      // save in the main namespace map:
-      namespaceMap.set(n, {
-        ...namespaceMap.get(n),
-        rangeRemaining: largestGap,
-        largestGapRange: largestGapRange,
-      });
+  // Get all of the active experiments that are tied to a namespace
+  const allFeatures = await getAllFeatures(org.id);
+  allFeatures.forEach((f) => {
+    Object.keys(f.environmentSettings || {}).forEach((env) => {
+      if (!f.environmentSettings?.[env]?.enabled) return;
+      const rules = f.environmentSettings?.[env]?.rules || [];
+      rules
+        .filter(
+          (r) =>
+            r.enabled &&
+            r.type === "experiment" &&
+            r.namespace &&
+            r.namespace.enabled
+        )
+        .forEach((r: ExperimentRule) => {
+          const { name, range } = r.namespace as NamespaceValue;
+          namespaces[name] = namespaces[name] || [];
+          namespaces[name].push({
+            featureId: f.id,
+            trackingKey: r.trackingKey || f.id,
+            start: range[0],
+            end: range[1],
+            environment: env,
+          });
+        });
     });
-  }
+  });
 
   res.status(200).json({
     status: 200,
-    namespaces: Array.from(namespaceMap.values()),
+    namespaces,
   });
   return;
 }

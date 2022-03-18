@@ -148,6 +148,14 @@ If the total variation percents add up to less than 100%, the remaining users wi
 
 You can analyze the result of an Experiment the same way you would any experiment in GrowthBook.
 
+#### Namespaces
+
+If you have multiple experiments that may conflict with each other (e.g. background color and text color), you can use **namespaces** to make the conflicting experiments mutually exclusive. Namespaces cover a range from 0 to 1 and experiments are allocated to subsets of this range. As long as two ranges do not overlap, a user will only ever be included in one of the experiments.
+
+![Namespaces](/images/namespaces.png)
+
+Before you can use this in an experiment, you must define your namespaces under Management -> Namespaces.
+
 ## Integration Options
 
 There are few ways to integrate GrowthBook features into your application.

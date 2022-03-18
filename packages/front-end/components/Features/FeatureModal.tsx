@@ -383,7 +383,11 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />
-          <NamespaceSelector form={form} formPrefix="rules.0." />
+          <NamespaceSelector
+            form={form}
+            formPrefix="rules.0."
+            featureId={form.watch("id")}
+          />
           <FeatureValueField
             label={"Fallback Value"}
             helpText={"For people excluded from the experiment"}

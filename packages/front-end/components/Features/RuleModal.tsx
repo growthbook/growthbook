@@ -198,7 +198,8 @@ export default function RuleModal({
           />
           <NamespaceSelector
             form={form}
-            experimentKey={feature.id}
+            trackingKey={form.watch("trackingKey") || feature.id}
+            featureId={feature.id}
             formPrefix=""
           />
         </div>

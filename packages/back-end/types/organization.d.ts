@@ -108,3 +108,14 @@ export interface OrganizationInterface {
   };
   settings?: OrganizationSettings;
 }
+
+export type NamespaceUsage = Record<
+  string,
+  {
+    featureId: string;
+    trackingKey: string;
+    environment: string;
+    start: number;
+    end: number;
+  }[]
+>;

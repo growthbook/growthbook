@@ -78,6 +78,16 @@ const navlinks: SidebarLinkProps[] = [
         href: "/presentations",
         path: /^presentation/,
       },
+      {
+        name: "Projects",
+        href: "/projects",
+        path: /^projects/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
     ],
   },
   {
@@ -99,19 +109,9 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/team/,
       },
       {
-        name: "Projects",
-        href: "/settings/projects",
-        path: /^settings\/projects/,
-      },
-      {
         name: "Attributes",
         href: "/settings/attributes",
         path: /^settings\/attributes/,
-      },
-      {
-        name: "Namespaces",
-        href: "/settings/namespaces",
-        path: /^settings\/namespaces/,
       },
       {
         name: "Billing",
