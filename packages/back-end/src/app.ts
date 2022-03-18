@@ -347,6 +347,8 @@ app.post(
   "/organization/config/import",
   organizationsController.postImportConfig
 );
+app.get("/organization/namespaces", organizationsController.getNamespaces);
+app.post("/organization/namespaces", organizationsController.postNamespaces);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);

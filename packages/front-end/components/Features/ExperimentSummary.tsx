@@ -101,6 +101,21 @@ export default function ExperimentSummary({
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {hashAttribute}
           </span>
+          {expRule?.namespace && expRule?.namespace?.enabled && (
+            <>
+              {" "}
+              <span>and include </span>
+              <span className="mr-1 border px-2 py-1 bg-light rounded">
+                {percentFormatter.format(
+                  expRule.namespace.range[1] - expRule.namespace.range[0]
+                )}
+              </span>{" "}
+              <span>of the namespace </span>
+              <span className="mr-1 border px-2 py-1 bg-light rounded">
+                {expRule.namespace.name}
+              </span>
+            </>
+          )}
         </div>
       </div>
       <strong>SERVE</strong>

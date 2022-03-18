@@ -32,7 +32,11 @@ import {
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  MemberRole,
+  NamespaceUsage,
+  OrganizationInterface,
+} from "../../types/organization";
 import {
   getWatchedAudits,
   findByEntity,
@@ -81,6 +85,8 @@ import {
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
+import { getAllFeatures } from "../models/FeatureModel";
+import { ExperimentRule, NamespaceValue } from "../../types/feature";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -570,6 +576,78 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       }),
       settings,
     },
+  });
+}
+
+export async function getNamespaces(req: AuthRequest, res: Response) {
+  if (!req.organization) {
+    return res.status(200).json({
+      status: 200,
+      organization: null,
+    });
+  }
+  const { org } = getOrgFromReq(req);
+
+  const namespaces: NamespaceUsage = {};
+
+  // Get all of the active experiments that are tied to a namespace
+  const allFeatures = await getAllFeatures(org.id);
+  allFeatures.forEach((f) => {
+    Object.keys(f.environmentSettings || {}).forEach((env) => {
+      if (!f.environmentSettings?.[env]?.enabled) return;
+      const rules = f.environmentSettings?.[env]?.rules || [];
+      rules
+        .filter(
+          (r) =>
+            r.enabled &&
+            r.type === "experiment" &&
+            r.namespace &&
+            r.namespace.enabled
+        )
+        .forEach((r: ExperimentRule) => {
+          const { name, range } = r.namespace as NamespaceValue;
+          namespaces[name] = namespaces[name] || [];
+          namespaces[name].push({
+            featureId: f.id,
+            trackingKey: r.trackingKey || f.id,
+            start: range[0],
+            end: range[1],
+            environment: env,
+          });
+        });
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    namespaces,
+  });
+  return;
+}
+
+export async function postNamespaces(
+  req: AuthRequest<{ name: string; description: string }>,
+  res: Response
+) {
+  const { name, description } = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const namespaces = org.settings?.namespaces || [];
+
+  // Namespace with the same name already exists
+  if (namespaces.filter((n) => n.name === name).length > 0) {
+    throw new Error("Namespace names must be unique.");
+  }
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      namespaces: [...namespaces, { name, description }],
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 }
 
