@@ -60,7 +60,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation|projects|namespaces)/,
+    path: /^(dashboard|idea|presentation)/,
     autoClose: true,
     subLinks: [
       {
@@ -78,23 +78,13 @@ const navlinks: SidebarLinkProps[] = [
         href: "/presentations",
         path: /^presentation/,
       },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^projects/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
     ],
   },
   {
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin)/,
+    path: /^(settings|admin|projects|namespaces)/,
     settingsPermission: true,
     autoClose: true,
     subLinks: [
@@ -107,6 +97,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Team",
         href: "/settings/team",
         path: /^settings\/team/,
+      },
+      {
+        name: "Projects",
+        href: "/projects",
+        path: /^projects/,
       },
       {
         name: "Attributes",
@@ -128,6 +123,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
       },
       {
         name: "Admin",
