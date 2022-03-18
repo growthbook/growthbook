@@ -3,7 +3,6 @@ import { FC } from "react";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { ProjectInterface } from "back-end/types/project";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
 import { NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
@@ -23,9 +22,7 @@ const NamespacesPage: FC = () => {
   const { namespaces } = useOrgSettings();
 
   //const { apiCall } = useAuth();
-  const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
-    null
-  );
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (error) {
     return (
@@ -42,8 +39,7 @@ const NamespacesPage: FC = () => {
     <div className="container-fluid pagecontents">
       {modalOpen && (
         <NamespaceModal
-          existing={modalOpen}
-          close={() => setModalOpen(null)}
+          close={() => setModalOpen(false)}
           onSuccess={() => {
             update();
           }}
@@ -84,7 +80,7 @@ const NamespacesPage: FC = () => {
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
-          setModalOpen({});
+          setModalOpen(true);
         }}
       >
         <GBAddCircle /> Create Namespace

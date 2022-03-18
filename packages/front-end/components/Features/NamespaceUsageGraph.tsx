@@ -9,24 +9,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-function getGaps(
-  experiments: {
-    featureId: string;
-    trackingKey: string;
-    environment: string;
-    start: number;
-    end: number;
-  }[],
-  featureId: string,
-  trackingKey: string
-) {
-  return findGaps(
-    experiments
-      .filter((e) => e.featureId !== featureId || e.trackingKey !== trackingKey)
-      .map(({ start, end }) => ({ start, end }))
-  );
-}
-
 export interface Props {
   usage: NamespaceUsage;
   namespace: string;
@@ -50,8 +32,7 @@ export default function NamespaceUsageGraph({
 
   if (!namespaces?.length) return null;
 
-  const experiments = usage?.[namespace] || [];
-  const gaps = getGaps(experiments, featureId, trackingKey);
+  const gaps = findGaps(usage, namespace, featureId, trackingKey);
 
   return (
     <div>

@@ -2,7 +2,7 @@ import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
 import { useState } from "react";
 import { FaAngleRight } from "react-icons/fa";
-import { findGaps, Ranges } from "../../services/features";
+import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 
 export interface Props {
@@ -14,13 +14,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
-
-function getPercentRemaining(ranges: Ranges) {
-  return findGaps(ranges).reduce(
-    (sum, range) => sum + (range.end - range.start),
-    0
-  );
-}
 
 export default function NamespaceTableRow({ usage, namespace }: Props) {
   const experiments = usage[namespace.name] ?? [];
@@ -42,11 +35,9 @@ export default function NamespaceTableRow({ usage, namespace }: Props) {
         <td>{experiments.length}</td>
         <td>
           {percentFormatter.format(
-            getPercentRemaining(
-              experiments.map(({ start, end }) => ({
-                start,
-                end,
-              }))
+            findGaps(usage, namespace.name).reduce(
+              (sum, range) => sum + (range.end - range.start),
+              0
             )
           )}
         </td>

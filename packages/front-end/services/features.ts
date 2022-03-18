@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import {
+  NamespaceUsage,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
@@ -33,8 +34,6 @@ export interface AttributeData {
   enum: string[];
 }
 
-export type Ranges = { start: number; end: number }[];
-
 export function useEnvironment() {
   return useLocalStorage("currentEnvironment", "dev");
 }
@@ -48,13 +47,27 @@ export function getTotalVariationWeight(weights: number[]): number {
   return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
 }
 
-export function findGaps(ranges: Ranges): Ranges {
+type NamespaceGaps = { start: number; end: number }[];
+export function findGaps(
+  namespaces: NamespaceUsage,
+  namespace: string,
+  featureId: string = "",
+  trackingKey: string = ""
+): NamespaceGaps {
+  const experiments = namespaces?.[namespace] || [];
+
   // Sort by range start, ascending
-  ranges = [...ranges, { start: 1, end: 1 }];
+  const ranges = [
+    ...experiments.filter(
+      // Exclude the current feature/experiment
+      (e) => e.featureId !== featureId || e.trackingKey !== trackingKey
+    ),
+    { start: 1, end: 1 },
+  ];
   ranges.sort((a, b) => a.start - b.start);
 
   // Look for gaps between ranges
-  const gaps: Ranges = [];
+  const gaps: NamespaceGaps = [];
   let lastEnd = 0;
   ranges.forEach(({ start, end }) => {
     if (start > lastEnd) {

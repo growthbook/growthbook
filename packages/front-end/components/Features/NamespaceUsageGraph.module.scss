@@ -2,7 +2,7 @@
 
 .legend {
   font-size: 0.8em;
-  color: #555;
+  color: $gray1;
 }
 
 .legend_box {
@@ -10,7 +10,7 @@
   height: 14px;
   display: inline-block;
   vertical-align: middle;
-  border: 1px solid #ccc;
+  border: 1px solid $gray3;
 }
 .used {
   background-color: $gray1;
@@ -27,7 +27,7 @@
 
 .bar_holder {
   position: relative;
-  border: 1px solid #ccc;
+  border: 1px solid $gray3;
   height: 30px;
   margin: 5px 0 30px 0;
   background-color: $gray1;
@@ -37,7 +37,7 @@
   position: absolute;
   width: 4px;
   margin-left: -2px;
-  background-color: purple;
+  background-color: $purple;
   top: 100%;
   height: 12px;
 }
@@ -47,8 +47,8 @@
   margin-left: -2px;
   top: 100%;
   margin-top: 8px;
-  border-top: 4px solid purple;
+  border-top: 4px solid $purple;
   text-align: center;
-  color: purple;
+  color: $purple;
   font-weight: bold;
 }

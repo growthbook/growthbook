@@ -5,7 +5,6 @@ import { NamespaceApiResponse } from "../../pages/namespaces";
 import Toggle from "../Forms/Toggle";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import Field from "../Forms/Field";
-import { NamespaceUsage } from "back-end/types/organization";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
@@ -15,20 +14,6 @@ export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   formPrefix?: string;
-}
-
-function getGaps(
-  namespaces: NamespaceUsage,
-  namespace: string,
-  featureId: string,
-  trackingKey: string
-) {
-  const experiments = namespaces?.[namespace] || [];
-  return findGaps(
-    experiments
-      .filter((e) => e.featureId !== featureId || e.trackingKey !== trackingKey)
-      .map(({ start, end }) => ({ start, end }))
-  );
 }
 
 export default function NamespaceSelector({
@@ -76,14 +61,12 @@ export default function NamespaceSelector({
               if (v === namespace) return;
               form.setValue(`${formPrefix}namespace.name`, v);
 
-              const largestGap = getGaps(
+              const largestGap = findGaps(
                 data?.namespaces || {},
                 v,
                 featureId,
                 trackingKey
-              )
-                .map((g) => ({ ...g, size: g.end - g.start }))
-                .sort((a, b) => b.size - a.size)[0];
+              ).sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 
               form.setValue(
                 `${formPrefix}namespace.range.0`,
