@@ -22,6 +22,7 @@ import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import TagsInput from "../TagsInput";
 import cloneDeep from "lodash/cloneDeep";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export type Props = {
   close: () => void;
@@ -68,6 +69,8 @@ export default function FeatureModal({ close, onSuccess }: Props) {
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema();
+
+  const { namespaces } = useOrgSettings();
 
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute)?.length > 0;
@@ -383,12 +386,14 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />
-          <NamespaceSelector
-            form={form}
-            formPrefix="rule."
-            featureId={form.watch("id")}
-            trackingKey={form.watch("rule.trackingKey")}
-          />
+          {namespaces?.length > 0 && (
+            <NamespaceSelector
+              form={form}
+              formPrefix="rule."
+              featureId={form.watch("id")}
+              trackingKey={form.watch("rule.trackingKey")}
+            />
+          )}
           <FeatureValueField
             label={"Fallback Value"}
             helpText={"For people excluded from the experiment"}

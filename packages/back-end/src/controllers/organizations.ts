@@ -588,13 +588,6 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
   }
   const { org } = getOrgFromReq(req);
 
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
@@ -638,93 +631,24 @@ export async function postNamespaces(
 ) {
   const { name, description } = req.body;
   const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
+
+  const namespaces = org.settings?.namespaces || [];
+
+  // Namespace with the same name already exists
+  if (namespaces.filter((n) => n.name === name).length > 0) {
+    throw new Error("Namespace names must be unique.");
   }
 
-  try {
-    if (org.settings?.namespaces) {
-      // make sure it doesn't already exist:
-      org.settings.namespaces.forEach((n) => {
-        if (n.name === name) {
-          return res.status(400).json({
-            status: 400,
-            message: "This namespace already exists.",
-          });
-        }
-      });
-    }
-    const updates: Partial<OrganizationInterface> = {};
-    updates.settings = {
+  await updateOrganization(org.id, {
+    settings: {
       ...org.settings,
-      ...{
-        namespaces: [
-          ...(org.settings?.namespaces || []),
-          { name, description },
-        ],
-      },
-    };
-    await updateOrganization(org.id, updates);
+      namespaces: [...namespaces, { name, description }],
+    },
+  });
 
-    res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
-    });
-  }
-}
-
-export async function putNamespaces(
-  req: AuthRequest<{ name: string; description: string }, { id: string }>,
-  res: Response
-) {
-  const { name, description } = req.body;
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-  const { id } = req.params;
-
-  try {
-    if (org.settings?.namespaces) {
-      const updates: Partial<OrganizationInterface> = {};
-      const namespaces = [...(org.settings.namespaces || [])];
-      // find it:
-      namespaces.forEach((n, i) => {
-        if (n.name === id) {
-          // update
-          namespaces[i] = { name, description };
-        }
-      });
-
-      updates.settings = {
-        ...org.settings,
-        ...{ namespaces },
-      };
-      await updateOrganization(org.id, updates);
-      res.status(200).json({
-        status: 200,
-      });
-    }
-    res.status(400).json({
-      status: 400,
-      message: "Namespace does not exist",
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
-    });
-  }
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postInviteAccept(req: AuthRequest, res: Response) {

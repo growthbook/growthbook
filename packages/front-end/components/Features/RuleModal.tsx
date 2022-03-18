@@ -15,6 +15,7 @@ import track from "../../services/track";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export interface Props {
   close: () => void;
@@ -34,6 +35,8 @@ export default function RuleModal({
   defaultType = "force",
 }: Props) {
   const attributeSchema = useAttributeSchema();
+
+  const { namespaces } = useOrgSettings();
 
   const rules = getRules(feature, environment);
 
@@ -196,12 +199,14 @@ export default function RuleModal({
             valueType={feature.valueType}
             formPrefix=""
           />
-          <NamespaceSelector
-            form={form}
-            trackingKey={form.watch("trackingKey") || feature.id}
-            featureId={feature.id}
-            formPrefix=""
-          />
+          {namespaces?.length > 0 && (
+            <NamespaceSelector
+              form={form}
+              trackingKey={form.watch("trackingKey") || feature.id}
+              featureId={feature.id}
+              formPrefix=""
+            />
+          )}
         </div>
       )}
     </Modal>

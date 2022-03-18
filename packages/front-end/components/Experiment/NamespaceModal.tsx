@@ -5,18 +5,16 @@ import Field from "../Forms/Field";
 import { Namespaces } from "back-end/types/organization";
 
 export default function NamespaceModal({
-  existing,
   close,
   onSuccess,
 }: {
-  existing: Partial<Namespaces>;
   close: () => void;
   onSuccess: () => Promise<void> | void;
 }) {
   const form = useForm<Partial<Namespaces>>({
     defaultValues: {
-      name: existing.name || "",
-      description: existing.description || "",
+      name: "",
+      description: "",
     },
   });
   const { apiCall } = useAuth();
@@ -25,18 +23,13 @@ export default function NamespaceModal({
     <Modal
       open={true}
       close={close}
-      cta={existing.name ? "Update" : "Create"}
-      header={existing.name ? "Edit Namespace" : "Create Namespace"}
+      cta="Create"
+      header="Create Namespace"
       submit={form.handleSubmit(async (value) => {
-        await apiCall(
-          existing.name
-            ? `/organization/namespaces/${existing.name}`
-            : `/organization/namespaces`,
-          {
-            method: existing.name ? "PUT" : "POST",
-            body: JSON.stringify(value),
-          }
-        );
+        await apiCall(`/organization/namespaces`, {
+          method: "POST",
+          body: JSON.stringify(value),
+        });
         await onSuccess();
       })}
     >
