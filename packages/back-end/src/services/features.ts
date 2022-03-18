@@ -104,8 +104,10 @@ export async function getFeatureDefinitions(
               if (r?.namespace && r.namespace.enabled && r.namespace.name) {
                 rule.namespace = [
                   r.namespace.name,
-                  r.namespace.range[0],
-                  r.namespace.range[1],
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[0] as any) || 0,
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[1] as any) || 0,
                 ];
               }
             } else if (r.type === "rollout") {

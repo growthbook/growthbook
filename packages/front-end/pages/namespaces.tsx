@@ -51,7 +51,7 @@ const NamespacesPage: FC = () => {
         {namespaces?.length > 0 &&
           "Click a namespace below to see more details about it's current usage."}
       </p>
-      {namespaces?.length > 0 ? (
+      {namespaces?.length > 0 && (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -73,8 +73,6 @@ const NamespacesPage: FC = () => {
             })}
           </tbody>
         </table>
-      ) : (
-        <></>
       )}
       <button
         className="btn btn-primary"

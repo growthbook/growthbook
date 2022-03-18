@@ -60,7 +60,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
+    path: /^(dashboard|idea|presentation|projects|namespaces)/,
     autoClose: true,
     subLinks: [
       {
