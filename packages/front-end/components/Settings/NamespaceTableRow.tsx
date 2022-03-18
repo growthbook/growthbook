@@ -1,7 +1,6 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
 import { useState } from "react";
-import { FaAngleRight } from "react-icons/fa";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 
@@ -63,33 +62,44 @@ export default function NamespaceTableRow({ usage, namespace }: Props) {
           />
           {experiments.length > 0 ? (
             <div>
-              Active Experiments:
-              <ul
+              <table
+                className="table gb-table table-hover"
                 onMouseOut={() => {
                   setRange(null);
                 }}
               >
-                {experiments.map((e, i) => {
-                  return (
-                    <li key={i} className="my-2">
-                      <Link href={`/features/${e.featureId}`}>
-                        <a
-                          onMouseOver={() => {
-                            setRange([e.start, e.end]);
-                          }}
-                        >
-                          {e.featureId} <FaAngleRight /> {e.environment}{" "}
-                          {e.trackingKey !== e.featureId && (
-                            <>
-                              <FaAngleRight /> {e.trackingKey}
-                            </>
-                          )}
-                        </a>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                <thead>
+                  <tr>
+                    <th>Feature</th>
+                    <th>Environment</th>
+                    <th>Experiment Key</th>
+                    <th>Range</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {experiments.map((e, i) => {
+                    return (
+                      <tr
+                        key={i}
+                        onMouseOver={() => {
+                          setRange([e.start, e.end]);
+                        }}
+                      >
+                        <td>
+                          <Link href={`/features/${e.featureId}`}>
+                            <a>{e.featureId}</a>
+                          </Link>
+                        </td>
+                        <td>{e.environment}</td>
+                        <td>{e.trackingKey || e.featureId}</td>
+                        <td>
+                          {e.start} to {e.end}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <em>No active experiments are using this namespace</em>
