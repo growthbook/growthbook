@@ -22,6 +22,7 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
+import Tag from "../../components/Tag";
 
 const NUM_PER_PAGE = 20;
 
@@ -205,11 +206,7 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       {feature?.tags?.map((tag, i) => {
-                        return (
-                          <span className={`badge badge-primary mr-2`} key={i}>
-                            {tag}
-                          </span>
-                        );
+                        return <Tag key={i} tag={tag} />;
                       })}
                     </td>
                     <td className="position-relative">

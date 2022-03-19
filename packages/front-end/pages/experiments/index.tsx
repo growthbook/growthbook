@@ -18,6 +18,7 @@ import ImportExperimentModal from "../../components/Experiment/ImportExperimentM
 import useUser from "../../hooks/useUser";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
+import Tag from "../../components/Tag";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -253,13 +254,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap" data-title="Tags:">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
+                                {Object.values(e.tags).map((tag) => (
+                                  <Tag key={tag} tag={tag} />
                                 ))}
                               </td>
                               <td className="nowrap" data-title="Owner:">
@@ -374,13 +370,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                     </div>
                                   </td>
                                   <td className="nowrap" data-title="Tags:">
-                                    {Object.values(e.tags).map((col) => (
-                                      <span
-                                        className="tag badge badge-primary mr-2"
-                                        key={col}
-                                      >
-                                        {col}
-                                      </span>
+                                    {Object.values(e.tags).map((tag) => (
+                                      <Tag key={tag} tag={tag} />
                                     ))}
                                   </td>
                                   <td
@@ -484,13 +475,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                     </div>
                                   </td>
                                   <td className="nowrap" data-title="Tags:">
-                                    {Object.values(e.tags).map((col) => (
-                                      <span
-                                        className="tag badge badge-primary mr-2"
-                                        key={col}
-                                      >
-                                        {col}
-                                      </span>
+                                    {Object.values(e.tags).map((tag) => (
+                                      <Tag key={tag} tag={tag} />
                                     ))}
                                   </td>
                                   <td className="nowrap" data-title="Owner:">
@@ -615,13 +601,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap" data-title="Tags:">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
+                                {Object.values(e.tags).map((tag) => (
+                                  <Tag key={tag} tag={tag} />
                                 ))}
                               </td>
                               <td className="nowrap" data-title="Owner:">
@@ -726,13 +707,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
+                                {Object.values(e.tags).map((tag) => (
+                                  <Tag key={tag} tag={tag} />
                                 ))}
                               </td>
                               <td className="nowrap">

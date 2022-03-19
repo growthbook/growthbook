@@ -15,7 +15,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   groups: string[];
-  tags: Partial<TagInterface>;
+  tags: TagInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -52,7 +52,7 @@ const defaultValue: DefinitionContextValue = {
   datasources: [],
   dimensions: [],
   segments: [],
-  tags: { tags: [], settings: [] },
+  tags: [],
   groups: [],
   projects: [],
   getMetricById: () => null,
@@ -91,6 +91,18 @@ export function useDefinitions() {
   return useContext(DefinitionsContext);
 }
 
+function transformDataTags(dbTags): TagInterface[] {
+  return (
+    dbTags?.tags?.map((t) => {
+      return {
+        name: t,
+        color: dbTags?.settings?.[t]?.color ?? "",
+        description: dbTags?.settings?.[t]?.description ?? "",
+      };
+    }) || dbTags
+  );
+}
+
 export const DefinitionsProvider: FC = ({ children }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
     "/organization/definitions"
@@ -124,7 +136,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
-      tags: data.tags,
+      tags: transformDataTags(data.tags),
       groups: data.groups,
       projects: data.projects,
       project:
@@ -150,14 +162,21 @@ export const DefinitionsProvider: FC = ({ children }) => {
         }
       },
       refreshTags: async (tags) => {
-        const newTags = tags.filter((t) => !data.tags.tags.includes(t));
+        const tagsMap = new Map();
+        const dataTags = data?.tags ? transformDataTags(data.tags) : [];
+        dataTags.forEach((t) => {
+          tagsMap.set(t.name, t);
+        });
+
+        const newTags = tags.filter((t) => !tagsMap.has(t));
         if (newTags.length > 0) {
+          newTags.forEach((nt) => {
+            dataTags.push({ name: nt, color: "", description: "" });
+          });
           await mutate(
             {
               ...data,
-              tags: {
-                tags: { ...data.tags.tags.concat(newTags) },
-              },
+              tags: [...dataTags],
             },
             false
           );

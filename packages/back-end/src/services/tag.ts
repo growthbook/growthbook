@@ -5,9 +5,8 @@ export async function getAllTags(organization: string) {
     organization,
   });
   if (doc) {
-    return doc;
+    return doc.toJSON();
   }
-
   return [];
 }
 
@@ -34,14 +33,13 @@ export async function addTag(
   color: string,
   description: string
 ) {
-  const settingIndex = `setting.${tag}`;
+  const settingIndex = `settings.${tag}`;
   const setting = { [settingIndex]: { color, description } };
-  console.log(setting);
-  const x = await TagModel.updateOne(
+  await TagModel.updateOne(
     { organization },
     {
       $addToSet: {
-        tags: { $each: [tag] },
+        tags: tag,
       },
       $set: setting,
     },
@@ -49,7 +47,6 @@ export async function addTag(
       upsert: true,
     }
   );
-  console.log(x);
 }
 
 export async function removeTag(organization: string, tag: string) {

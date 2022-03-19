@@ -11,22 +11,12 @@ import { GBAddCircle } from "../../components/Icons";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
-
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<{
     name: string;
     color: string;
     description: string;
   }> | null>(null);
-
-  const tagNameMap = new Map();
-  tags.tags.forEach((t) => {
-    tagNameMap.set(t, {
-      name: t,
-      color: tags?.settings?.[t].color ?? "",
-      description: tags?.settings?.[t]?.description ?? "",
-    });
-  });
 
   return (
     <div className="container-fluid  pagecontents">
@@ -46,7 +36,7 @@ const TagsPage: FC = () => {
       </div>
       <h1>Tags</h1>
       <p>Organize features, experiments, metrics, etc. with tags.</p>
-      {tags.tags.length > 0 ? (
+      {tags?.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -57,32 +47,38 @@ const TagsPage: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {tags.tags.map((t, i) => {
-              const attrs = tags?.settings?.[i] ?? {
-                color: null,
-                description: "",
-              };
+            {tags?.map((t, i) => {
               return (
                 <tr key={i}>
-                  <td>{t}</td>
-                  <td>{attrs.description}</td>
+                  <td
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setModalOpen(t);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {t.name}
+                  </td>
+                  <td>{t.description}</td>
                   <td>
-                    <Tag tag={t} />
+                    <Tag tag={t.name} />
                   </td>
                   <td>
                     <button
-                      className="btn btn-outline-primary"
+                      className="btn btn-outline-primary tr-hover"
                       onClick={(e) => {
                         e.preventDefault();
-                        setModalOpen(tagNameMap.get(t));
+                        setModalOpen(t);
                       }}
                     >
                       <FaPencilAlt />
                     </button>{" "}
                     <DeleteButton
+                      deleteMessage="Are you sure you want to remove this tag? This action cannot be undone."
+                      className="tr-hover"
                       displayName="Tag"
                       onClick={async () => {
-                        await apiCall(`/tag/${t}`, {
+                        await apiCall(`/tag/${t.name}`, {
                           method: "DELETE",
                         });
                         mutateDefinitions();
@@ -104,7 +100,10 @@ const TagsPage: FC = () => {
           setModalOpen({});
         }}
       >
-        <GBAddCircle /> Add Tag
+        <span className="h4 pr-2 m-0 d-inline-block">
+          <GBAddCircle />
+        </span>{" "}
+        Add Tag
       </button>
     </div>
   );

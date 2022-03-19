@@ -1,9 +1,18 @@
-import { Children, FC } from "react";
+import React, { Children, FC } from "react";
 import styles from "./RightRailSectionGroup.module.scss";
+import Tag from "../Tag";
 
 const RightRailSectionGroup: FC<{
   title?: string;
-  type?: "badge" | "code" | "list" | "pre" | "onoff" | "custom" | "commaList";
+  type?:
+    | "badge"
+    | "code"
+    | "list"
+    | "pre"
+    | "onoff"
+    | "custom"
+    | "commaList"
+    | "tags";
   empty?: string;
   badgeStyle?: string;
   className?: string;
@@ -26,6 +35,11 @@ const RightRailSectionGroup: FC<{
       {title && <span className={`mr-2 ${styles.title}`}>{title}:</span>}
       {hasChildren ? (
         <>
+          {type === "tags" &&
+            Children.map(children, (child, i) => {
+              if (child === null || child === undefined) return "";
+              return <Tag key={i} tag={child + ""} />;
+            })}
           {type === "badge" &&
             Children.map(children, (child, i) => {
               if (child === null || child === undefined) return "";

@@ -20,6 +20,7 @@ import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
 import usePermissions from "../hooks/usePermissions";
+import Tag from "../components/Tag";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -362,10 +363,8 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                {Object.values(metric.tags).map((col) => (
-                  <span className="tag badge badge-primary mr-2" key={col}>
-                    {col}
-                  </span>
+                {Object.values(metric.tags).map((tag) => (
+                  <Tag key={tag} tag={tag} />
                 ))}
               </td>
               <td className="d-none d-lg-table-cell">

@@ -659,7 +659,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setTagsModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                <RightRailSectionGroup type="badge">
+                <RightRailSectionGroup type="tags">
                   {experiment.tags}
                 </RightRailSectionGroup>
               </RightRailSection>

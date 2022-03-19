@@ -42,6 +42,7 @@ import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
+import * as tagsController from "./controllers/tags";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
@@ -354,14 +355,17 @@ app.delete("/invite", organizationsController.deleteInvite);
 app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);
 app.put("/member/:id/role", organizationsController.putMemberRole);
-app.get("/tags", organizationsController.getTags);
-app.put("/tag", organizationsController.putTag);
-app.delete("/tag/:id", organizationsController.deleteTag);
 app.post("/oauth/google", organizationsController.postGoogleOauthRedirect);
 app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", organizationsController.getQueries);
 app.post("/organization/sample-data", organizationsController.postSampleData);
+
+// tags
+app.get("/tags", tagsController.getTags);
+app.put("/tag/:id", tagsController.putTag);
+app.post("/tag", tagsController.postTag);
+app.delete("/tag/:id", tagsController.deleteTag);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

@@ -5,11 +5,15 @@ import { useDefinitions } from "../services/DefinitionsContext";
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<HTMLSpanElement>, HTMLSpanElement> {
   tag: string;
+  color?: string;
+  description?: string;
   onClick?: () => Promise<void>;
 }
 
 const Tag: FC<Props> = ({
   tag,
+  color,
+  description,
   onClick,
   children,
   className,
@@ -17,21 +21,24 @@ const Tag: FC<Props> = ({
 }) => {
   const { tags } = useDefinitions();
   const fullTag = { name: tag, color: "#029dd1", description: "" };
-  tags.tags.forEach((t) => {
-    if (t === tag) {
+  tags?.forEach((t) => {
+    if (t.name === tag) {
       fullTag.name = tag;
-      fullTag.color = tags?.settings?.[tag].color ?? "#029dd1";
-      fullTag.description = tags?.settings?.[tag]?.description ?? "";
+      fullTag.color = t.color ?? "#029dd1";
+      fullTag.description = t?.description ?? "";
     }
   });
+
+  const displayTitle = description ?? fullTag.description;
+  const displayColor = color ?? fullTag.color;
 
   return (
     <>
       <span
         {...otherProps}
-        className={clsx("badge", "badge-primary", className)}
-        title={fullTag.description}
-        style={{ backgroundColor: fullTag.color }}
+        className={clsx("tag", "mr-2", "badge", "badge-primary", className)}
+        title={displayTitle}
+        style={{ backgroundColor: displayColor }}
         onClick={async (e) => {
           e.preventDefault();
           try {

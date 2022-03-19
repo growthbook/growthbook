@@ -284,3 +284,15 @@ export async function updateMetricsByQuery(
     $set: updates,
   });
 }
+
+export async function removeTagInMetrics(organization: string, tag: string) {
+  if (usingFileConfig()) {
+    // Trying to update unsupported properties
+    throw new Error("Cannot remove tags from metrics managed by config.yml");
+  }
+  const query = { organization, tags: tag };
+  await MetricModel.updateMany(query, {
+    $pull: { tags: tag },
+  });
+  return;
+}

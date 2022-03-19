@@ -31,6 +31,7 @@ import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import { date } from "../../services/dates";
 import track from "../../services/track";
+import Tag from "../Tag";
 
 export const presentationThemes = {
   lblue: {
@@ -452,13 +453,8 @@ const ShareModal = ({
                         </div>
                       </td>
                       <td className="nowrap">
-                        {Object.values(e.tags).map((col, i) => (
-                          <span
-                            className="tag badge badge-secondary mr-2"
-                            key={i}
-                          >
-                            {col}
-                          </span>
+                        {Object.values(e.tags).map((tag, i) => (
+                          <Tag key={i} tag={tag} />
                         ))}
                       </td>
                       <td className="nowrap">

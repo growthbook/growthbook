@@ -23,7 +23,7 @@ import {
   encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
-import { addTag, getAllTags, removeTag } from "../services/tag";
+import { getAllTags } from "../services/tag";
 import {
   getAllApiKeysByOrganization,
   createApiKey,
@@ -968,68 +968,6 @@ FROM
       message: e.message || "An error occurred",
     });
   }
-}
-
-export async function getTags(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const tags = await getAllTags(org.id);
-  res.status(200).json({
-    status: 200,
-    tags,
-  });
-}
-
-export async function putTag(
-  req: AuthRequest<{
-    name: string;
-    color: string;
-    description: string;
-  }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { name, color, description } = req.body;
-
-  try {
-    // upsert in the add tag will add or update, and this is probably good enough:
-    await addTag(org.id, name, color, description);
-
-    res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
-    });
-  }
-}
-
-export async function deleteTag(
-  req: AuthRequest<{ id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  await removeTag(org.id, id);
-
-  res.status(200).json({
-    status: 200,
-  });
 }
 
 export async function putDataSource(

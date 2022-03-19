@@ -34,6 +34,7 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import SelectField from "../../components/Forms/SelectField";
 import useUser from "../../hooks/useUser";
+import Tag from "../../components/Tag";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -318,13 +319,8 @@ const IdeaPage = (): ReactElement => {
                       <small>
                         Tags:{" "}
                         {idea.tags &&
-                          Object.values(idea.tags).map((col) => (
-                            <span
-                              className="badge badge-secondary mr-2"
-                              key={col}
-                            >
-                              {col}
-                            </span>
+                          Object.values(idea.tags).map((tag) => (
+                            <Tag key={tag} tag={tag} />
                           ))}
                         {!idea.tags?.length && <em>None</em>}
                       </small>

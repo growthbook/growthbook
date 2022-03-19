@@ -7,7 +7,6 @@ const TagsInput: FC<{
   value: string[];
 }> = ({ onChange, value }) => {
   const { tags } = useDefinitions();
-
   return (
     <Typeahead
       id="tags-input"
@@ -15,12 +14,14 @@ const TagsInput: FC<{
       labelKey="name"
       multiple={true}
       allowNew={true}
-      options={tags.tags.map((tag) => {
-        return {
-          id: tag,
-          name: tag,
-        };
-      })}
+      options={
+        tags?.map((tag) => {
+          return {
+            id: tag.name,
+            name: tag.name,
+          };
+        }) ?? []
+      }
       onChange={(selected: { id: string; name: string }[]) => {
         onChange(selected.map((s) => s.name).filter((t) => t.length > 0));
       }}

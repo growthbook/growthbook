@@ -5,6 +5,7 @@ import Field from "./Forms/Field";
 import { HexColorPicker } from "react-colorful";
 import styles from "./TagsModal.module.scss";
 import React from "react";
+import Tag from "./Tag";
 
 export default function TagsModal({
   existing,
@@ -42,21 +43,27 @@ export default function TagsModal({
       close={close}
       header={existing?.name ? "Edit Tag" : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/tag/`, {
-          method: "PUT",
+        await apiCall(existing.name ? `/tag/${existing.name}` : `/tag`, {
+          method: existing.name ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
         await onSuccess();
       })}
     >
       <div className="colorpicker tagmodal">
-        <Field
-          name="Name"
-          label="Name"
-          maxLength={30}
-          required
-          {...form.register("name")}
-        />
+        <div className="row mb-3">
+          <div className="col">
+            <Field
+              name="Name"
+              label="Name"
+              readOnly={!!existing?.name}
+              maxLength={30}
+              className=""
+              required
+              {...form.register("name")}
+            />
+          </div>
+        </div>
         <label>Color:</label>
         <div className={styles.picker}>
           <HexColorPicker
@@ -88,6 +95,12 @@ export default function TagsModal({
           maxLength={30}
           {...form.register("description")}
         />
+        <div className="text-center px-4">
+          <label>Preview</label>
+          <div>
+            <Tag tag={form.watch("name")} color={form.watch("color")} />
+          </div>
+        </div>
       </div>
     </Modal>
   );
