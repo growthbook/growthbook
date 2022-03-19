@@ -31,6 +31,11 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export interface Namespaces {
+  name: string;
+  description: string;
+}
+
 export type SDKAttributeType =
   | "string"
   | "number"
@@ -67,6 +72,7 @@ export interface OrganizationSettings {
   primaryColor?: string;
   secondaryColor?: string;
   northStar?: NorthStarMetric;
+  namespaces?: Namespaces[];
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
@@ -110,3 +116,14 @@ export interface OrganizationInterface {
   };
   settings?: OrganizationSettings;
 }
+
+export type NamespaceUsage = Record<
+  string,
+  {
+    featureId: string;
+    trackingKey: string;
+    environment: string;
+    start: number;
+    end: number;
+  }[]
+>;

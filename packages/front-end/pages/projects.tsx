@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { useState } from "react";
 import { FC } from "react";
-import { FaAngleLeft, FaFolderPlus, FaPencilAlt } from "react-icons/fa";
+import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
-import DeleteButton from "../../components/DeleteButton";
-import ProjectModal from "../../components/Projects/ProjectModal";
-import { useAuth } from "../../services/auth";
-import { date } from "../../services/dates";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import DeleteButton from "../components/DeleteButton";
+import ProjectModal from "../components/Projects/ProjectModal";
+import { useAuth } from "../services/auth";
+import { date } from "../services/dates";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -26,13 +25,6 @@ const ProjectsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
-      <div className="mb-2">
-        <Link href="/settings">
-          <a>
-            <FaAngleLeft /> All Settings
-          </a>
-        </Link>
-      </div>
       <h1>Projects</h1>
       <p>
         Group your ideas and experiments into <strong>Projects</strong> to keep

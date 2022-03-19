@@ -51,10 +51,17 @@ type ExperimentValue = {
   weight: number;
 };
 
+type NamespaceValue = {
+  enabled: boolean;
+  name: string;
+  range: [number, number];
+};
+
 export interface ExperimentRule extends BaseRule {
   type: "experiment";
   trackingKey: string;
   hashAttribute: string;
+  namespace?: NamespaceValue;
   values: ExperimentValue[];
 }
 

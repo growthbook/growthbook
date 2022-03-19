@@ -84,7 +84,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin)/,
+    path: /^(settings|admin|projects|namespaces)/,
     settingsPermission: true,
     autoClose: true,
     subLinks: [
@@ -100,8 +100,8 @@ const navlinks: SidebarLinkProps[] = [
       },
       {
         name: "Projects",
-        href: "/settings/projects",
-        path: /^settings\/projects/,
+        href: "/projects",
+        path: /^projects/,
       },
       {
         name: "Attributes",
@@ -128,6 +128,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/billing",
         path: /^settings\/billing/,
         cloudOnly: true,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
       },
       {
         name: "Admin",
