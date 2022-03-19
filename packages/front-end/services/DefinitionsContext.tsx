@@ -176,7 +176,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
           await mutate(
             {
               ...data,
-              tags: [...dataTags],
+              tags: dataTags,
             },
             false
           );

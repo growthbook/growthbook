@@ -24,7 +24,7 @@ const Tag: FC<Props> = ({
   tags?.forEach((t) => {
     if (t.name === tag) {
       fullTag.name = tag;
-      fullTag.color = t.color ?? "#029dd1";
+      fullTag.color = t?.color ?? "#029dd1";
       fullTag.description = t?.description ?? "";
     }
   });
