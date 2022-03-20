@@ -171,28 +171,33 @@ export default function CodeSnippetModal({
       }}
       cta={"Finish"}
     >
-      {environments.length > 1 && (
-        <SelectField
-          options={environments.map((e) => ({ value: e.id, label: e.id }))}
-          value={environment}
-          onChange={(env) => setEnvironment(env)}
-        />
-      )}
-      {apiKey && (
-        <div className="row mb-2 align-items-center">
-          <div className="col-auto">
-            <strong>API endpoint</strong>
-          </div>
-          <div className="col">
-            <input
-              readOnly
-              value={getFeaturesUrl(apiKey)}
-              onFocus={(e) => e.target.select()}
-              className="form-control"
-            />
-          </div>
-        </div>
-      )}
+      <strong>API Endpoint</strong>
+      <div className="row mb-2 mt-1 align-items-center">
+        {apiKey && (
+          <>
+            {environments.length > 1 && (
+              <div className="col-auto">
+                <SelectField
+                  options={environments.map((e) => ({
+                    value: e.id,
+                    label: e.id,
+                  }))}
+                  value={environment}
+                  onChange={(env) => setEnvironment(env)}
+                />
+              </div>
+            )}
+            <div className="col">
+              <input
+                readOnly
+                value={getFeaturesUrl(apiKey)}
+                onFocus={(e) => e.target.select()}
+                className="form-control"
+              />
+            </div>
+          </>
+        )}
+      </div>
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
         languages coming soon!

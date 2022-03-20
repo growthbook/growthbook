@@ -39,7 +39,7 @@ export default function EnvironmentModal({
       submit={form.handleSubmit(async (value) => {
         const newEnvs = [...environments];
 
-        if (existing) {
+        if (existing.id) {
           const env = newEnvs.filter((e) => e.id === existing.id)[0];
           if (!env) throw new Error("Could not edit environment");
           env.description = value.description;
@@ -77,7 +77,7 @@ export default function EnvironmentModal({
         await onSuccess();
       })}
     >
-      {!existing && (
+      {!existing.id && (
         <Field
           name="Environment"
           maxLength={30}

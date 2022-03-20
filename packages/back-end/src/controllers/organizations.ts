@@ -29,7 +29,6 @@ import {
   createApiKey,
   deleteByOrganizationAndApiKey,
   getFirstApiKey,
-  regenApiKey,
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
@@ -1201,27 +1200,6 @@ export async function deleteApiKey(
 
   res.status(200).json({
     status: 200,
-  });
-}
-
-export async function putRegenApiKey(
-  req: AuthRequest<null, { key: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-  const { key } = req.params;
-
-  const newKey = regenApiKey(org.id, key);
-
-  res.status(200).json({
-    status: 200,
-    key: newKey,
   });
 }
 

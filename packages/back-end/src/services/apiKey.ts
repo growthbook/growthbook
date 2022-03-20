@@ -20,28 +20,6 @@ export async function createApiKey(
   return key;
 }
 
-export async function regenApiKey(
-  organization: string,
-  key: string
-): Promise<string | null> {
-  const existing = await ApiKeyModel.findOne({ organization, key });
-
-  if (!existing) {
-    return null;
-  }
-
-  const newKey =
-    "key_" + existing.environment + "_" + md5(uniqid()).substr(0, 16);
-
-  if (newKey && existing._id) {
-    await ApiKeyModel.updateOne(
-      { _id: existing._id },
-      { $set: { key: newKey } }
-    );
-  }
-  return newKey;
-}
-
 export async function deleteByOrganizationAndApiKey(
   organization: string,
   key: string

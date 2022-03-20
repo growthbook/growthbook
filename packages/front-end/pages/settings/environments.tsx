@@ -7,7 +7,6 @@ import EnvironmentModal from "../../components/Settings/EnvironmentModal";
 import { useAuth } from "../../services/auth";
 import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../../components/Icons";
-import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useEnvironments } from "../../hooks/useEnvironments";
 import useUser from "../../hooks/useUser";
 
@@ -42,7 +41,7 @@ const EnvironmentsPage: FC = () => {
             <tr>
               <th>Environment</th>
               <th>Description</th>
-              <th>Show toggle</th>
+              <th>Show toggle on feature list</th>
               <th style={{ width: 120 }}></th>
             </tr>
           </thead>
@@ -52,13 +51,7 @@ const EnvironmentsPage: FC = () => {
                 <tr key={e.id}>
                   <td>{e.id}</td>
                   <td>{e.description}</td>
-                  <td>
-                    <ValueDisplay
-                      value={e.toggleOnList.toString()}
-                      type={"boolean"}
-                      full={false}
-                    />
-                  </td>
+                  <td>{e.toggleOnList ? "yes" : "no"}</td>
                   <td>
                     <button
                       className="btn btn-outline-primary tr-hover"

@@ -146,30 +146,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               >
                 {rule.enabled ? "Disable" : "Enable"}
               </Button>
-              {environments.map((en) => (
-                <Button
-                  key={en.id}
-                  color=""
-                  className="dropdown-item"
-                  onClick={async () => {
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "POST",
-                      body: JSON.stringify({
-                        environment: en.id,
-                        rule: { ...rule, id: "" },
-                      }),
-                    });
-                    track("Clone Feature Rule", {
-                      ruleIndex: i,
-                      environment,
-                      type: rule.type,
-                    });
-                    mutate();
-                  }}
-                >
-                  Copy to {en.id}
-                </Button>
-              ))}
+              {environments
+                .filter((e) => e.id !== environment)
+                .map((en) => (
+                  <Button
+                    key={en.id}
+                    color=""
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/rule`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          environment: en.id,
+                          rule: { ...rule, id: "" },
+                        }),
+                      });
+                      track("Clone Feature Rule", {
+                        ruleIndex: i,
+                        environment,
+                        type: rule.type,
+                      });
+                      mutate();
+                    }}
+                  >
+                    Copy to {en.id}
+                  </Button>
+                ))}
               <DeleteButton
                 className="dropdown-item"
                 displayName="Rule"

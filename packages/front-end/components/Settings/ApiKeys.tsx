@@ -7,13 +7,15 @@ import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
-import ConfirmButton from "../ConfirmButton";
-import { MdRefresh } from "react-icons/md";
+import { useEnvironments } from "../../hooks/useEnvironments";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+
+  const environments = useEnvironments();
+  const environmentIds = environments.map((e) => e.id);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -31,6 +33,14 @@ const ApiKeys: FC = () => {
       );
     }
   });
+
+  function canDelete(env: string) {
+    if (!env) return true;
+    if (!environmentIds.includes(env)) return true;
+    if (envCounts[env] > 1) return true;
+    return false;
+  }
+
   return (
     <div>
       {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
@@ -63,24 +73,7 @@ const ApiKeys: FC = () => {
                 <td>{key.environment ?? "[all]"}</td>
                 <td>{key.description}</td>
                 <td>
-                  {key.environment && envCounts.get(key.environment) === 1 ? (
-                    <ConfirmButton
-                      icon={<MdRefresh />}
-                      onClick={async () => {
-                        await apiCall(`/key/regen/${key.key}`, {
-                          method: "PUT",
-                        });
-                        mutate();
-                      }}
-                      color="info"
-                      header="Regenerate API key"
-                      title="Regenerate API key"
-                      message="Regenerating this API key will cause all instances of the old key to fail, are you sure?"
-                      cta="Regenerate"
-                      className="tr-hover"
-                      style={{ fontSize: "19px" }}
-                    />
-                  ) : (
+                  {canDelete(key.environment) && (
                     <DeleteButton
                       onClick={async () => {
                         await apiCall(`/key/${key.key}`, {
