@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { FC } from "react";
-import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
+import { FaAngleLeft } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import EnvironmentModal from "../../components/Settings/EnvironmentModal";
 import { useAuth } from "../../services/auth";
@@ -9,6 +9,8 @@ import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../../components/Icons";
 import { useEnvironments } from "../../hooks/useEnvironments";
 import useUser from "../../hooks/useUser";
+import MoreMenu from "../../components/Dropdown/MoreMenu";
+import Button from "../../components/Button";
 
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
@@ -42,46 +44,94 @@ const EnvironmentsPage: FC = () => {
               <th>Environment</th>
               <th>Description</th>
               <th>Show toggle on feature list</th>
-              <th style={{ width: 120 }}></th>
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
-            {environments.map((e) => {
+            {environments.map((e, i) => {
               return (
                 <tr key={e.id}>
                   <td>{e.id}</td>
                   <td>{e.description}</td>
                   <td>{e.toggleOnList ? "yes" : "no"}</td>
-                  <td>
-                    <button
-                      className="btn btn-outline-primary tr-hover"
-                      onClick={(ev) => {
-                        ev.preventDefault();
-                        setModalOpen(e);
-                      }}
-                    >
-                      <FaPencilAlt />
-                    </button>{" "}
-                    {environments.length > 1 && (
-                      <DeleteButton
-                        deleteMessage="Are you you want to delete this environment?"
-                        displayName={`environment: ${e.id}`}
-                        onClick={async () => {
-                          await apiCall(`/organization`, {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              settings: {
-                                environments: environments.filter(
-                                  (env) => env.id !== e.id
-                                ),
-                              },
-                            }),
-                          });
-                          update();
+                  <td style={{ width: 30 }}>
+                    <MoreMenu id={e.id + "_moremenu"}>
+                      <button
+                        className="dropdown-item"
+                        onClick={(ev) => {
+                          ev.preventDefault();
+                          setModalOpen(e);
                         }}
-                        className="tr-hover"
-                      />
-                    )}
+                      >
+                        Edit
+                      </button>
+                      {i > 0 && (
+                        <Button
+                          color=""
+                          className="dropdown-item"
+                          onClick={async () => {
+                            const newEnvs = [...environments];
+                            newEnvs.splice(i, 1);
+                            newEnvs.splice(i - 1, 0, e);
+                            await apiCall(`/organization`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                settings: {
+                                  environments: newEnvs,
+                                },
+                              }),
+                            });
+                            update();
+                          }}
+                        >
+                          Move up
+                        </Button>
+                      )}
+                      {i < environments.length - 1 && (
+                        <Button
+                          color=""
+                          className="dropdown-item"
+                          onClick={async () => {
+                            const newEnvs = [...environments];
+                            newEnvs.splice(i, 1);
+                            newEnvs.splice(i + 1, 0, e);
+                            await apiCall(`/organization`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                settings: {
+                                  environments: newEnvs,
+                                },
+                              }),
+                            });
+                            update();
+                          }}
+                        >
+                          Move down
+                        </Button>
+                      )}
+                      {environments.length > 1 && (
+                        <DeleteButton
+                          deleteMessage="Are you you want to delete this environment?"
+                          displayName={e.id}
+                          className="dropdown-item"
+                          text="Delete"
+                          useIcon={false}
+                          onClick={async () => {
+                            await apiCall(`/organization`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                settings: {
+                                  environments: environments.filter(
+                                    (env) => env.id !== e.id
+                                  ),
+                                },
+                              }),
+                            });
+                            update();
+                          }}
+                        />
+                      )}
+                    </MoreMenu>
                   </td>
                 </tr>
               );
