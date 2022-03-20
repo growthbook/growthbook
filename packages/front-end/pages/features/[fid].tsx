@@ -23,10 +23,10 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import EditTagsForm from "../../components/Experiment/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import { getRules, useEnvironment } from "../../services/features";
+import { getRules, useEnvironmentState } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
-import { EnvironmentApiResponse } from "../settings/environments";
+import { useEnvironments } from "../../hooks/useEnvironments";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
-  const [env, setEnv] = useEnvironment();
+  const [env, setEnv] = useEnvironmentState();
 
   const [ruleModal, setRuleModal] = useState<{
     i: number;
@@ -52,9 +52,9 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
-  const { data: envData } = useApi<EnvironmentApiResponse>("/environments");
   const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+  const environments = useEnvironments();
 
   const usage = useMemo(() => {
     if (!data?.feature) return "";
@@ -232,13 +232,13 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       <h3>Enabled Environments</h3>
       <div className="appbox mb-4 p-3">
         <div className="row mb-2">
-          {envData.environments.map((en, i) => (
-            <div className="col-auto" key={i}>
+          {environments.map((en) => (
+            <div className="col-auto" key={en.id}>
               <label
                 className="font-weight-bold mr-2"
                 htmlFor={`${en.id}_toggle`}
               >
-                {en.name}:{" "}
+                {en.id}:{" "}
               </label>
               <EnvironmentToggle
                 feature={data.feature}
@@ -293,13 +293,13 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         newStyle={false}
         buttonsClassName="px-3 py-2 h4"
       >
-        {envData.environments.map((e) => {
+        {environments.map((e) => {
           const rules = getRules(data.feature, e.id);
           return (
             <Tab
               key={e.id}
               id={e.id}
-              display={e.name}
+              display={e.id}
               count={rules.length}
               padding={false}
             >
@@ -311,7 +311,6 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                     experiments={data.experiments || {}}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
-                    environments={envData.environments}
                   />
                 ) : (
                   <div className="p-3">

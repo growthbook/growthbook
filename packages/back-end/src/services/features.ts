@@ -47,7 +47,6 @@ export async function getFeatureDefinitions(
   project?: string
 ) {
   const features = await getAllFeatures(organization, project);
-  console.log("features for env: ", environment, features);
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
     const settings = feature.environmentSettings?.[environment];

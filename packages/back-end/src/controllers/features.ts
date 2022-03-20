@@ -1,6 +1,10 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import {
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureRule,
+} from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
@@ -73,7 +77,7 @@ export async function postFeatures(
   res: Response
 ) {
   const { id, ...otherProps } = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = getOrgFromReq(req);
 
   if (!id) {
     throw new Error("Must specify feature key");
@@ -85,21 +89,20 @@ export async function postFeatures(
     );
   }
 
+  const environmentSettings: Record<string, FeatureEnvironment> = {};
+  environments.forEach((env) => {
+    environmentSettings[env.id] = {
+      enabled: true,
+      rules: [],
+    };
+  });
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
     description: "",
     project: "",
-    environmentSettings: {
-      dev: {
-        enabled: true,
-        rules: [],
-      },
-      production: {
-        enabled: false,
-        rules: [],
-      },
-    },
+    environmentSettings,
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),

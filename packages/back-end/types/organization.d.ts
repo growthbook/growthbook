@@ -58,7 +58,6 @@ export type ExperimentUpdateSchedule = {
 };
 
 export type Environment = {
-  name: string;
   id: string;
   description?: string;
   toggleOnList?: boolean;

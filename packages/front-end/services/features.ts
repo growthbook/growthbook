@@ -34,7 +34,7 @@ export interface AttributeData {
   enum: string[];
 }
 
-export function useEnvironment() {
+export function useEnvironmentState() {
   return useLocalStorage("currentEnvironment", "dev");
 }
 export function getRules(feature: FeatureInterface, environment: string) {

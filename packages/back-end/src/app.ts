@@ -347,15 +347,6 @@ app.post(
   "/organization/config/import",
   organizationsController.postImportConfig
 );
-app.get("/environments", organizationsController.getEnvironments);
-app.put("/environment/:id", organizationsController.putEnvironment);
-app.post("/environment", organizationsController.postEnvironment);
-app.delete("/environment/:id", organizationsController.deleteEnvironment);
-app.put(
-  "/environments/makedefault",
-  organizationsController.putDefaultEnvironments
-);
-
 app.get("/organization/namespaces", organizationsController.getNamespaces);
 app.post("/organization/namespaces", organizationsController.postNamespaces);
 app.post("/invite/accept", organizationsController.postInviteAccept);

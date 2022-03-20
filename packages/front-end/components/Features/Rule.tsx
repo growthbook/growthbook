@@ -14,7 +14,7 @@ import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules } from "../../services/features";
-import { Environment } from "back-end/types/organization";
+import { useEnvironments } from "../../hooks/useEnvironments";
 
 interface SortableProps {
   i: number;
@@ -24,7 +24,6 @@ interface SortableProps {
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: ({ environment: string, i: number }) => void;
-  environments: Environment[];
 }
 
 type RuleProps = SortableProps &
@@ -44,7 +43,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       experiments,
-      environments,
       ...props
     },
     ref
@@ -56,6 +54,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
     const rules = getRules(feature, environment);
+
+    const environments = useEnvironments();
 
     return (
       <div
@@ -167,7 +167,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mutate();
                   }}
                 >
-                  Copy to {en.name}
+                  Copy to {en.id}
                 </Button>
               ))}
               <DeleteButton

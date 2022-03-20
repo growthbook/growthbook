@@ -11,7 +11,6 @@ import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
-import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -22,8 +21,7 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
-import useApi from "../../hooks/useApi";
-import { EnvironmentApiResponse } from "../settings/environments";
+import { useEnvironments } from "../../hooks/useEnvironments";
 
 const NUM_PER_PAGE = 20;
 
@@ -36,9 +34,6 @@ export default function FeaturesPage() {
   const end = start + NUM_PER_PAGE;
 
   const { features, loading, error, mutate } = useFeaturesList();
-  const { data: envData, error: envError } = useApi<EnvironmentApiResponse>(
-    `/environments`
-  );
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
@@ -52,6 +47,8 @@ export default function FeaturesPage() {
 
   const stepsRequired =
     !settings?.sdkInstructionsViewed || (!loading && !features.length);
+
+  const environments = useEnvironments();
 
   const { list, searchInputProps } = useSearch(features || [], [
     "id",
@@ -73,19 +70,11 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (envError) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {envError.message}
-      </div>
-    );
-  }
-  if (loading || !envData) {
+  if (loading) {
     return <LoadingOverlay />;
   }
-  console.log(envData);
 
-  const toggleEnvs = envData.environments.filter((en) => en.toggleOnList);
+  const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
     <div className="contents container pagecontents">
@@ -167,8 +156,6 @@ export default function FeaturesPage() {
         </div>
       )}
 
-      <ApiKeyUpgrade />
-
       {features.length > 0 && (
         <div>
           <div className="row mb-2">
@@ -181,8 +168,8 @@ export default function FeaturesPage() {
               <tr>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
-                {toggleEnvs.map((en, i) => (
-                  <th key={i}>{en.id}</th>
+                {toggleEnvs.map((en) => (
+                  <th key={en.id}>{en.id}</th>
                 ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
@@ -197,10 +184,10 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {sorted.slice(start, end).map((feature) => {
-                const rules = [
-                  ...getRules(feature, "dev"),
-                  ...getRules(feature, "production"),
-                ];
+                let rules = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
                 const orderedRules = [
@@ -228,8 +215,8 @@ export default function FeaturesPage() {
                         );
                       })}
                     </td>
-                    {toggleEnvs.map((en, i) => (
-                      <td key={i} className="position-relative">
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id} className="position-relative">
                         <EnvironmentToggle
                           feature={feature}
                           environment={en.id}

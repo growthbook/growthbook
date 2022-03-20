@@ -12,9 +12,8 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
-import useApi from "../../hooks/useApi";
-import { EnvironmentApiResponse } from "../../pages/settings/environments";
-import Link from "next/link";
+import { useEnvironments } from "../../hooks/useEnvironments";
+import SelectField from "../Forms/SelectField";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -71,12 +70,8 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-function getFeaturesUrl(apiKey?: string) {
-  if (!apiKey) {
-    return `/path/to/features.json`;
-  }
-
-  return getApiBaseUrl() + `api/features/${apiKey}`;
+function getFeaturesUrl(apiKey: string) {
+  return getApiBaseUrl() + `api/features/${apiKey || "<your api key here>"}`;
 }
 
 export default function CodeSnippetModal({
@@ -88,9 +83,7 @@ export default function CodeSnippetModal({
   featureId?: string;
   defaultLanguage?: Language;
 }) {
-  const { data, mutate } = useApi<EnvironmentApiResponse>("/environments");
   const [language, setLanguage] = useState<Language>(defaultLanguage);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -98,6 +91,10 @@ export default function CodeSnippetModal({
     tracking: "custom",
     gaDimension: "1",
   });
+  const environments = useEnvironments();
+
+  const [environment, setEnvironment] = useState(environments[0]?.id || "");
+  const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -130,27 +127,16 @@ export default function CodeSnippetModal({
   // Create API key if one doesn't exist yet
   useEffect(() => {
     (async () => {
-      if (
-        data &&
-        "environments" in data &&
-        data.apiKeys.filter((k) => k.environment).length === 0
-      ) {
-        await apiCall(`/environments/makedefault`, {
-          method: "PUT",
-        })
-          .then(() => {
-            setErrorMsg("");
-            mutate();
-          })
-          .catch((e) => {
-            setErrorMsg(
-              "Some environments already exist, adjust in the environment and API keys settings"
-            );
-            console.error(e.message);
-          });
-      }
+      const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
+        method: "POST",
+        body: JSON.stringify({
+          description: `${environment} Features SDK`,
+          environment: environment,
+        }),
+      });
+      setApiKey(key.key);
     })();
-  }, []);
+  }, [environment]);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -174,19 +160,8 @@ export default function CodeSnippetModal({
     }
   }, [datasources?.[0]?.type]);
 
-  const environments = new Map();
-  if (data?.environments) {
-    data.environments.forEach((en) => {
-      environments.set(en.id, en.name);
-    });
-  }
-  const apiKeys = data?.apiKeys.filter((k) => !!k.environment) || [];
-  const devApiKey =
-    apiKeys.length > 0 ? apiKeys[0].key : `<insert API key here>`;
-
   return (
     <Modal
-      error={errorMsg}
       close={close}
       open={true}
       size="lg"
@@ -196,57 +171,26 @@ export default function CodeSnippetModal({
       }}
       cta={"Finish"}
     >
-      {apiKeys.length ? (
-        <div className="mb-3">
-          <p>API endpoints</p>
-          <div className="api-keys-wrap">
-            {apiKeys.map((k, i) => (
-              <div key={i} className="row mb-2 align-items-center">
-                <div className="col-auto" style={{ width: 120 }}>
-                  <strong>
-                    {environments.get(k.environment) || k.environment}
-                  </strong>
-                </div>
-                <div className="col">
-                  <input
-                    readOnly
-                    value={getFeaturesUrl(k.key)}
-                    onFocus={(e) => e.target.select()}
-                    className="form-control"
-                  />
-                </div>
-              </div>
-            ))}
+      {environments.length > 1 && (
+        <SelectField
+          options={environments.map((e) => ({ value: e.id, label: e.id }))}
+          value={environment}
+          onChange={(env) => setEnvironment(env)}
+        />
+      )}
+      {apiKey && (
+        <div className="row mb-2 align-items-center">
+          <div className="col-auto">
+            <strong>API endpoint</strong>
           </div>
-        </div>
-      ) : (
-        <div className="alert alert-danger">
-          No Environment keys created!{" "}
-          <Link href={`settings/environments`}>
-            <a>Create your own</a>
-          </Link>{" "}
-          or{" "}
-          <a
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
-              await apiCall<{ key: string }>(`/environments/makedefault`, {
-                method: "PUT",
-              })
-                .then(() => {
-                  setErrorMsg("");
-                  mutate();
-                })
-                .catch((e) => {
-                  setErrorMsg(
-                    "Some environments already exist, adjust in the environment and API keys settings"
-                  );
-                  console.log(e.message);
-                });
-            }}
-          >
-            automatically add the dev and production
-          </a>
+          <div className="col">
+            <input
+              readOnly
+              value={getFeaturesUrl(apiKey)}
+              onFocus={(e) => e.target.select()}
+              className="form-control"
+            />
+          </div>
         </div>
       )}
       <p>
@@ -279,7 +223,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -342,7 +286,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -365,7 +309,7 @@ export default function MyApp() {
     fetch(FEATURES_ENDPOINT)
       .then((res) => res.json())
       .then((json) => {
-        growthbook.setFeatures(json${devApiKey ? ".features" : ""});
+        growthbook.setFeatures(json.features);
       });
     
     // TODO: replace with real targeting attributes
@@ -426,7 +370,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(devApiKey)}")
+	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -504,7 +448,7 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${devApiKey}",
+  apiKey = "${apiKey || "<your api key here>"}",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -541,7 +485,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getFeaturesUrl(devApiKey)}';
+const FEATURES_ENDPOINT = '${getFeaturesUrl(apiKey)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -580,7 +524,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getFeaturesUrl(devApiKey)}")
+apiResp = requests.get("${getFeaturesUrl(apiKey)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
