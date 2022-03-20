@@ -7,7 +7,8 @@ export async function createApiKey(
   environment: string,
   description?: string
 ): Promise<string> {
-  const key = "key_" + environment + "_" + md5(uniqid()).substr(0, 16);
+  const key =
+    "key_" + environment.substr(0, 4) + "_" + md5(uniqid()).substr(0, 16);
 
   await ApiKeyModel.create({
     organization,
@@ -27,17 +28,6 @@ export async function deleteByOrganizationAndApiKey(
   await ApiKeyModel.deleteOne({
     organization,
     key,
-  });
-  return;
-}
-
-export async function deleteByOrganizationAndEnvironment(
-  organization: string,
-  environment: string
-) {
-  await ApiKeyModel.deleteMany({
-    organization,
-    environment,
   });
   return;
 }

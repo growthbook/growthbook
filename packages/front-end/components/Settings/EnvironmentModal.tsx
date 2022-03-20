@@ -4,7 +4,7 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { Environment } from "back-end/types/organization";
 import Toggle from "../Forms/Toggle";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 import useUser from "../../hooks/useUser";
 
 export default function EnvironmentModal({

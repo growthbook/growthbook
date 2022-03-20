@@ -7,7 +7,7 @@ import EnvironmentModal from "../../components/Settings/EnvironmentModal";
 import { useAuth } from "../../services/auth";
 import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../../components/Icons";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 import useUser from "../../hooks/useUser";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";

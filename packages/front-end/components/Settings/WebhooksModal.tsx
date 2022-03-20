@@ -7,7 +7,7 @@ import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { WebhookInterface } from "back-end/types/webhook";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 const WebhooksModal: FC<{
   close: () => void;

@@ -19,6 +19,7 @@ import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export interface Condition {
   field: string;
@@ -36,6 +37,27 @@ export interface AttributeData {
 
 export function useEnvironmentState() {
   return useLocalStorage("currentEnvironment", "dev");
+}
+
+export function useEnvironments() {
+  const { environments } = useOrgSettings();
+
+  if (!environments || !environments.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+
+  return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];

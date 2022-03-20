@@ -21,7 +21,7 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 const NUM_PER_PAGE = 20;
 

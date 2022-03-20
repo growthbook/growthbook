@@ -26,7 +26,7 @@ import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import { getRules, useEnvironmentState } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 export default function FeaturePage() {
   const router = useRouter();

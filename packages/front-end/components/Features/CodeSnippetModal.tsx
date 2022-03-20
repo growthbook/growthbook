@@ -12,7 +12,7 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 
 function phpArrayFormat(json: unknown) {
@@ -127,6 +127,10 @@ export default function CodeSnippetModal({
   // Create API key if one doesn't exist yet
   useEffect(() => {
     (async () => {
+      if (!environment) {
+        return;
+      }
+
       const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
         method: "POST",
         body: JSON.stringify({
@@ -171,10 +175,10 @@ export default function CodeSnippetModal({
       }}
       cta={"Finish"}
     >
-      <strong>API Endpoint</strong>
-      <div className="row mb-2 mt-1 align-items-center">
-        {apiKey && (
-          <>
+      {apiKey && (
+        <>
+          <strong>API Endpoint</strong>
+          <div className="row mb-2 mt-1 align-items-center">
             {environments.length > 1 && (
               <div className="col-auto">
                 <SelectField
@@ -195,9 +199,9 @@ export default function CodeSnippetModal({
                 className="form-control"
               />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
         languages coming soon!

@@ -27,7 +27,7 @@ import NamespaceSelector from "./NamespaceSelector";
 import TagsInput from "../TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 export type Props = {
   close: () => void;

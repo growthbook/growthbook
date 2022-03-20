@@ -4,7 +4,7 @@ import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 const ApiKeysModal: FC<{
   close: () => void;

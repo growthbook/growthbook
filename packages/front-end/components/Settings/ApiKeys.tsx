@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
-import { useEnvironments } from "../../hooks/useEnvironments";
+import { useEnvironments } from "../../services/features";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -70,7 +70,7 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
-                <td>{key.environment ?? "[all]"}</td>
+                <td>{key.environment ?? "production"}</td>
                 <td>{key.description}</td>
                 <td>
                   {canDelete(key.environment) && (
@@ -103,7 +103,7 @@ const ApiKeys: FC = () => {
         <FaKey /> Create New Key
       </button>
       <Link href={`/settings/environments`}>
-        <a className="btn btn-outline-primary ml-3">View environments</a>
+        <a className="btn btn-outline-primary ml-3">Manage environments</a>
       </Link>
     </div>
   );
