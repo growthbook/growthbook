@@ -3,6 +3,7 @@ import { Typeahead } from "react-bootstrap-typeahead";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip";
+import Tag from "../Tag";
 
 const MetricsSelector: FC<{
   datasource?: string;
@@ -54,12 +55,12 @@ const MetricsSelector: FC<{
     // use buttons:
     metricTags.forEach((mArr, tagName) => {
       selectMetricFromTag.push(
-        <a
-          className={`badge badge-primary mx-2 cursor-pointer ${
+        <Tag
+          tag={tagName}
+          className={`mx-2 cursor-pointer ${
             usedTags.includes(tagName) ? "badge-used" : ""
           }`}
-          onClick={(e) => {
-            e.preventDefault();
+          onClick={async () => {
             const tmp = [...selected];
             mArr.forEach((m) => {
               if (!tmp.includes(m)) {
@@ -69,8 +70,8 @@ const MetricsSelector: FC<{
             onChange(tmp);
           }}
         >
-          {tagName} <span className="badge badge-light">{mArr.length}</span>
-        </a>
+          <span className="badge badge-light">{mArr.length}</span>
+        </Tag>
       );
     });
   } else {

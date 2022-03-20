@@ -49,7 +49,7 @@ const Tag: FC<Props> = ({
         }}
       >
         {tag}
-        {children}
+        {children && <> {children}</>}
       </span>
     </>
   );
