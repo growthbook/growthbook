@@ -57,6 +57,12 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
+export type Environment = {
+  id: string;
+  description?: string;
+  toggleOnList?: boolean;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -72,6 +78,7 @@ export interface OrganizationSettings {
   metricAnalysisDays?: number;
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
+  environments?: Environment[];
   sdkInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */

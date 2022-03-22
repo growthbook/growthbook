@@ -56,7 +56,26 @@ export function getOrgFromReq(req: AuthRequest) {
     org: req.organization,
     userId: req.userId,
     email: req.email,
+    environments: getEnvironments(req.organization),
   };
+}
+
+export function getEnvironments(org: OrganizationInterface) {
+  if (!org.settings?.environments || !org.settings?.environments?.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+  return org.settings.environments;
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {

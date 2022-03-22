@@ -12,6 +12,8 @@ import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
+import { useEnvironments } from "../../services/features";
+import SelectField from "../Forms/SelectField";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -68,12 +70,8 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-function getFeaturesUrl(apiKey?: string) {
-  if (!apiKey) {
-    return `/path/to/features.json`;
-  }
-
-  return getApiBaseUrl() + `api/features/${apiKey}`;
+function getFeaturesUrl(apiKey: string) {
+  return getApiBaseUrl() + `api/features/${apiKey || "<your api key here>"}`;
 }
 
 export default function CodeSnippetModal({
@@ -93,6 +91,10 @@ export default function CodeSnippetModal({
     tracking: "custom",
     gaDimension: "1",
   });
+  const environments = useEnvironments();
+
+  const [environment, setEnvironment] = useState(environments[0]?.id || "");
+  const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -123,35 +125,22 @@ export default function CodeSnippetModal({
   }, [settings]);
 
   // Create API key if one doesn't exist yet
-  const [devApiKey, setDevApiKey] = useState("");
-  const [prodApiKey, setProdApiKey] = useState("");
   useEffect(() => {
     (async () => {
-      const devKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Dev Features SDK",
-            environment: "dev",
-          }),
-        }
-      );
-      setDevApiKey(devKey.key);
+      if (!environment) {
+        return;
+      }
 
-      const prodKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Production Features SDK",
-            environment: "production",
-          }),
-        }
-      );
-      setProdApiKey(prodKey.key);
+      const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
+        method: "POST",
+        body: JSON.stringify({
+          description: `${environment} Features SDK`,
+          environment: environment,
+        }),
+      });
+      setApiKey(key.key);
     })();
-  }, []);
+  }, [environment]);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -186,39 +175,32 @@ export default function CodeSnippetModal({
       }}
       cta={"Finish"}
     >
-      {devApiKey && (
-        <div className="mb-3">
-          <p>
-            We generated API endpoints for you that will contain all of your
-            feature definitions:
-          </p>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Dev</strong>
-            </div>
+      {apiKey && (
+        <>
+          <strong>API Endpoint</strong>
+          <div className="row mb-2 mt-1 align-items-center">
+            {environments.length > 1 && (
+              <div className="col-auto">
+                <SelectField
+                  options={environments.map((e) => ({
+                    value: e.id,
+                    label: e.id,
+                  }))}
+                  value={environment}
+                  onChange={(env) => setEnvironment(env)}
+                />
+              </div>
+            )}
             <div className="col">
               <input
                 readOnly
-                value={getFeaturesUrl(devApiKey)}
+                value={getFeaturesUrl(apiKey)}
                 onFocus={(e) => e.target.select()}
                 className="form-control"
               />
             </div>
           </div>
-          <div className="row align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Production</strong>
-            </div>
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(prodApiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
-          </div>
-        </div>
+        </>
       )}
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
@@ -250,7 +232,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -313,7 +295,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -336,7 +318,7 @@ export default function MyApp() {
     fetch(FEATURES_ENDPOINT)
       .then((res) => res.json())
       .then((json) => {
-        growthbook.setFeatures(json${devApiKey ? ".features" : ""});
+        growthbook.setFeatures(json.features);
       });
     
     // TODO: replace with real targeting attributes
@@ -397,7 +379,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(devApiKey)}")
+	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -475,7 +457,7 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${devApiKey}",
+  apiKey = "${apiKey || "<your api key here>"}",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -512,7 +494,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getFeaturesUrl(devApiKey)}';
+const FEATURES_ENDPOINT = '${getFeaturesUrl(apiKey)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -551,7 +533,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getFeaturesUrl(devApiKey)}")
+apiResp = requests.get("${getFeaturesUrl(apiKey)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
