@@ -813,6 +813,26 @@
       false
     ],
     [
+      "$size empty - pass",
+      {
+        "tags": { "$size": 0 }
+      },
+      {
+        "tags": []
+      },
+      true
+    ],
+    [
+      "$size empty - fail",
+      {
+        "tags": { "$size": 0 }
+      },
+      {
+        "tags": [10]
+      },
+      false
+    ],
+    [
       "$size number - pass",
       {
         "tags": {

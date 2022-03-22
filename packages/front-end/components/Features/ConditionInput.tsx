@@ -172,6 +172,8 @@ export default function ConditionInput(props: Props) {
                         <>
                           <option value="$includes">includes</option>
                           <option value="$notIncludes">does not include</option>
+                          <option value="$empty">is empty</option>
+                          <option value="$notEmpty">is not empty</option>
                           <option value="$exists">exists</option>
                           <option value="$notExists">does not exist</option>
                         </>
@@ -223,9 +225,14 @@ export default function ConditionInput(props: Props) {
                       )}
                     </select>
                   </div>
-                  {["$exists", "$notExists", "$true", "$false"].includes(
-                    operator
-                  ) ? (
+                  {[
+                    "$exists",
+                    "$notExists",
+                    "$true",
+                    "$false",
+                    "$empty",
+                    "$notEmpty",
+                  ].includes(operator) ? (
                     ""
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field

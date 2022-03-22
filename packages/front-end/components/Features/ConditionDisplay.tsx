@@ -11,6 +11,10 @@ function operatorToText(operator: string): string {
       return `includes`;
     case "$notIncludes":
       return `does not include`;
+    case "$empty":
+      return `is empty`;
+    case "$notEmpty":
+      return `is not empty`;
     case "$lt":
       return `is less than`;
     case "$lte":
@@ -40,7 +44,7 @@ function operatorToText(operator: string): string {
 }
 
 function needsValue(operator: string) {
-  return !["$exists", "$notExists"].includes(operator);
+  return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function getValue(operator: string, value: string): string {
   if (operator === "$true") return "TRUE";
