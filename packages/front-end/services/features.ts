@@ -338,7 +338,7 @@ export function jsonToConds(
 ): null | Condition[] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
-  if (json.match(/\$(or|nor|elemMatch|all|type|size)/)) return null;
+  if (json.match(/\$(or|nor|all|type)/)) return null;
 
   try {
     const parsed = JSON.parse(json);
@@ -385,6 +385,61 @@ export function jsonToConds(
           });
         }
 
+        if (operator === "$elemMatch") {
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$eq" in v) {
+              return conds.push({
+                field,
+                operator: "$includes",
+                value: stringify(v["$eq"]).replace(/(^"|"$)/g, ""),
+              });
+            }
+          }
+        }
+
+        if (operator === "$not") {
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$regex" in v) {
+              return conds.push({
+                field,
+                operator: "$notRegex",
+                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
+              });
+            }
+            if ("$elemMatch" in v) {
+              const m = v["$elemMatch"];
+              if (typeof m === "object" && Object.keys(m).length === 1) {
+                if ("$eq" in m) {
+                  return conds.push({
+                    field,
+                    operator: "$notIncludes",
+                    value: stringify(m["$eq"]).replace(/(^"|"$)/g, ""),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (operator === "$size") {
+          if (v === 0) {
+            return conds.push({
+              field,
+              operator: "$empty",
+              value: "",
+            });
+          }
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$gt" in v && v["$gt"] === 0) {
+              return conds.push({
+                field,
+                operator: "$notEmpty",
+                value: "",
+              });
+            }
+          }
+        }
+
         if (Array.isArray(v) || (v && typeof v === "object")) {
           valid = false;
           return;
@@ -424,18 +479,6 @@ export function jsonToConds(
           });
         }
 
-        if (operator === "$not") {
-          if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$regex" in v) {
-              return conds.push({
-                field,
-                operator: "$notRegex",
-                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
-              });
-            }
-          }
-        }
-
         valid = false;
       });
     });
@@ -463,10 +506,24 @@ export function condToJson(
       obj[field]["$not"] = { $regex: value };
     } else if (operator === "$notExists") {
       obj[field]["$exists"] = false;
+    } else if (operator === "$exists") {
+      obj[field]["$exists"] = true;
     } else if (operator === "$true") {
       obj[field]["$eq"] = true;
     } else if (operator === "$false") {
       obj[field]["$eq"] = false;
+    } else if (operator === "$includes") {
+      obj[field]["$elemMatch"] = {
+        $eq: parseValue(value, attributes.get(field)?.datatype),
+      };
+    } else if (operator === "$notIncludes") {
+      obj[field]["$not"] = {
+        $elemMatch: { $eq: parseValue(value, attributes.get(field)?.datatype) },
+      };
+    } else if (operator === "$empty") {
+      obj[field]["$size"] = 0;
+    } else if (operator === "$notEmpty") {
+      obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
       obj[field][operator] = value
         .split(",")
