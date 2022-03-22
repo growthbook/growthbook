@@ -506,13 +506,15 @@ export default abstract class SqlIntegration
     }
 
     // TODO: handle case when there are more than 2 required id types
-    return `__identities as (${this.getIdentitiesQuery(
-      this.settings,
-      idTypes[0],
-      idTypes[1],
-      from,
-      to
-    )}),`;
+    return `__identities as (
+      ${this.getIdentitiesQuery(
+        this.settings,
+        idTypes[0],
+        idTypes[1],
+        from,
+        to
+      )}
+    ),`;
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
@@ -595,11 +597,13 @@ export default abstract class SqlIntegration
         segment: !!segment,
         metrics: [metric, activationMetric],
       })}
-      __rawExperiment as (${replaceDateVars(
-        getExperimentQuery(this.settings, this.getSchema()),
-        phase.dateStarted,
-        phase.dateEnded
-      )}),
+      __rawExperiment as (
+        ${replaceDateVars(
+          getExperimentQuery(this.settings, this.getSchema()),
+          phase.dateStarted,
+          phase.dateEnded
+        )}
+      ),
       __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
@@ -855,11 +859,9 @@ export default abstract class SqlIntegration
       FROM
         ${
           metric.sql
-            ? `(${replaceDateVars(
-                metric.sql,
-                startDate,
-                endDate || undefined
-              )})`
+            ? `(
+              ${replaceDateVars(metric.sql, startDate, endDate || undefined)}
+              )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
         } m
@@ -949,7 +951,7 @@ export default abstract class SqlIntegration
             ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
             : ""
         }
-        ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
+        ${experiment.queryFilter ? `AND (\n${experiment.queryFilter}\n)` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
@@ -962,7 +964,9 @@ export default abstract class SqlIntegration
         i.anonymous_id as user_id,
         ${dateCol} as date
       FROM
-        (${sql}) s
+        (
+          ${sql}
+        ) s
         ${this.getIdentifiesJoinSql("s.user_id", true)}
       `;
     }
@@ -973,7 +977,9 @@ export default abstract class SqlIntegration
         s.user_id,
         ${dateCol} as date
       FROM
-        (${sql}) s`;
+        (
+          ${sql}
+        ) s`;
     }
 
     return `-- Segment (${name})
@@ -992,7 +998,9 @@ export default abstract class SqlIntegration
         i.anonymous_id as user_id,
         d.value
       FROM
-        (${dimension.sql}) d
+        (
+          ${dimension.sql}
+        ) d
         ${this.getIdentifiesJoinSql("d.user_id", true)}
       `;
     }
@@ -1100,7 +1108,9 @@ export default abstract class SqlIntegration
             ${id1},
             ${id2}
           FROM
-            (${replaceDateVars(join.query, from, to)}) i
+            (
+              ${replaceDateVars(join.query, from, to)}
+            ) i
           GROUP BY
             ${id1}, ${id2}
           `;
