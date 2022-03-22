@@ -903,6 +903,66 @@
       false
     ],
     [
+      "$elemMatch contains - pass",
+      {
+        "tags": {
+          "$elemMatch": {
+            "$eq": "bar"
+          }
+        }
+      },
+      {
+        "tags": ["foo", "bar", "baz"]
+      },
+      true
+    ],
+    [
+      "$elemMatch contains - false",
+      {
+        "tags": {
+          "$elemMatch": {
+            "$eq": "bar"
+          }
+        }
+      },
+      {
+        "tags": ["foo", "baz"]
+      },
+      false
+    ],
+    [
+      "$elemMatch not contains - pass",
+      {
+        "tags": {
+          "$not": {
+            "$elemMatch": {
+              "$eq": "bar"
+            }
+          }
+        }
+      },
+      {
+        "tags": ["foo", "baz"]
+      },
+      true
+    ],
+    [
+      "$elemMatch not contains - fail",
+      {
+        "tags": {
+          "$not": {
+            "$elemMatch": {
+              "$eq": "bar"
+            }
+          }
+        }
+      },
+      {
+        "tags": ["foo", "bar", "baz"]
+      },
+      false
+    ],
+    [
       "$elemMatch nested - pass",
       {
         "hobbies": {

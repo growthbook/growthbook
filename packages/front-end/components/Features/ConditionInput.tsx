@@ -170,8 +170,8 @@ export default function ConditionInput(props: Props) {
                         </>
                       ) : attribute.array ? (
                         <>
-                          <option value="$eq">contains</option>
-                          <option value="$ne">does not contain</option>
+                          <option value="$includes">includes</option>
+                          <option value="$notIncludes">does not include</option>
                           <option value="$exists">exists</option>
                           <option value="$notExists">does not exist</option>
                         </>
@@ -189,6 +189,9 @@ export default function ConditionInput(props: Props) {
                           <option value="$eq">is equal to</option>
                           <option value="$ne">is not equal to</option>
                           <option value="$regex">matches regex</option>
+                          <option value="$notRegex">
+                            does not match regex
+                          </option>
                           <option value="$gt">is greater than</option>
                           <option value="$gte">
                             is greater than or equal to
@@ -197,6 +200,8 @@ export default function ConditionInput(props: Props) {
                           <option value="$lte">is less than or equal to</option>
                           <option value="$in">is in the list</option>
                           <option value="$nin">is not in the list</option>
+                          <option value="$exists">exists</option>
+                          <option value="$notExists">does not exist</option>
                         </>
                       ) : attribute.datatype === "number" ? (
                         <>
@@ -210,6 +215,8 @@ export default function ConditionInput(props: Props) {
                           <option value="$lte">is less than or equal to</option>
                           <option value="$in">is in the list</option>
                           <option value="$nin">is not in the list</option>
+                          <option value="$exists">exists</option>
+                          <option value="$notExists">does not exist</option>
                         </>
                       ) : (
                         ""
