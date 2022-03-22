@@ -36,7 +36,15 @@ export interface AttributeData {
 }
 
 export function useEnvironmentState() {
-  return useLocalStorage("currentEnvironment", "dev");
+  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
+
+  const environments = useEnvironments();
+
+  if (!environments.map((e) => e.id).includes(state)) {
+    return [environments[0]?.id || "production", setState] as const;
+  }
+
+  return [state, setState] as const;
 }
 
 export function useEnvironments() {
