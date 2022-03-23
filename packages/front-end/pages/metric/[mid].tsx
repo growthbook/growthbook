@@ -49,6 +49,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
+import EditTagsForm from "../../components/Experiment/EditTagsForm";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -64,6 +65,7 @@ const MetricPage: FC = () => {
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
 
   const [editing, setEditing] = useState(false);
+  const [editTags, setEditTags] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
   const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
@@ -237,6 +239,21 @@ const MetricPage: FC = () => {
               mutateDefinitions({});
               mutate();
             }
+          }}
+        />
+      )}
+      {editTags && (
+        <EditTagsForm
+          cancel={() => setEditTags(false)}
+          mutate={mutate}
+          tags={metric.tags}
+          save={async (tags) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                tags,
+              }),
+            });
           }}
         />
       )}
@@ -634,6 +651,17 @@ const MetricPage: FC = () => {
               )}
             </RightRailSection>
 
+            <hr />
+            <RightRailSection
+              title="Tags"
+              open={() => setEditTags(true)}
+              canOpen={canEdit}
+            >
+              <RightRailSectionGroup type="badge">
+                {metric.tags}
+              </RightRailSectionGroup>
+            </RightRailSection>
+
             {datasource?.properties?.hasSettings && (
               <>
                 <hr />
@@ -792,16 +820,6 @@ const MetricPage: FC = () => {
                     </span>
                   </li>
                 </ul>
-              </RightRailSectionGroup>
-            </RightRailSection>
-            <hr />
-            <RightRailSection
-              title="Tags"
-              open={() => setEditModalOpen(0)}
-              canOpen={canEdit}
-            >
-              <RightRailSectionGroup type="badge">
-                {metric.tags}
               </RightRailSectionGroup>
             </RightRailSection>
           </div>

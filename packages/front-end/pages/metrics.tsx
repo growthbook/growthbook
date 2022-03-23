@@ -20,7 +20,10 @@ import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
 import usePermissions from "../hooks/usePermissions";
-import clsx from "clsx";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "../components/Metrics/TagsFilter";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -37,7 +40,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const permissions = usePermissions();
 
-  const [tagsFilter, setTagsFilter] = useState<string[]>([]);
+  const tagsFilter = useTagsFilter();
 
   const [metricSort, setMetricSort] = useState({
     field: "name",
@@ -72,8 +75,8 @@ const MetricsPage = (): React.ReactElement => {
   const hasArchivedMetrics = filteredMetrics.find(
     (m) => m.status === "archived"
   );
-  const showingFilteredMetrics = filteredMetrics
-    .filter((m) => {
+  const showingFilteredMetrics = filterByTags(
+    filteredMetrics.filter((m) => {
       if (!showArchived) {
         if (m.status !== "archived") {
           return m;
@@ -81,15 +84,9 @@ const MetricsPage = (): React.ReactElement => {
       } else {
         return m;
       }
-    })
-    .filter((m) => {
-      if (!tagsFilter.length) return true;
-      if (!m.tags) return false;
-      for (let i = 0; i < tagsFilter.length; i++) {
-        if (!m.tags.includes(tagsFilter[i])) return false;
-      }
-      return true;
-    });
+    }),
+    tagsFilter
+  );
 
   const closeModal = (refresh: boolean) => {
     if (refresh) {
@@ -169,11 +166,6 @@ const MetricsPage = (): React.ReactElement => {
     return (comp1 - comp2) * metricSort.dir;
   });
 
-  const availableTags: Set<string> = new Set(tagsFilter);
-  sortedMetrics.forEach((m) => {
-    m.tags && m.tags.forEach((tag) => availableTags.add(tag));
-  });
-
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
@@ -233,34 +225,9 @@ const MetricsPage = (): React.ReactElement => {
             Show archived
           </div>
         )}
-        {availableTags.size > 0 && (
-          <div className="col-auto">
-            Filter by tags:
-            {Array.from(availableTags).map((tag) => {
-              const selected = tagsFilter.includes(tag);
-              return (
-                <a
-                  key={tag}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTagsFilter(
-                      selected
-                        ? tagsFilter.filter((t) => t !== tag)
-                        : [...tagsFilter, tag]
-                    );
-                  }}
-                  className={clsx(
-                    "badge mx-1",
-                    selected ? "badge-primary" : "badge-light border"
-                  )}
-                >
-                  {tag}
-                </a>
-              );
-            })}
-          </div>
-        )}
+        <div className="col-auto">
+          <TagsFilter filter={tagsFilter} items={sortedMetrics} />
+        </div>
       </div>
       <table className="table appbox gbtable table-hover">
         <thead>
@@ -456,7 +423,7 @@ const MetricsPage = (): React.ReactElement => {
             </tr>
           ))}
 
-          {!sortedMetrics.length && (isFiltered || tagsFilter.length > 0) && (
+          {!sortedMetrics.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
               <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
                 No matching metrics

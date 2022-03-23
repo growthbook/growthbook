@@ -22,6 +22,10 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "../../components/Metrics/TagsFilter";
 
 const NUM_PER_PAGE = 20;
 
@@ -44,6 +48,7 @@ export default function FeaturesPage() {
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
+  const tagsFilter = useTagsFilter();
 
   const stepsRequired =
     !settings?.sdkInstructionsViewed || (!loading && !features.length);
@@ -54,7 +59,9 @@ export default function FeaturesPage() {
     "tags",
   ]);
 
-  const { sorted, SortableTH } = useSort(list, "id", 1);
+  const filtered = filterByTags(list, tagsFilter);
+
+  const { sorted, SortableTH } = useSort(filtered, "id", 1);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -156,9 +163,12 @@ export default function FeaturesPage() {
 
       {features.length > 0 && (
         <div>
-          <div className="row mb-2">
+          <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <Field placeholder="Filter list..." {...searchInputProps} />
+              <Field placeholder="Search..." {...searchInputProps} />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
           </div>
           <table className="table gbtable table-hover">
