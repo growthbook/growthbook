@@ -8,15 +8,14 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import TagsModal from "../../components/Tags/TagsModal";
 import Tag from "../../components/Tags/Tag";
 import { GBAddCircle } from "../../components/Icons";
+import { TagInterface } from "back-end/types/tag";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
-  const [modalOpen, setModalOpen] = useState<Partial<{
-    name: string;
-    color: string;
-    description: string;
-  }> | null>(null);
+  const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
+    null
+  );
 
   return (
     <div className="container-fluid  pagecontents">
@@ -35,7 +34,7 @@ const TagsPage: FC = () => {
         </Link>
       </div>
       <h1>Tags</h1>
-      <p>Organize features, experiments, metrics, etc. with tags.</p>
+      <p>Organize features, experiments, metrics, and more with tags.</p>
       {tags?.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>

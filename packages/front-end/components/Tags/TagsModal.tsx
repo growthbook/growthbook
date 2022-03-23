@@ -56,7 +56,8 @@ export default function TagsModal({
           <Field
             name="Name"
             label="Name"
-            maxLength={30}
+            minLength={2}
+            maxLength={64}
             className=""
             required
             {...form.register("id")}
@@ -90,7 +91,7 @@ export default function TagsModal({
           name="Name"
           label="Description"
           textarea
-          maxLength={30}
+          maxLength={256}
           {...form.register("description")}
         />
         <div>

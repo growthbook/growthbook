@@ -22,6 +22,9 @@ type TagDocument = mongoose.Document & TagDBInterface;
 
 const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
 
+const MIN_TAG_LENGTH = 2;
+const MAX_TAG_LENGTH = 64;
+
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
   const json = doc.toJSON();
@@ -46,7 +49,9 @@ export async function getAllTags(
 }
 
 export async function addTags(organization: string, tags: string[]) {
-  tags = tags.filter((x) => x.length > 1);
+  tags = tags.filter(
+    (x) => x.length >= MIN_TAG_LENGTH && x.length <= MAX_TAG_LENGTH
+  );
   if (!tags.length) return;
 
   await TagModel.updateOne(
@@ -68,6 +73,15 @@ export async function addTag(
   color: string,
   description: string
 ) {
+  if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
+    throw new Error(
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`
+    );
+  }
+  if (description.length > 256) {
+    description = description.substr(0, 256);
+  }
+
   const settingIndex = `settings.${tag}`;
   const setting = { [settingIndex]: { color, description } };
   await TagModel.updateOne(
