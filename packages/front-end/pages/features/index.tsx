@@ -24,8 +24,9 @@ import Pagination from "../../components/Pagination";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../../components/Metrics/TagsFilter";
+} from "../../components/Tags/TagsFilter";
 import { useEnvironments } from "../../services/features";
+import SortedTags from "../../components/Tags/SortedTags";
 
 const NUM_PER_PAGE = 20;
 
@@ -217,13 +218,7 @@ export default function FeaturesPage() {
                       </Link>
                     </td>
                     <td>
-                      {feature?.tags?.map((tag, i) => {
-                        return (
-                          <span className={`badge badge-primary mr-2`} key={i}>
-                            {tag}
-                          </span>
-                        );
-                      })}
+                      <SortedTags tags={feature?.tags || []} />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative">

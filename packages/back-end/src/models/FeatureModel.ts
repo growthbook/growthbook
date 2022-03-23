@@ -249,3 +249,11 @@ export async function editFeatureEnvironment(
 
   featureUpdated(feature);
 }
+
+export async function removeTagInFeature(organization: string, tag: string) {
+  const query = { organization, tags: tag };
+  await FeatureModel.updateMany(query, {
+    $pull: { tags: tag },
+  });
+  return;
+}

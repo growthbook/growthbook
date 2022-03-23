@@ -8,7 +8,7 @@ import {
   getIdeasByQuery,
 } from "../services/ideas";
 import { IdeaInterface } from "../../types/idea";
-import { addTagsDiff } from "../services/tag";
+import { addTagsDiff } from "../models/TagModel";
 import { Vote } from "../../types/vote";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import {

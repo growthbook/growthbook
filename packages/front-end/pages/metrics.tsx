@@ -17,7 +17,8 @@ import usePermissions from "../hooks/usePermissions";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../components/Metrics/TagsFilter";
+} from "../components/Tags/TagsFilter";
+import SortedTags from "../components/Tags/SortedTags";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -257,11 +258,7 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                {Object.values(metric.tags).map((col) => (
-                  <span className="tag badge badge-primary mr-2" key={col}>
-                    {col}
-                  </span>
-                ))}
+                <SortedTags tags={Object.values(metric.tags)} />
               </td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource

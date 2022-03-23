@@ -24,7 +24,7 @@ import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup
 import EditableH1 from "../../components/Forms/EditableH1";
 import InlineForm from "../../components/Forms/InlineForm";
 import MarkdownEditor from "../../components/Forms/MarkdownEditor";
-import TagsInput from "../../components/TagsInput";
+import TagsInput from "../../components/Tags/TagsInput";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -34,6 +34,7 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import SelectField from "../../components/Forms/SelectField";
 import useUser from "../../hooks/useUser";
+import SortedTags from "../../components/Tags/SortedTags";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -316,16 +317,7 @@ const IdeaPage = (): ReactElement => {
                     </div>
                     <div className="idea-tags text-muted mr-3">
                       <small>
-                        Tags:{" "}
-                        {idea.tags &&
-                          Object.values(idea.tags).map((col) => (
-                            <span
-                              className="badge badge-secondary mr-2"
-                              key={col}
-                            >
-                              {col}
-                            </span>
-                          ))}
+                        Tags: <SortedTags tags={Object.values(idea.tags)} />
                         {!idea.tags?.length && <em>None</em>}
                       </small>
                     </div>

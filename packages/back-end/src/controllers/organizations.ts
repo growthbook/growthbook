@@ -23,7 +23,7 @@ import {
   encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
-import { getAllTags } from "../services/tag";
+import { getAllTags } from "../models/TagModel";
 import {
   getAllApiKeysByOrganization,
   createApiKey,
@@ -1046,15 +1046,6 @@ FROM
       message: e.message || "An error occurred",
     });
   }
-}
-
-export async function getTags(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const tags = await getAllTags(org.id);
-  res.status(200).json({
-    status: 200,
-    tags,
-  });
 }
 
 export async function putDataSource(

@@ -284,3 +284,14 @@ export async function updateMetricsByQuery(
     $set: updates,
   });
 }
+
+export async function removeTagInMetrics(organization: string, tag: string) {
+  if (usingFileConfig()) {
+    return;
+  }
+  const query = { organization, tags: tag };
+  await MetricModel.updateMany(query, {
+    $pull: { tags: tag },
+  });
+  return;
+}

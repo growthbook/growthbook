@@ -6,6 +6,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { TagInterface } from "back-end/types/tag";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -14,7 +15,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   groups: string[];
-  tags: string[];
+  tags: TagInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -30,6 +31,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
+  getTagById: (id: string) => null | TagInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -59,6 +61,7 @@ const defaultValue: DefinitionContextValue = {
   getDimensionById: () => null,
   getSegmentById: () => null,
   getProjectById: () => null,
+  getTagById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -110,6 +113,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
+  const getTagById = useGetById(data?.tags);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -136,6 +140,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       getDimensionById,
       getSegmentById,
       getProjectById,
+      getTagById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {
@@ -149,12 +154,20 @@ export const DefinitionsProvider: FC = ({ children }) => {
         }
       },
       refreshTags: async (tags) => {
-        const newTags = tags.filter((t) => !data.tags.includes(t));
+        const existingTags = data.tags.map((t) => t.id);
+        const newTags = tags.filter((t) => !existingTags.includes(t));
+
         if (newTags.length > 0) {
           await mutate(
             {
               ...data,
-              tags: data.tags.concat(newTags),
+              tags: data.tags.concat(
+                newTags.map((t) => ({
+                  id: t,
+                  color: "#029dd1",
+                  description: "",
+                }))
+              ),
             },
             false
           );

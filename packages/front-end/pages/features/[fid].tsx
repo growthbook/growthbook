@@ -21,12 +21,13 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import EditTagsForm from "../../components/Experiment/EditTagsForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import { getRules, useEnvironmentState } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import { useEnvironments } from "../../services/features";
+import SortedTags from "../../components/Tags/SortedTags";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -192,14 +193,7 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         )}
 
         <div className="col-auto">
-          Tags:{" "}
-          {data.feature?.tags?.map((tag, i) => {
-            return (
-              <span className={`badge badge-primary mr-2`} key={i}>
-                {tag}
-              </span>
-            );
-          })}
+          Tags: <SortedTags tags={data.feature?.tags || []} />
           <a
             className="ml-2 cursor-pointer"
             onClick={() => setEditTagsModal(true)}

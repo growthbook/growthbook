@@ -1,6 +1,9 @@
 import { useState } from "react";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
+import Tag from "./Tag";
+
+const MAX_TAGS = 3;
 
 interface ItemWithTags {
   tags?: string[];
@@ -15,8 +18,6 @@ export interface Props {
   filter: TagsFilter;
   items: ItemWithTags[];
 }
-
-const MAX_TAGS = 5;
 
 export function filterByTags<T extends ItemWithTags>(
   items: T[],
@@ -74,33 +75,30 @@ export default function TagsFilter({
       <div>Filter by tags:</div>
       <div>
         {tags.map((tag) => (
-          <a
+          <Tag
+            tag={tag}
             key={tag}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={async () => {
               setTags(tags.filter((t) => t !== tag));
             }}
-            className="badge mx-1 badge-primary"
-            title="Remove tag filter"
+            description="Remove tag filter"
+            className="mx-1"
           >
-            {tag} <strong className="ml-1">&times;</strong>
-          </a>
+            <strong className="ml-1">&times;</strong>
+          </Tag>
         ))}
         {availableTags.slice(0, numToShow).map((tag) => {
           return (
-            <a
+            <Tag
+              tag={tag}
               key={tag}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={async () => {
                 setTags([...tags, tag]);
               }}
-              className="badge mx-1 badge-light border"
-              title="Add tag filter"
-            >
-              {tag}
-            </a>
+              description="Add tag filter"
+              className="mx-1 text-dark"
+              color="#fff"
+            />
           );
         })}
       </div>
@@ -110,12 +108,13 @@ export default function TagsFilter({
             {availableTags.slice(numToShow).map((tag) => {
               return (
                 <DropdownLink
-                  key={tag}
-                  onClick={() => {
+                  className="dropdown-item"
+                  onClick={async () => {
                     setTags([...tags, tag]);
                   }}
+                  key={tag}
                 >
-                  {tag}
+                  <Tag tag={tag} description="Add tag filter" />
                 </DropdownLink>
               );
             })}

@@ -3,7 +3,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
-import TagsInput from "../TagsInput";
+import TagsInput from "../Tags/TagsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 

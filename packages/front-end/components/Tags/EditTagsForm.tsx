@@ -1,6 +1,6 @@
 import { FC } from "react";
 import Modal from "../Modal";
-import TagsInput from "../TagsInput";
+import TagsInput from "./TagsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useForm } from "react-hook-form";
 

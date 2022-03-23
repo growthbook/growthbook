@@ -27,7 +27,7 @@ import {
 import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
-import { addTagsDiff } from "../services/tag";
+import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import { WatchModel } from "../models/WatchModel";
