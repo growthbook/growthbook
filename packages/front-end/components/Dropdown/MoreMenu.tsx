@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { FC, ReactElement, useState } from "react";
+import { FC, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useGlobalMenu from "../../services/useGlobalMenu";
 
@@ -7,8 +7,7 @@ const MoreMenu: FC<{
   id: string;
   autoCloseOnClick?: boolean;
   className?: string;
-  trigger?: ReactElement;
-}> = ({ children, id, autoCloseOnClick = true, className = "", trigger }) => {
+}> = ({ children, id, autoCloseOnClick = true, className = "" }) => {
   const [open, setOpen] = useState(false);
   useGlobalMenu(`#${id}`, () => setOpen(false));
   return (
@@ -24,7 +23,7 @@ const MoreMenu: FC<{
           setOpen(!open);
         }}
       >
-        {trigger || <BsThreeDotsVertical />}
+        <BsThreeDotsVertical />
       </a>
       <div
         className={clsx("dropdown-menu dropdown-menu-right", {
