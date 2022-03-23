@@ -109,10 +109,9 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/attributes/,
       },
       {
-        name: "Billing",
-        href: "/settings/billing",
-        path: /^settings\/billing/,
-        cloudOnly: true,
+        name: "Environments",
+        href: "/settings/environments",
+        path: /^settings\/environments/,
       },
       {
         name: "API Keys",
@@ -123,6 +122,12 @@ const navlinks: SidebarLinkProps[] = [
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
+      },
+      {
+        name: "Billing",
+        href: "/settings/billing",
+        path: /^settings\/billing/,
+        cloudOnly: true,
       },
       {
         name: "Namespaces",

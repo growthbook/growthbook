@@ -7,9 +7,8 @@ export async function createApiKey(
   environment: string,
   description?: string
 ): Promise<string> {
-  const envPrefix = environment === "production" ? "prod" : environment;
-
-  const key = "key_" + envPrefix + "_" + md5(uniqid()).substr(0, 16);
+  const key =
+    "key_" + environment.substr(0, 4) + "_" + md5(uniqid()).substr(0, 16);
 
   await ApiKeyModel.create({
     organization,

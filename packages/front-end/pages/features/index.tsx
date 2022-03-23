@@ -11,7 +11,6 @@ import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
-import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -26,6 +25,7 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "../../components/Metrics/TagsFilter";
+import { useEnvironments } from "../../services/features";
 
 const NUM_PER_PAGE = 20;
 
@@ -53,6 +53,8 @@ export default function FeaturesPage() {
   const stepsRequired =
     !settings?.sdkInstructionsViewed || (!loading && !features.length);
 
+  const environments = useEnvironments();
+
   const { list, searchInputProps } = useSearch(features || [], [
     "id",
     "description",
@@ -78,6 +80,8 @@ export default function FeaturesPage() {
   if (loading) {
     return <LoadingOverlay />;
   }
+
+  const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
     <div className="contents container pagecontents">
@@ -159,8 +163,6 @@ export default function FeaturesPage() {
         </div>
       )}
 
-      <ApiKeyUpgrade />
-
       {features.length > 0 && (
         <div>
           <div className="row mb-2 align-items-center">
@@ -176,8 +178,9 @@ export default function FeaturesPage() {
               <tr>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
-                <th>Dev</th>
-                <th>Prod</th>
+                {toggleEnvs.map((en) => (
+                  <th key={en.id}>{en.id}</th>
+                ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -191,10 +194,10 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {sorted.slice(start, end).map((feature) => {
-                const rules = [
-                  ...getRules(feature, "dev"),
-                  ...getRules(feature, "production"),
-                ];
+                let rules = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
                 const orderedRules = [
@@ -222,20 +225,15 @@ export default function FeaturesPage() {
                         );
                       })}
                     </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="dev"
-                        mutate={mutate}
-                      />
-                    </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="production"
-                        mutate={mutate}
-                      />
-                    </td>
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id} className="position-relative">
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={en.id}
+                          mutate={mutate}
+                        />
+                      </td>
+                    ))}
                     <td>
                       <ValueDisplay
                         value={feature.defaultValue}

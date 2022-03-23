@@ -1,18 +1,20 @@
-import {
-  AttributeData,
-  jsonToConds,
-  useAttributeMap,
-} from "../../services/features";
+import { jsonToConds, useAttributeMap } from "../../services/features";
 import Code from "../Code";
 
-function operatorToText(operator: string, attribute?: AttributeData): string {
+function operatorToText(operator: string): string {
   switch (operator) {
     case "$eq":
-      if (attribute?.array) return `contains`;
       return `is equal to`;
     case "$ne":
-      if (attribute?.array) return `does not contain`;
       return `is not equal to`;
+    case "$includes":
+      return `includes`;
+    case "$notIncludes":
+      return `does not include`;
+    case "$empty":
+      return `is empty`;
+    case "$notEmpty":
+      return `is not empty`;
     case "$lt":
       return `is less than`;
     case "$lte":
@@ -42,7 +44,7 @@ function operatorToText(operator: string, attribute?: AttributeData): string {
 }
 
 function needsValue(operator: string) {
-  return !["$exists", "$notExists"].includes(operator);
+  return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function getValue(operator: string, value: string): string {
   if (operator === "$true") return "TRUE";
@@ -73,9 +75,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
         <div key={i} className="col-auto d-flex flex-wrap">
           {i > 0 && <span className="mr-1">AND</span>}
           <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-          <span className="mr-1">
-            {operatorToText(operator, attributes[field])}
-          </span>
+          <span className="mr-1">{operatorToText(operator)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
               {getValue(operator, value)}

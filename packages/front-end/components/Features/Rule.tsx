@@ -14,6 +14,7 @@ import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules } from "../../services/features";
+import { useEnvironments } from "../../services/features";
 
 interface SortableProps {
   i: number;
@@ -53,6 +54,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
     const rules = getRules(feature, environment);
+
+    const environments = useEnvironments();
 
     return (
       <div
@@ -143,28 +146,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               >
                 {rule.enabled ? "Disable" : "Enable"}
               </Button>
-              <Button
-                color=""
-                className="dropdown-item"
-                onClick={async () => {
-                  const newEnv = environment === "dev" ? "production" : "dev";
-                  await apiCall(`/feature/${feature.id}/rule`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      environment: newEnv,
-                      rule: { ...rule, id: "" },
-                    }),
-                  });
-                  track("Clone Feature Rule", {
-                    ruleIndex: i,
-                    environment,
-                    type: rule.type,
-                  });
-                  mutate();
-                }}
-              >
-                Copy to {environment === "dev" ? "production" : "dev"}
-              </Button>
+              {environments
+                .filter((e) => e.id !== environment)
+                .map((en) => (
+                  <Button
+                    key={en.id}
+                    color=""
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/rule`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          environment: en.id,
+                          rule: { ...rule, id: "" },
+                        }),
+                      });
+                      track("Clone Feature Rule", {
+                        ruleIndex: i,
+                        environment,
+                        type: rule.type,
+                      });
+                      mutate();
+                    }}
+                  >
+                    Copy to {en.id}
+                  </Button>
+                ))}
               <DeleteButton
                 className="dropdown-item"
                 displayName="Rule"
