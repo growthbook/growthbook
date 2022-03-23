@@ -23,7 +23,7 @@ import {
   encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
-import { getAllTags } from "../services/tag";
+import { getAllTags } from "../models/TagModel";
 import {
   getAllApiKeysByOrganization,
   createApiKey,

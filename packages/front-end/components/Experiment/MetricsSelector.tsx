@@ -3,7 +3,7 @@ import { Typeahead } from "react-bootstrap-typeahead";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip";
-import Tag from "../Tag";
+import Tag from "../Tags/Tag";
 
 const MetricsSelector: FC<{
   datasource?: string;

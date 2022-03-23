@@ -5,8 +5,8 @@ import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import TagsModal from "../../components/TagsModal";
-import Tag from "../../components/Tag";
+import TagsModal from "../../components/Tags/TagsModal";
+import Tag from "../../components/Tags/Tag";
 import { GBAddCircle } from "../../components/Icons";
 
 const TagsPage: FC = () => {
@@ -57,11 +57,11 @@ const TagsPage: FC = () => {
                     }}
                     className="cursor-pointer"
                   >
-                    {t.name}
+                    {t.id}
                   </td>
                   <td>{t.description}</td>
                   <td>
-                    <Tag tag={t.name} />
+                    <Tag tag={t.id} />
                   </td>
                   <td>
                     <button
@@ -78,7 +78,7 @@ const TagsPage: FC = () => {
                       className="tr-hover"
                       displayName="Tag"
                       onClick={async () => {
-                        await apiCall(`/tag/${t.name}`, {
+                        await apiCall(`/tag/${t.id}`, {
                           method: "DELETE",
                         });
                         mutateDefinitions();

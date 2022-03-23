@@ -33,7 +33,7 @@ import useSwitchOrg from "../../services/useSwitchOrg";
 import ConfirmModal from "../../components/ConfirmModal";
 import WatchButton from "../../components/Experiment/WatchButton";
 import HistoryTable from "../../components/HistoryTable";
-import EditTagsForm from "../../components/Experiment/EditTagsForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
 import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
 import EditTargetingForm from "../../components/Experiment/EditTargetingForm";

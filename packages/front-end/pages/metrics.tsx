@@ -14,11 +14,11 @@ import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
 import usePermissions from "../hooks/usePermissions";
-import Tag from "../components/Tag";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../components/Metrics/TagsFilter";
+} from "../components/Tags/TagsFilter";
+import SortedTags from "../components/Tags/SortedTags";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -258,9 +258,7 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                {Object.values(metric.tags).map((tag) => (
-                  <Tag key={tag} tag={tag} />
-                ))}
+                <SortedTags tags={Object.values(metric.tags)} />
               </td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource

@@ -10,7 +10,7 @@ import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEffect } from "react";
 import Code from "../Code";
-import TagsInput from "../TagsInput";
+import TagsInput from "../Tags/TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,

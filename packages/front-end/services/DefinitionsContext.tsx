@@ -31,6 +31,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
+  getTagById: (id: string) => null | TagInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -60,6 +61,7 @@ const defaultValue: DefinitionContextValue = {
   getDimensionById: () => null,
   getSegmentById: () => null,
   getProjectById: () => null,
+  getTagById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -91,18 +93,6 @@ export function useDefinitions() {
   return useContext(DefinitionsContext);
 }
 
-function transformDataTags(dbTags): TagInterface[] {
-  return (
-    dbTags?.tags?.map((t) => {
-      return {
-        name: t,
-        color: dbTags?.settings?.[t]?.color ?? "",
-        description: dbTags?.settings?.[t]?.description ?? "",
-      };
-    }) || dbTags
-  );
-}
-
 export const DefinitionsProvider: FC = ({ children }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
     "/organization/definitions"
@@ -123,6 +113,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
+  const getTagById = useGetById(data?.tags);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -136,7 +127,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
-      tags: transformDataTags(data.tags),
+      tags: data.tags,
       groups: data.groups,
       projects: data.projects,
       project:
@@ -149,6 +140,7 @@ export const DefinitionsProvider: FC = ({ children }) => {
       getDimensionById,
       getSegmentById,
       getProjectById,
+      getTagById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {
@@ -162,21 +154,20 @@ export const DefinitionsProvider: FC = ({ children }) => {
         }
       },
       refreshTags: async (tags) => {
-        const tagsMap = new Map();
-        const dataTags = data?.tags ? transformDataTags(data.tags) : [];
-        dataTags.forEach((t) => {
-          tagsMap.set(t.name, t);
-        });
+        const existingTags = data.tags.map((t) => t.id);
+        const newTags = tags.filter((t) => !existingTags.includes(t));
 
-        const newTags = tags.filter((t) => !tagsMap.has(t));
         if (newTags.length > 0) {
-          newTags.forEach((nt) => {
-            dataTags.push({ name: nt, color: "", description: "" });
-          });
           await mutate(
             {
               ...data,
-              tags: dataTags,
+              tags: data.tags.concat(
+                newTags.map((t) => ({
+                  id: t,
+                  color: "#029dd1",
+                  description: "",
+                }))
+              ),
             },
             false
           );

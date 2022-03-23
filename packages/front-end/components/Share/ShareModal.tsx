@@ -31,7 +31,7 @@ import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import { date } from "../../services/dates";
 import track from "../../services/track";
-import Tag from "../Tag";
+import SortedTags from "../Tags/SortedTags";
 
 export const presentationThemes = {
   lblue: {
@@ -453,9 +453,7 @@ const ShareModal = ({
                         </div>
                       </td>
                       <td className="nowrap">
-                        {Object.values(e.tags).map((tag, i) => (
-                          <Tag key={i} tag={tag} />
-                        ))}
+                        <SortedTags tags={Object.values(e.tags)} />
                       </td>
                       <td className="nowrap">
                         {getUserDisplay(e.owner, false)}

@@ -70,6 +70,7 @@ wrapController(projectsController);
 wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
+wrapController(tagsController);
 
 const app = express();
 
@@ -364,8 +365,6 @@ app.get("/queries/:ids", organizationsController.getQueries);
 app.post("/organization/sample-data", organizationsController.postSampleData);
 
 // tags
-app.get("/tags", tagsController.getTags);
-app.put("/tag/:id", tagsController.putTag);
 app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
 

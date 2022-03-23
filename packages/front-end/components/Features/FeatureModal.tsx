@@ -24,7 +24,7 @@ import {
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
-import TagsInput from "../TagsInput";
+import TagsInput from "../Tags/TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useEnvironments } from "../../services/features";

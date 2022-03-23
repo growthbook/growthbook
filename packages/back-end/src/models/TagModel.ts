@@ -20,15 +20,88 @@ const tagSchema = new mongoose.Schema({
 
 export type TagDocument = mongoose.Document & TagDBInterface;
 
-export const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
+const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
 
-export function toTagInterface(doc: TagDocument): TagInterface[] {
-  const tagDB = doc.toJSON();
-  return tagDB.tags.map((t) => {
+function toTagInterface(doc: TagDocument | null): TagInterface[] {
+  if (!doc) return [];
+  const json = doc.toJSON();
+  if (!json.tags) return [];
+  const settings = json.settings || {};
+  return json.tags.map((t) => {
     return {
-      name: t,
-      color: tagDB?.settings?.[t]?.color ?? "",
-      description: tagDB?.settings?.[t]?.description ?? "",
+      id: t,
+      color: settings[t]?.color || "#029dd1",
+      description: settings[t]?.description || "",
     };
   });
+}
+
+export async function getAllTags(
+  organization: string
+): Promise<TagInterface[]> {
+  const doc = await TagModel.findOne({
+    organization,
+  });
+  return toTagInterface(doc);
+}
+
+export async function addTags(organization: string, tags: string[]) {
+  tags = tags.filter((x) => x.length > 1);
+  if (!tags.length) return;
+
+  await TagModel.updateOne(
+    { organization },
+    {
+      $addToSet: {
+        tags: { $each: tags },
+      },
+    },
+    {
+      upsert: true,
+    }
+  );
+}
+
+export async function addTag(
+  organization: string,
+  tag: string,
+  color: string,
+  description: string
+) {
+  const settingIndex = `settings.${tag}`;
+  const setting = { [settingIndex]: { color, description } };
+  await TagModel.updateOne(
+    { organization },
+    {
+      $addToSet: {
+        tags: tag,
+      },
+      $set: setting,
+    },
+    {
+      upsert: true,
+    }
+  );
+}
+
+export async function removeTag(organization: string, tag: string) {
+  await TagModel.updateOne(
+    {
+      organization,
+    },
+    {
+      $pull: { tags: tag },
+    }
+  );
+}
+
+export async function addTagsDiff(
+  organization: string,
+  oldTags: string[],
+  newTags: string[]
+) {
+  const diff = newTags.filter((x) => !oldTags.includes(x));
+  if (diff.length) {
+    await addTags(organization, diff);
+  }
 }

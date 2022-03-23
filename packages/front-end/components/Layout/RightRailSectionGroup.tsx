@@ -1,6 +1,6 @@
 import React, { Children, FC } from "react";
 import styles from "./RightRailSectionGroup.module.scss";
-import Tag from "../Tag";
+import SortedTags from "../Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
   title?: string;
@@ -35,11 +35,13 @@ const RightRailSectionGroup: FC<{
       {title && <span className={`mr-2 ${styles.title}`}>{title}:</span>}
       {hasChildren ? (
         <>
-          {type === "tags" &&
-            Children.map(children, (child, i) => {
-              if (child === null || child === undefined) return "";
-              return <Tag key={i} tag={child + ""} />;
-            })}
+          {type === "tags" && (
+            <SortedTags
+              tags={Children.map(children, (child) => child + "").filter(
+                Boolean
+              )}
+            />
+          )}
           {type === "badge" &&
             Children.map(children, (child, i) => {
               if (child === null || child === undefined) return "";

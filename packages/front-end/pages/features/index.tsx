@@ -21,12 +21,12 @@ import {
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
-import Tag from "../../components/Tag";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../../components/Metrics/TagsFilter";
+} from "../../components/Tags/TagsFilter";
 import { useEnvironments } from "../../services/features";
+import SortedTags from "../../components/Tags/SortedTags";
 
 const NUM_PER_PAGE = 20;
 
@@ -218,9 +218,7 @@ export default function FeaturesPage() {
                       </Link>
                     </td>
                     <td>
-                      {feature?.tags?.map((tag, i) => {
-                        return <Tag key={i} tag={tag} />;
-                      })}
+                      <SortedTags tags={feature?.tags || []} />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative">

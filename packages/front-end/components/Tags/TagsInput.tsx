@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { Typeahead } from "react-bootstrap-typeahead";
-import { useDefinitions } from "../services/DefinitionsContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
@@ -15,10 +15,10 @@ const TagsInput: FC<{
       multiple={true}
       allowNew={true}
       options={
-        tags?.map((tag) => {
+        tags.map((tag) => {
           return {
-            id: tag.name,
-            name: tag.name,
+            id: tag.id,
+            name: tag.id,
           };
         }) ?? []
       }

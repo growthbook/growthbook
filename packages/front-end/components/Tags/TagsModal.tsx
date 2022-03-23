@@ -1,25 +1,26 @@
 import { useForm } from "react-hook-form";
-import { useAuth } from "./../services/auth";
-import Modal from "./Modal";
-import Field from "./Forms/Field";
+import { useAuth } from "../../services/auth";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
 import { HexColorPicker } from "react-colorful";
 import styles from "./TagsModal.module.scss";
 import React from "react";
 import Tag from "./Tag";
+import { TagInterface } from "back-end/types/tag";
 
 export default function TagsModal({
   existing,
   close,
   onSuccess,
 }: {
-  existing: Partial<{ name: string; color: string; description: string }>;
+  existing: Partial<TagInterface>;
   close: () => void;
   onSuccess: () => Promise<void>;
 }) {
-  const form = useForm<{ name: string; color: string; description: string }>({
+  const form = useForm<TagInterface>({
     defaultValues: {
-      name: existing?.name || "",
-      color: existing?.color || null,
+      id: existing?.id || "",
+      color: existing?.color || "#029dd1",
       description: existing?.description || "",
     },
   });
@@ -32,7 +33,7 @@ export default function TagsModal({
     { value: "#D64538", label: "red" },
     { value: "#fc8414", label: "orange" },
     { value: "#e2d221", label: "yellow" },
-    { value: "#99d560", label: "lime" },
+    { value: "#9edd63", label: "lime" },
     { value: "#28A66B", label: "green" },
     { value: "#20C9B9", label: "teal" },
   ];
@@ -41,29 +42,26 @@ export default function TagsModal({
     <Modal
       open={true}
       close={close}
-      header={existing?.name ? "Edit Tag" : "Create Tag"}
+      header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(existing.name ? `/tag/${existing.name}` : `/tag`, {
-          method: existing.name ? "PUT" : "POST",
+        await apiCall(`/tag`, {
+          method: "POST",
           body: JSON.stringify(value),
         });
         await onSuccess();
       })}
     >
       <div className="colorpicker tagmodal">
-        <div className="row mb-3">
-          <div className="col">
-            <Field
-              name="Name"
-              label="Name"
-              readOnly={!!existing?.name}
-              maxLength={30}
-              className=""
-              required
-              {...form.register("name")}
-            />
-          </div>
-        </div>
+        {!existing?.id && (
+          <Field
+            name="Name"
+            label="Name"
+            maxLength={30}
+            className=""
+            required
+            {...form.register("id")}
+          />
+        )}
         <label>Color:</label>
         <div className={styles.picker}>
           <HexColorPicker
@@ -95,10 +93,14 @@ export default function TagsModal({
           maxLength={30}
           {...form.register("description")}
         />
-        <div className="text-center px-4">
+        <div>
           <label>Preview</label>
           <div>
-            <Tag tag={form.watch("name")} color={form.watch("color")} />
+            <Tag
+              tag={form.watch("id")}
+              color={form.watch("color")}
+              description={form.watch("description")}
+            />
           </div>
         </div>
       </div>

@@ -49,7 +49,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
-import EditTagsForm from "../../components/Experiment/EditTagsForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -657,7 +657,7 @@ const MetricPage: FC = () => {
               open={() => setEditTags(true)}
               canOpen={canEdit}
             >
-              <RightRailSectionGroup type="badge">
+              <RightRailSectionGroup type="tags">
                 {metric.tags}
               </RightRailSectionGroup>
             </RightRailSection>
