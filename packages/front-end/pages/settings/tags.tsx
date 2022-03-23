@@ -74,7 +74,7 @@ const TagsPage: FC = () => {
                       <FaPencilAlt />
                     </button>{" "}
                     <DeleteButton
-                      deleteMessage="Are you sure you want to remove this tag? This action cannot be undone."
+                      deleteMessage="Are you sure? Deleting a tag will remove it from all features, metrics, and experiments."
                       className="tr-hover"
                       displayName="Tag"
                       onClick={async () => {

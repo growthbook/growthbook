@@ -38,10 +38,12 @@ export async function deleteTag(
   }
 
   // experiments
-  const query = { organization: org.id, tags: id };
-  await ExperimentModel.updateMany(query, {
-    $pull: { tags: id },
-  });
+  await ExperimentModel.updateMany(
+    { organization: org.id, tags: id },
+    {
+      $pull: { tags: id },
+    }
+  );
 
   // metrics
   await removeTagInMetrics(org.id, id);
