@@ -24,9 +24,13 @@ export function filterByTags<T extends ItemWithTags>(
 ): T[] {
   if (!tags.length) return items;
 
-  return items.filter(
-    (i) => i.tags?.filter((t) => tags.includes(t))?.length > 0
-  );
+  return items.filter((item) => {
+    if (!item.tags) return false;
+    for (let i = 0; i < tags.length; i++) {
+      if (!item.tags.includes(tags[i])) return false;
+    }
+    return true;
+  });
 }
 
 export function useTagsFilter(): TagsFilter {
