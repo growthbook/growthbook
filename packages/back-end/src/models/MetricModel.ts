@@ -287,8 +287,7 @@ export async function updateMetricsByQuery(
 
 export async function removeTagInMetrics(organization: string, tag: string) {
   if (usingFileConfig()) {
-    // Trying to update unsupported properties
-    throw new Error("Cannot remove tags from metrics managed by config.yml");
+    return;
   }
   const query = { organization, tags: tag };
   await MetricModel.updateMany(query, {

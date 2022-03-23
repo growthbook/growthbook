@@ -18,7 +18,7 @@ const tagSchema = new mongoose.Schema({
   },
 });
 
-export type TagDocument = mongoose.Document & TagDBInterface;
+type TagDocument = mongoose.Document & TagDBInterface;
 
 const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
 
