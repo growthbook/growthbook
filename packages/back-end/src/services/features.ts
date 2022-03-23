@@ -101,6 +101,15 @@ export async function getFeatureDefinitions(
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
               }
+              if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+                rule.namespace = [
+                  r.namespace.name,
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[0] as any) || 0,
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[1] as any) || 0,
+                ];
+              }
             } else if (r.type === "rollout") {
               rule.force = getJSONValue(feature.valueType, r.value);
               rule.coverage =

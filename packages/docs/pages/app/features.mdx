@@ -84,7 +84,7 @@ Each attribute has 3 parts:
 
 Every feature has a default value that is served to all users. The real power comes when you define **override rules** that let you run experiments and/or change the value based on targeting attributes.
 
-Override rules are defined separately for each environment (dev and production). This way you can, for example, test an experiment rule in dev first before deploying it to production.
+Override rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test an experiment rule in dev first before deploying it to production.
 
 The first matching rule for a user will be applied, so order matters. If there are no matching rules, the default value will be used.
 
@@ -148,11 +148,21 @@ If the total variation percents add up to less than 100%, the remaining users wi
 
 You can analyze the result of an Experiment the same way you would any experiment in GrowthBook.
 
+#### Namespaces
+
+If you have multiple experiments that may conflict with each other (e.g. background color and text color), you can use **namespaces** to make the conflicting experiments mutually exclusive.
+
+Users are randomly assigned a value from 0 to 1 for each namespace. Each experiment in a namespace has a range of values that it includes. Users are only part of an experiment if their value falls within the experiment's range. So as long as two experiment ranges do not overlap, users will only ever be in at most one of them.
+
+![Namespaces](/images/namespaces.png)
+
+Before you can use namespaces, you must configure them under Settings > Namespaces.
+
 ## Integration Options
 
 There are few ways to integrate GrowthBook features into your application.
 
-At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file for each environment (dev and production). The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
+At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file for each environment (e.g. dev and production). The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
 
 There is a public GrowthBook [API endpoint](/app/api) for the feature definitions JSON:
 
@@ -161,7 +171,7 @@ There is a public GrowthBook [API endpoint](/app/api) for the feature definition
 
 The API includes a cache header with a 30-second TTL (plus stale-while-revalidate and stale-if-error headers).
 
-**Note:** There are separate API keys for dev and production. Make sure you are using the right one for your environment.
+**Note:** There are separate API keys for each environment (e.g. dev and production). Make sure you are using the right one for your environment.
 
 ### Load directly (client-side rendering)
 

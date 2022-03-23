@@ -91,6 +91,15 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    settings: {
+      environments: [
+        {
+          id: "production",
+          description: "",
+          toggleOnList: true,
+        },
+      ],
+    },
   });
   return toInterface(doc);
 }

@@ -23,10 +23,11 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import EditTagsForm from "../../components/Experiment/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import { getRules, useEnvironment } from "../../services/features";
+import { getRules, useEnvironmentState } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import Tag from "../../components/Tag";
+import { useEnvironments } from "../../services/features";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
-  const [env, setEnv] = useEnvironment();
+  const [env, setEnv] = useEnvironmentState();
 
   const [ruleModal, setRuleModal] = useState<{
     i: number;
@@ -52,9 +53,9 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
-
   const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+  const environments = useEnvironments();
 
   const usage = useMemo(() => {
     if (!data?.feature) return "";
@@ -228,31 +229,22 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       <h3>Enabled Environments</h3>
       <div className="appbox mb-4 p-3">
         <div className="row mb-2">
-          <div className="col-auto">
-            <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
-              Dev:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="dev"
-              mutate={mutate}
-              id="dev_toggle"
-            />
-          </div>
-          <div className="col-auto">
-            <label
-              className="font-weight-bold mr-2"
-              htmlFor={"production_toggle"}
-            >
-              Production:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="production"
-              mutate={mutate}
-              id="production_toggle"
-            />
-          </div>
+          {environments.map((en) => (
+            <div className="col-auto" key={en.id}>
+              <label
+                className="font-weight-bold mr-2"
+                htmlFor={`${en.id}_toggle`}
+              >
+                {en.id}:{" "}
+              </label>
+              <EnvironmentToggle
+                feature={data.feature}
+                environment={en.id}
+                mutate={mutate}
+                id={`${en.id}_toggle`}
+              />
+            </div>
+          ))}
         </div>
         <div>
           In a disabled environment, the feature will always evaluate to{" "}
@@ -298,20 +290,20 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         newStyle={false}
         buttonsClassName="px-3 py-2 h4"
       >
-        {["dev", "production"].map((e) => {
-          const rules = getRules(data.feature, e);
+        {environments.map((e) => {
+          const rules = getRules(data.feature, e.id);
           return (
             <Tab
-              key={e}
-              id={e}
-              display={e}
+              key={e.id}
+              id={e.id}
+              display={e.id}
               count={rules.length}
               padding={false}
             >
               <div className="appbox mb-4 border-top-0">
                 {rules.length > 0 ? (
                   <RuleList
-                    environment={e}
+                    environment={e.id}
                     feature={data.feature}
                     experiments={data.experiments || {}}
                     mutate={mutate}

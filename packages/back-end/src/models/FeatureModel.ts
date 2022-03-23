@@ -41,6 +41,7 @@ const featureSchema = new mongoose.Schema({
           weight: Number,
         },
       ],
+      namespace: {},
     },
   ],
   environmentSettings: {},

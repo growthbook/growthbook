@@ -12,6 +12,8 @@ This does mean, if you change the experiment configuration, some users may switc
 
 GrowthBook will detect issues like this and will remove users who see both variations from the analysis automatically. However, to keep things simple and safe, we recommend not relying on this and treating experiments as immutable once they are running.
 
+It's important to note that the above only applies when changing the traffic split between variations. If you keep the split the same, but increase the percent of traffic included, users will not switch variations. For example, if you are running a 50/50 experiment on 20% of traffic, the variation ranges will be `0 to 0.1` and `0.5 to 0.6`. Users outside those ranges will be excluded from the experiment. If you increase the percent of traffic to 40%, but keep the 50/50 split, the ranges will become: `0 to 0.2` and `0.5 to 0.7`. As you can see, no users switch variations. Instead, some users who were previously excluded are now part of the experiment.
+
 ## What do I use for an "id" attribute in the SDK if my users aren't logged in?
 
 If your application has both logged-in and anonymous users, we recommend using two identifier attributes:
@@ -56,7 +58,7 @@ So that means if you do 50 orders per week and that's the metric you are trying 
 
 Yes! In fact, we recommend running many experiments in parallel in your application. Most A/B tests fail, so the more shots-on-goal you take, the more likely you are to get a winner. Running tests in parallel is a great way to increase your velocity.
 
-Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal.
+Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/app/features#namespaces) to run mutually exclusive experiments.
 
 As long as you apply a little common sense to avoid situations like the above, running multiple experiments has low risk and really high reward.
 

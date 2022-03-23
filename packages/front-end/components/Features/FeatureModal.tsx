@@ -1,5 +1,9 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
+import {
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureValueType,
+} from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -19,8 +23,11 @@ import {
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
+import NamespaceSelector from "./NamespaceSelector";
 import TagsInput from "../TagsInput";
 import cloneDeep from "lodash/cloneDeep";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import { useEnvironments } from "../../services/features";
 
 export type Props = {
   close: () => void;
@@ -49,6 +56,13 @@ function parseDefaultValue(
 
 export default function FeatureModal({ close, onSuccess }: Props) {
   const { project, refreshTags } = useDefinitions();
+  const environments = useEnvironments();
+
+  const defaultEnvSettings: Record<string, FeatureEnvironment> = {};
+  environments.forEach(
+    (e) => (defaultEnvSettings[e.id] = { enabled: true, rules: [] })
+  );
+
   const form = useForm({
     defaultValues: {
       valueType: "boolean",
@@ -57,16 +71,15 @@ export default function FeatureModal({ close, onSuccess }: Props) {
       id: "",
       project: project,
       tags: [],
-      environmentSettings: {
-        dev: { enabled: true, rules: [] },
-        production: { enabled: false, rules: [] },
-      },
+      environmentSettings: defaultEnvSettings,
       rule: null,
     },
   });
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema();
+
+  const { namespaces } = useOrgSettings();
 
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute)?.length > 0;
@@ -157,38 +170,24 @@ export default function FeatureModal({ close, onSuccess }: Props) {
 
       <label>Enabled Environments</label>
       <div className="row">
-        <div className="col-auto">
-          <div className="form-group mb-0">
-            <label htmlFor={"dev_toggle_create"} className="mr-2 ml-3">
-              Dev:
-            </label>
-            <Toggle
-              id={"dev_toggle_create"}
-              label="Dev"
-              value={environmentSettings.dev.enabled}
-              setValue={(on) => {
-                environmentSettings.dev.enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
-              }}
-            />
+        {environments.map((env) => (
+          <div className="col-auto" key={env.id}>
+            <div className="form-group mb-0">
+              <label htmlFor={`${env.id}_toggle_create`} className="mr-2 ml-3">
+                {env.id}:
+              </label>
+              <Toggle
+                id={`${env.id}_toggle_create`}
+                label={env.id}
+                value={environmentSettings[env.id].enabled}
+                setValue={(on) => {
+                  environmentSettings[env.id].enabled = on;
+                  form.setValue("environmentSettings", environmentSettings);
+                }}
+              />
+            </div>
           </div>
-        </div>
-        <div className="col-auto">
-          <div className="form-group mb-0">
-            <label htmlFor={"production_toggle_create"} className="mr-2">
-              Production:
-            </label>
-            <Toggle
-              id={"production_toggle_create"}
-              label="Production"
-              value={environmentSettings.production.enabled}
-              setValue={(on) => {
-                environmentSettings.production.enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
-              }}
-            />
-          </div>
-        </div>
+        ))}
       </div>
 
       <hr />
@@ -382,6 +381,14 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />
+          {namespaces?.length > 0 && (
+            <NamespaceSelector
+              form={form}
+              formPrefix="rule."
+              featureId={form.watch("id")}
+              trackingKey={form.watch("rule.trackingKey")}
+            />
+          )}
           <FeatureValueField
             label={"Fallback Value"}
             helpText={"For people excluded from the experiment"}

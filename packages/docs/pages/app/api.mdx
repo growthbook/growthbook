@@ -6,11 +6,11 @@ With the **API**, your servers pull feature definitions from GrowthBook in a cro
 
 With [Webhooks](/app/webhooks), GrowthBook calls out to your servers as soon as features change in GrowthBook.
 
-## Creating API Keys
+## Environments and API Keys
 
-When you first start setting up features in GrowthBook, we auto-generate two unique API keys for you - one for **dev** and one for **production**.
+When you first start setting up features in GrowthBook, we create a "production" environment for you with an API key.
 
-You can see these keys and create new ones if needed by going to **Settings -> API Keys**.
+You can add new environments by going to **Settings -> Environments**.
 
 ## Feature Definitions Endpoint
 
@@ -52,7 +52,7 @@ Each feature definition has a default value and optional rules that override the
 
 If you've set up multiple projects within GrowthBook, you can optionally add a querystring to this endpoint to only include features in a specific project. By default, features from all projects are returned.
 
-To do this, add the querystring `?project={projectId}`. You can find the id for your project in settings (will start with `prj_`).
+To do this, add the querystring `?project={projectId}`. You can find the id for your project under Settings > Projects (will start with `prj_`).
 
 For example:
 
