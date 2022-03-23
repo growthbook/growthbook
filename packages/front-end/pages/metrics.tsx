@@ -1,25 +1,23 @@
 import React, { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
-import {
-  FaPlus,
-  FaSort,
-  FaSortUp,
-  FaSortDown,
-  FaRegCopy,
-} from "react-icons/fa";
+import { FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
-import { useSearch } from "../services/search";
+import { useSearch, useSort } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
 import usePermissions from "../hooks/usePermissions";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "../components/Metrics/TagsFilter";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -36,26 +34,42 @@ const MetricsPage = (): React.ReactElement => {
 
   const permissions = usePermissions();
 
-  const [metricSort, setMetricSort] = useState({
-    field: "name",
-    dir: 1,
-  });
+  const tagsFilter = useTagsFilter();
+
   const [showArchived, setShowArchived] = useState(false);
 
-  const setSort = (field: string) => {
-    if (metricSort.field === field) {
-      // switch dir:
-      setMetricSort({ ...metricSort, dir: metricSort.dir * -1 });
-    } else {
-      setMetricSort({ field, dir: 1 });
+  const { list, searchInputProps, isFiltered } = useSearch(
+    data?.metrics || [],
+    ["name", "tags", "type"]
+  );
+  const hasArchivedMetrics = list.find((m) => m.status === "archived");
+  const { sorted, SortableTH } = useSort(
+    filterByTags(
+      list.filter((m) => {
+        if (!showArchived) {
+          if (m.status !== "archived") {
+            return m;
+          }
+        } else {
+          return m;
+        }
+      }),
+      tagsFilter
+    ),
+    "name",
+    1,
+    {
+      datasource: (a, b) => {
+        const da = a.datasource
+          ? getDatasourceById(a.datasource)?.name || "Unknown"
+          : "Manual";
+        const db = b.datasource
+          ? getDatasourceById(b.datasource)?.name || "Unknown"
+          : "Manual";
+        return da.localeCompare(db);
+      },
     }
-  };
-
-  const {
-    list: filteredMetrics,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.metrics || [], ["name", "tags", "type"]);
+  );
 
   if (error) {
     return <div className="alert alert-danger">An error occurred: {error}</div>;
@@ -65,19 +79,6 @@ const MetricsPage = (): React.ReactElement => {
   }
 
   const metrics = data.metrics;
-
-  const hasArchivedMetrics = filteredMetrics.find(
-    (m) => m.status === "archived"
-  );
-  const showingFilteredMetrics = filteredMetrics.filter((m) => {
-    if (!showArchived) {
-      if (m.status !== "archived") {
-        return m;
-      }
-    } else {
-      return m;
-    }
-  });
 
   const closeModal = (refresh: boolean) => {
     if (refresh) {
@@ -147,16 +148,6 @@ const MetricsPage = (): React.ReactElement => {
     );
   }
 
-  // sort the metrics:
-  const sortedMetrics = showingFilteredMetrics.sort((a, b) => {
-    const comp1 = a[metricSort.field];
-    const comp2 = b[metricSort.field];
-    if (typeof comp1 === "string") {
-      return comp1.localeCompare(comp2) * metricSort.dir;
-    }
-    return (comp1 - comp2) * metricSort.dir;
-  });
-
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
@@ -175,26 +166,6 @@ const MetricsPage = (): React.ReactElement => {
             </small>
           </h3>
         </div>
-        <div className="col-lg-3 col-md-4 col-6">
-          <input
-            type="search"
-            className=" form-control"
-            placeholder="Search"
-            aria-controls="dtBasicExample"
-            {...searchInputProps}
-          />
-        </div>
-        {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Toggle
-              value={showArchived}
-              setValue={setShowArchived}
-              id="show-archived"
-              label="show archived"
-            />
-            Show archived
-          </div>
-        )}
         <div style={{ flex: 1 }} />
         {permissions.createMetrics && !hasFileConfig() && (
           <div className="col-auto">
@@ -215,130 +186,54 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         )}
       </div>
+      <div className="row mb-2 align-items-center">
+        <div className="col-lg-3 col-md-4 col-6">
+          <input
+            type="search"
+            className=" form-control"
+            placeholder="Search"
+            aria-controls="dtBasicExample"
+            {...searchInputProps}
+          />
+        </div>
+        {hasArchivedMetrics && (
+          <div className="col-auto text-muted">
+            <Toggle
+              value={showArchived}
+              setValue={setShowArchived}
+              id="show-archived"
+              label="show archived"
+            />
+            Show archived
+          </div>
+        )}
+        <div className="col-auto">
+          <TagsFilter filter={tagsFilter} items={sorted} />
+        </div>
+      </div>
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("name");
-                }}
-              >
-                Name{" "}
-                <a
-                  href="#"
-                  className={
-                    metricSort.field === "name" ? "activesort" : "inactivesort"
-                  }
-                >
-                  {metricSort.field === "name" ? (
-                    metricSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("type");
-                }}
-              >
-                Type{" "}
-                <a
-                  href="#"
-                  className={
-                    metricSort.field === "type" ? "activesort" : "inactivesort"
-                  }
-                >
-                  {metricSort.field === "type" ? (
-                    metricSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
+            <SortableTH field="name">Name</SortableTH>
+            <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
-            <th className="d-none d-lg-table-cell">
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("datasource");
-                }}
-              >
-                Data Source{" "}
-                <a
-                  href="#"
-                  className={
-                    metricSort.field === "datasource"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {metricSort.field === "datasource" ? (
-                    metricSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
+            <SortableTH field="datasource" className="d-none d-lg-table-cell">
+              Data Source
+            </SortableTH>
             {!hasFileConfig() && (
-              <th className="d-none d-md-table-cell">
-                <span
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSort("dateUpdated");
-                  }}
-                >
-                  Last Updated{" "}
-                  <a
-                    href="#"
-                    className={
-                      metricSort.field === "dateUpdated"
-                        ? "activesort"
-                        : "inactivesort"
-                    }
-                  >
-                    {metricSort.field === "dateUpdated" ? (
-                      metricSort.dir < 0 ? (
-                        <FaSortUp />
-                      ) : (
-                        <FaSortDown />
-                      )
-                    ) : (
-                      <FaSort />
-                    )}
-                  </a>
-                </span>
-              </th>
+              <SortableTH
+                field="dateUpdated"
+                className="d-none d-md-table-cell"
+              >
+                Last Updated
+              </SortableTH>
             )}
             {showArchived && <th>status</th>}
             {permissions.createMetrics && !hasFileConfig() && <th></th>}
           </tr>
         </thead>
         <tbody>
-          {sortedMetrics.map((metric) => (
+          {sorted.map((metric) => (
             <tr
               key={metric.id}
               onClick={(e) => {
@@ -370,7 +265,7 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
-                  ? getDatasourceById(metric.datasource)?.name || ""
+                  ? getDatasourceById(metric.datasource)?.name || "Unknown"
                   : "Manual"}
               </td>
               {!hasFileConfig() && (
@@ -409,7 +304,7 @@ const MetricsPage = (): React.ReactElement => {
             </tr>
           ))}
 
-          {!sortedMetrics.length && isFiltered && (
+          {!sorted.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
               <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
                 No matching metrics
