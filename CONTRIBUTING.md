@@ -19,9 +19,11 @@ If you just want to contribute a client library in a new language and not make c
 
 1. Fork the project
 2. Clone your forked project by running `git clone git@github.com:{ YOUR_USERNAME }/growthbook.git`
-3. Run `yarn` to install dependencies
-4. Run `yarn setup` to do the initial build
-5. Start MongoDB in Docker
+3. Run `cd growthbook`
+4. Run `yarn` to install dependencies
+5. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
+6. Run `yarn setup` to do the initial build
+7. Start MongoDB in Docker
 
 ```sh
 docker run -d -p 27017:27017 --name mongo \
@@ -30,8 +32,8 @@ docker run -d -p 27017:27017 --name mongo \
   mongo
 ```
 
-6. Run `yarn dev` to start the app in dev mode
-7. Visit http://localhost:3000 in your browser and verify the app is working correctly
+8. Run `yarn dev` to start the app in dev mode
+9. Visit http://localhost:3000 in your browser and verify the app is working correctly
 
 ### Changing Configuration Settings
 
