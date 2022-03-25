@@ -9,6 +9,7 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
+  addMemberToOrg,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -78,6 +79,7 @@ import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
@@ -93,6 +95,13 @@ export async function getUser(req: AuthRequest, res: Response) {
   if (!req.userId && IS_CLOUD) {
     const user = await createUser(req.name || "", req.email);
     req.userId = user.id;
+
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+
+    const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
+    if (autoOrg) {
+      await addMemberToOrg(autoOrg, user.id);
+    }
   }
 
   if (!req.userId) {

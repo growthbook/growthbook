@@ -88,6 +88,7 @@ export interface OrganizationSettings {
 export interface OrganizationInterface {
   id: string;
   url: string;
+  claimedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
