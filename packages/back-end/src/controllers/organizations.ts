@@ -99,7 +99,20 @@ export async function getUser(req: AuthRequest, res: Response) {
   if (!req.userId && IS_CLOUD) {
     const user = await createUser(req.name || "", req.email);
     req.userId = user.id;
+  }
 
+  if (!req.userId) {
+    throw new Error("Must be logged in");
+  }
+
+  const userId = req.userId;
+
+  // List of all organizations the user belongs to
+  const orgs = await findOrganizationsByMemberId(userId);
+
+  // If the user is not in an organization yet and they are using GrowthBook Cloud
+  // Check to see if they should be auto-added to one based on their email domain
+  if (!orgs.length && IS_CLOUD) {
     const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
 
     const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
@@ -112,7 +125,8 @@ export async function getUser(req: AuthRequest, res: Response) {
             "You must first verify your email address before using GrowthBook",
         });
       }
-      await addMemberToOrg(autoOrg, user.id);
+      await addMemberToOrg(autoOrg, userId);
+      orgs.push(autoOrg);
       try {
         await sendNewMemberEmail(
           req.name || "",
@@ -125,15 +139,6 @@ export async function getUser(req: AuthRequest, res: Response) {
       }
     }
   }
-
-  if (!req.userId) {
-    throw new Error("Must be logged in");
-  }
-
-  const userId = req.userId;
-
-  // List of all organizations the user belongs to
-  const orgs = await findOrganizationsByMemberId(req.userId);
 
   return res.status(200).json({
     status: 200,

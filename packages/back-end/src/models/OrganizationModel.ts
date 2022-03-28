@@ -188,6 +188,7 @@ export async function getOrganizationsWithNorthStars() {
 }
 
 export async function findOrganizationByClaimedDomain(domain: string) {
+  if (!domain) return null;
   const doc = await OrganizationModel.findOne({
     claimedDomain: domain,
   });
