@@ -198,6 +198,7 @@ const ProtectedPage: React.FC<{
           setError("");
           update();
         }}
+        autoCloseOnSubmit={false}
       >
         <h3>Error signing in</h3>
         <div className="alert alert-danger">{error}</div>

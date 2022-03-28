@@ -97,7 +97,7 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
   if (!req.userId && IS_CLOUD) {
-    const user = await createUser(req.name || "", req.email);
+    const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
   }
 
