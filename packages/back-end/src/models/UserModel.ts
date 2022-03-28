@@ -13,8 +13,20 @@ const userSchema = new mongoose.Schema({
   },
   passwordHash: String,
   admin: Boolean,
+  verified: Boolean,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;
 
 export const UserModel = mongoose.model<UserDocument>("User", userSchema);
+
+export async function markUserAsVerified(id: string) {
+  await UserModel.updateOne(
+    { id },
+    {
+      $set: {
+        verified: true,
+      },
+    }
+  );
+}

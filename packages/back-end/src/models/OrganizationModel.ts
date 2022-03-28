@@ -11,7 +11,10 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
-  claimedDomain: String,
+  claimedDomain: {
+    type: String,
+    index: true,
+  },
   members: [
     {
       _id: false,

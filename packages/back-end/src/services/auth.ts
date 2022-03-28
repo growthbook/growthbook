@@ -3,7 +3,11 @@ import jwt from "express-jwt";
 import jwks from "jwks-rsa";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserDocument, UserModel } from "../models/UserModel";
+import {
+  markUserAsVerified,
+  UserDocument,
+  UserModel,
+} from "../models/UserModel";
 import {
   getOrganizationById,
   getPermissionsByRole,
@@ -72,6 +76,15 @@ function getInitialNameFromJWT(user: {
   return "";
 }
 
+function isEmailVerified(user: {
+  ["https://growthbook.io/verified"]?: boolean;
+}) {
+  if (IS_CLOUD && user["https://growthbook.io/verified"]) {
+    return true;
+  }
+  return false;
+}
+
 export function getJWTCheck() {
   return IS_CLOUD ? getAuth0JWTCheck() : getLocalJWTCheck();
 }
@@ -84,6 +97,7 @@ export async function processJWT(
 ) {
   req.email = getInitialEmailFromJWT(req.user);
   req.name = getInitialNameFromJWT(req.user);
+  req.verified = isEmailVerified(req.user);
   req.permissions = {};
 
   const user = await (IS_CLOUD
@@ -95,6 +109,17 @@ export async function processJWT(
     req.userId = user.id;
     req.name = user.name;
     req.admin = !!user.admin;
+
+    if (IS_CLOUD && user.verified && !req.verified) {
+      return res.status(406).json({
+        status: 406,
+        message: "You must verify your email address before using GrowthBook",
+      });
+    }
+
+    if (!user.verified && req.verified) {
+      await markUserAsVerified(user.id);
+    }
 
     if (req.headers["x-organization"]) {
       req.organization =

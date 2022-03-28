@@ -100,6 +100,14 @@ export async function getUser(req: AuthRequest, res: Response) {
 
     const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
     if (autoOrg) {
+      // Only allow verified email addresses to auto-join an organization
+      if (!req.verified) {
+        return res.status(406).json({
+          status: 406,
+          message:
+            "You must first verify your email address before using GrowthBook",
+        });
+      }
       await addMemberToOrg(autoOrg, user.id);
     }
   }

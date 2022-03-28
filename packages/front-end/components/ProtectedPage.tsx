@@ -14,6 +14,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
+import Modal from "./Modal";
 
 type User = { id: string; email: string; name: string };
 
@@ -90,6 +91,7 @@ const ProtectedPage: React.FC<{
     loading,
     isAuthenticated,
     login,
+    logout,
     apiCall,
     orgId,
     organizations,
@@ -97,16 +99,21 @@ const ProtectedPage: React.FC<{
   } = useAuth();
 
   const [data, setData] = useState<UserResponse>(null);
+  const [error, setError] = useState("");
   const [users, setUsers] = useState<Map<string, User>>(new Map());
   const router = useRouter();
 
   const update = async () => {
-    const res = await apiCall<UserResponse>("/user", {
-      method: "GET",
-    });
-    setData(res);
-    if (res.organizations) {
-      setOrganizations(res.organizations);
+    try {
+      const res = await apiCall<UserResponse>("/user", {
+        method: "GET",
+      });
+      setData(res);
+      if (res.organizations) {
+        setOrganizations(res.organizations);
+      }
+    } catch (e) {
+      setError(e.message);
     }
   };
 
@@ -174,6 +181,28 @@ const ProtectedPage: React.FC<{
   // This page is before the user is authenticated (e.g. reset password)
   if (preAuth) {
     return <>{children}</>;
+  }
+
+  if (error) {
+    return (
+      <Modal
+        inline={true}
+        open={true}
+        cta="Log Out"
+        submit={async () => {
+          await logout();
+        }}
+        submitColor="danger"
+        closeCta="Reload"
+        close={() => {
+          setError("");
+          update();
+        }}
+      >
+        <h3>Error signing in</h3>
+        <div className="alert alert-danger">{error}</div>
+      </Modal>
+    );
   }
 
   // Waiting for initial authentication
