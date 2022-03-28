@@ -56,7 +56,11 @@ import {
   findDimensionsByOrganization,
 } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendNewOrgEmail,
+} from "../services/email";
 import {
   createDataSource,
   getDataSourcesByOrganization,
@@ -109,6 +113,16 @@ export async function getUser(req: AuthRequest, res: Response) {
         });
       }
       await addMemberToOrg(autoOrg, user.id);
+      try {
+        await sendNewMemberEmail(
+          req.name || "",
+          req.email || "",
+          autoOrg.name,
+          autoOrg.ownerEmail
+        );
+      } catch (e) {
+        console.error("Failed to send new member email", e.message);
+      }
     }
   }
 

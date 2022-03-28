@@ -150,3 +150,23 @@ export async function sendNewOrgEmail(company: string, email: string) {
     text: `Company Name: ${company}\nOwner Email: ${email}`,
   });
 }
+
+export async function sendNewMemberEmail(
+  name: string,
+  email: string,
+  organization: string,
+  ownerEmail: string
+) {
+  const html = nunjucks.render("new-member.jinja", {
+    name,
+    email,
+    organization,
+  });
+
+  await sendMail({
+    html,
+    subject: `A new user joined your GrowthBook account: ${name} (${email})`,
+    to: ownerEmail,
+    text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
+  });
+}
