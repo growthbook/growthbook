@@ -195,8 +195,7 @@ const ProtectedPage: React.FC<{
         submitColor="danger"
         closeCta="Reload"
         close={() => {
-          setError("");
-          update();
+          window.location.reload();
         }}
         autoCloseOnSubmit={false}
       >
