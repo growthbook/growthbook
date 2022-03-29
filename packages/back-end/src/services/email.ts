@@ -52,23 +52,16 @@ async function sendMail({
   text: string;
 }) {
   if (!isEmailEnabled() || !transporter) {
-    throw new Error(
-      "Email server not configured. Check server logs for reset link."
-    );
+    throw new Error("Email server not configured.");
   }
 
-  try {
-    await transporter.sendMail({
-      from: `"GrowthBook" <${EMAIL_FROM}>`,
-      to,
-      subject,
-      text,
-      html,
-    });
-  } catch (e) {
-    console.error(e);
-    throw e;
-  }
+  await transporter.sendMail({
+    from: `"GrowthBook" <${EMAIL_FROM}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
 }
 export async function sendInviteEmail(
   organization: OrganizationInterface,

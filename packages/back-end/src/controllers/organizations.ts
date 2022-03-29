@@ -894,8 +894,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:");
-      console.error(e.message);
+      console.error("New org email sending failure:", e.message);
     }
 
     res.status(200).json({
