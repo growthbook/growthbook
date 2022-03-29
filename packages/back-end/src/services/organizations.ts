@@ -163,6 +163,27 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+export async function addMemberToOrg(
+  org: OrganizationInterface,
+  userId: string,
+  role: MemberRole = "collaborator"
+) {
+  // If memebr is already in the org, skip
+  if (org.members.find((m) => m.id === userId)) {
+    return;
+  }
+
+  const members = [
+    ...org.members,
+    {
+      id: userId,
+      role,
+    },
+  ];
+
+  await updateOrganization(org.id, { members });
+}
+
 export async function acceptInvite(key: string, userId: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {

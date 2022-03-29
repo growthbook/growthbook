@@ -9,6 +9,7 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
+  addMemberToOrg,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -55,7 +56,11 @@ import {
   findDimensionsByOrganization,
 } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendNewOrgEmail,
+} from "../services/email";
 import {
   createDataSource,
   getDataSourcesByOrganization,
@@ -78,6 +83,7 @@ import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
@@ -91,7 +97,7 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
   if (!req.userId && IS_CLOUD) {
-    const user = await createUser(req.name || "", req.email);
+    const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
   }
 
@@ -102,7 +108,37 @@ export async function getUser(req: AuthRequest, res: Response) {
   const userId = req.userId;
 
   // List of all organizations the user belongs to
-  const orgs = await findOrganizationsByMemberId(req.userId);
+  const orgs = await findOrganizationsByMemberId(userId);
+
+  // If the user is not in an organization yet and they are using GrowthBook Cloud
+  // Check to see if they should be auto-added to one based on their email domain
+  if (!orgs.length && IS_CLOUD) {
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+
+    const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
+    if (autoOrg) {
+      // Only allow verified email addresses to auto-join an organization
+      if (!req.verified) {
+        return res.status(406).json({
+          status: 406,
+          message:
+            "You must first verify your email address before using GrowthBook",
+        });
+      }
+      await addMemberToOrg(autoOrg, userId);
+      orgs.push(autoOrg);
+      try {
+        await sendNewMemberEmail(
+          req.name || "",
+          req.email || "",
+          autoOrg.name,
+          autoOrg.ownerEmail
+        );
+      } catch (e) {
+        console.error("Failed to send new member email", e.message);
+      }
+    }
+  }
 
   return res.status(200).json({
     status: 200,
@@ -858,8 +894,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:");
-      console.error(e.message);
+      console.error("New org email sending failure:", e.message);
     }
 
     res.status(200).json({

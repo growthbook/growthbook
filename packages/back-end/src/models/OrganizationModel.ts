@@ -11,6 +11,10 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  claimedDomain: {
+    type: String,
+    index: true,
+  },
   members: [
     {
       _id: false,
@@ -181,4 +185,12 @@ export async function getOrganizationsWithNorthStars() {
     },
   });
   return withNorthStars.map(toInterface);
+}
+
+export async function findOrganizationByClaimedDomain(domain: string) {
+  if (!domain) return null;
+  const doc = await OrganizationModel.findOne({
+    claimedDomain: domain,
+  });
+  return doc ? toInterface(doc) : null;
 }

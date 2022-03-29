@@ -72,7 +72,8 @@ export async function updatePassword(userId: string, password: string) {
 export async function createUser(
   name: string,
   email: string,
-  password?: string
+  password?: string,
+  verified: boolean = false
 ) {
   let passwordHash = "";
 
@@ -86,5 +87,6 @@ export async function createUser(
     email,
     passwordHash,
     id: uniqid("u_"),
+    verified,
   });
 }
