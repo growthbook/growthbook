@@ -10,6 +10,7 @@ import {
   importConfig,
   getOrgFromReq,
   addMemberToOrg,
+  validateLogin,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -117,14 +118,9 @@ export async function getUser(req: AuthRequest, res: Response) {
 
     const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
     if (autoOrg) {
-      // Only allow verified email addresses to auto-join an organization
-      if (!req.verified) {
-        return res.status(406).json({
-          status: 406,
-          message:
-            "You must first verify your email address before using GrowthBook",
-        });
-      }
+      // Throw error is the login method is invalid
+      validateLogin(req, autoOrg);
+
       await addMemberToOrg(autoOrg, userId);
       orgs.push(autoOrg);
       try {
@@ -450,8 +446,8 @@ export async function getHistory(
   const { type, id } = req.params;
 
   const events = await Promise.all([
-    findByEntity(type, id),
-    findByEntityParent(type, id),
+    findByEntity(org.id, type, id),
+    findByEntityParent(org.id, type, id),
   ]);
 
   const merged = [...events[0], ...events[1]];

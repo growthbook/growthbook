@@ -92,6 +92,7 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
+  restrictLoginMethod?: string;
   subscription?: {
     id: string;
     qty: number;

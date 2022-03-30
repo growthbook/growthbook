@@ -499,6 +499,26 @@ export async function importConfig(
   }
 }
 
+export function validateLogin(
+  req: AuthRequest,
+  organization: OrganizationInterface
+): void {
+  // If the organization has a claimed domain, require all email logins to be verified
+  if (organization.claimedDomain && !req.verified) {
+    throw new Error("You must validate your email address before logging in.");
+  }
+
+  // If an organization restricts the login method, make sure it matches
+  if (
+    organization.restrictLoginMethod &&
+    req.loginMethod !== organization.restrictLoginMethod
+  ) {
+    throw new Error(
+      `Invalid login method. Expected '${organization.restrictLoginMethod}', received '${req.loginMethod}'.`
+    );
+  }
+}
+
 export async function getEmailFromUserId(userId: string) {
   const u = await UserModel.findOne({ id: userId });
   return u?.email || "";
