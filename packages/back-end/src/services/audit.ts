@@ -92,3 +92,37 @@ export async function getWatchedAudits(
     })
     .limit(options?.limit || 50);
 }
+
+export function auditDetailsCreate<T>(
+  obj: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    new: obj,
+    context,
+  });
+}
+export function auditDetailsUpdate<T>(
+  oldObj: T,
+  newObj: Partial<T>,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    old: oldObj,
+    new: {
+      ...oldObj,
+      ...newObj,
+    },
+    context,
+  });
+}
+
+export function auditDetailsDelete<T>(
+  old: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    old,
+    context,
+  });
+}
