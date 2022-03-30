@@ -9,6 +9,7 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
+  addMemberToOrg,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -23,7 +24,7 @@ import {
   encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
-import { getAllTags } from "../services/tag";
+import { getAllTags } from "../models/TagModel";
 import {
   getAllApiKeysByOrganization,
   createApiKey,
@@ -32,7 +33,11 @@ import {
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  MemberRole,
+  NamespaceUsage,
+  OrganizationInterface,
+} from "../../types/organization";
 import {
   getWatchedAudits,
   findByEntity,
@@ -51,7 +56,11 @@ import {
   findDimensionsByOrganization,
 } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendNewOrgEmail,
+} from "../services/email";
 import {
   createDataSource,
   getDataSourcesByOrganization,
@@ -74,6 +83,7 @@ import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
@@ -81,11 +91,13 @@ import {
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
+import { getAllFeatures } from "../models/FeatureModel";
+import { ExperimentRule, NamespaceValue } from "../../types/feature";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
   if (!req.userId && IS_CLOUD) {
-    const user = await createUser(req.name || "", req.email);
+    const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
   }
 
@@ -96,7 +108,37 @@ export async function getUser(req: AuthRequest, res: Response) {
   const userId = req.userId;
 
   // List of all organizations the user belongs to
-  const orgs = await findOrganizationsByMemberId(req.userId);
+  const orgs = await findOrganizationsByMemberId(userId);
+
+  // If the user is not in an organization yet and they are using GrowthBook Cloud
+  // Check to see if they should be auto-added to one based on their email domain
+  if (!orgs.length && IS_CLOUD) {
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+
+    const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
+    if (autoOrg) {
+      // Only allow verified email addresses to auto-join an organization
+      if (!req.verified) {
+        return res.status(406).json({
+          status: 406,
+          message:
+            "You must first verify your email address before using GrowthBook",
+        });
+      }
+      await addMemberToOrg(autoOrg, userId);
+      orgs.push(autoOrg);
+      try {
+        await sendNewMemberEmail(
+          req.name || "",
+          req.email || "",
+          autoOrg.name,
+          autoOrg.ownerEmail
+        );
+      } catch (e) {
+        console.error("Failed to send new member email", e.message);
+      }
+    }
+  }
 
   return res.status(200).json({
     status: 200,
@@ -573,6 +615,78 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   });
 }
 
+export async function getNamespaces(req: AuthRequest, res: Response) {
+  if (!req.organization) {
+    return res.status(200).json({
+      status: 200,
+      organization: null,
+    });
+  }
+  const { org } = getOrgFromReq(req);
+
+  const namespaces: NamespaceUsage = {};
+
+  // Get all of the active experiments that are tied to a namespace
+  const allFeatures = await getAllFeatures(org.id);
+  allFeatures.forEach((f) => {
+    Object.keys(f.environmentSettings || {}).forEach((env) => {
+      if (!f.environmentSettings?.[env]?.enabled) return;
+      const rules = f.environmentSettings?.[env]?.rules || [];
+      rules
+        .filter(
+          (r) =>
+            r.enabled &&
+            r.type === "experiment" &&
+            r.namespace &&
+            r.namespace.enabled
+        )
+        .forEach((r: ExperimentRule) => {
+          const { name, range } = r.namespace as NamespaceValue;
+          namespaces[name] = namespaces[name] || [];
+          namespaces[name].push({
+            featureId: f.id,
+            trackingKey: r.trackingKey || f.id,
+            start: range[0],
+            end: range[1],
+            environment: env,
+          });
+        });
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    namespaces,
+  });
+  return;
+}
+
+export async function postNamespaces(
+  req: AuthRequest<{ name: string; description: string }>,
+  res: Response
+) {
+  const { name, description } = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const namespaces = org.settings?.namespaces || [];
+
+  // Namespace with the same name already exists
+  if (namespaces.filter((n) => n.name === name).length > 0) {
+    throw new Error("Namespace names must be unique.");
+  }
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      namespaces: [...namespaces, { name, description }],
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postInviteAccept(req: AuthRequest, res: Response) {
   const { key } = req.body;
 
@@ -780,8 +894,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:");
-      console.error(e.message);
+      console.error("New org email sending failure:", e.message);
     }
 
     res.status(200).json({
@@ -968,15 +1081,6 @@ FROM
       message: e.message || "An error occurred",
     });
   }
-}
-
-export async function getTags(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const tags = await getAllTags(org.id);
-  res.status(200).json({
-    status: 200,
-    tags,
-  });
 }
 
 export async function putDataSource(

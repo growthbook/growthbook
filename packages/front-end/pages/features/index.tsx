@@ -1,10 +1,7 @@
-import useApi from "../../hooks/useApi";
-import { FeatureInterface } from "back-end/types/feature";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -12,47 +9,67 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useSearch } from "../../services/search";
-import { useMemo } from "react";
+import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
-import ApiKeyUpgrade from "../../components/Features/ApiKeyUpgrade";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
-import { useRealtimeData } from "../../services/features";
+import {
+  getRules,
+  useFeaturesList,
+  useRealtimeData,
+} from "../../services/features";
 import Tooltip from "../../components/Tooltip";
+import Pagination from "../../components/Pagination";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "../../components/Tags/TagsFilter";
+import { useEnvironments } from "../../services/features";
+import SortedTags from "../../components/Tags/SortedTags";
+
+const NUM_PER_PAGE = 20;
 
 export default function FeaturesPage() {
-  const { project } = useDefinitions();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data, error, mutate } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature?project=${project || ""}`);
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+
+  const { features, loading, error, mutate } = useFeaturesList();
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
-    data?.features,
+    features,
     !!router?.query?.mockdata,
     showGraphs
   );
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
+  const tagsFilter = useTagsFilter();
 
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (data && !data?.features?.length);
+    !settings?.sdkInstructionsViewed || (!loading && !features.length);
 
-  const { list, searchInputProps } = useSearch(data?.features || [], [
+  const environments = useEnvironments();
+
+  const { list, searchInputProps } = useSearch(features || [], [
     "id",
     "description",
     "tags",
   ]);
 
-  const sorted = useMemo(() => {
-    return list.sort((a, b) => a.id.localeCompare(b.id));
-  }, [list]);
+  const filtered = filterByTags(list, tagsFilter);
+
+  const { sorted, SortableTH } = useSort(filtered, "id", 1);
+
+  // Reset to page 1 when a filter is applied
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sorted.length]);
 
   if (error) {
     return (
@@ -61,9 +78,11 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (!data) {
+  if (loading) {
     return <LoadingOverlay />;
   }
+
+  const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
     <div className="contents container pagecontents">
@@ -71,9 +90,12 @@ export default function FeaturesPage() {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            router.push(`/features/${feature.id}`);
+            const url = `/features/${feature.id}${
+              features.length > 0 ? "" : "?first"
+            }`;
+            router.push(url);
             mutate({
-              features: [...data.features, feature],
+              features: [...features, feature],
             });
           }}
         />
@@ -82,7 +104,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {data?.features?.length > 0 && (
+        {features.length > 0 && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -125,7 +147,7 @@ export default function FeaturesPage() {
               </a>
             )}
           </h4>
-          <FeaturesGetStarted features={data.features || []} />
+          <FeaturesGetStarted features={features} />
           {!stepsRequired && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
@@ -142,24 +164,27 @@ export default function FeaturesPage() {
         </div>
       )}
 
-      <ApiKeyUpgrade />
-
-      {data.features.length > 0 && (
+      {features.length > 0 && (
         <div>
-          <div className="row mb-2">
+          <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <Field placeholder="Filter list..." {...searchInputProps} />
+              <Field placeholder="Search..." {...searchInputProps} />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
           </div>
           <table className="table gbtable table-hover">
             <thead>
               <tr>
-                <th>Feature Key</th>
-                <th>Dev</th>
-                <th>Prod</th>
+                <SortableTH field="id">Feature Key</SortableTH>
+                <th>Tags</th>
+                {toggleEnvs.map((en) => (
+                  <th key={en.id}>{en.id}</th>
+                ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
-                <th>Last Updated</th>
+                <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
@@ -169,9 +194,21 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((feature) => {
-                const firstRule = feature.rules?.[0];
-                const totalRules = feature.rules?.length || 0;
+              {sorted.slice(start, end).map((feature) => {
+                let rules = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                );
+
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
 
                 return (
                   <tr key={feature.id}>
@@ -180,20 +217,18 @@ export default function FeaturesPage() {
                         <a>{feature.id}</a>
                       </Link>
                     </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="dev"
-                        mutate={mutate}
-                      />
+                    <td>
+                      <SortedTags tags={feature?.tags || []} />
                     </td>
-                    <td className="position-relative">
-                      <EnvironmentToggle
-                        feature={feature}
-                        environment="production"
-                        mutate={mutate}
-                      />
-                    </td>
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id} className="position-relative">
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={en.id}
+                          mutate={mutate}
+                        />
+                      </td>
+                    ))}
                     <td>
                       <ValueDisplay
                         value={feature.defaultValue}
@@ -232,6 +267,16 @@ export default function FeaturesPage() {
               )}
             </tbody>
           </table>
+          {Math.ceil(sorted.length / NUM_PER_PAGE) > 1 && (
+            <Pagination
+              numItemsTotal={sorted.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={(d) => {
+                setCurrentPage(d);
+              }}
+            />
+          )}
         </div>
       )}
     </div>

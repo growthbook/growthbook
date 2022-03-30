@@ -4,6 +4,7 @@ import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
+import { useEnvironments } from "../../services/features";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -11,10 +12,12 @@ const ApiKeysModal: FC<{
   defaultDescription?: string;
 }> = ({ close, onCreate, defaultDescription = "" }) => {
   const { apiCall } = useAuth();
+  const environments = useEnvironments();
+
   const form = useForm({
     defaultValues: {
       description: defaultDescription,
-      environment: "dev",
+      environment: environments[0]?.id || "dev",
     },
   });
 
@@ -44,7 +47,12 @@ const ApiKeysModal: FC<{
       />
       <Field
         label="Environment"
-        options={["dev", "production"]}
+        options={environments.map((e) => {
+          return {
+            value: e.id,
+            display: e.id,
+          };
+        })}
         {...form.register("environment")}
       />
     </Modal>

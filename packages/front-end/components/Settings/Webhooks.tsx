@@ -52,7 +52,7 @@ const Webhooks: FC = () => {
             <tr>
               <th>Webhook</th>
               <th>Endpoint</th>
-              <th>Environments</th>
+              <th>Environment</th>
               {projects.length > 0 && <th>Project</th>}
               <th>Shared Secret</th>
               <th>Status</th>
@@ -72,13 +72,15 @@ const Webhooks: FC = () => {
                 </td>
                 <td>{webhook.endpoint}</td>
                 <td>
-                  {(webhook.environment === "dev" ||
-                    webhook.environment === "") && (
-                    <span className="badge badge-secondary mr-1">dev</span>
-                  )}
-                  {(webhook.environment === "production" ||
-                    !webhook.environment) && (
-                    <span className="badge badge-primary mr-1">production</span>
+                  {!webhook.environment ? (
+                    <>
+                      <span className="badge badge-secondary mr-1">dev</span>
+                      <span className="badge badge-secondary">production</span>
+                    </>
+                  ) : (
+                    <span className="badge badge-secondary">
+                      {webhook.environment}
+                    </span>
                   )}
                 </td>
                 {projects.length > 0 && (

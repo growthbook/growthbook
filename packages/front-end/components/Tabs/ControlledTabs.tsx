@@ -8,6 +8,8 @@ import {
   useEffect,
 } from "react";
 import clsx from "clsx";
+import TabButton from "./TabButton";
+import TabButtons from "./TabButtons";
 
 const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
@@ -19,6 +21,8 @@ const ControlledTabs: FC<{
   navExtra?: ReactElement;
   active?: string | null;
   setActive: (tab: string | null) => void;
+  showActiveCount?: boolean;
+  buttonsClassName?: string;
 }> = ({
   active,
   setActive,
@@ -30,6 +34,8 @@ const ControlledTabs: FC<{
   defaultTab,
   newStyle = false,
   navExtra,
+  showActiveCount = false,
+  buttonsClassName = "",
 }) => {
   const [loaded, setLoaded] = useState({});
 
@@ -90,32 +96,23 @@ const ControlledTabs: FC<{
     if (isActive && padding === false) {
       contentsPadding = false;
     }
+
     tabs.push(
-      <a
-        className={clsx("nav-item nav-link", {
-          active: isActive,
-          last: i === numTabs - 1,
-          "nav-button-item": newStyle,
-        })}
+      <TabButton
+        active={isActive}
+        last={i === numTabs - 1}
+        newStyle={newStyle}
         key={i}
-        role="tab"
-        href={anchor ? `#${anchor}` : "#"}
-        aria-selected={isActive ? "true" : "false"}
-        onClick={(e) => {
-          if (!anchor) {
-            e.preventDefault();
-          }
+        anchor={anchor}
+        onClick={() => {
           setActive(id);
         }}
-      >
-        {display}
-        {!isActive && (count === 0 || count > 0) ? (
-          <span className={`badge badge-gray ml-2`}>{count}</span>
-        ) : (
-          ""
-        )}
-        {(isActive && action) || ""}
-      </a>
+        display={display}
+        count={count}
+        action={action}
+        showActiveCount={showActiveCount}
+        className={buttonsClassName}
+      />
     );
 
     if (lazy && !isActive && !loaded[id]) {
@@ -169,20 +166,10 @@ const ControlledTabs: FC<{
           "col-md-3": orientation === "vertical",
         })}
       >
-        <div
-          className={clsx(
-            `${
-              orientation === "vertical"
-                ? "nav nav-pills flex-column"
-                : "nav nav-tabs"
-            }`,
-            { "nav-button-tabs": newStyle }
-          )}
-          role="tablist"
-        >
+        <TabButtons newStyle={newStyle} vertical={orientation === "vertical"}>
           {tabs}
           {navExtra && navExtra}
-        </div>
+        </TabButtons>
       </nav>
       <div
         className={clsx("tab-content", tabContentsClassName, {

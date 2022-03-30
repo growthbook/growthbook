@@ -18,6 +18,7 @@ import ImportExperimentModal from "../../components/Experiment/ImportExperimentM
 import useUser from "../../hooks/useUser";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
+import SortedTags from "../../components/Tags/SortedTags";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -253,14 +254,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap" data-title="Tags:">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
-                                ))}
+                                <SortedTags tags={Object.values(e.tags)} />
                               </td>
                               <td className="nowrap" data-title="Owner:">
                                 {getUserDisplay(e.owner, false)}
@@ -374,14 +368,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                     </div>
                                   </td>
                                   <td className="nowrap" data-title="Tags:">
-                                    {Object.values(e.tags).map((col) => (
-                                      <span
-                                        className="tag badge badge-primary mr-2"
-                                        key={col}
-                                      >
-                                        {col}
-                                      </span>
-                                    ))}
+                                    <SortedTags tags={Object.values(e.tags)} />
                                   </td>
                                   <td
                                     className="nowrap"
@@ -484,14 +471,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                     </div>
                                   </td>
                                   <td className="nowrap" data-title="Tags:">
-                                    {Object.values(e.tags).map((col) => (
-                                      <span
-                                        className="tag badge badge-primary mr-2"
-                                        key={col}
-                                      >
-                                        {col}
-                                      </span>
-                                    ))}
+                                    <SortedTags tags={Object.values(e.tags)} />
                                   </td>
                                   <td className="nowrap" data-title="Owner:">
                                     {getUserDisplay(e.owner, false)}
@@ -615,14 +595,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap" data-title="Tags:">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
-                                ))}
+                                <SortedTags tags={Object.values(e.tags)} />
                               </td>
                               <td className="nowrap" data-title="Owner:">
                                 {getUserDisplay(e.owner, false)}
@@ -726,14 +699,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </div>
                               </td>
                               <td className="nowrap">
-                                {Object.values(e.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-primary mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
-                                ))}
+                                <SortedTags tags={Object.values(e.tags)} />
                               </td>
                               <td className="nowrap">
                                 {getUserDisplay(e.owner, false)}

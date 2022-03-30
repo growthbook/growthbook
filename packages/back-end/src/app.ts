@@ -42,6 +42,7 @@ import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
+import * as tagsController from "./controllers/tags";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
@@ -69,6 +70,7 @@ wrapController(projectsController);
 wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
+wrapController(tagsController);
 
 const app = express();
 
@@ -235,6 +237,17 @@ app.get(
   }),
   featuresController.getFeaturesPublic
 );
+// For preflight requests
+app.options(
+  "/api/features/:key",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  function (req, res) {
+    res.send(200);
+  }
+);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
@@ -336,6 +349,8 @@ app.post(
   "/organization/config/import",
   organizationsController.postImportConfig
 );
+app.get("/organization/namespaces", organizationsController.getNamespaces);
+app.post("/organization/namespaces", organizationsController.postNamespaces);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
@@ -343,12 +358,15 @@ app.delete("/invite", organizationsController.deleteInvite);
 app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);
 app.put("/member/:id/role", organizationsController.putMemberRole);
-app.get("/tags", organizationsController.getTags);
 app.post("/oauth/google", organizationsController.postGoogleOauthRedirect);
 app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", organizationsController.getQueries);
 app.post("/organization/sample-data", organizationsController.postSampleData);
+
+// tags
+app.post("/tag", tagsController.postTag);
+app.delete("/tag/:id", tagsController.deleteTag);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -452,6 +470,7 @@ app.post(
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
+app.delete("/report/:id", reportsController.deleteReport);
 app.get("/report/:id/status", reportsController.getReportStatus);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
@@ -482,6 +501,11 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
+app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
+app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.put("/feature/:id/rule", featuresController.putFeatureRule);
+app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
+app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources

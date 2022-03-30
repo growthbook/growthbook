@@ -6,7 +6,7 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import useApi from "../../hooks/useApi";
-import { useState } from "react";
+import React, { useState } from "react";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
@@ -21,6 +21,13 @@ import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
+import ControlledTabs from "../../components/Tabs/ControlledTabs";
+import { getRules, useEnvironmentState } from "../../services/features";
+import Tab from "../../components/Tabs/Tab";
+import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
+import { useEnvironments } from "../../services/features";
+import SortedTags from "../../components/Tags/SortedTags";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -28,9 +35,15 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
 
-  const [ruleDefaultType, setRuleDefaultType] = useState<string>("");
-  const [ruleModal, setRuleModal] = useState<number | null>(null);
+  const [env, setEnv] = useEnvironmentState();
+
+  const [ruleModal, setRuleModal] = useState<{
+    i: number;
+    environment: string;
+    defaultType?: string;
+  } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
+  const [editTagsModal, setEditTagsModal] = useState(false);
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -40,6 +53,9 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
   }>(`/feature/${fid}`);
+  const firstFeature = "first" in router?.query;
+  const [showImplementation, setShowImplementation] = useState(firstFeature);
+  const environments = useEnvironments();
 
   const usage = useMemo(() => {
     if (!data?.feature) return "";
@@ -80,9 +96,10 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <RuleModal
           feature={data.feature}
           close={() => setRuleModal(null)}
-          i={ruleModal}
+          i={ruleModal.i}
+          environment={ruleModal.environment}
           mutate={mutate}
-          defaultType={ruleDefaultType}
+          defaultType={ruleModal.defaultType || ""}
         />
       )}
       {editProjectModal && (
@@ -92,6 +109,28 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           mutate={mutate}
           method="PUT"
           current={data.feature.project}
+        />
+      )}
+      {editTagsModal && (
+        <EditTagsForm
+          tags={data.feature?.tags}
+          save={async (tags) => {
+            await apiCall(`/feature/${data.feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ tags }),
+            });
+          }}
+          cancel={() => setEditTagsModal(false)}
+          mutate={mutate}
+        />
+      )}
+      {showImplementation && (
+        <FeatureImplementationModal
+          feature={data.feature}
+          first={firstFeature}
+          close={() => {
+            setShowImplementation(false);
+          }}
         />
       )}
       <div className="row align-items-center">
@@ -105,6 +144,16 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
+            <a
+              className="dropdown-item"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowImplementation(true);
+              }}
+            >
+              Show implementation
+            </a>
             <DeleteButton
               useIcon={false}
               displayName="Feature"
@@ -115,15 +164,16 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
                 router.push("/features");
               }}
               className="dropdown-item"
-              text="delete feature"
+              text="Delete feature"
             />
           </MoreMenu>
         </div>
       </div>
 
       <h1>{fid}</h1>
-      {projects.length > 0 && (
-        <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+
+      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+        {projects.length > 0 && (
           <div className="col-auto">
             Project:{" "}
             {data.feature.project ? (
@@ -140,8 +190,19 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <GBEdit />
             </a>
           </div>
+        )}
+
+        <div className="col-auto">
+          Tags: <SortedTags tags={data.feature?.tags || []} />
+          <a
+            className="ml-2 cursor-pointer"
+            onClick={() => setEditTagsModal(true)}
+          >
+            <GBEdit />
+          </a>
         </div>
-      )}
+      </div>
+
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
@@ -165,40 +226,32 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       <h3>Enabled Environments</h3>
       <div className="appbox mb-4 p-3">
         <div className="row mb-2">
-          <div className="col-auto">
-            <label className="font-weight-bold mr-2" htmlFor={"dev_toggle"}>
-              Dev:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="dev"
-              mutate={mutate}
-              id="dev_toggle"
-            />
-          </div>
-          <div className="col-auto">
-            <label
-              className="font-weight-bold mr-2"
-              htmlFor={"production_toggle"}
-            >
-              Production:{" "}
-            </label>
-            <EnvironmentToggle
-              feature={data.feature}
-              environment="production"
-              mutate={mutate}
-              id="production_toggle"
-            />
-          </div>
+          {environments.map((en) => (
+            <div className="col-auto" key={en.id}>
+              <label
+                className="font-weight-bold mr-2"
+                htmlFor={`${en.id}_toggle`}
+              >
+                {en.id}:{" "}
+              </label>
+              <EnvironmentToggle
+                feature={data.feature}
+                environment={en.id}
+                mutate={mutate}
+                id={`${en.id}_toggle`}
+              />
+            </div>
+          ))}
         </div>
         <div>
           In a disabled environment, the feature will always evaluate to{" "}
-          <code>null</code> and all override rules will be ignored.
+          <code>null</code>. The default value and override rules will be
+          ignored.
         </div>
       </div>
 
       <h3>
-        When Enabled
+        Default Value
         <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
           <GBEdit />
         </a>
@@ -223,23 +276,47 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
 
       <h3>Override Rules</h3>
       <p>
-        Add powerful logic on top of your feature.{" "}
-        {data.feature.rules?.length > 1 && "First matching rule applies."}
+        Add powerful logic on top of your feature. The first matching rule
+        applies and overrides the default value.
       </p>
 
-      {data.feature.rules?.length > 0 && (
-        <>
-          <div className="appbox mb-4">
-            <RuleList
-              feature={data.feature}
-              experiments={data.experiments || {}}
-              mutate={mutate}
-              setRuleModal={setRuleModal}
-            />
-          </div>
-          <h4>Add more</h4>
-        </>
-      )}
+      <ControlledTabs
+        setActive={setEnv}
+        active={env}
+        showActiveCount={true}
+        newStyle={false}
+        buttonsClassName="px-3 py-2 h4"
+      >
+        {environments.map((e) => {
+          const rules = getRules(data.feature, e.id);
+          return (
+            <Tab
+              key={e.id}
+              id={e.id}
+              display={e.id}
+              count={rules.length}
+              padding={false}
+            >
+              <div className="appbox mb-4 border-top-0">
+                {rules.length > 0 ? (
+                  <RuleList
+                    environment={e.id}
+                    feature={data.feature}
+                    experiments={data.experiments || {}}
+                    mutate={mutate}
+                    setRuleModal={setRuleModal}
+                  />
+                ) : (
+                  <div className="p-3">
+                    <em>No override rules for this environment yet</em>
+                  </div>
+                )}
+              </div>
+            </Tab>
+          );
+        })}
+      </ControlledTabs>
+
       <div className="row">
         <div className="col mb-3">
           <div
@@ -253,8 +330,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("force");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "force",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "force",
@@ -281,8 +361,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("rollout");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "rollout",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "rollout",
@@ -309,8 +392,11 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  setRuleDefaultType("experiment");
-                  setRuleModal(data?.feature?.rules?.length || 0);
+                  setRuleModal({
+                    environment: env,
+                    i: getRules(data.feature, env).length,
+                    defaultType: "experiment",
+                  });
                   track("Viewed Rule Modal", {
                     source: "add-rule",
                     type: "experiment",

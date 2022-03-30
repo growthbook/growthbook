@@ -1,13 +1,12 @@
 import { FC } from "react";
 import { Typeahead } from "react-bootstrap-typeahead";
-import { useDefinitions } from "../services/DefinitionsContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
   value: string[];
 }> = ({ onChange, value }) => {
   const { tags } = useDefinitions();
-
   return (
     <Typeahead
       id="tags-input"
@@ -15,12 +14,14 @@ const TagsInput: FC<{
       labelKey="name"
       multiple={true}
       allowNew={true}
-      options={tags.map((tag) => {
-        return {
-          id: tag,
-          name: tag,
-        };
-      })}
+      options={
+        tags.map((tag) => {
+          return {
+            id: tag.id,
+            name: tag.id,
+          };
+        }) ?? []
+      }
       onChange={(selected: { id: string; name: string }[]) => {
         onChange(selected.map((s) => s.name).filter((t) => t.length > 0));
       }}

@@ -96,3 +96,10 @@ export async function updateReport(
     }
   );
 }
+
+export async function deleteReportById(organization: string, id: string) {
+  await ReportModel.deleteOne({
+    organization,
+    id,
+  });
+}

@@ -78,7 +78,7 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Catalog</label>
+        <label>Default Catalog</label>
         <input
           type="text"
           className="form-control"
@@ -88,7 +88,7 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Schema</label>
+        <label>Default Schema</label>
         <input
           type="text"
           className="form-control"

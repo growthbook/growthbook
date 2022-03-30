@@ -11,7 +11,7 @@ import {
 import uniqid from "uniqid";
 import { analyzeExperimentMetric } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
-import { addTags } from "./tag";
+import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import {

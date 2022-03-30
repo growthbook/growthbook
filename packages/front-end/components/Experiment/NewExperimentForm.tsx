@@ -3,7 +3,7 @@ import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import TagsInput from "../TagsInput";
+import TagsInput from "../Tags/TagsInput";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,

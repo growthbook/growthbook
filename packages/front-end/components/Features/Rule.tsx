@@ -13,14 +13,17 @@ import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getRules } from "../../services/features";
+import { useEnvironments } from "../../services/features";
 
 interface SortableProps {
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
+  environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
-  setRuleModal: (i: number) => void;
+  setRuleModal: ({ environment: string, i: number }) => void;
 }
 
 type RuleProps = SortableProps &
@@ -31,7 +34,17 @@ type RuleProps = SortableProps &
 // eslint-disable-next-line
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   (
-    { i, rule, feature, setRuleModal, mutate, handle, experiments, ...props },
+    {
+      i,
+      rule,
+      feature,
+      environment,
+      setRuleModal,
+      mutate,
+      handle,
+      experiments,
+      ...props
+    },
     ref
   ) => {
     const { apiCall } = useAuth();
@@ -40,10 +53,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
+    const rules = getRules(feature, environment);
+
+    const environments = useEnvironments();
+
     return (
       <div
         className={`p-3 ${
-          i < feature.rules?.length - 1 ? "border-bottom" : ""
+          i < rules.length - 1 ? "border-bottom" : ""
         } bg-white`}
         {...props}
         ref={ref}
@@ -78,7 +95,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             </div>
           )}
-          {feature.rules?.length > 1 && (
+          {rules.length > 1 && (
             <div
               {...handle}
               title="Drag and drop to re-order rules"
@@ -94,7 +111,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 className="dropdown-item"
                 onClick={(e) => {
                   e.preventDefault();
-                  setRuleModal(i);
+                  setRuleModal({ environment, i });
                 }}
               >
                 Edit
@@ -103,22 +120,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 color=""
                 className="dropdown-item"
                 onClick={async () => {
-                  const rules = [...feature.rules];
-                  rules[i] = { ...rules[i] };
-                  rules[i].enabled = !rules[i].enabled;
                   track(
                     rule.enabled
                       ? "Disable Feature Rule"
                       : "Enable Feature Rule",
                     {
                       ruleIndex: i,
-                      type: rules[i].type,
+                      environment,
+                      type: rule.type,
                     }
                   );
-                  await apiCall(`/feature/${feature.id}`, {
+                  await apiCall(`/feature/${feature.id}/rule`, {
                     method: "PUT",
                     body: JSON.stringify({
-                      rules,
+                      environment,
+                      rule: {
+                        ...rule,
+                        enabled: !rule.enabled,
+                      },
+                      i,
                     }),
                   });
                   mutate();
@@ -126,6 +146,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               >
                 {rule.enabled ? "Disable" : "Enable"}
               </Button>
+              {environments
+                .filter((e) => e.id !== environment)
+                .map((en) => (
+                  <Button
+                    key={en.id}
+                    color=""
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/rule`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          environment: en.id,
+                          rule: { ...rule, id: "" },
+                        }),
+                      });
+                      track("Clone Feature Rule", {
+                        ruleIndex: i,
+                        environment,
+                        type: rule.type,
+                      });
+                      mutate();
+                    }}
+                  >
+                    Copy to {en.id}
+                  </Button>
+                ))}
               <DeleteButton
                 className="dropdown-item"
                 displayName="Rule"
@@ -134,14 +180,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 onClick={async () => {
                   track("Delete Feature Rule", {
                     ruleIndex: i,
-                    type: feature.rules[i].type,
+                    environment,
+                    type: rule.type,
                   });
-                  const rules = [...feature.rules];
-                  rules.splice(i, 1);
-                  await apiCall(`/feature/${feature.id}`, {
-                    method: "PUT",
+                  await apiCall(`/feature/${feature.id}/rule`, {
+                    method: "DELETE",
                     body: JSON.stringify({
-                      rules,
+                      environment,
+                      i,
                     }),
                   });
                   mutate();

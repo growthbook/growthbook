@@ -20,8 +20,8 @@ import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 
-// Replace `{{startDate}}` and `{{endDate}}` in SQL queries
-function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+// Replace vars in SQL queries (e.g. '{{startDate}}')
+export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
   // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
@@ -38,16 +38,23 @@ function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     );
   }
 
-  return sql
-    .replace(
-      /\{\{\s*startDate\s*\}\}/g,
-      startDate.toISOString().substr(0, 19).replace("T", " ")
-    )
-    .replace(
-      /\{\{\s*endDate\s*\}\}/g,
-      // Give an extra day buffer to account for any timezones, etc.
-      endDate.toISOString().substr(0, 19).replace("T", " ")
-    );
+  const replacements: Record<string, string> = {
+    startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
+    startYear: startDate.toISOString().substr(0, 4),
+    startMonth: startDate.toISOString().substr(5, 2),
+    startDay: startDate.toISOString().substr(8, 2),
+    endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
+    endYear: endDate.toISOString().substr(0, 4),
+    endMonth: endDate.toISOString().substr(5, 2),
+    endDay: endDate.toISOString().substr(8, 2),
+  };
+
+  Object.keys(replacements).forEach((key) => {
+    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+    sql = sql.replace(re, replacements[key]);
+  });
+
+  return sql;
 }
 
 export function getExperimentQuery(
@@ -215,7 +222,9 @@ export default abstract class SqlIntegration
         params.from
       )}
         GROUP BY
-          1, 2, 3
+          experiment_id,
+          variation_id,
+          ${this.dateTrunc(this.castUserDateCol("timestamp"))}
       ),
       __userThresholds as (
         SELECT
@@ -497,13 +506,15 @@ export default abstract class SqlIntegration
     }
 
     // TODO: handle case when there are more than 2 required id types
-    return `__identities as (${this.getIdentitiesQuery(
-      this.settings,
-      idTypes[0],
-      idTypes[1],
-      from,
-      to
-    )}),`;
+    return `__identities as (
+      ${this.getIdentitiesQuery(
+        this.settings,
+        idTypes[0],
+        idTypes[1],
+        from,
+        to
+      )}
+    ),`;
   }
 
   private getIdentifiesJoinSql(column: string, userId: boolean = true) {
@@ -586,11 +597,13 @@ export default abstract class SqlIntegration
         segment: !!segment,
         metrics: [metric, activationMetric],
       })}
-      __rawExperiment as (${replaceDateVars(
-        getExperimentQuery(this.settings, this.getSchema()),
-        phase.dateStarted,
-        phase.dateEnded
-      )}),
+      __rawExperiment as (
+        ${replaceDateVars(
+          getExperimentQuery(this.settings, this.getSchema()),
+          phase.dateStarted,
+          phase.dateEnded
+        )}
+      ),
       __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
@@ -846,11 +859,9 @@ export default abstract class SqlIntegration
       FROM
         ${
           metric.sql
-            ? `(${replaceDateVars(
-                metric.sql,
-                startDate,
-                endDate || undefined
-              )})`
+            ? `(
+              ${replaceDateVars(metric.sql, startDate, endDate || undefined)}
+              )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
         } m
@@ -940,7 +951,7 @@ export default abstract class SqlIntegration
             ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
             : ""
         }
-        ${experiment.queryFilter ? `AND (${experiment.queryFilter})` : ""}
+        ${experiment.queryFilter ? `AND (\n${experiment.queryFilter}\n)` : ""}
     `;
   }
   private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
@@ -953,7 +964,9 @@ export default abstract class SqlIntegration
         i.anonymous_id as user_id,
         ${dateCol} as date
       FROM
-        (${sql}) s
+        (
+          ${sql}
+        ) s
         ${this.getIdentifiesJoinSql("s.user_id", true)}
       `;
     }
@@ -964,7 +977,9 @@ export default abstract class SqlIntegration
         s.user_id,
         ${dateCol} as date
       FROM
-        (${sql}) s`;
+        (
+          ${sql}
+        ) s`;
     }
 
     return `-- Segment (${name})
@@ -983,7 +998,9 @@ export default abstract class SqlIntegration
         i.anonymous_id as user_id,
         d.value
       FROM
-        (${dimension.sql}) d
+        (
+          ${dimension.sql}
+        ) d
         ${this.getIdentifiesJoinSql("d.user_id", true)}
       `;
     }
@@ -1091,9 +1108,11 @@ export default abstract class SqlIntegration
             ${id1},
             ${id2}
           FROM
-            (${replaceDateVars(join.query, from, to)}) i
+            (
+              ${replaceDateVars(join.query, from, to)}
+            ) i
           GROUP BY
-            1, 2
+            ${id1}, ${id2}
           `;
         }
       }
@@ -1116,7 +1135,7 @@ export default abstract class SqlIntegration
           ${timestampColumn} >= ${this.toTimestamp(from)}
           ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}
         GROUP BY
-          1, 2
+          user_id, anonymous_id
         `;
       }
     }

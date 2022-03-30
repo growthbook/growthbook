@@ -11,6 +11,7 @@ import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { useDefinitions } from "../services/DefinitionsContext";
 import useUser from "../hooks/useUser";
+import SortedTags from "../components/Tags/SortedTags";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -155,7 +156,7 @@ const IdeasPage = (): React.ReactElement => {
                             </div>
                           )}
                           <h5 className="card-title">
-                            <Link href="/idea/[iid]" as={`/idea/${idea.id}`}>
+                            <Link href={`/idea/${idea.id}`}>
                               <a>{idea.text}</a>
                             </Link>
                           </h5>
@@ -172,15 +173,7 @@ const IdeasPage = (): React.ReactElement => {
                           {idea.tags?.length > 0 && (
                             <div className="tags">
                               Tags:{" "}
-                              {idea.tags &&
-                                Object.values(idea.tags).map((col) => (
-                                  <span
-                                    className="tag badge badge-pill badge-info mr-2"
-                                    key={col}
-                                  >
-                                    {col}
-                                  </span>
-                                ))}
+                              <SortedTags tags={Object.values(idea.tags)} />
                             </div>
                           )}
                         </div>

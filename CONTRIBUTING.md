@@ -10,14 +10,20 @@ If you just want to contribute a client library in a new language and not make c
 - NodeJS 12.x or 14.x
 - Yarn
 - Python 3.6+ (for the stats engine)
+  - scipy
+  - numpy
+  - pandas
 - Docker (for running MongoDB locally)
 
 ## Getting started
 
 1. Fork the project
 2. Clone your forked project by running `git clone git@github.com:{ YOUR_USERNAME }/growthbook.git`
-3. Run `yarn` to install node modules
-4. Start MongoDB in Docker
+3. Run `cd growthbook`
+4. Run `yarn` to install dependencies
+5. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
+6. Run `yarn setup` to do the initial build
+7. Start MongoDB in Docker
 
 ```sh
 docker run -d -p 27017:27017 --name mongo \
@@ -26,8 +32,8 @@ docker run -d -p 27017:27017 --name mongo \
   mongo
 ```
 
-5. Run `yarn dev` to start the app in dev mode
-6. Visit http://localhost:3000 in your browser and verify the app is working correctly
+8. Run `yarn dev` to start the app in dev mode
+9. Visit http://localhost:3000 in your browser and verify the app is working correctly
 
 ### Changing Configuration Settings
 
@@ -47,14 +53,15 @@ This repository is a monorepo with the following packages:
 - **packages/docs** is another Next.js app of our documentation site (https://docs.growthbook.io).
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
-- **packages/sdk-dev** is a Dev Mode variation switcher for our SDKs (`@growthbook/dev` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
 
 Depending on what you're changing, you may need to edit one or more of these packages.
 
 ### Working on the main app
 
-The `yarn dev` command starts both the front-end and back-end in parallel
+The `yarn dev` command starts both the front-end and back-end in parallel.
+
+The back-end can take up to 30 seconds for the initial build, so be patient.
 
 The packages are available at the following urls with hot-reloading:
 
@@ -67,33 +74,30 @@ To start the docs site, run `yarn workspace docs dev`. You can view the site at 
 
 ### Working on the SDKs
 
-Build the javascript SDK with `yarn workspace @growthbook/growthbook build`
+To work on the SDKs, `cd` into the desired directory and the following commands are available:
 
-Build the react SDK with `yarn workspace @growthbook/growthbook-react build`
-
-The SDK dev mode has a playground for development. Make sure to build the javascript SDK and react SDK first before running. Start the playground with `yarn workspace @growthbook/dev dev` and view at http://localhost:3300
+- `yarn test` - Run just
+- `yarn build` - Run the rollup build process
+- `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
 ### Working on the stats engine
 
-We use `poetry` for managing dependencies. In the `packages/stats` directory, run `poetry install`.
+To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
 
-You may need to install some dependencies manually if you are using conda:
-
-```sh
-conda install scipy numpy pandas
-```
-
-Then you can run the test suite with `pytest`.
+- `yarn test` - Run pytest
+- `yarn lint` - Run flake8 and black
+- `poetry build` - Run the build process
 
 ## Code Quality
 
-Run repo-wide test suites with `yarn test`
+There are a few repo-wide code quality tools:
 
-There is a pre-commit hook that lints the code base and performs Typescript type checking. This can take 30 seconds or more so please be patient. You can run these same checks yourself with `yarn lint` and `yarn type-check`.
+- `yarn test` - Run the full test suite on all packages
+- `yarn type-check` - Typescript type checking
+- `yarn lint` - Typescript code linting
+- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black` first)
 
-### Python
-
-You can lint the python stats engine manually with `yarn workspace stats lint`. Note: you may need to install some global python dependencies with `pip install flake8 black`.
+There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
 
 ## Opening Pull Requests
 

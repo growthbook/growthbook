@@ -31,6 +31,11 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export interface Namespaces {
+  name: string;
+  description: string;
+}
+
 export type SDKAttributeType =
   | "string"
   | "number"
@@ -52,6 +57,12 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
+export type Environment = {
+  id: string;
+  description?: string;
+  toggleOnList?: boolean;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -60,12 +71,14 @@ export interface OrganizationSettings {
   primaryColor?: string;
   secondaryColor?: string;
   northStar?: NorthStarMetric;
+  namespaces?: Namespaces[];
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
   metricAnalysisDays?: number;
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
+  environments?: Environment[];
   sdkInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */
@@ -75,6 +88,7 @@ export interface OrganizationSettings {
 export interface OrganizationInterface {
   id: string;
   url: string;
+  claimedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -102,3 +116,14 @@ export interface OrganizationInterface {
   };
   settings?: OrganizationSettings;
 }
+
+export type NamespaceUsage = Record<
+  string,
+  {
+    featureId: string;
+    trackingKey: string;
+    environment: string;
+    start: number;
+    end: number;
+  }[]
+>;

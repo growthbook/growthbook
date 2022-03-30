@@ -397,30 +397,58 @@ aggregation: MAX(value) # use MAX instead of the default SUM
 
 #### Mixpanel
 
-For Mixpanel, instead of SQL we just need an event name, value property (for non-binomial metrics),
-and optional conditions.
+For Mixpanel, instead of SQL we just need some info about what events and properties to use.
 
-A full example:
-
-```yml
-type: count
-# The event name
-table: PDF Downloads
-# The numeric property to count (optional)
-column: num_pages
-# Filter the event by properties
-conditions:
-  - column: language # property
-    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
-    value: en
-```
-
-And a simple binomial metric:
+Here's a simple binomial metric:
 
 ```yml
 type: binomial
 # The event name
 table: Purchased
+```
+
+Any metric can have optional conditions as well:
+
+```yml
+type: binomial
+# The event name
+table: Purchased
+# Only include events which pass these conditions
+conditions:
+  - column: category # property
+    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
+    value: clothing
+```
+
+For count, duration, and revenue metrics, it will count the number of events per user by default:
+
+```yml
+type: count
+# Event name to count
+table: Page views
+```
+
+You can instead specify a javascript expression for the value of the event. By default, it will sum these values for each user:
+
+```yml
+# A "Revenue per user" metric
+type: revenue
+# The event name
+table: Purchases
+# The metric value that will be summed
+column: event.properties.grand_total
+```
+
+If you don't want to sum, you can also provide a custom aggregation method that reduces an array of `values` into a single number (or null). For example, here's a metric that counts the number of unique files downloaded per user
+
+```yml
+type: count
+# The event name
+table: PDF Downloads
+# The "value" of the metric (the file name)
+column: event.properties.filename
+# The aggregation operation (number of unique values)
+aggregation: new Set(values).size
 ```
 
 ### Dimensions

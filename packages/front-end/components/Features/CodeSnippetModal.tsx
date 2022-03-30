@@ -11,8 +11,9 @@ import Code from "../Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
-
-type Language = "tsx" | "javascript" | "go" | "kotlin" | "php" | "python";
+import { Language } from "../Code";
+import { useEnvironments } from "../../services/features";
+import SelectField from "../Forms/SelectField";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -69,16 +70,20 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-function getFeaturesUrl(apiKey?: string) {
-  if (!apiKey) {
-    return `/path/to/features.json`;
-  }
-
-  return getApiBaseUrl() + `api/features/${apiKey}`;
+function getFeaturesUrl(apiKey: string) {
+  return getApiBaseUrl() + `api/features/${apiKey || "<your api key here>"}`;
 }
 
-export default function CodeSnippetModal({ close }: { close: () => void }) {
-  const [language, setLanguage] = useState<Language>("javascript");
+export default function CodeSnippetModal({
+  close,
+  featureId = "my-feature",
+  defaultLanguage = "javascript",
+}: {
+  close: () => void;
+  featureId?: string;
+  defaultLanguage?: Language;
+}) {
+  const [language, setLanguage] = useState<Language>(defaultLanguage);
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -86,6 +91,10 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
     tracking: "custom",
     gaDimension: "1",
   });
+  const environments = useEnvironments();
+
+  const [environment, setEnvironment] = useState(environments[0]?.id || "");
+  const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -96,36 +105,42 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
   const { datasources } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
 
+  // Record the fact that the SDK instructions have been seen
+  useEffect(() => {
+    if (!settings) return;
+    if (settings.sdkInstructionsViewed) return;
+    (async () => {
+      {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify({
+            settings: {
+              sdkInstructionsViewed: true,
+            },
+          }),
+        });
+        await update();
+      }
+    })();
+  }, [settings]);
+
   // Create API key if one doesn't exist yet
-  const [devApiKey, setDevApiKey] = useState("");
-  const [prodApiKey, setProdApiKey] = useState("");
   useEffect(() => {
     (async () => {
-      const devKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Dev Features SDK",
-            environment: "dev",
-          }),
-        }
-      );
-      setDevApiKey(devKey.key);
+      if (!environment) {
+        return;
+      }
 
-      const prodKey = await apiCall<{ key: string }>(
-        `/keys?preferExisting=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            description: "Production Features SDK",
-            environment: "production",
-          }),
-        }
-      );
-      setProdApiKey(prodKey.key);
+      const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
+        method: "POST",
+        body: JSON.stringify({
+          description: `${environment} Features SDK`,
+          environment: environment,
+        }),
+      });
+      setApiKey(key.key);
     })();
-  }, []);
+  }, [environment]);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -156,52 +171,36 @@ export default function CodeSnippetModal({ close }: { close: () => void }) {
       size="lg"
       header="Implementation Instructions"
       submit={async () => {
-        if (settings?.sdkInstructionsViewed) return;
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              sdkInstructionsViewed: true,
-            },
-          }),
-        });
-        await update();
+        return;
       }}
       cta={"Finish"}
     >
-      {devApiKey && (
-        <div className="mb-3">
-          <p>
-            We generated API endpoints for you that will contain all of your
-            feature definitions:
-          </p>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Dev</strong>
-            </div>
+      {apiKey && (
+        <>
+          <strong>API Endpoint</strong>
+          <div className="row mb-2 mt-1 align-items-center">
+            {environments.length > 1 && (
+              <div className="col-auto">
+                <SelectField
+                  options={environments.map((e) => ({
+                    value: e.id,
+                    label: e.id,
+                  }))}
+                  value={environment}
+                  onChange={(env) => setEnvironment(env)}
+                />
+              </div>
+            )}
             <div className="col">
               <input
                 readOnly
-                value={getFeaturesUrl(devApiKey)}
+                value={getFeaturesUrl(apiKey)}
                 onFocus={(e) => e.target.select()}
                 className="form-control"
               />
             </div>
           </div>
-          <div className="row align-items-center">
-            <div className="col-auto" style={{ width: 90 }}>
-              <strong>Production</strong>
-            </div>
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(prodApiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
-          </div>
-        </div>
+        </>
       )}
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
@@ -233,7 +232,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -264,7 +263,7 @@ fetch(FEATURES_ENDPOINT)
 growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
 
 // Use a feature!
-if (growthbook.isOn("my-feature")) {
+if (growthbook.isOn(${JSON.stringify(featureId)})) {
   // ...
 }
 `.trim()}
@@ -296,7 +295,7 @@ ${
     ? ""
     : `\n// In production, we recommend putting a CDN in front of the API endpoint`
 }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(devApiKey)}";
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -319,7 +318,7 @@ export default function MyApp() {
     fetch(FEATURES_ENDPOINT)
       .then((res) => res.json())
       .then((json) => {
-        growthbook.setFeatures(json${devApiKey ? ".features" : ""});
+        growthbook.setFeatures(json.features);
       });
     
     // TODO: replace with real targeting attributes
@@ -335,7 +334,7 @@ export default function MyApp() {
 
 // Use a feature!
 function MyComponent() {
-  const feature = useFeature("my-feature")
+  const feature = useFeature(${JSON.stringify(featureId)})
   return feature.on ? "New version" : "Old version"
 }
             `.trim()}
@@ -380,7 +379,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(devApiKey)}")
+	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -412,7 +411,7 @@ func main() {
 	gb := growthbook.New(context)
 
 	// Use a feature!
-	if gb.Feature("my-feature").On {
+	if gb.Feature(${JSON.stringify(featureId)}).On {
 		// ...
 	}
 }
@@ -458,7 +457,7 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${devApiKey}",
+  apiKey = "${apiKey || "<your api key here>"}",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -466,7 +465,7 @@ val gb = GBSDKBuilder(
   }
 ).initialize()
 
-if (gb.feature("my-feature").on) {
+if (gb.feature(${JSON.stringify(featureId)}).on) {
   // Feature is enabled!
 }
             `.trim()}
@@ -495,7 +494,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getFeaturesUrl(devApiKey)}';
+const FEATURES_ENDPOINT = '${getFeaturesUrl(apiKey)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -507,7 +506,7 @@ $growthbook = Growthbook::create()
     // TODO: track in your analytics system
   });
 
-if ($growthbook->isOn("my-feature")) {
+if ($growthbook->isOn(${JSON.stringify(featureId)})) {
   // Feature is enabled!
 }
             `.trim()}
@@ -534,7 +533,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getFeaturesUrl(devApiKey)}")
+apiResp = requests.get("${getFeaturesUrl(apiKey)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
@@ -559,7 +558,7 @@ gb = GrowthBook(
 )
 
 # Use a feature
-if gb.isOn("my-feature"):
+if gb.isOn(${JSON.stringify(featureId)}):
   print("Feature is enabled!")
             `.trim()}
           />

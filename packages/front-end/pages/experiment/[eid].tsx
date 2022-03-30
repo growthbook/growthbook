@@ -33,7 +33,7 @@ import useSwitchOrg from "../../services/useSwitchOrg";
 import ConfirmModal from "../../components/ConfirmModal";
 import WatchButton from "../../components/Experiment/WatchButton";
 import HistoryTable from "../../components/HistoryTable";
-import EditTagsForm from "../../components/Experiment/EditTagsForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
 import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
 import EditTargetingForm from "../../components/Experiment/EditTargetingForm";
@@ -175,7 +175,13 @@ const ExperimentPage = (): ReactElement => {
       )}
       {tagsModalOpen && (
         <EditTagsForm
-          experiment={experiment}
+          tags={experiment.tags}
+          save={async (tags) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ tags }),
+            });
+          }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
         />
@@ -653,7 +659,7 @@ const ExperimentPage = (): ReactElement => {
                 open={() => setTagsModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
               >
-                <RightRailSectionGroup type="badge">
+                <RightRailSectionGroup type="tags">
                   {experiment.tags}
                 </RightRailSectionGroup>
               </RightRailSection>

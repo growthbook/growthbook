@@ -16,6 +16,7 @@ export interface FeatureDefinitionRule {
   // eslint-disable-next-line
   variations?: any[];
   hashAttribute?: string;
+  namespace?: [string, number, number];
   key?: string;
   coverage?: number;
   // eslint-disable-next-line

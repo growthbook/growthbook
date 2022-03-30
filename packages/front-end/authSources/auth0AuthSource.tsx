@@ -17,7 +17,7 @@ const auth0AuthSource: AuthSource = {
       window.location.search.includes("state=")
     ) {
       const { appState } = await auth0Client.handleRedirectCallback();
-      router.replace(appState.path, appState.as, { shallow: true });
+      router.replace(appState.as, appState.as, { shallow: true });
     }
 
     const isAuthenticated = await auth0Client.isAuthenticated();
@@ -38,7 +38,6 @@ const auth0AuthSource: AuthSource = {
     await auth0Client.loginWithRedirect({
       screen_hint: screen,
       appState: {
-        path: router.route,
         as: router.asPath,
       },
     });

@@ -31,6 +31,18 @@ const GoogleAnalyticsForm: FC<{
     return (
       <div className="position-relative mb-5">
         {loading && <LoadingOverlay />}
+        <div className="alert alert-info">
+          If you are using <strong>Google Analytics 4</strong>, you must use a{" "}
+          <strong>BigQuery</strong> data source instead (
+          <a
+            href="https://support.google.com/analytics/answer/9823238"
+            target="_blank"
+            rel="noreferrer"
+          >
+            instructions
+          </a>
+          ). Universal Analytics properties can connect below.
+        </div>
         <button
           className="btn btn-success"
           onClick={(e) => {

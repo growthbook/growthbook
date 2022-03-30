@@ -56,7 +56,26 @@ export function getOrgFromReq(req: AuthRequest) {
     org: req.organization,
     userId: req.userId,
     email: req.email,
+    environments: getEnvironments(req.organization),
   };
+}
+
+export function getEnvironments(org: OrganizationInterface) {
+  if (!org.settings?.environments || !org.settings?.environments?.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+  return org.settings.environments;
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -142,6 +161,27 @@ export async function revokeInvite(
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+export async function addMemberToOrg(
+  org: OrganizationInterface,
+  userId: string,
+  role: MemberRole = "collaborator"
+) {
+  // If memebr is already in the org, skip
+  if (org.members.find((m) => m.id === userId)) {
+    return;
+  }
+
+  const members = [
+    ...org.members,
+    {
+      id: userId,
+      role,
+    },
+  ];
+
+  await updateOrganization(org.id, { members });
 }
 
 export async function acceptInvite(key: string, userId: string) {

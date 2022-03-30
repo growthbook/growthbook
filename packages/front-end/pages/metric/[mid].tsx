@@ -49,6 +49,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -64,6 +65,7 @@ const MetricPage: FC = () => {
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
 
   const [editing, setEditing] = useState(false);
+  const [editTags, setEditTags] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
   const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
@@ -237,6 +239,21 @@ const MetricPage: FC = () => {
               mutateDefinitions({});
               mutate();
             }
+          }}
+        />
+      )}
+      {editTags && (
+        <EditTagsForm
+          cancel={() => setEditTags(false)}
+          mutate={mutate}
+          tags={metric.tags}
+          save={async (tags) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                tags,
+              }),
+            });
           }}
         />
       )}
@@ -587,11 +604,7 @@ const MetricPage: FC = () => {
               <p>The most recent 10 experiments using this metric.</p>
               <div className="list-group">
                 {experiments.map((e) => (
-                  <Link
-                    href="/experiment/[eid]"
-                    as={`/experiment/${e.id}`}
-                    key={e.id}
-                  >
+                  <Link href={`/experiment/${e.id}`} key={e.id}>
                     <a className="list-group-item list-group-item-action">
                       <div className="d-flex">
                         <strong className="mr-3">{e.name}</strong>
@@ -638,6 +651,17 @@ const MetricPage: FC = () => {
               )}
             </RightRailSection>
 
+            <hr />
+            <RightRailSection
+              title="Tags"
+              open={() => setEditTags(true)}
+              canOpen={canEdit}
+            >
+              <RightRailSectionGroup type="tags">
+                {metric.tags}
+              </RightRailSectionGroup>
+            </RightRailSection>
+
             {datasource?.properties?.hasSettings && (
               <>
                 <hr />
@@ -660,19 +684,48 @@ const MetricPage: FC = () => {
                   ) : (
                     <>
                       <RightRailSectionGroup
-                        title={supportsSQL ? "Table" : "Event"}
+                        title={supportsSQL ? "Table Name" : "Event Name"}
                         type="code"
                       >
                         {metric.table}
                       </RightRailSectionGroup>
-                      {metric.type !== "binomial" && metric.column && (
-                        <RightRailSectionGroup
-                          title={supportsSQL ? "Column" : "Property"}
-                          type="code"
-                        >
-                          {metric.column}
+                      {metric.conditions?.length > 0 && (
+                        <RightRailSectionGroup title="Conditions" type="list">
+                          {metric.conditions.map(
+                            (c) => `${c.column} ${c.operator} "${c.value}"`
+                          )}
                         </RightRailSectionGroup>
                       )}
+                      {metric.type !== "binomial" &&
+                        metric.column &&
+                        supportsSQL && (
+                          <RightRailSectionGroup title="Column" type="code">
+                            {metric.column}
+                          </RightRailSectionGroup>
+                        )}
+                      {metric.type !== "binomial" &&
+                        metric.column &&
+                        !supportsSQL && (
+                          <div className="mt-2">
+                            <span className="text-muted">
+                              Event Value Expression
+                            </span>
+                            <Code language="javascript" code={metric.column} />
+                          </div>
+                        )}
+                      {metric.type !== "binomial" &&
+                        metric.aggregation &&
+                        !supportsSQL && (
+                          <div className="mt-2">
+                            <span className="text-muted">
+                              User Value Aggregation:
+                            </span>
+                            <Code
+                              language="javascript"
+                              code={metric.aggregation}
+                            />
+                          </div>
+                        )}
                       {metric.userIdType !== "anonymous" && customizeUserIds && (
                         <RightRailSectionGroup title="User Id Col" type="code">
                           {metric.userIdColumn}
@@ -689,13 +742,6 @@ const MetricPage: FC = () => {
                           type="code"
                         >
                           {metric.timestampColumn}
-                        </RightRailSectionGroup>
-                      )}
-                      {metric.conditions?.length > 0 && (
-                        <RightRailSectionGroup title="Conditions" type="list">
-                          {metric.conditions.map(
-                            (c) => `${c.column} ${c.operator} "${c.value}"`
-                          )}
                         </RightRailSectionGroup>
                       )}
                     </>
@@ -774,16 +820,6 @@ const MetricPage: FC = () => {
                     </span>
                   </li>
                 </ul>
-              </RightRailSectionGroup>
-            </RightRailSection>
-            <hr />
-            <RightRailSection
-              title="Tags"
-              open={() => setEditModalOpen(0)}
-              canOpen={canEdit}
-            >
-              <RightRailSectionGroup type="badge">
-                {metric.tags}
               </RightRailSectionGroup>
             </RightRailSection>
           </div>

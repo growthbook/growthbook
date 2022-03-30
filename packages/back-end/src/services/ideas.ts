@@ -1,6 +1,6 @@
 import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
 import uniqid from "uniqid";
-import { addTags } from "./tag";
+import { addTags } from "../models/TagModel";
 import { IdeaInterface } from "../../types/idea";
 import { FilterQuery } from "mongoose";
 

@@ -7,6 +7,7 @@ import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { WebhookInterface } from "back-end/types/webhook";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useEnvironments } from "../../services/features";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -17,6 +18,8 @@ const WebhooksModal: FC<{
   const { apiCall } = useAuth();
 
   const { projects, project } = useDefinitions();
+
+  const environments = useEnvironments();
 
   const form = useForm({
     defaultValues: {
@@ -39,6 +42,20 @@ const WebhooksModal: FC<{
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();
   });
+
+  const envOptions = environments.map((e) => ({
+    display: e.id,
+    value: e.id,
+  }));
+
+  // New webhooks must select a single environment
+  // Add the option to select both only when required for backwards compatibility
+  if (current && current.environment === "") {
+    envOptions.push({
+      display: "Both dev and production",
+      value: "",
+    });
+  }
 
   return (
     <Modal
@@ -91,20 +108,7 @@ const WebhooksModal: FC<{
       <h4>Webhook Filter</h4>
       <Field
         label="Environment"
-        options={[
-          {
-            display: "Production only",
-            value: "production",
-          },
-          {
-            display: "Dev only",
-            value: "dev",
-          },
-          {
-            display: "Both Dev and Production",
-            value: "",
-          },
-        ]}
+        options={envOptions}
         {...form.register("environment")}
       />
       {projects.length > 0 && (

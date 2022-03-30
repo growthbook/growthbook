@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import {
+  NamespaceUsage,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
@@ -16,6 +17,9 @@ import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
+import { useDefinitions } from "./DefinitionsContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export interface Condition {
   field: string;
@@ -29,6 +33,100 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function useEnvironmentState() {
+  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
+
+  const environments = useEnvironments();
+
+  if (!environments.map((e) => e.id).includes(state)) {
+    return [environments[0]?.id || "production", setState] as const;
+  }
+
+  return [state, setState] as const;
+}
+
+export function useEnvironments() {
+  const { environments } = useOrgSettings();
+
+  if (!environments || !environments.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+
+  return environments;
+}
+export function getRules(feature: FeatureInterface, environment: string) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+export function roundVariationWeight(num: number): number {
+  return Math.round(num * 1000) / 1000;
+}
+export function getTotalVariationWeight(weights: number[]): number {
+  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
+}
+
+type NamespaceGaps = { start: number; end: number }[];
+export function findGaps(
+  namespaces: NamespaceUsage,
+  namespace: string,
+  featureId: string = "",
+  trackingKey: string = ""
+): NamespaceGaps {
+  const experiments = namespaces?.[namespace] || [];
+
+  // Sort by range start, ascending
+  const ranges = [
+    ...experiments.filter(
+      // Exclude the current feature/experiment
+      (e) => e.featureId !== featureId || e.trackingKey !== trackingKey
+    ),
+    { start: 1, end: 1 },
+  ];
+  ranges.sort((a, b) => a.start - b.start);
+
+  // Look for gaps between ranges
+  const gaps: NamespaceGaps = [];
+  let lastEnd = 0;
+  ranges.forEach(({ start, end }) => {
+    if (start > lastEnd) {
+      gaps.push({
+        start: lastEnd,
+        end: start,
+      });
+    }
+    lastEnd = Math.max(lastEnd, end);
+  });
+
+  return gaps;
+}
+
+export function useFeaturesList(withProject = true) {
+  const { project } = useDefinitions();
+
+  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+
+  const { data, error, mutate } = useApi<{
+    features: FeatureInterface[];
+  }>(url);
+
+  return {
+    features: data?.features || [],
+    loading: !data,
+    error,
+    mutate,
+  };
 }
 
 export function useAttributeSchema() {
@@ -86,9 +184,13 @@ export function validateFeatureRule(
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
       if (val.weight < 0) throw new Error("Percents cannot be negative");
+      val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
       isValidValue(valueType, val.value, "Value #" + (i + 1));
     });
+    // Without this rounding here, JS floating point messes up simple addition.
+    totalWeight = roundVariationWeight(totalWeight);
+
     if (totalWeight > 1) {
       throw new Error(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
@@ -182,6 +284,11 @@ export function getDefaultRuleValue({
           weight: 0.5,
         },
       ],
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 0.5],
+      },
     };
   }
 
@@ -231,7 +338,7 @@ export function jsonToConds(
 ): null | Condition[] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
-  if (json.match(/\$(or|nor|elemMatch|all|type|size)/)) return null;
+  if (json.match(/\$(or|nor|all|type)/)) return null;
 
   try {
     const parsed = JSON.parse(json);
@@ -278,6 +385,61 @@ export function jsonToConds(
           });
         }
 
+        if (operator === "$elemMatch") {
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$eq" in v) {
+              return conds.push({
+                field,
+                operator: "$includes",
+                value: stringify(v["$eq"]).replace(/(^"|"$)/g, ""),
+              });
+            }
+          }
+        }
+
+        if (operator === "$not") {
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$regex" in v) {
+              return conds.push({
+                field,
+                operator: "$notRegex",
+                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
+              });
+            }
+            if ("$elemMatch" in v) {
+              const m = v["$elemMatch"];
+              if (typeof m === "object" && Object.keys(m).length === 1) {
+                if ("$eq" in m) {
+                  return conds.push({
+                    field,
+                    operator: "$notIncludes",
+                    value: stringify(m["$eq"]).replace(/(^"|"$)/g, ""),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (operator === "$size") {
+          if (v === 0) {
+            return conds.push({
+              field,
+              operator: "$empty",
+              value: "",
+            });
+          }
+          if (typeof v === "object" && Object.keys(v).length === 1) {
+            if ("$gt" in v && v["$gt"] === 0) {
+              return conds.push({
+                field,
+                operator: "$notEmpty",
+                value: "",
+              });
+            }
+          }
+        }
+
         if (Array.isArray(v) || (v && typeof v === "object")) {
           valid = false;
           return;
@@ -317,18 +479,6 @@ export function jsonToConds(
           });
         }
 
-        if (operator === "$not") {
-          if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$regex" in v) {
-              return conds.push({
-                field,
-                operator: "$notRegex",
-                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
-              });
-            }
-          }
-        }
-
         valid = false;
       });
     });
@@ -356,10 +506,24 @@ export function condToJson(
       obj[field]["$not"] = { $regex: value };
     } else if (operator === "$notExists") {
       obj[field]["$exists"] = false;
+    } else if (operator === "$exists") {
+      obj[field]["$exists"] = true;
     } else if (operator === "$true") {
       obj[field]["$eq"] = true;
     } else if (operator === "$false") {
       obj[field]["$eq"] = false;
+    } else if (operator === "$includes") {
+      obj[field]["$elemMatch"] = {
+        $eq: parseValue(value, attributes.get(field)?.datatype),
+      };
+    } else if (operator === "$notIncludes") {
+      obj[field]["$not"] = {
+        $elemMatch: { $eq: parseValue(value, attributes.get(field)?.datatype) },
+      };
+    } else if (operator === "$empty") {
+      obj[field]["$size"] = 0;
+    } else if (operator === "$notEmpty") {
+      obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
       obj[field][operator] = value
         .split(",")
