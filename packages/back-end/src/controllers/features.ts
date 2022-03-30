@@ -145,6 +145,19 @@ export async function postFeatureRule(
 
   await addFeatureRule(feature, environment, rule);
 
+  await req.audit({
+    event: "feature.rule.create",
+    entity: {
+      object: "rule",
+      id: rule.id,
+    },
+    parent: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify({ rule, environment }),
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -168,6 +181,19 @@ export async function putFeatureRule(
 
   await editFeatureRule(feature, environment, i, rule);
 
+  await req.audit({
+    event: "feature.rule.update",
+    entity: {
+      object: "rule",
+      id: rule?.id ?? "",
+    },
+    parent: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify({ rule, environment }),
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -187,6 +213,15 @@ export async function postFeatureToggle(
   }
 
   await toggleFeatureEnvironment(feature, environment, state);
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify({ environment, state }),
+  });
 
   res.status(200).json({
     status: 200,
@@ -218,6 +253,19 @@ export async function postFeatureMoveRule(
 
   await editFeatureEnvironment(feature, environment, { rules: newRules });
 
+  await req.audit({
+    event: "feature.rule.moved",
+    entity: {
+      object: "rule",
+      id: rules[from].id,
+    },
+    parent: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify({ rules, from, to, environment, newRules }),
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -239,9 +287,22 @@ export async function deleteFeatureRule(
   const rules = feature.environmentSettings?.[environment]?.rules ?? [];
 
   const newRules = rules.slice();
-  newRules.splice(i, 1);
+  const deletedRule = newRules.splice(i, 1);
 
   await editFeatureEnvironment(feature, environment, { rules: newRules });
+
+  await req.audit({
+    event: "feature.rule.delete",
+    entity: {
+      object: "rule",
+      id: deletedRule[0]?.id ?? "",
+    },
+    parent: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: JSON.stringify({ rule: deletedRule?.[0], environment }),
+  });
 
   res.status(200).json({
     status: 200,
@@ -306,7 +367,7 @@ export async function putFeature(
       object: "feature",
       id: feature.id,
     },
-    details: JSON.stringify(feature),
+    details: JSON.stringify(updates),
   });
 
   if (requiresWebhook) {
