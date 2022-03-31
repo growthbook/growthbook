@@ -15,6 +15,7 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
+import Link from "next/link";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -101,11 +102,18 @@ const CompactResults: FC<{
           labelHeader="Metric"
           users={users}
           renderLabelColumn={(label, metric) => {
-            if (!metric.inverse) return label;
+            const metricLink = (
+              <Link href={`/metric/${metric.id}`}>
+                <a className="text-dark font-weight-bold">{label}</a>
+              </Link>
+            );
+            if (!metric.inverse) {
+              return metricLink;
+            }
 
             return (
               <>
-                {label}{" "}
+                {metricLink}{" "}
                 <Tooltip
                   text="metric is inverse, lower is better"
                   className="inverse-indicator"

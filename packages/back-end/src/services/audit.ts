@@ -24,12 +24,14 @@ export async function findByOrganization(
 }
 
 export async function findByEntity(
+  organization: string,
   type: string,
   id: string,
   options?: QueryOptions
 ) {
   return AuditModel.find(
     {
+      organization,
       "entity.object": type,
       "entity.id": id,
     },
@@ -38,12 +40,14 @@ export async function findByEntity(
 }
 
 export async function findByEntityParent(
+  organization: string,
   type: string,
   id: string,
   options?: QueryOptions
 ) {
   return AuditModel.find(
     {
+      organization,
       "parent.object": type,
       "parent.id": id,
     },
@@ -51,14 +55,6 @@ export async function findByEntityParent(
   );
 }
 
-export async function findByUserId(userId: string, options?: QueryOptions) {
-  return AuditModel.find(
-    {
-      "user.id": userId,
-    },
-    options
-  );
-}
 export async function getWatchedAudits(
   userId: string,
   organization: string,
