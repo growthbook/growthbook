@@ -45,6 +45,7 @@ export default function Code({
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(!expandable);
   useEffect(() => {
+    if (!copied) return;
     const timer = setTimeout(() => {
       setCopied(false);
     }, 1500);
