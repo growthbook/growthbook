@@ -12,7 +12,7 @@ export default function Home(): React.ReactElement {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
-  const { features, loading } = useFeaturesList(false);
+  const { features, loading, error: featuresError } = useFeaturesList(false);
 
   useEffect(() => {
     if (loading || !data) {
@@ -28,8 +28,12 @@ export default function Home(): React.ReactElement {
     }
   }, [features, data, loading]);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+  if (error || featuresError) {
+    return (
+      <div className="alert alert-danger">
+        {error?.message || featuresError?.message || "An error occurred"}
+      </div>
+    );
   }
 
   return <LoadingOverlay />;
