@@ -75,7 +75,10 @@ function getInitialDataFromJWT(user: {
   sub?: string;
 }): JWTInfo {
   if (!IS_CLOUD) {
-    return {};
+    return {
+      verified: false,
+      method: "local",
+    };
   }
 
   const sub = user["sub"] || "";

@@ -170,6 +170,12 @@ const TopNav: FC<{
           </>
         )}
 
+        {organizations && organizations.length === 1 && (
+          <div className="top-nav-org-menu mr-2">
+            <FaBuilding className="text-muted mr-1" />
+            <span className="d-none d-lg-inline">{orgName}</span>
+          </div>
+        )}
         {organizations && organizations.length > 1 && (
           <div className="dropdown top-nav-org-menu">
             <div

@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
-  const { data } = useApi<{
+  const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
@@ -27,6 +27,10 @@ export default function Home(): React.ReactElement {
       router.replace("/getstarted");
     }
   }, [features, data, loading]);
+
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
 
   return <LoadingOverlay />;
 }

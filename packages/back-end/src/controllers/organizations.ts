@@ -136,13 +136,29 @@ export async function getUser(req: AuthRequest, res: Response) {
     }
   }
 
+  // Filter out orgs that the user can't log in to
+  let lastError: Error | null = null;
+  const validOrgs = orgs.filter((org) => {
+    try {
+      validateLogin(req, org);
+      return true;
+    } catch (e) {
+      lastError = e;
+      return false;
+    }
+  });
+  // If all of a user's orgs were filtered out, throw an error
+  if (orgs.length && !validOrgs.length && lastError) {
+    throw lastError;
+  }
+
   return res.status(200).json({
     status: 200,
     userId: userId,
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
-    organizations: orgs.map((org) => ({
+    organizations: validOrgs.map((org) => ({
       id: org.id,
       name: org.name,
       subscriptionStatus: org.subscription?.status,
