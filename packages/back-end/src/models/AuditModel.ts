@@ -2,8 +2,14 @@ import mongoose from "mongoose";
 import { AuditInterface } from "../../types/audit";
 
 const auditSchema = new mongoose.Schema({
-  id: String,
-  organization: String,
+  id: {
+    type: String,
+    unique: true,
+  },
+  organization: {
+    type: String,
+    index: true,
+  },
   user: {
     _id: false,
     id: String,

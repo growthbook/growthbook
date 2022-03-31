@@ -15,6 +15,7 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  restrictLoginMethod: String,
   members: [
     {
       _id: false,

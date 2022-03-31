@@ -118,17 +118,21 @@ const ProtectedPage: React.FC<{
   };
 
   const refreshUsers = async () => {
-    const res = await apiCall<MembersResponse>("/members", {
-      method: "GET",
-    });
-
-    const userMap = new Map<string, User>();
-    if (res.users) {
-      res.users.forEach((user) => {
-        userMap.set(user.id, user);
+    try {
+      const res = await apiCall<MembersResponse>("/members", {
+        method: "GET",
       });
+
+      const userMap = new Map<string, User>();
+      if (res.users) {
+        res.users.forEach((user) => {
+          userMap.set(user.id, user);
+        });
+      }
+      setUsers(userMap);
+    } catch (e) {
+      setUsers(new Map());
     }
-    setUsers(userMap);
   };
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];

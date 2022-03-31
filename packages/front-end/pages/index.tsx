@@ -8,11 +8,11 @@ import { useRouter } from "next/router";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
-  const { data } = useApi<{
+  const { data, error } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
-  const { features, loading } = useFeaturesList(false);
+  const { features, loading, error: featuresError } = useFeaturesList(false);
 
   useEffect(() => {
     if (loading || !data) {
@@ -27,6 +27,14 @@ export default function Home(): React.ReactElement {
       router.replace("/getstarted");
     }
   }, [features, data, loading]);
+
+  if (error || featuresError) {
+    return (
+      <div className="alert alert-danger">
+        {error?.message || featuresError?.message || "An error occurred"}
+      </div>
+    );
+  }
 
   return <LoadingOverlay />;
 }
