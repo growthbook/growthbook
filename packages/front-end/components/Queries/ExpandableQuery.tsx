@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
@@ -11,8 +11,6 @@ const ExpandableQuery: FC<{
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
-  const [queryOpen, setQueryOpen] = useState(false);
-
   let title = "";
   if (query.language === "sql") {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
@@ -37,32 +35,7 @@ const ExpandableQuery: FC<{
           Query {i + 1} of {total}
         </span>
       </h4>
-      <div
-        className={clsx("expandable-container text-light", {
-          expanded: queryOpen,
-        })}
-        onClick={() => !queryOpen && setQueryOpen(true)}
-      >
-        <Code language={query.language} code={query.query} />
-        <div
-          className="fader"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(45,45,45,0) 0%,rgba(45,45,45,0.8) 60%)",
-          }}
-          onClick={(e) => {
-            if (!queryOpen) return;
-            setQueryOpen(false);
-
-            const pre = (e.target as HTMLDivElement).previousElementSibling;
-            if (pre) {
-              pre.scrollTo({ top: 0 });
-            }
-          }}
-        >
-          click to {queryOpen ? "minimize" : "expand"}
-        </div>
-      </div>
+      <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
         <div className="alert alert-danger">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>

@@ -197,7 +197,7 @@ echo $value;`,
                   </a>
                   .
                 </p>
-                <Code language={o.language} code={o[codeType]} />
+                <Code language={o.language} code={o[codeType].trim()} />
               </Tab>
             );
           })}
