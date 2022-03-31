@@ -65,6 +65,8 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
         code={condition}
         theme="light"
         className="p-0 border-0"
+        actionBar={false}
+        containerClassName="m-0"
       />
     );
   }

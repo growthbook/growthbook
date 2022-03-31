@@ -24,12 +24,14 @@ export async function findByOrganization(
 }
 
 export async function findByEntity(
+  organization: string,
   type: string,
   id: string,
   options?: QueryOptions
 ) {
   return AuditModel.find(
     {
+      organization,
       "entity.object": type,
       "entity.id": id,
     },
@@ -38,12 +40,14 @@ export async function findByEntity(
 }
 
 export async function findByEntityParent(
+  organization: string,
   type: string,
   id: string,
   options?: QueryOptions
 ) {
   return AuditModel.find(
     {
+      organization,
       "parent.object": type,
       "parent.id": id,
     },
@@ -51,14 +55,6 @@ export async function findByEntityParent(
   );
 }
 
-export async function findByUserId(userId: string, options?: QueryOptions) {
-  return AuditModel.find(
-    {
-      "user.id": userId,
-    },
-    options
-  );
-}
 export async function getWatchedAudits(
   userId: string,
   organization: string,
@@ -91,4 +87,35 @@ export async function getWatchedAudits(
       dateCreated: -1,
     })
     .limit(options?.limit || 50);
+}
+
+export function auditDetailsCreate<T>(
+  post: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    post,
+    context,
+  });
+}
+export function auditDetailsUpdate<T>(
+  pre: T,
+  post: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    pre,
+    post,
+    context,
+  });
+}
+
+export function auditDetailsDelete<T>(
+  pre: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    pre,
+    context,
+  });
 }

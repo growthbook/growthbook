@@ -52,23 +52,16 @@ async function sendMail({
   text: string;
 }) {
   if (!isEmailEnabled() || !transporter) {
-    throw new Error(
-      "Email server not configured. Check server logs for reset link."
-    );
+    throw new Error("Email server not configured.");
   }
 
-  try {
-    await transporter.sendMail({
-      from: `"GrowthBook" <${EMAIL_FROM}>`,
-      to,
-      subject,
-      text,
-      html,
-    });
-  } catch (e) {
-    console.error(e);
-    throw e;
-  }
+  await transporter.sendMail({
+    from: `"GrowthBook" <${EMAIL_FROM}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
 }
 export async function sendInviteEmail(
   organization: OrganizationInterface,
@@ -148,5 +141,25 @@ export async function sendNewOrgEmail(company: string, email: string) {
     subject: `New company created: ${company}`,
     to: SITE_MANAGER_EMAIL,
     text: `Company Name: ${company}\nOwner Email: ${email}`,
+  });
+}
+
+export async function sendNewMemberEmail(
+  name: string,
+  email: string,
+  organization: string,
+  ownerEmail: string
+) {
+  const html = nunjucks.render("new-member.jinja", {
+    name,
+    email,
+    organization,
+  });
+
+  await sendMail({
+    html,
+    subject: `A new user joined your GrowthBook account: ${name} (${email})`,
+    to: ownerEmail,
+    text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
   });
 }

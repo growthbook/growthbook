@@ -205,7 +205,12 @@ For the S3 results url, we recommend naming your bucket with the prefix `aws-ath
 
 ### BigQuery
 
-You must first create a Service Account in Google with the proper permissions. To connect GrowthBook, we just need the JSON key file for that account.
+You must first create a Service Account in Google with the following roles:
+- Data Viewer
+- Metadata Viewer
+- Job User
+
+To connect GrowthBook, we just need the JSON key file for that account.
 It should contain the project_id, client_email, and private_key.
 
 ### Mixpanel

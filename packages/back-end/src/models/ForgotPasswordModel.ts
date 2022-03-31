@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import { getUserByEmail } from "../services/users";
 import { APP_ORIGIN } from "../util/secrets";
-import { sendResetPasswordEmail } from "../services/email";
+import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
 
 export interface ForgotPasswordInterface {
   token: string;
@@ -48,14 +48,15 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
   const resetUrl = `${APP_ORIGIN}/reset-password?token=${token}`;
 
   try {
+    if (!isEmailEnabled()) {
+      throw new Error(
+        "Email server not configured. Check server logs for reset link."
+      );
+    }
+
     await sendResetPasswordEmail(email, resetUrl);
   } catch (e) {
-    console.error(
-      "Failed to send reset password email. The reset password link for " +
-        email +
-        " is: " +
-        resetUrl
-    );
+    console.error("The reset password link for " + email + " is: " + resetUrl);
     throw e;
   }
 }

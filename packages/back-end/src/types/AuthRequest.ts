@@ -6,7 +6,9 @@ import { Permissions } from "../../types/organization";
 // eslint-disable-next-line
 export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
   email: string;
+  verified?: boolean;
   userId?: string;
+  loginMethod?: string;
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;

@@ -3,17 +3,29 @@ import jwt from "express-jwt";
 import jwks from "jwks-rsa";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserDocument, UserModel } from "../models/UserModel";
+import {
+  markUserAsVerified,
+  UserDocument,
+  UserModel,
+} from "../models/UserModel";
 import {
   getOrganizationById,
   getPermissionsByRole,
   getRole,
+  validateLogin,
 } from "./organizations";
 import { MemberRole } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
+
+type JWTInfo = {
+  email?: string;
+  verified?: boolean;
+  name?: string;
+  method?: string;
+};
 
 // Self-hosted deployments use local auth
 function getLocalJWTCheck() {
@@ -48,28 +60,35 @@ function getAuth0JWTCheck() {
     algorithms: ["RS256"],
   });
 }
-async function getUserFromAuth0JWT(user: {
-  "https://growthbook.io/email": string;
-}): Promise<UserDocument | null> {
-  return getUserByEmail(user["https://growthbook.io/email"]);
+
+async function getUserFromEmail(email: string): Promise<UserDocument | null> {
+  if (!email) {
+    throw new Error("Missing email address in authentication token");
+  }
+  return getUserByEmail(email);
 }
 
-function getInitialEmailFromJWT(user: {
+function getInitialDataFromJWT(user: {
   ["https://growthbook.io/email"]?: string;
-}) {
-  if (IS_CLOUD) {
-    return user["https://growthbook.io/email"] || "";
-  }
-  return "";
-}
-
-function getInitialNameFromJWT(user: {
   ["https://growthbook.io/fname"]?: string;
-}) {
-  if (IS_CLOUD) {
-    return user["https://growthbook.io/fname"] || "";
+  ["https://growthbook.io/verified"]?: boolean;
+  sub?: string;
+}): JWTInfo {
+  if (!IS_CLOUD) {
+    return {
+      verified: false,
+      method: "local",
+    };
   }
-  return "";
+
+  const sub = user["sub"] || "";
+  const method = sub.split("|")[0] || "";
+  return {
+    email: user["https://growthbook.io/email"] || "",
+    name: user["https://growthbook.io/fname"] || "",
+    verified: user["https://growthbook.io/verified"] || false,
+    method,
+  };
 }
 
 export function getJWTCheck() {
@@ -82,12 +101,16 @@ export async function processJWT(
   res: Response,
   next: NextFunction
 ) {
-  req.email = getInitialEmailFromJWT(req.user);
-  req.name = getInitialNameFromJWT(req.user);
+  const { email, name, verified, method } = getInitialDataFromJWT(req.user);
+
+  req.email = email || "";
+  req.name = name || "";
+  req.verified = verified || false;
+  req.loginMethod = method || "";
   req.permissions = {};
 
   const user = await (IS_CLOUD
-    ? getUserFromAuth0JWT(req.user)
+    ? getUserFromEmail(req.email)
     : getUserFromLocalJWT(req.user));
 
   if (user) {
@@ -95,6 +118,17 @@ export async function processJWT(
     req.userId = user.id;
     req.name = user.name;
     req.admin = !!user.admin;
+
+    if (IS_CLOUD && user.verified && !req.verified) {
+      return res.status(406).json({
+        status: 406,
+        message: "You must verify your email address before using GrowthBook",
+      });
+    }
+
+    if (!user.verified && req.verified) {
+      await markUserAsVerified(user.id);
+    }
 
     if (req.headers["x-organization"]) {
       req.organization =
@@ -110,6 +144,16 @@ export async function processJWT(
           return res.status(403).json({
             status: 403,
             message: "You do not have access to that organization",
+          });
+        }
+
+        // Make sure this is a valid login method for the organization
+        try {
+          validateLogin(req, req.organization);
+        } catch (e) {
+          return res.status(403).json({
+            status: 403,
+            message: e.message,
           });
         }
 

@@ -12,9 +12,6 @@ import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
 import ForceSummary from "../../components/Features/ForceSummary";
 import RuleList from "../../components/Features/RuleList";
-import Code from "../../components/Code";
-import { useMemo } from "react";
-import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 import track from "../../services/track";
 import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
@@ -28,12 +25,15 @@ import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
+import Modal from "../../components/Modal";
+import HistoryTable from "../../components/HistoryTable";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -56,19 +56,6 @@ export default function FeaturePage() {
   const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
-
-  const usage = useMemo(() => {
-    if (!data?.feature) return "";
-    const feature = data.feature;
-    if (feature.valueType === "boolean") {
-      return `if (growthbook.feature(${JSON.stringify(feature.id)}).on) {
-  console.log("Feature is enabled!")
-}`;
-    }
-
-    return `// Get latest feature value (may be null)
-console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
-  }, [data?.feature]);
 
   if (error) {
     return (
@@ -101,6 +88,17 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
         />
+      )}
+      {auditModal && (
+        <Modal
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="feature" id={data.feature.id} />
+        </Modal>
       )}
       {editProjectModal && (
         <EditProjectForm
@@ -195,10 +193,22 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
           <a
-            className="ml-2 cursor-pointer"
+            className="ml-1 cursor-pointer"
             onClick={() => setEditTagsModal(true)}
           >
             <GBEdit />
+          </a>
+        </div>
+
+        <div className="col-auto ml-auto">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setAuditModal(true);
+            }}
+          >
+            View Audit Log
           </a>
         </div>
       </div>
@@ -259,20 +269,6 @@ console.log(growthbook.feature(${JSON.stringify(feature.id)}).value);`;
       <div className="appbox mb-4 p-3">
         <ForceSummary type={type} value={data.feature.defaultValue} />
       </div>
-
-      {usage && (
-        <IfFeatureEnabled feature="feature-usage-code">
-          <div className="appbox p-3 mb-4">
-            <h3 className="mb-3">Usage Example</h3>
-            <Code
-              language="javascript"
-              code={usage}
-              theme="light"
-              className="border-0 p-0 m-0"
-            />
-          </div>
-        </IfFeatureEnabled>
-      )}
 
       <h3>Override Rules</h3>
       <p>

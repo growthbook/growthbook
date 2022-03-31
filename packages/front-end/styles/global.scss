@@ -133,10 +133,13 @@ pre {
   }
 }
 .hover-highlight {
-  transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  transition: background-color 0.1s;
   &:hover {
     background-color: rgba(124, 69, 234, 0.06);
   }
+}
+.highlight {
+  background-color: rgba(124, 69, 234, 0.06);
 }
 .hover-show {
   .show-target {
@@ -474,55 +477,65 @@ pre {
 .flex-1 {
   flex: 1;
 }
+.diff-wrapper td {
+  padding: 0 10px !important;
+}
 .expandable-container {
   overflow: hidden;
   max-height: 120px;
   cursor: pointer;
   transition: max-height 0.3s;
   position: relative;
-
-  .fader {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 15px 0 5px;
-    text-align: center;
-    cursor: pointer;
-    color: rgba(0, 0, 0, 0);
-  }
-
-  pre {
-    max-height: 590px;
-    overflow: hidden !important;
-  }
-
-  &:hover .fader {
-    color: inherit;
-  }
-  &.expanded {
-    cursor: initial;
-    max-height: 600px;
-    .fader {
-      display: none;
-    }
-    &:hover .fader {
-      display: block;
-    }
-
-    pre {
-      overflow-y: auto !important;
-      overflow-x: auto !important;
-    }
-  }
-}
-.vertical-scroll {
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 .badge-used {
   opacity: 0.5;
 }
+
+.code-holder {
+  margin: 0.5em 0;
+
+  &.collapsible .code {
+    transition: max-height 0.2s;
+    max-height: 45em;
+    overflow-y: scroll;
+  }
+
+  &.collapsed .code {
+    max-height: 10em;
+  }
+
+  .action-buttons {
+    z-index: 999;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+
+    .message {
+      padding: 2px 6px;
+      background: $highlight-purple;
+      color: #fff;
+      position: relative;
+      margin-right: 10px;
+      display: inline-block;
+      border-radius: 3px;
+      margin-top: 2px;
+
+      .arrow {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        margin-top: -6px;
+        border: 6px solid transparent;
+        border-left: 6px solid $highlight-purple;
+      }
+    }
+  }
+
+  pre {
+    margin: 0 !important;
+  }
+}
+
 .tiptrigger {
   display: inline-block;
   position: relative;
@@ -953,6 +966,10 @@ pre {
   .metricname:hover {
     z-index: 1060;
   }
+}
+
+.bg-purple {
+  background: $highlight-purple;
 }
 
 .change-bar {
