@@ -1180,7 +1180,7 @@ export async function deleteMetric(
       object: "metric",
       id: metric.id,
     },
-    details: auditDetailsDelete(metric.toJSON()),
+    details: auditDetailsDelete(metric),
   });
 
   res.status(200).json({
@@ -1910,9 +1910,7 @@ export async function deleteScreenshot(
     return;
   }
 
-  const screenshot = exp.variations[variation].screenshots.filter(
-    (s) => s.path === url
-  )[0];
+  const existing = [...exp.variations[variation].screenshots];
 
   // TODO: delete from s3 as well?
   exp.variations[variation].screenshots = exp.variations[
@@ -1927,7 +1925,11 @@ export async function deleteScreenshot(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsDelete(screenshot || {}, { variation }),
+    details: auditDetailsUpdate(
+      existing,
+      exp.variations[variation].screenshots,
+      { variation }
+    ),
   });
 
   res.status(200).json({
