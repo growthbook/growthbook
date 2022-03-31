@@ -123,6 +123,9 @@ pre {
   @include badge-variant(#f6f7f9);
   border: 1px solid $gray4;
 }
+.multi-select-container {
+  z-index: 99999999;
+}
 .graybox {
   background-color: $gray6;
   padding: 15px 20px 20px;

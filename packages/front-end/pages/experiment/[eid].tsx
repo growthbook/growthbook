@@ -690,11 +690,14 @@ const ExperimentPage = (): ReactElement => {
                 <RightRailSectionGroup title="Goals" type="custom">
                   {experiment.metrics.map((m) => {
                     return (
-                      <Link href={`/metric/${m}`} key={m}>
-                        <a className="mr-2 font-weight-bold">
-                          {getMetricById(m)?.name}
-                        </a>
-                      </Link>
+                      <div key={m} className="ml-2">
+                        <span className="mr-1">-</span>
+                        <Link href={`/metric/${m}`}>
+                          <a className="mr-2 font-weight-bold">
+                            {getMetricById(m)?.name}
+                          </a>
+                        </Link>
+                      </div>
                     );
                   })}
                 </RightRailSectionGroup>
@@ -702,11 +705,14 @@ const ExperimentPage = (): ReactElement => {
                   <RightRailSectionGroup title="Guardrails" type="custom">
                     {experiment.guardrails.map((m) => {
                       return (
-                        <Link href={`/metric/${m}`} key={m}>
-                          <a className="mr-2 font-weight-bold">
-                            {getMetricById(m)?.name}
-                          </a>
-                        </Link>
+                        <div key={m} className="ml-2">
+                          <span className="mr-1">-</span>
+                          <Link href={`/metric/${m}`}>
+                            <a className="mr-2 font-weight-bold">
+                              {getMetricById(m)?.name}
+                            </a>
+                          </Link>
+                        </div>
                       );
                     })}
                   </RightRailSectionGroup>

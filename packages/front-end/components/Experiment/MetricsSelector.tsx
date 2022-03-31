@@ -1,134 +1,44 @@
-import { FC, Fragment } from "react";
-import { Typeahead } from "react-bootstrap-typeahead";
+import { FC } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip";
-import Tag from "../Tags/Tag";
+import MultiSelectField from "../Forms/MultiSelectField";
 
 const MetricsSelector: FC<{
   datasource?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
 }> = ({ datasource, selected, onChange }) => {
-  const { metrics, getMetricById } = useDefinitions();
+  const { metrics } = useDefinitions();
 
   const validMetrics = metrics.filter(
     (m) => !datasource || m.datasource === datasource
   );
 
-  const toMetricValue = (id: string) => {
-    return {
-      id,
-      name: getMetricById(id)?.name || id,
-    };
-  };
-
-  const metricTags = new Map();
+  const tagCounts: Record<string, number> = {};
   validMetrics.forEach((m) => {
-    if (m.tags) {
+    if (!selected.includes(m.id) && m.tags) {
       m.tags.forEach((t) => {
-        if (metricTags.has(t)) {
-          metricTags.set(t, [...metricTags.get(t), m.id]);
-        } else {
-          metricTags.set(t, [m.id]);
-        }
+        tagCounts[t] = tagCounts[t] || 0;
+        tagCounts[t]++;
       });
     }
   });
 
-  // keep track of any tags which have been used.
-  const usedTags = [];
-  metricTags.forEach((mArr, tagName) => {
-    let used = true;
-    mArr.forEach((m) => {
-      if (!selected.includes(m)) {
-        used = false;
-      }
-    });
-    if (used) {
-      usedTags.push(tagName);
-    }
-  });
-
-  const selectMetricFromTag = [];
-  if (metricTags.size < 6) {
-    // use buttons:
-    metricTags.forEach((mArr, tagName) => {
-      selectMetricFromTag.push(
-        <Tag
-          tag={tagName}
-          className={`mx-2 cursor-pointer ${
-            usedTags.includes(tagName) ? "badge-used" : ""
-          }`}
-          onClick={async () => {
-            const tmp = [...selected];
-            mArr.forEach((m) => {
-              if (!tmp.includes(m)) {
-                tmp.push(m);
-              }
-            });
-            onChange(tmp);
-          }}
-        >
-          <span className="badge badge-light">{mArr.length}</span>
-        </Tag>
-      );
-    });
-  } else {
-    // use select html:
-    const options = [];
-    options.push(<option value="...">...</option>);
-    metricTags.forEach((mArr, tagName) => {
-      options.push(
-        <option value={tagName}>
-          {tagName} ({mArr.length})
-        </option>
-      );
-    });
-    selectMetricFromTag.push(
-      <select
-        placeholder="..."
-        value="..."
-        className="form-control ml-3"
-        onChange={(e) => {
-          const tmp = [...selected];
-          if (metricTags.has(e.target.value)) {
-            metricTags.get(e.target.value).forEach((m) => {
-              if (!tmp.includes(m)) {
-                tmp.push(m);
-              }
-            });
-          }
-          onChange(tmp);
-        }}
-      >
-        {options.map((o, i) => {
-          return <Fragment key={i}>{o}</Fragment>;
-        })}
-      </select>
-    );
-  }
-
   return (
     <>
-      <Typeahead
-        id="experiment-metrics"
-        labelKey="name"
-        multiple={true}
+      <MultiSelectField
+        value={selected}
+        onChange={onChange}
         options={validMetrics.map((m) => {
           return {
-            id: m.id,
-            name: m.name,
+            value: m.id,
+            label: m.name,
           };
         })}
-        onChange={(selected: { id: string; name: string }[]) => {
-          onChange(selected.map((s) => s.id));
-        }}
-        selected={selected.map(toMetricValue)}
         placeholder="Select metrics..."
-        positionFixed={true}
       />
-      {metricTags.size > 0 && (
+      {Object.keys(tagCounts).length > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">
           <span style={{ fontSize: "0.82rem" }}>
             Select metric by tag:{" "}
@@ -136,9 +46,28 @@ const MetricsSelector: FC<{
               <FaQuestionCircle />
             </Tooltip>
           </span>
-          {selectMetricFromTag.map((s, i) => {
-            return <Fragment key={i}>{s}</Fragment>;
-          })}
+          <select
+            placeholder="..."
+            value="..."
+            className="form-control ml-3"
+            onChange={(e) => {
+              const newValue = new Set(selected);
+              const tag = e.target.value;
+              validMetrics.forEach((m) => {
+                if (m.tags && m.tags.includes(tag)) {
+                  newValue.add(m.id);
+                }
+              });
+              onChange(Array.from(newValue));
+            }}
+          >
+            <option value="...">...</option>
+            {Object.keys(tagCounts).map((k) => (
+              <option value={k} key={k}>
+                {k} ({tagCounts[k]})
+              </option>
+            ))}
+          </select>
         </div>
       )}
     </>
