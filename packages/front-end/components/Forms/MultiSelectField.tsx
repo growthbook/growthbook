@@ -73,7 +73,6 @@ const MultiSelectField: FC<
   sort = true,
   disabled,
   autoFocus,
-  required,
   ...otherProps
 }) => {
   const [map, sorted] = useMemo(() => {
@@ -125,75 +124,34 @@ const MultiSelectField: FC<
       {...fieldProps}
       render={(id, ref) => {
         return (
-          <>
-            <div className="d-md-none">
-              <select
-                multiple={true}
-                value={selected.map((v) => v.value)}
-                onChange={(e) => {
-                  const values = Array.from(e.target.options)
-                    .filter((o) => o.selected)
-                    .map((o) => o.value);
-                  onChange(values);
-                }}
-                className="form-control"
-                disabled={disabled}
-                id={id}
-                ref={ref}
-                required={required}
-                placeholder={initialOption ?? placeholder}
-              >
-                {sorted.map((s) => {
-                  if ("options" in s) {
-                    return (
-                      <optgroup key={s.label} label={s.label}>
-                        {s.options.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  } else {
-                    return (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    );
-                  }
-                })}
-              </select>
-            </div>
-            <div className="d-none d-md-block">
-              <SortableSelect
-                useDragHandle
-                helperClass="multi-select-container"
-                axis="xy"
-                onSortEnd={onSortEnd}
-                distance={4}
-                getHelperDimensions={({ node }) => node.getBoundingClientRect()}
-                id={id}
-                ref={ref}
-                isDisabled={disabled || false}
-                options={sorted}
-                isMulti={true}
-                onChange={(selected) => {
-                  onChange(selected?.map((s) => s.value) ?? []);
-                }}
-                components={{
-                  // eslint-disable-next-line
+          <SortableSelect
+            useDragHandle
+            helperClass="multi-select-container"
+            axis="xy"
+            onSortEnd={onSortEnd}
+            distance={4}
+            getHelperDimensions={({ node }) => node.getBoundingClientRect()}
+            id={id}
+            ref={ref}
+            isDisabled={disabled || false}
+            options={sorted}
+            isMulti={true}
+            onChange={(selected) => {
+              onChange(selected?.map((s) => s.value) ?? []);
+            }}
+            components={{
+              // eslint-disable-next-line
                   // @ts-ignore We're failing to provide a required index prop to SortableElement
-                  MultiValue: SortableMultiValue,
-                  MultiValueLabel: SortableMultiValueLabel,
-                }}
-                closeMenuOnSelect={false}
-                autoFocus={autoFocus}
-                value={selected}
-                placeholder={initialOption ?? placeholder}
-                isSearchable
-              />
-            </div>
-          </>
+              MultiValue: SortableMultiValue,
+              MultiValueLabel: SortableMultiValueLabel,
+            }}
+            closeMenuOnSelect={false}
+            autoFocus={autoFocus}
+            value={selected}
+            placeholder={initialOption ?? placeholder}
+            isSearchable
+            menuPosition="fixed"
+          />
         );
       }}
     />
