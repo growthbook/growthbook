@@ -29,6 +29,11 @@ import {
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "../services/audit";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -114,6 +119,15 @@ export async function postFeatures(
 
   await createFeature(feature);
 
+  await req.audit({
+    event: "feature.create",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsCreate(feature),
+  });
+
   featureUpdated(feature);
   res.status(200).json({
     status: 200,
@@ -136,6 +150,15 @@ export async function postFeatureRule(
 
   await addFeatureRule(feature, environment, rule);
 
+  await req.audit({
+    event: "feature.rule.create",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsCreate(rule, { environment }),
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -157,7 +180,22 @@ export async function putFeatureRule(
     throw new Error("Could not find feature");
   }
 
+  const oldRule = feature.environmentSettings?.[environment]?.rules?.[i];
+
   await editFeatureRule(feature, environment, i, rule);
+
+  await req.audit({
+    event: "feature.rule.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(
+      oldRule,
+      { ...oldRule, ...rule } as FeatureRule,
+      { environment }
+    ),
+  });
 
   res.status(200).json({
     status: 200,
@@ -177,7 +215,22 @@ export async function postFeatureToggle(
     throw new Error("Could not find feature");
   }
 
+  const currentState =
+    feature.environmentSettings?.[environment]?.enabled || false;
   await toggleFeatureEnvironment(feature, environment, state);
+
+  await req.audit({
+    event: "feature.toggle",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(
+      { on: currentState },
+      { on: state },
+      { environment }
+    ),
+  });
 
   res.status(200).json({
     status: 200,
@@ -209,6 +262,15 @@ export async function postFeatureMoveRule(
 
   await editFeatureEnvironment(feature, environment, { rules: newRules });
 
+  await req.audit({
+    event: "feature.rule.moved",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(rules, newRules, { environment }),
+  });
+
   res.status(200).json({
     status: 200,
   });
@@ -230,9 +292,18 @@ export async function deleteFeatureRule(
   const rules = feature.environmentSettings?.[environment]?.rules ?? [];
 
   const newRules = rules.slice();
-  newRules.splice(i, 1);
+  const deletedRule = newRules.splice(i, 1);
 
   await editFeatureEnvironment(feature, environment, { rules: newRules });
+
+  await req.audit({
+    event: "feature.rule.delete",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsDelete(deletedRule?.[0], { environment }),
+  });
 
   res.status(200).json({
     status: 200,
@@ -291,6 +362,15 @@ export async function putFeature(
     dateUpdated: new Date(),
   });
 
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, { ...feature, ...updates }),
+  });
+
   if (requiresWebhook) {
     featureUpdated(
       {
@@ -323,6 +403,14 @@ export async function deleteFeatureById(
 
   if (feature) {
     await deleteFeature(org.id, id);
+    await req.audit({
+      event: "feature.delete",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsDelete(feature),
+    });
     featureUpdated(feature);
   }
 

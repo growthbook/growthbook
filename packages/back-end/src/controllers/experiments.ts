@@ -66,6 +66,11 @@ import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "../services/audit";
 
 export async function getExperiments(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -482,7 +487,7 @@ export async function postExperiments(
         object: "experiment",
         id: experiment.id,
       },
-      details: JSON.stringify(experiment.toJSON()),
+      details: auditDetailsCreate(experiment.toJSON()),
     });
 
     await ensureWatching(userId, org.id, experiment.id);
@@ -679,7 +684,7 @@ export async function postExperiment(
       object: "experiment",
       id: exp.id,
     },
-    details: JSON.stringify(data),
+    details: auditDetailsUpdate(existing, exp.toJSON()),
   });
 
   // If there are new tags to add
@@ -837,6 +842,8 @@ export async function postExperimentStop(
     return;
   }
 
+  const existing = exp.toJSON();
+
   const phases = [...exp.toJSON().phases];
   // Already has phases
   if (phases.length) {
@@ -869,12 +876,7 @@ export async function postExperimentStop(
         object: "experiment",
         id: exp.id,
       },
-      details: JSON.stringify({
-        winner,
-        results,
-        analysis,
-        reason,
-      }),
+      details: auditDetailsUpdate(existing, exp.toJSON()),
     });
 
     await experimentUpdated(exp);
@@ -927,8 +929,10 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
+  const existing = exp.toJSON();
+
   // Remove phase from experiment and revert to draft if no more phases left
-  const deleted = exp.phases.splice(phaseIndex, 1);
+  exp.phases.splice(phaseIndex, 1);
   exp.markModified("phases");
 
   if (!exp.phases.length) {
@@ -966,10 +970,7 @@ export async function deleteExperimentPhase(
       object: "experiment",
       id: exp.id,
     },
-    details: JSON.stringify({
-      phase: phaseIndex + 1,
-      data: deleted[0],
-    }),
+    details: auditDetailsUpdate(existing, exp.toJSON()),
   });
 
   res.status(200).json({
@@ -1012,6 +1013,8 @@ export async function postExperimentPhase(
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
+  const existing = exp.toJSON();
+
   const phases = [...exp.toJSON().phases];
   // Already has phases
   if (phases.length) {
@@ -1049,7 +1052,7 @@ export async function postExperimentPhase(
         object: "experiment",
         id: exp.id,
       },
-      details: JSON.stringify(data),
+      details: auditDetailsUpdate(existing, exp.toJSON()),
     });
 
     await ensureWatching(userId, org.id, exp.id);
@@ -1177,6 +1180,7 @@ export async function deleteMetric(
       object: "metric",
       id: metric.id,
     },
+    details: auditDetailsDelete(metric),
   });
 
   res.status(200).json({
@@ -1233,6 +1237,7 @@ export async function deleteExperiment(
       object: "experiment",
       id: exp.id,
     },
+    details: auditDetailsDelete(exp.toJSON()),
   });
 
   await experimentUpdated(exp);
@@ -1537,7 +1542,7 @@ export async function postMetrics(
       object: "metric",
       id: metric.id,
     },
-    details: JSON.stringify(metric),
+    details: auditDetailsCreate(metric),
   });
 }
 
@@ -1610,7 +1615,10 @@ export async function putMetric(
       object: "metric",
       id: metric.id,
     },
-    details: JSON.stringify(updates),
+    details: auditDetailsUpdate(metric, {
+      ...metric,
+      ...updates,
+    }),
   });
 }
 
@@ -1805,16 +1813,17 @@ export async function postSnapshot(
       });
 
       await req.audit({
-        event: "snapshot.create.manual",
+        event: "experiment.refresh",
         entity: {
-          object: "snapshot",
-          id: snapshot.id,
-        },
-        parent: {
           object: "experiment",
           id: exp.id,
         },
-        details: JSON.stringify(req.body),
+        details: auditDetailsCreate({
+          phase,
+          users,
+          metrics,
+          manual: true,
+        }),
       });
       return;
     } catch (e) {
@@ -1844,15 +1853,17 @@ export async function postSnapshot(
       useCache
     );
     await req.audit({
-      event: "snapshot.create.auto",
+      event: "experiment.refresh",
       entity: {
-        object: "snapshot",
-        id: snapshot.id,
-      },
-      parent: {
         object: "experiment",
         id: exp.id,
       },
+      details: auditDetailsCreate({
+        phase,
+        dimension,
+        useCache,
+        manual: false,
+      }),
     });
     res.status(200).json({
       status: 200,
@@ -1909,6 +1920,8 @@ export async function deleteScreenshot(
     return;
   }
 
+  const existing = [...exp.variations[variation].screenshots];
+
   // TODO: delete from s3 as well?
   exp.variations[variation].screenshots = exp.variations[
     variation
@@ -1922,10 +1935,11 @@ export async function deleteScreenshot(
       object: "experiment",
       id: exp.id,
     },
-    details: JSON.stringify({
-      variation,
-      url,
-    }),
+    details: auditDetailsUpdate(
+      existing,
+      exp.variations[variation].screenshots,
+      { variation }
+    ),
   });
 
   res.status(200).json({
@@ -1994,7 +2008,7 @@ export async function addScreenshot(
       object: "experiment",
       id: exp.id,
     },
-    details: JSON.stringify({
+    details: auditDetailsCreate({
       variation,
       url,
       description,

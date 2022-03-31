@@ -88,3 +88,34 @@ export async function getWatchedAudits(
     })
     .limit(options?.limit || 50);
 }
+
+export function auditDetailsCreate<T>(
+  post: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    post,
+    context,
+  });
+}
+export function auditDetailsUpdate<T>(
+  pre: T,
+  post: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    pre,
+    post,
+    context,
+  });
+}
+
+export function auditDetailsDelete<T>(
+  pre: T,
+  context: Record<string, unknown> = {}
+): string {
+  return JSON.stringify({
+    pre,
+    context,
+  });
+}

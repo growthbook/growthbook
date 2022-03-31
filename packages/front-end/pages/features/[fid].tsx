@@ -25,12 +25,15 @@ import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
+import Modal from "../../components/Modal";
+import HistoryTable from "../../components/HistoryTable";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -85,6 +88,17 @@ export default function FeaturePage() {
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
         />
+      )}
+      {auditModal && (
+        <Modal
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="feature" id={data.feature.id} />
+        </Modal>
       )}
       {editProjectModal && (
         <EditProjectForm
@@ -179,10 +193,22 @@ export default function FeaturePage() {
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
           <a
-            className="ml-2 cursor-pointer"
+            className="ml-1 cursor-pointer"
             onClick={() => setEditTagsModal(true)}
           >
             <GBEdit />
+          </a>
+        </div>
+
+        <div className="col-auto ml-auto">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setAuditModal(true);
+            }}
+          >
+            View Audit Log
           </a>
         </div>
       </div>

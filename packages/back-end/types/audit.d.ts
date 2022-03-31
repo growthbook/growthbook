@@ -1,11 +1,11 @@
 export type EntityType =
   | "experiment"
+  | "feature"
   | "metric"
   | "datasource"
   | "comment"
   | "user"
-  | "organization"
-  | "snapshot";
+  | "organization";
 
 export type EventType =
   | "experiment.create"
@@ -21,6 +21,15 @@ export type EventType =
   | "experiment.analysis"
   | "experiment.screenshot.create"
   | "experiment.screenshot.delete"
+  | "experiment.refresh"
+  | "feature.create"
+  | "feature.update"
+  | "feature.toggle"
+  | "feature.rule.create"
+  | "feature.rule.update"
+  | "feature.rule.moved"
+  | "feature.rule.delete"
+  | "feature.delete"
   | "metric.create"
   | "metric.update"
   | "metric.delete"
@@ -29,7 +38,7 @@ export type EventType =
   | "datasource.update"
   | "datasource.delete"
   | "datasource.import"
-  | "commet.create"
+  | "comment.create"
   | "comment.update"
   | "comment.delete"
   | "user.create"
@@ -38,10 +47,7 @@ export type EventType =
   | "user.invite"
   | "organization.create"
   | "organization.update"
-  | "organization.delete"
-  | "snapshot.create.auto"
-  | "snapshot.create.manual"
-  | "snapshot.delete";
+  | "organization.delete";
 
 export interface AuditInterface {
   id: string;

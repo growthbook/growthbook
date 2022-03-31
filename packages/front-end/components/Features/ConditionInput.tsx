@@ -237,11 +237,12 @@ export default function ConditionInput(props: Props) {
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field
                       textarea
-                      placeholder="comma separated"
                       value={value}
                       onChange={onChange}
                       name="value"
+                      minRows={1}
                       containerClassName="col-sm-12 col-md mb-2"
+                      helpText="separate values by comma"
                     />
                   ) : attribute.enum.length ? (
                     <Field
