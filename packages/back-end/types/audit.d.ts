@@ -5,8 +5,7 @@ export type EntityType =
   | "datasource"
   | "comment"
   | "user"
-  | "organization"
-  | "snapshot";
+  | "organization";
 
 export type EventType =
   | "experiment.create"
@@ -22,6 +21,7 @@ export type EventType =
   | "experiment.analysis"
   | "experiment.screenshot.create"
   | "experiment.screenshot.delete"
+  | "experiment.refresh"
   | "feature.create"
   | "feature.update"
   | "feature.toggle"
@@ -47,10 +47,7 @@ export type EventType =
   | "user.invite"
   | "organization.create"
   | "organization.update"
-  | "organization.delete"
-  | "snapshot.create.auto"
-  | "snapshot.create.manual"
-  | "snapshot.delete";
+  | "organization.delete";
 
 export interface AuditInterface {
   id: string;

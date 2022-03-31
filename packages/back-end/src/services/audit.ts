@@ -94,35 +94,32 @@ export async function getWatchedAudits(
 }
 
 export function auditDetailsCreate<T>(
-  obj: T,
+  post: T,
   context: Record<string, unknown> = {}
 ): string {
   return JSON.stringify({
-    new: obj,
+    post,
     context,
   });
 }
 export function auditDetailsUpdate<T>(
-  oldObj: T,
-  newObj: Partial<T>,
+  pre: T,
+  post: T,
   context: Record<string, unknown> = {}
 ): string {
   return JSON.stringify({
-    old: oldObj,
-    new: {
-      ...oldObj,
-      ...newObj,
-    },
+    pre,
+    post,
     context,
   });
 }
 
 export function auditDetailsDelete<T>(
-  old: T,
+  pre: T,
   context: Record<string, unknown> = {}
 ): string {
   return JSON.stringify({
-    old,
+    pre,
     context,
   });
 }

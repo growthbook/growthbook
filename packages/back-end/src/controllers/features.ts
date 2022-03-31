@@ -190,7 +190,11 @@ export async function putFeatureRule(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(oldRule, rule, { environment }),
+    details: auditDetailsUpdate(
+      oldRule,
+      { ...oldRule, ...rule } as FeatureRule,
+      { environment }
+    ),
   });
 
   res.status(200).json({
@@ -364,7 +368,7 @@ export async function putFeature(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, updates),
+    details: auditDetailsUpdate(feature, { ...feature, ...updates }),
   });
 
   if (requiresWebhook) {
