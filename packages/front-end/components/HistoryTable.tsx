@@ -7,6 +7,9 @@ import Code from "./Code";
 import Link from "next/link";
 import { useMemo } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import Button from "./Button";
+import { BsArrowRepeat } from "react-icons/bs";
+import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 
 function EventDetails({
   eventType,
@@ -61,24 +64,35 @@ function EventDetails({
   return <Code language="json" code={JSON.stringify(json, null, 2)} />;
 }
 
-function HistoryTableRow({ event }: { event: AuditInterface }) {
-  const [open, setOpen] = useState(false);
-
+function HistoryTableRow({
+  event,
+  open,
+  setOpen,
+}: {
+  event: AuditInterface;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
   return (
     <>
-      <tr onClick={() => setOpen(!open)} style={{ cursor: "pointer" }}>
+      <tr
+        onClick={() => {
+          if (event.details) setOpen(!open);
+        }}
+        style={{ cursor: event.details ? "pointer" : "" }}
+        className={open ? "highlight" : event.details ? "hover-highlight" : ""}
+      >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
         <td>{event.user.name || event.user.email}</td>
         <td>{event.event}</td>
+        <td style={{ width: 30 }}>
+          {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
+        </td>
       </tr>
-      {open && (
+      {open && event.details && (
         <tr>
-          <td colSpan={3} className="bg-light">
-            {event.details ? (
-              <EventDetails eventType={event.event} details={event.details} />
-            ) : (
-              <em>No details</em>
-            )}
+          <td colSpan={4} className="bg-light p-3">
+            <EventDetails eventType={event.event} details={event.details} />
           </td>
         </tr>
       )}
@@ -90,9 +104,11 @@ const HistoryTable: FC<{
   type: "experiment" | "metric" | "feature";
   id: string;
 }> = ({ id, type }) => {
-  const { data, error } = useApi<{ events: AuditInterface[] }>(
+  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(
     `/history/${type}/${id}`
   );
+
+  const [open, setOpen] = useState("");
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -103,18 +119,40 @@ const HistoryTable: FC<{
 
   return (
     <>
-      <h4>Audit Log</h4>
-      <table className="table appbox table-hover">
+      <div className="row align-items-center">
+        <div className="col-auto">
+          <h4>Audit Log</h4>
+        </div>
+        <div className="col-auto ml-auto">
+          <Button
+            color="link btn-sm"
+            onClick={async () => {
+              await mutate();
+            }}
+          >
+            <BsArrowRepeat /> refresh
+          </Button>
+        </div>
+      </div>
+      <table className="table appbox">
         <thead>
           <tr>
             <th>Date</th>
             <th>User</th>
             <th>Event</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {data.events.map((event) => (
-            <HistoryTableRow event={event} key={event.id} />
+            <HistoryTableRow
+              event={event}
+              key={event.id}
+              open={open === event.id}
+              setOpen={(open) => {
+                setOpen(open ? event.id : "");
+              }}
+            />
           ))}
         </tbody>
       </table>

@@ -1818,7 +1818,12 @@ export async function postSnapshot(
           object: "experiment",
           id: exp.id,
         },
-        details: auditDetailsCreate(snapshot.toJSON()),
+        details: auditDetailsCreate({
+          phase,
+          users,
+          metrics,
+          manual: true,
+        }),
       });
       return;
     } catch (e) {
@@ -1853,7 +1858,12 @@ export async function postSnapshot(
         object: "experiment",
         id: exp.id,
       },
-      details: auditDetailsCreate(snapshot.toJSON()),
+      details: auditDetailsCreate({
+        phase,
+        dimension,
+        useCache,
+        manual: false,
+      }),
     });
     res.status(200).json({
       status: 200,
