@@ -3,34 +3,15 @@ import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 
-type SingleValue = { label: string; value: string };
-type GroupedValue = { label: string; options: SingleValue[] };
+export type SingleValue = { label: string; value: string };
+export type GroupedValue = { label: string; options: SingleValue[] };
 
-const SelectField: FC<
-  Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  > & {
-    value: string;
-    placeholder?: string;
-    options: (SingleValue | GroupedValue)[];
-    initialOption?: string;
-    onChange: (value: string) => void;
-    sort?: boolean;
-  }
-> = ({
-  value,
-  options,
-  onChange,
-  initialOption,
-  placeholder = "Select...",
-  sort = true,
-  disabled,
-  autoFocus,
-  required,
-  ...otherProps
-}) => {
-  const [map, sorted] = useMemo(() => {
+export function useSelectOptions(
+  options: (SingleValue | GroupedValue)[],
+  initialOption?: string,
+  sort?: boolean
+) {
+  return useMemo(() => {
     const m = new Map<string, SingleValue>();
     const clone = cloneDeep(options);
     if (sort) {
@@ -58,8 +39,80 @@ const SelectField: FC<
       clone.unshift({ label: initialOption, value: "" });
     }
 
-    return [m, clone];
+    return [m, clone] as const;
   }, [options, initialOption]);
+}
+
+export const ReactSelectProps = {
+  styles: {
+    menu: (base) => ({
+      ...base,
+      width: "max-content",
+      minWidth: "100%",
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    groupHeading: (base) => ({
+      ...base,
+      margin: "3px 0 0 -2px",
+      fontSize: "70%",
+    }),
+    group: (base) => ({
+      ...base,
+      paddingTop: 0,
+      paddingBottom: 0,
+    }),
+    option: (base) => ({
+      ...base,
+      padding: "6px 17px",
+    }),
+    multiValue: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "#F2ECFD",
+      };
+    },
+    multiValueLabel: (styles) => ({
+      ...styles,
+      color: "#7c45ea",
+      fontWeight: 600,
+    }),
+    multiValueRemove: (styles) => ({
+      ...styles,
+      color: "#7c45ea",
+      ":hover": {
+        backgroundColor: "#d3bbff",
+      },
+    }),
+  },
+  menuPosition: "fixed" as const,
+  isSearchable: true,
+};
+
+const SelectField: FC<
+  Omit<
+    FieldProps,
+    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+  > & {
+    value: string;
+    placeholder?: string;
+    options: (SingleValue | GroupedValue)[];
+    initialOption?: string;
+    onChange: (value: string) => void;
+    sort?: boolean;
+  }
+> = ({
+  value,
+  options,
+  onChange,
+  initialOption,
+  placeholder = "Select...",
+  sort = true,
+  disabled,
+  autoFocus,
+  required,
+  ...otherProps
+}) => {
+  const [map, sorted] = useSelectOptions(options, initialOption, sort);
   const selected = map.get(value);
 
   // eslint-disable-next-line
@@ -105,6 +158,7 @@ const SelectField: FC<
             </div>
             <div className="d-none d-lg-block">
               <ReactSelect
+                {...ReactSelectProps}
                 id={id}
                 ref={ref}
                 isDisabled={disabled || false}
@@ -112,33 +166,9 @@ const SelectField: FC<
                 onChange={(selected) => {
                   onChange(selected?.value || "");
                 }}
-                styles={{
-                  menu: (base) => ({
-                    ...base,
-                    width: "max-content",
-                    minWidth: "100%",
-                  }),
-                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                  groupHeading: (base) => ({
-                    ...base,
-                    margin: "3px 0 0 -2px",
-                    fontSize: "70%",
-                  }),
-                  group: (base) => ({
-                    ...base,
-                    paddingTop: 0,
-                    paddingBottom: 0,
-                  }),
-                  option: (base) => ({
-                    ...base,
-                    padding: "6px 17px",
-                  }),
-                }}
                 autoFocus={autoFocus}
                 value={selected}
                 placeholder={initialOption ?? placeholder}
-                menuPosition="fixed"
-                isSearchable
               />
             </div>
           </>

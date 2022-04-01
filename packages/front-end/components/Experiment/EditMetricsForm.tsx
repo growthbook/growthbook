@@ -43,6 +43,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          autoFocus={true}
         />
       </div>
       <div className="form-group">

@@ -85,7 +85,7 @@ const CompactResults: FC<{
               className="ml-2"
               style={{ fontSize: "0.8rem" }}
             >
-              Add/Remove Metrics
+              Adjust Metrics
             </a>
           )}
         </h3>

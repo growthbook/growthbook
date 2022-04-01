@@ -292,7 +292,7 @@ const Results: FC<{
                     className="ml-2"
                     style={{ fontSize: "0.8rem" }}
                   >
-                    Add/Remove Guardrails
+                    Adjust Guardrails
                   </a>
                 )}
               </h3>
