@@ -65,6 +65,24 @@ export const ReactSelectProps = {
       ...base,
       padding: "6px 17px",
     }),
+    multiValue: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "#F2ECFD",
+      };
+    },
+    multiValueLabel: (styles) => ({
+      ...styles,
+      color: "#7c45ea",
+      fontWeight: 600,
+    }),
+    multiValueRemove: (styles) => ({
+      ...styles,
+      color: "#7c45ea",
+      ":hover": {
+        backgroundColor: "#d3bbff",
+      },
+    }),
   },
   menuPosition: "fixed" as const,
   isSearchable: true,

@@ -8,7 +8,8 @@ const MetricsSelector: FC<{
   datasource?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
-}> = ({ datasource, selected, onChange }) => {
+  autoFocus?: boolean;
+}> = ({ datasource, selected, onChange, autoFocus }) => {
   const { metrics } = useDefinitions();
 
   const validMetrics = metrics.filter(
@@ -37,6 +38,7 @@ const MetricsSelector: FC<{
           };
         })}
         placeholder="Select metrics..."
+        autoFocus={autoFocus}
       />
       {Object.keys(tagCounts).length > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">
