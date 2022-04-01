@@ -1,4 +1,4 @@
-import { FC, MouseEventHandler, useMemo } from "react";
+import { FC, MouseEventHandler } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect, {
   components,
@@ -6,8 +6,6 @@ import ReactSelect, {
   MultiValueProps,
   Props,
 } from "react-select";
-import cloneDeep from "lodash/cloneDeep";
-
 import {
   SortableContainer,
   SortableContainerProps,
@@ -15,26 +13,17 @@ import {
   SortEndHandler,
   SortableHandle,
 } from "react-sortable-hoc";
-
-type SingleValue = { label: string; value: string };
-type GroupedValue = { label: string; options: SingleValue[] };
-
-function arrayMove<T>(array: readonly T[], from: number, to: number) {
-  const slicedArray = array.slice();
-  slicedArray.splice(
-    to < 0 ? array.length + to : to,
-    0,
-    slicedArray.splice(from, 1)[0]
-  );
-  return slicedArray;
-}
+import {
+  SingleValue,
+  GroupedValue,
+  useSelectOptions,
+  ReactSelectProps,
+} from "./SelectField";
+import { arrayMove } from "@dnd-kit/sortable";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
-    // this prevents the menu from being opened/closed when the user clicks
-    // on a value to begin dragging it. ideally, detecting a click (instead of
-    // a drag) would still focus the control and toggle the menu, but that
-    // requires some magic with refs that are out of scope for this example
+    // Hack to stop the dropdown from opening when the user starts dragging
     const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -75,48 +64,20 @@ const MultiSelectField: FC<
   autoFocus,
   ...otherProps
 }) => {
-  const [map, sorted] = useMemo(() => {
-    const m = new Map<string, SingleValue>();
-    const clone = cloneDeep(options);
-    if (sort) {
-      clone.sort((a, b) => {
-        return a.label.localeCompare(b.label);
-      });
-    }
-    clone.forEach((o) => {
-      if ("options" in o) {
-        const suboptions = o.options;
-        if (sort) {
-          suboptions.sort((a, b) => {
-            return a.label.localeCompare(b.label);
-          });
-        }
-        suboptions.forEach((option) => {
-          m.set(option.value, option);
-        });
-      } else {
-        m.set(o.value, o);
-      }
-    });
-
-    if (initialOption) {
-      clone.unshift({ label: initialOption, value: "" });
-    }
-
-    return [m, clone];
-  }, [options, initialOption]);
+  const [map, sorted] = useSelectOptions(options, initialOption, sort);
   const selected = value.map((v) => map.get(v)).filter(Boolean);
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
-    const newValue = arrayMove(
-      selected.map((v) => v.value),
-      oldIndex,
-      newIndex
+    onChange(
+      arrayMove(
+        selected.map((v) => v.value),
+        oldIndex,
+        newIndex
+      )
     );
-    onChange(newValue);
   };
 
   return (
@@ -141,7 +102,7 @@ const MultiSelectField: FC<
             }}
             components={{
               // eslint-disable-next-line
-                  // @ts-ignore We're failing to provide a required index prop to SortableElement
+              // @ts-ignore We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
             }}
@@ -149,8 +110,7 @@ const MultiSelectField: FC<
             autoFocus={autoFocus}
             value={selected}
             placeholder={initialOption ?? placeholder}
-            isSearchable
-            menuPosition="fixed"
+            {...ReactSelectProps}
           />
         );
       }}
