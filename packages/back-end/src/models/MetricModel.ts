@@ -44,6 +44,7 @@ const metricSchema = new mongoose.Schema({
   sql: String,
   aggregation: String,
   timestampColumn: String,
+  queryFormat: String,
   tags: [String],
   conditions: [
     {

@@ -63,4 +63,5 @@ export interface MetricInterface {
   anonymousIdColumn?: string;
   timestampColumn?: string;
   conditions?: Condition[];
+  queryFormat?: "sql" | "builder";
 }
