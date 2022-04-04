@@ -270,7 +270,7 @@ function getSchemaObject(type?: SchemaFormat) {
 
 function getTablePrefix(params: DataSourceParams) {
   // Postgres / Redshift
-  if ("defaultSchema" in params) {
+  if ("defaultSchema" in params && params.defaultSchema) {
     return params.defaultSchema + ".";
   }
   // BigQuery
