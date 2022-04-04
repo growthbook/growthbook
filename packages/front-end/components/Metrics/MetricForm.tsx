@@ -89,6 +89,49 @@ function validateQuerySettings(
     }
   }
 }
+function getRawSQLPreview({
+  userIdType,
+  userIdColumn,
+  anonymousIdColumn,
+  timestampColumn,
+  type,
+  table,
+  column,
+  conditions,
+}: Partial<MetricInterface>) {
+  const cols: string[] = [];
+  if (userIdType !== "user") {
+    cols.push((anonymousIdColumn || "anonymous_id") + " as anonymous_id");
+  }
+  if (userIdType !== "anonymous") {
+    cols.push((userIdColumn || "user_id") + " as user_id");
+  }
+  cols.push((timestampColumn || "received_at") + " as timestamp");
+  if (type !== "binomial") {
+    cols.push((column || "1") + " as value");
+  }
+
+  let where = "";
+  if (conditions.length) {
+    where =
+      "\nWHERE\n  " +
+      conditions
+        .map((c: Condition) => {
+          return (c.column || "_") + " " + c.operator + " '" + c.value + "'";
+        })
+        .join("\n  AND ");
+  }
+
+  return `SELECT\n  ${cols.join(",\n  ")}\nFROM ${table || "_"}${where}`;
+}
+function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
+  if (type === "binomial") {
+    return "";
+  } else if (type === "count") {
+    return `COUNT(${column ? "DISTINCT value" : "*"})`;
+  }
+  return `MAX(value)`;
+}
 
 const MetricForm: FC<MetricFormProps> = ({
   current,
@@ -261,33 +304,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
     onClose(true);
   });
-
-  const sqlPreviewData = {
-    userIdCol: [
-      value.userIdType !== "user"
-        ? (value.anonymousIdColumn || "anonymous_id") + " as anonymous_id"
-        : "",
-      value.userIdType !== "anonymous"
-        ? (value.userIdColumn || "user_id") + " as user_id"
-        : "",
-    ]
-      .filter(Boolean)
-      .join(",\n  "),
-    timestampCol: (value.timestampColumn || "received_at") + " as timestamp",
-    column:
-      value.type !== "binomial" ? `,\n  ${value.column || "1"} as value` : "",
-    where: value.conditions
-      .map((c: Condition) => {
-        return (c.column || "?") + " " + c.operator + " '" + c.value + "'";
-      })
-      .join("\n  AND "),
-    aggregate:
-      value.type === "binomial"
-        ? ""
-        : value.type === "count"
-        ? `COUNT(${value.column ? "DISTINCT value" : "*"})`
-        : `MAX(value)`,
-  };
 
   const riskError =
     value.loseRisk < value.winRisk
@@ -682,23 +698,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   <Code
                     language="sql"
                     theme="dark"
-                    code={`SELECT
-  ${sqlPreviewData.userIdCol},
-  ${sqlPreviewData.timestampCol}${sqlPreviewData.column}
-FROM
-  ${value.table || "?"}${
-                      sqlPreviewData.where
-                        ? "\nWHERE\n  " + sqlPreviewData.where
-                        : ""
-                    }`}
+                    code={getRawSQLPreview(value)}
                   />
-                  {sqlPreviewData.aggregate && (
+                  {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
                       <Code
                         language="sql"
                         theme="dark"
-                        code={sqlPreviewData.aggregate}
+                        code={getAggregateSQLPreview(value)}
                       />
                       <small className="text-muted">
                         When there are multiple metric rows for a user
