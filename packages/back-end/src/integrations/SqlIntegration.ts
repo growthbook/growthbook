@@ -311,6 +311,8 @@ export default abstract class SqlIntegration
       );
     }
 
+    const aggregate = this.getAggregateMetricColumn(params.metric, "m");
+
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -338,7 +340,7 @@ export default abstract class SqlIntegration
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
-            ${this.getAggregateMetricSqlValue(params.metric)} as value
+            ${aggregate} as value
           FROM
             __metric m
             ${
@@ -364,7 +366,7 @@ export default abstract class SqlIntegration
             -- Add in the aggregate metric value for each user
             SELECT
               ${this.dateTrunc("m.conversion_start")} as date,
-              ${this.getAggregateMetricSqlValue(params.metric)} as value
+              ${aggregate} as value
             FROM
               __metric m
               ${
@@ -587,6 +589,8 @@ export default abstract class SqlIntegration
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
+    const aggregate = this.getAggregateMetricColumn(metric, "m");
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -718,7 +722,7 @@ export default abstract class SqlIntegration
         SELECT
           d.variation,
           d.dimension,
-          ${this.getAggregateMetricSqlValue(metric)} as value
+          ${aggregate} as value
         FROM
           __distinctUsers d
           JOIN __metric m ON (
@@ -780,6 +784,10 @@ export default abstract class SqlIntegration
     throw new Error("Not implemented");
   }
 
+  private getMetricQueryFormat(metric: MetricInterface) {
+    return metric.queryFormat || (metric.sql ? "sql" : "builder");
+  }
+
   private getMetricCTE({
     metric,
     conversionWindowHours = 0,
@@ -795,43 +803,35 @@ export default abstract class SqlIntegration
     startDate: Date;
     endDate: Date | null;
   }) {
+    const queryFormat = this.getMetricQueryFormat(metric);
+
+    const cols = this.getMetricColumns(metric, "m");
+
     let userIdCol: string;
     let join = "";
     // Need to use userId, but metric is anonymous only
     if (userId && metric.userIdType === "anonymous") {
       userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql(
-        "m." + this.getAnonymousIdColumn(metric),
-        false
-      );
+      join = this.getIdentifiesJoinSql(cols.anonymousId, false);
     }
     // Need to use anonymousId, but metric is user only
     else if (!userId && metric.userIdType === "user") {
       userIdCol = "i.anonymous_id";
-      join = this.getIdentifiesJoinSql(
-        "m." + this.getUserIdColumn(metric),
-        true
-      );
+      join = this.getIdentifiesJoinSql(cols.userId, true);
     }
     // Otherwise, can query the metric directly
     else {
-      userIdCol =
-        "m." +
-        (userId
-          ? this.getUserIdColumn(metric)
-          : this.getAnonymousIdColumn(metric));
+      userIdCol = userId ? cols.userId : cols.anonymousId;
     }
 
-    const timestampCol = this.castUserDateCol(
-      "m." + this.getTimestampColumn(metric)
-    );
+    const timestampCol = this.castUserDateCol(cols.timestamp);
 
     const schema = this.getSchema();
 
     const where: string[] = [];
 
     // From old, deprecated query builder UI
-    if (metric.conditions?.length) {
+    if (queryFormat === "builder" && metric.conditions?.length) {
       metric.conditions.forEach((c) => {
         where.push(`m.${c.column} ${c.operator} '${c.value}'`);
       });
@@ -847,7 +847,7 @@ export default abstract class SqlIntegration
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as user_id,
-        ${this.getRawMetricSqlValue(metric, "m")} as value,
+        ${cols.value} as value,
         ${this.addHours(
           timestampCol,
           conversionDelayHours
@@ -858,9 +858,13 @@ export default abstract class SqlIntegration
         )} as conversion_end
       FROM
         ${
-          metric.sql
+          queryFormat === "sql"
             ? `(
-              ${replaceDateVars(metric.sql, startDate, endDate || undefined)}
+              ${replaceDateVars(
+                metric.sql || "",
+                startDate,
+                endDate || undefined
+              )}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
@@ -1018,74 +1022,55 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private getMetricColumn(metric: MetricInterface, alias = "m") {
-    if (metric.sql) return alias + ".value";
-
-    if (metric.type === "duration") {
-      // Custom SQL column expression
-      if (metric.column?.match(/\{alias\}/)) {
-        return metric.column.replace(/\{alias\}/g, alias);
-      }
-    }
-    return alias + "." + metric.column;
-  }
-
-  private getRawMetricSqlValue(metric: MetricInterface, alias: string = "m") {
-    if (metric.type === "binomial") {
-      return "1";
-    } else if (metric.sql) {
-      return alias + ".value";
-    } else if (metric.type === "count") {
-      return metric.column ? this.getMetricColumn(metric, alias) : "1";
-    } else if (metric.type === "duration") {
-      return this.getMetricColumn(metric, alias);
-    } else if (metric.type === "revenue") {
-      return this.getMetricColumn(metric, alias);
-    }
-    return "1";
-  }
-  private getAggregateMetricSqlValue(metric: MetricInterface) {
-    // For binomial metrics, a user having at least 1 row means they converted
-    // No need for aggregations
+  private getAggregateMetricColumn(metric: MetricInterface, alias = "m") {
     if (metric.type === "binomial") {
       return "1";
     }
 
-    // Custom aggregation
-    if (metric.aggregation) {
-      return this.capValue(metric.cap, metric.aggregation);
+    const queryFormat = this.getMetricQueryFormat(metric);
+    if (queryFormat === "sql") {
+      return this.capValue(
+        metric.cap,
+        metric.aggregation || `SUM(${alias}.value)`
+      );
     }
 
-    if (metric.type === "count") {
-      return this.capValue(
-        metric.cap,
-        metric.sql
-          ? `SUM(value)`
-          : `COUNT(${metric.column ? `DISTINCT value` : "*"})`
-      );
-    } else if (metric.type === "duration") {
-      return this.capValue(
-        metric.cap,
-        metric.sql ? `SUM(value)` : `MAX(value)`
-      );
-    } else if (metric.type === "revenue") {
-      return this.capValue(
-        metric.cap,
-        metric.sql ? `SUM(value)` : `MAX(value)`
-      );
+    return this.capValue(
+      metric.cap,
+      metric.type === "count"
+        ? `COUNT(${metric.column ? `DISTINCT ${alias}.value` : "*"})`
+        : `MAX(${alias}.value)`
+    );
+  }
+
+  private getMetricColumns(metric: MetricInterface, alias = "m") {
+    const queryFormat = this.getMetricQueryFormat(metric);
+
+    // Directly inputting SQL (preferred)
+    if (queryFormat === "sql") {
+      return {
+        anonymousId: `${alias}.anonymous_id`,
+        userId: `${alias}.user_id`,
+        timestamp: `${alias}.timestamp`,
+        value: metric.type === "binomial" ? "1" : `${alias}.value`,
+      };
     }
-    return "1";
-  }
-  private getUserIdColumn(metric: MetricInterface): string {
-    return metric.sql ? "user_id" : metric.userIdColumn || "user_id";
-  }
-  private getAnonymousIdColumn(metric: MetricInterface): string {
-    return metric.sql
-      ? "anonymous_id"
-      : metric.anonymousIdColumn || "anonymous_id";
-  }
-  private getTimestampColumn(metric: MetricInterface): string {
-    return metric.sql ? "timestamp" : metric.timestampColumn || "received_at";
+
+    // Using the query builder (legacy)
+    let valueCol = metric.column || "value";
+    if (metric.type === "duration" && valueCol.match(/\{alias\}/)) {
+      valueCol = valueCol.replace(/\{alias\}/g, alias);
+    } else {
+      valueCol = alias + "." + valueCol;
+    }
+    const value = metric.type !== "binomial" && metric.column ? valueCol : "1";
+
+    return {
+      anonymousId: `${alias}.${metric.anonymousIdColumn || "anonymous_id"}`,
+      userId: `${alias}.${metric.userIdColumn || "user_id"}`,
+      timestamp: `${alias}.${metric.timestampColumn || "received_at"}`,
+      value,
+    };
   }
 
   private getIdentitiesQuery(

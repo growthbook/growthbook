@@ -89,6 +89,49 @@ function validateQuerySettings(
     }
   }
 }
+function getRawSQLPreview({
+  userIdType,
+  userIdColumn,
+  anonymousIdColumn,
+  timestampColumn,
+  type,
+  table,
+  column,
+  conditions,
+}: Partial<MetricInterface>) {
+  const cols: string[] = [];
+  if (userIdType !== "user") {
+    cols.push((anonymousIdColumn || "anonymous_id") + " as anonymous_id");
+  }
+  if (userIdType !== "anonymous") {
+    cols.push((userIdColumn || "user_id") + " as user_id");
+  }
+  cols.push((timestampColumn || "received_at") + " as timestamp");
+  if (type !== "binomial") {
+    cols.push((column || "1") + " as value");
+  }
+
+  let where = "";
+  if (conditions.length) {
+    where =
+      "\nWHERE\n  " +
+      conditions
+        .map((c: Condition) => {
+          return (c.column || "_") + " " + c.operator + " '" + c.value + "'";
+        })
+        .join("\n  AND ");
+  }
+
+  return `SELECT\n  ${cols.join(",\n  ")}\nFROM ${table || "_"}${where}`;
+}
+function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
+  if (type === "binomial") {
+    return "";
+  } else if (type === "count") {
+    return `COUNT(${column ? "DISTINCT value" : "*"})`;
+  }
+  return `MAX(value)`;
+}
 
 const MetricForm: FC<MetricFormProps> = ({
   current,
@@ -102,9 +145,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
-  const [sqlInput, setSqlInput] = useState(
-    current?.sql || !current?.table ? true : false
-  );
 
   useEffect(() => {
     track("View Metric Form", {
@@ -150,6 +190,7 @@ const MetricForm: FC<MetricFormProps> = ({
       column: current.column || "",
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
+      queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
@@ -176,6 +217,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const value = {
     name: form.watch("name"),
+    queryFormat: form.watch("queryFormat"),
     datasource: form.watch("datasource"),
     timestampColumn: form.watch("timestampColumn"),
     userIdColumn: form.watch("userIdColumn"),
@@ -227,7 +269,6 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
-      sql,
       ...otherValues
     } = value;
 
@@ -237,7 +278,6 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
-      sql: sqlInput ? sql : "",
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -264,50 +304,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
     onClose(true);
   });
-
-  const sqlPreviewData = {
-    userIdCol: "",
-    timestampCol: value.timestampColumn || "received_at",
-    weekAgo: weekAgo.toISOString().substr(0, 10),
-    column: "",
-    where: value.conditions
-      .map((c: Condition) => {
-        return (
-          "  AND " + (c.column || "?") + " " + c.operator + " '" + c.value + "'"
-        );
-      })
-      .join("\n"),
-  };
-  if (value.userIdType === "user") {
-    sqlPreviewData.userIdCol = value.userIdColumn || "user_id";
-  } else if (value.userIdType === "anonymous") {
-    sqlPreviewData.userIdCol = value.anonymousIdColumn || "anonymous_id";
-  } else {
-    sqlPreviewData.userIdCol =
-      (value.userIdColumn || "user_id") +
-      " /*or " +
-      (value.anonymousIdColumn || "anonymous_id") +
-      "*/";
-  }
-
-  if (value.type === "count") {
-    if (!value.column || value.column === "*") {
-      sqlPreviewData.column = "COUNT(*) as count";
-    } else {
-      sqlPreviewData.column =
-        "COUNT(\n    DISTINCT " + (value.column || "?") + "\n  ) as count";
-    }
-  } else if (value.type === "duration") {
-    sqlPreviewData.column =
-      "MAX(\n    " + (value.column || "?") + "\n  ) as duration";
-  } else if (value.type === "revenue") {
-    sqlPreviewData.column =
-      "MAX(\n    " + (value.column || "?") + "\n  ) as revenue";
-  }
-  if (sqlPreviewData.column) {
-    sqlPreviewData.column =
-      ",\n  " + sqlPreviewData.column.replace(/\{\s*alias\s*\}\./g, "");
-  }
 
   const riskError =
     value.loseRisk < value.winRisk
@@ -340,7 +336,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
             form.setValue("sql", sql);
             form.setValue("userIdType", userType);
-            setSqlInput(true);
+            form.setValue("queryFormat", "sql");
           }
         }}
       >
@@ -402,7 +398,7 @@ const MetricForm: FC<MetricFormProps> = ({
         validate={async () => {
           validateQuerySettings(
             datasourceSettingsSupport,
-            supportsSQL && sqlInput,
+            supportsSQL && value.queryFormat === "sql",
             value
           );
         }}
@@ -416,8 +412,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 name="input-mode"
                 value="sql"
                 id="sql-input-mode"
-                checked={sqlInput}
-                onChange={(e) => setSqlInput(e.target.checked)}
+                checked={value.queryFormat === "sql"}
+                onChange={(e) =>
+                  form.setValue(
+                    "queryFormat",
+                    e.target.checked ? "sql" : "builder"
+                  )
+                }
               />
               <label className="form-check-label" htmlFor="sql-input-mode">
                 SQL
@@ -430,8 +431,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 name="input-mode"
                 value="builder"
                 id="query-builder-input-mode"
-                checked={!sqlInput}
-                onChange={(e) => setSqlInput(!e.target.checked)}
+                checked={value.queryFormat === "builder"}
+                onChange={(e) =>
+                  form.setValue(
+                    "queryFormat",
+                    e.target.checked ? "builder" : "sql"
+                  )
+                }
               />
               <label
                 className="form-check-label"
@@ -444,7 +450,7 @@ const MetricForm: FC<MetricFormProps> = ({
         )}
         <div className="row">
           <div className="col-lg">
-            {supportsSQL && sqlInput ? (
+            {supportsSQL && value.queryFormat === "sql" ? (
               <div>
                 <Field
                   label="User Types Supported"
@@ -652,7 +658,7 @@ const MetricForm: FC<MetricFormProps> = ({
           </div>
           {supportsSQL && (
             <div className="col-lg pt-2">
-              {sqlInput ? (
+              {value.queryFormat === "sql" ? (
                 <div>
                   <h4>SQL Query Instructions</h4>
                   <p className="mt-3">
@@ -687,20 +693,26 @@ const MetricForm: FC<MetricFormProps> = ({
                 </div>
               ) : (
                 <>
-                  Query Preview:
+                  <h4>Query Preview</h4>
+                  SQL:
                   <Code
                     language="sql"
-                    code={`SELECT
-  ${sqlPreviewData.userIdCol}${sqlPreviewData.column}
-FROM
-  ${value.table || "?"}
-WHERE
-  ${sqlPreviewData.timestampCol} > '${sqlPreviewData.weekAgo}'${
-                      sqlPreviewData.where ? "\n" + sqlPreviewData.where : ""
-                    }
-GROUP BY
-  ${sqlPreviewData.userIdCol}`}
+                    theme="dark"
+                    code={getRawSQLPreview(value)}
                   />
+                  {value.type !== "binomial" && (
+                    <div className="mt-2">
+                      User Value Aggregation:
+                      <Code
+                        language="sql"
+                        theme="dark"
+                        code={getAggregateSQLPreview(value)}
+                      />
+                      <small className="text-muted">
+                        When there are multiple metric rows for a user
+                      </small>
+                    </div>
+                  )}
                 </>
               )}
             </div>

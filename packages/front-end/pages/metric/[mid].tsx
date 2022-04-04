@@ -670,7 +670,9 @@ const MetricPage: FC = () => {
                   open={() => setEditModalOpen(1)}
                   canOpen={canEdit}
                 >
-                  {supportsSQL && metric.sql ? (
+                  {supportsSQL &&
+                  metric.queryFormat !== "builder" &&
+                  metric.sql ? (
                     <div>
                       Metric SQL:
                       <Code language="sql" code={metric.sql} />
