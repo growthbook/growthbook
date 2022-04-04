@@ -311,7 +311,7 @@ export default abstract class SqlIntegration
       );
     }
 
-    const { aggregate } = this.getMetricColumns(params.metric, "m");
+    const aggregate = this.getAggregateMetricColumn(params.metric, "m");
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -589,7 +589,7 @@ export default abstract class SqlIntegration
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
-    const { aggregate } = this.getMetricColumns(metric, "m");
+    const aggregate = this.getAggregateMetricColumn(metric, "m");
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -1022,7 +1022,28 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private getMetricColumns(metric: MetricInterface, alias: string = "m") {
+  private getAggregateMetricColumn(metric: MetricInterface, alias = "m") {
+    if (metric.type === "binomial") {
+      return "1";
+    }
+
+    const queryFormat = this.getMetricQueryFormat(metric);
+    if (queryFormat === "sql") {
+      return this.capValue(
+        metric.cap,
+        metric.aggregation || `SUM(${alias}.value)`
+      );
+    }
+
+    return this.capValue(
+      metric.cap,
+      metric.type === "count"
+        ? `COUNT(${metric.column ? `DISTINCT ${alias}.value` : "*"})`
+        : `MAX(${alias}.value)`
+    );
+  }
+
+  private getMetricColumns(metric: MetricInterface, alias = "m") {
     const queryFormat = this.getMetricQueryFormat(metric);
 
     // Directly inputting SQL (preferred)
@@ -1032,13 +1053,6 @@ export default abstract class SqlIntegration
         userId: `${alias}.user_id`,
         timestamp: `${alias}.timestamp`,
         value: metric.type === "binomial" ? "1" : `${alias}.value`,
-        aggregate:
-          metric.type === "binomial"
-            ? "1"
-            : this.capValue(
-                metric.cap,
-                metric.aggregation || `SUM(${alias}.value)`
-              ),
       };
     }
 
@@ -1056,15 +1070,6 @@ export default abstract class SqlIntegration
       userId: `${alias}.${metric.userIdColumn || "user_id"}`,
       timestamp: `${alias}.${metric.timestampColumn || "received_at"}`,
       value,
-      aggregate:
-        metric.type === "binomial"
-          ? "1"
-          : this.capValue(
-              metric.cap,
-              metric.type === "count"
-                ? `COUNT(${metric.column ? `DISTINCT ${alias}.value` : "*"})`
-                : `MAX(${alias}.value)`
-            ),
     };
   }
 
