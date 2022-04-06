@@ -25,52 +25,7 @@ const dataSourceSchema = new mongoose.Schema({
   dateUpdated: Date,
   type: { type: String },
   params: String,
-  settings: {
-    notebookRunQuery: String,
-    schemaFormat: String,
-    queries: {
-      experimentsQuery: String,
-      identityJoins: [
-        {
-          _id: false,
-          ids: [String],
-          query: String,
-        },
-      ],
-      // @deprecated
-      pageviewsQuery: String,
-    },
-    events: {
-      experimentEvent: String,
-      experimentIdProperty: String,
-      variationIdProperty: String,
-    },
-    experimentDimensions: [String],
-
-    // Deprecated
-    default: {
-      timestampColumn: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-    },
-    experiments: {
-      table: String,
-      timestampColumn: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-      experimentIdColumn: String,
-      variationColumn: String,
-    },
-    users: {
-      table: String,
-      userIdColumn: String,
-    },
-    identifies: {
-      table: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-    },
-  },
+  settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -81,7 +36,37 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 );
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
-  return doc.toJSON();
+  return upgradeDatasourceObject(doc.toJSON());
+}
+export function upgradeDatasourceObject(
+  datasource: DataSourceInterface
+): DataSourceInterface {
+  const settings = datasource.settings;
+
+  if (!settings?.ids) {
+    settings.ids = [
+      {
+        id: "user_id",
+        description: "Logged-in user id",
+      },
+      {
+        id: "anonymous_id",
+        description: "Anonymous visitor id",
+      },
+    ];
+  }
+  if (settings?.queries?.experimentsQuery && !settings?.queries?.exposure) {
+    settings.queries.exposure = {
+      main: {
+        description: "Main experiment exposures table",
+        dimensions: datasource.settings.experimentDimensions || [],
+        ids: ["user_id", "anonymous_id"],
+        query: settings.queries.experimentsQuery,
+      },
+    };
+  }
+
+  return datasource;
 }
 
 export async function getDataSourcesByOrganization(organization: string) {
