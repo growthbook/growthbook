@@ -9,10 +9,12 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
+  getSourceIntegrationObject,
   testDataSourceConnection,
 } from "../services/datasource";
 import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
+import SqlIntegration from "../integrations/SqlIntegration";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -38,32 +40,61 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
 }
+
+function getExperimentQuery(
+  settings: DataSourceSettings,
+  schema?: string
+): string {
+  return `SELECT
+  ${
+    settings?.experiments?.userIdColumn ||
+    settings?.default?.userIdColumn ||
+    "user_id"
+  } as user_id,
+  ${
+    settings?.experiments?.anonymousIdColumn ||
+    settings?.default?.anonymousIdColumn ||
+    "anonymous_id"
+  } as anonymous_id,
+  ${
+    settings?.experiments?.timestampColumn ||
+    settings?.default?.timestampColumn ||
+    "received_at"
+  } as timestamp,
+  ${
+    settings?.experiments?.experimentIdColumn || "experiment_id"
+  } as experiment_id,
+  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
+FROM 
+  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
+    settings?.experiments?.table || "experiment_viewed"
+  }`;
+}
+
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface
 ): DataSourceInterface {
   const settings = datasource.settings;
 
-  if (!settings?.ids) {
-    settings.ids = [
-      {
-        id: "user_id",
-        description: "Logged-in user id",
-      },
-      {
-        id: "anonymous_id",
-        description: "Anonymous visitor id",
-      },
-    ];
-  }
-  if (settings?.queries?.experimentsQuery && !settings?.queries?.exposure) {
-    settings.queries.exposure = {
-      main: {
-        description: "Main experiment exposures table",
-        dimensions: datasource.settings.experimentDimensions || [],
-        ids: ["user_id", "anonymous_id"],
-        query: settings.queries.experimentsQuery,
-      },
-    };
+  // Upgrade old docs to the new exposure queries format
+  if (!settings?.queries?.exposure) {
+    const integration = getSourceIntegrationObject(datasource);
+    if (integration instanceof SqlIntegration) {
+      settings.queries = settings.queries || {};
+      settings.queries.exposure = [
+        {
+          id: "main",
+          name: "Main",
+          description: "Main experiment exposures table",
+          userIdTypes: ["anonymous_id", "user_id"],
+          dimensions: datasource.settings.experimentDimensions || [],
+          query: getExperimentQuery(
+            datasource.settings,
+            integration.getSchema()
+          ),
+        },
+      ];
+    }
   }
 
   return datasource;

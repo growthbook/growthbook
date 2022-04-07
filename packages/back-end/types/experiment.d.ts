@@ -51,8 +51,9 @@ export interface ExperimentInterface {
   project?: string;
   owner: string;
   datasource: string;
+  exposureQueryId: string;
   implementation: ImplementationType;
-  userIdType?: "anonymous" | "user";
+  userIdType?: string;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;

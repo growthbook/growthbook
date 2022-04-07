@@ -40,6 +40,7 @@ const metricSchema = new mongoose.Schema({
   segment: String,
   anonymousIdColumn: String,
   userIdType: String,
+  userIdTypes: [String],
   status: String,
   sql: String,
   aggregation: String,
@@ -91,16 +92,25 @@ function toInterface(doc: MetricDocument): MetricInterface {
 }
 
 export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+  const newDoc = { ...doc };
+
   if (doc.conversionDelayHours == null && doc.earlyStart) {
-    return {
-      ...doc,
-      conversionDelayHours: -0.5,
-      conversionWindowHours:
-        (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
-    };
+    newDoc.conversionDelayHours = -0.5;
+    newDoc.conversionWindowHours =
+      (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5;
   }
 
-  return doc;
+  if (!doc.userIdTypes?.length) {
+    if (doc.userIdType === "user") {
+      doc.userIdTypes = ["user_id"];
+    } else if (doc.userIdType === "anonymous") {
+      doc.userIdTypes = ["anonymous_id"];
+    } else {
+      doc.userIdTypes = ["anonymous_id", "user_id"];
+    }
+  }
+
+  return newDoc;
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {

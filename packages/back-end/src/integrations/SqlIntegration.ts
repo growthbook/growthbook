@@ -57,40 +57,6 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   return sql;
 }
 
-export function getExperimentQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.experimentsQuery) {
-    return settings.queries.experimentsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.experiments?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.experiments?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.experiments?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
-}
-
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -195,19 +161,41 @@ export default abstract class SqlIntegration
     return column;
   }
 
+  private getExposureQuery(exposureQueryId: string) {
+    const queries = this.settings?.queries?.exposure || [];
+
+    const match = queries.find((q) => q.id === exposureQueryId);
+
+    if (match) {
+      return match;
+    }
+
+    if (!exposureQueryId && queries.length) {
+      return queries[0];
+    }
+
+    return {
+      id: "",
+      name: "Missing exposure query",
+      dimensions: [],
+      query: `-- ERROR: Missing exposure query
+      SELECT '' as anonymous_id, '' as user_id, '' as timestamp, '' as experiment_id, '' as variation_id`,
+    };
+  }
+
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
 
     const now = new Date();
 
+    // TODO: for past experiments, UNION all exposure queries together
+    const experimentQuery = this.getExposureQuery("");
+
     return format(
       `-- Past Experiments
     WITH
       __experiments as (
-        ${replaceDateVars(
-          getExperimentQuery(this.settings, this.getSchema()),
-          params.from
-        )}
+        ${experimentQuery.query}
       ),
       __experimentDates as (
         SELECT
@@ -556,6 +544,11 @@ export default abstract class SqlIntegration
       segment,
     } = params;
 
+    const exposureQuery = this.getExposureQuery(
+      experiment.exposureQueryId || ""
+    );
+
+    // TODO: support multiple user id types
     const userId = experiment.userIdType === "user";
 
     const activationDimension =
@@ -603,7 +596,7 @@ export default abstract class SqlIntegration
       })}
       __rawExperiment as (
         ${replaceDateVars(
-          getExperimentQuery(this.settings, this.getSchema()),
+          exposureQuery.query,
           phase.dateStarted,
           phase.dateEnded
         )}

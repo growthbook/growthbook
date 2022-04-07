@@ -48,7 +48,9 @@ export interface MetricInterface {
   segment?: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
+  /** @deprecated */
   userIdType?: "anonymous" | "user" | "either";
+  userIdTypes?: string[];
   queries: Queries;
   runStarted: Date | null;
   analysis?: MetricAnalysis;

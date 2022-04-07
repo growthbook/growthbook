@@ -80,8 +80,10 @@ export interface RandomizationId {
 }
 
 export interface ExposureQuery {
+  id: string;
+  name: string;
   description?: string;
-  ids: string[];
+  userIdTypes: string[];
   query: string;
   dimensions: string[];
 }
@@ -95,7 +97,7 @@ export type DataSourceSettings = {
   queries?: {
     // @deprecated
     experimentsQuery?: string;
-    exposure?: Record<string, ExposureQuery>;
+    exposure?: ExposureQuery[];
     identityJoins?: IdentityJoinQuery[];
     // @deprecated
     pageviewsQuery?: string;
