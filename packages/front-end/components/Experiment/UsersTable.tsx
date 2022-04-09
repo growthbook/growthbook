@@ -7,10 +7,9 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { formatTrafficSplit } from "../../services/utils";
+import { SRM_THRESHOLD } from "./SRMWarning";
 
 const numberFormatter = new Intl.NumberFormat();
-
-const SRM_THRESHOLD = 0.001;
 
 const UsersTable: FC<{
   results: ExperimentReportResultDimension[];

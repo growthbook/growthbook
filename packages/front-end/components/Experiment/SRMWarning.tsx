@@ -2,6 +2,8 @@ import { FC, useState } from "react";
 import { formatTrafficSplit } from "../../services/utils";
 import Modal from "../Modal";
 
+export const SRM_THRESHOLD = 0.001;
+
 const SRMWarning: FC<{
   srm: number;
   expected: number[];
@@ -9,7 +11,7 @@ const SRMWarning: FC<{
 }> = ({ srm, expected, observed }) => {
   const [open, setOpen] = useState(false);
 
-  if (typeof srm !== "number" || srm >= 0.001) {
+  if (typeof srm !== "number" || srm >= SRM_THRESHOLD) {
     return null;
   }
 
