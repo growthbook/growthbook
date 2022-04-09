@@ -28,6 +28,12 @@ const DataQualityWarning: FC<{
   }
 
   // SRM check
-  return <SRMWarning srm={results.srm} />;
+  return (
+    <SRMWarning
+      srm={results.srm}
+      expected={variations.map((v) => v.weight)}
+      observed={results.variations.map((v) => v.users)}
+    />
+  );
 };
 export default DataQualityWarning;

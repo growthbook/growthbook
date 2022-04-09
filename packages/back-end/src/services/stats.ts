@@ -13,6 +13,7 @@ import {
 import { QueryMap } from "./queries";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
+import { jStat } from "jstat";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -226,7 +227,7 @@ export async function analyzeExperimentResults(
         result.dimensions.forEach((row) => {
           const dim = dimensionMap.get(row.dimension) || {
             name: row.dimension,
-            srm: row.srm,
+            srm: 1,
             variations: [],
           };
 
@@ -257,6 +258,14 @@ export async function analyzeExperimentResults(
       srm: 1,
       variations: [],
     });
+  } else {
+    dimensions.forEach((dimension) => {
+      // Calculate SRM
+      dimension.srm = checkSrm(
+        dimension.variations.map((v) => v.users),
+        variations.map((v) => v.weight)
+      );
+    });
   }
 
   return {
@@ -264,4 +273,33 @@ export async function analyzeExperimentResults(
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };
+}
+
+export function checkSrm(users: number[], weights: number[]) {
+  // Skip variations with weight=0 or users=0
+  const realUsers: number[] = [];
+  const realWeights: number[] = [];
+  let totalUsers = 0;
+  let totalWeight = 0;
+  for (let i = 0; i < weights.length; i++) {
+    if (!weights[i]) continue;
+    if (!users[i]) continue;
+    realUsers.push(users[i]);
+    realWeights.push(weights[i]);
+    totalUsers += users[i];
+    totalWeight += weights[i];
+  }
+
+  // Skip SRM calculation if there aren't enough valid variations
+  if (realUsers.length < 2) {
+    return 1;
+  }
+
+  // Calculate and return SRM p-value using a ChiSquare test
+  let x = 0;
+  realUsers.forEach((o, i) => {
+    const e = (realWeights[i] / totalWeight) * totalUsers;
+    x += Math.pow(o - e, 2) / e;
+  });
+  return 1 - jStat.chisquare.cdf(x, realUsers.length - 1);
 }

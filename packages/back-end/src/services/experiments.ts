@@ -9,7 +9,7 @@ import {
   updateMetric,
 } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric, checkSrm } from "./stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
@@ -466,7 +466,6 @@ export async function getManualSnapshotData(
     users: users[i],
     metrics: {},
   }));
-  let srm = 0;
 
   await promiseAllChunks(
     Object.keys(metrics).map((m) => {
@@ -493,11 +492,12 @@ export async function getManualSnapshotData(
         data.variations.map((v, i) => {
           variations[i].metrics[m] = v;
         });
-        srm = data.srm;
       };
     }),
     3
   );
+
+  const srm = checkSrm(users, phase.variationWeights);
 
   return {
     srm,
