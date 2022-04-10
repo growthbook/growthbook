@@ -14,6 +14,7 @@ import {
   getMetricConversionTitle,
 } from "../../services/metrics";
 import Field from "../Forms/Field";
+import { SRM_THRESHOLD } from "./SRMWarning";
 
 type SnapshotPreview = {
   srm: number;
@@ -217,7 +218,7 @@ const ManualSnapshotForm: FC<{
                 />
               </div>
             ))}
-            {preview && preview.srm < 0.001 && (
+            {preview && preview.srm < SRM_THRESHOLD && (
               <div className="col-12">
                 <div className="my-2 alert alert-danger">
                   Sample Ratio Mismatch (SRM) detected. Please double check the
