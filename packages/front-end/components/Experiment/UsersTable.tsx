@@ -62,7 +62,12 @@ const UsersTable: FC<{
       </h2>
       {hasSrm && (
         <div className="alert alert-danger">
-          One or more dimensions has a Sample Ratio Mismatch (SRM)
+          One or more dimensions has a Sample Ratio Mismatch (SRM){" "}
+          <Tooltip
+            text={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
+          >
+            <FaQuestionCircle />
+          </Tooltip>
         </div>
       )}
       <table className="table w-auto table-bordered mb-5">
@@ -74,14 +79,7 @@ const UsersTable: FC<{
             ))}
             <th>Expected</th>
             <th>Actual</th>
-            <th>
-              SRM P-Value{" "}
-              <Tooltip
-                text={`Sample Ratio Mismatch (SRM) occurs when the actual traffic split is not what we expect. A small value (<${SRM_THRESHOLD}) indicates a likely bug.`}
-              >
-                <FaQuestionCircle />
-              </Tooltip>
-            </th>
+            <th>SRM P-Value</th>
           </tr>
         </thead>
         <tbody>
