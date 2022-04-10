@@ -35,7 +35,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const permissions = usePermissions();
 
-  const tagsFilter = useTagsFilter();
+  const tagsFilter = useTagsFilter("metrics");
 
   const [showArchived, setShowArchived] = useState(false);
 
@@ -208,7 +208,7 @@ const MetricsPage = (): React.ReactElement => {
             Show archived
           </div>
         )}
-        <div className="col-auto">
+        <div className="col">
           <TagsFilter filter={tagsFilter} items={sorted} />
         </div>
       </div>
