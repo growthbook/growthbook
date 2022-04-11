@@ -25,7 +25,7 @@ export function phaseSummary(
       </span>{" "}
       traffic,{" "}
       <span className="split">
-        {formatTrafficSplit(phase.variationWeights)}
+        {formatTrafficSplit(phase.variationWeights || [])}
       </span>{" "}
       split
     </>
