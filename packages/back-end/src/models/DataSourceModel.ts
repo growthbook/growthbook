@@ -41,21 +41,27 @@ function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
 }
 
-function getExperimentQuery(
+function getDefaultExperimentQuery(
   settings: DataSourceSettings,
+  userIdType = "user_id",
   schema?: string
 ): string {
+  let column = userIdType;
+
+  if (userIdType === "user_id") {
+    column =
+      settings?.experiments?.userIdColumn ||
+      settings?.default?.userIdColumn ||
+      "user_id";
+  } else if (userIdType === "anonymous_id") {
+    column =
+      settings?.experiments?.anonymousIdColumn ||
+      settings?.default?.anonymousIdColumn ||
+      "anonymous_id";
+  }
+
   return `SELECT
-  ${
-    settings?.experiments?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.experiments?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
+  ${column} as ${userIdType},
   ${
     settings?.experiments?.timestampColumn ||
     settings?.default?.timestampColumn ||
@@ -76,6 +82,20 @@ export function upgradeDatasourceObject(
 ): DataSourceInterface {
   const settings = datasource.settings;
 
+  // Add default randomization units
+  if (!settings?.userIdTypes) {
+    settings.userIdTypes = [
+      {
+        id: "user_id",
+        description: "Logged-in User Id",
+      },
+      {
+        id: "anonymous_id",
+        description: "Anonymous Visitor id",
+      },
+    ];
+  }
+
   // Upgrade old docs to the new exposure queries format
   if (!settings?.queries?.exposure) {
     const integration = getSourceIntegrationObject(datasource);
@@ -83,15 +103,32 @@ export function upgradeDatasourceObject(
       settings.queries = settings.queries || {};
       settings.queries.exposure = [
         {
-          id: "main",
-          name: "Main",
-          description: "Main experiment exposures table",
-          userIdTypes: ["anonymous_id", "user_id"],
-          dimensions: datasource.settings.experimentDimensions || [],
-          query: getExperimentQuery(
-            datasource.settings,
-            integration.getSchema()
-          ),
+          id: "user_id",
+          name: "Logged-in User Experiments",
+          description: "",
+          userIdType: "user_id",
+          dimensions: settings.experimentDimensions || [],
+          query:
+            settings.queries.experimentsQuery ||
+            getDefaultExperimentQuery(
+              settings,
+              "user_id",
+              integration.getSchema()
+            ),
+        },
+        {
+          id: "anonymous_id",
+          name: "Anonymous Visitor Experiments",
+          description: "",
+          userIdType: "anonymous_id",
+          dimensions: settings.experimentDimensions || [],
+          query:
+            settings.queries.experimentsQuery ||
+            getDefaultExperimentQuery(
+              settings,
+              "anonymous_id",
+              integration.getSchema()
+            ),
         },
       ];
     }

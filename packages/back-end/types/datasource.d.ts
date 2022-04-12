@@ -43,7 +43,8 @@ export type SchemaFormat =
   | "custom";
 
 export interface SchemaInterface {
-  getExperimentSQL(tablePrefix: string): string;
+  getExperimentSQL(tablePrefix: string, userId: string): string;
+  getUserIds(): string[];
   getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
   experimentDimensions: string[];
   metricUserIdType: "user" | "anonymous" | "either";
@@ -83,7 +84,7 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
-  userIdTypes: string[];
+  userIdType: string;
   query: string;
   dimensions: string[];
 }
@@ -93,7 +94,7 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
-  ids?: RandomizationId[];
+  userIdTypes?: RandomizationId[];
   queries?: {
     // @deprecated
     experimentsQuery?: string;

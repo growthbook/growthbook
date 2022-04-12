@@ -23,10 +23,14 @@ const GA4Schema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix) => {
+  getUserIds: () => {
+    return ["user_id", "anonymous_id"];
+  },
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "user_pseudo_id";
+
     return `SELECT
-  user_id,
-  user_pseudo_id as anonymous_id,
+  ${userCol} as ${userId},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   experiment_id_param.value.string_value AS experiment_id,
   variation_id_param.value.int_value AS variation_id,
@@ -86,10 +90,14 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix) => {
+  getUserIds: () => {
+    return ["user_id", "anonymous_id"];
+  },
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "domain_userid";
+
     return `SELECT
-  user_id,
-  domain_userid as anonymous_id,
+  ${userCol} as ${userId},
   collector_tstamp as timestamp,
   se_label as experiment_id,
   se_property as variation_id,
@@ -130,10 +138,12 @@ WHERE
 
 const CustomSchema: SchemaInterface = {
   experimentDimensions: [],
-  getExperimentSQL: (tablePrefix) => {
+  getUserIds: () => {
+    return ["user_id", "anonymous_id"];
+  },
+  getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
-  user_id as user_id,
-  anonymous_id as anonymous_id,
+  ${userId},
   timestamp as timestamp,
   experiment_id as experiment_id,
   variation_id as variation_id
@@ -162,10 +172,14 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getExperimentSQL: (tablePrefix) => {
+  getUserIds: () => {
+    return ["user_id", "anonymous_id"];
+  },
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+
     return `SELECT
-  user_id,
-  $amplitude_id as anonymous_id,
+  ${userCol} as ${userId},
   event_time as timestamp,
   event_properties:experiment_id as experiment_id,
   event_properties:variation_id as variation_id,
@@ -204,10 +218,12 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getExperimentSQL: (tablePrefix) => {
+  getUserIds: () => {
+    return ["user_id", "anonymous_id"];
+  },
+  getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
-  user_id,
-  anonymous_id,
+  ${userId},
   received_at as timestamp,
   experiment_id,
   variation_id,
@@ -304,10 +320,23 @@ export function getInitialSettings(
   params: DataSourceParams
 ): Partial<DataSourceSettings> {
   const schema = getSchemaObject(type);
+  const userIds = schema.getUserIds();
   return {
-    experimentDimensions: schema.experimentDimensions,
+    userIdTypes: userIds.map((id) => ({ id, description: "" })),
     queries: {
-      experimentsQuery: schema.getExperimentSQL(getTablePrefix(params)),
+      exposure: userIds.map((id) => ({
+        id,
+        userIdType: id,
+        dimensions: schema.experimentDimensions,
+        name:
+          id === "user_id"
+            ? "Logged-in Users"
+            : id === "anonymous_id"
+            ? "Anonymous Visitors"
+            : id,
+        description: "",
+        query: schema.getExperimentSQL(getTablePrefix(params), id),
+      })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params)),
     },
   };
