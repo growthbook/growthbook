@@ -18,6 +18,7 @@
     "@sentry/react": "^6.17.9",
     "@visx/axis": "^2.1.0",
     "@visx/curve": "^2.1.0",
+    "@visx/event": "^2.6.0",
     "@visx/grid": "^2.1.0",
     "@visx/responsive": "^2.1.0",
     "@visx/scale": "^2.1.0",

@@ -3122,6 +3122,14 @@
     "@types/d3-shape" "^1.3.1"
     d3-shape "^1.0.6"
 
+"@visx/event@^2.6.0":
+  version "2.6.0"
+  resolved "https://registry.yarnpkg.com/@visx/event/-/event-2.6.0.tgz#0718eb1efabd5305cf659a153779c94ba4038996"
+  integrity sha512-WGp91g82s727g3NAnENF1ppC3ZAlvWg+Y+GG0WFg34NmmOZbvPI/PTOqTqZE3x6B8EUn8NJiMxRjxIMbi+IvRw==
+  dependencies:
+    "@types/react" "*"
+    "@visx/point" "2.6.0"
+
 "@visx/grid@^2.1.0":
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@visx/grid/-/grid-2.1.0.tgz#5880d5f227796eb37ad7683493cea2833c6813fe"
@@ -3149,6 +3157,11 @@
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@visx/point/-/point-2.1.0.tgz#b3e263826f28b3a170d6604dea8ffa27a4b9ac3b"
   integrity sha512-vVnfI7oqjjttkn05Xi/ooR0UqQRoGf68lyT3SOl0WPHvIQBGNh3XoVUBHDr15/NUkfErgK6TNlfXY763YncPWg==
+
+"@visx/point@2.6.0":
+  version "2.6.0"
+  resolved "https://registry.yarnpkg.com/@visx/point/-/point-2.6.0.tgz#c4316ca409b5b829c5455f07118d8c14a92cc633"
+  integrity sha512-amBi7yMz4S2VSchlPdliznN41TuES64506ySI22DeKQ+mc1s1+BudlpnY90sM1EIw4xnqbKmrghTTGfy6SVqvQ==
 
 "@visx/responsive@^2.1.0":
   version "2.1.0"

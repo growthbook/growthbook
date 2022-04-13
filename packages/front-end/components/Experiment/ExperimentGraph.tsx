@@ -13,6 +13,7 @@ import { getValidDate } from "../../services/dates";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import styles from "./ExperimentGraph.module.scss";
+import { localPoint } from "@visx/event";
 
 export default function ExperimentGraph({
   resolution = "month",
@@ -89,6 +90,30 @@ export default function ExperimentGraph({
           round: true,
         });
 
+        const handlePointer = (event: React.MouseEvent<SVGElement>) => {
+          const coords = localPoint(event);
+          const xCoord = coords.x - barWidth;
+
+          const points = graphData.map((d) => {
+            return { xcord: xScale(getValidDate(d.name)), numExp: d.numExp };
+          });
+
+          const closestBar = points.reduce((prev, curr) =>
+            Math.abs(curr.xcord - xCoord) < Math.abs(prev.xcord - xCoord)
+              ? curr
+              : prev
+          );
+          let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
+          if (barHeight === 0) barHeight = 6;
+          const barY = yMax - barHeight;
+
+          showTooltip({
+            tooltipTop: barY - 25,
+            tooltipLeft: closestBar.xcord,
+            tooltipData: closestBar.numExp,
+          });
+        };
+
         return (
           <>
             <div style={{ position: "relative" }}>
@@ -103,7 +128,16 @@ export default function ExperimentGraph({
                 </TooltipWithBounds>
               )}
             </div>
-            <svg width={width} height={height}>
+            <svg
+              width={width}
+              height={height}
+              onMouseLeave={() => {
+                window.setTimeout(() => {
+                  hideTooltip();
+                }, 100);
+              }}
+              onMouseMove={handlePointer}
+            >
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
@@ -127,20 +161,6 @@ export default function ExperimentGraph({
                       top
                       radius={6}
                       className={styles.barHov}
-                      onMouseMove={() => {
-                        const top = barY - 25;
-                        const left = barX + Math.max(10, barWidth - 10);
-                        showTooltip({
-                          tooltipTop: top,
-                          tooltipLeft: left,
-                          tooltipData: d.numExp,
-                        });
-                      }}
-                      onMouseLeave={() => {
-                        window.setTimeout(() => {
-                          hideTooltip();
-                        }, 100);
-                      }}
                     />
                   );
                 })}
