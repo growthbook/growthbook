@@ -22,11 +22,13 @@ const SegmentForm: FC<{
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      userIdType: current.userIdType || "user_id",
     },
   });
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const datasource = getDatasourceById(form.watch("datasource"));
+  const userIdType = form.watch("userIdType");
 
   return (
     <Modal
@@ -53,6 +55,20 @@ const SegmentForm: FC<{
           label: d.name,
         }))}
       />
+      {datasource.properties.userIds && (
+        <SelectField
+          label="User Id Type"
+          required
+          value={userIdType}
+          onChange={(v) => form.setValue("userIdType", v)}
+          options={(datasource.settings.userIdTypes || []).map((t) => {
+            return {
+              label: t.id,
+              value: t.id,
+            };
+          })}
+        />
+      )}
       <Field
         label={datasource?.properties?.events ? "Event Condition" : "SQL"}
         required
@@ -61,7 +77,7 @@ const SegmentForm: FC<{
         placeholder={
           datasource?.properties?.events
             ? "event.properties.$browser === 'Chrome'"
-            : "SELECT user_id, date FROM mytable"
+            : `SELECT ${userIdType}, date FROM mytable`
         }
         helpText={
           datasource?.properties?.events ? (
@@ -71,7 +87,7 @@ const SegmentForm: FC<{
             </>
           ) : (
             <>
-              Select two columns named <code>user_id</code> and{" "}
+              Select two columns named <code>{userIdType}</code> and{" "}
               <code>date</code>
             </>
           )

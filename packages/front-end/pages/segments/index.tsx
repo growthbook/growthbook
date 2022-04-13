@@ -232,6 +232,7 @@ const SegmentPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
+                  <th className="d-none d-md-table-cell">User Id Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   <th>Date Updated</th>
                   <th></th>
@@ -243,6 +244,9 @@ const SegmentPage: FC = () => {
                     <td>{s.name}</td>
                     <td className="d-none d-sm-table-cell">
                       {getDatasourceById(s.datasource)?.name}
+                    </td>
+                    <td className="d-none d-md-table-cell">
+                      {s.userIdType || "user_id"}
                     </td>
                     <td className="d-none d-lg-table-cell">
                       <code>{s.sql}</code>

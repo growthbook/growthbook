@@ -22,12 +22,15 @@ const DimensionForm: FC<{
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      userIdType: current.userIdType || "user_id",
     },
   });
 
   const datasource = form.watch("datasource");
+  const userIdType = form.watch("userIdType");
 
-  const dsProps = getDatasourceById(datasource)?.properties;
+  const dsObj = getDatasourceById(datasource);
+  const dsProps = dsObj?.properties;
 
   return (
     <Modal
@@ -57,6 +60,20 @@ const DimensionForm: FC<{
           label: d.name,
         }))}
       />
+      {dsProps.userIds && (
+        <SelectField
+          label="User Id Type"
+          required
+          value={userIdType}
+          onChange={(v) => form.setValue("userIdType", v)}
+          options={(dsObj.settings.userIdTypes || []).map((t) => {
+            return {
+              label: t.id,
+              value: t.id,
+            };
+          })}
+        />
+      )}
       <Field
         label={dsProps?.events ? "Event Property" : "SQL"}
         required
@@ -66,12 +83,12 @@ const DimensionForm: FC<{
         placeholder={
           dsProps?.events
             ? "$browser"
-            : "SELECT user_id, browser as value FROM users"
+            : `SELECT ${userIdType}, browser as value FROM users`
         }
         helpText={
           dsProps?.queryLanguage === "sql" ? (
             <>
-              Select two columns named <code>user_id</code> and{" "}
+              Select two columns named <code>{userIdType}</code> and{" "}
               <code>value</code>
             </>
           ) : null

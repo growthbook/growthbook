@@ -9,6 +9,7 @@ const dimensionSchema = new mongoose.Schema({
     index: true,
   },
   datasource: String,
+  userIdType: String,
   name: String,
   sql: String,
   dateCreated: Date,

@@ -24,6 +24,7 @@ import BooleanSelect from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
+import MultiSelectField from "../Forms/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -37,11 +38,7 @@ export type MetricFormProps = {
   advanced?: boolean;
 };
 
-function validateSQL(
-  sql: string,
-  type: MetricType,
-  userIdType: "user" | "anonymous" | "either"
-) {
+function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
   if (!sql.length) {
     throw new Error("SQL cannot be empty");
   }
@@ -50,17 +47,23 @@ function validateSQL(
   if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
     throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
   }
-  if (!sql.match(/timestamp/i)) {
-    throw new Error("Must select a `timestamp` column.");
+
+  // Require specific columns to be selected
+  const requiredCols = ["timestamp", ...userIdTypes];
+  if (type !== "binomial") {
+    requiredCols.push("value");
   }
-  if (type !== "binomial" && !sql.match(/value/i)) {
-    throw new Error("Must select a `value` column.");
-  }
-  if (userIdType !== "user" && !sql.match(/anonymous_id/i)) {
-    throw new Error("Must select an `anonymous_id` column.");
-  }
-  if (userIdType !== "anonymous" && !sql.match(/user_id/i)) {
-    throw new Error("Must select a `user_id` column.");
+
+  const missingCols = requiredCols.filter(
+    (col) => sql.toLowerCase().indexOf(col) < 0
+  );
+
+  if (missingCols.length > 0) {
+    throw new Error(
+      `Missing the following required columns: ${missingCols
+        .map((col) => '"' + col + '"')
+        .join(", ")}`
+    );
   }
 }
 function validateBasicInfo(value: { name: string }) {
@@ -74,7 +77,7 @@ function validateQuerySettings(
   value: {
     sql: string;
     type: MetricType;
-    userIdType: "user" | "anonymous" | "either";
+    userIdTypes: string[];
     table: string;
   }
 ) {
@@ -82,7 +85,7 @@ function validateQuerySettings(
     return;
   }
   if (sqlInput) {
-    validateSQL(value.sql, value.type, value.userIdType);
+    validateSQL(value.sql, value.type, value.userIdTypes);
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -200,7 +203,7 @@ const MetricForm: FC<MetricFormProps> = ({
       conditions: current.conditions || [],
       userIdColumn: current.userIdColumn || "",
       anonymousIdColumn: current.anonymousIdColumn || "",
-      userIdType: current.userIdType || "either",
+      userIdTypes: current.userIdTypes || [],
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
@@ -222,7 +225,7 @@ const MetricForm: FC<MetricFormProps> = ({
     timestampColumn: form.watch("timestampColumn"),
     userIdColumn: form.watch("userIdColumn"),
     anonymousIdColumn: form.watch("anonymousIdColumn"),
-    userIdType: form.watch("userIdType"),
+    userIdTypes: form.watch("userIdTypes"),
     column: form.watch("column"),
     table: form.watch("table"),
     type: form.watch("type"),
@@ -299,7 +302,7 @@ const MetricForm: FC<MetricFormProps> = ({
     track("Submit Metric Form", {
       type: value.type,
       source,
-      userIdType: value.userIdType,
+      userIdType: value.userIdTypes.join(", "),
     });
 
     onClose(true);
@@ -328,14 +331,14 @@ const MetricForm: FC<MetricFormProps> = ({
 
           // Initial metric SQL based on the data source
           if (supportsSQL && currentDataSource && !value.sql) {
-            const [userType, sql] = getInitialMetricQuery(
+            const [userTypes, sql] = getInitialMetricQuery(
               currentDataSource,
               value.type,
               value.name
             );
 
             form.setValue("sql", sql);
-            form.setValue("userIdType", userType);
+            form.setValue("userIdTypes", userTypes);
             form.setValue("queryFormat", "sql");
           }
         }}
@@ -452,23 +455,18 @@ const MetricForm: FC<MetricFormProps> = ({
           <div className="col-lg">
             {supportsSQL && value.queryFormat === "sql" ? (
               <div>
-                <Field
-                  label="User Types Supported"
-                  {...form.register("userIdType")}
-                  options={[
-                    {
-                      display: "Anonymous Only",
-                      value: "anonymous",
-                    },
-                    {
-                      display: "Users Only",
-                      value: "user",
-                    },
-                    {
-                      display: "Both Anonymous and Users",
-                      value: "either",
-                    },
-                  ]}
+                <MultiSelectField
+                  value={value.userIdTypes}
+                  onChange={(types) => {
+                    form.setValue("userIdTypes", types);
+                  }}
+                  options={currentDataSource.settings.userIdTypes.map(
+                    ({ id }) => ({
+                      value: id,
+                      label: id,
+                    })
+                  )}
+                  label="User Id Types Supported"
                 />
                 <Field
                   label="SQL"
@@ -619,19 +617,21 @@ const MetricForm: FC<MetricFormProps> = ({
                   </div>
                 )}
                 {customizeUserIds && (
-                  <div className="form-group">
-                    User Types Supported
-                    <select
-                      className="form-control"
-                      {...form.register("userIdType")}
-                    >
-                      <option value="anonymous">Anonymous Only</option>
-                      <option value="user">Users Only</option>
-                      <option value="either">Both Anonymous and Users</option>
-                    </select>
-                  </div>
+                  <MultiSelectField
+                    value={value.userIdTypes}
+                    onChange={(types) => {
+                      form.setValue("userIdTypes", types);
+                    }}
+                    options={currentDataSource.settings.userIdTypes.map(
+                      ({ id }) => ({
+                        value: id,
+                        label: id,
+                      })
+                    )}
+                    label="User Id Types Supported"
+                  />
                 )}
-                {value.userIdType !== "anonymous" && customizeUserIds && (
+                {value.userIdTypes.includes("user_id") && customizeUserIds && (
                   <div className="form-group ">
                     User Id Column
                     <input
@@ -642,17 +642,18 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                   </div>
                 )}
-                {value.userIdType !== "user" && customizeUserIds && (
-                  <div className="form-group ">
-                    Anonymous Id Column
-                    <input
-                      type="text"
-                      placeholder={"anonymous_id"}
-                      className="form-control"
-                      {...form.register("anonymousIdColumn")}
-                    />
-                  </div>
-                )}
+                {value.userIdTypes.includes("anonymous_id") &&
+                  customizeUserIds && (
+                    <div className="form-group ">
+                      Anonymous Id Column
+                      <input
+                        type="text"
+                        placeholder={"anonymous_id"}
+                        className="form-control"
+                        {...form.register("anonymousIdColumn")}
+                      />
+                    </div>
+                  )}
               </>
             )}
           </div>
@@ -666,18 +667,14 @@ const MetricForm: FC<MetricFormProps> = ({
                     names:
                   </p>
                   <ol>
-                    {value.userIdType !== "anonymous" && (
-                      <li>
-                        <strong>user_id</strong> - The logged-in user id of the
-                        person converting
+                    {value.userIdTypes.map((id) => (
+                      <li key={id}>
+                        <strong>{id}</strong> -{" "}
+                        {currentDataSource.settings.userIdTypes?.find(
+                          (t) => t.id === id
+                        )?.description || `The user identifier '${id}'`}
                       </li>
-                    )}
-                    {value.userIdType !== "user" && (
-                      <li>
-                        <strong>anonymous_id</strong> - The anonymous id of the
-                        person converting
-                      </li>
-                    )}
+                    ))}
                     {value.type !== "binomial" && (
                       <li>
                         <strong>value</strong> -{" "}

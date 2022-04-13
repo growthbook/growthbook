@@ -54,7 +54,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  metricUserIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -116,7 +116,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  metricUserIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -153,7 +153,7 @@ FROM
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  metricUserIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -196,7 +196,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  metricUserIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -256,7 +256,7 @@ FROM
       },
     ];
   },
-  metricUserIdType: "either",
+  metricUserIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -346,11 +346,11 @@ export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
   type: MetricType,
   name: string
-): ["user" | "anonymous" | "either", string] {
+): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   return [
-    schema.metricUserIdType,
+    schema.metricUserIdTypes,
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
 }

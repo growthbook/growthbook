@@ -47,7 +47,7 @@ export interface SchemaInterface {
   getUserIds(): string[];
   getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
   experimentDimensions: string[];
-  metricUserIdType: "user" | "anonymous" | "either";
+  metricUserIdTypes: string[];
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
 }
 
