@@ -94,11 +94,11 @@ export default function ExperimentGraph({
           const coords = localPoint(event);
           const xCoord = coords.x - barWidth;
 
-          const points = graphData.map((d) => {
+          const barData = graphData.map((d) => {
             return { xcord: xScale(getValidDate(d.name)), numExp: d.numExp };
           });
 
-          const closestBar = points.reduce((prev, curr) =>
+          const closestBar = barData.reduce((prev, curr) =>
             Math.abs(curr.xcord - xCoord) < Math.abs(prev.xcord - xCoord)
               ? curr
               : prev
