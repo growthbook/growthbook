@@ -3,7 +3,10 @@ import React from "react";
 
 export function formatTrafficSplit(weights: number[]): string {
   return weights
-    .map((w, i) => (i ? Math.floor(w * 100) : Math.ceil(w * 100)))
+    .map((w, i) => {
+      const p = +(w * 100).toFixed(2);
+      return i ? Math.floor(p) : Math.ceil(p);
+    })
     .join("/");
 }
 
