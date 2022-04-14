@@ -53,6 +53,9 @@ export interface ExperimentInterface {
   datasource: string;
   exposureQueryId: string;
   implementation: ImplementationType;
+  /**
+   * @deprecated
+   */
   userIdType?: string;
   name: string;
   dateCreated: Date;

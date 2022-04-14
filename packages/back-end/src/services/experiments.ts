@@ -19,6 +19,7 @@ import {
   Dimension,
   ExperimentMetricQueryResponse,
   MetricValueResult,
+  MetricValueParams,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
@@ -29,6 +30,7 @@ import {
   MetricStats,
   MetricAnalysis,
 } from "../../types/metric";
+import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
@@ -291,18 +293,16 @@ export async function refreshMetric(
     }
     const integration = getSourceIntegrationObject(datasource);
 
-    let segmentQuery = "";
-    let segmentName = "";
+    let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      const segment = await SegmentModel.findOne({
-        id: metric.segment,
-        datasource: metric.datasource,
-      });
+      segment =
+        (await SegmentModel.findOne({
+          id: metric.segment,
+          datasource: metric.datasource,
+        })) || undefined;
       if (!segment) {
         throw new Error("Invalid user segment chosen");
       }
-      segmentQuery = segment.sql;
-      segmentName = segment.name;
     }
 
     let days = metricAnalysisDays;
@@ -314,14 +314,12 @@ export async function refreshMetric(
     from.setDate(from.getDate() - days);
     const to = new Date();
 
-    const baseParams = {
+    const baseParams: Omit<MetricValueParams, "metric"> = {
       from,
       to,
       name: `Last ${days} days`,
       includeByDate: true,
-      segmentName,
-      segmentQuery,
-      userIdType: metric.userIdType || "either",
+      segment,
     };
 
     const updates: Partial<MetricInterface> = {};

@@ -72,9 +72,7 @@ export type MetricValueParams = {
   to: Date;
   metric: MetricInterface;
   name: string;
-  userIdType?: "anonymous" | "user" | "either";
-  segmentQuery?: string;
-  segmentName?: string;
+  segment?: SegmentInterface;
   includeByDate?: boolean;
 };
 
