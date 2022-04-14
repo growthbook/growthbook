@@ -1,10 +1,17 @@
 import { FC, useState } from "react";
+import { formatTrafficSplit } from "../../services/utils";
 import Modal from "../Modal";
 
-const SRMWarning: FC<{ srm: number }> = ({ srm }) => {
+export const SRM_THRESHOLD = 0.001;
+
+const SRMWarning: FC<{
+  srm: number;
+  expected: number[];
+  observed: number[];
+}> = ({ srm, expected, observed }) => {
   const [open, setOpen] = useState(false);
 
-  if (typeof srm !== "number" || srm >= 0.001) {
+  if (typeof srm !== "number" || srm >= SRM_THRESHOLD) {
     return null;
   }
 
@@ -21,8 +28,7 @@ const SRMWarning: FC<{ srm: number }> = ({ srm }) => {
       >
         <p>
           SRM happens when the actual traffic split is different from what you
-          expect. For example, seeing a 48/52 split when you are expecting a
-          50/50 split.
+          expect.
         </p>
         <p>
           For this test, the p-value of the SRM check is <code>{srm}</code>.
@@ -90,9 +96,10 @@ const SRMWarning: FC<{ srm: number }> = ({ srm }) => {
         </p>
       </Modal>
       <div className="alert alert-danger">
-        <strong>Warning: Do not trust the results!</strong> A Sample Ratio
-        Mismatch (SRM) was detected with p-value of <code>{srm}</code>. There is
-        likely a bug in the implementation.{" "}
+        <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>. We
+        expected a <code>{formatTrafficSplit(expected, 1)}</code> split, but
+        obversed a <code>{formatTrafficSplit(observed, 1)}</code> split (p-value
+        = <code>{srm}</code>). There is likely a bug in the implementation.{" "}
         <a
           href="#"
           onClick={(e) => {

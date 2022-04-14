@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import {
   ExperimentTableRow,
@@ -8,42 +7,20 @@ import {
 import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "back-end/types/metric";
 import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
-
-const numberFormatter = new Intl.NumberFormat();
 
 type TableDef = {
   metric: MetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
-
-function getAllocationText(weights: number[]) {
-  const sum = weights.reduce((s, n) => s + n, 0);
-  if (!sum) return "";
-  const adjusted = weights.map((w) => {
-    return Math.round((w * 100) / sum);
-  });
-
-  const adjustedSum = adjusted.reduce((s, n) => s + n, 0);
-  if (adjustedSum !== 100) {
-    const dir = adjustedSum > 100 ? -1 : 1;
-    const numDiff = Math.abs(adjustedSum - 100);
-
-    for (let i = 0; i < numDiff; i++) {
-      adjusted[i % adjusted.length] += dir;
-    }
-  }
-
-  return adjusted.join("/");
-}
 
 const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
@@ -117,52 +94,11 @@ const BreakDownResults: FC<{
             entered into the experiment, but were not activated.
           </div>
         )}
-        <h2>Users</h2>
-        <table className="table w-auto table-bordered mb-5">
-          <thead>
-            <tr>
-              <th>{dimension}</th>
-              {variations.map((v, i) => (
-                <th key={i}>{v.name}</th>
-              ))}
-              <th>Expected</th>
-              <th>Actual</th>
-              <th>
-                SRM P-Value{" "}
-                <Tooltip text="Sample Ratio Mismatch (SRM) occurs when the actual traffic split is not what we expect. A small value (<0.001) indicates a likely bug.">
-                  <FaQuestionCircle />
-                </Tooltip>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {results?.map((r, i) => (
-              <tr key={i}>
-                <td>{r.name || <em>unknown</em>}</td>
-                {variations.map((v, i) => (
-                  <td key={i}>
-                    {numberFormatter.format(r.variations[i]?.users || 0)}
-                  </td>
-                ))}
-                <td>{getAllocationText(variations.map((v) => v.weight))}</td>
-                <td>
-                  {getAllocationText(
-                    variations.map((v, i) => r.variations[i]?.users || 0)
-                  )}
-                </td>
-                {r.srm < 0.001 ? (
-                  <td className="bg-danger text-light">
-                    <FaExclamationTriangle className="mr-1" />
-                    {(r.srm || 0).toFixed(6)}
-                  </td>
-                ) : (
-                  <td>{(r.srm || 0).toFixed(6)}</td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <h2>Metrics</h2>
+        <UsersTable
+          dimensionId={dimensionId}
+          results={results}
+          variations={variations}
+        />
       </div>
 
       {tooManyDimensions && (

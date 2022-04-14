@@ -11,7 +11,14 @@ const ImportExperimentModal: FC<{
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   importMode?: boolean;
   source?: string;
-}> = ({ onClose, initialValue, importMode = true, source }) => {
+  fromFeature?: boolean;
+}> = ({
+  onClose,
+  initialValue,
+  importMode = true,
+  source,
+  fromFeature = false,
+}) => {
   const { datasources } = useDefinitions();
   const [
     selected,
@@ -56,6 +63,7 @@ const ImportExperimentModal: FC<{
         onClose={() => onClose()}
         source={source}
         isImport={!!selected}
+        fromFeature={fromFeature}
       />
     );
   }

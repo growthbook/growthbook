@@ -41,7 +41,7 @@ export function formatConversionRate(type: MetricType, value: number): string {
     // Show fewer fractional digits for bigger numbers
     const formatter = new Intl.NumberFormat(undefined, {
       maximumFractionDigits: digits,
-      minimumFractionDigits: digits,
+      minimumFractionDigits: 0,
     });
     return formatter.format(value);
   }

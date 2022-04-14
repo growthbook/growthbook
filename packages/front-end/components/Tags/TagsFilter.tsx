@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import Tag from "./Tag";
 
-const MAX_TAGS = 3;
+const MAX_TAGS = 12;
 
 interface ItemWithTags {
   tags?: string[];
@@ -34,8 +34,8 @@ export function filterByTags<T extends ItemWithTags>(
   });
 }
 
-export function useTagsFilter(): TagsFilter {
-  const [tags, setTags] = useState<string[]>([]);
+export function useTagsFilter(page: string): TagsFilter {
+  const [tags, setTags] = useLocalStorage<string[]>(page + ":tags-filter", []);
   return {
     tags,
     setTags,
@@ -108,13 +108,12 @@ export default function TagsFilter({
             {availableTags.slice(numToShow).map((tag) => {
               return (
                 <DropdownLink
-                  className="dropdown-item"
                   onClick={async () => {
                     setTags([...tags, tag]);
                   }}
                   key={tag}
                 >
-                  <Tag tag={tag} description="Add tag filter" />
+                  {tag}
                 </DropdownLink>
               );
             })}

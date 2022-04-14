@@ -397,6 +397,8 @@ def check_srm(users, weights):
 
     x = 0
     for i, o in enumerate(users):
+        if weights[i] <= 0:
+            continue
         e = weights[i] * total_observed
         x = x + ((o - e) ** 2) / e
 

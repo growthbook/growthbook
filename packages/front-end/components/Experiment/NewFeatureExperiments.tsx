@@ -58,6 +58,7 @@ export default function NewFeatureExperiments() {
           isImport={true}
           msg="We've prefilled the form with values from the the feature."
           initialValue={expDef}
+          fromFeature={true}
         />
       )}
     </div>
