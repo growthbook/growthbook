@@ -41,7 +41,7 @@ export function reportArgsFromSnapshot(
   return {
     trackingKey: experiment.trackingKey,
     datasource: experiment.datasource,
-    userIdType: experiment.userIdType,
+    exposureQueryId: experiment.exposureQueryId,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || undefined,
     dimension: snapshot.dimension || undefined,
@@ -107,7 +107,7 @@ export async function startExperimentAnalysis(
     variationWeights: args.variations.map((v) => v.weight),
   };
   const experimentObj: ExperimentInterface = {
-    userIdType: args.userIdType,
+    exposureQueryId: args.exposureQueryId,
     organization,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,

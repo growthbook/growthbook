@@ -108,6 +108,7 @@ export type MetricValueQueryResponseRow = {
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {
+  exposure_query: string;
   experiment_id: string;
   variation_id: string;
   start_date: string;

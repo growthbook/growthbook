@@ -24,7 +24,7 @@ export interface ExperimentReportVariation {
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
-  userIdType?: "anonymous" | "user";
+  exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
   dimension?: string;

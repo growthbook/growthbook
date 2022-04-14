@@ -263,7 +263,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       metrics: [metric1.id, metric2.id],
       owner: userId,
       trackingKey: "sample-experiment",
-      userIdType: "anonymous",
+      exposureQueryId: "",
       tags: [],
       results: "won",
       winner: 1,

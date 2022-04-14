@@ -192,63 +192,74 @@ export default abstract class SqlIntegration
     const now = new Date();
 
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQuery = this.getExposureQuery("");
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
       `-- Past Experiments
     WITH
       __experiments as (
-        ${experimentQuery.query}
-      ),
-      __experimentDates as (
-        SELECT
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-          count(distinct anonymous_id) as users
-        FROM
-          __experiments
-        WHERE
-          ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
-        params.from
-      )}
-        GROUP BY
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc(this.castUserDateCol("timestamp"))}
+        ${experimentQueries
+          .map((q, i) => {
+            return `
+            SELECT 
+              '${q.id}' as exposure_query, 
+              experiment_id,
+              variation_id,
+              ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
+              count(distinct ${q.userIdType}) as users
+            FROM
+              (
+                ${replaceDateVars(q.query, params.from)}
+              ) e${i}
+            WHERE
+              ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
+              params.from
+            )}
+            GROUP BY
+              experiment_id,
+              variation_id,
+              ${this.dateTrunc(this.castUserDateCol("timestamp"))}
+          `;
+          })
+          .join("\nUNION\n")}
       ),
       __userThresholds as (
         SELECT
+          exposure_query,
           experiment_id,
           variation_id,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
         FROM
-          __experimentDates
+          __experiments
         WHERE
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          experiment_id, variation_id
+          exposure_query, experiment_id, variation_id
       ),
       __variations as (
         SELECT
+          d.exposure_query,
           d.experiment_id,
           d.variation_id,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users
         FROM
-          __experimentDates d
+          __experiments d
           JOIN __userThresholds u ON (
+            d.exposure_query = u.exposure_query
             d.experiment_id = u.experiment_id
             AND d.variation_id = u.variation_id
           )
         WHERE
           d.users > u.threshold
         GROUP BY
-          d.experiment_id, d.variation_id
+          d.exposure_query, d.experiment_id, d.variation_id
       )
     SELECT
       *
@@ -274,6 +285,7 @@ export default abstract class SqlIntegration
 
     return rows.map((row) => {
       return {
+        exposure_query: row.exposure_query,
         experiment_id: row.experiment_id,
         variation_id: row.variation_id ?? "",
         users: parseInt(row.users) || 0,
@@ -339,11 +351,11 @@ export default abstract class SqlIntegration
             __metric m
             ${
               params.segment
-                ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
                 : ""
             }
           GROUP BY
-            m.user_id
+            m.${baseIdType}
         )
         , __overall as (
           SELECT
@@ -365,12 +377,12 @@ export default abstract class SqlIntegration
               __metric m
               ${
                 params.segment
-                  ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
                   : ""
               }
             GROUP BY
               ${this.dateTrunc("m.conversion_start")},
-              m.user_id
+              m.${baseIdType}
           )
           , __byDateOverall as (
             SELECT
@@ -492,16 +504,16 @@ export default abstract class SqlIntegration
     };
   }
 
-  private getActivatedUsersCTE() {
+  private getActivatedUsersCTE(baseIdType: string) {
     return `
       SELECT
-        e.user_id,
+        e.${baseIdType},
         a.conversion_start,
         a.conversion_end
       FROM
         __experiment e
         JOIN __activationMetric a ON (
-          a.user_id = e.user_id
+          a.${baseIdType} = e.${baseIdType}
         )
       WHERE
         a.conversion_start >= e.conversion_start
@@ -638,7 +650,7 @@ export default abstract class SqlIntegration
               startDate: metricStart,
               endDate: metricEnd,
             })})
-            , __activatedUsers as (${this.getActivatedUsersCTE()})`
+            , __activatedUsers as (${this.getActivatedUsersCTE(baseIdType)})`
           : ""
       }
       , __distinctUsers as (
@@ -646,7 +658,7 @@ export default abstract class SqlIntegration
           removeMultipleExposures ? "" : "/variation"
         }
         SELECT
-          e.user_id,
+          e.${baseIdType},
           ${
             dimension?.type === "user"
               ? "d.value"
@@ -656,7 +668,7 @@ export default abstract class SqlIntegration
               ? this.formatDate(this.dateTrunc("e.conversion_start"))
               : activationDimension
               ? this.ifElse(
-                  "a.user_id IS NULL",
+                  `a.${baseIdType} IS NULL`,
                   "'Not Activated'",
                   "'Activated'"
                 )
@@ -681,23 +693,29 @@ export default abstract class SqlIntegration
           )}) as conversion_end
         FROM
           __experiment e
-          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
+          ${
+            segment
+              ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+              : ""
+          }
           ${
             dimension?.type === "user"
-              ? "JOIN __dimension d ON (d.user_id = e.user_id)"
+              ? `JOIN __dimension d ON (d.${baseIdType} = e.${baseIdType})`
               : ""
           }
           ${
             activationMetric
               ? `
           ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
-            a.user_id = e.user_id
+            a.${baseIdType} = e.${baseIdType}
           )`
               : ""
           }
         ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
-          dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
+          dimension, e.${baseIdType}${
+        removeMultipleExposures ? "" : ", e.variation"
+      }
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user
@@ -708,13 +726,13 @@ export default abstract class SqlIntegration
         FROM
           __distinctUsers d
           JOIN __metric m ON (
-            m.user_id = d.user_id
+            m.${baseIdType} = d.${baseIdType}
           )
           WHERE
             m.conversion_start >= d.conversion_start
             AND m.conversion_start <= d.conversion_end
         GROUP BY
-          variation, dimension, d.user_id
+          variation, dimension, d.${baseIdType}
       )
       , __overallUsers as (
         -- Number of users in each variation

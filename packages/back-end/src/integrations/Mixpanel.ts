@@ -350,9 +350,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
       return ${this.getEvents(params.from, params.to, [metric.table])}
         .filter(function(event) {
           ${
-            params.segmentQuery
-              ? `// Limit to Segment - ${params.segmentName}
-          if(!(${params.segmentQuery})) return false;`
+            params.segment
+              ? `// Limit to Segment - ${params.segment.name}
+          if(!(${params.segment.sql})) return false;`
               : ""
           }
           if(${this.getValidMetricCondition(metric)}) return true;

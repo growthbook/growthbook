@@ -165,20 +165,14 @@ export default function ConfigureReport({
       </div>
       {datasource?.properties?.userIds && (
         <Field
-          label="User Id Column"
+          label="Experiment Exposure Table"
           labelClassName="font-weight-bold"
-          {...form.register("userIdType")}
-          options={[
-            {
-              display: "user_id",
-              value: "user",
-            },
-            {
-              display: "anonymous_id",
-              value: "anonymous",
-            },
-          ]}
-          helpText="Determines how we define a single 'user' in the analysis"
+          {...form.register("exposureQueryId")}
+          options={(datasource?.settings?.queries?.exposure || []).map((e) => ({
+            display: e.name,
+            value: e.id,
+          }))}
+          helpText="Determines where we pull experiment assignment data from"
         />
       )}
 
