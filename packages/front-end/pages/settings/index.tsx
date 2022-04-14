@@ -93,6 +93,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
+      confidenceLevel: 95,
     },
   });
   const { apiCall, organizations, setOrganizations, orgId } = useAuth();
@@ -109,6 +110,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
+    confidenceLevel: form.watch("confidenceLevel"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -132,6 +134,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ...form.getValues(),
         ...data.organization.settings,
       };
+      if ("confidenceLevel" in data.organization.settings) {
+        newVal.confidenceLevel = newVal.confidenceLevel * 100;
+      }
       form.reset(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
     }
@@ -155,10 +160,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !data?.organization?.settings?.visualEditorEnabled &&
       value.visualEditorEnabled;
 
+    const sendValue: Partial<OrganizationSettings> = {
+      ...value,
+      confidenceLevel: value.confidenceLevel / 100,
+    };
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: sendValue,
       }),
     });
     await mutate();
@@ -174,6 +183,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
       track("Enable Visual Editor");
     }
   };
+
+  const highlightColor =
+    value.confidenceLevel < 70
+      ? "#c73333"
+      : value.confidenceLevel < 80
+      ? "#e27202"
+      : value.confidenceLevel < 90
+      ? "#B39F01"
+      : "";
+
+  const warningMsg =
+    value.confidenceLevel < 70
+      ? "Confidence intervals this low are not recommended"
+      : value.confidenceLevel < 80
+      ? "Confidence intervals this low are not recommended"
+      : value.confidenceLevel < 90
+      ? "Use cation with values below 90%"
+      : "";
 
   return (
     <div className="container-fluid pagecontents">
@@ -397,6 +424,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 disabled={hasFileConfig()}
                 helpText={<span className="ml-2">from 0 to 1</span>}
                 {...form.register("multipleExposureMinPercent", {
+                  valueAsNumber: true,
+                })}
+              />
+              <Field
+                label="Experiment confidence interval"
+                type="number"
+                step="any"
+                min="0"
+                max="100"
+                style={{
+                  backgroundColor: highlightColor ? highlightColor + "20" : "",
+                }}
+                className={`ml-2`}
+                containerClassName="mb-3"
+                append="%"
+                disabled={hasFileConfig()}
+                helpText={
+                  <>
+                    <span className="ml-2">percentage (95% is default)</span>
+                    <div
+                      className="ml-2"
+                      style={{ color: highlightColor, flexBasis: "100%" }}
+                    >
+                      {warningMsg}
+                    </div>
+                  </>
+                }
+                {...form.register("confidenceLevel", {
                   valueAsNumber: true,
                 })}
               />
