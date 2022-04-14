@@ -30,6 +30,7 @@ export type NewExperimentFormProps = {
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   initialNumVariations?: number;
   isImport?: boolean;
+  fromFeature?: boolean;
   includeDescription?: boolean;
   source: string;
   idea?: string;
@@ -72,6 +73,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   onClose,
   onCreate = null,
   isImport,
+  fromFeature,
   includeDescription,
   source,
   idea,
@@ -248,7 +250,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
           </div>
         )}
-        {!isImport && (
+        {(!isImport || fromFeature) && (
           <SelectField
             label="Data Source"
             value={form.watch("datasource")}
