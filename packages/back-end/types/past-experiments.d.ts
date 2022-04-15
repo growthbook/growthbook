@@ -1,6 +1,7 @@
 import { Queries } from "./query";
 
 export interface PastExperiment {
+  exposureQueryId: string;
   trackingKey: string;
   numVariations: number;
   variationKeys: string[];

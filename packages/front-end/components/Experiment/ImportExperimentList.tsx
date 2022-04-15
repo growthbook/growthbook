@@ -12,6 +12,7 @@ import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import LoadingOverlay from "../LoadingOverlay";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
+import { getExposureQuery } from "../../services/datasources";
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -74,6 +75,8 @@ const ImportExperimentList: FC<{
     (d) => d.properties.pastExperiments
   );
 
+  const datasource = getDatasourceById(data.experiments.datasource);
+
   return (
     <>
       <div className="row align-items-center mb-4">
@@ -88,9 +91,7 @@ const ImportExperimentList: FC<{
               onChange={changeDatasource}
             />
           ) : (
-            <strong>
-              {getDatasourceById(data.experiments.datasource)?.name}
-            </strong>
+            <strong>{datasource?.name}</strong>
           )}
         </div>
         <div className="col-auto ml-auto">
@@ -159,6 +160,7 @@ const ImportExperimentList: FC<{
           <table className="table appbox">
             <thead>
               <tr>
+                <th>Source</th>
                 <th>Experiment Id</th>
                 <th>Date Started</th>
                 <th>Date Ended</th>
@@ -172,6 +174,14 @@ const ImportExperimentList: FC<{
               {filteredExperiments.map((e) => {
                 return (
                   <tr key={e.trackingKey}>
+                    <td>
+                      {
+                        getExposureQuery(
+                          datasource?.settings,
+                          e.exposureQueryId
+                        )?.name
+                      }
+                    </td>
                     <td>{e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
@@ -194,6 +204,7 @@ const ImportExperimentList: FC<{
                               name: e.trackingKey,
                               trackingKey: e.trackingKey,
                               datasource: data?.experiments?.datasource,
+                              exposureQueryId: e.exposureQueryId || "",
                               variations: e.variationKeys.map((v) => {
                                 const vInt = parseInt(v);
                                 const name = !Number.isNaN(vInt)

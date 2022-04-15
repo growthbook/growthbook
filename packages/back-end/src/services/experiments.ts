@@ -701,20 +701,23 @@ export async function processPastExperiments(
     (data.get("experiments")?.result as PastExperimentResult)?.experiments ||
     [];
 
-  const experimentMap = new Map<string, PastExperiment>();
+  // Group by experiment and exposureQuery
+  const experimentExposureMap = new Map<string, PastExperiment>();
   experiments.forEach((e) => {
-    let el = experimentMap.get(e.experiment_id);
+    const key = e.experiment_id + "::" + e.exposureQueryId;
+    let el = experimentExposureMap.get(key);
     if (!el) {
       el = {
         endDate: e.end_date,
         startDate: e.start_date,
         numVariations: 1,
         variationKeys: [e.variation_id],
+        exposureQueryId: e.exposureQueryId || "",
         trackingKey: e.experiment_id,
         users: e.users,
         weights: [e.users],
       };
-      experimentMap.set(e.experiment_id, el);
+      experimentExposureMap.set(key, el);
     } else {
       if (e.start_date < el.startDate) {
         el.startDate = e.start_date;
@@ -722,10 +725,22 @@ export async function processPastExperiments(
       if (e.end_date > el.endDate) {
         el.endDate = e.end_date;
       }
-      el.variationKeys.push(e.variation_id);
-      el.weights.push(e.users);
-      el.users += e.users;
-      el.numVariations++;
+      if (!el.variationKeys.includes(e.variation_id)) {
+        el.variationKeys.push(e.variation_id);
+        el.weights.push(e.users);
+        el.users += e.users;
+        el.numVariations++;
+      }
+    }
+  });
+
+  // Group by experiment, choosing the exposure query with the most users
+  const experimentMap = new Map<string, PastExperiment>();
+  experimentExposureMap.forEach((exp) => {
+    const key = exp.trackingKey;
+    const el = experimentMap.get(key);
+    if (!el || el.users < exp.users) {
+      experimentMap.set(key, exp);
     }
   });
 

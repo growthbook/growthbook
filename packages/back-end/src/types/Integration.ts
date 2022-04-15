@@ -92,6 +92,7 @@ export type MetricValueResult = {
 
 export type PastExperimentResult = {
   experiments: {
+    exposureQueryId: string;
     experiment_id: string;
     variation_id: string;
     start_date: Date;
