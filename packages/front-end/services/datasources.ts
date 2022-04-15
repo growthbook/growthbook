@@ -144,7 +144,7 @@ const CustomSchema: SchemaInterface = {
   },
   getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
-  ${userId},
+  ${userId} as ${userId},
   timestamp as timestamp,
   experiment_id as experiment_id,
   variation_id as variation_id
@@ -319,13 +319,13 @@ function getTablePrefix(params: DataSourceParams) {
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams
-): Partial<DataSourceSettings> {
+) {
   const schema = getSchemaObject(type);
-  const userIds = schema.getUserIds();
+  const userIdTypes = schema.getUserIds();
   return {
-    userIdTypes: userIds.map((id) => ({ id, description: "" })),
+    userIdTypes,
     queries: {
-      exposure: userIds.map((id) => ({
+      exposure: userIdTypes.map((id) => ({
         id,
         userIdType: id,
         dimensions: schema.experimentDimensions,
@@ -367,38 +367,4 @@ export function getInitialMetricQuery(
     schema.metricUserIdTypes,
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
-}
-
-export function getExperimentQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.experimentsQuery) {
-    return settings.queries.experimentsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.experiments?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.experiments?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.experiments?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
 }

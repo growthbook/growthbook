@@ -76,11 +76,6 @@ export type IdentityJoinQuery = {
   query: string;
 };
 
-export interface RandomizationId {
-  id: string;
-  description?: string;
-}
-
 export interface ExposureQuery {
   id: string;
   name: string;
@@ -95,7 +90,7 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
-  userIdTypes?: RandomizationId[];
+  userIdTypes?: string[];
   queries?: {
     // @deprecated
     experimentsQuery?: string;

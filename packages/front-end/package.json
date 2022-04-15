@@ -57,7 +57,8 @@
     "react-textarea-autosize": "^8.3.2",
     "rich-markdown-editor": "^11.17.2",
     "spectacle": "^8.3.0",
-    "swr": "^0.5.4"
+    "swr": "^0.5.4",
+    "uniqid": "^5.3.0"
   },
   "devDependencies": {
     "@types/diff": "^5.0.1",

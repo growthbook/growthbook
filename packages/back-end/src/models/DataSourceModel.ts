@@ -84,16 +84,7 @@ export function upgradeDatasourceObject(
 
   // Add default randomization units
   if (!settings?.userIdTypes) {
-    settings.userIdTypes = [
-      {
-        id: "user_id",
-        description: "Logged-in User Id",
-      },
-      {
-        id: "anonymous_id",
-        description: "Anonymous Visitor id",
-      },
-    ];
+    settings.userIdTypes = ["user_id", "anonymous_id"];
   }
 
   // Upgrade old docs to the new exposure queries format

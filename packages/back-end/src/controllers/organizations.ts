@@ -78,7 +78,6 @@ import {
   getMetricsByOrganization,
   getSampleMetrics,
 } from "../models/MetricModel";
-import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import uniqid from "uniqid";
 import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
@@ -1049,30 +1048,6 @@ export async function postDataSources(
       experimentIdProperty: "Experiment name",
       variationIdProperty: "Variant name",
       ...settings?.events,
-    };
-
-    const schema = (params as PostgresConnectionParams)?.defaultSchema;
-
-    settings.queries = {
-      experimentsQuery: `SELECT
-  user_id,
-  anonymous_id,
-  received_at as timestamp,
-  experiment_id,
-  variation_id
-FROM
-  ${schema ? schema + "." : ""}experiment_viewed`,
-      identityJoins: [
-        {
-          ids: ["user_id", "anonymous_id"],
-          query: `SELECT
-  user_id,
-  anonymous_id
-FROM
-  ${schema ? schema + "." : ""}identifies`,
-        },
-      ],
-      ...settings?.queries,
     };
 
     const datasource = await createDataSource(

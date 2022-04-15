@@ -63,8 +63,8 @@ const SegmentForm: FC<{
           onChange={(v) => form.setValue("userIdType", v)}
           options={(datasource.settings.userIdTypes || []).map((t) => {
             return {
-              label: t.id,
-              value: t.id,
+              label: t,
+              value: t,
             };
           })}
         />

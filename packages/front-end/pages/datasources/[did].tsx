@@ -10,8 +10,6 @@ import DataSourceForm from "../../components/Settings/DataSourceForm";
 import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
-import { getExperimentQuery } from "../../services/datasources";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { hasFileConfig } from "../../services/env";
 
 function quotePropertyName(name: string) {
@@ -57,6 +55,10 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const supportsImports = d.properties?.pastExperiments;
+
+  const joinTables = (d.settings?.queries?.identityJoins || []).filter(
+    (j) => j.query.length > 1
+  );
 
   return (
     <div className="container mt-3 pagecontents">
@@ -191,7 +193,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           {supportsSQL && (
             <>
               <div className="mb-4">
-                <h3>Experiments Query</h3>
+                <h3>User Id Types</h3>
+                <ul>
+                  {d.settings.userIdTypes?.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mb-4">
+                <h3>Experiment Exposure Tables</h3>
                 <div>
                   Returns variation assignment data for all experiments -{" "}
                   <em className="text-muted">
@@ -199,44 +209,42 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     they see, and when?
                   </em>
                 </div>
-                <Code
-                  language="sql"
-                  theme="light"
-                  code={getExperimentQuery(
-                    d.settings,
-                    (d.params as PostgresConnectionParams)?.defaultSchema
-                  )}
-                />
-                {d.settings?.experimentDimensions?.length > 0 && (
-                  <div className="mt-2">
-                    <div>
-                      <strong>Dimension Columns:</strong>{" "}
-                      {d.settings.experimentDimensions.map((d) => (
-                        <code key={d} className="mx-2">
-                          {d}
-                        </code>
-                      ))}
+
+                {d.settings.queries?.exposure?.map((e) => (
+                  <div className="bg-light border mb-3 p-3" key={e.id}>
+                    <h4>{e.name}</h4>
+                    {e.description && <p>{e.description}</p>}
+                    <div className="row">
+                      <div className="col-auto">
+                        <strong>User Id:</strong>
+                        <code>{e.userIdType}</code>
+                      </div>
+                      <div className="col-auto">
+                        <strong>Dimensions:</strong>
+                        {e.dimensions.map((d) => (
+                          <code className="mx-1" key={d}>
+                            {d}
+                          </code>
+                        ))}
+                      </div>
                     </div>
+                    <Code language="sql" theme="light" code={e.query} />
                   </div>
-                )}
+                ))}
               </div>
-              {(d.settings?.queries?.identityJoins?.[0]?.query?.length > 0 ||
-                d.settings?.queries?.pageviewsQuery) && (
+              {joinTables.length > 0 && (
                 <div className="mb-4">
-                  <h3>User Id Join Table</h3>
+                  <h3>User Id Join Tables</h3>
                   <div>
-                    Joins anonymous ids with logged-in user ids when needed
-                    during experiment analysis.
+                    Joins different user id types together when needed during
+                    experiment analysis.
                   </div>
-                  <Code
-                    language="sql"
-                    theme="light"
-                    code={
-                      d.settings?.queries?.identityJoins?.[0]?.query ||
-                      d.settings?.queries?.pageviewsQuery ||
-                      ""
-                    }
-                  />
+                  {joinTables.map((t, i) => (
+                    <div className="bg-light border mb-3 p-3" key={i}>
+                      <h4>{t.ids.join(", ")}</h4>
+                      <Code language="sql" theme="light" code={t.query} />
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="mb-4">

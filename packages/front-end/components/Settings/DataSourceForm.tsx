@@ -24,6 +24,7 @@ import PrestoForm from "./PrestoForm";
 import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
+import { getInitialSettings } from "../../services/datasources";
 
 const typeOptions: {
   type: DataSourceType;
@@ -199,7 +200,13 @@ const DataSourceForm: FC<{
       else {
         const res = await apiCall<{ id: string }>(`/datasources`, {
           method: "POST",
-          body: JSON.stringify(datasource),
+          body: JSON.stringify({
+            ...datasource,
+            settings: {
+              ...getInitialSettings("custom", datasource.params),
+              ...(datasource.settings || {}),
+            },
+          }),
         });
         id = res.id;
         track("Submit Datasource Form", {
