@@ -6,24 +6,36 @@ import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import { getExposureQuery } from "../../services/datasources";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
+  const { datasources, getDatasourceById } = useDefinitions();
   const form = useForm({
     defaultValues: {
       datasource: experiment.datasource || "",
+      exposureQueryId:
+        getExposureQuery(
+          getDatasourceById(experiment.datasource)?.settings,
+          experiment.exposureQueryId,
+          experiment.userIdType
+        )?.id || "",
       trackingKey: experiment.trackingKey || "",
     },
   });
-  const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
+
+  const datasource = getDatasourceById(form.watch("datasource"));
+
+  const supportsExposureQueries = datasource?.properties?.exposureQueries;
+  const exposureQueries = datasource?.settings?.queries?.exposure || [];
 
   return (
     <Modal
-      header={"Edit Data Source"}
+      header={"Edit Data Source Settings"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
@@ -44,7 +56,22 @@ const EditDataSourceForm: FC<{
         autoFocus={true}
         options={datasources.map((d) => ({ value: d.id, label: d.name }))}
       />
-      <Field label="Tracking Key" {...form.register("trackingKey")} />
+      {supportsExposureQueries && (
+        <SelectField
+          label="Experiment Exposure Table"
+          value={form.watch("exposureQueryId")}
+          onChange={(v) => form.setValue("exposureQueryId", v)}
+          initialOption="Choose..."
+          required
+          options={exposureQueries.map((q) => {
+            return {
+              label: q.name,
+              value: q.id,
+            };
+          })}
+        />
+      )}
+      <Field label="Experiment Id" {...form.register("trackingKey")} />
     </Modal>
   );
 };

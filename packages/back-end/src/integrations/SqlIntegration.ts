@@ -83,6 +83,7 @@ export default abstract class SqlIntegration
       metricCaps: true,
       segments: true,
       dimensions: true,
+      exposureQueries: true,
       separateExperimentResultQueries: true,
       hasSettings: true,
       userIds: true,

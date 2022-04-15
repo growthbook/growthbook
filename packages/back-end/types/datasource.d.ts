@@ -56,6 +56,7 @@ export interface DataSourceProperties {
   metricCaps?: boolean;
   segments?: boolean;
   experimentSegments?: boolean;
+  exposureQueries?: boolean;
   dimensions?: boolean;
   hasSettings?: boolean;
   activationDimension?: boolean;

@@ -21,6 +21,7 @@ import { getValidDate } from "../../services/dates";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import MoreMenu from "../Dropdown/MoreMenu";
+import { getExposureQuery } from "../../services/datasources";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -125,7 +126,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
-      userIdType: initialValue?.userIdType || "anonymous",
+      exposureQueryId:
+        getExposureQuery(
+          getDatasourceById(initialValue.datasource)?.settings,
+          initialValue.exposureQueryId,
+          initialValue.userIdType
+        )?.id || "",
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
@@ -202,6 +208,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   });
 
+  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+
   return (
     <PagedModal
       header={"New Experiment Analysis"}
@@ -260,6 +268,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               value: d.id,
               label: d.name,
             }))}
+          />
+        )}
+        {datasource?.properties?.exposureQueries && (
+          <SelectField
+            label="Experiment Exposure Table"
+            value={form.watch("exposureQueryId")}
+            onChange={(v) => form.setValue("exposureQueryId", v)}
+            initialOption="Choose..."
+            required
+            options={exposureQueries.map((q) => {
+              return {
+                label: q.name,
+                value: q.id,
+              };
+            })}
           />
         )}
         {isImport && (
@@ -453,13 +476,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          {datasource?.properties?.userIds && implementation === "visual" && (
-            <Field
-              label="Login State"
-              {...form.register("userIdType")}
-              options={["user", "anonymous"]}
-            />
-          )}
           {!isImport && implementation === "visual" && (
             <Field
               label="URL Targeting"

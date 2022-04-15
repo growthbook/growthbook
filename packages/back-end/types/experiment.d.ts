@@ -56,7 +56,7 @@ export interface ExperimentInterface {
   /**
    * @deprecated
    */
-  userIdType?: string;
+  userIdType?: "anonymous" | "user";
   name: string;
   dateCreated: Date;
   dateUpdated: Date;

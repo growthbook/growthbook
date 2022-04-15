@@ -29,7 +29,7 @@ const Results: FC<{
   editResult: () => void;
   mutateExperiment: () => void;
 }> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
-  const { dimensions, getMetricById, getDatasourceById } = useDefinitions();
+  const { getMetricById } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -69,20 +69,6 @@ const Results: FC<{
 
   const variationsPlural =
     experiment.variations.length > 2 ? "variations" : "variation";
-
-  const filteredDimensions: { id: string; name: string }[] = dimensions.filter(
-    (d) => d.datasource === experiment.datasource
-  );
-
-  const datasource = getDatasourceById(experiment.datasource);
-  if (datasource?.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
-      filteredDimensions.push({
-        id: "exp:" + d,
-        name: d,
-      });
-    });
-  }
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 

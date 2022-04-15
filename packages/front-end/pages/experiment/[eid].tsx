@@ -17,7 +17,6 @@ import {
   FaStop,
   FaPlay,
   FaPencilAlt,
-  FaCode,
   FaPalette,
   FaExternalLinkAlt,
 } from "react-icons/fa";
@@ -44,7 +43,6 @@ import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup
 import ConfirmButton from "../../components/Modal/ConfirmButton";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import InstructionsModal from "../../components/Experiment/InstructionsModal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import VisualCode from "../../components/Experiment/VisualCode";
 import { IdeaInterface } from "back-end/types/idea";
@@ -52,8 +50,9 @@ import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
-import { IfFeatureEnabled, useFeature } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
+import { getExposureQuery } from "../../services/datasources";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -68,7 +67,6 @@ const ExperimentPage = (): ReactElement => {
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [instructionsModalOpen, setInstructionsModalOpen] = useState(false);
 
   const showTargeting = useFeature("show-experiment-targeting").on;
 
@@ -213,12 +211,6 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setTargetingModalOpen(false)}
           mutate={mutate}
-        />
-      )}
-      {instructionsModalOpen && (
-        <InstructionsModal
-          close={() => setInstructionsModalOpen(false)}
-          experiment={experiment}
         />
       )}
       {deleteOpen && (
@@ -633,27 +625,6 @@ const ExperimentPage = (): ReactElement => {
                   <hr />
                 </>
               )}
-              {!experiment.archived &&
-                experiment.status !== "stopped" &&
-                experiment.implementation !== "visual" && (
-                  <IfFeatureEnabled feature="experiment-implementation">
-                    <RightRailSection title="Implementation">
-                      <div className="my-1">
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setInstructionsModalOpen(true);
-                          }}
-                          className="text-purple"
-                        >
-                          <FaCode /> Get Code
-                        </a>
-                      </div>
-                    </RightRailSection>
-                    <hr />
-                  </IfFeatureEnabled>
-                )}
               <RightRailSection
                 title="Tags"
                 open={() => setTagsModalOpen(true)}
@@ -672,7 +643,21 @@ const ExperimentPage = (): ReactElement => {
                 <RightRailSectionGroup title="Data Source" type="commaList">
                   {experiment.datasource ? datasource?.name : "Manual"}
                 </RightRailSectionGroup>
-                <RightRailSectionGroup title="Tracking Key">
+                {datasource?.properties?.exposureQueries && (
+                  <RightRailSectionGroup
+                    title="Experiment Exposure Table"
+                    type="commaList"
+                  >
+                    {
+                      getExposureQuery(
+                        datasource?.settings,
+                        experiment.exposureQueryId,
+                        experiment.userIdType
+                      ).name
+                    }
+                  </RightRailSectionGroup>
+                )}
+                <RightRailSectionGroup title="Experiment Id">
                   <input
                     type="text"
                     readOnly
@@ -727,16 +712,6 @@ const ExperimentPage = (): ReactElement => {
                     open={() => setTargetingModalOpen(true)}
                     canOpen={canEdit && !experiment.archived}
                   >
-                    {datasource?.properties?.userIds && (
-                      <RightRailSectionGroup
-                        title="Login State"
-                        type="commaList"
-                      >
-                        {experiment.userIdType === "user"
-                          ? "User"
-                          : "Anonymous"}
-                      </RightRailSectionGroup>
-                    )}
                     <RightRailSectionGroup title="URL" type="code" empty="Any">
                       {experiment.targetURLRegex}
                     </RightRailSectionGroup>

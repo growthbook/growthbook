@@ -7,6 +7,7 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
+import DimensionChooser from "../Dimensions/DimensionChooser";
 
 export default function ConfigureReport({
   report,
@@ -29,7 +30,7 @@ export default function ConfigureReport({
     },
   });
 
-  const { metrics, segments, dimensions, getDatasourceById } = useDefinitions();
+  const { metrics, segments, getDatasourceById } = useDefinitions();
 
   const filteredMetrics = metrics.filter(
     (m) => m.datasource === report.args.datasource
@@ -37,48 +38,14 @@ export default function ConfigureReport({
   const filteredSegments = segments.filter(
     (s) => s.datasource === report.args.datasource
   );
-  const filteredDimensions = dimensions
-    .filter((d) => d.datasource === report.args.datasource)
-    .map((d) => {
-      return {
-        label: d.name,
-        value: d.id,
-      };
-    });
 
   const datasource = getDatasourceById(report.args.datasource);
   const datasourceProperties = datasource?.properties;
-  const supportsSql = datasource?.properties?.queryLanguage === "sql";
 
   const variations = useFieldArray({
     control: form.control,
     name: "variations",
   });
-
-  if (datasource?.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
-      filteredDimensions.push({
-        label: d,
-        value: "exp:" + d,
-      });
-    });
-  }
-
-  const builtInDimensions = [
-    {
-      label: "Date",
-      value: "pre:date",
-    },
-  ];
-  if (
-    datasource?.properties?.activationDimension &&
-    form.watch("activationMetric")
-  ) {
-    builtInDimensions.push({
-      label: "Activation status",
-      value: "pre:activation",
-    });
-  }
 
   return (
     <Modal
@@ -220,26 +187,15 @@ export default function ConfigureReport({
           datasource={report.args.datasource}
         />
       </div>
-      {(filteredDimensions.length > 0 || supportsSql) && (
-        <SelectField
-          label="Dimension"
-          labelClassName="font-weight-bold"
-          options={[
-            {
-              label: "Built-in",
-              options: builtInDimensions,
-            },
-            {
-              label: "Custom",
-              options: filteredDimensions,
-            },
-          ]}
-          initialOption="None"
-          value={form.watch("dimension")}
-          onChange={(value) => form.setValue("dimension", value || "")}
-          helpText="Break down results for each metric by a dimension"
-        />
-      )}
+      <DimensionChooser
+        value={form.watch("dimension")}
+        setValue={(value) => form.setValue("dimension", value || "")}
+        activationMetric={!!form.watch("activationMetric")}
+        exposureQueryId={form.watch("exposureQueryId")}
+        datasourceId={report.args.datasource}
+        userIdType={report.args.userIdType}
+        labelClassName="font-weight-bold"
+      />
       <SelectField
         label="Activation Metric"
         labelClassName="font-weight-bold"

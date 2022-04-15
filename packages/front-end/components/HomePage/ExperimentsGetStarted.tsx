@@ -143,6 +143,7 @@ const ExperimentsGetStarted = ({
             onClose={() => setExperimentsOpen(false)}
             source={featureExperiment ? "feature-rule" : "get-started"}
             initialValue={featureExperiment}
+            fromFeature={!!featureExperiment}
           />
         )}
         <div className="row">
