@@ -93,7 +93,7 @@ function validateQuerySettings(
   }
 }
 function getRawSQLPreview({
-  userIdType,
+  userIdTypes,
   userIdColumn,
   anonymousIdColumn,
   timestampColumn,
@@ -103,10 +103,10 @@ function getRawSQLPreview({
   conditions,
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
-  if (userIdType !== "user") {
+  if (userIdTypes.includes("anonymous_id")) {
     cols.push((anonymousIdColumn || "anonymous_id") + " as anonymous_id");
   }
-  if (userIdType !== "anonymous") {
+  if (userIdTypes.includes("user_id")) {
     cols.push((userIdColumn || "user_id") + " as user_id");
   }
   cols.push((timestampColumn || "received_at") + " as timestamp");
@@ -460,12 +460,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(types) => {
                     form.setValue("userIdTypes", types);
                   }}
-                  options={currentDataSource.settings.userIdTypes.map(
-                    ({ id }) => ({
-                      value: id,
-                      label: id,
-                    })
-                  )}
+                  options={currentDataSource.settings.userIdTypes.map((id) => ({
+                    value: id,
+                    label: id,
+                  }))}
                   label="User Id Types Supported"
                 />
                 <Field
@@ -623,7 +621,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       form.setValue("userIdTypes", types);
                     }}
                     options={currentDataSource.settings.userIdTypes.map(
-                      ({ id }) => ({
+                      (id) => ({
                         value: id,
                         label: id,
                       })
@@ -669,10 +667,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   <ol>
                     {value.userIdTypes.map((id) => (
                       <li key={id}>
-                        <strong>{id}</strong> -{" "}
-                        {currentDataSource.settings.userIdTypes?.find(
-                          (t) => t.id === id
-                        )?.description || `The user identifier '${id}'`}
+                        <strong>{id}</strong>
                       </li>
                     ))}
                     {value.type !== "binomial" && (

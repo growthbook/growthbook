@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { FaAngleLeft, FaCloudDownloadAlt, FaCode, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import Button from "../../components/Button";
@@ -193,78 +193,81 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           {supportsSQL && (
             <>
               <div className="mb-4">
-                <h3>User Id Types</h3>
-                <ul>
-                  {d.settings.userIdTypes?.map((t) => (
-                    <li key={t}>{t}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mb-4">
-                <h3>Experiment Exposure Tables</h3>
+                <h3>Experiment Assignment Queries</h3>
                 <div>
-                  Returns variation assignment data for all experiments -{" "}
-                  <em className="text-muted">
-                    which users were in which experiments, what variation did
-                    they see, and when?
-                  </em>
+                  <p>
+                    Returns a record of which experiment variation was assigned
+                    to each user.
+                  </p>
                 </div>
 
                 {d.settings.queries?.exposure?.map((e) => (
-                  <div className="bg-light border mb-3 p-3" key={e.id}>
-                    <h4>{e.name}</h4>
-                    {e.description && <p>{e.description}</p>}
-                    <div className="row">
-                      <div className="col-auto">
-                        <strong>User Id:</strong>
-                        <code>{e.userIdType}</code>
-                      </div>
-                      <div className="col-auto">
-                        <strong>Dimensions:</strong>
-                        {e.dimensions.map((d) => (
-                          <code className="mx-1" key={d}>
-                            {d}
-                          </code>
-                        ))}
+                  <div className="bg-white border mb-3" key={e.id}>
+                    <div className="px-3 pt-3">
+                      <h4>{e.name}</h4>
+                      {e.description && <p>{e.description}</p>}
+                      <div className="row">
+                        <div className="col-auto">
+                          <strong>User Id: </strong>
+                          <code>{e.userIdType}</code>
+                        </div>
+                        <div className="col-auto">
+                          <strong>Dimension Columns: </strong>
+                          {e.dimensions.map((d, i) => (
+                            <React.Fragment key={i}>
+                              {i ? ", " : ""}
+                              <code key={d}>{d}</code>
+                            </React.Fragment>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <Code language="sql" theme="light" code={e.query} />
+                    <Code
+                      language="sql"
+                      theme="light"
+                      code={e.query}
+                      containerClassName="mb-0"
+                    />
                   </div>
                 ))}
               </div>
               {joinTables.length > 0 && (
                 <div className="mb-4">
                   <h3>User Id Join Tables</h3>
-                  <div>
+                  <p>
                     Joins different user id types together when needed during
                     experiment analysis.
-                  </div>
+                  </p>
                   {joinTables.map((t, i) => (
-                    <div className="bg-light border mb-3 p-3" key={i}>
-                      <h4>{t.ids.join(", ")}</h4>
-                      <Code language="sql" theme="light" code={t.query} />
+                    <div className="bg-white border mb-3" key={i}>
+                      <h4 className="pt-3 px-3">{t.ids.join(", ")}</h4>
+                      <Code
+                        language="sql"
+                        theme="light"
+                        code={t.query}
+                        containerClassName="mb-0"
+                      />
                     </div>
                   ))}
                 </div>
               )}
               <div className="mb-4">
                 <h3>Jupyter Notebook Query Runner</h3>
-                <div>
-                  Defines a Python <code>runQuery</code> function that executes
-                  a SQL query and returns a pandas data frame.
-                </div>
-                <div className="mt-2">
-                  Used to generate Jupyter Notebooks for experiments in this
-                  data source.
-                </div>
-                <Code
-                  theme="light"
-                  code={
-                    d.settings?.notebookRunQuery ||
-                    "import pandas as pd\n\ndef runQuery(sql):\n  # TODO: implement\n  return pd.DataFrame(...)"
-                  }
-                  language="python"
-                />
+                <p>
+                  Tell us how to query this data source from within a Jupyter
+                  notebook environment.
+                </p>
+                {d.settings?.notebookRunQuery ? (
+                  <Code
+                    theme="light"
+                    code={d.settings.notebookRunQuery}
+                    language="python"
+                  />
+                ) : (
+                  <div className="alert alert-info">
+                    No query runner defined, Jupyter export is disabled.
+                  </div>
+                )}
               </div>
             </>
           )}

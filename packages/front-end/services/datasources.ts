@@ -24,9 +24,6 @@ const GA4Schema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getUserIds: () => {
-    return ["user_id", "anonymous_id"];
-  },
   getExperimentSQL: (tablePrefix, userId) => {
     const userCol = userId === "user_id" ? "user_id" : "user_pseudo_id";
 
@@ -55,7 +52,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -91,9 +88,6 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getUserIds: () => {
-    return ["user_id", "anonymous_id"];
-  },
   getExperimentSQL: (tablePrefix, userId) => {
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
@@ -117,7 +111,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -139,9 +133,6 @@ WHERE
 
 const CustomSchema: SchemaInterface = {
   experimentDimensions: [],
-  getUserIds: () => {
-    return ["user_id", "anonymous_id"];
-  },
   getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
   ${userId} as ${userId},
@@ -154,7 +145,7 @@ FROM
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -173,9 +164,6 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getUserIds: () => {
-    return ["user_id", "anonymous_id"];
-  },
   getExperimentSQL: (tablePrefix, userId) => {
     const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
 
@@ -197,7 +185,7 @@ WHERE
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -219,9 +207,6 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getUserIds: () => {
-    return ["user_id", "anonymous_id"];
-  },
   getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
   ${userId},
@@ -257,7 +242,7 @@ FROM
       },
     ];
   },
-  metricUserIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -321,7 +306,7 @@ export function getInitialSettings(
   params: DataSourceParams
 ) {
   const schema = getSchemaObject(type);
-  const userIdTypes = schema.getUserIds();
+  const userIdTypes = schema.userIdTypes;
   return {
     userIdTypes,
     queries: {
@@ -364,7 +349,7 @@ export function getInitialMetricQuery(
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   return [
-    schema.metricUserIdTypes,
+    schema.userIdTypes,
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
 }

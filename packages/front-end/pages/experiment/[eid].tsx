@@ -645,7 +645,7 @@ const ExperimentPage = (): ReactElement => {
                 </RightRailSectionGroup>
                 {datasource?.properties?.exposureQueries && (
                   <RightRailSectionGroup
-                    title="Experiment Exposure Table"
+                    title="Assignment Table"
                     type="commaList"
                   >
                     {

@@ -102,11 +102,11 @@ export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
 
   if (!doc.userIdTypes?.length) {
     if (doc.userIdType === "user") {
-      doc.userIdTypes = ["user_id"];
+      newDoc.userIdTypes = ["user_id"];
     } else if (doc.userIdType === "anonymous") {
-      doc.userIdTypes = ["anonymous_id"];
+      newDoc.userIdTypes = ["anonymous_id"];
     } else {
-      doc.userIdTypes = ["anonymous_id", "user_id"];
+      newDoc.userIdTypes = ["anonymous_id", "user_id"];
     }
   }
 

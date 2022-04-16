@@ -11,6 +11,7 @@ export interface Props {
   activationMetric?: boolean;
   userIdType?: "user" | "anonymous";
   labelClassName?: string;
+  showHelp?: boolean;
 }
 
 export default function DimensionChooser({
@@ -21,6 +22,7 @@ export default function DimensionChooser({
   activationMetric,
   userIdType,
   labelClassName,
+  showHelp,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(datasourceId);
@@ -105,7 +107,9 @@ export default function DimensionChooser({
       initialOption="None"
       value={value}
       onChange={setValue}
-      helpText="Break down results for each metric by a dimension"
+      helpText={
+        showHelp ? "Break down results for each metric by a dimension" : ""
+      }
     />
   );
 }

@@ -403,7 +403,7 @@ export async function createExperiment(
     );
     if (existing) {
       throw new Error(
-        "Error: Duplicate tracking key. Please choose something else"
+        "Error: Duplicate experiment id. Please choose something else"
       );
     }
   } else {

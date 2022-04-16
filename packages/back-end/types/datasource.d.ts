@@ -44,10 +44,9 @@ export type SchemaFormat =
 
 export interface SchemaInterface {
   getExperimentSQL(tablePrefix: string, userId: string): string;
-  getUserIds(): string[];
   getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
   experimentDimensions: string[];
-  metricUserIdTypes: string[];
+  userIdTypes: string[];
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
 }
 

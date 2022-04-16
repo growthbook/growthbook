@@ -53,16 +53,21 @@ const EditDataSourceForm: FC<{
         onChange={(v) => form.setValue("datasource", v)}
         disabled={experiment.status !== "draft"}
         initialOption="Manual"
+        name="datasource"
         autoFocus={true}
         options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+        helpText={
+          experiment.status !== "draft"
+            ? "Cannot edit the data source while experiment is live. Revert to a draft first."
+            : ""
+        }
       />
       {supportsExposureQueries && (
         <SelectField
-          label="Experiment Exposure Table"
+          label="Assignment Table"
           value={form.watch("exposureQueryId")}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          initialOption="Choose..."
           required
+          onChange={(v) => form.setValue("exposureQueryId", v)}
           options={exposureQueries.map((q) => {
             return {
               label: q.name,

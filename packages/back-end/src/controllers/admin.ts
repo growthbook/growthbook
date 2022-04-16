@@ -79,12 +79,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     "postgres",
     dsParams,
     {
-      userIdTypes: [
-        {
-          id: "user_id",
-          description: "Logged-in user id",
-        },
-      ],
+      userIdTypes: ["user_id"],
       queries: {
         exposure: [
           {

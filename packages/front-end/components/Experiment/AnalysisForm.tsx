@@ -60,6 +60,8 @@ const AnalysisForm: FC<{
   });
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
   return (
     <Modal
@@ -258,8 +260,9 @@ const AnalysisForm: FC<{
           <div className="pt-2 border-left col-sm-4 col-lg-6">
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
-              {["user_id", "anonymous_id", "timestamp", "variation_id"]
-                .concat(datasource?.settings?.experimentDimensions || [])
+              {["timestamp", "variation_id"]
+                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (
                     <div className="mr-2 mb-2 border px-1" key={d}>
