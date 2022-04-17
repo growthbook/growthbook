@@ -21,43 +21,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
-
-// Replace vars in SQL queries (e.g. '{{startDate}}')
-export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
-  // If there's no end date, use a near future date by default
-  // We want to use at least 24 hours in the future in case of timezone issues
-  // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
-  if (!endDate) {
-    const now = new Date();
-    endDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 2,
-      0,
-      0,
-      0,
-      0
-    );
-  }
-
-  const replacements: Record<string, string> = {
-    startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
-    startYear: startDate.toISOString().substr(0, 4),
-    startMonth: startDate.toISOString().substr(5, 2),
-    startDay: startDate.toISOString().substr(8, 2),
-    endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
-    endYear: endDate.toISOString().substr(0, 4),
-    endMonth: endDate.toISOString().substr(5, 2),
-    endDay: endDate.toISOString().substr(8, 2),
-  };
-
-  Object.keys(replacements).forEach((key) => {
-    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-    sql = sql.replace(re, replacements[key]);
-  });
-
-  return sql;
-}
+import { getBaseIdTypeAndJoins, replaceDateVars } from "../util/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -460,35 +424,14 @@ export default abstract class SqlIntegration
   }
 
   private getIdentifiesCTE(objects: string[][], from: Date, to?: Date) {
-    // Count how many objects use each id type
-    const counts: Record<string, number> = {};
-    objects.forEach((types) => {
-      types.forEach((type) => {
-        if (!type) return;
-        counts[type] = counts[type] || 0;
-        counts[type]++;
-      });
-    });
-    // Sort to find the most used id type and set it as the baseIdType
-    const baseIdType =
-      Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(objects);
 
     // Joins for when an object doesn't support the baseIdType
     const joins: string[] = [];
     const idJoinMap: Record<string, string> = {};
 
-    // Determine the required joins
-    // TODO: optimize this to always choose the minimum possible number of joins
-    const joinIdTypes: Set<string> = new Set();
-    objects.forEach((types) => {
-      types = types.filter(Boolean);
-      if (!types.length) return;
-      if (types.includes(baseIdType)) return;
-      joinIdTypes.add(types[0]);
-    });
-
     // Generate table names and SQL for each of the required joins
-    Array.from(joinIdTypes).forEach((idType, i) => {
+    joinsRequired.forEach((idType, i) => {
       const table = `__identities${i}`;
       idJoinMap[idType] = table;
       joins.push(

@@ -9,7 +9,8 @@ import {
   updateMetric,
 } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { analyzeExperimentMetric, checkSrm } from "./stats";
+import { analyzeExperimentMetric } from "./stats";
+import { checkSrm } from "../util/stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";

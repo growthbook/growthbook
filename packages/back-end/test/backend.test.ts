@@ -1,5 +1,5 @@
-import { replaceDateVars } from "../src/integrations/SqlIntegration";
-import { checkSrm } from "../src/services/stats";
+import { checkSrm } from "../src/util/stats";
+import { getBaseIdTypeAndJoins, replaceDateVars } from "../src/util/sql";
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
@@ -64,5 +64,56 @@ describe("backend", () => {
 
     // Completely equal
     expect(+checkSrm([500, 500], [0.5, 0.5]).toFixed(9)).toEqual(1);
+  });
+
+  it("determines user id joins correctly", () => {
+    // Simple case
+    expect(getBaseIdTypeAndJoins([["anonymous_id"], ["user_id"]])).toEqual({
+      baseIdType: "anonymous_id",
+      joinsRequired: ["user_id"],
+    });
+
+    // Don't need a join
+    expect(
+      getBaseIdTypeAndJoins([["anonymous_id"], ["user_id", "anonymous_id"]])
+    ).toEqual({
+      baseIdType: "anonymous_id",
+      joinsRequired: [],
+    });
+
+    // Chooses the most common id as the base
+    expect(
+      getBaseIdTypeAndJoins([
+        ["id1", "id2", "id3", "id4", "id5"],
+        ["id2", "id3", "id4", "id5"],
+        ["id3", "id4"],
+        ["id4", "id5"],
+      ])
+    ).toEqual({
+      baseIdType: "id4",
+      joinsRequired: [],
+    });
+
+    // Ignores empty objects
+    expect(
+      getBaseIdTypeAndJoins([["user_id"], [], [null, null, null]])
+    ).toEqual({
+      baseIdType: "user_id",
+      joinsRequired: [],
+    });
+
+    // Multiple joins required
+    expect(
+      getBaseIdTypeAndJoins([
+        ["id1", "id2"],
+        ["id2", "id3"],
+        ["id4", "id5"],
+        ["id6", "id7"],
+        ["id8"],
+      ])
+    ).toEqual({
+      baseIdType: "id2",
+      joinsRequired: ["id8", "id4", "id6"],
+    });
   });
 });
