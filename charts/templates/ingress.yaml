@@ -3,11 +3,7 @@ kind: Ingress
 metadata:
   name: {{ .Values.ingress.name }}
   annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "https://{{ .Values.ingress.appOriginName }}"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Referer,sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,User-Agent,X-Organization,Content-Type"
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
 spec:
   rules:
     - host: {{ .Values.ingress.appOriginName }}
@@ -33,4 +29,5 @@ spec:
   tls:
     - hosts:
         - {{ .Values.ingress.appOriginName }}
+        - {{ .Values.ingress.apiHostName }}
       secretName: {{ .Values.externalSecretName }}
