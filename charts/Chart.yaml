@@ -22,6 +22,7 @@ version: 1.0.0
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "1.16.0"
+# Disable if you already set up mongodb
 dependencies:
   - name: mongodb
     version: 10.26.0
