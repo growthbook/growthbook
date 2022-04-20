@@ -1,6 +1,5 @@
 import {
   EMAIL_ENABLED,
-  EMAIL_USE_TLS,
   EMAIL_FROM,
   EMAIL_HOST,
   EMAIL_HOST_PASSWORD,
@@ -32,7 +31,7 @@ const transporter = isEmailEnabled()
   ? nodemailer.createTransport({
       host: EMAIL_HOST,
       port: EMAIL_PORT,
-      secure: EMAIL_USE_TLS,
+      secure: EMAIL_PORT === 465,
       auth: {
         user: EMAIL_HOST_USER,
         pass: EMAIL_HOST_PASSWORD,

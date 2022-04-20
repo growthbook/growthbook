@@ -54,7 +54,6 @@ export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
-export const EMAIL_USE_TLS = !!process.env.EMAIL_USE_TLS;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
