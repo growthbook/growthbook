@@ -115,7 +115,13 @@ export default function ExperimentGraph({
         };
 
         return (
-          <>
+          <div
+            onMouseLeave={() => {
+              window.setTimeout(() => {
+                hideTooltip();
+              }, 100);
+            }}
+          >
             <div style={{ position: "relative" }}>
               {tooltipOpen && (
                 <TooltipWithBounds
@@ -128,16 +134,7 @@ export default function ExperimentGraph({
                 </TooltipWithBounds>
               )}
             </div>
-            <svg
-              width={width}
-              height={height}
-              onMouseLeave={() => {
-                window.setTimeout(() => {
-                  hideTooltip();
-                }, 100);
-              }}
-              onMouseMove={handlePointer}
-            >
+            <svg width={width} height={height} onMouseMove={handlePointer}>
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
@@ -192,7 +189,7 @@ export default function ExperimentGraph({
                 />
               </Group>
             </svg>
-          </>
+          </div>
         );
       }}
     </ParentSizeModern>
