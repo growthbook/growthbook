@@ -20,8 +20,7 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
-import { upgradeMetricDoc } from "../models/MetricModel";
-import { upgradeDatasourceObject } from "../models/DataSourceModel";
+import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 
 export type ConfigFile = {
   organization?: {

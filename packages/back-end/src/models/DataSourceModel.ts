@@ -9,12 +9,11 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
-  getSourceIntegrationObject,
   testDataSourceConnection,
 } from "../services/datasource";
 import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
-import SqlIntegration from "../integrations/SqlIntegration";
+import { upgradeDatasourceObject } from "../util/migrations";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -39,96 +38,6 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
-}
-
-function getDefaultExperimentQuery(
-  settings: DataSourceSettings,
-  userIdType = "user_id",
-  schema?: string
-): string {
-  let column = userIdType;
-
-  if (userIdType === "user_id") {
-    column =
-      settings?.experiments?.userIdColumn ||
-      settings?.default?.userIdColumn ||
-      "user_id";
-  } else if (userIdType === "anonymous_id") {
-    column =
-      settings?.experiments?.anonymousIdColumn ||
-      settings?.default?.anonymousIdColumn ||
-      "anonymous_id";
-  }
-
-  return `SELECT
-  ${column} as ${userIdType},
-  ${
-    settings?.experiments?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
-}
-
-export function upgradeDatasourceObject(
-  datasource: DataSourceInterface
-): DataSourceInterface {
-  const settings = datasource.settings;
-
-  // Add default randomization units
-  if (!settings?.userIdTypes) {
-    settings.userIdTypes = [
-      { userIdType: "user_id", description: "Logged-in user id" },
-      { userIdType: "anonymous_id", description: "Anonymous visitor id" },
-    ];
-  }
-
-  // Upgrade old docs to the new exposure queries format
-  if (!settings?.queries?.exposure) {
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration instanceof SqlIntegration) {
-      settings.queries = settings.queries || {};
-      settings.queries.exposure = [
-        {
-          id: "user_id",
-          name: "Logged-in User Experiments",
-          description: "",
-          userIdType: "user_id",
-          dimensions: settings.experimentDimensions || [],
-          query:
-            settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "user_id",
-              integration.getSchema()
-            ),
-        },
-        {
-          id: "anonymous_id",
-          name: "Anonymous Visitor Experiments",
-          description: "",
-          userIdType: "anonymous_id",
-          dimensions: settings.experimentDimensions || [],
-          query:
-            settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "anonymous_id",
-              integration.getSchema()
-            ),
-        },
-      ];
-    }
-  }
-
-  return datasource;
 }
 
 export async function getDataSourcesByOrganization(organization: string) {

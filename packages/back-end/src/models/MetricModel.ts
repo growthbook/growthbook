@@ -1,7 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { upgradeMetricDoc } from "../util/migrations";
 import { queriesSchema } from "./QueryModel";
 
 export const ALLOWED_METRIC_TYPES = [
@@ -90,35 +90,6 @@ const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());
-}
-
-export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
-  const newDoc = { ...doc };
-
-  if (doc.conversionDelayHours == null && doc.earlyStart) {
-    newDoc.conversionDelayHours = -0.5;
-    newDoc.conversionWindowHours =
-      (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5;
-  }
-
-  if (!doc.userIdTypes?.length) {
-    if (doc.userIdType === "user") {
-      newDoc.userIdTypes = ["user_id"];
-    } else if (doc.userIdType === "anonymous") {
-      newDoc.userIdTypes = ["anonymous_id"];
-    } else {
-      newDoc.userIdTypes = ["anonymous_id", "user_id"];
-    }
-  }
-
-  if (!doc.userIdColumns) {
-    doc.userIdColumns = {
-      user_id: doc.userIdColumn || "user_id",
-      anonymous_id: doc.anonymousIdColumn || "anonymous_id",
-    };
-  }
-
-  return newDoc;
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {
