@@ -59,11 +59,15 @@ const EditDataSourceSettingsForm: FC<{
     control: form.control,
     name: "settings.queries.identityJoins",
   });
+  const userIdTypes = useFieldArray({
+    control: form.control,
+    name: "settings.userIdTypes",
+  });
 
   const userIdTypeOptions = form.watch("settings.userIdTypes").map((t) => {
     return {
-      display: t,
-      value: t,
+      display: t.userIdType,
+      value: t.userIdType,
     };
   });
 
@@ -118,10 +122,62 @@ const EditDataSourceSettingsForm: FC<{
                 Define all the different units you use to split traffic in an
                 experiment. Some examples: user_id, device_id, ip_address.
               </div>
-              <StringArrayField
-                value={form.watch("settings.userIdTypes")}
-                onChange={(val) => form.setValue("settings.userIdTypes", val)}
-              />
+
+              {userIdTypes.fields.map((userIdType, i) => {
+                return (
+                  <div key={userIdType.id} className="bg-light border my-2 p-3">
+                    <div className="row">
+                      <div className="col">
+                        <Field
+                          label="User Id Type"
+                          pattern="^[a-z_]+$"
+                          title="Only lowercase letters and underscores allowed"
+                          required
+                          {...form.register(
+                            `settings.userIdTypes.${i}.userIdType`
+                          )}
+                          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+                        />
+                      </div>
+                      <div className="col-auto">
+                        <button
+                          className="btn btn-danger"
+                          type="button"
+                          title="Remove user id type"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            userIdTypes.remove(i);
+                          }}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    </div>
+                    <Field
+                      label="Description (optional)"
+                      {...form.register(
+                        `settings.userIdTypes.${i}.description`
+                      )}
+                      minRows={1}
+                      maxRows={5}
+                      textarea
+                    />
+                  </div>
+                );
+              })}
+              <button
+                className="btn btn-outline-primary"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  userIdTypes.append({
+                    userIdType: "",
+                    description: "",
+                  });
+                }}
+              >
+                Add New User Id Type
+              </button>
 
               <h4>Experiment Assignment Tables</h4>
               {exposure.fields.map((exp, i) => {

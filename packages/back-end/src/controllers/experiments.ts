@@ -1489,6 +1489,7 @@ export async function postMetrics(
     datasource,
     timestampColumn,
     userIdType,
+    userIdColumns,
     userIdColumn,
     anonymousIdColumn,
   } = req.body;
@@ -1523,6 +1524,7 @@ export async function postMetrics(
     aggregation,
     queryFormat,
     status: "active",
+    userIdColumns,
     userIdColumn,
     anonymousIdColumn,
     timestampColumn,
@@ -1597,6 +1599,7 @@ export async function putMetric(
     "userIdType",
     "userIdColumn",
     "anonymousIdColumn",
+    "userIdColumns",
     "timestampColumn",
   ];
   fields.forEach((k) => {

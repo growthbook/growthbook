@@ -84,12 +84,17 @@ export interface ExposureQuery {
   dimensions: string[];
 }
 
+export interface UserIdType {
+  userIdType: string;
+  description?: string;
+}
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
-  userIdTypes?: string[];
+  userIdTypes?: UserIdType[];
   queries?: {
     // @deprecated
     experimentsQuery?: string;

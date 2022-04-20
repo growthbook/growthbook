@@ -25,10 +25,12 @@ If your data source supports SQL, this is the preferred way to define metrics. Y
 
 Your SELECT statement should return one row per "conversion event". This may be a page view, a purchase, a session, or something else. The end result should look like this:
 
-| user_id | anonymous_id | timestamp           | value |
-| ------- | ------------ | ------------------- | ----- |
-| 123     | abcdef       | 2021-08-23 12:45:14 | 10    |
-| 456     | fedcba       | 2021-08-23 12:45:15 | 5.25  |
+| user_id | timestamp           | value |
+| ------- | ------------------- | ----- |
+| 123     | 2021-08-23 12:45:14 | 10    |
+| 456     | 2021-08-23 12:45:15 | 5.25  |
+
+Metrics can support one or more types of user ids. The above example assumes the metric only supports a single id type called `user_id`, but you would add additional columns if you need to support other ones.
 
 Binomial metrics don't need a `value` column (the existence of a row means the user converted). For other metric types, the value represents the count, duration, or revenue from that single conversion event. In the case of multiple rows for a single user, the values will be summed together.
 
@@ -36,24 +38,13 @@ If you use Segment to populate your data warehouse, the SQL for a `Revenue per U
 
 ```sql
 SELECT
+  -- Assuming you support 2 user id types - 'user_id' and 'anonymous_id'
   user_id as user_id,
   anon_id as anonymous_id,
   received_at as timestamp,
   grand_total as value
 FROM
   purchases
-```
-
-Also, your metric may support only logged-in or only anonymous users, in which case you can omit the other type of id.
-
-An example of a binomial metric that only supports logged-in users would look like this: (notice no `value` or `anonymous_id` columns)
-
-```sql
-SELECT
-  user_id as user_id,
-  received_at as timestamp
-FROM
-  registrations
 ```
 
 #### SQL Template Variables

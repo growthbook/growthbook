@@ -754,7 +754,7 @@ export default abstract class SqlIntegration
     const cols = this.getMetricColumns(metric, "m");
 
     // Determine the user id column to select from
-    let userIdCol = baseIdType === "user_id" ? cols.userId : cols.anonymousId;
+    let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
     if (metric.userIdTypes?.includes(baseIdType)) {
       userIdCol = baseIdType;
@@ -1001,9 +1001,12 @@ export default abstract class SqlIntegration
 
     // Directly inputting SQL (preferred)
     if (queryFormat === "sql") {
+      const userIds: Record<string, string> = {};
+      metric.userIdTypes?.forEach((userIdType) => {
+        userIds[userIdType] = `${alias}.${userIdType}`;
+      });
       return {
-        anonymousId: `${alias}.anonymous_id`,
-        userId: `${alias}.user_id`,
+        userIds: userIds,
         timestamp: `${alias}.timestamp`,
         value: metric.type === "binomial" ? "1" : `${alias}.value`,
       };
@@ -1018,9 +1021,15 @@ export default abstract class SqlIntegration
     }
     const value = metric.type !== "binomial" && metric.column ? valueCol : "1";
 
+    const userIds: Record<string, string> = {};
+    metric.userIdTypes?.forEach((userIdType) => {
+      userIds[userIdType] = `${alias}.${
+        metric.userIdColumns?.[userIdType] || userIdType
+      }`;
+    });
+
     return {
-      anonymousId: `${alias}.${metric.anonymousIdColumn || "anonymous_id"}`,
-      userId: `${alias}.${metric.userIdColumn || "user_id"}`,
+      userIds,
       timestamp: `${alias}.${metric.timestampColumn || "received_at"}`,
       value,
     };

@@ -308,7 +308,17 @@ export function getInitialSettings(
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
   return {
-    userIdTypes,
+    userIdTypes: userIdTypes.map((type) => {
+      return {
+        userIdType: type,
+        description:
+          type === "user_id"
+            ? "Logged-in user id"
+            : type === "anonymous_id"
+            ? "Anonymous visitor id"
+            : "",
+      };
+    }),
     queries: {
       exposure: userIdTypes.map((id) => ({
         id,

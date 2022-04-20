@@ -41,6 +41,7 @@ const metricSchema = new mongoose.Schema({
   anonymousIdColumn: String,
   userIdType: String,
   userIdTypes: [String],
+  userIdColumns: {},
   status: String,
   sql: String,
   aggregation: String,
@@ -108,6 +109,13 @@ export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
     } else {
       newDoc.userIdTypes = ["anonymous_id", "user_id"];
     }
+  }
+
+  if (!doc.userIdColumns) {
+    doc.userIdColumns = {
+      user_id: doc.userIdColumn || "user_id",
+      anonymous_id: doc.anonymousIdColumn || "anonymous_id",
+    };
   }
 
   return newDoc;

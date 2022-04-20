@@ -94,8 +94,7 @@ function validateQuerySettings(
 }
 function getRawSQLPreview({
   userIdTypes,
-  userIdColumn,
-  anonymousIdColumn,
+  userIdColumns,
   timestampColumn,
   type,
   table,
@@ -103,12 +102,10 @@ function getRawSQLPreview({
   conditions,
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
-  if (userIdTypes.includes("anonymous_id")) {
-    cols.push((anonymousIdColumn || "anonymous_id") + " as anonymous_id");
-  }
-  if (userIdTypes.includes("user_id")) {
-    cols.push((userIdColumn || "user_id") + " as user_id");
-  }
+  userIdTypes.forEach((type) => {
+    cols.push(userIdColumns[type] || type + " as " + type);
+  });
+
   cols.push((timestampColumn || "received_at") + " as timestamp");
   if (type !== "binomial") {
     cols.push((column || "1") + " as value");
@@ -201,9 +198,11 @@ const MetricForm: FC<MetricFormProps> = ({
       sql: current.sql || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
-      userIdColumn: current.userIdColumn || "",
-      anonymousIdColumn: current.anonymousIdColumn || "",
       userIdTypes: current.userIdTypes || [],
+      userIdColumns: current.userIdColumns || {
+        user_id: current.userIdColumn || "user_id",
+        anonymous_id: current.anonymousIdColumn || "anonymous_id",
+      },
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
@@ -223,8 +222,7 @@ const MetricForm: FC<MetricFormProps> = ({
     queryFormat: form.watch("queryFormat"),
     datasource: form.watch("datasource"),
     timestampColumn: form.watch("timestampColumn"),
-    userIdColumn: form.watch("userIdColumn"),
-    anonymousIdColumn: form.watch("anonymousIdColumn"),
+    userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
     column: form.watch("column"),
     table: form.watch("table"),
@@ -460,10 +458,12 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(types) => {
                     form.setValue("userIdTypes", types);
                   }}
-                  options={currentDataSource.settings.userIdTypes.map((id) => ({
-                    value: id,
-                    label: id,
-                  }))}
+                  options={(currentDataSource.settings.userIdTypes || []).map(
+                    ({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    })
+                  )}
                   label="User Id Types Supported"
                 />
                 <Field
@@ -620,38 +620,31 @@ const MetricForm: FC<MetricFormProps> = ({
                     onChange={(types) => {
                       form.setValue("userIdTypes", types);
                     }}
-                    options={currentDataSource.settings.userIdTypes.map(
-                      (id) => ({
-                        value: id,
-                        label: id,
+                    options={(currentDataSource.settings.userIdTypes || []).map(
+                      ({ userIdType }) => ({
+                        value: userIdType,
+                        label: userIdType,
                       })
                     )}
                     label="User Id Types Supported"
                   />
                 )}
-                {value.userIdTypes.includes("user_id") && customizeUserIds && (
-                  <div className="form-group ">
-                    User Id Column
-                    <input
-                      type="text"
-                      placeholder={"user_id"}
-                      className="form-control"
-                      {...form.register("userIdColumn")}
+                {Object.keys(value.userIdTypes).map((type) => {
+                  return (
+                    <Field
+                      key={type}
+                      label={type + " Column"}
+                      placeholder={type}
+                      value={value.userIdColumns[type] || ""}
+                      onChange={(e) => {
+                        form.setValue("userIdColumns", {
+                          ...value.userIdColumns,
+                          [type]: e.target.value,
+                        });
+                      }}
                     />
-                  </div>
-                )}
-                {value.userIdTypes.includes("anonymous_id") &&
-                  customizeUserIds && (
-                    <div className="form-group ">
-                      Anonymous Id Column
-                      <input
-                        type="text"
-                        placeholder={"anonymous_id"}
-                        className="form-control"
-                        {...form.register("anonymousIdColumn")}
-                      />
-                    </div>
-                  )}
+                  );
+                })}
               </>
             )}
           </div>

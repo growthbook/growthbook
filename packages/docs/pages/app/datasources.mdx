@@ -45,44 +45,51 @@ Don’t worry about the potentially huge number of rows returned by these raw qu
 
 In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
 
-##### Experiments Query
+##### User Id Types
 
-This query needs to return which user was part of which experiment, what variation they saw, and when they saw it. The end result of the query should return data like this:
+These are all of the user identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
 
-| user_id | anonymous_id | timestamp           | experiment_id  | variation_id |
-| ------- | ------------ | ------------------- | -------------- | ------------ |
-| 123     | abcdef       | 2021-08-23-10:53:04 | my-button-test | 0            |
-| 456     | fedcba       | 2021-08-23 10:53:06 | my-button-test | 1            |
+##### Experiment Assignment Queries
 
-As an example, if you use Segment to populate your data warehouse, the SQL will look something like this:
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single user id type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
+
+The end result of the query should return data like this:
+
+| user_id | timestamp           | experiment_id  | variation_id |
+| ------- | ------------------- | -------------- | ------------ |
+| 123     | 2021-08-23-10:53:04 | my-button-test | 0            |
+| 456     | 2021-08-23 10:53:06 | my-button-test | 1            |
+
+The above assumes the user id type you are using is `user_id`. If you are using a different user id type, you would use a different column name.
+
+Here's an example query you might use:
 
 ```sql
 SELECT
   user_id,
-  anonymous_id,
   received_at as timestamp,
   experiment_id,
   variation_id
 FROM
-  experiment_viewed
+  events
+WHERE
+  event_type = 'viewed experiment'
 ```
 
-If you have all of your events in a single denormalized table, the query will be similar with the addition of a WHERE clause to filter down to just the variation assignment event type. If you have a custom data structure, you may even need to also add some JOINs.
-
-Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names shown above. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
 
 ##### Experiment Dimensions
 
-In addition to the standard 5 columns above, you can return additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
+In addition to the standard 4 columns above, you can also select additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
 
 ##### User Id Join Tables
 
-In some cases, we may need a use an additional join table between anonymous ids and logged-in user ids. For example, if an experiment is only running for anonymous users, but the conversion metric table only has logged-in user ids.
+If you have multiple user id types and want to be able to auto-merge them together during analysis, you also need to define user id join tables. For example, if your experiment is assigned based on `device_id`, but the conversion metric only has a `user_id` column.
 
-This query is very simple and just needs to return 2 columns: `user_id` and `anonymous_id`. Here's an example using Segment's schema:
+These queries are very simple and just need to return columns for each of the user id types being joined. For example:
 
 ```sql
-SELECT user_id, anonymous_id FROM identifies
+SELECT user_id, device_id FROM logins
 ```
 
 ##### SQL Template Variables
@@ -206,6 +213,7 @@ For the S3 results url, we recommend naming your bucket with the prefix `aws-ath
 ### BigQuery
 
 You must first create a Service Account in Google with the following roles:
+
 - Data Viewer
 - Metadata Viewer
 - Job User

@@ -728,14 +728,19 @@ const MetricPage: FC = () => {
                             />
                           </div>
                         )}
-                      {metric.userIdType !== "anonymous" && customizeUserIds && (
-                        <RightRailSectionGroup title="User Id Col" type="code">
-                          {metric.userIdColumn}
-                        </RightRailSectionGroup>
-                      )}
-                      {metric.userIdType !== "user" && customizeUserIds && (
-                        <RightRailSectionGroup title="Anon Id Col" type="code">
-                          {metric.anonymousIdColumn}
+                      {metric.userIdTypes && customizeUserIds && (
+                        <RightRailSectionGroup
+                          title="User Id Columns"
+                          type="custom"
+                        >
+                          <ul>
+                            {metric.userIdTypes?.map((type) => (
+                              <li key={type}>
+                                <strong>{type}</strong>:{" "}
+                                {metric.userIdColumns?.[type] || type}
+                              </li>
+                            ))}
+                          </ul>
                         </RightRailSectionGroup>
                       )}
                       {customzeTimestamp && (
