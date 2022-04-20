@@ -49,7 +49,7 @@ export default function FeaturesPage() {
 
   const settings = useOrgSettings();
   const [showSteps, setShowSteps] = useState(false);
-  const tagsFilter = useTagsFilter();
+  const tagsFilter = useTagsFilter("features");
 
   const stepsRequired =
     !settings?.sdkInstructionsViewed || (!loading && !features.length);
@@ -170,7 +170,7 @@ export default function FeaturesPage() {
             <div className="col-auto">
               <Field placeholder="Search..." {...searchInputProps} />
             </div>
-            <div className="col-auto">
+            <div className="col">
               <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
           </div>

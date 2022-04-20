@@ -52,6 +52,7 @@ export default function ExperimentSummary({
           onClose={() => setNewExpModal(false)}
           source="feature-rule"
           isImport={true}
+          fromFeature={true}
           msg="We couldn't find an analysis yet for that feature. Create a new one now."
           initialValue={expDefinition}
         />

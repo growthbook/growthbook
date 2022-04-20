@@ -1,13 +1,9 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React from "react";
 
-export function formatTrafficSplit(weights: number[]): string {
-  return weights
-    .map((w, i) => {
-      const p = +(w * 100).toFixed(2);
-      return i ? Math.floor(p) : Math.ceil(p);
-    })
-    .join("/");
+export function formatTrafficSplit(weights: number[], decimals = 0): string {
+  const sum = weights.reduce((sum, n) => sum + n, 0);
+  return weights.map((w) => +((w / sum) * 100).toFixed(decimals)).join("/");
 }
 
 export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
@@ -29,7 +25,7 @@ export function phaseSummary(
       </span>{" "}
       traffic,{" "}
       <span className="split">
-        {formatTrafficSplit(phase.variationWeights)}
+        {formatTrafficSplit(phase.variationWeights || [])}
       </span>{" "}
       split
     </>
