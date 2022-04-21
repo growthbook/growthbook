@@ -7,15 +7,7 @@ const tagSchema = new mongoose.Schema({
     index: true,
   },
   tags: [String],
-  settings: {
-    type: Map,
-    of: {
-      _id: false,
-      name: String,
-      color: String,
-      description: String,
-    },
-  },
+  settings: {},
 });
 
 type TagDocument = mongoose.Document & TagDBInterface;
@@ -82,15 +74,23 @@ export async function addTag(
     description = description.substr(0, 256);
   }
 
-  const settingIndex = `settings.${tag}`;
-  const setting = { [settingIndex]: { color, description } };
+  const existing = await TagModel.findOne({
+    organization,
+  });
+  const settings = existing?.settings || {};
+  settings[tag] = { color, description };
+
   await TagModel.updateOne(
     { organization },
     {
       $addToSet: {
         tags: tag,
       },
-      $set: setting,
+      $set: {
+        // Need to set the entire settings object, not just settings.{tag},
+        // since tags can contains dots in the name
+        settings,
+      },
     },
     {
       upsert: true,
