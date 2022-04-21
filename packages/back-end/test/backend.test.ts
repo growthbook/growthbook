@@ -9,6 +9,7 @@ import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
 import { encryptParams } from "../src/services/datasource";
 import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
 import { PostgresConnectionParams } from "../types/integrations/postgres";
+import cloneDeep from "lodash/cloneDeep";
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
@@ -353,8 +354,8 @@ describe("backend", () => {
     });
   });
 
-  it("updates old datasource objects - exposure queries", () => {
-    const baseDatasource: DataSourceInterface = {
+  it("updates old datasource objects - experimentQuery", () => {
+    const ds: DataSourceInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       id: "",
@@ -380,24 +381,16 @@ describe("backend", () => {
             description: "Anonymous visitor id",
           },
         ],
+        experimentDimensions: ["foo"],
+        queries: {
+          experimentsQuery: "testing",
+        },
       },
       type: "postgres",
     };
 
-    const experimentQuery: DataSourceSettings = {
-      ...baseDatasource.settings,
-      experimentDimensions: ["foo"],
-      queries: {
-        experimentsQuery: "testing",
-      },
-    };
-    expect(
-      upgradeDatasourceObject({
-        ...baseDatasource,
-        settings: { ...experimentQuery },
-      }).settings
-    ).toEqual({
-      ...experimentQuery,
+    expect(upgradeDatasourceObject(cloneDeep(ds)).settings).toEqual({
+      ...ds.settings,
       queries: {
         experimentsQuery: "testing",
         exposure: [
@@ -415,6 +408,64 @@ describe("backend", () => {
             dimensions: ["foo"],
             name: "Anonymous Visitor Experiments",
             query: "testing",
+            userIdType: "anonymous_id",
+          },
+        ],
+      },
+    });
+  });
+
+  it("updates old datasource objects - no experiment query", () => {
+    const ds: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        database: "",
+        defaultSchema: "test",
+        host: "",
+        password: "",
+        port: 123,
+        ssl: false,
+        user: "",
+      } as PostgresConnectionParams),
+      settings: {
+        userIdTypes: [
+          {
+            userIdType: "user_id",
+            description: "Logged-in user id",
+          },
+          {
+            userIdType: "anonymous_id",
+            description: "Anonymous visitor id",
+          },
+        ],
+      },
+      type: "postgres",
+    };
+
+    expect(upgradeDatasourceObject(cloneDeep(ds)).settings).toEqual({
+      ...ds.settings,
+      queries: {
+        exposure: [
+          {
+            id: "user_id",
+            description: "",
+            dimensions: [],
+            name: "Logged-in User Experiments",
+            query:
+              "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
+            userIdType: "user_id",
+          },
+          {
+            id: "anonymous_id",
+            description: "",
+            dimensions: [],
+            name: "Anonymous Visitor Experiments",
+            query:
+              "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
           },
         ],
