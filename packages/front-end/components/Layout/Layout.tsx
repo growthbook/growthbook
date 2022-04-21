@@ -129,15 +129,15 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/webhooks/,
       },
       {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
         cloudOnly: true,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
       },
       {
         name: "Admin",
