@@ -117,197 +117,256 @@ const EditDataSourceSettingsForm: FC<{
             />
           ) : (
             <>
-              <h4>User Id Types</h4>
-              <div>
-                Define all the different units you use to split traffic in an
-                experiment. Some examples: user_id, device_id, ip_address.
+              <div className="mb-4">
+                <h4>User Id Types</h4>
+                <div>
+                  Define all the different units you use to split traffic in an
+                  experiment. Some examples: user_id, device_id, ip_address.
+                </div>
+
+                {userIdTypes.fields.map((userIdType, i) => {
+                  return (
+                    <div
+                      key={userIdType.id}
+                      className="bg-light border my-2 p-3 ml-3"
+                    >
+                      <div className="row">
+                        <div className="col-auto">
+                          <h5>
+                            {i + 1}.{" "}
+                            {form.watch(`settings.userIdTypes.${i}.userIdType`)}
+                          </h5>
+                        </div>
+                        <div className="col-auto ml-auto">
+                          <a
+                            className="text-danger"
+                            href="#"
+                            title="Remove user id type"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              userIdTypes.remove(i);
+                            }}
+                          >
+                            delete
+                          </a>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-7 col-lg-8">
+                          <Field
+                            label="User Id Type"
+                            pattern="^[a-z_]+$"
+                            title="Only lowercase letters and underscores allowed"
+                            required
+                            {...form.register(
+                              `settings.userIdTypes.${i}.userIdType`
+                            )}
+                            helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+                          />
+                          <Field
+                            label="Description (optional)"
+                            {...form.register(
+                              `settings.userIdTypes.${i}.description`
+                            )}
+                            minRows={1}
+                            maxRows={5}
+                            textarea
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  className="btn btn-outline-primary ml-3"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    userIdTypes.append({
+                      userIdType: "",
+                      description: "",
+                    });
+                  }}
+                >
+                  Add New User Id Type
+                </button>
               </div>
 
-              {userIdTypes.fields.map((userIdType, i) => {
-                return (
-                  <div key={userIdType.id} className="bg-light border my-2 p-3">
-                    <div className="row">
-                      <div className="col">
-                        <Field
-                          label="User Id Type"
-                          pattern="^[a-z_]+$"
-                          title="Only lowercase letters and underscores allowed"
-                          required
-                          {...form.register(
-                            `settings.userIdTypes.${i}.userIdType`
-                          )}
-                          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
-                        />
-                      </div>
-                      <div className="col-auto">
-                        <button
-                          className="btn btn-danger"
-                          type="button"
-                          title="Remove user id type"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            userIdTypes.remove(i);
-                          }}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    </div>
-                    <Field
-                      label="Description (optional)"
-                      {...form.register(
-                        `settings.userIdTypes.${i}.description`
-                      )}
-                      minRows={1}
-                      maxRows={5}
-                      textarea
-                    />
-                  </div>
-                );
-              })}
-              <button
-                className="btn btn-outline-primary"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  userIdTypes.append({
-                    userIdType: "",
-                    description: "",
-                  });
-                }}
-              >
-                Add New User Id Type
-              </button>
-
-              <h4>Experiment Assignment Tables</h4>
-              {exposure.fields.map((exp, i) => {
-                return (
-                  <div key={exp.id} className="bg-light border my-2 p-3">
-                    <div className="row">
-                      <div className="col">
-                        <Field
-                          label="Display Name"
-                          required
-                          {...form.register(
-                            `settings.queries.exposure.${i}.name`
-                          )}
-                        />
-                      </div>
-                      <div className="col-auto">
-                        <button
-                          className="btn btn-danger"
-                          type="button"
-                          title="Remove assignment table"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            exposure.remove(i);
-                          }}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    </div>
-                    <Field
-                      label="Description"
-                      textarea
-                      minRows={1}
-                      {...form.register(
-                        `settings.queries.exposure.${i}.description`
-                      )}
-                    />
-                    <Field
-                      label="User Id Type"
-                      options={userIdTypeOptions}
-                      required
-                      {...form.register(
-                        `settings.queries.exposure.${i}.userIdType`
-                      )}
-                    />
-                    <div className="row">
-                      <div className="col">
-                        <Field
-                          label="SQL Query"
-                          textarea
-                          minRows={10}
-                          maxRows={20}
-                          required
-                          {...form.register(
-                            `settings.queries.exposure.${i}.query`
-                          )}
-                        />
-
-                        <StringArrayField
-                          label="Dimension Columns"
-                          value={form.watch(
-                            `settings.queries.exposure.${i}.dimensions`
-                          )}
-                          onChange={(dimensions) => {
-                            form.setValue(
-                              `settings.queries.exposure.${i}.dimensions`,
-                              dimensions
-                            );
-                          }}
-                        />
-                      </div>
-                      <div className="col-md-5 col-lg-4">
-                        <div className="pt-md-4">
-                          One row per variation assignment event.{" "}
-                          <strong>Required columns</strong>
+              <div className="mb-4">
+                <h4>Experiment Assignment Tables</h4>
+                <div>
+                  Queries that reutrn a list of experiment variation assignment
+                  events.
+                </div>
+                {exposure.fields.map((exp, i) => {
+                  return (
+                    <div key={exp.id} className="bg-light border my-2 p-3 ml-3">
+                      <div className="row">
+                        <div className="col-auto">
+                          <h5>
+                            {i + 1}.{" "}
+                            {form.watch(`settings.queries.exposure.${i}.name`)}
+                          </h5>
                         </div>
-                        <ul>
-                          <li>
-                            <code>
-                              {form.watch(
-                                `settings.queries.exposure.${i}.userIdType`
-                              )}
-                            </code>
-                          </li>
-                          <li>
-                            <code>timestamp</code>
-                          </li>
-                          <li>
-                            <code>experiment_id</code>
-                          </li>
-                          <li>
-                            <code>variation_id</code>
-                          </li>
-                        </ul>
-                        <div>
-                          Any additional columns you select can be listed as
-                          dimensions to drill down into experiment results.
+                        <div className="col-auto ml-auto">
+                          <a
+                            className="text-danger"
+                            href="#"
+                            type="button"
+                            title="Remove assignment table"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              exposure.remove(i);
+                            }}
+                          >
+                            delete
+                          </a>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-7 col-lg-8">
+                          <Field
+                            label="Display Name"
+                            required
+                            {...form.register(
+                              `settings.queries.exposure.${i}.name`
+                            )}
+                          />
+                          <Field
+                            label="Description (optional)"
+                            textarea
+                            minRows={1}
+                            {...form.register(
+                              `settings.queries.exposure.${i}.description`
+                            )}
+                          />
+                          <Field
+                            label="User Id Type"
+                            options={userIdTypeOptions}
+                            required
+                            {...form.register(
+                              `settings.queries.exposure.${i}.userIdType`
+                            )}
+                          />
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col">
+                          <Field
+                            label="SQL Query"
+                            textarea
+                            minRows={10}
+                            maxRows={20}
+                            required
+                            {...form.register(
+                              `settings.queries.exposure.${i}.query`
+                            )}
+                          />
+
+                          <StringArrayField
+                            label="Dimension Columns"
+                            value={form.watch(
+                              `settings.queries.exposure.${i}.dimensions`
+                            )}
+                            onChange={(dimensions) => {
+                              form.setValue(
+                                `settings.queries.exposure.${i}.dimensions`,
+                                dimensions
+                              );
+                            }}
+                          />
+                        </div>
+                        <div className="col-md-5 col-lg-4">
+                          <div className="pt-md-4">
+                            <strong>Required columns</strong>
+                          </div>
+                          <ul>
+                            <li>
+                              <code>
+                                {form.watch(
+                                  `settings.queries.exposure.${i}.userIdType`
+                                )}
+                              </code>
+                            </li>
+                            <li>
+                              <code>timestamp</code>
+                            </li>
+                            <li>
+                              <code>experiment_id</code>
+                            </li>
+                            <li>
+                              <code>variation_id</code>
+                            </li>
+                          </ul>
+                          <div>
+                            Any additional columns you select can be listed as
+                            dimensions to drill down into experiment results.
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-              <button
-                className="btn btn-outline-primary"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const userId = userIdTypeOptions[0]?.value || "user_id";
-                  exposure.append({
-                    description: "",
-                    id: uniqid("tbl_"),
-                    name: "",
-                    dimensions: [],
-                    query: `SELECT\n  ${userId} as ${userId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`,
-                    userIdType: userIdTypeOptions[0]?.value || "",
-                  });
-                }}
-              >
-                Add New Assignment Table
-              </button>
+                  );
+                })}
+                <button
+                  className="btn btn-outline-primary ml-3"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const userId = userIdTypeOptions[0]?.value || "user_id";
+                    exposure.append({
+                      description: "",
+                      id: uniqid("tbl_"),
+                      name: "",
+                      dimensions: [],
+                      query: `SELECT\n  ${userId} as ${userId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`,
+                      userIdType: userIdTypeOptions[0]?.value || "",
+                    });
+                  }}
+                >
+                  Add New Assignment Table
+                </button>
+              </div>
 
               {userIdTypeOptions.length > 1 && (
-                <div>
+                <div className="mb-4">
                   <h4>User Id Join Tables</h4>
+                  <div>
+                    Queries that reutrn a mapping between different user id
+                    types
+                  </div>
                   {identityJoins.fields.map((join, i) => {
                     return (
-                      <div key={join.id} className="bg-light border my-2 p-3">
+                      <div
+                        key={join.id}
+                        className="bg-light border my-2 p-3 ml-3"
+                      >
                         <div className="row">
-                          <div className="col">
+                          <div className="col-auto">
+                            <h5>
+                              {i + 1}.{" "}
+                              {form
+                                .watch(
+                                  `settings.queries.identityJoins.${i}.ids`
+                                )
+                                ?.join(", ")}
+                            </h5>
+                          </div>
+                          <div className="col-auto ml-auto">
+                            <a
+                              className="text-danger"
+                              href="#"
+                              title="Remove id join table"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                identityJoins.remove(i);
+                              }}
+                            >
+                              delete
+                            </a>
+                          </div>
+                        </div>
+                        <div className="row">
+                          <div className="col-md-7 col-lg-8">
                             <MultiSelectField
                               label="User Id Types"
                               value={form.watch(
@@ -324,19 +383,6 @@ const EditDataSourceSettingsForm: FC<{
                                 label: u.display,
                               }))}
                             />
-                          </div>
-                          <div className="col-auto">
-                            <button
-                              className="btn btn-danger"
-                              type="button"
-                              title="Remove user id join table"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                identityJoins.remove(i);
-                              }}
-                            >
-                              &times;
-                            </button>
                           </div>
                         </div>
                         <div className="row">
@@ -373,7 +419,7 @@ const EditDataSourceSettingsForm: FC<{
                     );
                   })}
                   <button
-                    className="btn btn-outline-primary"
+                    className="btn btn-outline-primary ml-3"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
@@ -392,41 +438,52 @@ const EditDataSourceSettingsForm: FC<{
                 </div>
               )}
 
-              <div className="row mb-3">
-                <div className="col">
-                  <Field
-                    label="Jupyter Notebook Query Runner (optional)"
-                    placeholder="def runQuery(sql):"
-                    labelClassName="font-weight-bold"
-                    {...form.register("settings.notebookRunQuery")}
-                    textarea
-                    minRows={5}
-                    maxRows={20}
-                    helpText="Used when exporting experiment results to a Jupyter notebook"
-                  />
-                </div>
-                <div className="col-md-5 col-lg-4">
-                  <div className="pt-md-4">
-                    <p>
-                      Define a <code>runQuery</code> Python function for this
-                      data source that takes a SQL string argument and returns a
-                      pandas data frame. For example:
-                    </p>
-                    <Code
-                      language="python"
-                      code={`import os
+              <h4>Jupyter Notebook Query Runner (optional)</h4>
+              <div className="bg-light border my-2 p-3 ml-3">
+                <div className="row mb-3">
+                  <div className="col">
+                    <Field
+                      label="Python runQuery definition"
+                      placeholder="def runQuery(sql):"
+                      {...form.register("settings.notebookRunQuery")}
+                      textarea
+                      minRows={5}
+                      maxRows={20}
+                      helpText="Used when exporting experiment results to a Jupyter notebook"
+                    />
+                  </div>
+                  <div className="col-md-5 col-lg-4">
+                    <div className="pt-md-4">
+                      Function definition:
+                      <ul>
+                        <li>
+                          Function name: <code>runQuery</code>
+                        </li>
+                        <li>
+                          Arguments: <code>sql</code> (string)
+                        </li>
+                        <li>
+                          Return: <code>df</code> (pandas data frame)
+                        </li>
+                      </ul>
+                      <p>Example for postgres/redshift:</p>
+                      <Code
+                        language="python"
+                        theme="light"
+                        code={`import os
 import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine, text
 
-# Use environment variables or similar for passwords!
+# Use env variables or similar for passwords!
 password = os.getenv('POSTGRES_PW')
 connStr = f'postgresql+psycopg2://user:{password}@localhost'
 dbConnection = create_engine(connStr).connect();
 
 def runQuery(sql):
   return pd.read_sql(text(sql), dbConnection)`}
-                    />
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

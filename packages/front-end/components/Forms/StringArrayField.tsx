@@ -1,6 +1,7 @@
 import Field, { FieldProps } from "./Field";
 import React, { useState } from "react";
 import CreatableSelect from "react-select/creatable";
+import { ReactSelectProps } from "./SelectField";
 
 const components = {
   DropdownIndicator: null,
@@ -42,6 +43,8 @@ export default function StringArrayField({
             isMulti
             menuIsOpen={false}
             autoFocus={autoFocus}
+            getOptionLabel={(option) => option}
+            getOptionValue={(option) => option}
             onChange={(val) => onChange(val as string[])}
             onInputChange={(val) => setInputValue(val)}
             onKeyDown={(event) => {
@@ -63,6 +66,7 @@ export default function StringArrayField({
             }}
             placeholder={placeholder}
             value={value}
+            {...ReactSelectProps}
           />
         );
       }}
