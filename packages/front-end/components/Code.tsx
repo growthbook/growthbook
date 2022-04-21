@@ -33,6 +33,7 @@ export default function Code({
   expandable = false,
   containerClassName,
   actionBar = true,
+  lineNumbers = false,
 }: {
   code: string;
   language: Language;
@@ -41,6 +42,7 @@ export default function Code({
   expandable?: boolean;
   containerClassName?: string;
   actionBar?: boolean;
+  lineNumbers?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(!expandable);
@@ -107,6 +109,7 @@ export default function Code({
           language={language}
           style={theme === "light" ? light : dark}
           className={className}
+          showLineNumbers={lineNumbers}
         >
           {code}
         </Prism>

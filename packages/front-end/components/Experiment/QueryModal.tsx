@@ -17,7 +17,7 @@ const QueryModal: FC<{
       closeCta="Close"
     >
       {queries.map((query, i) => (
-        <Code language={language} key={i} code={query} />
+        <Code language={language} key={i} code={query} lineNumbers={true} />
       ))}
     </Modal>
   );

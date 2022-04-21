@@ -45,8 +45,13 @@ export default function EnvironmentModal({
           env.description = value.description;
           env.toggleOnList = value.toggleOnList;
         } else {
+          if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
+            throw new Error(
+              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
+            );
+          }
           newEnvs.push({
-            id: value.id.toLowerCase().replace(/^[^a-z]*/g, ""),
+            id: value.id.toLowerCase(),
             description: value.description,
             toggleOnList: value.toggleOnList,
           });
@@ -82,13 +87,15 @@ export default function EnvironmentModal({
           name="Environment"
           maxLength={30}
           required
-          pattern="^[A-Za-z]+$"
+          pattern="^[A-Za-z][A-Za-z0-9_-]*$"
+          title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
           {...form.register("id")}
           label="Id"
           helpText={
             <>
-              No numbers, spaces, or special characters. Examples:{" "}
-              <code>dev</code>, <code>staging</code>, <code>production</code>
+              Only letters, numbers, hyphens, and underscores allowed. No
+              spaces. Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+              <code>john_dev</code>
             </>
           }
         />

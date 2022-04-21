@@ -35,7 +35,12 @@ const ExpandableQuery: FC<{
           Query {i + 1} of {total}
         </span>
       </h4>
-      <Code language={query.language} code={query.query} expandable={true} />
+      <Code
+        language={query.language}
+        code={query.query}
+        expandable={true}
+        lineNumbers={true}
+      />
       {query.error && (
         <div className="alert alert-danger">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
