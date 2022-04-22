@@ -47,6 +47,7 @@ const experimentSchema = new mongoose.Schema({
       _id: false,
       name: String,
       description: String,
+      percentGeo: Number,
       key: String,
       value: String,
       screenshots: [
