@@ -128,27 +128,25 @@ export default abstract class SqlIntegration
     return column;
   }
 
-  private getExposureQuery(exposureQueryId: string): ExposureQuery {
+  private getExposureQuery(
+    exposureQueryId: string,
+    userIdType?: "anonymous" | "user"
+  ): ExposureQuery {
+    if (!exposureQueryId) {
+      exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    }
+
     const queries = this.settings?.queries?.exposure || [];
 
     const match = queries.find((q) => q.id === exposureQueryId);
 
-    if (match) {
-      return match;
+    if (!match) {
+      throw new Error(
+        "Unknown experiment assignment table - " + exposureQueryId
+      );
     }
 
-    if (!exposureQueryId && queries.length) {
-      return queries[0];
-    }
-
-    return {
-      id: "",
-      userIdType: "user_id",
-      name: "Missing exposure query",
-      dimensions: [],
-      query: `-- ERROR: Missing exposure query
-      SELECT '' as user_id, '' as timestamp, '' as experiment_id, '' as variation_id`,
-    };
+    return match;
   }
 
   getPastExperimentQuery(params: PastExperimentParams) {
@@ -164,30 +162,34 @@ export default abstract class SqlIntegration
     return format(
       `-- Past Experiments
     WITH
+      ${experimentQueries
+        .map((q, i) => {
+          return `
+        __exposures${i} as (
+          SELECT 
+            '${q.id}' as exposure_query, 
+            experiment_id,
+            variation_id,
+            ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
+            count(distinct ${q.userIdType}) as users
+          FROM
+            (
+              ${replaceDateVars(q.query, params.from)}
+            ) e${i}
+          WHERE
+            ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
+            params.from
+          )}
+          GROUP BY
+            experiment_id,
+            variation_id,
+            ${this.dateTrunc(this.castUserDateCol("timestamp"))}
+        ),`;
+        })
+        .join("\n")}
       __experiments as (
         ${experimentQueries
-          .map((q, i) => {
-            return `
-            SELECT 
-              '${q.id}' as exposure_query, 
-              experiment_id,
-              variation_id,
-              ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-              count(distinct ${q.userIdType}) as users
-            FROM
-              (
-                ${replaceDateVars(q.query, params.from)}
-              ) e${i}
-            WHERE
-              ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
-              params.from
-            )}
-            GROUP BY
-              experiment_id,
-              variation_id,
-              ${this.dateTrunc(this.castUserDateCol("timestamp"))}
-          `;
-          })
+          .map((q, i) => `SELECT * FROM __exposures${i}`)
           .join("\nUNION\n")}
       ),
       __userThresholds as (
@@ -218,7 +220,7 @@ export default abstract class SqlIntegration
           __experiments d
           JOIN __userThresholds u ON (
             d.exposure_query = u.exposure_query
-            d.experiment_id = u.experiment_id
+            AND d.experiment_id = u.experiment_id
             AND d.variation_id = u.variation_id
           )
         WHERE
@@ -480,7 +482,8 @@ export default abstract class SqlIntegration
     } = params;
 
     const exposureQuery = this.getExposureQuery(
-      experiment.exposureQueryId || ""
+      experiment.exposureQueryId || "",
+      experiment.userIdType
     );
 
     const activationDimension =

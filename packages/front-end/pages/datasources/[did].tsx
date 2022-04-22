@@ -193,22 +193,34 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           {supportsSQL && (
             <>
               <div className="mb-4">
+                <h3>User Id Types</h3>
+                <p>
+                  The different units you use to split traffic in an experiment.
+                </p>
+                {d.settings?.userIdTypes?.map(({ userIdType, description }) => (
+                  <div
+                    className="bg-white border mb-3 p-3 ml-3"
+                    key={userIdType}
+                  >
+                    <h4>{userIdType}</h4>
+                    {description && <div>{description}</div>}
+                  </div>
+                ))}
+              </div>
+              <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
-                <div>
-                  <p>
-                    Returns a record of which experiment variation was assigned
-                    to each user.
-                  </p>
-                </div>
-
+                <p>
+                  Returns a record of which experiment variation was assigned to
+                  each user.
+                </p>
                 {d.settings.queries?.exposure?.map((e) => (
-                  <div className="bg-white border mb-3" key={e.id}>
+                  <div className="bg-white border mb-3 ml-3" key={e.id}>
                     <div className="px-3 pt-3">
                       <h4>{e.name}</h4>
                       {e.description && <p>{e.description}</p>}
                       <div className="row">
                         <div className="col-auto">
-                          <strong>User Id: </strong>
+                          <strong>Id Type: </strong>
                           <code>{e.userIdType}</code>
                         </div>
                         <div className="col-auto">
@@ -219,6 +231,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                               <code key={d}>{d}</code>
                             </React.Fragment>
                           ))}
+                          {!e.dimensions.length && (
+                            <em className="text-muted">none</em>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -227,6 +242,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       theme="light"
                       code={e.query}
                       containerClassName="mb-0"
+                      expandable={true}
                     />
                   </div>
                 ))}
@@ -246,6 +262,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         theme="light"
                         code={t.query}
                         containerClassName="mb-0"
+                        expandable={true}
                       />
                     </div>
                   ))}
@@ -262,6 +279,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     theme="light"
                     code={d.settings.notebookRunQuery}
                     language="python"
+                    expandable={true}
                   />
                 ) : (
                   <div className="alert alert-info">

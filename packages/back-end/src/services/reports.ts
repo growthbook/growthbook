@@ -42,6 +42,7 @@ export function reportArgsFromSnapshot(
     trackingKey: experiment.trackingKey,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    userIdType: experiment.userIdType,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || undefined,
     dimension: snapshot.dimension || undefined,
@@ -108,6 +109,7 @@ export async function startExperimentAnalysis(
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,
+    userIdType: args.userIdType,
     organization,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,

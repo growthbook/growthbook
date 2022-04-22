@@ -1491,6 +1491,7 @@ export async function postMetrics(
     userIdType,
     userIdColumns,
     userIdColumn,
+    userIdTypes,
     anonymousIdColumn,
   } = req.body;
 
@@ -1520,6 +1521,7 @@ export async function postMetrics(
     conversionWindowHours,
     conversionDelayHours,
     userIdType,
+    userIdTypes,
     sql,
     aggregation,
     queryFormat,
@@ -1600,6 +1602,7 @@ export async function putMetric(
     "userIdColumn",
     "anonymousIdColumn",
     "userIdColumns",
+    "userIdTypes",
     "timestampColumn",
   ];
   fields.forEach((k) => {

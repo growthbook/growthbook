@@ -142,7 +142,7 @@ const AnalysisForm: FC<{
       </div>
       {datasource?.properties?.exposureQueries && (
         <SelectField
-          label="Experiment Exposure Table"
+          label="Experiment Assignment Table"
           value={form.watch("exposureQueryId")}
           onChange={(v) => form.setValue("exposureQueryId", v)}
           initialOption="Choose..."

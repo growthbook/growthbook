@@ -80,6 +80,8 @@ export default function AnalysisSettingsBar({
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
+  const [refreshError, setRefreshError] = useState("");
+
   return (
     <div>
       {modalOpen && (
@@ -153,9 +155,10 @@ export default function AnalysisSettingsBar({
                   })
                     .then(() => {
                       mutate();
+                      setRefreshError("");
                     })
                     .catch((e) => {
-                      console.error(e);
+                      setRefreshError(e.message);
                     });
                 }}
               >
@@ -218,6 +221,11 @@ export default function AnalysisSettingsBar({
       </div>
       {permissions.runExperiments && datasource && (
         <div className="px-3">
+          {refreshError && (
+            <div className="alert alert-danger">
+              <strong>Error updating data: </strong> {refreshError}
+            </div>
+          )}
           <div className="row">
             {latest && status !== "succeeded" && (
               <div className="col-auto pb-3">

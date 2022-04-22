@@ -195,7 +195,7 @@ const EditDataSourceSettingsForm: FC<{
               <div className="mb-4">
                 <h4>Experiment Assignment Tables</h4>
                 <div>
-                  Queries that reutrn a list of experiment variation assignment
+                  Queries that return a list of experiment variation assignment
                   events.
                 </div>
                 {exposure.fields.map((exp, i) => {
@@ -331,7 +331,7 @@ const EditDataSourceSettingsForm: FC<{
                 <div className="mb-4">
                   <h4>User Id Join Tables</h4>
                   <div>
-                    Queries that reutrn a mapping between different user id
+                    Queries that return a mapping between different user id
                     types
                   </div>
                   {identityJoins.fields.map((join, i) => {
@@ -348,7 +348,7 @@ const EditDataSourceSettingsForm: FC<{
                                 .watch(
                                   `settings.queries.identityJoins.${i}.ids`
                                 )
-                                ?.join(", ")}
+                                ?.join(" + ")}
                             </h5>
                           </div>
                           <div className="col-auto ml-auto">

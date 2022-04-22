@@ -8,6 +8,7 @@ import Modal from "../Modal";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
+import { getExposureQuery } from "../../services/datasources";
 
 export default function ConfigureReport({
   report,
@@ -19,9 +20,18 @@ export default function ConfigureReport({
   viewResults: () => void;
 }) {
   const { apiCall } = useAuth();
+  const { metrics, segments, getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(report.args.datasource);
+
   const form = useForm({
     defaultValues: {
       ...report.args,
+      exposureQueryId:
+        getExposureQuery(
+          datasource?.settings,
+          report.args.exposureQueryId,
+          report.args.userIdType
+        )?.id || "",
       removeMultipleExposures: !!report.args.removeMultipleExposures,
       startDate: getValidDate(report.args.startDate)
         .toISOString()
@@ -30,8 +40,6 @@ export default function ConfigureReport({
     },
   });
 
-  const { metrics, segments, getDatasourceById } = useDefinitions();
-
   const filteredMetrics = metrics.filter(
     (m) => m.datasource === report.args.datasource
   );
@@ -39,7 +47,6 @@ export default function ConfigureReport({
     (s) => s.datasource === report.args.datasource
   );
 
-  const datasource = getDatasourceById(report.args.datasource);
   const datasourceProperties = datasource?.properties;
 
   const variations = useFieldArray({
@@ -136,7 +143,7 @@ export default function ConfigureReport({
       </div>
       {datasource?.properties?.userIds && (
         <Field
-          label="Experiment Exposure Table"
+          label="Experiment Assignment Table"
           labelClassName="font-weight-bold"
           {...form.register("exposureQueryId")}
           options={(datasource?.settings?.queries?.exposure || []).map((e) => ({

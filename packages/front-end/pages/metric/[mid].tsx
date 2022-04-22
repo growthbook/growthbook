@@ -670,11 +670,25 @@ const MetricPage: FC = () => {
                   open={() => setEditModalOpen(1)}
                   canOpen={canEdit}
                 >
+                  {metric.userIdTypes && customizeUserIds && (
+                    <RightRailSectionGroup
+                      title="Id Types Supported"
+                      type="custom"
+                    >
+                      <ul>
+                        {metric.userIdTypes?.map((type) => (
+                          <li key={type}>
+                            <strong>{type}</strong>:{" "}
+                            {metric.userIdColumns?.[type] || type}
+                          </li>
+                        ))}
+                      </ul>
+                    </RightRailSectionGroup>
+                  )}
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
                   metric.sql ? (
-                    <div>
-                      Metric SQL:
+                    <RightRailSectionGroup title="Metric SQL" type="custom">
                       <Code language="sql" code={metric.sql} />
                       {metric.type !== "binomial" && metric.aggregation && (
                         <div className="mt-2">
@@ -682,7 +696,7 @@ const MetricPage: FC = () => {
                           <Code language="sql" code={metric.aggregation} />
                         </div>
                       )}
-                    </div>
+                    </RightRailSectionGroup>
                   ) : (
                     <>
                       <RightRailSectionGroup
@@ -728,21 +742,6 @@ const MetricPage: FC = () => {
                             />
                           </div>
                         )}
-                      {metric.userIdTypes && customizeUserIds && (
-                        <RightRailSectionGroup
-                          title="User Id Columns"
-                          type="custom"
-                        >
-                          <ul>
-                            {metric.userIdTypes?.map((type) => (
-                              <li key={type}>
-                                <strong>{type}</strong>:{" "}
-                                {metric.userIdColumns?.[type] || type}
-                              </li>
-                            ))}
-                          </ul>
-                        </RightRailSectionGroup>
-                      )}
                       {customzeTimestamp && (
                         <RightRailSectionGroup
                           title="Timestamp Col"

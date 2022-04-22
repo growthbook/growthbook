@@ -43,6 +43,7 @@ export default function ReportPage() {
   );
   const { permissions, userId, getUserDisplay } = useUser();
   const [active, setActive] = useState<string | null>("Results");
+  const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -194,7 +195,7 @@ export default function ReportPage() {
       >
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
-            <div className="row align-items-center">
+            <div className="row align-items-center mb-2">
               <div className="col">
                 <h2>Results</h2>
               </div>
@@ -219,8 +220,9 @@ export default function ReportPage() {
                         method: "POST",
                       });
                       mutate();
+                      setRefreshError("");
                     } catch (e) {
-                      console.error(e);
+                      setRefreshError(e.message);
                     }
                   }}
                 >
@@ -263,6 +265,11 @@ export default function ReportPage() {
                 />
               </div>
             </div>
+            {refreshError && (
+              <div className="alert alert-danger">
+                <strong>Error refreshing data: </strong> {refreshError}
+              </div>
+            )}
             {report.args.metrics.length === 0 && (
               <div className="alert alert-info">
                 Add at least 1 metric to view results.

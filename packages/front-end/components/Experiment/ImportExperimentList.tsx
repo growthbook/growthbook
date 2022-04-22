@@ -266,6 +266,7 @@ const ImportExperimentList: FC<{
                 : []
             }
             error={data.experiments.error}
+            inline={true}
           />
         </div>
       )}

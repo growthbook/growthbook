@@ -4,26 +4,20 @@ import useApi from "../../hooks/useApi";
 import { QueryInterface } from "back-end/types/query";
 import LoadingOverlay from "../LoadingOverlay";
 import ExpandableQuery from "./ExpandableQuery";
+import LoadingSpinner from "../LoadingSpinner";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
   close: () => void;
   error?: string;
-}> = ({ queries, close, error }) => {
+  inline?: boolean;
+}> = ({ queries, close, error, inline }) => {
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
     `/queries/${queries.join(",")}`
   );
 
-  return (
-    <Modal
-      close={close}
-      header="Queries"
-      open={true}
-      size="lg"
-      closeCta="Close"
-    >
-      {!data && !apiError && <LoadingOverlay />}
-      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+  const contents = (
+    <>
       {error && (
         <div className="alert alert-danger">
           <div>
@@ -31,7 +25,7 @@ const AsyncQueriesModal: FC<{
           </div>
           {error}
         </div>
-      )}
+      )}{" "}
       {data && data.queries.filter((q) => q === null).length > 0 && (
         <div className="alert alert-danger">
           Could not fetch information about one or more of these queries. Try
@@ -49,6 +43,31 @@ const AsyncQueriesModal: FC<{
               key={i}
             />
           ))}
+    </>
+  );
+
+  if (inline) {
+    if (apiError) {
+      return <div className="alert alert-danger">{apiError.message}</div>;
+    }
+    if (!data) {
+      return <LoadingSpinner />;
+    }
+
+    return <div className="p-3">{contents}</div>;
+  }
+
+  return (
+    <Modal
+      close={close}
+      header="Queries"
+      open={true}
+      size="lg"
+      closeCta="Close"
+    >
+      {!data && !apiError && <LoadingOverlay />}
+      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {contents}
     </Modal>
   );
 };

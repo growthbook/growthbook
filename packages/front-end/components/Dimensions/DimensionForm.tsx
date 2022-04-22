@@ -31,6 +31,7 @@ const DimensionForm: FC<{
 
   const dsObj = getDatasourceById(datasource);
   const dsProps = dsObj?.properties;
+  const sql = dsProps?.queryLanguage === "sql";
 
   return (
     <Modal
@@ -38,6 +39,19 @@ const DimensionForm: FC<{
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
+        if (sql && !value.sql.toLowerCase().includes("select")) {
+          throw new Error(`Invalid SELECT statement`);
+        }
+        if (
+          sql &&
+          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
+        ) {
+          throw new Error(`Must select a column named '${value.userIdType}'`);
+        }
+        if (sql && !value.sql.toLowerCase().includes("value")) {
+          throw new Error("Must select a column named 'value'");
+        }
+
         await apiCall(
           current.id ? `/dimensions/${current.id}` : `/dimensions`,
           {
@@ -75,18 +89,16 @@ const DimensionForm: FC<{
         />
       )}
       <Field
-        label={dsProps?.events ? "Event Property" : "SQL"}
+        label={sql ? "SQL" : "Event Property"}
         required
         {...form.register("sql")}
         textarea
         minRows={3}
         placeholder={
-          dsProps?.events
-            ? "$browser"
-            : `SELECT ${userIdType}, browser as value FROM users`
+          sql ? `SELECT ${userIdType}, browser as value FROM users` : "$browser"
         }
         helpText={
-          dsProps?.queryLanguage === "sql" ? (
+          sql ? (
             <>
               Select two columns named <code>{userIdType}</code> and{" "}
               <code>value</code>
