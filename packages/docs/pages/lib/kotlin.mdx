@@ -76,6 +76,36 @@ if (feature.source == "experiment") {
 }
 ```
 
+## Use own OkHttpClient for fetch feature config
+
+```kotlin
+GBSDKBuilderApp(
+  apiKey = "key_123abc",
+  hostURL = "https://cdn.growthbook.io/",
+  attributes = attrs,
+  trackingCallback = { gbExperiment, gbExperimentResult ->
+    // TODO: track in your analytics system
+  }
+)
+    .setNetworkDispatcher(object : NetworkDispatcher {
+        @DelicateCoroutinesApi
+        override fun consumeGETRequest(request: String, onSuccess: (String) -> Unit, onError: (Throwable) -> Unit) {
+            ownOkHttpClient
+                .newCall(Request.Builder().get().url(request).build())
+                .enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        onError(e)
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        response.body?.string()?.let(onSuccess) ?: onError(NullPointerException("Body is null"))
+                    }
+                })
+            }
+    })
+    .initialize()
+```
+
 ## Running Inline Experiments
 
 Instead of just using features defined in the GrowthBook API, you can also just run an experiment directly. This is done with the `run` method which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
