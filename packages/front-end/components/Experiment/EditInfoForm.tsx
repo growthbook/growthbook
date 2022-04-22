@@ -10,6 +10,7 @@ import Modal from "../Modal";
 import useUser from "../../hooks/useUser";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
 import { GBAddCircle } from "../Icons";
 import { MdDeleteForever } from "react-icons/md";
 
@@ -27,12 +28,16 @@ const EditInfoForm: FC<{
       name: experiment.name || "",
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
+      geography: experiment.geography || "",
+      module: experiment.module || "",
+      sampleType: experiment.sampleType || "Random",
       description: experiment.description || experiment.observations || "",
       variations: experiment.variations
         ? experiment.variations.map((v) => {
             return {
               name: "",
               description: "",
+              percentGeo: 0,
               value: "",
               key: "",
               ...v,
@@ -43,12 +48,14 @@ const EditInfoForm: FC<{
               name: "Control",
               value: "",
               description: "",
+              percentGeo: 0,
               key: "",
               screenshots: [],
             },
             {
               name: "Variation",
               description: "",
+              percentGeo: 0,
               value: "",
               key: "",
               screenshots: [],
@@ -126,6 +133,45 @@ const EditInfoForm: FC<{
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         textarea
       />
+      <SelectField
+        label="Geography"
+        value={form.watch("geography")}
+        onChange={(g) => form.setValue("geography", g)}
+        options={[
+          { label: 'Argentina', value: 'AR' },
+          { label: 'Brazil', value: 'BR' },
+          { label: 'Canada', value: 'CA' },
+          { label: 'Colombia', value: 'CO' },
+          { label: 'Dominican Republic', value: 'DR' },
+          { label: 'Ecuador', value: 'EC' },
+          { label: 'El Salvador', value: 'ES' },
+          { label: 'Honduras', value: 'HO' },
+          { label: 'Mexico', value: 'MX' },
+          { label: 'Panama', value: 'PA' },
+          { label: 'Paraguay', value: 'PY' },
+          { label: 'Peru', value: 'PE' },
+          { label: 'South Africa', value: 'SA' },
+          { label: 'Uruguay', value: 'UY' },
+        ]}
+      />
+      <SelectField
+        label="Module"
+        value={form.watch("module")}
+        onChange={(m) => form.setValue("module", m)}
+        options={[
+          { label: 'Quick Order', value: 'QUICK_ORDER' },
+          { label: 'Forgotten Items', value: 'FORGOTTEN_ITEMS' },
+          { label: 'Upsell', value: 'CROSS_SELL_UP_SELL' },
+        ]}
+      />
+      <SelectField
+        label="Sample Type"
+        value={form.watch("sampleType")}
+        onChange={(m) => form.setValue("sampleType", m)}
+        options={[
+          { label: 'Random', value: 'random' },
+        ]}
+      />
       <div className="mb-3">
         <label>Variations</label>
         <div className="row">
@@ -149,6 +195,10 @@ const EditInfoForm: FC<{
                   label="Description"
                   textarea
                   {...form.register(`variations.${i}.description`)}
+                />
+                <Field 
+                  label="Allocation Percentage"
+                  {...form.register(`variations.${i}.percentGeo`)}
                 />
                 <div className="text-right">
                   {experiment.status === "draft" &&

@@ -527,6 +527,38 @@ const ExperimentPage = (): ReactElement => {
                 )}
               </div>
               <div className="mb-4">
+                <h4>Geography</h4>
+                {experiment.geography || (
+                  <p>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditModalOpen(true);
+                      }}
+                    >
+                      <em>Change Geography</em>
+                    </a>
+                  </p>
+                )}
+              </div>
+              <div className="mb-4">
+                <h4>Module</h4>
+                {experiment.module || (
+                  <p>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditModalOpen(true);
+                      }}
+                    >
+                      <em>Change Module</em>
+                    </a>
+                  </p>
+                )}
+              </div>
+              <div className="mb-4">
                 <h4>Variations</h4>
                 {experiment.implementation === "visual" && (
                   <div className="alert alert-info">
@@ -553,6 +585,9 @@ const ExperimentPage = (): ReactElement => {
                           <small className="text-muted">id: {v.key || i}</small>
                         </div>
                         {v.description && <p>{v.description}</p>}
+                        <div className="mb-1">
+                          <small className="text-muted">allocation: {v.percentGeo}%</small>
+                        </div>
                         {experiment.implementation === "visual" && (
                           <VisualCode
                             dom={v.dom || []}

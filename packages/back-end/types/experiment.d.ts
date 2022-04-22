@@ -17,6 +17,7 @@ export interface Screenshot {
 export interface Variation {
   name: string;
   description?: string;
+  percentGeo?: number;
   value?: string;
   key?: string;
   screenshots: Screenshot[];
@@ -63,6 +64,9 @@ export interface ExperimentInterface {
    */
   observations?: string;
   hypothesis?: string;
+  geography?: string;
+  module?: string;
+  sampleType?: string;
   metrics: string[];
   guardrails?: string[];
   activationMetric?: string;

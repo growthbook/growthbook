@@ -59,6 +59,7 @@ function getDefaultVariations(num: number) {
     variations.push({
       name: i ? `Variation ${i}` : "Control",
       description: "",
+      percentGeo: 0,
       key: "",
       screenshots: [],
     });
@@ -128,6 +129,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       userIdType: initialValue?.userIdType || "anonymous",
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
+      geography: initialValue?.geography || "",
+      module: initialValue?.module || "",
+      sampleType: initialValue?.sampleType || "Random",
       activationMetric: initialValue?.activationMetric || "",
       removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
       metrics: initialValue?.metrics || [],
@@ -283,6 +287,45 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
           </>
         )}
+        <SelectField
+          label="Geography"
+          value={form.watch("geography")}
+          onChange={(g) => form.setValue("geography", g)}
+          options={[
+            { label: 'Argentina', value: 'AR' },
+            { label: 'Brazil', value: 'BR' },
+            { label: 'Canada', value: 'CA' },
+            { label: 'Colombia', value: 'CO' },
+            { label: 'Dominican Republic', value: 'DR' },
+            { label: 'Ecuador', value: 'EC' },
+            { label: 'El Salvador', value: 'ES' },
+            { label: 'Honduras', value: 'HO' },
+            { label: 'Mexico', value: 'MX' },
+            { label: 'Panama', value: 'PA' },
+            { label: 'Paraguay', value: 'PY' },
+            { label: 'Peru', value: 'PE' },
+            { label: 'South Africa', value: 'SA' },
+            { label: 'Uruguay', value: 'UY' },
+          ]}
+        />
+        <SelectField
+          label="Module"
+          value={form.watch("module")}
+          onChange={(m) => form.setValue("module", m)}
+          options={[
+            { label: 'Quick Order', value: 'QUICK_ORDER' },
+            { label: 'Forgotten Items', value: 'FORGOTTEN_ITEMS' },
+            { label: 'Upsell', value: 'CROSS_SELL_UP_SELL' },
+          ]}
+        />
+        <SelectField
+          label="Sample Type"
+          value={form.watch("sampleType")}
+          onChange={(m) => form.setValue("sampleType", m)}
+          options={[
+            { label: 'Random', value: 'random' },
+          ]}
+        />
       </Page>
       <Page display="Variations">
         <div className="mb-3">
@@ -358,6 +401,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     label="Description"
                     {...form.register(`variations.${i}.description`)}
                   />
+                  <Field label="Allocation Percentage" {...form.register(`variations.${i}.percentGeo`)} />
                 </div>
               </div>
             ))}
@@ -377,6 +421,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       variations.append({
                         name: `Variation ${variations.fields.length}`,
                         description: "",
+                        percentGeo: 0,
                         key: "",
                         screenshots: [],
                       });

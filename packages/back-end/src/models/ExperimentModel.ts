@@ -22,6 +22,9 @@ const experimentSchema = new mongoose.Schema({
   // Observations is not used anymore, keeping here so it will continue being saved in Mongo if present
   observations: String,
   hypothesis: String,
+  geography: String,
+  module: String,
+  sampleType: String,
   metrics: [String],
   guardrails: [String],
   activationMetric: String,
