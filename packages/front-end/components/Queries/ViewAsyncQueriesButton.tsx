@@ -28,6 +28,7 @@ const ViewAsyncQueriesButton: FC<{
         className={clsx(className, {
           disabled: queries.length === 0,
         })}
+        type="button"
         onClick={(e) => {
           e.preventDefault();
           if (!queries.length) return;

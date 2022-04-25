@@ -670,21 +670,6 @@ const MetricPage: FC = () => {
                   open={() => setEditModalOpen(1)}
                   canOpen={canEdit}
                 >
-                  {metric.userIdTypes && customizeUserIds && (
-                    <RightRailSectionGroup
-                      title="Id Types Supported"
-                      type="custom"
-                    >
-                      <ul>
-                        {metric.userIdTypes?.map((type) => (
-                          <li key={type}>
-                            <strong>{type}</strong>:{" "}
-                            {metric.userIdColumns?.[type] || type}
-                          </li>
-                        ))}
-                      </ul>
-                    </RightRailSectionGroup>
-                  )}
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
                   metric.sql ? (
@@ -748,6 +733,21 @@ const MetricPage: FC = () => {
                           type="code"
                         >
                           {metric.timestampColumn}
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.userIdTypes && customizeUserIds && (
+                        <RightRailSectionGroup
+                          title="User Id Columns"
+                          type="custom"
+                        >
+                          <ul>
+                            {metric.userIdTypes?.map((type) => (
+                              <li key={type}>
+                                <strong>{type}</strong>:{" "}
+                                {metric.userIdColumns?.[type] || type}
+                              </li>
+                            ))}
+                          </ul>
                         </RightRailSectionGroup>
                       )}
                     </>

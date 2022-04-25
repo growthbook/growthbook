@@ -212,7 +212,6 @@ export async function getExperimentMetric(
 export function processPastExperimentQueryResponse(
   rows: PastExperimentResponse
 ): PastExperimentResult {
-  console.log(rows);
   return {
     experiments: rows.map((row) => {
       return {
