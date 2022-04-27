@@ -464,7 +464,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       label: userIdType,
                     })
                   )}
-                  label="User Id Types Supported"
+                  label="Identifier Types Supported"
                 />
                 <Field
                   label="SQL"
@@ -626,7 +626,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         label: userIdType,
                       })
                     )}
-                    label="User Id Types Supported"
+                    label="Identifier Types Supported"
                   />
                 )}
                 {Object.keys(value.userIdTypes).map((type) => {

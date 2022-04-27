@@ -76,7 +76,7 @@ describe("backend", () => {
     expect(+checkSrm([500, 500], [0.5, 0.5]).toFixed(9)).toEqual(1);
   });
 
-  it("determines user id joins correctly", () => {
+  it("determines identifier joins correctly", () => {
     // Simple case
     expect(getBaseIdTypeAndJoins([["anonymous_id"], ["user_id"]])).toEqual({
       baseIdType: "anonymous_id",

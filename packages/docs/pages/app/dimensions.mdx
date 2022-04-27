@@ -16,11 +16,12 @@ There are two types of dimensions: User Dimensions and Experiment Dimensions. Cu
 
 These are attributes of your users that are relatively stable over time. For example, `subscription plan`, `age group`, `cohort`.
 
-A user dimension is defined by a simple SQL query that returns two columns: a user id and `value`. The name of the user id column depends on which user id type the dimension is using.
+A user dimension is defined by a simple SQL query that returns two columns: an identifier and `value`. The name of the identifier column depends on which identifier type the dimension is using.
 
 Here's an example SQL:
 
 ```sql
+-- Assumes identifier type is "user_id"
 SELECT
   user_id,
   plan_type as value

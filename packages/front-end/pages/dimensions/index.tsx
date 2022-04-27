@@ -113,7 +113,7 @@ const DimensionsPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">User Id Type</th>
+                  <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   {!hasFileConfig() && <th>Date Updated</th>}
                   {!hasFileConfig() && <th></th>}

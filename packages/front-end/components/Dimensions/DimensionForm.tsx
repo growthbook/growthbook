@@ -76,7 +76,7 @@ const DimensionForm: FC<{
       />
       {dsProps.userIds && (
         <SelectField
-          label="User Id Type"
+          label="Identifier Type"
           required
           value={userIdType}
           onChange={(v) => form.setValue("userIdType", v)}

@@ -118,7 +118,7 @@ const EditDataSourceSettingsForm: FC<{
           ) : (
             <>
               <div className="mb-4">
-                <h4>User Id Types</h4>
+                <h4>Identifier Types</h4>
                 <div>
                   Define all the different units you use to split traffic in an
                   experiment. Some examples: user_id, device_id, ip_address.
@@ -141,7 +141,7 @@ const EditDataSourceSettingsForm: FC<{
                           <a
                             className="text-danger"
                             href="#"
-                            title="Remove user id type"
+                            title="Remove identifier type"
                             onClick={(e) => {
                               e.preventDefault();
                               userIdTypes.remove(i);
@@ -154,7 +154,7 @@ const EditDataSourceSettingsForm: FC<{
                       <div className="row">
                         <div className="col-md-7 col-lg-8">
                           <Field
-                            label="User Id Type"
+                            label="Identifier Type"
                             pattern="^[a-z_]+$"
                             title="Only lowercase letters and underscores allowed"
                             required
@@ -188,7 +188,7 @@ const EditDataSourceSettingsForm: FC<{
                     });
                   }}
                 >
-                  Add New User Id Type
+                  Add New Identifier Type
                 </button>
               </div>
 
@@ -241,7 +241,7 @@ const EditDataSourceSettingsForm: FC<{
                             )}
                           />
                           <Field
-                            label="User Id Type"
+                            label="Identifier Type"
                             options={userIdTypeOptions}
                             required
                             {...form.register(
@@ -329,9 +329,9 @@ const EditDataSourceSettingsForm: FC<{
 
               {userIdTypeOptions.length > 1 && (
                 <div className="mb-4">
-                  <h4>User Id Join Tables</h4>
+                  <h4>Identifier Join Tables</h4>
                   <div>
-                    Queries that return a mapping between different user id
+                    Queries that return a mapping between different identifier
                     types
                   </div>
                   {identityJoins.fields.map((join, i) => {
@@ -368,7 +368,7 @@ const EditDataSourceSettingsForm: FC<{
                         <div className="row">
                           <div className="col-md-7 col-lg-8">
                             <MultiSelectField
-                              label="User Id Types"
+                              label="Identifier Types"
                               value={form.watch(
                                 `settings.queries.identityJoins.${i}.ids`
                               )}
@@ -433,7 +433,7 @@ const EditDataSourceSettingsForm: FC<{
                       });
                     }}
                   >
-                    Add New User Id Join Table
+                    Add New Identifier Join Table
                   </button>
                 </div>
               )}

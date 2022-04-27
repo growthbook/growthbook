@@ -756,7 +756,7 @@ export default abstract class SqlIntegration
 
     const cols = this.getMetricColumns(metric, "m");
 
-    // Determine the user id column to select from
+    // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
     if (metric.userIdTypes?.includes(baseIdType)) {
@@ -1090,8 +1090,6 @@ export default abstract class SqlIntegration
       }
     }
 
-    return `
-    -- ERROR: Missing User Id Join Table!
-    SELECT '' as ${id1}, '' as ${id2}`;
+    throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 }

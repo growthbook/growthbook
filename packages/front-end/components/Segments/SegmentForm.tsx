@@ -73,7 +73,7 @@ const SegmentForm: FC<{
       />
       {datasource.properties.userIds && (
         <SelectField
-          label="User Id Type"
+          label="Identifier Type"
           required
           value={userIdType}
           onChange={(v) => form.setValue("userIdType", v)}

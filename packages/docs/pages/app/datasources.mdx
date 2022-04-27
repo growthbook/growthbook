@@ -45,13 +45,13 @@ Don’t worry about the potentially huge number of rows returned by these raw qu
 
 In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
 
-##### User Id Types
+##### Identifier Types
 
-These are all of the user identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
+These are all of the types of identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
 
 ##### Experiment Assignment Queries
 
-An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single user id type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
 
 The end result of the query should return data like this:
 
@@ -60,7 +60,7 @@ The end result of the query should return data like this:
 | 123     | 2021-08-23-10:53:04 | my-button-test | 0            |
 | 456     | 2021-08-23 10:53:06 | my-button-test | 1            |
 
-The above assumes the user id type you are using is `user_id`. If you are using a different user id type, you would use a different column name.
+The above assumes the identifier type you are using is `user_id`. If you are using a different identifier, you would use a different column name.
 
 Here's an example query you might use:
 
@@ -82,11 +82,11 @@ Don’t worry about returning duplicate rows or ordering the result. We handle t
 
 In addition to the standard 4 columns above, you can also select additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
 
-##### User Id Join Tables
+##### Identifier Join Tables
 
-If you have multiple user id types and want to be able to auto-merge them together during analysis, you also need to define user id join tables. For example, if your experiment is assigned based on `device_id`, but the conversion metric only has a `user_id` column.
+If you have multiple identifier types and want to be able to auto-merge them together during analysis, you also need to define identifier join tables. For example, if your experiment is assigned based on `device_id`, but the conversion metric only has a `user_id` column.
 
-These queries are very simple and just need to return columns for each of the user id types being joined. For example:
+These queries are very simple and just need to return columns for each of the identifier types being joined. For example:
 
 ```sql
 SELECT user_id, device_id FROM logins

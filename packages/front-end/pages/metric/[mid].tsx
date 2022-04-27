@@ -737,7 +737,7 @@ const MetricPage: FC = () => {
                       )}
                       {metric.userIdTypes && customizeUserIds && (
                         <RightRailSectionGroup
-                          title="User Id Columns"
+                          title="Identifier Columns"
                           type="custom"
                         >
                           <ul>

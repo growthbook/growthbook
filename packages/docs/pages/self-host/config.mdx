@@ -255,7 +255,7 @@ For data sources that support SQL, there are a couple queries you need to define
 type: postgres
 params: ...
 settings:
-  # The different types of supported user ids
+  # The different types of supported identifiers
   userIdTypes:
     - userIdType: user_id
       description: Logged-in user id
@@ -281,7 +281,7 @@ settings:
         # Can use these to drill down into experiment results
         dimensions:
           - country
-    # These optional queries map between different types of user ids
+    # These optional queries map between different types of identifiers
     identityJoins:
       - ids: ["user_id", "anonymous_id"]
         query: SELECT user_id, anonymous_id FROM identifies
@@ -335,7 +335,7 @@ inverse: false
 # When ignoring nulls, only users who convert are included in the denominator
 # Setting to true here would change from "Revenue per User" to "Average Order Value"
 ignoreNulls: false
-# Which user id types are supported for this metric
+# Which identifier types are supported for this metric
 userIdTypes:
   - user
 # Any user with a higher metric amount will be capped at this value
@@ -377,7 +377,7 @@ For SQL data sources, you just need to specify a single query. Depending on the 
 - `timestamp` - always required
 - `value` - required unless type is set to "binomial"
 
-Plus, you need to select a column for each user id type the metric supports.
+Plus, you need to select a column for each identifier type the metric supports.
 
 A full example:
 
@@ -481,7 +481,7 @@ aggregation: new Set(values).size
 
 Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
 
-Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the user id type and `value`.
+Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `value`.
 
 Example:
 

@@ -193,7 +193,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           {supportsSQL && (
             <>
               <div className="mb-4">
-                <h3>User Id Types</h3>
+                <h3>Identifier Types</h3>
                 <p>
                   The different units you use to split traffic in an experiment.
                 </p>
@@ -249,9 +249,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </div>
               {joinTables.length > 0 && (
                 <div className="mb-4">
-                  <h3>User Id Join Tables</h3>
+                  <h3>Identifier Join Tables</h3>
                   <p>
-                    Joins different user id types together when needed during
+                    Joins different identifier types together when needed during
                     experiment analysis.
                   </p>
                   {joinTables.map((t, i) => (
