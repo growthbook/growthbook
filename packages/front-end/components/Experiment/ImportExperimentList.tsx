@@ -175,12 +175,12 @@ const ImportExperimentList: FC<{
                 return (
                   <tr key={e.trackingKey}>
                     <td>
-                      {
-                        getExposureQuery(
-                          datasource?.settings,
-                          e.exposureQueryId
-                        )?.name
-                      }
+                      {e.exposureQueryId
+                        ? getExposureQuery(
+                            datasource?.settings,
+                            e.exposureQueryId
+                          )?.name
+                        : "experiments"}
                     </td>
                     <td>{e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>

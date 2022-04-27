@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useRef } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
@@ -118,60 +118,52 @@ const SelectField: FC<
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
+  const selectRef = useRef(null);
+
   return (
     <Field
       {...fieldProps}
+      ref={selectRef}
       render={(id, ref) => {
         return (
-          <>
-            <div className="d-lg-none">
-              <select
-                value={selected?.value || ""}
-                onChange={(e) => onChange(e.target.value)}
-                className="form-control"
-                disabled={disabled}
-                id={id}
-                ref={ref}
-                required={required}
-                placeholder={initialOption ?? placeholder}
-              >
-                {sorted.map((s) => {
-                  if ("options" in s) {
-                    return (
-                      <optgroup key={s.label} label={s.label}>
-                        {s.options.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  } else {
-                    return (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    );
-                  }
-                })}
-              </select>
-            </div>
-            <div className="d-none d-lg-block">
-              <ReactSelect
-                {...ReactSelectProps}
-                id={id}
-                ref={ref}
-                isDisabled={disabled || false}
-                options={sorted}
-                onChange={(selected) => {
-                  onChange(selected?.value || "");
+          <div className="position-relative">
+            <ReactSelect
+              {...ReactSelectProps}
+              id={id}
+              ref={ref}
+              isDisabled={disabled || false}
+              options={sorted}
+              onChange={(selected) => {
+                onChange(selected?.value || "");
+              }}
+              autoFocus={autoFocus}
+              value={selected}
+              placeholder={initialOption ?? placeholder}
+            />
+            {required && (
+              <input
+                tabIndex={-1}
+                autoComplete="off"
+                style={{
+                  opacity: 0,
+                  width: "100%",
+                  height: 0,
+                  position: "absolute",
+                  pointerEvents: "none",
                 }}
-                autoFocus={autoFocus}
-                value={selected}
-                placeholder={initialOption ?? placeholder}
+                value={selected?.value || ""}
+                onChange={() => {
+                  // do nothing
+                }}
+                onFocus={() => {
+                  if (ref?.current) {
+                    ref.current.focus();
+                  }
+                }}
+                required
               />
-            </div>
-          </>
+            )}
+          </div>
         );
       }}
     />
