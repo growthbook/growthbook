@@ -47,6 +47,7 @@ WHERE
   AND event_name = 'viewed_experiment'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
@@ -106,6 +107,7 @@ FROM
   ${tablePrefix}events
 WHERE
   se_action = 'Experiment Viewed'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
@@ -180,6 +182,7 @@ FROM
   ${tablePrefix}$events
 WHERE
   event_type = 'Experiment Viewed'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
@@ -228,7 +231,9 @@ const SegmentSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed`;
+  ${tablePrefix}experiment_viewed
+WHERE
+  ${userId} is not null`;
   },
   getIdentitySQL: (tablePrefix) => {
     return [
