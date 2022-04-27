@@ -147,11 +147,10 @@ FROM
   getIdentitySQL: () => {
     return [];
   },
-  userIdTypes: ["anonymous_id", "user_id"],
+  userIdTypes: ["user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
-  user_id,
-  anonymous_id as anonymous_id,
+  user_id as user_id,
   timestamp as timestamp${
     type === "revenue"
       ? ",\n  revenue as value"

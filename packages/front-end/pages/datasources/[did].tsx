@@ -220,7 +220,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       {e.description && <p>{e.description}</p>}
                       <div className="row">
                         <div className="col-auto">
-                          <strong>Id Type: </strong>
+                          <strong>Identifier: </strong>
                           <code>{e.userIdType}</code>
                         </div>
                         <div className="col-auto">
@@ -247,7 +247,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 ))}
               </div>
-              {joinTables.length > 0 && (
+              {joinTables.length > 0 && d.settings?.userIdTypes?.length > 1 && (
                 <div className="mb-4">
                   <h3>Identifier Join Tables</h3>
                   <p>
