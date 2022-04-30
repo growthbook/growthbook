@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
+import { CRON_ENABLED } from "../util/secrets";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -108,6 +109,8 @@ export async function queueWebhook(
   projects: string[],
   isFeature?: boolean
 ) {
+  if (!CRON_ENABLED) return;
+
   const webhooks = await WebhookModel.find({
     organization: orgId,
   });

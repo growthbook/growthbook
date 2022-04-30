@@ -87,3 +87,5 @@ export const QUERY_CACHE_TTL_MINS =
 // When importing past experiments, limit to this number of days:
 export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+
+export const CRON_ENABLED = !process.env.CRON_DISABLED;

@@ -673,15 +673,25 @@ const MetricPage: FC = () => {
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
                   metric.sql ? (
-                    <RightRailSectionGroup title="Metric SQL" type="custom">
-                      <Code language="sql" code={metric.sql} />
-                      {metric.type !== "binomial" && metric.aggregation && (
-                        <div className="mt-2">
-                          User Value Aggregation:
-                          <Code language="sql" code={metric.aggregation} />
-                        </div>
+                    <>
+                      {metric.userIdTypes && customizeUserIds && (
+                        <RightRailSectionGroup
+                          title="Identifier Types"
+                          type="commaList"
+                        >
+                          {metric.userIdTypes}
+                        </RightRailSectionGroup>
                       )}
-                    </RightRailSectionGroup>
+                      <RightRailSectionGroup title="Metric SQL" type="custom">
+                        <Code language="sql" code={metric.sql} />
+                        {metric.type !== "binomial" && metric.aggregation && (
+                          <div className="mt-2">
+                            User Value Aggregation:
+                            <Code language="sql" code={metric.aggregation} />
+                          </div>
+                        )}
+                      </RightRailSectionGroup>
+                    </>
                   ) : (
                     <>
                       <RightRailSectionGroup

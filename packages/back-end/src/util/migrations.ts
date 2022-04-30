@@ -84,7 +84,7 @@ export function upgradeDatasourceObject(
   const settings = datasource.settings;
 
   // Add default randomization units
-  if (!settings?.userIdTypes) {
+  if (settings && !settings?.userIdTypes) {
     settings.userIdTypes = [
       { userIdType: "user_id", description: "Logged-in user id" },
       { userIdType: "anonymous_id", description: "Anonymous visitor id" },
@@ -92,7 +92,7 @@ export function upgradeDatasourceObject(
   }
 
   // Upgrade old docs to the new exposure queries format
-  if (!settings?.queries?.exposure) {
+  if (settings && !settings?.queries?.exposure) {
     const integration = getSourceIntegrationObject(datasource);
     if (integration instanceof SqlIntegration) {
       settings.queries = settings.queries || {};
