@@ -14,6 +14,7 @@ const experimentSchema = new mongoose.Schema({
   owner: String,
   datasource: String,
   userIdType: String,
+  exposureQueryId: String,
   name: String,
   dateCreated: Date,
   dateUpdated: Date,

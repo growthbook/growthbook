@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { AWS_CLOUDFRONT_DISTRIBUTION_ID } from "../util/secrets";
+import { AWS_CLOUDFRONT_DISTRIBUTION_ID, CRON_ENABLED } from "../util/secrets";
 import AWS from "aws-sdk";
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
 import { getAllApiKeysByOrganization } from "../services/apiKey";
@@ -56,6 +56,7 @@ export async function queueCDNInvalidate(
   getUrl: (key: string) => string
 ) {
   if (!AWS_CLOUDFRONT_DISTRIBUTION_ID) return;
+  if (!CRON_ENABLED) return;
 
   const apiKeys = await getAllApiKeysByOrganization(organization);
 

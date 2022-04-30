@@ -88,12 +88,10 @@ export async function getImpactEstimate(
   const query = integration.getMetricValueQuery({
     from: start,
     to: end,
-    userIdType: metricObj.userIdType || "either",
     name: "Metric Value",
     metric: metricObj,
     includeByDate: true,
-    segmentQuery: segmentObj?.sql,
-    segmentName: segmentObj?.name,
+    segment: segmentObj || undefined,
   });
 
   const queryResponse = await integration.runMetricValueQuery(query);

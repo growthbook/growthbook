@@ -104,16 +104,27 @@ datasources:
       database: growthbook
     # How to query the data (same for all SQL sources)
     settings:
+      userIdTypes:
+        - userIdType: user_id
+          description: Logged-in user id
+        - userIdType: anonymous_id
+          description: Anonymous visitor id
       queries:
-        experimentsQuery: >
-          SELECT
-            user_id,
-            anonymous_id,
-            received_at as timestamp,
-            experiment_id,
-            variation_id
-          FROM
-            experiment_viewed
+        exposure:
+          - id: user_id
+            name: Logged-in user experiments
+            userIdType: user_id
+            query: >
+              SELECT
+                user_id,
+                received_at as timestamp,
+                experiment_id,
+                variation_id,
+                context_location_country as country
+              FROM
+                experiment_viewed
+            dimensions:
+              - country
         identityJoins:
           - ids: ["user_id", "anonymous_id"]
             query: SELECT user_id, anonymous_id FROM identifies
@@ -121,11 +132,13 @@ metrics:
   signups:
     type: binomial
     name: Sign Ups
+    userIdType: user_id
     datasource: warehouse
     sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
 dimensions:
   country:
     name: Country
+    userIdType: user_id
     datasource: warehouse
     sql: SELECT user_id, country as value from users
 ```
@@ -242,26 +255,36 @@ For data sources that support SQL, there are a couple queries you need to define
 type: postgres
 params: ...
 settings:
+  # The different types of supported identifiers
+  userIdTypes:
+    - userIdType: user_id
+      description: Logged-in user id
+    - userIdType: anonymous_id
+      description: Anonymous visitor id
   queries:
-    # This query returns experiment variation assignment info
+    # These queries returns experiment variation assignment info
     # One row every time a user was put into an experiment
-    experimentsQuery: >
-      SELECT
-        user_id,
-        anonymous_id,
-        received_at as timestamp,
-        experiment_id,
-        variation_id,
-        country -- Not required, this is a custom dimension (see below)
-      FROM
-        experiment_viewed
-    # These optional queries map between different types of user ids
+    exposure:
+      - id: user_id
+        name: Logged-in user experiments
+        userIdType: user_id
+        query: >
+          SELECT
+            user_id,
+            received_at as timestamp,
+            experiment_id,
+            variation_id,
+            context_location_country as country
+          FROM
+            experiment_viewed
+        # List additional columns you selected in your experimentsQuery
+        # Can use these to drill down into experiment results
+        dimensions:
+          - country
+    # These optional queries map between different types of identifiers
     identityJoins:
       - ids: ["user_id", "anonymous_id"]
         query: SELECT user_id, anonymous_id FROM identifies
-  # List additional columns you selected in your experimentsQuery
-  # Can use these to drill down into experiment results
-  experimentDimensions: ["country"]
   # Used when exporting experiment results to a Jupyter notebook
   # Define a `runQuery(sql)` function that returns a pandas data frame
   notebookRunQuery: >
@@ -312,8 +335,9 @@ inverse: false
 # When ignoring nulls, only users who convert are included in the denominator
 # Setting to true here would change from "Revenue per User" to "Average Order Value"
 ignoreNulls: false
-# Which types of users are support. Logged-in (user), logged-out (anonymous), or both
-userIdType: "user" # or "anonymous" or "either"
+# Which identifier types are supported for this metric
+userIdTypes:
+  - user
 # Any user with a higher metric amount will be capped at this value
 # In this case, if someone bought a $10,000 order, it would only be counted as $100
 cap: 100
@@ -351,15 +375,17 @@ In addition to all of those settings, you also need to tell GrowthBook how to qu
 For SQL data sources, you just need to specify a single query. Depending on the other settings, the columns you need to select may differ slightly:
 
 - `timestamp` - always required
-- `user_id` - required unless userIdType is set to "anonymous"
-- `anonymous_id` - required unless userIdType is set to "user"
 - `value` - required unless type is set to "binomial"
+
+Plus, you need to select a column for each identifier type the metric supports.
 
 A full example:
 
 ```yml
 type: duration
-userIdType: either
+userIdTypes:
+  - user_id
+  - anonymous_id
 sql: >
   SELECT
     created_at as timestamp,
@@ -374,7 +400,8 @@ And a simple binomial metric that only supports logged-in users:
 
 ```yml
 type: binomial
-userIdType: user
+userIdTypes:
+  - user
 sql: SELECT user_id, timestamp FROM orders
 ```
 
@@ -382,12 +409,12 @@ By default, if a user has more than 1 non-binomial metric row during an experime
 
 ```yml
 type: duration
-userIdType: either
+userIdTypes:
+  - user_id
 sql: >
   SELECT
     created_at as timestamp,
     user_id,
-    anonymous_id,
     duration as value
   FROM
     requests
@@ -454,7 +481,7 @@ aggregation: new Set(values).size
 
 Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
 
-Dimensions only have 3 properties: name, datasource, and SQL. The SQL query must return two columns: `user_id` and `value`.
+Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `value`.
 
 Example:
 
@@ -462,6 +489,7 @@ Example:
 name: Country
 # Must match one of the datasources defined in config.yml
 datasource: warehouse
+userIdType: user_id
 sql: SELECT user_id, country as value FROM users
 ```
 

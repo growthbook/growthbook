@@ -29,7 +29,7 @@ export async function postSegments(
   req: AuthRequest<Partial<SegmentInterface>>,
   res: Response
 ) {
-  const { datasource, name, sql } = req.body;
+  const { datasource, name, sql, userIdType } = req.body;
   if (!datasource || !sql || !name) {
     throw new Error("Missing required properties");
   }
@@ -42,6 +42,7 @@ export async function postSegments(
 
   const doc = await SegmentModel.create({
     datasource,
+    userIdType,
     name,
     sql,
     id: uniqid("seg_"),
@@ -73,7 +74,7 @@ export async function putSegment(
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql } = req.body;
+  const { datasource, name, sql, userIdType } = req.body;
   if (!datasource || !sql || !name) {
     throw new Error("Missing required properties");
   }
@@ -84,6 +85,7 @@ export async function putSegment(
   }
 
   segment.set("datasource", datasource);
+  segment.set("userIdType", userIdType);
   segment.set("name", name);
   segment.set("sql", sql);
   segment.set("dateUpdated", new Date());

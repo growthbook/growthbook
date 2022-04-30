@@ -54,7 +54,7 @@ export default function Code({
     return () => clearTimeout(timer);
   }, [copied]);
 
-  const enoughLines = code.split("\n").length > 5;
+  const enoughLines = code.split("\n").length > 8;
 
   light['code[class*="language-"]'].fontSize = "1em";
   light['code[class*="language-"]'].fontWeight = "600";

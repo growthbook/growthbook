@@ -20,7 +20,7 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
-import { upgradeMetricDoc } from "../models/MetricModel";
+import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 
 export type ConfigFile = {
   organization?: {
@@ -144,7 +144,7 @@ export function getConfigDatasources(
   return Object.keys(datasources).map((id) => {
     const d = datasources[id];
 
-    return {
+    return upgradeDatasourceObject({
       id,
       name: d.name,
       organization,
@@ -153,7 +153,7 @@ export function getConfigDatasources(
       type: d.type,
       dateCreated: null,
       dateUpdated: null,
-    };
+    });
   });
 }
 

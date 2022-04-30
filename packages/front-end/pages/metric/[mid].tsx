@@ -673,16 +673,25 @@ const MetricPage: FC = () => {
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
                   metric.sql ? (
-                    <div>
-                      Metric SQL:
-                      <Code language="sql" code={metric.sql} />
-                      {metric.type !== "binomial" && metric.aggregation && (
-                        <div className="mt-2">
-                          User Value Aggregation:
-                          <Code language="sql" code={metric.aggregation} />
-                        </div>
+                    <>
+                      {metric.userIdTypes && customizeUserIds && (
+                        <RightRailSectionGroup
+                          title="Identifier Types"
+                          type="commaList"
+                        >
+                          {metric.userIdTypes}
+                        </RightRailSectionGroup>
                       )}
-                    </div>
+                      <RightRailSectionGroup title="Metric SQL" type="custom">
+                        <Code language="sql" code={metric.sql} />
+                        {metric.type !== "binomial" && metric.aggregation && (
+                          <div className="mt-2">
+                            User Value Aggregation:
+                            <Code language="sql" code={metric.aggregation} />
+                          </div>
+                        )}
+                      </RightRailSectionGroup>
+                    </>
                   ) : (
                     <>
                       <RightRailSectionGroup
@@ -728,22 +737,27 @@ const MetricPage: FC = () => {
                             />
                           </div>
                         )}
-                      {metric.userIdType !== "anonymous" && customizeUserIds && (
-                        <RightRailSectionGroup title="User Id Col" type="code">
-                          {metric.userIdColumn}
-                        </RightRailSectionGroup>
-                      )}
-                      {metric.userIdType !== "user" && customizeUserIds && (
-                        <RightRailSectionGroup title="Anon Id Col" type="code">
-                          {metric.anonymousIdColumn}
-                        </RightRailSectionGroup>
-                      )}
                       {customzeTimestamp && (
                         <RightRailSectionGroup
                           title="Timestamp Col"
                           type="code"
                         >
                           {metric.timestampColumn}
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.userIdTypes && customizeUserIds && (
+                        <RightRailSectionGroup
+                          title="Identifier Columns"
+                          type="custom"
+                        >
+                          <ul>
+                            {metric.userIdTypes?.map((type) => (
+                              <li key={type}>
+                                <strong>{type}</strong>:{" "}
+                                {metric.userIdColumns?.[type] || type}
+                              </li>
+                            ))}
+                          </ul>
                         </RightRailSectionGroup>
                       )}
                     </>

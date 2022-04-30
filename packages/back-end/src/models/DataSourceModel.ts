@@ -13,6 +13,7 @@ import {
 } from "../services/datasource";
 import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
+import { upgradeDatasourceObject } from "../util/migrations";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -25,52 +26,7 @@ const dataSourceSchema = new mongoose.Schema({
   dateUpdated: Date,
   type: { type: String },
   params: String,
-  settings: {
-    notebookRunQuery: String,
-    schemaFormat: String,
-    queries: {
-      experimentsQuery: String,
-      identityJoins: [
-        {
-          _id: false,
-          ids: [String],
-          query: String,
-        },
-      ],
-      // @deprecated
-      pageviewsQuery: String,
-    },
-    events: {
-      experimentEvent: String,
-      experimentIdProperty: String,
-      variationIdProperty: String,
-    },
-    experimentDimensions: [String],
-
-    // Deprecated
-    default: {
-      timestampColumn: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-    },
-    experiments: {
-      table: String,
-      timestampColumn: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-      experimentIdColumn: String,
-      variationColumn: String,
-    },
-    users: {
-      table: String,
-      userIdColumn: String,
-    },
-    identifies: {
-      table: String,
-      userIdColumn: String,
-      anonymousIdColumn: String,
-    },
-  },
+  settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -81,7 +37,7 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 );
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
-  return doc.toJSON();
+  return upgradeDatasourceObject(doc.toJSON());
 }
 
 export async function getDataSourcesByOrganization(organization: string) {

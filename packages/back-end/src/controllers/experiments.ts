@@ -452,6 +452,7 @@ export async function postExperiments(
     owner: data.owner || userId,
     trackingKey: data.trackingKey || undefined,
     datasource: data.datasource || "",
+    exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases || [],
@@ -600,6 +601,7 @@ export async function postExperiment(
     "trackingKey",
     "owner",
     "datasource",
+    "exposureQueryId",
     "userIdType",
     "name",
     "tags",
@@ -1487,7 +1489,9 @@ export async function postMetrics(
     datasource,
     timestampColumn,
     userIdType,
+    userIdColumns,
     userIdColumn,
+    userIdTypes,
     anonymousIdColumn,
   } = req.body;
 
@@ -1517,10 +1521,12 @@ export async function postMetrics(
     conversionWindowHours,
     conversionDelayHours,
     userIdType,
+    userIdTypes,
     sql,
     aggregation,
     queryFormat,
     status: "active",
+    userIdColumns,
     userIdColumn,
     anonymousIdColumn,
     timestampColumn,
@@ -1595,6 +1601,8 @@ export async function putMetric(
     "userIdType",
     "userIdColumn",
     "anonymousIdColumn",
+    "userIdColumns",
+    "userIdTypes",
     "timestampColumn",
   ];
   fields.forEach((k) => {

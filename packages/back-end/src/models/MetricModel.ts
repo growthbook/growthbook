@@ -1,7 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { upgradeMetricDoc } from "../util/migrations";
 import { queriesSchema } from "./QueryModel";
 
 export const ALLOWED_METRIC_TYPES = [
@@ -40,6 +40,8 @@ const metricSchema = new mongoose.Schema({
   segment: String,
   anonymousIdColumn: String,
   userIdType: String,
+  userIdTypes: [String],
+  userIdColumns: {},
   status: String,
   sql: String,
   aggregation: String,
@@ -88,19 +90,6 @@ const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());
-}
-
-export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
-  if (doc.conversionDelayHours == null && doc.earlyStart) {
-    return {
-      ...doc,
-      conversionDelayHours: -0.5,
-      conversionWindowHours:
-        (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
-    };
-  }
-
-  return doc;
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {

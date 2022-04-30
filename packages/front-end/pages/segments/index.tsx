@@ -232,54 +232,63 @@ const SegmentPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
+                  <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   <th>Date Updated</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {segments.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td className="d-none d-sm-table-cell">
-                      {getDatasourceById(s.datasource)?.name}
-                    </td>
-                    <td className="d-none d-lg-table-cell">
-                      <code>{s.sql}</code>
-                    </td>
-                    <td>{ago(s.dateUpdated)}</td>
-                    <td>
-                      <a
-                        href="#"
-                        className="tr-hover text-primary mr-3"
-                        title="Edit this segment"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setSegmentForm(s);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                      <DeleteButton
-                        link={true}
-                        className={"tr-hover text-primary"}
-                        displayName={s.name}
-                        title="Delete this segment"
-                        getConfirmationContent={getSegmentUsage(s)}
-                        onClick={async () => {
-                          await apiCall<{ status: number; message?: string }>(
-                            `/segments/${s.id}`,
-                            {
-                              method: "DELETE",
-                              body: JSON.stringify({ id: s.id }),
-                            }
-                          );
-                          await mutate({});
-                        }}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {segments.map((s) => {
+                  const datasource = getDatasourceById(s.datasource);
+                  return (
+                    <tr key={s.id}>
+                      <td>{s.name}</td>
+                      <td className="d-none d-sm-table-cell">
+                        {datasource?.name}
+                      </td>
+                      <td className="d-none d-md-table-cell">
+                        {datasource?.properties?.userIds
+                          ? s.userIdType || "user_id"
+                          : ""}
+                      </td>
+                      <td className="d-none d-lg-table-cell">
+                        <code>{s.sql}</code>
+                      </td>
+                      <td>{ago(s.dateUpdated)}</td>
+                      <td>
+                        <a
+                          href="#"
+                          className="tr-hover text-primary mr-3"
+                          title="Edit this segment"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSegmentForm(s);
+                          }}
+                        >
+                          <FaPencilAlt />
+                        </a>
+                        <DeleteButton
+                          link={true}
+                          className={"tr-hover text-primary"}
+                          displayName={s.name}
+                          title="Delete this segment"
+                          getConfirmationContent={getSegmentUsage(s)}
+                          onClick={async () => {
+                            await apiCall<{ status: number; message?: string }>(
+                              `/segments/${s.id}`,
+                              {
+                                method: "DELETE",
+                                body: JSON.stringify({ id: s.id }),
+                              }
+                            );
+                            await mutate({});
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

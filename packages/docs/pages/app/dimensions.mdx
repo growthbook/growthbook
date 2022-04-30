@@ -16,9 +16,12 @@ There are two types of dimensions: User Dimensions and Experiment Dimensions. Cu
 
 These are attributes of your users that are relatively stable over time. For example, `subscription plan`, `age group`, `cohort`.
 
-A user dimension is defined by a simple SQL query that returns two columns: `user_id` and `value`. For example:
+A user dimension is defined by a simple SQL query that returns two columns: an identifier and `value`. The name of the identifier column depends on which identifier type the dimension is using.
+
+Here's an example SQL:
 
 ```sql
+-- Assumes identifier type is "user_id"
 SELECT
   user_id,
   plan_type as value
@@ -26,9 +29,7 @@ FROM
   subscriptions
 ```
 
-It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. For example, instead of a `country`
-dimension with 200 possible values, maybe you could make the values `US`, `UK`, and `Other`. Depending on your SQL engine, you
-can use something like a `CASE WHEN` statement:
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it youself if you want more control. Here's an example for a "country" dimension:
 
 ```sql
 SELECT
@@ -46,14 +47,13 @@ FROM
 
 These are attributes that are specific to the point-in-time that a user was put into an experiment. For example, `browser` or `referrer`.
 
-Instead of a standalone SQL query, experiment dimensions are simply extra columns you return from the Experiment query defined for your data source.
+Instead of a standalone SQL query, experiment dimensions are simply extra columns you return from the Experiment assignment query defined for your data source.
 
-As an example, if you set the following as your experiment query:
+As an example, if you set the following as your experiment assignment query:
 
 ```sql
 SELECT
   user_id,
-  anonymous_id,
   received_at as timestamp,
   experiment_id,
   variation_id,
@@ -62,4 +62,4 @@ FROM
   experiment_viewed
 ```
 
-The first 5 columns are standard, but `browser` is a custom one that can be used as an Experiment Dimension.
+The first 4 columns are standard, but `browser` is a custom one that can be used as an Experiment Dimension.

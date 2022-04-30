@@ -22,11 +22,16 @@ const SegmentForm: FC<{
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      userIdType: current.userIdType || "user_id",
     },
   });
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
+  const userIdType = form.watch("userIdType");
+
   const datasource = getDatasourceById(form.watch("datasource"));
+  const dsProps = datasource?.properties;
+  const sql = dsProps?.queryLanguage === "sql";
 
   return (
     <Modal
@@ -34,6 +39,19 @@ const SegmentForm: FC<{
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
+        if (sql && !value.sql.toLowerCase().includes("select")) {
+          throw new Error(`Invalid SELECT statement`);
+        }
+        if (
+          sql &&
+          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
+        ) {
+          throw new Error(`Must select a column named '${value.userIdType}'`);
+        }
+        if (sql && !value.sql.toLowerCase().includes("date")) {
+          throw new Error("Must select a column named 'date'");
+        }
+
         await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
           method: current.id ? "PUT" : "POST",
           body: JSON.stringify(value),
@@ -53,26 +71,40 @@ const SegmentForm: FC<{
           label: d.name,
         }))}
       />
+      {datasource.properties.userIds && (
+        <SelectField
+          label="Identifier Type"
+          required
+          value={userIdType}
+          onChange={(v) => form.setValue("userIdType", v)}
+          options={(datasource?.settings?.userIdTypes || []).map((t) => {
+            return {
+              label: t.userIdType,
+              value: t.userIdType,
+            };
+          })}
+        />
+      )}
       <Field
-        label={datasource?.properties?.events ? "Event Condition" : "SQL"}
+        label={sql ? "SQL" : "Event Condition"}
         required
         textarea
         {...form.register("sql")}
         placeholder={
-          datasource?.properties?.events
-            ? "event.properties.$browser === 'Chrome'"
-            : "SELECT user_id, date FROM mytable"
+          sql
+            ? `SELECT ${userIdType}, date FROM mytable`
+            : "event.properties.$browser === 'Chrome'"
         }
         helpText={
-          datasource?.properties?.events ? (
+          sql ? (
             <>
-              Javascript condition used to filter events. Has access to an{" "}
-              <code>event</code> variable.
+              Select two columns named <code>{userIdType}</code> and{" "}
+              <code>date</code>
             </>
           ) : (
             <>
-              Select two columns named <code>user_id</code> and{" "}
-              <code>date</code>
+              Javascript condition used to filter events. Has access to an{" "}
+              <code>event</code> variable.
             </>
           )
         }

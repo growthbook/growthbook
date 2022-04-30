@@ -22,12 +22,16 @@ const DimensionForm: FC<{
       name: current.name || "",
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      userIdType: current.userIdType || "user_id",
     },
   });
 
   const datasource = form.watch("datasource");
+  const userIdType = form.watch("userIdType");
 
-  const dsProps = getDatasourceById(datasource)?.properties;
+  const dsObj = getDatasourceById(datasource);
+  const dsProps = dsObj?.properties;
+  const sql = dsProps?.queryLanguage === "sql";
 
   return (
     <Modal
@@ -35,6 +39,19 @@ const DimensionForm: FC<{
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
+        if (sql && !value.sql.toLowerCase().includes("select")) {
+          throw new Error(`Invalid SELECT statement`);
+        }
+        if (
+          sql &&
+          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
+        ) {
+          throw new Error(`Must select a column named '${value.userIdType}'`);
+        }
+        if (sql && !value.sql.toLowerCase().includes("value")) {
+          throw new Error("Must select a column named 'value'");
+        }
+
         await apiCall(
           current.id ? `/dimensions/${current.id}` : `/dimensions`,
           {
@@ -57,21 +74,33 @@ const DimensionForm: FC<{
           label: d.name,
         }))}
       />
+      {dsProps.userIds && (
+        <SelectField
+          label="Identifier Type"
+          required
+          value={userIdType}
+          onChange={(v) => form.setValue("userIdType", v)}
+          options={(dsObj.settings.userIdTypes || []).map((t) => {
+            return {
+              label: t.userIdType,
+              value: t.userIdType,
+            };
+          })}
+        />
+      )}
       <Field
-        label={dsProps?.events ? "Event Property" : "SQL"}
+        label={sql ? "SQL" : "Event Property"}
         required
         {...form.register("sql")}
         textarea
         minRows={3}
         placeholder={
-          dsProps?.events
-            ? "$browser"
-            : "SELECT user_id, browser as value FROM users"
+          sql ? `SELECT ${userIdType}, browser as value FROM users` : "$browser"
         }
         helpText={
-          dsProps?.queryLanguage === "sql" ? (
+          sql ? (
             <>
-              Select two columns named <code>user_id</code> and{" "}
+              Select two columns named <code>{userIdType}</code> and{" "}
               <code>value</code>
             </>
           ) : null

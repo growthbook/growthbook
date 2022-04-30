@@ -7,6 +7,8 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
+import DimensionChooser from "../Dimensions/DimensionChooser";
+import { getExposureQuery } from "../../services/datasources";
 
 export default function ConfigureReport({
   report,
@@ -18,9 +20,18 @@ export default function ConfigureReport({
   viewResults: () => void;
 }) {
   const { apiCall } = useAuth();
+  const { metrics, segments, getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(report.args.datasource);
+
   const form = useForm({
     defaultValues: {
       ...report.args,
+      exposureQueryId:
+        getExposureQuery(
+          datasource?.settings,
+          report.args.exposureQueryId,
+          report.args.userIdType
+        )?.id || "",
       removeMultipleExposures: !!report.args.removeMultipleExposures,
       startDate: getValidDate(report.args.startDate)
         .toISOString()
@@ -29,56 +40,23 @@ export default function ConfigureReport({
     },
   });
 
-  const { metrics, segments, dimensions, getDatasourceById } = useDefinitions();
-
   const filteredMetrics = metrics.filter(
     (m) => m.datasource === report.args.datasource
   );
   const filteredSegments = segments.filter(
     (s) => s.datasource === report.args.datasource
   );
-  const filteredDimensions = dimensions
-    .filter((d) => d.datasource === report.args.datasource)
-    .map((d) => {
-      return {
-        label: d.name,
-        value: d.id,
-      };
-    });
 
-  const datasource = getDatasourceById(report.args.datasource);
   const datasourceProperties = datasource?.properties;
-  const supportsSql = datasource?.properties?.queryLanguage === "sql";
 
   const variations = useFieldArray({
     control: form.control,
     name: "variations",
   });
 
-  if (datasource?.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
-      filteredDimensions.push({
-        label: d,
-        value: "exp:" + d,
-      });
-    });
-  }
-
-  const builtInDimensions = [
-    {
-      label: "Date",
-      value: "pre:date",
-    },
-  ];
-  if (
-    datasource?.properties?.activationDimension &&
-    form.watch("activationMetric")
-  ) {
-    builtInDimensions.push({
-      label: "Activation status",
-      value: "pre:activation",
-    });
-  }
+  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
   return (
     <Modal
@@ -165,20 +143,14 @@ export default function ConfigureReport({
       </div>
       {datasource?.properties?.userIds && (
         <Field
-          label="User Id Column"
+          label="Experiment Assignment Table"
           labelClassName="font-weight-bold"
-          {...form.register("userIdType")}
-          options={[
-            {
-              display: "user_id",
-              value: "user",
-            },
-            {
-              display: "anonymous_id",
-              value: "anonymous",
-            },
-          ]}
-          helpText="Determines how we define a single 'user' in the analysis"
+          {...form.register("exposureQueryId")}
+          options={(datasource?.settings?.queries?.exposure || []).map((e) => ({
+            display: e.name,
+            value: e.id,
+          }))}
+          helpText="Determines where we pull experiment assignment data from"
         />
       )}
 
@@ -226,26 +198,16 @@ export default function ConfigureReport({
           datasource={report.args.datasource}
         />
       </div>
-      {(filteredDimensions.length > 0 || supportsSql) && (
-        <SelectField
-          label="Dimension"
-          labelClassName="font-weight-bold"
-          options={[
-            {
-              label: "Built-in",
-              options: builtInDimensions,
-            },
-            {
-              label: "Custom",
-              options: filteredDimensions,
-            },
-          ]}
-          initialOption="None"
-          value={form.watch("dimension")}
-          onChange={(value) => form.setValue("dimension", value || "")}
-          helpText="Break down results for each metric by a dimension"
-        />
-      )}
+      <DimensionChooser
+        value={form.watch("dimension")}
+        setValue={(value) => form.setValue("dimension", value || "")}
+        activationMetric={!!form.watch("activationMetric")}
+        exposureQueryId={form.watch("exposureQueryId")}
+        datasourceId={report.args.datasource}
+        userIdType={report.args.userIdType}
+        labelClassName="font-weight-bold"
+        showHelp={true}
+      />
       <SelectField
         label="Activation Metric"
         labelClassName="font-weight-bold"
@@ -336,8 +298,9 @@ export default function ConfigureReport({
           <div className="pt-2 border-left col-sm-4 col-lg-6">
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
-              {["user_id", "anonymous_id", "timestamp", "variation_id"]
-                .concat(datasource?.settings?.experimentDimensions || [])
+              {["timestamp", "variation_id"]
+                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (
                     <div className="mr-2 mb-2 border px-1" key={d}>

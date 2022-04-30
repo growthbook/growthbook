@@ -7,6 +7,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
+import { getExposureQuery } from "../../services/datasources";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -30,8 +31,13 @@ const AnalysisForm: FC<{
 
   const form = useForm({
     defaultValues: {
-      userIdType: experiment.userIdType || "anonymous",
       trackingKey: experiment.trackingKey || "",
+      exposureQueryId:
+        getExposureQuery(
+          datasource?.settings,
+          experiment.exposureQueryId,
+          experiment.userIdType
+        )?.id || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -52,6 +58,10 @@ const AnalysisForm: FC<{
     control: form.control,
     name: "variations",
   });
+
+  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
   return (
     <Modal
@@ -130,22 +140,19 @@ const AnalysisForm: FC<{
           Will match against the variation_id column in your data source
         </small>
       </div>
-      {datasource?.properties?.userIds && (
-        <Field
-          label="User Id Column"
-          labelClassName="font-weight-bold"
-          {...form.register("userIdType")}
-          options={[
-            {
-              display: "user_id",
-              value: "user",
-            },
-            {
-              display: "anonymous_id",
-              value: "anonymous",
-            },
-          ]}
-          helpText="Determines how we define a single 'user' in the analysis"
+      {datasource?.properties?.exposureQueries && (
+        <SelectField
+          label="Experiment Assignment Table"
+          value={form.watch("exposureQueryId")}
+          onChange={(v) => form.setValue("exposureQueryId", v)}
+          initialOption="Choose..."
+          required
+          options={exposureQueries.map((q) => {
+            return {
+              label: q.name,
+              value: q.id,
+            };
+          })}
         />
       )}
       {phaseObj && (
@@ -253,8 +260,9 @@ const AnalysisForm: FC<{
           <div className="pt-2 border-left col-sm-4 col-lg-6">
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
-              {["user_id", "anonymous_id", "timestamp", "variation_id"]
-                .concat(datasource?.settings?.experimentDimensions || [])
+              {["timestamp", "variation_id"]
+                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (
                     <div className="mr-2 mb-2 border px-1" key={d}>

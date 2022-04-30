@@ -2,6 +2,7 @@ export interface SegmentInterface {
   id: string;
   organization: string;
   datasource: string;
+  userIdType: string;
   name: string;
   sql: string;
   dateCreated: Date;

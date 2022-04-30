@@ -81,6 +81,7 @@ export function useConfigJson({
         "minPercentChange",
         "minSampleSize",
         "userIdType",
+        "userIdTypes",
         "tags",
       ];
 
@@ -90,6 +91,7 @@ export function useConfigJson({
         fields.push("anonymousIdColumn");
         fields.push("timestampColumn");
         fields.push("userIdColumn");
+        fields.push("userIdColumns");
         fields.push("table");
         fields.push("column");
         fields.push("conditions");
@@ -113,6 +115,7 @@ export function useConfigJson({
         name: d.name,
         datasource: d.datasource,
         sql: d.sql,
+        userIdType: d.userIdType || "user_id",
       };
     });
 

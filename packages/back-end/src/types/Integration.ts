@@ -72,9 +72,7 @@ export type MetricValueParams = {
   to: Date;
   metric: MetricInterface;
   name: string;
-  userIdType?: "anonymous" | "user" | "either";
-  segmentQuery?: string;
-  segmentName?: string;
+  segment?: SegmentInterface;
   includeByDate?: boolean;
 };
 
@@ -94,6 +92,7 @@ export type MetricValueResult = {
 
 export type PastExperimentResult = {
   experiments: {
+    exposureQueryId: string;
     experiment_id: string;
     variation_id: string;
     start_date: Date;
@@ -110,6 +109,7 @@ export type MetricValueQueryResponseRow = {
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {
+  exposure_query: string;
   experiment_id: string;
   variation_id: string;
   start_date: string;

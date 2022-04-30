@@ -2,6 +2,7 @@ import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
+  ExposureQuery,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -19,77 +20,8 @@ import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
-
-// Replace vars in SQL queries (e.g. '{{startDate}}')
-export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
-  // If there's no end date, use a near future date by default
-  // We want to use at least 24 hours in the future in case of timezone issues
-  // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
-  if (!endDate) {
-    const now = new Date();
-    endDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 2,
-      0,
-      0,
-      0,
-      0
-    );
-  }
-
-  const replacements: Record<string, string> = {
-    startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
-    startYear: startDate.toISOString().substr(0, 4),
-    startMonth: startDate.toISOString().substr(5, 2),
-    startDay: startDate.toISOString().substr(8, 2),
-    endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
-    endYear: endDate.toISOString().substr(0, 4),
-    endMonth: endDate.toISOString().substr(5, 2),
-    endDay: endDate.toISOString().substr(8, 2),
-  };
-
-  Object.keys(replacements).forEach((key) => {
-    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-    sql = sql.replace(re, replacements[key]);
-  });
-
-  return sql;
-}
-
-export function getExperimentQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.experimentsQuery) {
-    return settings.queries.experimentsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.experiments?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.experiments?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.experiments?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
-}
+import { SegmentInterface } from "../../types/segment";
+import { getBaseIdTypeAndJoins, replaceDateVars } from "../util/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -115,6 +47,7 @@ export default abstract class SqlIntegration
       metricCaps: true,
       segments: true,
       dimensions: true,
+      exposureQueries: true,
       separateExperimentResultQueries: true,
       hasSettings: true,
       userIds: true,
@@ -195,69 +128,105 @@ export default abstract class SqlIntegration
     return column;
   }
 
+  private getExposureQuery(
+    exposureQueryId: string,
+    userIdType?: "anonymous" | "user"
+  ): ExposureQuery {
+    if (!exposureQueryId) {
+      exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    }
+
+    const queries = this.settings?.queries?.exposure || [];
+
+    const match = queries.find((q) => q.id === exposureQueryId);
+
+    if (!match) {
+      throw new Error(
+        "Unknown experiment assignment table - " + exposureQueryId
+      );
+    }
+
+    return match;
+  }
+
   getPastExperimentQuery(params: PastExperimentParams) {
     const minLength = params.minLength ?? 6;
 
     const now = new Date();
 
+    // TODO: for past experiments, UNION all exposure queries together
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
+
     return format(
       `-- Past Experiments
     WITH
+      ${experimentQueries
+        .map((q, i) => {
+          return `
+        __exposures${i} as (
+          SELECT 
+            '${q.id}' as exposure_query, 
+            experiment_id,
+            variation_id,
+            ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
+            count(distinct ${q.userIdType}) as users
+          FROM
+            (
+              ${replaceDateVars(q.query, params.from)}
+            ) e${i}
+          WHERE
+            ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
+            params.from
+          )}
+          GROUP BY
+            experiment_id,
+            variation_id,
+            ${this.dateTrunc(this.castUserDateCol("timestamp"))}
+        ),`;
+        })
+        .join("\n")}
       __experiments as (
-        ${replaceDateVars(
-          getExperimentQuery(this.settings, this.getSchema()),
-          params.from
-        )}
-      ),
-      __experimentDates as (
-        SELECT
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-          count(distinct anonymous_id) as users
-        FROM
-          __experiments
-        WHERE
-          ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
-        params.from
-      )}
-        GROUP BY
-          experiment_id,
-          variation_id,
-          ${this.dateTrunc(this.castUserDateCol("timestamp"))}
+        ${experimentQueries
+          .map((q, i) => `SELECT * FROM __exposures${i}`)
+          .join("\nUNION\n")}
       ),
       __userThresholds as (
         SELECT
+          exposure_query,
           experiment_id,
           variation_id,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
         FROM
-          __experimentDates
+          __experiments
         WHERE
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          experiment_id, variation_id
+          exposure_query, experiment_id, variation_id
       ),
       __variations as (
         SELECT
+          d.exposure_query,
           d.experiment_id,
           d.variation_id,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users
         FROM
-          __experimentDates d
+          __experiments d
           JOIN __userThresholds u ON (
-            d.experiment_id = u.experiment_id
+            d.exposure_query = u.exposure_query
+            AND d.experiment_id = u.experiment_id
             AND d.variation_id = u.variation_id
           )
         WHERE
           d.users > u.threshold
         GROUP BY
-          d.experiment_id, d.variation_id
+          d.exposure_query, d.experiment_id, d.variation_id
       )
     SELECT
       *
@@ -283,6 +252,7 @@ export default abstract class SqlIntegration
 
     return rows.map((row) => {
       return {
+        exposure_query: row.exposure_query,
         experiment_id: row.experiment_id,
         variation_id: row.variation_id ?? "",
         users: parseInt(row.users) || 0,
@@ -293,7 +263,14 @@ export default abstract class SqlIntegration
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
-    const userId = params.userIdType === "user";
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
+      [
+        params.metric.userIdTypes || [],
+        params.segment ? [params.segment.userIdType || "user_id"] : [],
+      ],
+      params.from,
+      params.to
+    );
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(params.from);
@@ -316,24 +293,20 @@ export default abstract class SqlIntegration
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
-        ${this.getIdentifiesCTE(userId, {
-          from: params.from,
-          to: params.to,
-          segment: !!params.segmentQuery,
-          metrics: [params.metric],
-        })}
+        ${idJoinSQL}
         ${
-          params.segmentQuery
+          params.segment
             ? `segment as (${this.getSegmentCTE(
-                params.segmentQuery,
-                params.segmentName || "",
-                userId
+                params.segment,
+                baseIdType,
+                idJoinMap
               )}),`
             : ""
         }
         __metric as (${this.getMetricCTE({
           metric: params.metric,
-          userId,
+          baseIdType,
+          idJoinMap,
           startDate: metricStart,
           endDate: metricEnd,
         })})
@@ -344,12 +317,12 @@ export default abstract class SqlIntegration
           FROM
             __metric m
             ${
-              params.segmentQuery
-                ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+              params.segment
+                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
                 : ""
             }
           GROUP BY
-            m.user_id
+            m.${baseIdType}
         )
         , __overall as (
           SELECT
@@ -370,13 +343,13 @@ export default abstract class SqlIntegration
             FROM
               __metric m
               ${
-                params.segmentQuery
-                  ? "JOIN segment s ON (s.user_id = m.user_id) WHERE s.date <= m.conversion_start"
+                params.segment
+                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
                   : ""
               }
             GROUP BY
               ${this.dateTrunc("m.conversion_start")},
-              m.user_id
+              m.${baseIdType}
           )
           , __byDateOverall as (
             SELECT
@@ -452,89 +425,41 @@ export default abstract class SqlIntegration
     };
   }
 
-  private getUserIdTypes(
-    userId: boolean,
-    metrics: (MetricInterface | null)[],
-    dimension: boolean,
-    segment: boolean
-  ) {
-    const types = new Set<string>();
+  private getIdentifiesCTE(objects: string[][], from: Date, to?: Date) {
+    const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(objects);
 
-    types.add(userId ? "user_id" : "anonymous_id");
+    // Joins for when an object doesn't support the baseIdType
+    const joins: string[] = [];
+    const idJoinMap: Record<string, string> = {};
 
-    metrics.forEach((m) => {
-      if (!m) return;
-      if (userId && m.userIdType === "anonymous") {
-        types.add("anonymous_id");
-      }
-      if (!userId && m.userIdType === "user") {
-        types.add("user_id");
-      }
+    // Generate table names and SQL for each of the required joins
+    joinsRequired.forEach((idType, i) => {
+      const table = `__identities${i}`;
+      idJoinMap[idType] = table;
+      joins.push(
+        `${table} as (
+        ${this.getIdentitiesQuery(this.settings, baseIdType, idType, from, to)}
+      ),`
+      );
     });
 
-    if (segment || dimension) {
-      types.add("user_id");
-    }
-
-    return Array.from(types);
+    return {
+      baseIdType,
+      idJoinSQL: joins.join("\n"),
+      idJoinMap,
+    };
   }
 
-  private getIdentifiesCTE(
-    userId: boolean,
-    {
-      from,
-      to,
-      metrics,
-      dimension,
-      segment,
-    }: {
-      from: Date;
-      to?: Date;
-      metrics?: (MetricInterface | null)[];
-      dimension?: boolean;
-      segment?: boolean;
-    }
-  ): string {
-    const idTypes = this.getUserIdTypes(
-      userId,
-      metrics || [],
-      !!dimension,
-      !!segment
-    );
-
-    // Don't need a join table, everything uses the same type of id
-    if (idTypes.length < 2) {
-      return "";
-    }
-
-    // TODO: handle case when there are more than 2 required id types
-    return `__identities as (
-      ${this.getIdentitiesQuery(
-        this.settings,
-        idTypes[0],
-        idTypes[1],
-        from,
-        to
-      )}
-    ),`;
-  }
-
-  private getIdentifiesJoinSql(column: string, userId: boolean = true) {
-    return `JOIN __identities i ON (
-      i.${userId ? "user_id" : "anonymous_id"} = ${column}
-    )`;
-  }
-
-  private getActivatedUsersCTE() {
+  private getActivatedUsersCTE(baseIdType: string) {
     return `
       SELECT
-        e.user_id,
+        e.${baseIdType},
         a.conversion_start,
         a.conversion_end
       FROM
         __experiment e
         JOIN __activationMetric a ON (
-          a.user_id = e.user_id
+          a.${baseIdType} = e.${baseIdType}
         )
       WHERE
         a.conversion_start >= e.conversion_start
@@ -556,7 +481,10 @@ export default abstract class SqlIntegration
       segment,
     } = params;
 
-    const userId = experiment.userIdType === "user";
+    const exposureQuery = this.getExposureQuery(
+      experiment.exposureQueryId || "",
+      experiment.userIdType
+    );
 
     const activationDimension =
       activationMetric && dimension?.type === "activation";
@@ -587,6 +515,21 @@ export default abstract class SqlIntegration
       }
     }
 
+    // Get any required identity join queries
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
+      [
+        [exposureQuery.userIdType],
+        dimension?.type === "user"
+          ? [dimension.dimension.userIdType || "user_id"]
+          : [],
+        segment ? [segment.userIdType || "user_id"] : [],
+        metric.userIdTypes || [],
+        activationMetric?.userIdTypes || [],
+      ],
+      phase.dateStarted,
+      phase.dateEnded
+    );
+
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
@@ -594,16 +537,10 @@ export default abstract class SqlIntegration
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
-      ${this.getIdentifiesCTE(userId, {
-        from: phase.dateStarted,
-        to: phase.dateEnded,
-        dimension: dimension?.type === "user",
-        segment: !!segment,
-        metrics: [metric, activationMetric],
-      })}
+      ${idJoinSQL}
       __rawExperiment as (
         ${replaceDateVars(
-          getExperimentQuery(this.settings, this.getSchema()),
+          exposureQuery.query,
           phase.dateStarted,
           phase.dateEnded
         )}
@@ -611,6 +548,7 @@ export default abstract class SqlIntegration
       __experiment as (${this.getExperimentCTE({
         experiment,
         phase,
+        baseIdType,
         conversionWindowHours:
           (activationMetric
             ? activationMetric.conversionWindowHours
@@ -624,16 +562,17 @@ export default abstract class SqlIntegration
       })})
       , __metric as (${this.getMetricCTE({
         metric,
-        userId,
+        baseIdType,
+        idJoinMap,
         startDate: metricStart,
         endDate: metricEnd,
       })})
       ${
         segment
           ? `, __segment as (${this.getSegmentCTE(
-              segment.sql,
-              segment.name,
-              userId
+              segment,
+              baseIdType,
+              idJoinMap
             )})`
           : ""
       }
@@ -641,7 +580,8 @@ export default abstract class SqlIntegration
         dimension?.type === "user"
           ? `, __dimension as (${this.getDimensionCTE(
               dimension.dimension,
-              userId
+              baseIdType,
+              idJoinMap
             )})`
           : ""
       }
@@ -652,11 +592,12 @@ export default abstract class SqlIntegration
               conversionWindowHours:
                 metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
               conversionDelayHours: metric.conversionDelayHours,
-              userId,
+              baseIdType,
+              idJoinMap,
               startDate: metricStart,
               endDate: metricEnd,
             })})
-            , __activatedUsers as (${this.getActivatedUsersCTE()})`
+            , __activatedUsers as (${this.getActivatedUsersCTE(baseIdType)})`
           : ""
       }
       , __distinctUsers as (
@@ -664,7 +605,7 @@ export default abstract class SqlIntegration
           removeMultipleExposures ? "" : "/variation"
         }
         SELECT
-          e.user_id,
+          e.${baseIdType},
           ${
             dimension?.type === "user"
               ? "d.value"
@@ -674,7 +615,7 @@ export default abstract class SqlIntegration
               ? this.formatDate(this.dateTrunc("e.conversion_start"))
               : activationDimension
               ? this.ifElse(
-                  "a.user_id IS NULL",
+                  `a.${baseIdType} IS NULL`,
                   "'Not Activated'",
                   "'Activated'"
                 )
@@ -699,23 +640,29 @@ export default abstract class SqlIntegration
           )}) as conversion_end
         FROM
           __experiment e
-          ${segment ? "JOIN __segment s ON (s.user_id = e.user_id)" : ""}
+          ${
+            segment
+              ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+              : ""
+          }
           ${
             dimension?.type === "user"
-              ? "JOIN __dimension d ON (d.user_id = e.user_id)"
+              ? `JOIN __dimension d ON (d.${baseIdType} = e.${baseIdType})`
               : ""
           }
           ${
             activationMetric
               ? `
           ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
-            a.user_id = e.user_id
+            a.${baseIdType} = e.${baseIdType}
           )`
               : ""
           }
         ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
-          dimension, e.user_id${removeMultipleExposures ? "" : ", e.variation"}
+          dimension, e.${baseIdType}${
+        removeMultipleExposures ? "" : ", e.variation"
+      }
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user
@@ -726,13 +673,13 @@ export default abstract class SqlIntegration
         FROM
           __distinctUsers d
           JOIN __metric m ON (
-            m.user_id = d.user_id
+            m.${baseIdType} = d.${baseIdType}
           )
           WHERE
             m.conversion_start >= d.conversion_start
             AND m.conversion_start <= d.conversion_end
         GROUP BY
-          variation, dimension, d.user_id
+          variation, dimension, d.${baseIdType}
       )
       , __overallUsers as (
         -- Number of users in each variation
@@ -792,14 +739,16 @@ export default abstract class SqlIntegration
     metric,
     conversionWindowHours = 0,
     conversionDelayHours = 0,
-    userId = true,
+    baseIdType,
+    idJoinMap,
     startDate,
     endDate,
   }: {
     metric: MetricInterface;
     conversionWindowHours?: number;
     conversionDelayHours?: number;
-    userId?: boolean;
+    baseIdType: string;
+    idJoinMap: Record<string, string>;
     startDate: Date;
     endDate: Date | null;
   }) {
@@ -807,21 +756,20 @@ export default abstract class SqlIntegration
 
     const cols = this.getMetricColumns(metric, "m");
 
-    let userIdCol: string;
+    // Determine the identifier column to select from
+    let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
-    // Need to use userId, but metric is anonymous only
-    if (userId && metric.userIdType === "anonymous") {
-      userIdCol = "i.user_id";
-      join = this.getIdentifiesJoinSql(cols.anonymousId, false);
-    }
-    // Need to use anonymousId, but metric is user only
-    else if (!userId && metric.userIdType === "user") {
-      userIdCol = "i.anonymous_id";
-      join = this.getIdentifiesJoinSql(cols.userId, true);
-    }
-    // Otherwise, can query the metric directly
-    else {
-      userIdCol = userId ? cols.userId : cols.anonymousId;
+    if (metric.userIdTypes?.includes(baseIdType)) {
+      userIdCol = baseIdType;
+    } else if (metric.userIdTypes) {
+      for (let i = 0; i < metric.userIdTypes.length; i++) {
+        const userIdType = metric.userIdTypes[i];
+        if (userIdType in idJoinMap) {
+          userIdCol = `i.${baseIdType}`;
+          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = m.${userIdType})`;
+          break;
+        }
+      }
     }
 
     const timestampCol = this.castUserDateCol(cols.timestamp);
@@ -846,7 +794,7 @@ export default abstract class SqlIntegration
 
     return `-- Metric (${metric.name})
       SELECT
-        ${userIdCol} as user_id,
+        ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
         ${this.addHours(
           timestampCol,
@@ -907,12 +855,14 @@ export default abstract class SqlIntegration
 
   private getExperimentCTE({
     experiment,
+    baseIdType,
     phase,
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
   }: {
     experiment: ExperimentInterface;
+    baseIdType: string;
     phase: ExperimentPhase;
     conversionWindowHours: number;
     conversionDelayHours: number;
@@ -920,9 +870,6 @@ export default abstract class SqlIntegration
   }) {
     conversionWindowHours =
       conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-
-    const userIdCol =
-      experiment.userIdType === "user" ? "e.user_id" : "e.anonymous_id";
 
     const endDate = this.getExperimentEndDate(
       experiment,
@@ -934,7 +881,7 @@ export default abstract class SqlIntegration
 
     return `-- Viewed Experiment
     SELECT
-      ${userIdCol} as user_id,
+      e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
       ${this.addHours(
         timestampColumn,
@@ -958,54 +905,63 @@ export default abstract class SqlIntegration
         ${experiment.queryFilter ? `AND (\n${experiment.queryFilter}\n)` : ""}
     `;
   }
-  private getSegmentCTE(sql: string, name: string, userId: boolean = true) {
+  private getSegmentCTE(
+    segment: SegmentInterface,
+    baseIdType: string,
+    idJoinMap: Record<string, string>
+  ) {
     const dateCol = this.castUserDateCol("s.date");
 
-    // Need to map user_id to anonymous_id
-    if (!userId) {
-      return `-- Segment (${name})
+    const userIdType = segment.userIdType || "user_id";
+
+    // Need to use an identity join table
+    if (userIdType !== baseIdType) {
+      return `-- Segment (${segment.name})
       SELECT
-        i.anonymous_id as user_id,
+        i.${baseIdType},
         ${dateCol} as date
       FROM
         (
-          ${sql}
+          ${segment.sql}
         ) s
-        ${this.getIdentifiesJoinSql("s.user_id", true)}
+        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = s.${userIdType} )
       `;
     }
 
     if (dateCol !== "s.date") {
-      return `-- Segment (${name})
+      return `-- Segment (${segment.name})
       SELECT
-        s.user_id,
+        s.${userIdType},
         ${dateCol} as date
       FROM
         (
-          ${sql}
+          ${segment.sql}
         ) s`;
     }
 
-    return `-- Segment (${name})
-    ${sql}
+    return `-- Segment (${segment.name})
+    ${segment.sql}
     `;
   }
 
   private getDimensionCTE(
     dimension: DimensionInterface,
-    userId: boolean = true
+    baseIdType: string,
+    idJoinMap: Record<string, string>
   ) {
-    // Need to map user_id to anonymous_id
-    if (!userId) {
+    const userIdType = dimension.userIdType || "user_id";
+
+    // Need to use an identity join table
+    if (userIdType !== baseIdType) {
       return `-- Dimension (${dimension.name})
       SELECT
-        i.anonymous_id as user_id,
+        i.${baseIdType},
         d.value
       FROM
         (
           ${dimension.sql}
         ) d
-        ${this.getIdentifiesJoinSql("d.user_id", true)}
+        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = d.${userIdType} )
       `;
     }
 
@@ -1048,9 +1004,12 @@ export default abstract class SqlIntegration
 
     // Directly inputting SQL (preferred)
     if (queryFormat === "sql") {
+      const userIds: Record<string, string> = {};
+      metric.userIdTypes?.forEach((userIdType) => {
+        userIds[userIdType] = `${alias}.${userIdType}`;
+      });
       return {
-        anonymousId: `${alias}.anonymous_id`,
-        userId: `${alias}.user_id`,
+        userIds: userIds,
         timestamp: `${alias}.timestamp`,
         value: metric.type === "binomial" ? "1" : `${alias}.value`,
       };
@@ -1065,9 +1024,15 @@ export default abstract class SqlIntegration
     }
     const value = metric.type !== "binomial" && metric.column ? valueCol : "1";
 
+    const userIds: Record<string, string> = {};
+    metric.userIdTypes?.forEach((userIdType) => {
+      userIds[userIdType] = `${alias}.${
+        metric.userIdColumns?.[userIdType] || userIdType
+      }`;
+    });
+
     return {
-      anonymousId: `${alias}.${metric.anonymousIdColumn || "anonymous_id"}`,
-      userId: `${alias}.${metric.userIdColumn || "user_id"}`,
+      userIds,
       timestamp: `${alias}.${metric.timestampColumn || "received_at"}`,
       value,
     };
@@ -1125,8 +1090,6 @@ export default abstract class SqlIntegration
       }
     }
 
-    return `
-    -- ERROR: Missing User Id Join Table!
-    SELECT '' as ${id1}, '' as ${id2}`;
+    throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 }

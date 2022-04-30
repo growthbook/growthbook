@@ -1,19 +1,19 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { phaseSummaryText } from "../../services/utils";
 import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import usePermissions from "../../hooks/usePermissions";
+import DimensionChooser from "../Dimensions/DimensionChooser";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -67,60 +67,20 @@ export default function AnalysisSettingsBar({
   mutateExperiment: () => void;
   editMetrics: () => void;
 }) {
-  const { getDatasourceById, dimensions } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const supportsSql = datasource?.properties?.queryLanguage === "sql";
   const outdated = isOutdated(experiment, snapshot);
   const [modalOpen, setModalOpen] = useState(false);
-
-  // If an experiment doesn't have an activation metric, don't allow selecting it
-  useEffect(() => {
-    if (dimension === "pre:activation" && !experiment.activationMetric) {
-      setDimension("");
-    }
-  }, [dimension, experiment.activationMetric]);
 
   const permissions = usePermissions();
 
   const { apiCall } = useAuth();
 
-  const filteredDimensions = dimensions
-    .filter((d) => d.datasource === experiment.datasource)
-    .map((d) => {
-      return {
-        label: d.name,
-        value: d.id,
-      };
-    });
-
-  if (datasource?.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
-      filteredDimensions.push({
-        label: d,
-        value: "exp:" + d,
-      });
-    });
-  }
-
-  const builtInDimensions = [
-    {
-      label: "Date",
-      value: "pre:date",
-    },
-  ];
-  if (
-    datasource?.properties?.activationDimension &&
-    experiment.activationMetric
-  ) {
-    builtInDimensions.push({
-      label: "Activation status",
-      value: "pre:activation",
-    });
-  }
-
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+
+  const [refreshError, setRefreshError] = useState("");
 
   return (
     <div>
@@ -149,27 +109,17 @@ export default function AnalysisSettingsBar({
             />
           </div>
         )}
-        {(filteredDimensions.length > 0 || supportsSql) && (
-          <div className="col-auto form-inline">
-            <SelectField
-              label="Dimension"
-              labelClassName="mr-2"
-              options={[
-                {
-                  label: "Built-in",
-                  options: builtInDimensions,
-                },
-                {
-                  label: "Custom",
-                  options: filteredDimensions,
-                },
-              ]}
-              initialOption="None"
-              value={dimension}
-              onChange={setDimension}
-            />
-          </div>
-        )}
+        <div className="col-auto form-inline">
+          <DimensionChooser
+            value={dimension}
+            setValue={setDimension}
+            activationMetric={!!experiment.activationMetric}
+            datasourceId={experiment.datasource}
+            exposureQueryId={experiment.exposureQueryId}
+            userIdType={experiment.userIdType}
+            labelClassName="mr-2"
+          />
+        </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           {snapshot &&
@@ -205,9 +155,10 @@ export default function AnalysisSettingsBar({
                   })
                     .then(() => {
                       mutate();
+                      setRefreshError("");
                     })
                     .catch((e) => {
-                      console.error(e);
+                      setRefreshError(e.message);
                     });
                 }}
               >
@@ -270,6 +221,11 @@ export default function AnalysisSettingsBar({
       </div>
       {permissions.runExperiments && datasource && (
         <div className="px-3">
+          {refreshError && (
+            <div className="alert alert-danger">
+              <strong>Error updating data: </strong> {refreshError}
+            </div>
+          )}
           <div className="row">
             {latest && status !== "succeeded" && (
               <div className="col-auto pb-3">

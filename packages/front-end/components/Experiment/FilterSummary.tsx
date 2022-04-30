@@ -7,6 +7,7 @@ import { datetime } from "../../services/dates";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { getExposureQuery } from "../../services/datasources";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -49,16 +50,22 @@ const FilterSummary: FC<{
         <div className="text-gray">
           <div className="row mb-3">
             <div className="col-5">
-              <strong className="text-gray">Tracking Key:</strong>
+              <strong className="text-gray">Experiment Id:</strong>
             </div>
             <div className="col">{experiment.trackingKey}</div>
           </div>
-          {datasource?.properties?.userIds && (
+          {datasource?.properties?.exposureQueries && (
             <div className="row mb-3">
               <div className="col-5">
-                <strong className="text-gray">User Id Type:</strong>
+                <strong className="text-gray">Exposure Query:</strong>
               </div>
-              <div className="col">{experiment.userIdType}</div>
+              <div className="col">
+                {getExposureQuery(
+                  datasource?.settings,
+                  experiment.exposureQueryId,
+                  experiment.userIdType
+                )?.name || "None"}
+              </div>
             </div>
           )}
           {phase && (

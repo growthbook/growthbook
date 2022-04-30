@@ -9,27 +9,37 @@ datasources:
       password: ${POSTGRES_PW} # use env for secrets
       database: growthbook
     settings:
+      userIdTypes:
+        - userIdType: user_id
+          description: Logged-in user id
       queries:
-        experimentsQuery: >
-          SELECT
-            user_id,
-            anonymous_id,
-            received_at as timestamp,
-            experiment_id,
-            variation_id,
-            context_location_country as country
-          FROM
-            experiment_viewed
-      experimentDimensions:
-        - country
+        exposure:
+          - id: user_id
+            name: Logged-in user experiments
+            userIdType: user_id
+            query: >
+              SELECT
+                user_id,
+                received_at as timestamp,
+                experiment_id,
+                variation_id,
+                context_location_country as country
+              FROM
+                experiment_viewed
+            dimensions:
+              - country
 metrics:
   signups:
     type: binomial
     name: Sign Ups
     datasource: warehouse
-    sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
+    userIdTypes:
+      - user_id
+    queryFormat: sql
+    sql: SELECT user_id, received_at as timestamp FROM signups
 dimensions:
   subscription_plan:
     name: Subscription Plan
     datasource: warehouse
+    userIdType: user_id
     sql: SELECT user_id, plan as value from subscriptions

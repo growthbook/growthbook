@@ -43,10 +43,10 @@ export type SchemaFormat =
   | "custom";
 
 export interface SchemaInterface {
-  getExperimentSQL(tablePrefix: string): string;
+  getExperimentSQL(tablePrefix: string, userId: string): string;
   getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
   experimentDimensions: string[];
-  metricUserIdType: "user" | "anonymous" | "either";
+  userIdTypes: string[];
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
 }
 
@@ -55,6 +55,7 @@ export interface DataSourceProperties {
   metricCaps?: boolean;
   segments?: boolean;
   experimentSegments?: boolean;
+  exposureQueries?: boolean;
   dimensions?: boolean;
   hasSettings?: boolean;
   activationDimension?: boolean;
@@ -74,12 +75,30 @@ export type IdentityJoinQuery = {
   query: string;
 };
 
+export interface ExposureQuery {
+  id: string;
+  name: string;
+  description?: string;
+  userIdType: string;
+  query: string;
+  dimensions: string[];
+}
+
+export interface UserIdType {
+  userIdType: string;
+  description?: string;
+}
+
 export type DataSourceSettings = {
+  // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
+  userIdTypes?: UserIdType[];
   queries?: {
+    // @deprecated
     experimentsQuery?: string;
+    exposure?: ExposureQuery[];
     identityJoins?: IdentityJoinQuery[];
     // @deprecated
     pageviewsQuery?: string;

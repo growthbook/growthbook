@@ -48,7 +48,10 @@ export interface MetricInterface {
   segment?: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
+  /** @deprecated */
   userIdType?: "anonymous" | "user" | "either";
+  userIdTypes?: string[];
+  userIdColumns?: Record<string, string>;
   queries: Queries;
   runStarted: Date | null;
   analysis?: MetricAnalysis;
@@ -59,7 +62,9 @@ export interface MetricInterface {
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;
+  /** @deprecated */
   userIdColumn?: string;
+  /** @deprecated */
   anonymousIdColumn?: string;
   timestampColumn?: string;
   conditions?: Condition[];

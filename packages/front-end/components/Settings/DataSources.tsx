@@ -8,6 +8,7 @@ import Link from "next/link";
 import { datetime } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
+import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   name: "My Datasource",
@@ -15,13 +16,18 @@ const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
 };
 
 const DataSources: FC = () => {
-  const [edit, setEdit] = useState<Partial<DataSourceInterfaceWithParams>>(
-    null
-  );
+  const [newModalOpen, setNewModalOpen] = useState(false);
+  const [queriesModalOpen, setQueriesModalOpen] = useState("");
 
   const router = useRouter();
 
-  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
+  const {
+    datasources,
+    error,
+    mutateDefinitions,
+    ready,
+    getDatasourceById,
+  } = useDefinitions();
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -29,6 +35,11 @@ const DataSources: FC = () => {
   if (!ready) {
     return <LoadingOverlay />;
   }
+
+  const newDataSource = queriesModalOpen
+    ? getDatasourceById(queriesModalOpen)
+    : null;
+
   return (
     <div>
       {datasources.length > 0 ? (
@@ -95,7 +106,7 @@ const DataSources: FC = () => {
           className="btn btn-primary"
           onClick={(e) => {
             e.preventDefault();
-            setEdit(DEFAULT_DATA_SOURCE);
+            setNewModalOpen(true);
           }}
         >
           <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -105,22 +116,31 @@ const DataSources: FC = () => {
         </button>
       )}
 
-      {edit && (
+      {newModalOpen && (
         <DataSourceForm
-          existing={edit !== DEFAULT_DATA_SOURCE}
-          data={edit}
-          source={
-            edit === DEFAULT_DATA_SOURCE
-              ? "datasource-list"
-              : "datasource-detail"
-          }
+          existing={false}
+          data={DEFAULT_DATA_SOURCE}
+          source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
-            await router.push(`/datasources/${id}`);
+            setNewModalOpen(false);
+            setQueriesModalOpen(id);
           }}
           onCancel={() => {
-            setEdit(null);
+            setNewModalOpen(false);
           }}
+        />
+      )}
+      {newDataSource && (
+        <EditDataSourceSettingsForm
+          firstTime={true}
+          data={newDataSource}
+          onCancel={() => setQueriesModalOpen("")}
+          onSuccess={async () => {
+            await mutateDefinitions({});
+            await router.push(`/datasources/${newDataSource.id}`);
+          }}
+          source="datasource-list"
         />
       )}
     </div>

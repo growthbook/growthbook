@@ -9,7 +9,8 @@ import {
   updateMetric,
 } from "../models/MetricModel";
 import uniqid from "uniqid";
-import { analyzeExperimentMetric, checkSrm } from "./stats";
+import { analyzeExperimentMetric } from "./stats";
+import { checkSrm } from "../util/stats";
 import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
@@ -19,6 +20,7 @@ import {
   Dimension,
   ExperimentMetricQueryResponse,
   MetricValueResult,
+  MetricValueParams,
 } from "../types/Integration";
 import {
   ExperimentSnapshotDocument,
@@ -29,6 +31,7 @@ import {
   MetricStats,
   MetricAnalysis,
 } from "../../types/metric";
+import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
@@ -291,18 +294,16 @@ export async function refreshMetric(
     }
     const integration = getSourceIntegrationObject(datasource);
 
-    let segmentQuery = "";
-    let segmentName = "";
+    let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      const segment = await SegmentModel.findOne({
-        id: metric.segment,
-        datasource: metric.datasource,
-      });
+      segment =
+        (await SegmentModel.findOne({
+          id: metric.segment,
+          datasource: metric.datasource,
+        })) || undefined;
       if (!segment) {
         throw new Error("Invalid user segment chosen");
       }
-      segmentQuery = segment.sql;
-      segmentName = segment.name;
     }
 
     let days = metricAnalysisDays;
@@ -314,14 +315,12 @@ export async function refreshMetric(
     from.setDate(from.getDate() - days);
     const to = new Date();
 
-    const baseParams = {
+    const baseParams: Omit<MetricValueParams, "metric"> = {
       from,
       to,
       name: `Last ${days} days`,
       includeByDate: true,
-      segmentName,
-      segmentQuery,
-      userIdType: metric.userIdType || "either",
+      segment,
     };
 
     const updates: Partial<MetricInterface> = {};
@@ -405,7 +404,7 @@ export async function createExperiment(
     );
     if (existing) {
       throw new Error(
-        "Error: Duplicate tracking key. Please choose something else"
+        "Error: Duplicate experiment id. Please choose something else"
       );
     }
   } else {
@@ -703,20 +702,23 @@ export async function processPastExperiments(
     (data.get("experiments")?.result as PastExperimentResult)?.experiments ||
     [];
 
-  const experimentMap = new Map<string, PastExperiment>();
+  // Group by experiment and exposureQuery
+  const experimentExposureMap = new Map<string, PastExperiment>();
   experiments.forEach((e) => {
-    let el = experimentMap.get(e.experiment_id);
+    const key = e.experiment_id + "::" + e.exposureQueryId;
+    let el = experimentExposureMap.get(key);
     if (!el) {
       el = {
         endDate: e.end_date,
         startDate: e.start_date,
         numVariations: 1,
         variationKeys: [e.variation_id],
+        exposureQueryId: e.exposureQueryId || "",
         trackingKey: e.experiment_id,
         users: e.users,
         weights: [e.users],
       };
-      experimentMap.set(e.experiment_id, el);
+      experimentExposureMap.set(key, el);
     } else {
       if (e.start_date < el.startDate) {
         el.startDate = e.start_date;
@@ -724,10 +726,22 @@ export async function processPastExperiments(
       if (e.end_date > el.endDate) {
         el.endDate = e.end_date;
       }
-      el.variationKeys.push(e.variation_id);
-      el.weights.push(e.users);
-      el.users += e.users;
-      el.numVariations++;
+      if (!el.variationKeys.includes(e.variation_id)) {
+        el.variationKeys.push(e.variation_id);
+        el.weights.push(e.users);
+        el.users += e.users;
+        el.numVariations++;
+      }
+    }
+  });
+
+  // Group by experiment, choosing the exposure query with the most users
+  const experimentMap = new Map<string, PastExperiment>();
+  experimentExposureMap.forEach((exp) => {
+    const key = exp.trackingKey;
+    const el = experimentMap.get(key);
+    if (!el || el.users < exp.users) {
+      experimentMap.set(key, exp);
     }
   });
 

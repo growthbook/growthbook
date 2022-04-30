@@ -215,6 +215,7 @@ export function processPastExperimentQueryResponse(
   return {
     experiments: rows.map((row) => {
       return {
+        exposureQueryId: row.exposure_query,
         users: row.users,
         experiment_id: row.experiment_id,
         variation_id: row.variation_id,

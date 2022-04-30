@@ -27,7 +27,7 @@ const RefreshSnapshotButton: FC<{
       return;
     }
 
-    const res = await apiCall<{ status: number; message: string }>(
+    await apiCall<{ status: number; message: string }>(
       `/experiment/${experiment.id}/snapshot`,
       {
         method: "POST",
@@ -38,9 +38,6 @@ const RefreshSnapshotButton: FC<{
       }
     );
 
-    if (res.status !== 200) {
-      throw new Error(res.message || "There was an error refreshing results");
-    }
     mutate();
   };
 

@@ -113,57 +113,66 @@ const DimensionsPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
+                  <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   {!hasFileConfig() && <th>Date Updated</th>}
                   {!hasFileConfig() && <th></th>}
                 </tr>
               </thead>
               <tbody>
-                {dimensions.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td className="d-none d-sm-table-cell">
-                      {getDatasourceById(s.datasource)?.name}
-                    </td>
-                    <td className="d-none d-lg-table-cell">
-                      {getDatasourceById(s.datasource)?.properties?.events ? (
-                        <div>
-                          Event property: <code>{s.sql}</code>
-                        </div>
-                      ) : (
-                        <code>{s.sql}</code>
-                      )}
-                    </td>
-                    {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                    {!hasFileConfig() && (
-                      <td>
-                        <a
-                          href="#"
-                          className="tr-hover text-primary mr-3"
-                          title="Edit this dimension"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setDimensionForm(s);
-                          }}
-                        >
-                          <FaPencilAlt />
-                        </a>
-                        <DeleteButton
-                          link={true}
-                          className={"tr-hover text-primary"}
-                          displayName={s.name}
-                          title="Delete this dimension"
-                          onClick={async () => {
-                            await apiCall(`/dimensions/${s.id}`, {
-                              method: "DELETE",
-                            });
-                            await mutateDefinitions({});
-                          }}
-                        />
+                {dimensions.map((s) => {
+                  const datasource = getDatasourceById(s.datasource);
+                  return (
+                    <tr key={s.id}>
+                      <td>{s.name}</td>
+                      <td className="d-none d-sm-table-cell">
+                        {datasource?.name}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="d-none d-md-table-cell">
+                        {datasource?.properties?.userIds
+                          ? s.userIdType || "user_id"
+                          : ""}
+                      </td>
+                      <td className="d-none d-lg-table-cell">
+                        {datasource?.properties?.events ? (
+                          <div>
+                            Event property: <code>{s.sql}</code>
+                          </div>
+                        ) : (
+                          <code>{s.sql}</code>
+                        )}
+                      </td>
+                      {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
+                      {!hasFileConfig() && (
+                        <td>
+                          <a
+                            href="#"
+                            className="tr-hover text-primary mr-3"
+                            title="Edit this dimension"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setDimensionForm(s);
+                            }}
+                          >
+                            <FaPencilAlt />
+                          </a>
+                          <DeleteButton
+                            link={true}
+                            className={"tr-hover text-primary"}
+                            displayName={s.name}
+                            title="Delete this dimension"
+                            onClick={async () => {
+                              await apiCall(`/dimensions/${s.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutateDefinitions({});
+                            }}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

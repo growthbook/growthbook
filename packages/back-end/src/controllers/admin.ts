@@ -79,15 +79,28 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     "postgres",
     dsParams,
     {
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "Logged-in user id",
+        },
+      ],
       queries: {
-        experimentsQuery: `SELECT
-    user_id,
-    user_id as anonymous_id,
-    received_at as timestamp,
-    experiment_id,
-    variation_id
-  FROM
-    experiment_viewed`,
+        exposure: [
+          {
+            id: "user_id",
+            userIdType: "user_id",
+            query: `SELECT
+            user_id,
+            received_at as timestamp,
+            experiment_id,
+            variation_id
+          FROM
+            experiment_viewed`,
+            name: "Logged-in Users",
+            dimensions: [],
+          },
+        ],
       },
     }
   );
@@ -100,7 +113,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Signup",
     type: "binomial",
     table: "signup",
-    userIdType: "user",
+    userIdTypes: ["user_id"],
     conditions: [],
   });
   const purchase = await createMetric({
@@ -109,7 +122,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Purchase",
     type: "binomial",
     table: "purchase",
-    userIdType: "user",
+    userIdTypes: ["user_id"],
     conditions: [],
   });
   const revenuPerUser = await createMetric({
@@ -119,7 +132,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     type: "revenue",
     table: "purchase",
     column: "amount",
-    userIdType: "user",
+    userIdTypes: ["user_id"],
     conditions: [],
   });
   const viewedSignup = await createMetric({
@@ -128,7 +141,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Viewed Signup",
     type: "binomial",
     table: "viewed_signup",
-    userIdType: "either",
+    userIdTypes: ["user_id"],
     conditions: [],
   });
   const pagesPerVisit = await createMetric({
@@ -137,7 +150,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Pages per Visit",
     type: "count",
     table: "pages",
-    userIdType: "either",
+    userIdTypes: ["user_id"],
     conditions: [],
     conversionDelayHours: -1,
   });
@@ -148,7 +161,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     type: "revenue",
     table: "purchase",
     column: "amount",
-    userIdType: "user",
+    userIdTypes: ["user_id"],
     conditions: [],
     ignoreNulls: true,
   });
@@ -159,7 +172,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     type: "duration",
     table: "sessions",
     column: "duration_seconds",
-    userIdType: "either",
+    userIdTypes: ["user_id"],
     timestampColumn: "date_start",
     conditions: [],
     conversionDelayHours: -1,
@@ -172,6 +185,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     sql:
       "SELECT user_id, '2020-01-01 00:00:00'::timestamp as date from users where gender='male'",
     id: uniqid("seg_"),
+    userIdType: "user_id",
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
@@ -183,6 +197,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     name: "Gender",
     sql: "SELECT user_id, gender as value FROM users",
     id: uniqid("dim_"),
+    userIdType: "user_id",
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
@@ -203,8 +218,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     hypothesis: "",
     tags: [],
     datasource: datasource.id,
-    userIdType: "user",
-    targetURLRegex: ".*",
+    exposureQueryId: "user_id",
     status: "stopped",
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -248,7 +262,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
       data.hypothesis =
         "Allowing people to login with Google will increase our signup rate";
       data.activationMetric = viewedSignup.id;
-      data.userIdType = "anonymous";
       data.variations = [
         {
           name: "Control",
@@ -328,7 +341,6 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           ],
         },
       ];
-      data.userIdType = "anonymous";
       data.activationMetric = viewedSignup.id;
       data.metrics = [signup.id];
       data.results = "dnf";

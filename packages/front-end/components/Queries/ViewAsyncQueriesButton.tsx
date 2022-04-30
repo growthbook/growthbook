@@ -9,12 +9,14 @@ const ViewAsyncQueriesButton: FC<{
   display?: string;
   color?: string;
   className?: string;
+  inline?: boolean;
 }> = ({
   queries,
   display = "View Queries",
   color = "link",
   error,
   className = "",
+  inline = false,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -22,28 +24,36 @@ const ViewAsyncQueriesButton: FC<{
 
   return (
     <>
-      {open && queries.length > 0 && (
-        <AsyncQueriesModal
-          close={() => setOpen(false)}
-          queries={queries}
-          error={error}
-        />
-      )}
       <button
         className={clsx(className, {
           disabled: queries.length === 0,
         })}
+        type="button"
         onClick={(e) => {
           e.preventDefault();
           if (!queries.length) return;
-          setOpen(true);
+          setOpen(!open);
         }}
       >
         <span className="h4 pr-2 m-0 d-inline-block align-top">
           <FaDatabase />
         </span>{" "}
-        {display} {queries.length > 0 ? `(${queries.length})` : ""}
+        {open ? (
+          "Hide Queries"
+        ) : (
+          <>
+            {display} {queries.length > 0 ? `(${queries.length})` : ""}
+          </>
+        )}
       </button>
+      {open && queries.length > 0 && (
+        <AsyncQueriesModal
+          close={() => setOpen(false)}
+          queries={queries}
+          error={error}
+          inline={inline}
+        />
+      )}
     </>
   );
 };

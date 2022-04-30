@@ -2,6 +2,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceSettings,
+  ExposureQuery,
   SchemaFormat,
   SchemaInterface,
 } from "back-end/types/datasource";
@@ -23,10 +24,11 @@ const GA4Schema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix) => {
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "user_pseudo_id";
+
     return `SELECT
-  user_id,
-  user_pseudo_id as anonymous_id,
+  ${userCol} as ${userId},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   experiment_id_param.value.string_value AS experiment_id,
   variation_id_param.value.int_value AS variation_id,
@@ -45,12 +47,13 @@ WHERE
   AND event_name = 'viewed_experiment'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -86,10 +89,11 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix) => {
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "domain_userid";
+
     return `SELECT
-  user_id,
-  domain_userid as anonymous_id,
+  ${userCol} as ${userId},
   collector_tstamp as timestamp,
   se_label as experiment_id,
   se_property as variation_id,
@@ -103,12 +107,13 @@ FROM
   ${tablePrefix}events
 WHERE
   se_action = 'Experiment Viewed'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -130,10 +135,9 @@ WHERE
 
 const CustomSchema: SchemaInterface = {
   experimentDimensions: [],
-  getExperimentSQL: (tablePrefix) => {
+  getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
-  user_id as user_id,
-  anonymous_id as anonymous_id,
+  ${userId} as ${userId},
   timestamp as timestamp,
   experiment_id as experiment_id,
   variation_id as variation_id
@@ -143,11 +147,10 @@ FROM
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  userIdTypes: ["user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
-  user_id,
-  anonymous_id as anonymous_id,
+  user_id as user_id,
   timestamp as timestamp${
     type === "revenue"
       ? ",\n  revenue as value"
@@ -162,10 +165,11 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getExperimentSQL: (tablePrefix) => {
+  getExperimentSQL: (tablePrefix, userId) => {
+    const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+
     return `SELECT
-  user_id,
-  $amplitude_id as anonymous_id,
+  ${userCol} as ${userId},
   event_time as timestamp,
   event_properties:experiment_id as experiment_id,
   event_properties:variation_id as variation_id,
@@ -177,12 +181,13 @@ FROM
   ${tablePrefix}$events
 WHERE
   event_type = 'Experiment Viewed'
+  AND ${userCol} is not null
   `;
   },
   getIdentitySQL: () => {
     return [];
   },
-  metricUserIdType: "either",
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -204,10 +209,9 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getExperimentSQL: (tablePrefix) => {
+  getExperimentSQL: (tablePrefix, userId) => {
     return `SELECT
-  user_id,
-  anonymous_id,
+  ${userId},
   received_at as timestamp,
   experiment_id,
   variation_id,
@@ -226,7 +230,9 @@ const SegmentSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed`;
+  ${tablePrefix}experiment_viewed
+WHERE
+  ${userId} is not null`;
   },
   getIdentitySQL: (tablePrefix) => {
     return [
@@ -240,7 +246,7 @@ FROM
       },
     ];
   },
-  metricUserIdType: "either",
+  userIdTypes: ["anonymous_id", "user_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -302,60 +308,62 @@ function getTablePrefix(params: DataSourceParams) {
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams
-): Partial<DataSourceSettings> {
+) {
   const schema = getSchemaObject(type);
+  const userIdTypes = schema.userIdTypes;
   return {
-    experimentDimensions: schema.experimentDimensions,
+    userIdTypes: userIdTypes.map((type) => {
+      return {
+        userIdType: type,
+        description:
+          type === "user_id"
+            ? "Logged-in user id"
+            : type === "anonymous_id"
+            ? "Anonymous visitor id"
+            : "",
+      };
+    }),
     queries: {
-      experimentsQuery: schema.getExperimentSQL(getTablePrefix(params)),
+      exposure: userIdTypes.map((id) => ({
+        id,
+        userIdType: id,
+        dimensions: schema.experimentDimensions,
+        name:
+          id === "user_id"
+            ? "Logged-in Users"
+            : id === "anonymous_id"
+            ? "Anonymous Visitors"
+            : id,
+        description: "",
+        query: schema.getExperimentSQL(getTablePrefix(params), id),
+      })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params)),
     },
   };
+}
+
+export function getExposureQuery(
+  settings?: DataSourceSettings,
+  exposureQueryId?: string,
+  userIdType?: string
+): ExposureQuery | null {
+  const queries = settings?.queries?.exposure || [];
+
+  if (!exposureQueryId) {
+    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+  }
+  return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
   type: MetricType,
   name: string
-): ["user" | "anonymous" | "either", string] {
+): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   return [
-    schema.metricUserIdType,
+    schema.userIdTypes,
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
-}
-
-export function getExperimentQuery(
-  settings: DataSourceSettings,
-  schema?: string
-): string {
-  if (settings?.queries?.experimentsQuery) {
-    return settings.queries.experimentsQuery;
-  }
-
-  return `SELECT
-  ${
-    settings?.experiments?.userIdColumn ||
-    settings?.default?.userIdColumn ||
-    "user_id"
-  } as user_id,
-  ${
-    settings?.experiments?.anonymousIdColumn ||
-    settings?.default?.anonymousIdColumn ||
-    "anonymous_id"
-  } as anonymous_id,
-  ${
-    settings?.experiments?.timestampColumn ||
-    settings?.default?.timestampColumn ||
-    "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
-  ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
 }
