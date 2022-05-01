@@ -52,8 +52,8 @@ export async function getFeatureDefinitions(
   features.forEach((feature) => {
     const settings = feature.environmentSettings?.[environment];
 
+    // Don't include features which are disabled for this environment
     if (!settings || !settings.enabled) {
-      defs[feature.id] = { defaultValue: null };
       return;
     }
 
