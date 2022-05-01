@@ -45,6 +45,7 @@ const featureSchema = new mongoose.Schema({
     },
   ],
   environmentSettings: {},
+  draft: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -256,4 +257,46 @@ export async function removeTagInFeature(organization: string, tag: string) {
     $pull: { tags: tag },
   });
   return;
+}
+
+export async function publishDraft(feature: FeatureInterface) {
+  if (!feature.draft?.active) {
+    throw new Error("There are no draft changes to publish.");
+  }
+
+  const changes: Partial<FeatureInterface> = {};
+  if (feature.draft.defaultValue !== feature.defaultValue) {
+    changes.defaultValue = feature.draft.defaultValue;
+  }
+  if (feature.draft.valueType !== feature.valueType) {
+    changes.valueType = feature.draft.valueType;
+  }
+
+  if (feature.draft.rules) {
+    Object.keys(feature.draft.rules).forEach((key) => {
+      changes.environmentSettings = feature.environmentSettings || {};
+      changes.environmentSettings[key] = {
+        enabled: changes.environmentSettings?.[key]?.enabled || false,
+        rules: feature?.draft?.rules?.[key] || [],
+      };
+    });
+  }
+
+  changes.dateUpdated = new Date();
+  changes.draft = { active: false };
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: changes,
+    }
+  );
+
+  featureUpdated({
+    ...feature,
+    ...changes,
+  });
 }

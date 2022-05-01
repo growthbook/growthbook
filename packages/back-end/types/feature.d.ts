@@ -25,6 +25,15 @@ export interface FeatureInterface {
   defaultValue: string;
   tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
+  draft?: {
+    active: boolean;
+    userId?: string;
+    dateCreated?: Date;
+    dateUpdated?: Date;
+    valueType?: FeatureValueType;
+    defaultValue?: string;
+    rules?: Record<string, FeatureRule[]>;
+  };
 }
 
 export interface BaseRule {
