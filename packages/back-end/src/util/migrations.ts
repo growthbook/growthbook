@@ -7,6 +7,7 @@ import {
 import SqlIntegration from "../integrations/SqlIntegration";
 import { getSourceIntegrationObject } from "../services/datasource";
 import {
+  FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
@@ -143,24 +144,23 @@ function updateEnvironmentSettings(
   environment: string,
   feature: FeatureInterface
 ) {
-  feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] =
-    feature.environmentSettings[environment] || {};
-
-  const settings = feature.environmentSettings[environment];
+  const settings: Partial<FeatureEnvironment> =
+    feature.environmentSettings?.[environment] || {};
 
   if (!("rules" in settings)) {
-    feature.environmentSettings[environment].rules = rules;
+    settings.rules = rules;
   }
   if (!("enabled" in settings)) {
-    feature.environmentSettings[environment].enabled =
-      environments?.includes(environment) || false;
+    settings.enabled = environments?.includes(environment) || false;
   }
 
   // If Rules is an object instead of array, fix it
-  if (!Array.isArray(settings.rules)) {
+  if (settings.rules && !Array.isArray(settings.rules)) {
     settings.rules = Object.values(settings.rules);
   }
+
+  feature.environmentSettings = feature.environmentSettings || {};
+  feature.environmentSettings[environment] = settings as FeatureEnvironment;
 }
 
 export function upgradeFeatureInterface(
