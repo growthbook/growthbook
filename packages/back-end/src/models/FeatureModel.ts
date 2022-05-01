@@ -1,6 +1,7 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import {
+  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
@@ -8,6 +9,7 @@ import {
 } from "../../types/feature";
 import { featureUpdated, generateRuleId } from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
+import { upgradeFeatureInterface } from "../util/migrations";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -53,48 +55,6 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
-
-function updateEnvironmentSettings(
-  rules: FeatureRule[],
-  environments: string[],
-  environment: string,
-  feature: FeatureInterface
-) {
-  feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] =
-    feature.environmentSettings[environment] || {};
-
-  const settings = feature.environmentSettings[environment];
-
-  if (!("rules" in settings)) {
-    feature.environmentSettings[environment].rules = rules;
-  }
-  if (!("enabled" in settings)) {
-    feature.environmentSettings[environment].enabled =
-      environments?.includes(environment) || false;
-  }
-
-  // If Rules is an object instead of array, fix it
-  if (!Array.isArray(settings.rules)) {
-    settings.rules = Object.values(settings.rules);
-  }
-}
-
-function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface
-): FeatureInterface {
-  const { environments, rules, ...newFeature } = feature;
-
-  updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
-  updateEnvironmentSettings(
-    rules || [],
-    environments || [],
-    "production",
-    newFeature
-  );
-
-  return newFeature;
-}
 
 export async function getAllFeatures(
   organization: string,
@@ -188,8 +148,12 @@ export async function toggleFeatureEnvironment(
   );
 }
 
-function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+export function getDraftRules(feature: FeatureInterface, environment: string) {
+  return (
+    feature?.draft?.rules?.[environment] ??
+    feature?.environmentSettings?.[environment]?.rules ??
+    []
+  );
 }
 
 export async function addFeatureRule(
@@ -201,9 +165,10 @@ export async function addFeatureRule(
     rule.id = generateRuleId();
   }
 
-  await editFeatureEnvironment(feature, environment, {
-    rules: [...getRules(feature, environment), rule],
-  });
+  await setFeatureDraftRules(feature, environment, [
+    ...getDraftRules(feature, environment),
+    rule,
+  ]);
 }
 
 export async function editFeatureRule(
@@ -212,7 +177,7 @@ export async function editFeatureRule(
   i: number,
   updates: Partial<FeatureRule>
 ) {
-  const rules = getRules(feature, environment);
+  const rules = getDraftRules(feature, environment);
   if (!rules[i]) {
     throw new Error("Unknown rule");
   }
@@ -222,21 +187,17 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
 
-  await editFeatureEnvironment(feature, environment, {
-    rules,
-  });
+  await setFeatureDraftRules(feature, environment, rules);
 }
 
-export async function editFeatureEnvironment(
+export async function setFeatureDraftRules(
   feature: FeatureInterface,
   environment: string,
-  updates: Partial<FeatureEnvironment>
+  rules: FeatureRule[]
 ) {
-  // eslint-disable-next-line
-  const sets: Record<string, any> = {dateUpdated: new Date()};
-  Object.keys(updates).forEach((key: keyof FeatureEnvironment) => {
-    sets[`environmentSettings.${environment}.${key}`] = updates[key];
-  });
+  const draft = getDraft(feature);
+  draft.rules = draft.rules || {};
+  draft.rules[environment] = rules;
 
   await FeatureModel.updateOne(
     {
@@ -244,11 +205,11 @@ export async function editFeatureEnvironment(
       organization: feature.organization,
     },
     {
-      $set: sets,
+      $set: {
+        draft,
+      },
     }
   );
-
-  featureUpdated(feature);
 }
 
 export async function removeTagInFeature(organization: string, tag: string) {
@@ -257,6 +218,75 @@ export async function removeTagInFeature(organization: string, tag: string) {
     $pull: { tags: tag },
   });
   return;
+}
+
+export async function setDefaultValue(
+  feature: FeatureInterface,
+  defaultValue: string
+) {
+  const draft = getDraft(feature);
+  draft.defaultValue = defaultValue;
+
+  return updateDraft(feature, draft);
+}
+
+async function updateDraft(
+  feature: FeatureInterface,
+  draft: FeatureDraftChanges
+) {
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: {
+        draft,
+        dateUpdated: new Date(),
+      },
+    }
+  );
+
+  return {
+    ...feature,
+    draft: {
+      ...draft,
+    },
+  };
+}
+
+function getDraft(feature: FeatureInterface) {
+  const draft: FeatureDraftChanges = cloneDeep(
+    feature.draft || { active: false }
+  );
+
+  if (!draft.active) {
+    draft.active = true;
+    draft.dateCreated = new Date();
+  }
+  draft.dateUpdated = new Date();
+
+  return draft;
+}
+
+export async function discardDraft(feature: FeatureInterface) {
+  if (!feature.draft?.active) {
+    throw new Error("There are no draft changes to discard.");
+  }
+
+  await FeatureModel.updateOne(
+    {
+      id: feature.id,
+      organization: feature.organization,
+    },
+    {
+      $set: {
+        draft: {
+          active: false,
+        },
+      },
+    }
+  );
 }
 
 export async function publishDraft(feature: FeatureInterface) {
@@ -273,10 +303,11 @@ export async function publishDraft(feature: FeatureInterface) {
   }
 
   if (feature.draft.rules) {
+    changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
+    const envSettings = changes.environmentSettings;
     Object.keys(feature.draft.rules).forEach((key) => {
-      changes.environmentSettings = feature.environmentSettings || {};
-      changes.environmentSettings[key] = {
-        enabled: changes.environmentSettings?.[key]?.enabled || false,
+      envSettings[key] = {
+        enabled: envSettings[key]?.enabled || false,
         rules: feature?.draft?.rules?.[key] || [],
       };
     });
@@ -295,8 +326,11 @@ export async function publishDraft(feature: FeatureInterface) {
     }
   );
 
-  featureUpdated({
+  const newFeature = {
     ...feature,
     ...changes,
-  });
+  };
+
+  featureUpdated(newFeature);
+  return newFeature;
 }

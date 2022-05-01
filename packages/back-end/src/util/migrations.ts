@@ -6,6 +6,11 @@ import {
 } from "../../types/datasource";
 import SqlIntegration from "../integrations/SqlIntegration";
 import { getSourceIntegrationObject } from "../services/datasource";
+import {
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "../../types/feature";
 
 export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
   const newDoc = { ...doc };
@@ -130,4 +135,46 @@ export function upgradeDatasourceObject(
   }
 
   return datasource;
+}
+
+function updateEnvironmentSettings(
+  rules: FeatureRule[],
+  environments: string[],
+  environment: string,
+  feature: FeatureInterface
+) {
+  feature.environmentSettings = feature.environmentSettings || {};
+  feature.environmentSettings[environment] =
+    feature.environmentSettings[environment] || {};
+
+  const settings = feature.environmentSettings[environment];
+
+  if (!("rules" in settings)) {
+    feature.environmentSettings[environment].rules = rules;
+  }
+  if (!("enabled" in settings)) {
+    feature.environmentSettings[environment].enabled =
+      environments?.includes(environment) || false;
+  }
+
+  // If Rules is an object instead of array, fix it
+  if (!Array.isArray(settings.rules)) {
+    settings.rules = Object.values(settings.rules);
+  }
+}
+
+export function upgradeFeatureInterface(
+  feature: LegacyFeatureInterface
+): FeatureInterface {
+  const { environments, rules, ...newFeature } = feature;
+
+  updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
+  updateEnvironmentSettings(
+    rules || [],
+    environments || [],
+    "production",
+    newFeature
+  );
+
+  return newFeature;
 }

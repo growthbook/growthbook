@@ -26,8 +26,8 @@ export default function EditDefaultValueModal({
     <Modal
       header="Edit Default Value"
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/feature/${feature.id}`, {
-          method: "PUT",
+        await apiCall(`/feature/${feature.id}/defaultvalue`, {
+          method: "POST",
           body: JSON.stringify(value),
         });
         mutate();

@@ -501,6 +501,12 @@ app.get("/feature/:id", featuresController.getFeatureById);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
+app.post(
+  "/feature/:id/defaultvalue",
+  featuresController.postFeatureDefaultValue
+);
+app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
+app.post("/feature/:id/publish", featuresController.postFeaturePublish);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);

@@ -10,12 +10,16 @@ import {
   addFeatureRule,
   createFeature,
   deleteFeature,
-  editFeatureEnvironment,
+  setFeatureDraftRules,
   editFeatureRule,
   getAllFeatures,
   getFeature,
+  publishDraft,
+  setDefaultValue,
   toggleFeatureEnvironment,
   updateFeature,
+  getDraftRules,
+  discardDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
@@ -135,6 +139,66 @@ export async function postFeatures(
   });
 }
 
+export async function postFeaturePublish(
+  req: AuthRequest<{ comment?: string }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { comment = "" } = req.body;
+
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const newFeature = await publishDraft(feature);
+
+  await req.audit({
+    event: "feature.publish",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, newFeature, { comment }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureDiscard(
+  // eslint-disable-next-line
+  req: AuthRequest<any, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await discardDraft(feature);
+
+  await req.audit({
+    event: "feature.discard",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsDelete(feature.draft, { draft: true }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postFeatureRule(
   req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
   res: Response
@@ -156,7 +220,38 @@ export async function postFeatureRule(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsCreate(rule, { environment }),
+    details: auditDetailsCreate(rule, { environment, draft: true }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureDefaultValue(
+  req: AuthRequest<{ defaultValue: string }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { defaultValue } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await setDefaultValue(feature, defaultValue);
+
+  await req.audit({
+    event: "feature.defaultValue",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature.defaultValue, defaultValue, {
+      draft: true,
+    }),
   });
 
   res.status(200).json({
@@ -180,7 +275,8 @@ export async function putFeatureRule(
     throw new Error("Could not find feature");
   }
 
-  const oldRule = feature.environmentSettings?.[environment]?.rules?.[i];
+  const rules = getDraftRules(feature, environment);
+  const oldRule = rules[i];
 
   await editFeatureRule(feature, environment, i, rule);
 
@@ -193,7 +289,7 @@ export async function putFeatureRule(
     details: auditDetailsUpdate(
       oldRule,
       { ...oldRule, ...rule } as FeatureRule,
-      { environment }
+      { environment, draft: true }
     ),
   });
 
@@ -253,14 +349,14 @@ export async function postFeatureMoveRule(
     throw new Error("Could not find feature");
   }
 
-  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
+  const rules = getDraftRules(feature, environment);
   if (!rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
   }
 
   const newRules = arrayMove(rules, from, to);
 
-  await editFeatureEnvironment(feature, environment, { rules: newRules });
+  await setFeatureDraftRules(feature, environment, newRules);
 
   await req.audit({
     event: "feature.rule.moved",
@@ -268,7 +364,7 @@ export async function postFeatureMoveRule(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(rules, newRules, { environment }),
+    details: auditDetailsUpdate(rules, newRules, { environment, draft: true }),
   });
 
   res.status(200).json({
@@ -289,12 +385,12 @@ export async function deleteFeatureRule(
     throw new Error("Could not find feature");
   }
 
-  const rules = feature.environmentSettings?.[environment]?.rules ?? [];
+  const rules = getDraftRules(feature, environment);
 
   const newRules = rules.slice();
   const deletedRule = newRules.splice(i, 1);
 
-  await editFeatureEnvironment(feature, environment, { rules: newRules });
+  await setFeatureDraftRules(feature, environment, newRules);
 
   await req.audit({
     event: "feature.rule.delete",
@@ -302,7 +398,7 @@ export async function deleteFeatureRule(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsDelete(deletedRule?.[0], { environment }),
+    details: auditDetailsDelete(deletedRule?.[0], { environment, draft: true }),
   });
 
   res.status(200).json({
@@ -322,37 +418,24 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const {
-    id: newId,
-    organization,
-    dateUpdated,
-    dateCreated,
-    ...updates
-  } = req.body;
+  const updates = req.body;
 
-  if (newId || organization || dateUpdated || dateCreated) {
+  const allowedKeys: (keyof FeatureInterface)[] = [
+    "tags",
+    "description",
+    "project",
+  ];
+
+  if (
+    Object.keys(updates).filter(
+      (key: keyof FeatureInterface) => !allowedKeys.includes(key)
+    ).length > 0
+  ) {
     throw new Error("Invalid update fields for feature");
   }
 
-  addIdsToRules(updates.environmentSettings, id);
-
   // See if anything important changed that requires firing a webhook
   let requiresWebhook = false;
-  if (
-    "defaultValue" in updates &&
-    updates.defaultValue !== feature.defaultValue
-  ) {
-    requiresWebhook = true;
-  }
-  if ("environmentSettings" in updates) {
-    // TODO: don't fire a webhook if only a rule description was changed
-    if (
-      JSON.stringify(updates.environmentSettings) !==
-      JSON.stringify(feature.environmentSettings)
-    ) {
-      requiresWebhook = true;
-    }
-  }
   if ("project" in updates && updates.project !== feature.project) {
     requiresWebhook = true;
   }
@@ -362,21 +445,20 @@ export async function putFeature(
     dateUpdated: new Date(),
   });
 
+  const newFeature = { ...feature, ...updates };
+
   await req.audit({
     event: "feature.update",
     entity: {
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, { ...feature, ...updates }),
+    details: auditDetailsUpdate(feature, newFeature),
   });
 
   if (requiresWebhook) {
     featureUpdated(
-      {
-        ...feature,
-        ...updates,
-      },
+      newFeature,
       getEnabledEnvironments(feature),
       feature.project || ""
     );
@@ -384,8 +466,7 @@ export async function putFeature(
 
   res.status(200).json({
     feature: {
-      ...feature,
-      ...updates,
+      ...newFeature,
       dateUpdated: new Date(),
     },
     status: 200,

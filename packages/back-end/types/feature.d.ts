@@ -14,6 +14,15 @@ export type LegacyFeatureInterface = FeatureInterface & {
   rules?: FeatureRule[];
 };
 
+export interface FeatureDraftChanges {
+  active: boolean;
+  dateCreated?: Date;
+  dateUpdated?: Date;
+  valueType?: FeatureValueType;
+  defaultValue?: string;
+  rules?: Record<string, FeatureRule[]>;
+}
+
 export interface FeatureInterface {
   id: string;
   description?: string;
@@ -25,15 +34,7 @@ export interface FeatureInterface {
   defaultValue: string;
   tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
-  draft?: {
-    active: boolean;
-    userId?: string;
-    dateCreated?: Date;
-    dateUpdated?: Date;
-    valueType?: FeatureValueType;
-    defaultValue?: string;
-    rules?: Record<string, FeatureRule[]>;
-  };
+  draft?: FeatureDraftChanges;
 }
 
 export interface BaseRule {
