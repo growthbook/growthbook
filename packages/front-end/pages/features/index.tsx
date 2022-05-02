@@ -28,6 +28,7 @@ import TagsFilter, {
 } from "../../components/Tags/TagsFilter";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
+import DraftIndicator from "../../components/Features/DraftIndicator";
 
 const NUM_PER_PAGE = 20;
 
@@ -186,6 +187,7 @@ export default function FeaturesPage() {
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                <th>Status</th>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
@@ -249,6 +251,9 @@ export default function FeaturesPage() {
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
+                    </td>
+                    <td>
+                      <DraftIndicator feature={feature} />
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>

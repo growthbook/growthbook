@@ -107,6 +107,10 @@ export default function RuleModal({
         }
       })}
     >
+      <div className="alert alert-info">
+        Changes here will be added to a draft which must be published before
+        it&apos;s made live.
+      </div>
       <h3>{environment}</h3>
       <Field
         label="Type of Rule"

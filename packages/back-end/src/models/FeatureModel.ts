@@ -295,7 +295,10 @@ export async function publishDraft(feature: FeatureInterface) {
   }
 
   const changes: Partial<FeatureInterface> = {};
-  if (feature.draft.defaultValue !== feature.defaultValue) {
+  if (
+    "defaultValue" in feature.draft &&
+    feature.draft.defaultValue !== feature.defaultValue
+  ) {
     changes.defaultValue = feature.draft.defaultValue;
   }
   if (feature.draft.rules) {

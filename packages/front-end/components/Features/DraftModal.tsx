@@ -39,7 +39,6 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     <Modal
       open={true}
       header={"Review Feature Changes"}
-      autoCloseOnSubmit={false}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/publish`, {
           method: "POST",
@@ -57,6 +56,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
               method: "POST",
             });
             await mutate();
+            close();
           }}
         >
           Discard Changes
