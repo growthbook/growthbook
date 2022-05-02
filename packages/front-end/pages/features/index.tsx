@@ -15,6 +15,7 @@ import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
 import {
+  getFeatureDefaultValue,
   getRules,
   useFeaturesList,
   useRealtimeData,
@@ -231,7 +232,7 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
-                        value={feature.defaultValue}
+                        value={getFeatureDefaultValue(feature)}
                         type={feature.valueType}
                         full={false}
                       />

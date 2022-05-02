@@ -20,13 +20,18 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import { getRules, useEnvironmentState } from "../../services/features";
+import {
+  getFeatureDefaultValue,
+  getRules,
+  useEnvironmentState,
+} from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
+import DraftModal from "../../components/Features/DraftModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -34,6 +39,7 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [draftModal, setDraftModal] = useState(false);
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -131,6 +137,13 @@ export default function FeaturePage() {
           }}
         />
       )}
+      {draftModal && (
+        <DraftModal
+          feature={data.feature}
+          close={() => setDraftModal(false)}
+          mutate={mutate}
+        />
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -167,6 +180,21 @@ export default function FeaturePage() {
           </MoreMenu>
         </div>
       </div>
+
+      {data.feature.draft?.active && (
+        <div className="alert alert-warning mb-3">
+          This feature has unpublished changes.{" "}
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setDraftModal(true);
+            }}
+          >
+            Review and Publish
+          </button>
+        </div>
+      )}
 
       <h1>{fid}</h1>
 
@@ -267,7 +295,10 @@ export default function FeaturePage() {
         </a>
       </h3>
       <div className="appbox mb-4 p-3">
-        <ForceSummary type={type} value={data.feature.defaultValue} />
+        <ForceSummary
+          type={type}
+          value={getFeatureDefaultValue(data.feature)}
+        />
       </div>
 
       <h3>Override Rules</h3>

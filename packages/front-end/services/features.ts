@@ -68,7 +68,16 @@ export function useEnvironments() {
   return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
+  if (feature.draft?.active && feature.draft.rules?.[environment]) {
+    return feature.draft.rules[environment];
+  }
   return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+export function getFeatureDefaultValue(feature: FeatureInterface) {
+  if (feature.draft?.active && "defaultValue" in feature.draft) {
+    return feature.draft.defaultValue;
+  }
+  return feature.defaultValue;
 }
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;

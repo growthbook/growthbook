@@ -7,6 +7,7 @@ import { useAuth } from "../../services/auth";
 import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
+  getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
   validateFeatureRule,
@@ -42,7 +43,7 @@ export default function RuleModal({
 
   const defaultValues = {
     ...getDefaultRuleValue({
-      defaultValue: feature.defaultValue,
+      defaultValue: getFeatureDefaultValue(feature),
       ruleType: defaultType,
       attributeSchema,
     }),
@@ -116,7 +117,7 @@ export default function RuleModal({
           const existingCondition = form.watch("condition");
           const newVal = {
             ...getDefaultRuleValue({
-              defaultValue: feature.defaultValue,
+              defaultValue: getFeatureDefaultValue(feature),
               ruleType: e.target.value,
               attributeSchema,
             }),
@@ -195,7 +196,7 @@ export default function RuleModal({
           />
           <VariationsInput
             form={form}
-            defaultValue={feature.defaultValue}
+            defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
             formPrefix=""
           />

@@ -298,10 +298,6 @@ export async function publishDraft(feature: FeatureInterface) {
   if (feature.draft.defaultValue !== feature.defaultValue) {
     changes.defaultValue = feature.draft.defaultValue;
   }
-  if (feature.draft.valueType !== feature.valueType) {
-    changes.valueType = feature.draft.valueType;
-  }
-
   if (feature.draft.rules) {
     changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
     const envSettings = changes.environmentSettings;

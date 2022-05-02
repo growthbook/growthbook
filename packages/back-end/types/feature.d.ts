@@ -18,7 +18,6 @@ export interface FeatureDraftChanges {
   active: boolean;
   dateCreated?: Date;
   dateUpdated?: Date;
-  valueType?: FeatureValueType;
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
 }

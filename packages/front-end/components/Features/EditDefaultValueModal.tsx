@@ -3,6 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
+import { getFeatureDefaultValue } from "../../services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -17,7 +18,7 @@ export default function EditDefaultValueModal({
 }: Props) {
   const form = useForm({
     defaultValues: {
-      defaultValue: feature.defaultValue,
+      defaultValue: getFeatureDefaultValue(feature),
     },
   });
   const { apiCall } = useAuth();
