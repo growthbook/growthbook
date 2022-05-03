@@ -28,7 +28,7 @@ import TagsFilter, {
 } from "../../components/Tags/TagsFilter";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
-import DraftIndicator from "../../components/Features/DraftIndicator";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 const NUM_PER_PAGE = 20;
 
@@ -179,6 +179,7 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
+                <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
@@ -187,7 +188,6 @@ export default function FeaturesPage() {
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th>Status</th>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
@@ -215,6 +215,13 @@ export default function FeaturesPage() {
 
                 return (
                   <tr key={feature.id}>
+                    <td>
+                      {feature.draft?.active && (
+                        <Tooltip text="This feature has unpublished changes">
+                          <FaExclamationTriangle className="text-warning" />
+                        </Tooltip>
+                      )}
+                    </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
                         <a>{feature.id}</a>
@@ -251,9 +258,6 @@ export default function FeaturesPage() {
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
-                    </td>
-                    <td>
-                      <DraftIndicator feature={feature} />
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>

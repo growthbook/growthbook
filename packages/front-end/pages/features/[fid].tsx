@@ -32,7 +32,8 @@ import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
-import DraftIndicator from "../../components/Features/DraftIndicator";
+import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import Tooltip from "../../components/Tooltip";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -151,7 +152,8 @@ export default function FeaturePage() {
           className="alert alert-warning mb-3 text-center shadow-sm"
           style={{ top: 65, position: "sticky", zIndex: 999 }}
         >
-          This feature has unpublished changes.{" "}
+          <FaExclamationTriangle className="text-warning" /> This feature has
+          unpublished changes.{" "}
           <button
             className="btn btn-primary ml-3 btn-sm"
             onClick={(e) => {
@@ -173,6 +175,15 @@ export default function FeaturePage() {
           </Link>
         </div>
         <div style={{ flex: 1 }} />
+        {!data.feature.draft?.active && (
+          <div className="col-auto">
+            <Tooltip text="All changes are published and live.">
+              <span className="badge badge-success badge-pill">
+                <FaCheck /> published
+              </span>
+            </Tooltip>
+          </div>
+        )}
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
             <a
@@ -201,14 +212,7 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <div className="row align-items-center mb-3">
-        <div className="col-auto">
-          <h1 className="m-0">{fid}</h1>
-        </div>
-        <div className="col-auto">
-          <DraftIndicator feature={data.feature} />
-        </div>
-      </div>
+      <h1>{fid}</h1>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
         {projects.length > 0 && (
