@@ -189,7 +189,7 @@ export default abstract class SqlIntegration
       __experiments as (
         ${experimentQueries
           .map((q, i) => `SELECT * FROM __exposures${i}`)
-          .join("\nUNION\n")}
+          .join("\nUNION ALL\n")}
       ),
       __userThresholds as (
         SELECT
