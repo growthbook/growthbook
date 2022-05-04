@@ -106,6 +106,15 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
+  // Add any missing exposure query ids
+  if (settings.queries?.exposure) {
+    settings.queries.exposure.forEach((exposure) => {
+      if (!exposure.id) {
+        exposure.id = uniqid("exq_");
+      }
+    });
+  }
+
   const datasource: DataSourceInterface = {
     id,
     name,
@@ -131,6 +140,15 @@ export async function updateDataSource(
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
+  }
+
+  // Add any missing exposure query ids
+  if (updates.settings?.queries?.exposure) {
+    updates.settings.queries.exposure.forEach((exposure) => {
+      if (!exposure.id) {
+        exposure.id = uniqid("exq_");
+      }
+    });
   }
 
   await DataSourceModel.updateOne(
