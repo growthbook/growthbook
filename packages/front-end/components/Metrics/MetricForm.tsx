@@ -185,6 +185,7 @@ const MetricForm: FC<MetricFormProps> = ({
         ("datasource" in current ? current.datasource : datasources[0]?.id) ||
         "",
       name: current.name || "",
+      description: current.description || "",
       type: current.type || "binomial",
       table: current.table || "",
       column: current.column || "",
@@ -382,7 +383,7 @@ const MetricForm: FC<MetricFormProps> = ({
           }))}
           name="datasource"
           initialOption="Manual"
-          disabled={!!current.id}
+          disabled={edit}
         />
         <div className="form-group">
           Metric Type
