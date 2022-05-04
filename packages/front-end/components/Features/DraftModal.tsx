@@ -40,9 +40,17 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       open={true}
       header={"Review Feature Changes"}
       submit={async () => {
-        await apiCall(`/feature/${feature.id}/publish`, {
-          method: "POST",
-        });
+        try {
+          await apiCall(`/feature/${feature.id}/publish`, {
+            method: "POST",
+            body: JSON.stringify({
+              draft: feature.draft,
+            }),
+          });
+        } catch (e) {
+          await mutate();
+          throw e;
+        }
         await mutate();
       }}
       cta="Publish Changes"
@@ -52,9 +60,17 @@ export default function DraftModal({ feature, close, mutate }: Props) {
         <Button
           color="outline-danger"
           onClick={async () => {
-            await apiCall(`/feature/${feature.id}/discard`, {
-              method: "POST",
-            });
+            try {
+              await apiCall(`/feature/${feature.id}/discard`, {
+                method: "POST",
+                body: JSON.stringify({
+                  draft: feature.draft,
+                }),
+              });
+            } catch (e) {
+              await mutate();
+              throw e;
+            }
             await mutate();
             close();
           }}

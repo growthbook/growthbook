@@ -1,6 +1,7 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
 import {
+  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
@@ -29,6 +30,7 @@ import {
   featureUpdated,
   getEnabledEnvironments,
   getFeatureDefinitions,
+  verifyDraftsAreEqual,
 } from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
@@ -140,18 +142,20 @@ export async function postFeatures(
 }
 
 export async function postFeaturePublish(
-  req: AuthRequest<{ comment?: string }, { id: string }>,
+  req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { comment = "" } = req.body;
+  const { draft } = req.body;
 
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  verifyDraftsAreEqual(feature.draft, draft);
 
   const newFeature = await publishDraft(feature);
 
@@ -161,7 +165,7 @@ export async function postFeaturePublish(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature, { comment }),
+    details: auditDetailsUpdate(feature, newFeature),
   });
 
   res.status(200).json({
@@ -170,18 +174,20 @@ export async function postFeaturePublish(
 }
 
 export async function postFeatureDiscard(
-  // eslint-disable-next-line
-  req: AuthRequest<any, { id: string }>,
+  req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
+  const { draft } = req.body;
 
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  verifyDraftsAreEqual(feature.draft, draft);
 
   await discardDraft(feature);
 
