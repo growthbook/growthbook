@@ -218,8 +218,10 @@ You must first create a Service Account in Google with the following roles:
 - Metadata Viewer
 - Job User
 
-To connect GrowthBook, we just need the JSON key file for that account.
-It should contain the project_id, client_email, and private_key.
+There are two ways to provide credentials to GrowthBook:
+
+1. Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
+2. Upload a JSON key file for the service account
 
 ### Mixpanel
 

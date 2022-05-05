@@ -190,7 +190,17 @@ params:
 
 #### BigQuery
 
-BigQuery access requires a service account.
+BigQuery supports several authentication methods.
+
+Auto-authentication using environment variables or GCP metadata:
+
+```yml
+type: bigquery
+params:
+  authType: auto
+```
+
+Service account authentication:
 
 ```yml
 type: bigquery
