@@ -128,9 +128,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
-          getDatasourceById(initialValue.datasource)?.settings,
-          initialValue.exposureQueryId,
-          initialValue.userIdType
+          getDatasourceById(initialValue?.datasource)?.settings,
+          initialValue?.exposureQueryId,
+          initialValue?.userIdType
         )?.id || "",
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",

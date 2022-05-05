@@ -1,3 +1,5 @@
+import { format as sqlFormat } from "sql-formatter";
+
 export function getBaseIdTypeAndJoins(objects: string[][]) {
   // Get rid of empty ids, sort from least to most ids
   const sorted = objects
@@ -71,4 +73,14 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   });
 
   return sql;
+}
+
+export function format(sql: string) {
+  return (
+    sqlFormat(sql, {
+      language: "redshift",
+    })
+      // Fix Snowflate syntax for flatten function
+      .replace(/ = > /g, " => ")
+  );
 }

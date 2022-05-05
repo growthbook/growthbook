@@ -15,13 +15,12 @@ import {
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
 } from "../types/Integration";
-import { format, FormatOptions } from "sql-formatter";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
-import { getBaseIdTypeAndJoins, replaceDateVars } from "../util/sql";
+import { getBaseIdTypeAndJoins, replaceDateVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -190,7 +189,7 @@ export default abstract class SqlIntegration
       __experiments as (
         ${experimentQueries
           .map((q, i) => `SELECT * FROM __exposures${i}`)
-          .join("\nUNION\n")}
+          .join("\nUNION ALL\n")}
       ),
       __userThresholds as (
         SELECT
@@ -243,8 +242,7 @@ export default abstract class SqlIntegration
         ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
       )
     ORDER BY
-      experiment_id ASC, variation_id ASC`,
-      this.getFormatOptions()
+      experiment_id ASC, variation_id ASC`
     );
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
@@ -381,8 +379,7 @@ export default abstract class SqlIntegration
       `
           : ""
       }
-      `,
-      this.getFormatOptions()
+      `
     );
   }
 
@@ -417,12 +414,6 @@ export default abstract class SqlIntegration
 
       return ret;
     });
-  }
-
-  getFormatOptions(): FormatOptions {
-    return {
-      language: "redshift",
-    };
   }
 
   private getIdentifiesCTE(objects: string[][], from: Date, to?: Date) {
@@ -720,8 +711,7 @@ export default abstract class SqlIntegration
         s.variation = u.variation 
         AND s.dimension = u.dimension
       )
-    `,
-      this.getFormatOptions()
+    `
     );
   }
   getExperimentResultsQuery(): string {
