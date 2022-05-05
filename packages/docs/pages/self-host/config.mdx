@@ -190,9 +190,13 @@ params:
 
 #### BigQuery
 
-BigQuery supports several authentication methods.
+You must first create a Service Account in Google with the following roles:
 
-Auto-authentication using environment variables or GCP metadata:
+- Data Viewer
+- Metadata Viewer
+- Job User
+
+If you want GrowthBook to auto-discover credentials from environment variables or GCP metadata, use the following:
 
 ```yml
 type: bigquery
@@ -200,7 +204,7 @@ params:
   authType: auto
 ```
 
-Service account authentication:
+If you prefer to pass in credentials directly, you can use this format instead:
 
 ```yml
 type: bigquery
