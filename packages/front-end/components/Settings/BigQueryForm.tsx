@@ -12,25 +12,28 @@ const BigQueryForm: FC<{
   return (
     <div className="row">
       {!isCloud() && (
-        <Field
-          label="Authentication Method"
-          options={[
-            {
-              value: "json",
-              display: "JSON key file",
-            },
-            {
-              value: "auto",
-              display: "Environment vars or Metadata",
-            },
-          ]}
-          value={params.authType || "json"}
-          onChange={(e) => {
-            setParams({
-              authType: e.target.value,
-            });
-          }}
-        />
+        <div className="col-md-12">
+          <Field
+            label="Authentication Method"
+            options={[
+              {
+                value: "json",
+                display: "JSON key file",
+              },
+              {
+                value: "auto",
+                display: "Auto-discovery",
+              },
+            ]}
+            helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
+            value={params.authType || "json"}
+            onChange={(e) => {
+              setParams({
+                authType: e.target.value,
+              });
+            }}
+          />
+        </div>
       )}
       {(isCloud() || params.authType !== "auto") && (
         <div>
@@ -51,7 +54,6 @@ const BigQueryForm: FC<{
                   reader.onload = function (e) {
                     try {
                       const str = e.target.result;
-                      console.log(str);
                       if (typeof str !== "string") {
                         return;
                       }
@@ -81,7 +83,7 @@ const BigQueryForm: FC<{
                 }}
               />
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                JSON Key File...
+                Upload key file...
               </label>
             </div>
           </div>
