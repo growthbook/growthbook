@@ -34,6 +34,8 @@ export interface FeatureInterface {
   tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
   draft?: FeatureDraftChanges;
+  revision?: number;
+  revisionComment?: string;
 }
 
 export interface BaseRule {

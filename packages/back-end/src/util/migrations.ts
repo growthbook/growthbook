@@ -207,5 +207,10 @@ export function upgradeFeatureInterface(
     newFeature.draft = { active: false };
   }
 
+  // Add revision if missing
+  if (!newFeature.revision) {
+    newFeature.revision = 1;
+  }
+
   return newFeature;
 }

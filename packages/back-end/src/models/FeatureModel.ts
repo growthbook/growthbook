@@ -48,6 +48,8 @@ const featureSchema = new mongoose.Schema({
   ],
   environmentSettings: {},
   draft: {},
+  revision: Number,
+  revisionComment: String,
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -289,7 +291,10 @@ export async function discardDraft(feature: FeatureInterface) {
   );
 }
 
-export async function publishDraft(feature: FeatureInterface) {
+export async function publishDraft(
+  feature: FeatureInterface,
+  comment?: string
+) {
   if (!feature.draft?.active) {
     throw new Error("There are no draft changes to publish.");
   }
@@ -314,6 +319,8 @@ export async function publishDraft(feature: FeatureInterface) {
 
   changes.dateUpdated = new Date();
   changes.draft = { active: false };
+  changes.revisionComment = comment || "";
+  changes.revision = (feature.revision || 1) + 1;
 
   await FeatureModel.updateOne(
     {

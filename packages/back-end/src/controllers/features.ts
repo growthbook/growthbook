@@ -40,6 +40,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { saveRevision } from "../models/FeatureRevisionModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -142,22 +143,34 @@ export async function postFeatures(
 }
 
 export async function postFeaturePublish(
-  req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
+  req: AuthRequest<
+    { draft: FeatureDraftChanges; comment?: string },
+    { id: string }
+  >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, email, userId } = getOrgFromReq(req);
   const { id } = req.params;
-  const { draft } = req.body;
+  const { draft, comment } = req.body;
 
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  if (!feature.draft?.active) {
+    throw new Error("There are no changes to publish.");
+  }
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const newFeature = await publishDraft(feature);
+  await saveRevision(feature, {
+    id: userId,
+    email,
+    name: req?.name || "",
+  });
+
+  const newFeature = await publishDraft(feature, comment);
 
   await req.audit({
     event: "feature.publish",
@@ -165,7 +178,10 @@ export async function postFeaturePublish(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature),
+    details: auditDetailsUpdate(feature, newFeature, {
+      revision: newFeature.revision,
+      comment,
+    }),
   });
 
   res.status(200).json({
@@ -191,15 +207,6 @@ export async function postFeatureDiscard(
 
   await discardDraft(feature);
 
-  await req.audit({
-    event: "feature.discard",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsDelete(feature.draft, { draft: true }),
-  });
-
   res.status(200).json({
     status: 200,
   });
@@ -220,15 +227,6 @@ export async function postFeatureRule(
 
   await addFeatureRule(feature, environment, rule);
 
-  await req.audit({
-    event: "feature.rule.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(rule, { environment, draft: true }),
-  });
-
   res.status(200).json({
     status: 200,
   });
@@ -248,17 +246,6 @@ export async function postFeatureDefaultValue(
   }
 
   await setDefaultValue(feature, defaultValue);
-
-  await req.audit({
-    event: "feature.defaultValue",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature.defaultValue, defaultValue, {
-      draft: true,
-    }),
-  });
 
   res.status(200).json({
     status: 200,
@@ -281,23 +268,7 @@ export async function putFeatureRule(
     throw new Error("Could not find feature");
   }
 
-  const rules = getDraftRules(feature, environment);
-  const oldRule = rules[i];
-
   await editFeatureRule(feature, environment, i, rule);
-
-  await req.audit({
-    event: "feature.rule.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(
-      oldRule,
-      { ...oldRule, ...rule } as FeatureRule,
-      { environment, draft: true }
-    ),
-  });
 
   res.status(200).json({
     status: 200,
@@ -364,15 +335,6 @@ export async function postFeatureMoveRule(
 
   await setFeatureDraftRules(feature, environment, newRules);
 
-  await req.audit({
-    event: "feature.rule.moved",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(rules, newRules, { environment, draft: true }),
-  });
-
   res.status(200).json({
     status: 200,
   });
@@ -394,18 +356,9 @@ export async function deleteFeatureRule(
   const rules = getDraftRules(feature, environment);
 
   const newRules = rules.slice();
-  const deletedRule = newRules.splice(i, 1);
+  newRules.splice(i, 1);
 
   await setFeatureDraftRules(feature, environment, newRules);
-
-  await req.audit({
-    event: "feature.rule.delete",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsDelete(deletedRule?.[0], { environment, draft: true }),
-  });
 
   res.status(200).json({
     status: 200,
