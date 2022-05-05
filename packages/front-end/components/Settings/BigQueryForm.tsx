@@ -9,11 +9,9 @@ const BigQueryForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, onParamChange }) => {
-  const autoAuthAllowed = !isCloud();
-
   return (
     <div className="row">
-      {autoAuthAllowed && (
+      {!isCloud() && (
         <Field
           label="Authentication Method"
           options={[
@@ -34,7 +32,7 @@ const BigQueryForm: FC<{
           }}
         />
       )}
-      {params.authType !== "auto" && (
+      {(isCloud() || params.authType !== "auto") && (
         <div>
           <div className="form-group col-md-12">
             <div className="custom-file">
