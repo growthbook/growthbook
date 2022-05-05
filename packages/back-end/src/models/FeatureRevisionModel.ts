@@ -7,6 +7,7 @@ const featureRevisionSchema = new mongoose.Schema({
   featureId: String,
   revision: Number,
   dateCreated: Date,
+  revisionDate: Date,
   userId: String,
   userEmail: String,
   userName: String,
@@ -24,7 +25,7 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionDocument>(
   featureRevisionSchema
 );
 
-export async function getFeatureRevisions(
+export async function getRevisions(
   organization: string,
   featureId: string
 ): Promise<FeatureRevisionInterface[]> {
@@ -53,10 +54,11 @@ export async function saveRevision(
     featureId: feature.id,
     revision: feature.revision || 1,
     dateCreated: new Date(),
+    revisionDate: feature.revisionDate || feature.dateCreated,
     userId: user.id,
     userEmail: user.email,
     userName: user.name,
-    comment: feature.revisionComment,
+    comment: feature.revisionComment || "",
     defaultValue: feature.defaultValue,
     rules,
   });

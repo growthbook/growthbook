@@ -40,7 +40,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import { saveRevision } from "../models/FeatureRevisionModel";
+import { getRevisions, saveRevision } from "../models/FeatureRevisionModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -120,6 +120,9 @@ export async function postFeatures(
     dateUpdated: new Date(),
     organization: org.id,
     id: id.toLowerCase(),
+    revisionComment: "New feature",
+    revision: 1,
+    revisionDate: new Date(),
   };
 
   addIdsToRules(feature.environmentSettings, feature.id);
@@ -510,10 +513,13 @@ export async function getFeatureById(
     );
   }
 
+  const revisions = await getRevisions(org.id, id);
+
   res.status(200).json({
     status: 200,
     feature,
     experiments,
+    revisions,
   });
 }
 

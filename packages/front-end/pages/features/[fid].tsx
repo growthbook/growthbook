@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -32,8 +33,10 @@ import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
-import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
-import Tooltip from "../../components/Tooltip";
+import { FaExclamationTriangle } from "react-icons/fa";
+import clsx from "clsx";
+import Dropdown from "../../components/Dropdown/Dropdown";
+import RevisionTable from "../../components/Features/RevisionTable";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -60,6 +63,7 @@ export default function FeaturePage() {
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
   const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -77,6 +81,12 @@ export default function FeaturePage() {
   }
 
   const type = data.feature.valueType;
+
+  let revision = data.feature.revision || 1;
+  const isDraft = !!data.feature.draft?.active;
+  if (isDraft) {
+    revision++;
+  }
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -147,13 +157,13 @@ export default function FeaturePage() {
         />
       )}
 
-      {data.feature.draft?.active && (
+      {isDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
           style={{ top: 65, position: "sticky", zIndex: 999 }}
         >
           <FaExclamationTriangle className="text-warning" /> This feature has
-          unpublished changes.{" "}
+          unpublished changes.
           <button
             className="btn btn-primary ml-3 btn-sm"
             onClick={(e) => {
@@ -175,15 +185,33 @@ export default function FeaturePage() {
           </Link>
         </div>
         <div style={{ flex: 1 }} />
-        {!data.feature.draft?.active && (
-          <div className="col-auto">
-            <Tooltip text="All changes are published and live.">
-              <span className="badge badge-success badge-pill">
-                <FaCheck /> published
-              </span>
-            </Tooltip>
-          </div>
-        )}
+        <div className="col-auto">
+          <Dropdown
+            uuid="feature-revisions"
+            width={"35rem"}
+            toggle={
+              <>
+                Revision: <strong>{revision}</strong>{" "}
+                <span
+                  className={clsx(
+                    "badge badge-pill",
+                    isDraft ? "badge-warning" : "badge-success"
+                  )}
+                >
+                  {isDraft ? "draft" : "live"}
+                </span>
+              </>
+            }
+          >
+            <RevisionTable
+              feature={data.feature}
+              revisions={data.revisions || []}
+              publish={() => {
+                setDraftModal(true);
+              }}
+            />
+          </Dropdown>
+        </div>
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
             <a

@@ -4,6 +4,8 @@ import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "../Button";
 import { useAuth } from "../../services/auth";
+import { useState } from "react";
+import Field from "../Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;
@@ -19,6 +21,8 @@ export default function DraftModal({ feature, close, mutate }: Props) {
 
   const orig: Partial<FeatureDraftChanges> = {};
   const changes: Partial<FeatureDraftChanges> = {};
+
+  const [comment, setComment] = useState("");
 
   if ("defaultValue" in feature.draft) {
     orig.defaultValue = feature.defaultValue;
@@ -38,13 +42,14 @@ export default function DraftModal({ feature, close, mutate }: Props) {
   return (
     <Modal
       open={true}
-      header={"Review Feature Changes"}
+      header={"Publish Revision"}
       submit={async () => {
         try {
           await apiCall(`/feature/${feature.id}/publish`, {
             method: "POST",
             body: JSON.stringify({
               draft: feature.draft,
+              comment,
             }),
           });
         } catch (e) {
@@ -53,8 +58,9 @@ export default function DraftModal({ feature, close, mutate }: Props) {
         }
         await mutate();
       }}
-      cta="Publish Changes"
+      cta="Publish"
       close={close}
+      closeCta="close"
       size="lg"
       secondaryCTA={
         <Button
@@ -75,15 +81,26 @@ export default function DraftModal({ feature, close, mutate }: Props) {
             close();
           }}
         >
-          Discard Changes
+          Discard
         </Button>
       }
     >
-      <h3>Unpublished Changes</h3>
-      <ReactDiffViewer
-        oldValue={JSON.stringify(orig, null, 2)}
-        newValue={JSON.stringify(changes, null, 2)}
-        compareMethod={DiffMethod.LINES}
+      <h3>Changes</h3>
+      <div style={{ maxHeight: "50vw", overflowY: "auto" }} className="mb-3">
+        <ReactDiffViewer
+          oldValue={JSON.stringify(orig, null, 2)}
+          newValue={JSON.stringify(changes, null, 2)}
+          compareMethod={DiffMethod.LINES}
+        />
+      </div>
+      <Field
+        label="Comment (optional)"
+        textarea
+        placeholder="Summary of changes..."
+        value={comment}
+        onChange={(e) => {
+          setComment(e.target.value);
+        }}
       />
     </Modal>
   );

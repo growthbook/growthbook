@@ -179,7 +179,6 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
-                <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
@@ -187,6 +186,7 @@ export default function FeaturesPage() {
                 ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
+                <th>Revision</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
@@ -213,15 +213,12 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
+                const isDraft = !!feature.draft?.active;
+                let revision = feature.revision || 1;
+                if (isDraft) revision++;
+
                 return (
                   <tr key={feature.id}>
-                    <td>
-                      {feature.draft?.active && (
-                        <Tooltip text="This feature has unpublished changes">
-                          <FaExclamationTriangle className="text-warning" />
-                        </Tooltip>
-                      )}
-                    </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
                         <a>{feature.id}</a>
@@ -254,6 +251,14 @@ export default function FeaturesPage() {
                         <small className="text-muted ml-1">
                           +{totalRules - 1} more
                         </small>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {revision}{" "}
+                      {isDraft && (
+                        <Tooltip text="This revision is a draft and has not yet been published">
+                          <FaExclamationTriangle className="text-warning" />
+                        </Tooltip>
                       )}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>

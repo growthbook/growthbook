@@ -490,7 +490,6 @@ describe("backend", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
-      revision: 1,
     };
 
     expect(
@@ -539,7 +538,6 @@ describe("backend", () => {
           ],
         },
       },
-      revision: 1,
     };
 
     expect(
@@ -599,7 +597,6 @@ describe("backend", () => {
           ],
         },
       },
-      revision: 1,
     };
 
     expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
@@ -648,7 +645,6 @@ describe("backend", () => {
           ],
         },
       },
-      revision: 1,
     };
 
     expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
@@ -697,7 +693,6 @@ describe("backend", () => {
           ],
         },
       },
-      revision: 1,
     };
 
     expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
@@ -706,26 +701,5 @@ describe("backend", () => {
         active: false,
       },
     });
-  });
-
-  it("adds missing revision number", () => {
-    const feature: LegacyFeatureInterface = {
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: "",
-      defaultValue: "true",
-      valueType: "boolean",
-      id: "",
-    };
-
-    // Adds when missing
-    expect(upgradeFeatureInterface(cloneDeep(feature))).toEqual({
-      ...feature,
-      revision: 1,
-    });
-
-    // Doesn't override when it already exists
-    feature.revision = 2;
-    expect(upgradeFeatureInterface(cloneDeep(feature))).toEqual(feature);
   });
 });

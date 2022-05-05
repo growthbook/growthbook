@@ -36,6 +36,7 @@ export interface FeatureInterface {
   draft?: FeatureDraftChanges;
   revision?: number;
   revisionComment?: string;
+  revisionDate?: Date;
 }
 
 export interface BaseRule {

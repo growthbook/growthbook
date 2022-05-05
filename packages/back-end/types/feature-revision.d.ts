@@ -5,6 +5,7 @@ export interface FeatureRevisionInterface {
   organization: string;
   revision: number;
   dateCreated: Date;
+  revisionDate: Date;
   userId: string;
   userEmail: string;
   userName: string;

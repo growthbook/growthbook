@@ -50,6 +50,7 @@ const featureSchema = new mongoose.Schema({
   draft: {},
   revision: Number,
   revisionComment: String,
+  revisionDate: Date,
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -321,6 +322,7 @@ export async function publishDraft(
   changes.draft = { active: false };
   changes.revisionComment = comment || "";
   changes.revision = (feature.revision || 1) + 1;
+  changes.revisionDate = new Date();
 
   await FeatureModel.updateOne(
     {
