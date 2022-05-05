@@ -12,6 +12,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
+import isEqual from "lodash/isEqual";
 
 export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
   const newDoc = { ...doc };
@@ -163,11 +164,36 @@ function updateEnvironmentSettings(
   feature.environmentSettings[environment] = settings as FeatureEnvironment;
 }
 
+function draftHasChanges(feature: FeatureInterface) {
+  if (!feature.draft?.active) return false;
+
+  if (
+    "defaultValue" in feature.draft &&
+    feature.draft.defaultValue !== feature.defaultValue
+  ) {
+    return true;
+  }
+
+  if (feature.draft.rules) {
+    const comp: Record<string, FeatureRule[]> = {};
+    Object.keys(feature.draft.rules).forEach((key) => {
+      comp[key] = feature.environmentSettings?.[key]?.rules || [];
+    });
+
+    if (!isEqual(comp, feature.draft.rules)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function upgradeFeatureInterface(
   feature: LegacyFeatureInterface
 ): FeatureInterface {
   const { environments, rules, ...newFeature } = feature;
 
+  // Copy over old way of storing rules/toggles to new environment-scoped settings
   updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
   updateEnvironmentSettings(
     rules || [],
@@ -175,6 +201,11 @@ export function upgradeFeatureInterface(
     "production",
     newFeature
   );
+
+  // Ignore drafts if nothing has changed
+  if (newFeature.draft?.active && !draftHasChanges(newFeature)) {
+    newFeature.draft = { active: false };
+  }
 
   return newFeature;
 }

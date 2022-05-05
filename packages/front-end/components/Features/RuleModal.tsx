@@ -108,8 +108,9 @@ export default function RuleModal({
       })}
     >
       <div className="alert alert-info">
-        Changes here will be added to a draft which must be published before
-        it&apos;s made live.
+        {rules[i]
+          ? "Changes here will not be published immediately. You will have a chance to review them first."
+          : "New rules will not be published immediately. You will have a chance to review them first."}
       </div>
       <h3>{environment}</h3>
       <Field

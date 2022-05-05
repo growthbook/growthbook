@@ -555,4 +555,151 @@ describe("backend", () => {
       })
     ).toEqual(origFeature);
   });
+
+  it("keeps drafts when default value changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "false",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
+      origFeature
+    );
+  });
+
+  it("keeps drafts when rules changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "true",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "false",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
+      origFeature
+    );
+  });
+
+  it("discards drafts when nothing is changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "true",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+      ...origFeature,
+      draft: {
+        active: false,
+      },
+    });
+  });
 });
