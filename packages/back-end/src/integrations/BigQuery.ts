@@ -3,6 +3,7 @@ import * as bq from "@google-cloud/bigquery";
 import SqlIntegration from "./SqlIntegration";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
+import { IS_CLOUD } from "../util/secrets";
 
 export default class BigQuery extends SqlIntegration {
   params: BigQueryConnectionParams;
@@ -14,14 +15,24 @@ export default class BigQuery extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];
   }
-  async runQuery(sql: string) {
-    const client = new bq.BigQuery({
+
+  private getClient() {
+    // If pull credentials from env or the metadata server
+    if (!IS_CLOUD && this.params.authType === "auto") {
+      return new bq.BigQuery();
+    }
+
+    return new bq.BigQuery({
       projectId: this.params.projectId,
       credentials: {
         client_email: this.params.clientEmail,
         private_key: this.params.privateKey,
       },
     });
+  }
+
+  async runQuery(sql: string) {
+    const client = this.getClient();
 
     const [job] = await client.createQueryJob({
       query: sql,
