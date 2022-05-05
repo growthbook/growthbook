@@ -34,9 +34,7 @@ import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
 import { FaExclamationTriangle } from "react-icons/fa";
-import clsx from "clsx";
-import Dropdown from "../../components/Dropdown/Dropdown";
-import RevisionTable from "../../components/Features/RevisionTable";
+import RevisionDropdown from "../../components/Features/RevisionDropdown";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -82,11 +80,7 @@ export default function FeaturePage() {
 
   const type = data.feature.valueType;
 
-  let revision = data.feature.revision || 1;
   const isDraft = !!data.feature.draft?.active;
-  if (isDraft) {
-    revision++;
-  }
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -160,7 +154,7 @@ export default function FeaturePage() {
       {isDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
-          style={{ top: 65, position: "sticky", zIndex: 999 }}
+          style={{ top: 65, position: "sticky", zIndex: 900 }}
         >
           <FaExclamationTriangle className="text-warning" /> This feature has
           unpublished changes.
@@ -186,31 +180,13 @@ export default function FeaturePage() {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <Dropdown
-            uuid="feature-revisions"
-            width={"35rem"}
-            toggle={
-              <>
-                Revision: <strong>{revision}</strong>{" "}
-                <span
-                  className={clsx(
-                    "badge badge-pill",
-                    isDraft ? "badge-warning" : "badge-success"
-                  )}
-                >
-                  {isDraft ? "draft" : "live"}
-                </span>
-              </>
-            }
-          >
-            <RevisionTable
-              feature={data.feature}
-              revisions={data.revisions || []}
-              publish={() => {
-                setDraftModal(true);
-              }}
-            />
-          </Dropdown>
+          <RevisionDropdown
+            feature={data.feature}
+            revisions={data.revisions || []}
+            publish={() => {
+              setDraftModal(true);
+            }}
+          />
         </div>
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
