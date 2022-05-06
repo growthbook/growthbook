@@ -17,6 +17,7 @@ import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
+import Button from "../../components/Button";
 
 export type SettingsApiResponse = {
   status: number;
@@ -474,18 +475,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <div className="row">
             <div className="col-12">
               <div className=" d-flex flex-row-reverse">
-                <button
-                  className={`btn btn-${ctaEnabled ? "primary" : "secondary"}`}
-                  type="submit"
+                <Button
+                  color={"primary"}
                   disabled={!ctaEnabled}
-                  onClick={async (e) => {
-                    e.preventDefault();
+                  onClick={async () => {
                     if (!ctaEnabled) return;
                     saveSettings();
                   }}
                 >
                   Save
-                </button>
+                </Button>
               </div>
             </div>
           </div>
