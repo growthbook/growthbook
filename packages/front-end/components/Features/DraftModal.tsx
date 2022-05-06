@@ -1,4 +1,4 @@
-import { FeatureDraftChanges, FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { useEnvironments } from "../../services/features";
 import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
@@ -6,6 +6,8 @@ import Button from "../Button";
 import { useAuth } from "../../services/auth";
 import { useState } from "react";
 import Field from "../Forms/Field";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { useMemo } from "react";
 
 export interface Props {
   feature: FeatureInterface;
@@ -14,30 +16,82 @@ export interface Props {
   mutate: () => Promise<any>;
 }
 
+function ExpandableDiff({
+  title,
+  a,
+  b,
+}: {
+  title: string;
+  a: string;
+  b: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (a === b) return null;
+
+  return (
+    <>
+      <div
+        className="list-group-item list-group-item-action d-flex"
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(!open);
+        }}
+      >
+        <div className="text-muted mr-2">Changed:</div>
+        <strong>{title}</strong>
+        <div className="ml-auto">
+          {open ? <FaAngleDown /> : <FaAngleRight />}
+        </div>
+      </div>
+      {open && (
+        <div className="list-group-item list-group-item-light">
+          <ReactDiffViewer
+            oldValue={a}
+            newValue={b}
+            compareMethod={DiffMethod.LINES}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function DraftModal({ feature, close, mutate }: Props) {
   const environments = useEnvironments();
 
   const { apiCall } = useAuth();
 
-  const orig: Partial<FeatureDraftChanges> = {};
-  const changes: Partial<FeatureDraftChanges> = {};
-
   const [comment, setComment] = useState(feature.draft?.comment || "");
 
-  if ("defaultValue" in feature.draft) {
-    orig.defaultValue = feature.defaultValue;
-    changes.defaultValue = feature.draft.defaultValue;
-  }
-  if ("rules" in feature.draft) {
-    orig.rules = orig.rules || {};
-    changes.rules = changes.rules || {};
-    environments.forEach((env) => {
-      if (env.id in feature.draft.rules) {
-        orig.rules[env.id] = feature.environmentSettings?.[env.id]?.rules || [];
-        changes.rules[env.id] = feature.draft.rules[env.id];
-      }
-    });
-  }
+  const diffs = useMemo(() => {
+    const diffs: { a: string; b: string; title: string }[] = [];
+
+    if ("defaultValue" in feature.draft) {
+      diffs.push({
+        title: "Default Value",
+        a: feature.defaultValue,
+        b: feature.draft.defaultValue,
+      });
+    }
+    if ("rules" in feature.draft) {
+      environments.forEach((env) => {
+        if (env.id in feature.draft.rules) {
+          diffs.push({
+            title: `Rules - ${env.id}`,
+            a: JSON.stringify(
+              feature.environmentSettings?.[env.id]?.rules || [],
+              null,
+              2
+            ),
+            b: JSON.stringify(feature.draft.rules[env.id] || [], null, 2),
+          });
+        }
+      });
+    }
+
+    return diffs;
+  }, [feature]);
 
   return (
     <Modal
@@ -85,16 +139,18 @@ export default function DraftModal({ feature, close, mutate }: Props) {
         </Button>
       }
     >
-      <h3>Changes</h3>
-      <div style={{ maxHeight: "50vw", overflowY: "auto" }} className="mb-3">
-        <ReactDiffViewer
-          oldValue={JSON.stringify(orig, null, 2)}
-          newValue={JSON.stringify(changes, null, 2)}
-          compareMethod={DiffMethod.LINES}
-        />
+      <h3>Review Changes</h3>
+      <p>
+        The changes below will go live when this draft revision is published.
+        You will be able to revert later if needed.
+      </p>
+      <div className="list-group mb-4">
+        {diffs.map((diff) => (
+          <ExpandableDiff {...diff} key={diff.title} />
+        ))}
       </div>
       <Field
-        label="Comment (optional)"
+        label="Add a Comment (optional)"
         textarea
         placeholder="Summary of changes..."
         value={comment}
