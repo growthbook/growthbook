@@ -25,7 +25,6 @@ const Modal: FC<ModalProps> = ({
         setTimeout(() => {
           setClosing(true);
           setTimeout(() => {
-            console.log("DONE setting showing to false");
             setClosing(false);
             setShowTimer(null);
             if (close) {
