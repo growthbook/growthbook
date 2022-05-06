@@ -194,12 +194,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : "";
 
   const warningMsg =
-    value.confidenceLevel < 70
+    value.confidenceLevel === 70
+      ? "This is as low as it goes"
+      : value.confidenceLevel < 75
       ? "Confidence intervals this low are not recommended"
       : value.confidenceLevel < 80
       ? "Confidence intervals this low are not recommended"
       : value.confidenceLevel < 90
       ? "Use cation with values below 90%"
+      : value.confidenceLevel >= 99
+      ? "It can take a long time to get to these levels"
       : "";
 
   return (
@@ -431,7 +435,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 label="Experiment confidence interval"
                 type="number"
                 step="any"
-                min="0"
+                min="70"
                 max="100"
                 style={{
                   backgroundColor: highlightColor ? highlightColor + "20" : "",
