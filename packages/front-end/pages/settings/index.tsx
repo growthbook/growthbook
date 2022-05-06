@@ -16,6 +16,7 @@ import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
+import TempMessage from "../../components/TempMessage";
 
 export type SettingsApiResponse = {
   status: number;
@@ -66,6 +67,7 @@ function hasChanges(
 const GeneralSettingsPage = (): React.ReactElement => {
   const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
   const [editOpen, setEditOpen] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(false);
 
   // eslint-disable-next-line
   const form = useForm<OrganizationSettings>({
@@ -173,10 +175,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (enabledVisualEditor) {
       track("Enable Visual Editor");
     }
+
+    // show the user that the settings have saved:
+    setSaveMsg(true);
   };
 
   return (
     <div className="container-fluid pagecontents">
+      <TempMessage
+        show={saveMsg}
+        close={() => {
+          setSaveMsg(false);
+        }}
+      >
+        Settings saved
+      </TempMessage>
       {editOpen && (
         <EditOrganizationForm
           name={data.organization.name}
