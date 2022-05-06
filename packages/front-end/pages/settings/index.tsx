@@ -436,7 +436,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 type="number"
                 step="any"
                 min="70"
-                max="100"
+                max="99"
                 style={{
                   backgroundColor: highlightColor ? highlightColor + "20" : "",
                 }}
@@ -446,7 +446,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 disabled={hasFileConfig()}
                 helpText={
                   <>
-                    <span className="ml-2">percentage (95% is default)</span>
+                    <span className="ml-2">(95% is default)</span>
                     <div
                       className="ml-2"
                       style={{ color: highlightColor, flexBasis: "100%" }}
