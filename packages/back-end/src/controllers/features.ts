@@ -90,7 +90,7 @@ export async function postFeatures(
   res: Response
 ) {
   const { id, ...otherProps } = req.body;
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, userId, email, userName } = getOrgFromReq(req);
 
   if (!id) {
     throw new Error("Must specify feature key");
@@ -121,9 +121,14 @@ export async function postFeatures(
     dateUpdated: new Date(),
     organization: org.id,
     id: id.toLowerCase(),
-    revisionComment: "New feature",
-    revision: 1,
-    revisionDate: new Date(),
+    revision: {
+      version: 1,
+      comment: "New feature",
+      date: new Date(),
+      userId,
+      userEmail: email,
+      userName,
+    },
   };
 
   addIdsToRules(feature.environmentSettings, feature.id);
@@ -153,7 +158,7 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  const { org, email, userId } = getOrgFromReq(req);
+  const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
   const { draft, comment } = req.body;
 
@@ -168,13 +173,17 @@ export async function postFeaturePublish(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  await saveRevision(feature, {
-    id: userId,
-    email,
-    name: req?.name || "",
-  });
+  await saveRevision(feature);
 
-  const newFeature = await publishDraft(feature, comment);
+  const newFeature = await publishDraft(
+    feature,
+    {
+      id: userId,
+      name: userName,
+      email,
+    },
+    comment
+  );
 
   await req.audit({
     event: "feature.publish",
@@ -183,7 +192,7 @@ export async function postFeaturePublish(
       id: feature.id,
     },
     details: auditDetailsUpdate(feature, newFeature, {
-      revision: newFeature.revision,
+      revision: newFeature.revision?.version || 1,
       comment,
     }),
   });

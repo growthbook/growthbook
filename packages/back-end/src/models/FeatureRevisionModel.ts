@@ -36,14 +36,7 @@ export async function getRevisions(
   return docs.map((d) => d.toJSON());
 }
 
-export async function saveRevision(
-  feature: FeatureInterface,
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  }
-) {
+export async function saveRevision(feature: FeatureInterface) {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
@@ -52,13 +45,13 @@ export async function saveRevision(
   await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
-    revision: feature.revision || 1,
+    revision: feature.revision?.version || 1,
     dateCreated: new Date(),
-    revisionDate: feature.revisionDate || feature.dateCreated,
-    userId: user.id,
-    userEmail: user.email,
-    userName: user.name,
-    comment: feature.revisionComment || "",
+    revisionDate: feature.revision?.date || feature.dateCreated,
+    userId: feature.revision?.userId || "",
+    userEmail: feature.revision?.userEmail || "",
+    userName: feature.revision?.userName || "",
+    comment: feature.revision?.comment || "",
     defaultValue: feature.defaultValue,
     rules,
   });

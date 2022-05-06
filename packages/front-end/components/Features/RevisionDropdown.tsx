@@ -25,7 +25,7 @@ export default function RevisionDropdown({
   publish,
   mutate,
 }: Props) {
-  let revision = feature.revision || 1;
+  let revision = feature.revision?.version || 1;
   const isDraft = !!feature.draft?.active;
   if (isDraft) {
     revision++;
@@ -51,9 +51,9 @@ export default function RevisionDropdown({
     });
 
     revs.push({
-      version: feature.revision || 1,
-      comment: feature.revisionComment || "",
-      date: feature.revisionDate || feature.dateCreated,
+      version: feature.revision?.version || 1,
+      comment: feature.revision?.comment || "",
+      date: feature.revision?.date || feature.dateCreated,
       data: null,
       draft: false,
       live: true,
@@ -61,7 +61,7 @@ export default function RevisionDropdown({
 
     if (isDraft) {
       revs.push({
-        version: (feature.revision || 1) + 1,
+        version: (feature.revision?.version || 1) + 1,
         comment: feature.draft?.comment || "",
         date: null,
         data: null,

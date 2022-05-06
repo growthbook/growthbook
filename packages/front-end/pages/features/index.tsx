@@ -214,7 +214,7 @@ export default function FeaturesPage() {
                 const totalRules = rules.length || 0;
 
                 const isDraft = !!feature.draft?.active;
-                let revision = feature.revision || 1;
+                let revision = feature.revision?.version || 1;
                 if (isDraft) revision++;
 
                 return (
