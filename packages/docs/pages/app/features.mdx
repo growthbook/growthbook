@@ -10,7 +10,7 @@ better.
 
 ## Environments
 
-GrowthBook comes with two environments - **dev** and **production**, and each one has their own unique API endpoint for getting a list of features.
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need. Each environment has its own unique API endpoint for getting a list of features.
 
 Features can be enabled and disabled on a per-environment basis.
 
@@ -158,9 +158,13 @@ Users are randomly assigned a value from 0 to 1 for each namespace. Each experim
 
 Before you can use namespaces, you must configure them under Settings > Namespaces.
 
-## Publishing Changes
+## Revisions and Publishing Changes
 
-When you make changes to a feature's default value or override rules, the changes are not published immediately. This allows you to make multiple changes and then review them all at once before publishing. Ubpublished changes will not be included in API responses nor will they fire webhooks.
+When you make changes to a feature's default value or override rules, the changes are not published immediately. Instead, they are added to a new draft revision. This allows you to make multiple changes and then review them all at once before publishing. Unpublished changes will not be included in API responses nor will they fire webhooks.
+
+![Feature Revisions](/images/feature-revisions.png)
+
+You can easily revert to any past revision by clicking the blue copy icon next to the revision number. This will create a new draft revision, so you can safely review the changes before deciding to publish them.
 
 ## Integration Options
 
