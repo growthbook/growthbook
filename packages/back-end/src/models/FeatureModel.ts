@@ -202,6 +202,13 @@ export async function setFeatureDraftRules(
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
+  await setDraft(feature, draft);
+}
+
+export async function setDraft(
+  feature: FeatureInterface,
+  draft: FeatureDraftChanges
+) {
   await FeatureModel.updateOne(
     {
       id: feature.id,

@@ -18,24 +18,45 @@ export default function FeatureValueField({
   field,
   helpText,
 }: Props) {
+  if (valueType === "boolean") {
+    return (
+      <div className="form-group">
+        <label>{label}</label>
+        <div>
+          <div className="form-check form-check-inline">
+            <input
+              className="form-check-input"
+              type="radio"
+              {...form.register(field)}
+              id={field + "__off"}
+              value="false"
+            />
+            <label className="form-check-label" htmlFor={field + "__off"}>
+              OFF
+            </label>
+          </div>
+          <div className="form-check form-check-inline">
+            <input
+              className="form-check-input"
+              type="radio"
+              {...form.register(field)}
+              id={field + "__on"}
+              value="true"
+            />
+            <label className="form-check-label" htmlFor={field + "__on"}>
+              ON
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Field
       label={label}
       {...form.register(field)}
-      {...(valueType === "boolean"
-        ? {
-            options: [
-              {
-                value: "false",
-                display: "OFF",
-              },
-              {
-                value: "true",
-                display: "ON",
-              },
-            ],
-          }
-        : valueType === "number"
+      {...(valueType === "number"
         ? {
             type: "number",
             step: "any",

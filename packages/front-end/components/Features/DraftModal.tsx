@@ -22,7 +22,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
   const orig: Partial<FeatureDraftChanges> = {};
   const changes: Partial<FeatureDraftChanges> = {};
 
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState(feature.draft?.comment || "");
 
   if ("defaultValue" in feature.draft) {
     orig.defaultValue = feature.defaultValue;

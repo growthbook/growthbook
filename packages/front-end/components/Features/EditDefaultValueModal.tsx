@@ -37,8 +37,8 @@ export default function EditDefaultValueModal({
       open={true}
     >
       <div className="alert alert-info">
-        Changes here will be added to a draft which must be published before
-        it&apos;s made live.
+        Changes here will be added to a draft revision. You will have a chance
+        to review it before making it live.
       </div>
       <FeatureValueField
         label="Value When Enabled"

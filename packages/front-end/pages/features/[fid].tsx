@@ -186,6 +186,7 @@ export default function FeaturePage() {
             publish={() => {
               setDraftModal(true);
             }}
+            mutate={mutate}
           />
         </div>
         <div className="col-auto">

@@ -21,6 +21,7 @@ import {
   updateFeature,
   getDraftRules,
   discardDraft,
+  setDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
@@ -209,6 +210,40 @@ export async function postFeatureDiscard(
   verifyDraftsAreEqual(feature.draft, draft);
 
   await discardDraft(feature);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureDraft(
+  req: AuthRequest<
+    {
+      defaultValue: string;
+      rules: Record<string, FeatureRule[]>;
+      comment: string;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { defaultValue, rules, comment } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  await setDraft(feature, {
+    active: true,
+    comment,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    defaultValue,
+    rules,
+  });
 
   res.status(200).json({
     status: 200,

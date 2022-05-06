@@ -20,6 +20,7 @@ export interface FeatureDraftChanges {
   dateUpdated?: Date;
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
+  comment?: string;
 }
 
 export interface FeatureInterface {
