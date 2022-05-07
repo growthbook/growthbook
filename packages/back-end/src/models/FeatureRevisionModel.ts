@@ -5,7 +5,7 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
   featureId: String,
-  revision: Number,
+  version: Number,
   dateCreated: Date,
   revisionDate: Date,
   publishedBy: {},
@@ -43,7 +43,7 @@ export async function saveRevision(feature: FeatureInterface) {
   await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
-    revision: feature.revision?.version || 1,
+    version: feature.revision?.version || 1,
     dateCreated: new Date(),
     revisionDate: feature.revision?.date || feature.dateCreated,
     publishedBy: feature.revision?.publishedBy || {

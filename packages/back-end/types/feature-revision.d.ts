@@ -4,7 +4,7 @@ import { UserRef } from "./user";
 export interface FeatureRevisionInterface {
   featureId: string;
   organization: string;
-  revision: number;
+  version: number;
   dateCreated: Date;
   revisionDate: Date;
   publishedBy: UserRef;

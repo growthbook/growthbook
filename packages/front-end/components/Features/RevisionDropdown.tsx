@@ -41,7 +41,7 @@ export default function RevisionDropdown({
   const rows = useMemo(() => {
     const revs = revisions.map((r) => {
       return {
-        version: r.revision,
+        version: r.version,
         comment: r.comment || "",
         date: r.revisionDate,
         data: r,
@@ -84,7 +84,7 @@ export default function RevisionDropdown({
     await apiCall(`/feature/${feature.id}/draft`, {
       method: "POST",
       body: JSON.stringify({
-        comment: `(Cloned from version #${revision.revision})`,
+        comment: `(Cloned from version #${revision.version})`,
         defaultValue: revision.defaultValue,
         rules: revision.rules,
       }),
