@@ -200,24 +200,7 @@ export async function setFeatureDraftRules(
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
-  await setDraft(feature, draft);
-}
-
-export async function setDraft(
-  feature: FeatureInterface,
-  draft: FeatureDraftChanges
-) {
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: {
-        draft,
-      },
-    }
-  );
+  await updateDraft(feature, draft);
 }
 
 export async function removeTagInFeature(organization: string, tag: string) {
@@ -238,7 +221,7 @@ export async function setDefaultValue(
   return updateDraft(feature, draft);
 }
 
-async function updateDraft(
+export async function updateDraft(
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
@@ -334,9 +317,7 @@ export async function publishDraft(
     version: (feature.revision?.version || 1) + 1,
     comment: comment || "",
     date: new Date(),
-    userId: user.id,
-    userEmail: user.email,
-    userName: user.name,
+    publishedBy: user,
   };
 
   await FeatureModel.updateOne(

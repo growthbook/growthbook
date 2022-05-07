@@ -1,4 +1,5 @@
 import { FeatureRule } from "./feature";
+import { UserRef } from "./user";
 
 export interface FeatureRevisionInterface {
   featureId: string;
@@ -6,9 +7,7 @@ export interface FeatureRevisionInterface {
   revision: number;
   dateCreated: Date;
   revisionDate: Date;
-  userId: string;
-  userEmail: string;
-  userName: string;
+  publishedBy: UserRef;
   comment: string;
 
   defaultValue: string;

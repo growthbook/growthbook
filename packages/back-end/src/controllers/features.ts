@@ -21,7 +21,7 @@ import {
   updateFeature,
   getDraftRules,
   discardDraft,
-  setDraft,
+  updateDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
@@ -125,9 +125,11 @@ export async function postFeatures(
       version: 1,
       comment: "New feature",
       date: new Date(),
-      userId,
-      userEmail: email,
-      userName,
+      publishedBy: {
+        id: userId,
+        email,
+        name: userName,
+      },
     },
   };
 
@@ -245,7 +247,7 @@ export async function postFeatureDraft(
     throw new Error("Could not find feature");
   }
 
-  await setDraft(feature, {
+  await updateDraft(feature, {
     active: true,
     comment,
     dateCreated: new Date(),

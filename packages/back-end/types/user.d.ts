@@ -6,3 +6,9 @@ export interface UserInterface {
   passwordHash?: string;
   admin: boolean;
 }
+
+export interface UserRef {
+  id: string;
+  name: string;
+  email: string;
+}

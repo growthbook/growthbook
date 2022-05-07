@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { UserRef } from "./user";
+
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
 export interface FeatureEnvironment {
@@ -39,9 +41,7 @@ export interface FeatureInterface {
     version: number;
     comment: string;
     date: Date;
-    userId: string;
-    userEmail: string;
-    userName: string;
+    publishedBy: UserRef;
   };
 }
 
