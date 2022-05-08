@@ -41,7 +41,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import { getRevisions, saveRevision } from "../models/FeatureRevisionModel";
+import { getRevisions } from "../models/FeatureRevisionModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -174,8 +174,6 @@ export async function postFeaturePublish(
   }
 
   verifyDraftsAreEqual(feature.draft, draft);
-
-  await saveRevision(feature);
 
   const newFeature = await publishDraft(
     feature,

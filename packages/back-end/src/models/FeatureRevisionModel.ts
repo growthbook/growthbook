@@ -14,7 +14,10 @@ const featureRevisionSchema = new mongoose.Schema({
   rules: {},
 });
 
-featureRevisionSchema.index({ organization: 1, featureId: 1 });
+featureRevisionSchema.index(
+  { organization: 1, featureId: 1, version: 1 },
+  { unique: true }
+);
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -40,19 +43,27 @@ export async function saveRevision(feature: FeatureInterface) {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
   });
 
-  await FeatureRevisionModel.create({
-    organization: feature.organization,
-    featureId: feature.id,
-    version: feature.revision?.version || 1,
-    dateCreated: new Date(),
-    revisionDate: feature.revision?.date || feature.dateCreated,
-    publishedBy: feature.revision?.publishedBy || {
-      id: "",
-      email: "",
-      name: "",
-    },
-    comment: feature.revision?.comment || "",
-    defaultValue: feature.defaultValue,
-    rules,
-  });
+  try {
+    await FeatureRevisionModel.create({
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.revision?.version || 1,
+      dateCreated: new Date(),
+      revisionDate: feature.revision?.date || feature.dateCreated,
+      publishedBy: feature.revision?.publishedBy || {
+        id: "",
+        email: "",
+        name: "",
+      },
+      comment: feature.revision?.comment || "",
+      defaultValue: feature.defaultValue,
+      rules,
+    });
+  } catch (e) {
+    // The most likely error is a duplicate key error from the revision version
+    // This is not a fatal error and should not stop the feature from being created
+    console.error(e);
+
+    // TODO: handle duplicate key errors more elegantly
+  }
 }

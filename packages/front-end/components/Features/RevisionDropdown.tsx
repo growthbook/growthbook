@@ -3,7 +3,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import clsx from "clsx";
 import { useMemo } from "react";
 import { useState } from "react";
-import { FaRegCopy } from "react-icons/fa";
+import { MdRestore } from "react-icons/md";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import Dropdown from "../Dropdown/Dropdown";
@@ -25,11 +25,8 @@ export default function RevisionDropdown({
   publish,
   mutate,
 }: Props) {
-  let revision = feature.revision?.version || 1;
+  const liveVersion = feature.revision?.version || 1;
   const isDraft = !!feature.draft?.active;
-  if (isDraft) {
-    revision++;
-  }
 
   const { apiCall } = useAuth();
   const [selectedRevision, setSelectedRevision] = useState(0);
@@ -46,22 +43,28 @@ export default function RevisionDropdown({
         date: r.revisionDate,
         data: r,
         draft: false,
-        live: false,
+        live: r.version === liveVersion,
       };
     });
 
-    revs.push({
-      version: feature.revision?.version || 1,
-      comment: feature.revision?.comment || "",
-      date: feature.revision?.date || feature.dateCreated,
-      data: null,
-      draft: false,
-      live: true,
-    });
+    // Fix for when the feature has no revisions (because it was created before revisions existed)
+    if (!revs.length) {
+      revs.push({
+        version: liveVersion,
+        comment: "New feature",
+        date: feature.dateCreated,
+        data: null,
+        draft: false,
+        live: true,
+      });
+    }
 
+    // In-progress drafts are not stored with the rest of the revisions
+    // Need to add them to the list separately
     if (isDraft) {
       revs.push({
-        version: (feature.revision?.version || 1) + 1,
+        // Increment the live version for the draft
+        version: liveVersion + 1,
         comment: feature.draft?.comment || "",
         date: null,
         data: null,
@@ -73,7 +76,7 @@ export default function RevisionDropdown({
     revs.sort((a, b) => b.version - a.version);
 
     return revs;
-  }, [feature, revisions, isDraft]).map((r, i) => ({ ...r, i }));
+  }, [feature, revisions, isDraft, liveVersion]).map((r, i) => ({ ...r, i }));
 
   const numPages = Math.ceil(rows.length / NUM_PER_PAGE);
 
@@ -122,7 +125,7 @@ export default function RevisionDropdown({
         setOpen={setOpen}
         toggle={
           <>
-            Revision: <strong>{revision}</strong>{" "}
+            Version: <strong>{isDraft ? liveVersion + 1 : liveVersion}</strong>{" "}
             <span
               className={clsx(
                 "badge badge-pill",
@@ -175,8 +178,8 @@ export default function RevisionDropdown({
                             }
                           }}
                         >
-                          <Tooltip text="Create a new draft from this revision">
-                            <FaRegCopy />
+                          <Tooltip text="Revert to this version (will create a new draft for you to review)">
+                            <MdRestore style={{ fontSize: "1.1em" }} />
                           </Tooltip>
                         </a>
                       )}

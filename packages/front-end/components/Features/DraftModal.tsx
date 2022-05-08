@@ -96,7 +96,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
   return (
     <Modal
       open={true}
-      header={"Publish Revision"}
+      header={"Publish Draft Changes"}
       submit={async () => {
         try {
           await apiCall(`/feature/${feature.id}/publish`, {
@@ -141,8 +141,8 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     >
       <h3>Review Changes</h3>
       <p>
-        The changes below will go live when this draft revision is published.
-        You will be able to revert later if needed.
+        The changes below will go live when this draft version is published. You
+        will be able to revert later if needed.
       </p>
       <div className="list-group mb-4">
         {diffs.map((diff) => (

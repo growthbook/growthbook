@@ -10,6 +10,7 @@ import {
 import { featureUpdated, generateRuleId } from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
+import { saveRevision } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -80,7 +81,8 @@ export async function getFeature(
 }
 
 export async function createFeature(data: FeatureInterface) {
-  await FeatureModel.create(data);
+  const feature = await FeatureModel.create(data);
+  await saveRevision(feature.toJSON());
 }
 
 export async function deleteFeature(organization: string, id: string) {
@@ -293,6 +295,12 @@ export async function publishDraft(
     throw new Error("There are no draft changes to publish.");
   }
 
+  // Features created before revisions were introduced are missing their initial revision
+  // Create it now before publishing the draft and making a 2nd revision
+  if (!feature.revision) {
+    await saveRevision(feature);
+  }
+
   const changes: Partial<FeatureInterface> = {};
   if (
     "defaultValue" in feature.draft &&
@@ -336,5 +344,6 @@ export async function publishDraft(
   };
 
   featureUpdated(newFeature);
+  await saveRevision(newFeature);
   return newFeature;
 }

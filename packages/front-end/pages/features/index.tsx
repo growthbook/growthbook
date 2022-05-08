@@ -186,7 +186,7 @@ export default function FeaturesPage() {
                 ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
-                <th>Revision</th>
+                <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
@@ -214,8 +214,8 @@ export default function FeaturesPage() {
                 const totalRules = rules.length || 0;
 
                 const isDraft = !!feature.draft?.active;
-                let revision = feature.revision?.version || 1;
-                if (isDraft) revision++;
+                let version = feature.revision?.version || 1;
+                if (isDraft) version++;
 
                 return (
                   <tr key={feature.id}>
@@ -254,9 +254,9 @@ export default function FeaturesPage() {
                       )}
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      {revision}{" "}
+                      {version}{" "}
                       {isDraft && (
-                        <Tooltip text="This revision is a draft and has not yet been published">
+                        <Tooltip text="This is a draft version and is not visible to users">
                           <FaExclamationTriangle className="text-warning" />
                         </Tooltip>
                       )}
