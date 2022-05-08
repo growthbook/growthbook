@@ -73,10 +73,12 @@ export default function RevisionDropdown({
       });
     }
 
+    // Sort by version descending
     revs.sort((a, b) => b.version - a.version);
 
-    return revs;
-  }, [feature, revisions, isDraft, liveVersion]).map((r, i) => ({ ...r, i }));
+    // Add the new array index to each element after sorting
+    return revs.map((r, i) => ({ ...r, i }));
+  }, [feature, revisions, isDraft, liveVersion]);
 
   const numPages = Math.ceil(rows.length / NUM_PER_PAGE);
 
@@ -87,7 +89,7 @@ export default function RevisionDropdown({
     await apiCall(`/feature/${feature.id}/draft`, {
       method: "POST",
       body: JSON.stringify({
-        comment: `(Cloned from version #${revision.version})`,
+        comment: `(Reverting to version #${revision.version})`,
         defaultValue: revision.defaultValue,
         rules: revision.rules,
       }),
