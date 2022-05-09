@@ -57,6 +57,7 @@ export function getOrgFromReq(req: AuthRequest) {
     userId: req.userId,
     email: req.email,
     environments: getEnvironments(req.organization),
+    userName: req.name || "",
   };
 }
 

@@ -6,6 +6,13 @@ import {
 } from "../../types/datasource";
 import SqlIntegration from "../integrations/SqlIntegration";
 import { getSourceIntegrationObject } from "../services/datasource";
+import {
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "../../types/feature";
+import isEqual from "lodash/isEqual";
 
 export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
   const newDoc = { ...doc };
@@ -130,4 +137,75 @@ export function upgradeDatasourceObject(
   }
 
   return datasource;
+}
+
+function updateEnvironmentSettings(
+  rules: FeatureRule[],
+  environments: string[],
+  environment: string,
+  feature: FeatureInterface
+) {
+  const settings: Partial<FeatureEnvironment> =
+    feature.environmentSettings?.[environment] || {};
+
+  if (!("rules" in settings)) {
+    settings.rules = rules;
+  }
+  if (!("enabled" in settings)) {
+    settings.enabled = environments?.includes(environment) || false;
+  }
+
+  // If Rules is an object instead of array, fix it
+  if (settings.rules && !Array.isArray(settings.rules)) {
+    settings.rules = Object.values(settings.rules);
+  }
+
+  feature.environmentSettings = feature.environmentSettings || {};
+  feature.environmentSettings[environment] = settings as FeatureEnvironment;
+}
+
+function draftHasChanges(feature: FeatureInterface) {
+  if (!feature.draft?.active) return false;
+
+  if (
+    "defaultValue" in feature.draft &&
+    feature.draft.defaultValue !== feature.defaultValue
+  ) {
+    return true;
+  }
+
+  if (feature.draft.rules) {
+    const comp: Record<string, FeatureRule[]> = {};
+    Object.keys(feature.draft.rules).forEach((key) => {
+      comp[key] = feature.environmentSettings?.[key]?.rules || [];
+    });
+
+    if (!isEqual(comp, feature.draft.rules)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function upgradeFeatureInterface(
+  feature: LegacyFeatureInterface
+): FeatureInterface {
+  const { environments, rules, ...newFeature } = feature;
+
+  // Copy over old way of storing rules/toggles to new environment-scoped settings
+  updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
+  updateEnvironmentSettings(
+    rules || [],
+    environments || [],
+    "production",
+    newFeature
+  );
+
+  // Ignore drafts if nothing has changed
+  if (newFeature.draft?.active && !draftHasChanges(newFeature)) {
+    newFeature.draft = { active: false };
+  }
+
+  return newFeature;
 }

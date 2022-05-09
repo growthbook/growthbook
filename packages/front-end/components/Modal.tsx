@@ -20,6 +20,7 @@ type ModalProps = {
   solidOverlay?: boolean;
   close?: () => void;
   submit?: () => Promise<void>;
+  secondaryCTA?: ReactElement;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -39,6 +40,7 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  secondaryCTA,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +112,7 @@ const Modal: FC<ModalProps> = ({
               }}
               aria-label="Close"
             >
-              <span aria-hidden="true">×</span>
+              <span aria-hidden="true">&times;</span>
             </button>
           )}
         </>
@@ -145,6 +147,7 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
+          {secondaryCTA}
           {close && (
             <button
               className="btn btn-link"

@@ -3,6 +3,7 @@ import { getBaseIdTypeAndJoins, replaceDateVars } from "../src/util/sql";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
+  upgradeFeatureInterface,
   upgradeMetricDoc,
 } from "../src/util/migrations";
 import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
@@ -10,6 +11,7 @@ import { encryptParams } from "../src/services/datasource";
 import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
 import { PostgresConnectionParams } from "../types/integrations/postgres";
 import cloneDeep from "lodash/cloneDeep";
+import { FeatureRule, LegacyFeatureInterface } from "../types/feature";
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
@@ -469,6 +471,234 @@ describe("backend", () => {
             userIdType: "anonymous_id",
           },
         ],
+      },
+    });
+  });
+
+  it("updates old feature objects", () => {
+    const rule: FeatureRule = {
+      id: "fr_123",
+      type: "force",
+      value: "false",
+      description: "",
+    };
+
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+    };
+
+    expect(
+      upgradeFeatureInterface({
+        ...origFeature,
+        environments: ["dev"],
+        rules: [rule],
+      })
+    ).toEqual({
+      ...origFeature,
+      environmentSettings: {
+        dev: {
+          enabled: true,
+          rules: [rule],
+        },
+        production: {
+          enabled: false,
+          rules: [rule],
+        },
+      },
+    });
+  });
+
+  it("doesn't overwrite new feature objects", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(
+      upgradeFeatureInterface({
+        ...origFeature,
+        environments: ["dev"],
+        rules: [
+          {
+            id: "fr_123",
+            type: "force",
+            value: "false",
+            description: "",
+          },
+        ],
+      })
+    ).toEqual(origFeature);
+  });
+
+  it("keeps drafts when default value changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "false",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
+      origFeature
+    );
+  });
+
+  it("keeps drafts when rules changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "true",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "false",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
+      origFeature
+    );
+  });
+
+  it("discards drafts when nothing is changed", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [],
+        },
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+      draft: {
+        active: true,
+        defaultValue: "true",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        rules: {
+          production: [
+            {
+              id: "fr_1234",
+              type: "force",
+              value: "true",
+              description: "",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+      ...origFeature,
+      draft: {
+        active: false,
       },
     });
   });

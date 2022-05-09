@@ -1,5 +1,6 @@
 import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
 import {
+  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
@@ -7,6 +8,7 @@ import {
 import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
+import isEqual from "lodash/isEqual";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -183,4 +185,26 @@ export function arrayMove(array: Array<any>, from: number, to: number) {
     newArray.splice(from, 1)[0]
   );
   return newArray;
+}
+
+export function verifyDraftsAreEqual(
+  actual?: FeatureDraftChanges,
+  expected?: FeatureDraftChanges
+) {
+  if (
+    !isEqual(
+      {
+        defaultValue: actual?.defaultValue,
+        rules: actual?.rules,
+      },
+      {
+        defaultValue: expected?.defaultValue,
+        rules: expected?.rules,
+      }
+    )
+  ) {
+    throw new Error(
+      "New changes have been made to this feature. Please review and try again."
+    );
+  }
 }

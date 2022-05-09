@@ -16,7 +16,7 @@ export async function postDiscussions(
   >,
   res: Response
 ) {
-  const { org, userId, email } = getOrgFromReq(req);
+  const { org, userId, email, userName } = getOrgFromReq(req);
   const { parentId, parentType } = req.params;
   const { comment } = req.body;
 
@@ -27,7 +27,7 @@ export async function postDiscussions(
       org.id,
       parentType,
       parentId,
-      { id: userId, email: email, name: req?.name || "" },
+      { id: userId, email: email, name: userName },
       comment
     );
     res.status(200).json({

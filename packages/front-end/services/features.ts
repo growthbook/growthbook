@@ -11,7 +11,6 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import uniq from "lodash/uniq";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
 import { useAuth } from "./auth";
@@ -68,7 +67,16 @@ export function useEnvironments() {
   return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
+  if (feature.draft?.active && feature.draft.rules?.[environment]) {
+    return feature.draft.rules[environment];
+  }
   return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+export function getFeatureDefaultValue(feature: FeatureInterface) {
+  if (feature.draft?.active && "defaultValue" in feature.draft) {
+    return feature.draft.defaultValue;
+  }
+  return feature.defaultValue;
 }
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -195,9 +203,6 @@ export function validateFeatureRule(
       throw new Error(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
-    }
-    if (uniq(ruleValues.map((v) => v.value)).length !== ruleValues.length) {
-      throw new Error(`All variations must be unique`);
     }
   } else {
     isValidValue(valueType, rule.value, "Rollout value");

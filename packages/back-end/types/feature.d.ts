@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { UserRef } from "./user";
+
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
 export interface FeatureEnvironment {
@@ -14,6 +16,15 @@ export type LegacyFeatureInterface = FeatureInterface & {
   rules?: FeatureRule[];
 };
 
+export interface FeatureDraftChanges {
+  active: boolean;
+  dateCreated?: Date;
+  dateUpdated?: Date;
+  defaultValue?: string;
+  rules?: Record<string, FeatureRule[]>;
+  comment?: string;
+}
+
 export interface FeatureInterface {
   id: string;
   description?: string;
@@ -25,6 +36,13 @@ export interface FeatureInterface {
   defaultValue: string;
   tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
+  draft?: FeatureDraftChanges;
+  revision?: {
+    version: number;
+    comment: string;
+    date: Date;
+    publishedBy: UserRef;
+  };
 }
 
 export interface BaseRule {

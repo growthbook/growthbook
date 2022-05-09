@@ -10,7 +10,7 @@ better.
 
 ## Environments
 
-GrowthBook comes with two environments - **dev** and **production**, and each one has their own unique API endpoint for getting a list of features.
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need. Each environment has its own unique API endpoint for getting a list of features.
 
 Features can be enabled and disabled on a per-environment basis.
 
@@ -157,6 +157,20 @@ Users are randomly assigned a value from 0 to 1 for each namespace. Each experim
 ![Namespaces](/images/namespaces.png)
 
 Before you can use namespaces, you must configure them under Settings > Namespaces.
+
+## Publishing Changes
+
+When you make changes to a feature's definition (default value or override rules), a new draft version of the feature is created automatically. This draft version is unpublished and is only visible within the GrowthBook UI, not to your users.
+
+You can continue adding changes to this draft and when you are ready, publish them all at once with an optional commit message.
+
+![Draft Modal](/images/draft-modal.png)
+
+## Revision History
+
+You can view a revision history for your feature and revert to a past version by clicking the blue revert icons. This will create a new draft based on the past version you select, so you can safely review it (or add additional changes) before deciding to publish.
+
+![Feature Revisions](/images/feature-revisions.png)
 
 ## Integration Options
 

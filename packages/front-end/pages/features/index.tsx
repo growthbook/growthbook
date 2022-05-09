@@ -15,6 +15,7 @@ import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
 import {
+  getFeatureDefaultValue,
   getRules,
   useFeaturesList,
   useRealtimeData,
@@ -27,6 +28,7 @@ import TagsFilter, {
 } from "../../components/Tags/TagsFilter";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 const NUM_PER_PAGE = 20;
 
@@ -184,6 +186,7 @@ export default function FeaturesPage() {
                 ))}
                 <th>Value When Enabled</th>
                 <th>Overrides Rules</th>
+                <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
                   <th>
@@ -210,6 +213,10 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
+                const isDraft = !!feature.draft?.active;
+                let version = feature.revision?.version || 1;
+                if (isDraft) version++;
+
                 return (
                   <tr key={feature.id}>
                     <td>
@@ -231,7 +238,7 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
-                        value={feature.defaultValue}
+                        value={getFeatureDefaultValue(feature)}
                         type={feature.valueType}
                         full={false}
                       />
@@ -244,6 +251,14 @@ export default function FeaturesPage() {
                         <small className="text-muted ml-1">
                           +{totalRules - 1} more
                         </small>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {version}{" "}
+                      {isDraft && (
+                        <Tooltip text="This is a draft version and is not visible to users">
+                          <FaExclamationTriangle className="text-warning" />
+                        </Tooltip>
                       )}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -20,13 +21,20 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import { getRules, useEnvironmentState } from "../../services/features";
+import {
+  getFeatureDefaultValue,
+  getRules,
+  useEnvironmentState,
+} from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
+import DraftModal from "../../components/Features/DraftModal";
+import { FaExclamationTriangle } from "react-icons/fa";
+import RevisionDropdown from "../../components/Features/RevisionDropdown";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -34,6 +42,7 @@ export default function FeaturePage() {
 
   const [edit, setEdit] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [draftModal, setDraftModal] = useState(false);
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -52,6 +61,7 @@ export default function FeaturePage() {
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
   const firstFeature = "first" in router?.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -69,6 +79,8 @@ export default function FeaturePage() {
   }
 
   const type = data.feature.valueType;
+
+  const isDraft = !!data.feature.draft?.active;
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -131,6 +143,33 @@ export default function FeaturePage() {
           }}
         />
       )}
+      {draftModal && (
+        <DraftModal
+          feature={data.feature}
+          close={() => setDraftModal(false)}
+          mutate={mutate}
+        />
+      )}
+
+      {isDraft && (
+        <div
+          className="alert alert-warning mb-3 text-center shadow-sm"
+          style={{ top: 65, position: "sticky", zIndex: 900 }}
+        >
+          <FaExclamationTriangle className="text-warning" /> This feature has
+          unpublished changes.
+          <button
+            className="btn btn-primary ml-3 btn-sm"
+            onClick={(e) => {
+              e.preventDefault();
+              setDraftModal(true);
+            }}
+          >
+            Review and Publish
+          </button>
+        </div>
+      )}
+
       <div className="row align-items-center">
         <div className="col-auto">
           <Link href="/features">
@@ -140,6 +179,16 @@ export default function FeaturePage() {
           </Link>
         </div>
         <div style={{ flex: 1 }} />
+        <div className="col-auto">
+          <RevisionDropdown
+            feature={data.feature}
+            revisions={data.revisions || []}
+            publish={() => {
+              setDraftModal(true);
+            }}
+            mutate={mutate}
+          />
+        </div>
         <div className="col-auto">
           <MoreMenu id="feature-more-menu">
             <a
@@ -267,7 +316,10 @@ export default function FeaturePage() {
         </a>
       </h3>
       <div className="appbox mb-4 p-3">
-        <ForceSummary type={type} value={data.feature.defaultValue} />
+        <ForceSummary
+          type={type}
+          value={getFeatureDefaultValue(data.feature)}
+        />
       </div>
 
       <h3>Override Rules</h3>

@@ -19,6 +19,8 @@ const Dropdown: FC<{
   right?: boolean;
   width?: number | string;
   className?: string;
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
 }> = ({
   uuid,
   toggle,
@@ -28,8 +30,16 @@ const Dropdown: FC<{
   right = true,
   width = "auto",
   className = "",
+  open,
+  setOpen,
 }) => {
-  const [open, setOpen] = useState(false);
+  // If uncontrolled, use local state
+  const [_open, _setOpen] = useState(false);
+  if (!setOpen) {
+    open = _open;
+    setOpen = _setOpen;
+  }
+
   useGlobalMenu(`.${uuid}`, () => setOpen(false));
 
   const content = Children.map(children, (child) => {

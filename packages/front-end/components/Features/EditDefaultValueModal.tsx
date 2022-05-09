@@ -3,6 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
+import { getFeatureDefaultValue } from "../../services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -17,7 +18,7 @@ export default function EditDefaultValueModal({
 }: Props) {
   const form = useForm({
     defaultValues: {
-      defaultValue: feature.defaultValue,
+      defaultValue: getFeatureDefaultValue(feature),
     },
   });
   const { apiCall } = useAuth();
@@ -26,8 +27,8 @@ export default function EditDefaultValueModal({
     <Modal
       header="Edit Default Value"
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/feature/${feature.id}`, {
-          method: "PUT",
+        await apiCall(`/feature/${feature.id}/defaultvalue`, {
+          method: "POST",
           body: JSON.stringify(value),
         });
         mutate();
@@ -35,6 +36,10 @@ export default function EditDefaultValueModal({
       close={close}
       open={true}
     >
+      <div className="alert alert-info">
+        Changes here will be added to a draft revision. You will have a chance
+        to review it before making it live.
+      </div>
       <FeatureValueField
         label="Value When Enabled"
         form={form}

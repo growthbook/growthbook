@@ -46,7 +46,7 @@ function EventDetails({
             {Object.keys(json.context).map((k) => (
               <div className="col-auto mb-2" key={k}>
                 <strong>{k}: </strong>
-                {json.context[k]}
+                {JSON.stringify(json.context[k])}
               </div>
             ))}
           </div>
