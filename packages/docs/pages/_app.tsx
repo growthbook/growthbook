@@ -108,6 +108,10 @@ const navLinks = [
         name: "Kotlin (Android)",
       },
       {
+        href: "/lib/flutter",
+        name: "Flutter",
+      },
+      {
         href: "/lib/build-your-own",
         name: "Build Your Own",
       },
