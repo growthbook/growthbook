@@ -444,7 +444,7 @@ pre {
   }
 }
 
-.commaList {
+.commalist {
   span:not(:last-child) {
     &:after {
       content: ", ";

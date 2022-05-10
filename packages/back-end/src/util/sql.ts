@@ -1,24 +1,35 @@
 import { format as sqlFormat } from "sql-formatter";
 
-export function getBaseIdTypeAndJoins(objects: string[][]) {
-  // Get rid of empty ids, sort from least to most ids
-  const sorted = objects
-    .map((ids) => ids.filter(Boolean))
-    .filter((ids) => ids.length > 0)
-    .sort((a, b) => a.length - b.length);
+function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
+  // If a specific id type is already chosen as the base, return it
+  if (forcedBaseIdType) return forcedBaseIdType;
 
   // Count how many objects use each id type
   const counts: Record<string, number> = {};
-  sorted.forEach((types) => {
+  objects.forEach((types) => {
     types.forEach((type) => {
       if (!type) return;
       counts[type] = counts[type] || 0;
       counts[type]++;
     });
   });
+
   // Sort to find the most used id type and set it as the baseIdType
-  const baseIdType =
-    Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+export function getBaseIdTypeAndJoins(
+  objects: string[][],
+  forcedBaseIdType?: string
+) {
+  // Get rid of empty ids, sort from least to most ids
+  const sorted = objects
+    .map((ids) => ids.filter(Boolean))
+    .filter((ids) => ids.length > 0)
+    .sort((a, b) => a.length - b.length);
+
+  // Determine which id type to use as the base
+  const baseIdType = getBaseIdType(objects, forcedBaseIdType);
 
   // Determine the required joins
   // TODO: optimize this to always choose the minimum possible number of joins
