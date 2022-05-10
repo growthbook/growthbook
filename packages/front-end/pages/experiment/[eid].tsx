@@ -653,7 +653,7 @@ const ExperimentPage = (): ReactElement => {
                         datasource?.settings,
                         experiment.exposureQueryId,
                         experiment.userIdType
-                      ).name
+                      )?.name
                     }
                   </RightRailSectionGroup>
                 )}
