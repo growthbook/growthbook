@@ -416,8 +416,16 @@ export default abstract class SqlIntegration
     });
   }
 
-  private getIdentifiesCTE(objects: string[][], from: Date, to?: Date) {
-    const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(objects);
+  private getIdentifiesCTE(
+    objects: string[][],
+    from: Date,
+    to?: Date,
+    forcedBaseIdType?: string
+  ) {
+    const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
+      objects,
+      forcedBaseIdType
+    );
 
     // Joins for when an object doesn't support the baseIdType
     const joins: string[] = [];
@@ -518,7 +526,8 @@ export default abstract class SqlIntegration
         activationMetric?.userIdTypes || [],
       ],
       phase.dateStarted,
-      phase.dateEnded
+      phase.dateEnded,
+      exposureQuery.userIdType
     );
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;

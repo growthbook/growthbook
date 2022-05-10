@@ -80,6 +80,8 @@ const RightRailSectionGroup: FC<{
           {type === "commaList" && (
             <span className="commalist">
               {Children.map(children, (child, i) => {
+                if (!child) return null;
+
                 return (
                   <span className="font-weight-bold" key={i}>
                     {child}
