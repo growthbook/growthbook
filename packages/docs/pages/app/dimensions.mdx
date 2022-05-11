@@ -83,7 +83,7 @@ event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other";
 You can also reference the experiment start/end date in your javascript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
 
 ```js
-event.properties.userRegistrationDate < {{ startDateUnix }} ? "new" : "existing"
+event.properties.userRegistrationDate >= {{ startDateUnix }} ? "new" : "existing"
 ```
 
 The variables you can reference are:
