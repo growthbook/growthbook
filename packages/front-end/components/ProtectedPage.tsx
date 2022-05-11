@@ -2,14 +2,17 @@ import { useEffect, useState, createContext } from "react";
 import {
   useAuth,
   UserOrganizations,
-  MemberRole,
   SubscriptionStatus,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import track from "../services/track";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  Permissions,
+  MemberRole,
+} from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
@@ -40,24 +43,23 @@ export function getCurrentUser() {
   return currentUser;
 }
 
-export type Permissions = {
-  draftExperiments?: boolean;
-  runExperiments?: boolean;
-  createMetrics?: boolean;
-  organizationSettings?: boolean;
-};
 function getPermissionsByRole(role: MemberRole): Permissions {
   const permissions: Permissions = {};
   switch (role) {
     case "admin":
       permissions.organizationSettings = true;
+      permissions.publishProtectedEnvs = true;
+      permissions.createDatasources = true;
     // falls through
     case "developer":
-      permissions.runExperiments = true;
-      permissions.createMetrics = true;
+      permissions.publishFeatures = true;
+      permissions.createFeatures = true;
     // falls through
-    case "designer":
-      permissions.draftExperiments = true;
+    case "analyst":
+      permissions.createExperiments = true;
+      permissions.createMetrics = true;
+      permissions.createDimensions = true;
+      permissions.createSegments = true;
   }
   return permissions;
 }

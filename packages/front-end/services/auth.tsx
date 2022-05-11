@@ -3,13 +3,12 @@ import { NextRouter, useRouter } from "next/router";
 import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import {
+  MemberRole,
   OrganizationInterface,
   OrganizationSettings,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, isCloud } from "./env";
-
-export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
 
 export type SubscriptionStatus =
   | "incomplete"

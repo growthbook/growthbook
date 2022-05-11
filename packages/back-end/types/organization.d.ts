@@ -1,13 +1,36 @@
 import { ImplementationType } from "./experiment";
 
 export type Permissions = {
-  draftExperiments?: boolean;
-  runExperiments?: boolean;
+  // Colloborator
+  addComments?: boolean;
+  refreshResults?: boolean;
+  editMetadata?: boolean;
+
+  // Analysts
+  createExperiments?: boolean;
   createMetrics?: boolean;
+  createDimensions?: boolean;
+  createSegments?: boolean;
+
+  // Developers
+  // All of the above, plus:
+  publishFeatures?: boolean;
+  createFeatures?: boolean;
+
+  // Admin only
+  // All of the above, plus:
+  publishProtectedEnvs?: boolean;
   organizationSettings?: boolean;
+  createDatasources?: boolean;
 };
 
-export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
+export type MemberRole =
+  | "readonly"
+  | "collaborator"
+  | "designer"
+  | "analyst"
+  | "developer"
+  | "admin";
 
 export interface Invite {
   email: string;
