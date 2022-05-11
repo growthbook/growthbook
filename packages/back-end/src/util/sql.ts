@@ -68,10 +68,12 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   }
 
   const replacements: Record<string, string> = {
+    startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
     startYear: startDate.toISOString().substr(0, 4),
     startMonth: startDate.toISOString().substr(5, 2),
     startDay: startDate.toISOString().substr(8, 2),
+    endDateUnix: "" + Math.floor(endDate.getTime() / 1000),
     endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
     endYear: endDate.toISOString().substr(0, 4),
     endMonth: endDate.toISOString().substr(5, 2),

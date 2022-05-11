@@ -28,6 +28,14 @@ describe("backend", () => {
     ).toEqual(
       "SELECT '2022-02-09 11:30:12' as full, '2022' as year, '02' as month, '09' as day"
     );
+
+    expect(
+      replaceDateVars(
+        `time > {{startDateUnix}} && time < {{ endDateUnix }}`,
+        start,
+        end
+      )
+    ).toEqual(`time > 1609842015 && time < 1644406212`);
   });
 
   it("determines identifier joins correctly", () => {

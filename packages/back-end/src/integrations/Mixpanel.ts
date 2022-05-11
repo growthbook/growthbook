@@ -18,6 +18,7 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { replaceDateVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
@@ -169,9 +170,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
               )};
               ${
                 dimension
-                  ? `state.dimension = ${this.getPropertyColumn(
-                      dimension.sql
-                    )} || null;`
+                  ? `state.dimension = (${this.getDimensionColumn(
+                      dimension.sql,
+                      phase.dateStarted,
+                      phase.dateEnded
+                    )}) || null;`
                   : ""
               }
               ${activationMetric ? "" : onActivate}
@@ -515,7 +518,15 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return `Events(${JSON.stringify(filter, null, 2)})`;
   }
+  private getDimensionColumn(col: string, startDate: Date, endDate?: Date) {
+    return replaceDateVars(this.getPropertyColumn(col), startDate, endDate);
+  }
   private getPropertyColumn(col: string) {
+    // Use the column directly if it contains a reference to `event`
+    if (col.match(/\bevent\b/)) {
+      return col;
+    }
+
     const colAccess = col.split(".").map((part) => {
       if (part.substr(0, 1) !== "[") return `["${part}"]`;
       return part;
