@@ -45,5 +45,15 @@
       "flake8"
     ]
   },
+  "prettier": {
+    "overrides": [
+      {
+        "files": "*dimensions.mdx",
+        "options": {
+          "semi": false
+        }
+      }
+    ]
+  },
   "license": "MIT"
 }

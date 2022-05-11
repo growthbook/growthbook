@@ -77,16 +77,16 @@ For simple dimensions, you can just put the event property name directly. For ex
 We also support complex javascript expressions. For example:
 
 ```js
-event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other";
+event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other"
 ```
 
 For more complex expressions, you can wrap your code in an anonymous function:
 
 ```js
-(() => {
+;(() => {
   // ...some complex logic
-  return dimensionValue;
-})();
+  return dimensionValue
+})()
 ```
 
 You can also reference the experiment start/end date in your javascript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
