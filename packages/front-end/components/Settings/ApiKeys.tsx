@@ -4,15 +4,16 @@ import LoadingOverlay from "../LoadingOverlay";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
-import { FaKey } from "react-icons/fa";
+import { FaExclamationTriangle, FaKey, FaPencilAlt } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
 import { useEnvironments } from "../../services/features";
+import Tooltip from "../Tooltip";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { apiCall } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<boolean | ApiKeyInterface>(false);
 
   const environments = useEnvironments();
   const environmentIds = environments.map((e) => e.id);
@@ -37,13 +38,19 @@ const ApiKeys: FC = () => {
   function canDelete(env: string) {
     if (!env) return true;
     if (!environmentIds.includes(env)) return true;
-    if (envCounts[env] > 1) return true;
+    if (envCounts.get(env) > 1) return true;
     return false;
   }
 
   return (
     <div>
-      {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
+      {open && (
+        <ApiKeysModal
+          close={() => setOpen(false)}
+          onCreate={mutate}
+          existing={open !== true ? open : undefined}
+        />
+      )}
       <p>
         API keys can be used with our SDKs (Javascript, React, Go, PHP, Python,
         Android) or the Visual Editor.{" "}
@@ -63,6 +70,10 @@ const ApiKeys: FC = () => {
               <th>Key</th>
               <th>Environment</th>
               <th>Description</th>
+              <th>
+                Includes Drafts{" "}
+                <Tooltip text="Includes unpublished feature changes. Useful for dev API keys" />
+              </th>
               <th></th>
             </tr>
           </thead>
@@ -70,9 +81,28 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
-                <td>{key.environment ?? "production"}</td>
-                <td>{key.description}</td>
                 <td>
+                  {key.environment ?? "production"}
+                  {key.environment &&
+                    !environmentIds.includes(key.environment) && (
+                      <Tooltip text="This environment no longer exists. It is safe to delete this API key.">
+                        <FaExclamationTriangle className="text-danger ml-2" />
+                      </Tooltip>
+                    )}
+                </td>
+                <td>{key.description}</td>
+                <td>{key.includeDrafts ? "yes" : "no"}</td>
+                <td>
+                  <button
+                    className="btn btn-outline-primary mr-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOpen(key);
+                    }}
+                    type="button"
+                  >
+                    <FaPencilAlt />
+                  </button>
                   {canDelete(key.environment) && (
                     <DeleteButton
                       onClick={async () => {
@@ -82,8 +112,6 @@ const ApiKeys: FC = () => {
                         mutate();
                       }}
                       displayName="Api Key"
-                      className="tr-hover"
-                      style={{ fontSize: "19px" }}
                     />
                   )}
                 </td>

@@ -31,6 +31,7 @@ import {
   createApiKey,
   deleteByOrganizationAndApiKey,
   getFirstApiKey,
+  updateApiKey,
 } from "../services/apiKey";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
@@ -1163,7 +1164,11 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 }
 
 export async function postApiKey(
-  req: AuthRequest<{ description?: string; environment: string }>,
+  req: AuthRequest<{
+    description?: string;
+    environment: string;
+    includeDrafts?: boolean;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1174,7 +1179,7 @@ export async function postApiKey(
     });
   }
 
-  const { description, environment } = req.body;
+  const { description, environment, includeDrafts } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1187,7 +1192,12 @@ export async function postApiKey(
     }
   }
 
-  const key = await createApiKey(org.id, environment, description);
+  const key = await createApiKey(
+    org.id,
+    environment,
+    description,
+    includeDrafts
+  );
 
   res.status(200).json({
     status: 200,
@@ -1210,6 +1220,34 @@ export async function deleteApiKey(
   const { key } = req.params;
 
   await deleteByOrganizationAndApiKey(org.id, key);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putApiKey(
+  req: AuthRequest<
+    {
+      description?: string;
+      includeDrafts?: boolean;
+    },
+    { key: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  if (!req.permissions.organizationSettings) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to perform that action.",
+    });
+  }
+
+  const { description, includeDrafts } = req.body;
+
+  const { key } = req.params;
+  await updateApiKey(org.id, key, description, includeDrafts);
 
   res.status(200).json({
     status: 200,

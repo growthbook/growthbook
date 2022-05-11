@@ -52,7 +52,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
   }
 
   try {
-    const { organization, environment } = await lookupOrganizationByApiKey(key);
+    const {
+      organization,
+      environment,
+      includeDrafts,
+    } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -63,7 +67,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const features = await getFeatureDefinitions(
       organization,
       environment,
-      project
+      project,
+      includeDrafts
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

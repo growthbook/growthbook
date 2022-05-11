@@ -526,6 +526,7 @@ app.delete("/datasource/:id", organizationsController.deleteDataSource);
 app.get("/keys", organizationsController.getApiKeys);
 app.post("/keys", organizationsController.postApiKey);
 app.delete("/key/:key", organizationsController.deleteApiKey);
+app.put("/key/:key", organizationsController.putApiKey);
 
 // Webhooks
 app.get("/webhooks", organizationsController.getWebhooks);
