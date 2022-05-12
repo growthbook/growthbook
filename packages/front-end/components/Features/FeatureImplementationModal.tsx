@@ -139,6 +139,18 @@ echo $value;`,
       )}, "blue")`,
       docs: "https://docs.growthbook.io/lib/python",
     },
+    {
+      id: "flutter",
+      display: "Flutter",
+      language: "kotlin",
+      boolean: `if (gb.feature(${JSON.stringify(feature.id)}).on) {
+        // Feature is enabled!
+}`,
+      value: `val feature = gb.feature(${JSON.stringify(feature.id)})
+      Println(feature.value)
+`,
+      docs: "https://docs.growthbook.io/lib/flutter",
+    },
 
     // ruby: {
     //   python: ``,

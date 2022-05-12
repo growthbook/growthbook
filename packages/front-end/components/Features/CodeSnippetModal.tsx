@@ -563,6 +563,49 @@ if gb.isOn(${JSON.stringify(featureId)}):
             `.trim()}
           />
         </Tab>
+        <Tab display="Flutter" id="flutter">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/flutter"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Flutter SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="kotlin" code={`growthbook_sdk_flutter: ^1.0.0`} />
+          <Code
+            language="kotlin"
+            code={`
+            // User attributes for targeting and assigning users to experiment variations
+val attrs = HashMap<String, Any>()
+${Object.keys(exampleAttributes)
+  .map((k) => {
+    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
+  })
+  .join("\n")}
+
+final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
+  // Fetch and cache feature definitions from GrowthBook API${
+    !isCloud() ? "\n  // We recommend using a CDN in production" : ""
+  }
+  apiKey:"${apiKey || "<your api key here>"}",
+  attributes: {
+    attrs
+  },
+  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
+  hostURL = "${getApiBaseUrl()}",
+).initialize();
+
+if (gb.feature(${JSON.stringify(featureId)}).on) {
+  // Feature is enabled!
+}
+
+            `.trim()}
+          />
+        </Tab>
       </ControlledTabs>
     </Modal>
   );
