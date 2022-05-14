@@ -580,7 +580,7 @@ if gb.isOn(${JSON.stringify(featureId)}):
             language="kotlin"
             code={`
             // User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
+var attrs = HashMap<String, Any>()
 ${Object.keys(exampleAttributes)
   .map((k) => {
     return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;

@@ -146,7 +146,7 @@ echo $value;`,
       boolean: `if (gb.feature(${JSON.stringify(feature.id)}).on) {
         // Feature is enabled!
 }`,
-      value: `val feature = gb.feature(${JSON.stringify(feature.id)})
+      value: `var feature = gb.feature(${JSON.stringify(feature.id)})
       Println(feature.value)
 `,
       docs: "https://docs.growthbook.io/lib/flutter",
