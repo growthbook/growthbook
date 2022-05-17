@@ -42,7 +42,7 @@ function getPath(obj: TestedObj, path: string) {
   const parts = path.split(".");
   let current: any = obj;
   for (let i = 0; i < parts.length; i++) {
-    if (parts[i] in current) {
+    if (current && typeof current === "object" && parts[i] in current) {
       current = current[parts[i]];
     } else {
       return null;

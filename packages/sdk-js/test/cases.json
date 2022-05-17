@@ -631,6 +631,26 @@
       false
     ],
     [
+      "nested value is null",
+      {
+        "address.state": "CA"
+      },
+      {
+        "address": null
+      },
+      false
+    ],
+    [
+      "nested value is integer",
+      {
+        "address.state": "CA"
+      },
+      {
+        "address": 123
+      },
+      false
+    ],
+    [
       "$type string - pass",
       {
         "a": {
