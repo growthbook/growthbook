@@ -3,6 +3,7 @@ import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalyti
 import { FaKey, FaCheck } from "react-icons/fa";
 import LoadingOverlay from "../LoadingOverlay";
 import { useAuth } from "../../services/auth";
+import Tooltip from "../Tooltip";
 
 const GoogleAnalyticsForm: FC<{
   params: Partial<GoogleAnalyticsParams>;
@@ -61,7 +62,14 @@ const GoogleAnalyticsForm: FC<{
       <div className="row">
         {loading && <LoadingOverlay />}
         <div className="form-group col-auto">
-          <label>View Id</label>
+          <label>
+            View Id{" "}
+            <Tooltip
+              text={
+                "View ID is found in your Google Analytics Admin -> View Settings"
+              }
+            />
+          </label>
           <input
             type="text"
             className="form-control"
