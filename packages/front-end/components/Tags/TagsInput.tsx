@@ -8,6 +8,7 @@ export interface ColorOption {
   readonly value: string;
   readonly label: string;
   readonly color: string;
+  readonly desc: string;
   readonly isFixed?: boolean;
   readonly isDisabled?: boolean;
 }
@@ -27,26 +28,11 @@ const TagsInput: FC<{
 }) => {
   const { tags } = useDefinitions();
 
-  const dot = (color = "transparent") => ({
-    alignItems: "center",
-    display: "flex",
-
-    ":before": {
-      backgroundColor: color,
-      borderRadius: 10,
-      content: '" "',
-      display: "block",
-      marginRight: 8,
-      height: 10,
-      width: 10,
-    },
-  });
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled, isFocused, isSelected }) => {
       const displayColor = data.color ?? "#029dd1";
       return {
         ...styles,
-        ...dot(data.color),
         backgroundColor: isDisabled
           ? undefined
           : isSelected
@@ -56,7 +42,26 @@ const TagsInput: FC<{
           : displayColor + "00",
         color: isDisabled ? "#ccc" : "#000",
         cursor: isDisabled ? "not-allowed" : "default",
-
+        alignItems: "center",
+        display: "flex",
+        // add a colored dot:
+        ":before": {
+          backgroundColor: data.color,
+          borderRadius: 10,
+          content: '" "',
+          display: "block",
+          marginRight: 8,
+          height: 10,
+          width: 10,
+        },
+        // add the description after
+        ":after": {
+          content: `" ${data.desc ? "- " + data.desc : ""} "`,
+          display: "inline",
+          color: "#777",
+          fontSize: "12px",
+          paddingLeft: "3px",
+        },
         ":active": {
           ...styles[":active"],
           backgroundColor: displayColor + "90",
@@ -93,6 +98,7 @@ const TagsInput: FC<{
               value: t.id,
               label: t.id,
               color: t.color,
+              desc: t.description,
             };
           }) ?? []
         }
