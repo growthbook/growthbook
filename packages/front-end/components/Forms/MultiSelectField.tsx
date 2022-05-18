@@ -5,6 +5,7 @@ import ReactSelect, {
   MultiValueGenericProps,
   MultiValueProps,
   Props,
+  StylesConfig,
 } from "react-select";
 import {
   SortableContainer,
@@ -52,6 +53,8 @@ const MultiSelectField: FC<
     initialOption?: string;
     onChange: (value: string[]) => void;
     sort?: boolean;
+    customStyles?: StylesConfig;
+    closeMenuOnSelect?: boolean;
   }
 > = ({
   value,
@@ -62,6 +65,8 @@ const MultiSelectField: FC<
   sort = true,
   disabled,
   autoFocus,
+  customStyles,
+  closeMenuOnSelect = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -79,7 +84,7 @@ const MultiSelectField: FC<
       )
     );
   };
-
+  const mergeStyles = customStyles ? { styles: customStyles } : {};
   return (
     <Field
       {...fieldProps}
@@ -106,11 +111,11 @@ const MultiSelectField: FC<
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
             }}
-            closeMenuOnSelect={false}
+            closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}
             placeholder={initialOption ?? placeholder}
-            {...ReactSelectProps}
+            {...{ ...ReactSelectProps, ...mergeStyles }}
           />
         );
       }}

@@ -2,8 +2,9 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import Tag from "./Tag";
-
-const MAX_TAGS = 12;
+import { useDefinitions } from "../../services/DefinitionsContext";
+import { useState } from "react";
+import Field from "../Forms/Field";
 
 interface ItemWithTags {
   tags?: string[];
@@ -48,12 +49,14 @@ export default function TagsFilter({
 }: Props) {
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];
+  const { getTagById } = useDefinitions();
+  const [typeaheadFilter, setTypeaheadFilter] = useState("");
+  //const showUntaggedOption = !tags.length; //<-- it would be good to filter untagged eventually
   items.forEach((item) => {
     if (item.tags) {
       item.tags.forEach((tag) => {
         counts[tag] = counts[tag] || 0;
         counts[tag]++;
-
         if (!availableTags.includes(tag) && !tags.includes(tag)) {
           availableTags.push(tag);
         }
@@ -63,17 +66,65 @@ export default function TagsFilter({
   availableTags.sort((a, b) => {
     return (counts[b] || 0) - (counts[a] || 0);
   });
+  const filteredTags = availableTags.filter((t) => {
+    if (!typeaheadFilter) return true;
+    return t.toLowerCase().startsWith(typeaheadFilter.toLowerCase());
+  });
 
   if (!tags.length && !availableTags.length) {
     return null;
   }
 
-  const numToShow = Math.max(0, MAX_TAGS - tags.length);
-
   return (
-    <div className="d-inline-flex">
-      <div>Filter by tags:</div>
-      <div>
+    <div className="d-inline-flex align-items-center">
+      {availableTags.length && (
+        <div className="">
+          <Dropdown
+            uuid="tags-filter-more-menu"
+            toggle={"filter by tag"}
+            right={false}
+          >
+            <div style={{ maxWidth: 350, minWidth: 280 }}>
+              <div className="dropdown-item-text border-bottom pb-3">
+                <Field
+                  value={typeaheadFilter}
+                  placeholder="Filter tags"
+                  onChange={(e) => {
+                    setTypeaheadFilter(e.target.value);
+                  }}
+                />
+              </div>
+              {filteredTags.map((tag) => {
+                const desc = getTagById(tag)?.description ?? "";
+                return (
+                  <DropdownLink
+                    onClick={async () => {
+                      setTags([...tags, tag]);
+                    }}
+                    key={tag}
+                    className="border-bottom py-2"
+                  >
+                    <Tag tag={tag} />
+                    {desc && (
+                      <div
+                        className="pt-1 text-muted"
+                        style={{
+                          whiteSpace: "normal",
+                          fontSize: "12px",
+                          lineHeight: "13px",
+                        }}
+                      >
+                        <span>{getTagById(tag)?.description}</span>
+                      </div>
+                    )}
+                  </DropdownLink>
+                );
+              })}
+            </div>
+          </Dropdown>
+        </div>
+      )}
+      <div className="ml-2 pt-1">
         {tags.map((tag) => (
           <Tag
             tag={tag}
@@ -87,39 +138,7 @@ export default function TagsFilter({
             <strong className="ml-1">&times;</strong>
           </Tag>
         ))}
-        {availableTags.slice(0, numToShow).map((tag) => {
-          return (
-            <Tag
-              tag={tag}
-              key={tag}
-              onClick={async () => {
-                setTags([...tags, tag]);
-              }}
-              description="Add tag filter"
-              className="mx-1 text-dark"
-              color="#fff"
-            />
-          );
-        })}
       </div>
-      {availableTags.length > numToShow && (
-        <div className="ml-2">
-          <Dropdown uuid="tags-filter-more-menu" toggle={"more"}>
-            {availableTags.slice(numToShow).map((tag) => {
-              return (
-                <DropdownLink
-                  onClick={async () => {
-                    setTags([...tags, tag]);
-                  }}
-                  key={tag}
-                >
-                  {tag}
-                </DropdownLink>
-              );
-            })}
-          </Dropdown>
-        </div>
-      )}
     </div>
   );
 }
