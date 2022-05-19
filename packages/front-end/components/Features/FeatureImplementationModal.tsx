@@ -13,6 +13,10 @@ export interface Props {
   close: () => void;
 }
 
+function rubySymbol(name: string): string {
+  return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;
+}
+
 export default function FeatureImplementationModal({
   feature,
   close,
@@ -97,7 +101,19 @@ console.log(growthbook.getFeatureValue(${JSON.stringify(
 fmt.Println(value)`,
       docs: "https://docs.growthbook.io/lib/go",
     },
-
+    {
+      id: "ruby",
+      display: "Ruby",
+      language: "ruby",
+      boolean: `if gb.on? ${rubySymbol(feature.id)}
+  # Do something
+end`,
+      value: `value = gb.feature_value(${rubySymbol(
+        feature.id
+      )}, 'default value')
+puts(value)`,
+      docs: "https://docs.growthbook.io/lib/ruby",
+    },
     {
       id: "kotlin",
       display: "Kotlin (Android)",
@@ -110,7 +126,6 @@ println(feature.value)
 `,
       docs: "https://docs.growthbook.io/lib/kotlin",
     },
-
     {
       id: "php",
       display: "PHP",
