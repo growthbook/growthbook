@@ -111,7 +111,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                    href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg"
                   >
                     Join us on Slack
                   </a>

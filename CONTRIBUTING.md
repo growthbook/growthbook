@@ -109,4 +109,4 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ## Getting Help
 
-Join our [Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg) if you need help getting set up or want to chat. We're also happy to hop on a call and do some pair programming.
+Join our [Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg) if you need help getting set up or want to chat. We're also happy to hop on a call and do some pair programming.
