@@ -1,5 +1,4 @@
 import { FC, useEffect, useState } from "react";
-import styles from "./TempMessage.module.scss";
 
 const SHOW_TIME = 3000;
 
@@ -33,9 +32,12 @@ const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
 
   return (
     <div
-      className={`alert alert-success shadow sticky-top ${styles.tempBar} ${
-        closing ? styles.closing : ""
-      }`}
+      className="alert alert-success shadow sticky-top text-center"
+      style={{
+        top: 55,
+        transition: "200ms all",
+        opacity: closing ? 0 : 1,
+      }}
     >
       {children}
     </div>
