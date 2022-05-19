@@ -314,7 +314,7 @@ export default function MyApp() {
     // Load feature definitions from API${
       isCloud()
         ? ""
-        : `\n// In production, we recommend putting a CDN in front of the API endpoint`
+        : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
     }
     fetch("${getFeaturesUrl(apiKey)}")
       .then((res) => res.json())
