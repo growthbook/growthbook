@@ -1,53 +1,45 @@
-import { FC, useEffect, useState, ReactElement } from "react";
+import { FC, useEffect, useState } from "react";
 import styles from "./TempMessage.module.scss";
 
-type ModalProps = {
-  message?: string | ReactElement;
-  show: boolean;
-  className?: string;
-  showTime?: number;
-  close?: () => void;
+const SHOW_TIME = 3000;
+
+type TempMessageProps = {
+  close: () => void;
 };
-const Modal: FC<ModalProps> = ({
-  message = "",
-  children,
-  show = false,
-  className = "",
-  showTime = 3000, // 3 seconds
-  close,
-}) => {
-  const [showTimer, setShowTimer] = useState(null);
+const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
   const [closing, setClosing] = useState(false);
 
+  // Start closing after SHOW_TIME ms
   useEffect(() => {
-    if (show && !showTimer) {
-      setShowTimer(
-        setTimeout(() => {
-          setClosing(true);
-          setTimeout(() => {
-            setClosing(false);
-            setShowTimer(null);
-            if (close) {
-              close();
-            }
-          }, 500);
-        }, showTime)
-      );
-    }
-  }, [show]);
+    const timer = setTimeout(() => {
+      setClosing(true);
+    }, SHOW_TIME);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
-  return show ? (
+  // Close after waiting for fade out animation to finish
+  useEffect(() => {
+    if (!closing) return;
+    const timer = setTimeout(() => {
+      setClosing(false);
+      close();
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [closing]);
+
+  return (
     <div
-      className={`temp-bar alert-success sticky-top ${className} ${
-        styles.tempBar
-      } ${closing ? styles.closing : ""}`}
+      className={`alert alert-success shadow sticky-top ${styles.tempBar} ${
+        closing ? styles.closing : ""
+      }`}
     >
-      <span>{message}</span>
       {children}
     </div>
-  ) : (
-    <></>
   );
 };
 
-export default Modal;
+export default TempMessage;

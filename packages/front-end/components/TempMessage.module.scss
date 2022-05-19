@@ -1,10 +1,7 @@
 .tempBar {
-  border: 1px solid #ccc;
   text-align: center;
   top: 55px;
-  padding: 10px;
   transition: 200ms all;
-  margin-bottom: 5px;
   opacity: 1;
   &.closing {
     opacity: 0;

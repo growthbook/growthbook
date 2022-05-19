@@ -69,6 +69,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
+  const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
 
   // eslint-disable-next-line
   const form = useForm<OrganizationSettings>({
@@ -131,11 +132,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   useEffect(() => {
     if (data?.organization?.settings) {
-      const newVal = {
-        ...form.getValues(),
-        ...data.organization.settings,
-      };
+      const newVal = { ...form.getValues() };
+      Object.keys(newVal).forEach((k) => {
+        newVal[k] = data.organization.settings?.[k] || newVal[k];
+      });
       form.reset(newVal);
+      setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
     }
   }, [data?.organization?.settings]);
@@ -151,7 +153,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const ctaEnabled = hasChanges(value, data?.organization?.settings);
+  const ctaEnabled = hasChanges(value, originalValue);
 
   const saveSettings = async () => {
     const enabledVisualEditor =
@@ -183,14 +185,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid pagecontents">
-      <TempMessage
-        show={saveMsg}
-        close={() => {
-          setSaveMsg(false);
-        }}
-      >
-        Settings saved
-      </TempMessage>
+      {saveMsg && (
+        <TempMessage
+          close={() => {
+            setSaveMsg(false);
+          }}
+        >
+          Settings saved
+        </TempMessage>
+      )}
       {editOpen && (
         <EditOrganizationForm
           name={data.organization.name}
@@ -441,6 +444,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <Field
                       label="Refresh when"
                       append="hours old"
+                      type="number"
+                      step={1}
+                      min={1}
+                      max={168}
                       className="ml-2"
                       disabled={hasFileConfig()}
                       {...form.register("updateSchedule.hours", {
@@ -480,7 +487,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   disabled={!ctaEnabled}
                   onClick={async () => {
                     if (!ctaEnabled) return;
-                    saveSettings();
+                    await saveSettings();
                   }}
                 >
                   Save
