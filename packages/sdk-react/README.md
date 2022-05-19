@@ -18,7 +18,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 
 ## Community
 
-Join [our GrowthBook Users Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make GrowthBook even better.
+Join [our GrowthBook Users Slack community](https://slack.growthbook.io?ref=react-readme) if you need help, want to chat, or are thinking of a new feature. We're here to help - and to make GrowthBook even better.
 
 ## Installation
 

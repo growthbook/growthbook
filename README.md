@@ -4,7 +4,7 @@
     <a href="https://github.com/growthbook/growthbook/actions/workflows/ci.yml"><img src="https://img.shields.io/github/workflow/status/growthbook/growthbook/CI" alt="Build Status" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/releases"><img src="https://img.shields.io/github/v/release/growthbook/growthbook?color=blue&sort=semver" alt="Release" height="22"/></a>
-    <a href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
+    <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
 
 Get up and running in 1 minute with:
@@ -61,7 +61,7 @@ Check out the full [Self-Hosting Instructions](https://docs.growthbook.io/self-h
 
 View the [GrowthBook Docs](https://docs.growthbook.io) for info on how to configure and use the platform.
 
-Join [our Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg) if you get stuck, want to chat, or are thinking of a new feature.
+Join [our Slack community](https://slack.growthbook.io?ref=readme-support) if you get stuck, want to chat, or are thinking of a new feature.
 
 Or email us at [hello@growthbook.io](mailto:hello@growthbook.io) if Slack isn't your thing.
 
@@ -73,7 +73,7 @@ We ❤️ all contributions, big and small!
 
 Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
 
-If you want to, you can reach out via [Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
+If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=readme-contributing) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
 
 ## License
 

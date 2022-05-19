@@ -324,7 +324,7 @@ function App({
                   <FaGithub className="inline" /> GitHub
                 </a>
                 <a
-                  href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg"
+                  href="https://slack.growthbook.io?ref=docs"
                   className="mr-6 cursor-pointer"
                 >
                   <FaSlack className="inline" /> Join our slack
@@ -397,7 +397,7 @@ function App({
                   <FaGithub className="inline" /> GitHub
                 </a>
                 <a
-                  href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-TN6QehOB2y6yyRgfpJ4geg"
+                  href="https://slack.growthbook.io?ref=docs"
                   className="mr-6 cursor-pointer"
                 >
                   <FaSlack className="inline" /> Join our slack
