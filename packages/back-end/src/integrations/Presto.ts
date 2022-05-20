@@ -76,7 +76,7 @@ export default class Presto extends SqlIntegration {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
   formatDate(col: string): string {
-    return `substr(to_iso8601(${col}),0,10)`;
+    return `substr(to_iso8601(${col}),1,10)`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
