@@ -130,24 +130,31 @@ const DataSourcePage: FC = () => {
               This data source does not require any additional configuration.
             </div>
           )}
-          {supportsEvents && (
+          {supportsEvents && d?.settings?.events && (
             <>
               <h3 className="mb-3">Query Settings</h3>
               <table className="table appbox gbtable mb-5">
                 <tbody>
-                  {Object.keys(d.settings.events).map((k) => {
-                    return (
-                      <tr key={k}>
-                        <th>
-                          {k[0].toUpperCase() +
-                            k.replace(/([A-Z])/g, " $1").slice(1)}
-                        </th>
-                        <td>
-                          <code>{d.settings.events[k]}</code>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  <tr>
+                    <th>Experiment Event</th>
+                    <td>
+                      <code>{d.settings.events.experimentEvent || ""}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Experiment Id Property</th>
+                    <td>
+                      <code>
+                        {d.settings.events.experimentIdProperty || ""}
+                      </code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Variation Id Property</th>
+                    <td>
+                      <code>{d.settings.events.variationIdProperty || ""}</code>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
               {d.type === "mixpanel" && (
