@@ -480,6 +480,7 @@ A call to `growthbook.run(experiment)` returns an object with a few useful prope
 ```ts
 const {
   inExperiment,
+  hashUsed,
   variationId,
   value,
   hashAttribute,
@@ -489,7 +490,7 @@ const {
   variations: ["A", "B"],
 });
 
-// If user is part of the experiment
+// If user is included in the experiment
 console.log(inExperiment); // true or false
 
 // The index of the assigned variation
@@ -498,14 +499,19 @@ console.log(variationId); // 0 or 1
 // The value of the assigned variation
 console.log(value); // "A" or "B"
 
-// The user attribute used to assign a variation
+// If the variation was randomly assigned by hashing
+console.log(hashUsed);
+
+// The user attribute that was hashed
 console.log(hashAttribute); // "id"
 
 // The value of that attribute
 console.log(hashValue); // e.g. "123"
 ```
 
-The `inExperiment` flag is only set to true if the user was randomly assigned a variation. If the user failed any targeting rules or was forced into a specific variation, this flag will be false.
+The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
+
+The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
 
 ## Typescript
 

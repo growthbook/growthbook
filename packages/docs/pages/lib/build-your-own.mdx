@@ -511,20 +511,23 @@ Everything else is considered "truthy", including empty arrays and objects.
 
 If value is "truthy", then `on` should be true and `off` should be false. If the value is "falsy", then they should take opposite values.
 
-### private getExperimentResult(experiment, variationIndex, inExperiment): ExperimentResult
+### private getExperimentResult(experiment, variationIndex, hashUsed): ExperimentResult
 
 This is a helper method to create an `ExperimentResult` object. The arguments are:
 
 - Experiment object (required)
-- The assigned variation index (optional, default to `0`)
+- The assigned variation index (optional, default to `-1`)
+- Whether or not the hash was used to assign a variation (optional, default to `false`)
 - Whether or not the user is in the experiment (optional, default to `false`)
 
 The method is pretty simple:
 
-1. Make sure the variationIndex is valid for the experiment
+1. Determine if user is in the experiment and clamp the variationIndex as needed
    ```ts
-   if (variationIndex < 0 || variationIdex >= experiment.variations.length) {
+   let inExperiment = true;
+   if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
      variationIndex = 0;
+     inExperiment = false;
    }
    ```
 2. Get the hashAttribute and hashValue
@@ -536,6 +539,7 @@ The method is pretty simple:
    ```ts
    return {
      inExperiment: inExperiment,
+     hashUsed: hashUsed,
      variationId: variationIndex,
      value: experiment.variations[variationIndex],
      hashAttribute: hashAttribute,
@@ -783,6 +787,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - experiment object
   - expected value
   - inExperiment (boolean)
+  - hashUsed (boolean)
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
