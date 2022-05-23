@@ -96,10 +96,13 @@ The result of running an **Experiment** given a specific **Context**
 - **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
 - **variationId** (`int`) - The array index of the assigned variation
 - **value** (`any`) - The array value of the assigned variation
+- **hashUsed** (`boolean`) - If a hash was used to assign a variation
 - **hashAttribute** (`string`) - The user attribute used to assign a variation
 - **hashValue** (`string)` - The value of that attribute
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
+
+The `hashAttribute` and `hashValue` should always be set, even when `hashUsed` is false.
 
 ### Feature
 
