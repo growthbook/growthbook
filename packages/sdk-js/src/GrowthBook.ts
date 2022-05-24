@@ -614,11 +614,14 @@ export class GrowthBook {
 
   private getResult<T>(
     experiment: Experiment<T>,
-    variationIndex: number = 0,
-    inExperiment: boolean = false
+    variationIndex: number = -1,
+    hashUsed: boolean = false
   ): Result<T> {
+    let inExperiment = true;
+    // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
     if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
       variationIndex = 0;
+      inExperiment = false;
     }
 
     const { hashAttribute, hashValue } = this.getHashAttribute(
@@ -627,6 +630,7 @@ export class GrowthBook {
 
     return {
       inExperiment,
+      hashUsed,
       variationId: variationIndex,
       value: experiment.variations[variationIndex],
       hashAttribute,
