@@ -43,27 +43,6 @@ export function getCurrentUser() {
   return currentUser;
 }
 
-function getPermissionsByRole(role: MemberRole): Permissions {
-  const permissions: Permissions = {};
-  switch (role) {
-    case "admin":
-      permissions.organizationSettings = true;
-      permissions.publishProtectedEnvs = true;
-      permissions.createDatasources = true;
-    // falls through
-    case "developer":
-      permissions.publishFeatures = true;
-      permissions.createFeatures = true;
-    // falls through
-    case "analyst":
-      permissions.createExperiments = true;
-      permissions.createMetrics = true;
-      permissions.createDimensions = true;
-      permissions.createSegments = true;
-  }
-  return permissions;
-}
-
 export type UserContextValue = {
   userId?: string;
   name?: string;
@@ -138,7 +117,13 @@ const ProtectedPage: React.FC<{
   };
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+  const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
+  const permissions = currentOrg?.permissions || {};
+
+  // Always allow admins to view org settings at the very least
+  if (data?.admin) {
+    permissions.organizationSettings = true;
+  }
 
   useEffect(() => {
     currentUser = {
@@ -240,9 +225,9 @@ const ProtectedPage: React.FC<{
     },
     refreshUsers,
     role,
+    permissions,
     subscriptionStatus: currentOrg?.subscriptionStatus || "active",
     trialEnd: currentOrg?.trialEnd,
-    permissions: getPermissionsByRole(role),
     settings: currentOrg?.settings || {},
   };
 

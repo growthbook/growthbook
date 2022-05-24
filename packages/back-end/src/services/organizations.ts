@@ -104,13 +104,25 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   switch (role) {
     case "admin":
       permissions.organizationSettings = true;
+      permissions.createDatasources = true;
+      permissions.publishProtectedEnvs = true;
     // falls through
     case "developer":
-      permissions.runExperiments = true;
+      permissions.publishFeatures = true;
+      permissions.createFeatures = true;
+    // falls through
+    case "analyst":
+      permissions.createDimensions = true;
       permissions.createMetrics = true;
+      permissions.createSegments = true;
+      permissions.editDatasourceSettings = true;
+    // falls through
+    case "collaborator":
     // falls through
     case "designer":
-      permissions.draftExperiments = true;
+      permissions.addComments = true;
+      permissions.runQueries = true;
+      permissions.editMetadata = true;
   }
   return permissions;
 }

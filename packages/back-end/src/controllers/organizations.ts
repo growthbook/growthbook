@@ -11,6 +11,7 @@ import {
   getOrgFromReq,
   addMemberToOrg,
   validateLogin,
+  getPermissionsByRole,
 } from "../services/organizations";
 import {
   DataSourceParams,
@@ -157,14 +158,18 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
-    organizations: validOrgs.map((org) => ({
-      id: org.id,
-      name: org.name,
-      subscriptionStatus: org.subscription?.status,
-      trialEnd: org.subscription?.trialEnd,
-      role: getRole(org, userId),
-      settings: org.settings || {},
-    })),
+    organizations: validOrgs.map((org) => {
+      const role = getRole(org, userId) || "readonly";
+      return {
+        id: org.id,
+        name: org.name,
+        subscriptionStatus: org.subscription?.status,
+        trialEnd: org.subscription?.trialEnd,
+        role,
+        permissions: getPermissionsByRole(role),
+        settings: org.settings || {},
+      };
+    }),
   });
 }
 

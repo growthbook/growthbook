@@ -3,7 +3,7 @@ import { ImplementationType } from "./experiment";
 export type Permissions = {
   // Colloborator
   addComments?: boolean;
-  refreshResults?: boolean;
+  runQueries?: boolean;
   editMetadata?: boolean;
 
   // Analysts
@@ -11,6 +11,7 @@ export type Permissions = {
   createMetrics?: boolean;
   createDimensions?: boolean;
   createSegments?: boolean;
+  editDatasourceSettings?: boolean;
 
   // Developers
   // All of the above, plus:

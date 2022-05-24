@@ -6,6 +6,7 @@ import {
   MemberRole,
   OrganizationInterface,
   OrganizationSettings,
+  Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, isCloud } from "./env";
@@ -23,6 +24,7 @@ export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
+  permissions?: Permissions;
   subscriptionStatus?: SubscriptionStatus;
   trialEnd?: Date;
   settings?: OrganizationSettings;
