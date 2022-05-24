@@ -57,7 +57,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
-              text="Integrate GrowthBook into your Javascript, React, Golang, PHP, Python, or Android application. More languages and frameworks coming soon!"
+              text="Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!"
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
@@ -111,7 +111,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                    href="https://slack.growthbook.io?ref=app-features"
                   >
                     Join us on Slack
                   </a>

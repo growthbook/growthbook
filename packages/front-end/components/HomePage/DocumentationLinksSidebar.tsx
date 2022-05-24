@@ -63,7 +63,7 @@ export default function DocumentationLinksSidebar({
               <a
                 target="_blank"
                 rel="noreferrer"
-                href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                href="https://slack.growthbook.io?ref=app-getstarted"
               >
                 <strong>Slack</strong>
               </a>
@@ -143,7 +143,7 @@ export default function DocumentationLinksSidebar({
         <a
           target="_blank"
           rel="noreferrer"
-          href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+          href="https://slack.growthbook.io?ref=app-havequestions"
         >
           <strong>Slack channel</strong>
         </a>

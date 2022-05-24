@@ -17,7 +17,7 @@ type Cases = {
   // value, hash
   hash: [string, number][];
   // name, context, experiment, value, inExperiment
-  run: [string, Context, Experiment<any>, any, boolean][];
+  run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
   feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
   // name, condition, attribute, result
@@ -117,11 +117,12 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).run)(
     "run[%#] %s",
-    (name, ctx, exp, value, inExperiment) => {
+    (name, ctx, exp, value, inExperiment, hashUsed) => {
       const growthbook = new GrowthBook(ctx);
       const res = growthbook.run(exp);
       expect(res.value).toEqual(value);
       expect(res.inExperiment).toEqual(inExperiment);
+      expect(res.hashUsed).toEqual(hashUsed);
       growthbook.destroy();
     }
   );

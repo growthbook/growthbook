@@ -166,7 +166,7 @@ export default abstract class SqlIntegration
           return `
         __exposures${i} as (
           SELECT 
-            '${q.id}' as exposure_query, 
+            ${this.castToString(`'${q.id}'`)} as exposure_query, 
             experiment_id,
             variation_id,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
