@@ -518,16 +518,17 @@ If value is "truthy", then `on` should be true and `off` should be false. If the
 
 This is a helper method to create an `ExperimentResult` object. The arguments are:
 
-- Experiment object (required)
-- The assigned variation index (optional, default to `-1`)
-- Whether or not the hash was used to assign a variation (optional, default to `false`)
-- Whether or not the user is in the experiment (optional, default to `false`)
+- `experiment` - Experiment object (required)
+- `variationIndex` - The assigned variation index (optional, default to `-1`)
+- `hashUsed` - Whether or not the hash was used to assign a variation (optional, default to `false`)
 
 The method is pretty simple:
 
-1. Determine if user is in the experiment and clamp the variationIndex as needed
+1. Handle case when user is not in the experiment (e.g. variationIndex = -1)
    ```ts
+   // By default, assume everyone is in the experiment
    let inExperiment = true;
+   // If the variation is invalid, use the baseline and set the inExperiment flag to false
    if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
      variationIndex = 0;
      inExperiment = false;
