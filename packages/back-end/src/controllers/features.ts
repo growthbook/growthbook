@@ -89,6 +89,8 @@ export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { id, ...otherProps } = req.body;
   const { org, environments, userId, email, userName } = getOrgFromReq(req);
 
@@ -160,6 +162,8 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
+  req.checkPermissions("createFeatures", "publishFeatures");
+
   const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
   const { draft, comment } = req.body;
@@ -206,6 +210,8 @@ export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { draft } = req.body;
@@ -236,6 +242,8 @@ export async function postFeatureDraft(
   >,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { defaultValue, rules, comment } = req.body;
@@ -263,6 +271,8 @@ export async function postFeatureRule(
   req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, rule } = req.body;
@@ -283,6 +293,8 @@ export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { defaultValue } = req.body;
@@ -306,6 +318,8 @@ export async function putFeatureRule(
   >,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, rule, i } = req.body;
@@ -326,6 +340,8 @@ export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures", "publishFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, state } = req.body;
@@ -364,6 +380,8 @@ export async function postFeatureMoveRule(
   >,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, from, to } = req.body;
@@ -391,6 +409,8 @@ export async function deleteFeatureRule(
   req: AuthRequest<{ environment: string; i: number }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, i } = req.body;
@@ -416,6 +436,8 @@ export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("editMetadata");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const feature = await getFeature(org.id, id);
@@ -483,6 +505,8 @@ export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createFeatures", "publishFeatures");
+
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 

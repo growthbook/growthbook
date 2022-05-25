@@ -105,13 +105,14 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     case "admin":
       permissions.organizationSettings = true;
       permissions.createDatasources = true;
-      permissions.publishProtectedEnvs = true;
+      permissions.owner = true;
     // falls through
     case "developer":
       permissions.publishFeatures = true;
       permissions.createFeatures = true;
     // falls through
     case "analyst":
+      permissions.createAnalyses = true;
       permissions.createDimensions = true;
       permissions.createMetrics = true;
       permissions.createSegments = true;
@@ -123,6 +124,8 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
       permissions.addComments = true;
       permissions.runQueries = true;
       permissions.editMetadata = true;
+      permissions.createIdeas = true;
+      permissions.createPresentations = true;
   }
   return permissions;
 }

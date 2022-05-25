@@ -109,6 +109,15 @@ export async function processJWT(
   req.loginMethod = method || "";
   req.permissions = {};
 
+  // Throw error if permissions don't pass
+  req.checkPermissions = (...permissions) => {
+    for (let i = 0; i < permissions.length; i++) {
+      if (!req.permissions[permissions[i]]) {
+        throw new Error("You do not have permission to complete that action.");
+      }
+    }
+  };
+
   const user = await (IS_CLOUD
     ? getUserFromEmail(req.email)
     : getUserFromLocalJWT(req.user));

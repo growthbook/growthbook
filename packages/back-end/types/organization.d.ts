@@ -5,9 +5,11 @@ export type Permissions = {
   addComments?: boolean;
   runQueries?: boolean;
   editMetadata?: boolean;
+  createPresentations?: boolean;
+  createIdeas?: boolean;
 
   // Analysts
-  createExperiments?: boolean;
+  createAnalyses?: boolean;
   createMetrics?: boolean;
   createDimensions?: boolean;
   createSegments?: boolean;
@@ -20,9 +22,9 @@ export type Permissions = {
 
   // Admin only
   // All of the above, plus:
-  publishProtectedEnvs?: boolean;
   organizationSettings?: boolean;
   createDatasources?: boolean;
+  owner?: boolean;
 };
 
 export type MemberRole =
