@@ -42,7 +42,7 @@ export default class BigQuery extends SqlIntegration {
     return rows;
   }
   toTimestamp(date: Date) {
-    return `DATETIME "${date.toISOString().substr(0, 19).replace("T", " ")}"`;
+    return `DATETIME("${date.toISOString().substr(0, 19).replace("T", " ")}")`;
   }
   addTime(
     col: string,
