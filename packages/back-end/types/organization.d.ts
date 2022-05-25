@@ -32,6 +32,7 @@ export type MemberRole =
   | "designer"
   | "analyst"
   | "developer"
+  | "experimenter"
   | "admin";
 
 export interface Invite {

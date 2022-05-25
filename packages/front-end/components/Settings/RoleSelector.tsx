@@ -2,16 +2,13 @@ import { FC } from "react";
 import clsx from "clsx";
 import { MemberRole } from "back-end/types/organization";
 
-const roles: [MemberRole, string, string][] = [
-  ["readonly", "View features and experiment results", ""],
-  ["collaborator", "Edit metadata, refresh reports, and add comments", ""],
-  [
-    "analyst",
-    "Create metrics, segments, dimensions, and reports",
-    "collaborator",
-  ],
-  ["developer", "Create and publish features", "analyst"],
-  ["admin", "Invite teammates, control organization settings", "developer"],
+const roles: [MemberRole, string][] = [
+  ["readonly", "View all features and experiment results"],
+  ["collaborator", "Participate in discussion threads and add ideas"],
+  ["developer", "Manage features"],
+  ["analyst", "Analyze experiments"],
+  ["experimenter", "Manage features AND analyze experiments"],
+  ["admin", "Invite teammates and configure settings"],
 ];
 
 const RoleSelector: FC<{
@@ -24,12 +21,11 @@ const RoleSelector: FC<{
 
   return (
     <div>
-      {roles.map(([name, description, inheritsFrom]) => (
+      {roles.map(([name, description]) => (
         <div className="list-group" key={name}>
           <button
             className={clsx("list-group-item list-group-item-action", {
               active: role === name,
-              "list-group-item-light": role === name,
             })}
             onClick={(e) => {
               e.preventDefault();
@@ -37,12 +33,7 @@ const RoleSelector: FC<{
             }}
           >
             <div className="d-flex w-100">
-              <strong style={{ width: 130 }}>{name}</strong>
-              {inheritsFrom && (
-                <span className="text-muted mr-2">
-                  All {inheritsFrom} permissions +
-                </span>
-              )}
+              <strong style={{ width: 115 }}>{name}</strong>
               <div style={{ flex: 1 }}>{description}</div>
             </div>
           </button>

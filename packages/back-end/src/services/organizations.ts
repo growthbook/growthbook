@@ -100,32 +100,40 @@ export function getRole(
 }
 
 export function getPermissionsByRole(role: MemberRole): Permissions {
-  const permissions: Permissions = {};
-  switch (role) {
-    case "admin":
-      permissions.organizationSettings = true;
-      permissions.createDatasources = true;
-      permissions.owner = true;
-    // falls through
-    case "developer":
-      permissions.publishFeatures = true;
-      permissions.createFeatures = true;
-    // falls through
-    case "analyst":
-      permissions.createAnalyses = true;
-      permissions.createDimensions = true;
-      permissions.createMetrics = true;
-      permissions.createSegments = true;
-      permissions.editDatasourceSettings = true;
-    // falls through
-    case "collaborator":
-    // falls through
-    case "designer":
-      permissions.addComments = true;
-      permissions.runQueries = true;
-      permissions.createIdeas = true;
-      permissions.createPresentations = true;
+  if (role === "readonly") {
+    return {};
   }
+
+  // Base permissions shared by everyone
+  const permissions: Permissions = {
+    addComments: true,
+    createIdeas: true,
+    createPresentations: true,
+  };
+
+  // Feature flag permissions
+  if (role === "developer" || role === "experimenter" || role === "admin") {
+    permissions.publishFeatures = true;
+    permissions.createFeatures = true;
+  }
+
+  // Analysis permissions
+  if (role === "analyst" || role === "experimenter" || role === "admin") {
+    permissions.createAnalyses = true;
+    permissions.createDimensions = true;
+    permissions.createMetrics = true;
+    permissions.createSegments = true;
+    permissions.runQueries = true;
+    permissions.editDatasourceSettings = true;
+  }
+
+  // Admin permissions
+  if (role === "admin") {
+    permissions.organizationSettings = true;
+    permissions.createDatasources = true;
+    permissions.owner = true;
+  }
+
   return permissions;
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { MemberRole, useAuth } from "../../services/auth";
+import { useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
@@ -11,7 +11,7 @@ import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings, MemberRole } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
