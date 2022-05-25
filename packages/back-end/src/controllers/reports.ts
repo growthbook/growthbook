@@ -159,8 +159,9 @@ export async function deleteReport(
     throw new Error("Could not find report");
   }
 
-  if (report.userId !== req.userId && !req.permissions.owner) {
-    throw new Error("You do not have permission to do this");
+  // Only allow admins to delete other people's reports
+  if (report.userId !== req.userId) {
+    req.checkPermissions("owner");
   }
 
   await deleteReportById(org.id, req.params.id);

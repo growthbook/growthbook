@@ -4,7 +4,6 @@ export type Permissions = {
   // Colloborator
   addComments?: boolean;
   runQueries?: boolean;
-  editMetadata?: boolean;
   createPresentations?: boolean;
   createIdeas?: boolean;
 

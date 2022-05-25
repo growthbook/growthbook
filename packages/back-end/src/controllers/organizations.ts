@@ -14,16 +14,8 @@ import {
   getPermissionsByRole,
 } from "../services/organizations";
 import {
-  DataSourceParams,
-  DataSourceType,
-  DataSourceSettings,
-  DataSourceInterface,
-} from "../../types/datasource";
-import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
-  mergeParams,
-  encryptParams,
 } from "../services/datasource";
 import { createUser, getUsersByIds } from "../services/users";
 import { getAllTags } from "../models/TagModel";
@@ -33,7 +25,6 @@ import {
   deleteByOrganizationAndApiKey,
   getFirstApiKey,
 } from "../services/apiKey";
-import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { UserModel } from "../models/UserModel";
 import {
   MemberRole,
@@ -47,39 +38,18 @@ import {
 } from "../services/audit";
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
-import { QueryModel } from "../models/QueryModel";
-import {
-  createManualSnapshot,
-  getSampleExperiment,
-} from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
-import {
-  findDimensionsByDataSource,
-  findDimensionsByOrganization,
-} from "../models/DimensionModel";
+import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
   sendNewOrgEmail,
 } from "../services/email";
-import {
-  createDataSource,
-  getDataSourcesByOrganization,
-  getDataSourceById,
-  deleteDatasourceById,
-  updateDataSource,
-} from "../models/DataSourceModel";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
+import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
-import {
-  insertMetric,
-  getMetricsByDatasource,
-  getMetricsByOrganization,
-  getSampleMetrics,
-} from "../models/MetricModel";
-import uniqid from "uniqid";
+import { getMetricsByOrganization } from "../models/MetricModel";
 import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
@@ -170,161 +140,6 @@ export async function getUser(req: AuthRequest, res: Response) {
         settings: org.settings || {},
       };
     }),
-  });
-}
-
-export async function postSampleData(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
-  const orgId = org.id;
-  if (!orgId) {
-    throw new Error("Must be part of an organization");
-  }
-
-  const existingMetrics = await getSampleMetrics(orgId);
-
-  let metric1 = existingMetrics.filter((m) => m.type === "binomial")[0];
-  if (!metric1) {
-    metric1 = {
-      id: uniqid("met_sample_"),
-      datasource: "",
-      ignoreNulls: false,
-      inverse: false,
-      queries: [],
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      runStarted: null,
-      name: "Sample Conversions",
-      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-      type: "binomial",
-      organization: orgId,
-      userIdType: "anonymous",
-    };
-    await insertMetric(metric1);
-  }
-
-  let metric2 = existingMetrics.filter((m) => m.type === "revenue")[0];
-  if (!metric2) {
-    metric2 = {
-      id: uniqid("met_sample_"),
-      datasource: "",
-      ignoreNulls: false,
-      inverse: false,
-      queries: [],
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      runStarted: null,
-      name: "Sample Revenue per User",
-      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-      type: "revenue",
-      organization: orgId,
-      userIdType: "anonymous",
-    };
-    await insertMetric(metric2);
-  }
-
-  let experiment = await getSampleExperiment(orgId);
-
-  if (!experiment) {
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    experiment = {
-      id: uniqid("exp_sample_"),
-      organization: orgId,
-      archived: false,
-      name: "Sample Experiment",
-      status: "stopped",
-      description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
-      hypothesis:
-        "Making the buttons green on the pricing page will increase conversions",
-      previewURL: "",
-      targetURLRegex: "",
-      variations: [
-        {
-          name: "Control",
-          value: `{"color": "blue"}`,
-          screenshots: [
-            {
-              path: "/images/pricing-default.png",
-            },
-          ],
-        },
-        {
-          name: "Variation",
-          value: `{"color": "green"}`,
-          screenshots: [
-            {
-              path: "/images/pricing-green.png",
-            },
-          ],
-        },
-      ],
-      autoAssign: false,
-      autoSnapshots: false,
-      datasource: "",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      implementation: "code",
-      metrics: [metric1.id, metric2.id],
-      owner: userId,
-      trackingKey: "sample-experiment",
-      exposureQueryId: "",
-      tags: [],
-      results: "won",
-      winner: 1,
-      analysis: `Calling this test a winner given the significant increase in conversions! 💵 🍾
-
-Revenue did not reach 95% significance, but the risk is so low it doesn't seem worth it to keep waiting.
-
-**Ready to get some wins yourself?** [Finish setting up your account](/getstarted)`,
-      phases: [
-        {
-          dateStarted: lastWeek,
-          dateEnded: new Date(),
-          phase: "main",
-          reason: "",
-          coverage: 1,
-          variationWeights: [0.5, 0.5],
-          groups: [],
-        },
-      ],
-    };
-    await ExperimentModel.create(experiment);
-
-    await createManualSnapshot(experiment, 0, [15500, 15400], {
-      [metric1.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 1,
-          stddev: 1,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 1,
-          stddev: 1,
-        },
-      ],
-      [metric2.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 26.54,
-          stddev: 16.75,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 25.13,
-          stddev: 16.87,
-        },
-      ],
-    });
-  }
-
-  res.status(200).json({
-    status: 200,
-    experiment: experiment.id,
   });
 }
 
@@ -524,14 +339,9 @@ export async function putMemberRole(
   req: AuthRequest<{ role: MemberRole }, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org, userId } = getOrgFromReq(req);
   const { role } = req.body;
   const { id } = req.params;
 
@@ -581,12 +391,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
   const { org } = getOrgFromReq(req);
 
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
   const {
     invites,
@@ -681,6 +486,8 @@ export async function postNamespaces(
   req: AuthRequest<{ name: string; description: string }>,
   res: Response
 ) {
+  req.checkPermissions("organizationSettings");
+
   const { name, description } = req.body;
   const { org } = getOrgFromReq(req);
 
@@ -724,14 +531,9 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
 }
 
 export async function postInvite(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { email, role } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
@@ -750,14 +552,9 @@ export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
 
   if (id === userId) {
@@ -774,76 +571,13 @@ export async function deleteMember(
   });
 }
 
-export async function deleteDataSource(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { id } = req.params;
-
-  const datasource = await getDataSourceById(id, org.id);
-  if (!datasource) {
-    throw new Error("Cannot find datasource");
-  }
-
-  // Make sure there are no metrics
-  const metrics = await getMetricsByDatasource(
-    datasource.id,
-    datasource.organization
-  );
-  if (metrics.length > 0) {
-    throw new Error(
-      "Error: Please delete all metrics tied to this datasource first."
-    );
-  }
-
-  // Make sure there are no segments
-  const segments = await SegmentModel.find({
-    datasource: datasource.id,
-  });
-  if (segments.length > 0) {
-    throw new Error(
-      "Error: Please delete all segments tied to this datasource first."
-    );
-  }
-
-  // Make sure there are no dimensions
-  const dimensions = await findDimensionsByDataSource(
-    datasource.id,
-    datasource.organization
-  );
-  if (dimensions.length > 0) {
-    throw new Error(
-      "Error: Please delete all dimensions tied to this datasource first."
-    );
-  }
-
-  await deleteDatasourceById(datasource.id, org.id);
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { key } = req.body;
 
   let emailSent = false;
@@ -867,14 +601,9 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { key } = req.body;
 
   await revokeInvite(org, key);
@@ -929,14 +658,9 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { name, settings } = req.body;
 
   try {
@@ -965,199 +689,6 @@ export async function putOrganization(
   }
 }
 
-export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const datasources = await getDataSourcesByOrganization(org.id);
-
-  if (!datasources || !datasources.length) {
-    res.status(200).json({
-      status: 200,
-      datasources: [],
-    });
-    return;
-  }
-
-  res.status(200).json({
-    status: 200,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
-      return {
-        id: d.id,
-        name: d.name,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-      };
-    }),
-  });
-}
-
-export async function getDataSource(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { id } = req.params;
-
-  const datasource = await getDataSourceById(id, org.id);
-  if (!datasource) {
-    res.status(404).json({
-      status: 404,
-      message: "Cannot find data source",
-    });
-    return;
-  }
-
-  const integration = getSourceIntegrationObject(datasource);
-
-  res.status(200).json({
-    id: datasource.id,
-    name: datasource.name,
-    type: datasource.type,
-    params: getNonSensitiveParams(integration),
-    settings: datasource.settings,
-  });
-}
-
-export async function postDataSources(
-  req: AuthRequest<{
-    name: string;
-    type: DataSourceType;
-    params: DataSourceParams;
-    settings: DataSourceSettings;
-  }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { name, type, params } = req.body;
-  const settings = req.body.settings || {};
-
-  try {
-    // Set default event properties and queries
-    settings.events = {
-      experimentEvent: "$experiment_started",
-      experimentIdProperty: "Experiment name",
-      variationIdProperty: "Variant name",
-      ...settings?.events,
-    };
-
-    const datasource = await createDataSource(
-      org.id,
-      name,
-      type,
-      params,
-      settings
-    );
-
-    res.status(200).json({
-      status: 200,
-      id: datasource.id,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
-    });
-  }
-}
-
-export async function putDataSource(
-  req: AuthRequest<
-    {
-      name: string;
-      type: DataSourceType;
-      params: DataSourceParams;
-      settings: DataSourceSettings;
-    },
-    { id: string }
-  >,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const { id } = req.params;
-  const { name, type, params, settings } = req.body;
-
-  const datasource = await getDataSourceById(id, org.id);
-  if (!datasource) {
-    res.status(404).json({
-      status: 404,
-      message: "Cannot find data source",
-    });
-    return;
-  }
-
-  if (type !== datasource.type) {
-    res.status(400).json({
-      status: 400,
-      message:
-        "Cannot change the type of an existing data source. Create a new one instead.",
-    });
-    return;
-  }
-
-  try {
-    const updates: Partial<DataSourceInterface> = {
-      name,
-      dateUpdated: new Date(),
-      settings,
-    };
-
-    if (
-      type === "google_analytics" &&
-      (params as GoogleAnalyticsParams).refreshToken
-    ) {
-      const oauth2Client = getOauth2Client();
-      const { tokens } = await oauth2Client.getToken(
-        (params as GoogleAnalyticsParams).refreshToken
-      );
-      (params as GoogleAnalyticsParams).refreshToken =
-        tokens.refresh_token || "";
-    }
-
-    // If the connection params changed, re-validate the connection
-    // If the user is just updating the display name, no need to do this
-    if (params) {
-      const integration = getSourceIntegrationObject(datasource);
-      mergeParams(integration, params);
-      await integration.testConnection();
-      updates.params = encryptParams(integration.params);
-    }
-
-    await updateDataSource(id, org.id, updates);
-
-    res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
-    });
-  }
-}
-
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
@@ -1171,14 +702,9 @@ export async function postApiKey(
   req: AuthRequest<{ description?: string; environment: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { description, environment } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
@@ -1204,14 +730,9 @@ export async function deleteApiKey(
   req: AuthRequest<null, { key: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { key } = req.params;
 
   await deleteByOrganizationAndApiKey(org.id, key);
@@ -1241,14 +762,9 @@ export async function postWebhook(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { name, endpoint, project, environment } = req.body;
 
   const webhook = await createWebhook(
@@ -1269,14 +785,9 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
   const webhook = await WebhookModel.findOne({
@@ -1312,14 +823,9 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
@@ -1332,40 +838,10 @@ export async function deleteWebhook(
   });
 }
 
-export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
-
-  const oauth2Client = getOauth2Client();
-
-  const url = oauth2Client.generateAuthUrl({
-    // eslint-disable-next-line
-    access_type: "offline",
-    // eslint-disable-next-line
-    include_granted_scopes: true,
-    prompt: "consent",
-    scope: "https://www.googleapis.com/auth/analytics.readonly",
-  });
-
-  res.status(200).json({
-    status: 200,
-    url,
-  });
-}
-
 export async function postImportConfig(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
+  req.checkPermissions("organizationSettings");
 
+  const { org } = getOrgFromReq(req);
   const { contents }: { contents: string } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1377,42 +853,6 @@ export async function postImportConfig(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-  });
-}
-
-export async function getQueries(
-  req: AuthRequest<null, { ids: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { ids } = req.params;
-  const queries = ids.split(",");
-
-  const docs = await QueryModel.find({
-    organization: org.id,
-    id: {
-      $in: queries,
-    },
-  });
-
-  // Lookup table so we can return queries in the same order we received them
-  const map = new Map();
-  docs.forEach((doc) => {
-    // If we haven't gotten a heartbeat in a while, change the status to failed
-    if (
-      doc.status === "running" &&
-      Date.now() - doc.heartbeat.getTime() > 120000
-    ) {
-      doc.set("status", "failed");
-      doc.set("error", "Query aborted");
-      doc.save();
-    }
-
-    map.set(doc.id, doc);
-  });
-
-  res.status(200).json({
-    queries: queries.map((id) => map.get(id) || null),
   });
 }
 

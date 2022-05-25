@@ -123,7 +123,6 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     case "designer":
       permissions.addComments = true;
       permissions.runQueries = true;
-      permissions.editMetadata = true;
       permissions.createIdeas = true;
       permissions.createPresentations = true;
   }

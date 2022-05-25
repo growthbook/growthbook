@@ -10,6 +10,7 @@ export type EntityType =
 export type EventType =
   | "experiment.create"
   | "experiment.update"
+  | "experiment.updatemeta"
   | "experiment.start"
   | "experiment.phase"
   | "experiment.phase.delete"

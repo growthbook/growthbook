@@ -436,7 +436,7 @@ export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("editMetadata");
+  req.checkPermissions("createFeatures");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
