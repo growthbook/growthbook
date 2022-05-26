@@ -38,7 +38,7 @@ const navLinks = [
   },
   {
     href: "/app",
-    name: "User Guide",
+    name: "Platform",
     links: [
       {
         href: "/app/datasources",
@@ -72,6 +72,16 @@ const navLinks = [
       {
         href: "/app/webhooks",
         name: "Webhooks",
+      },
+    ],
+  },
+  {
+    href: "/guide",
+    name: "How to",
+    links: [
+      {
+        href: "/guide/GA-universal-analytics",
+        name: "Google Analytics - UA",
       },
     ],
   },
