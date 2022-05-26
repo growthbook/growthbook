@@ -15,6 +15,7 @@ export type Props = {
   finishedCTA: string;
   className?: string;
   imageLeft: boolean;
+  permissionsError?: boolean;
 };
 
 export default function GetStartedStep({
@@ -29,6 +30,7 @@ export default function GetStartedStep({
   finishedCTA,
   imageLeft,
   className = "",
+  permissionsError = false,
 }: Props) {
   const imgEl = (
     <div className="col-4 d-none d-sm-block">
@@ -40,6 +42,10 @@ export default function GetStartedStep({
       />
     </div>
   );
+
+  if (permissionsError) {
+    hideCTA = true;
+  }
 
   return (
     <div
@@ -60,6 +66,12 @@ export default function GetStartedStep({
             </h3>
           </div>
           <div className="card-text mb-3">{text}</div>
+          {permissionsError && (
+            <div className="alert alert-notice">
+              <strong>Notice:</strong> You don&apos;t have the required
+              permissions to complete this step.
+            </div>
+          )}
           <a
             className={clsx(`action-link mr-3`, {
               "btn btn-outline-primary": finished,
@@ -72,7 +84,7 @@ export default function GetStartedStep({
               e.preventDefault();
               if (finished) {
                 onClick(true);
-              } else {
+              } else if (!hideCTA) {
                 onClick(false);
               }
             }}

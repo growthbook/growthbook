@@ -18,6 +18,7 @@ import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useMemo } from "react";
+import usePermissions from "../../hooks/usePermissions";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -30,6 +31,7 @@ const ExperimentsGetStarted = ({
   const { apiCall } = useAuth();
 
   const { visualEditorEnabled } = useOrgSettings();
+  const permissions = usePermissions();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
@@ -162,7 +164,8 @@ const ExperimentsGetStarted = ({
                 can view results for your experiment.
               </div>
             ) : (
-              allowImport && (
+              allowImport &&
+              (hasSampleExperiment || permissions.createAnalyses) && (
                 <div className="alert alert-info mb-3 d-none d-md-block">
                   <div className="d-flex align-items-center">
                     <strong className="mr-2">Just here to explore?</strong>
@@ -228,6 +231,11 @@ const ExperimentsGetStarted = ({
                       </>
                     }
                     hideCTA={hasFileConfig()}
+                    permissionsError={
+                      !hasFileConfig() &&
+                      !permissions.createDatasources &&
+                      !hasDataSource
+                    }
                     cta="Add data source"
                     finishedCTA="View data sources"
                     imageLeft={true}
@@ -251,6 +259,11 @@ const ExperimentsGetStarted = ({
                     hideCTA={hasFileConfig()}
                     cta="Add metric"
                     finishedCTA="View metrics"
+                    permissionsError={
+                      !hasFileConfig() &&
+                      !permissions.createMetrics &&
+                      !hasMetrics
+                    }
                     imageLeft={false}
                     onClick={(finished) => {
                       if (finished) {
@@ -278,6 +291,9 @@ const ExperimentsGetStarted = ({
                         : "Add experiment"
                     }
                     finishedCTA="View experiments"
+                    permissionsError={
+                      !permissions.createAnalyses && !hasExperiments
+                    }
                     imageLeft={true}
                     onClick={(finished) => {
                       if (finished) {
