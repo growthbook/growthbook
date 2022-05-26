@@ -425,34 +425,39 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
-                              try {
-                                await apiCall(`/metric/${metric.id}/analysis`, {
-                                  method: "POST",
-                                });
-                                mutate();
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                          >
-                            <RunQueriesButton
-                              icon="refresh"
-                              cta={analysis ? "Refresh Data" : "Run Analysis"}
-                              initialStatus={getQueryStatus(
-                                metric.queries || [],
-                                metric.analysisError
-                              )}
-                              statusEndpoint={`/metric/${metric.id}/analysis/status`}
-                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                              color="outline-primary"
-                              onReady={() => {
-                                mutate();
+                          {permissions.runQueries && (
+                            <form
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                try {
+                                  await apiCall(
+                                    `/metric/${metric.id}/analysis`,
+                                    {
+                                      method: "POST",
+                                    }
+                                  );
+                                  mutate();
+                                } catch (e) {
+                                  console.error(e);
+                                }
                               }}
-                            />
-                          </form>
+                            >
+                              <RunQueriesButton
+                                icon="refresh"
+                                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                                initialStatus={getQueryStatus(
+                                  metric.queries || [],
+                                  metric.analysisError
+                                )}
+                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                                color="outline-primary"
+                                onReady={() => {
+                                  mutate();
+                                }}
+                              />
+                            </form>
+                          )}
                         </div>
                       </div>
                       <div className="row justify-content-between">
@@ -469,15 +474,17 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">No segment applied</span>
                               )}
-                              <a
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setSegmentOpen(true);
-                                }}
-                                href="#"
-                              >
-                                <BsGear />
-                              </a>
+                              {canEdit && permissions.runQueries && (
+                                <a
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSegmentOpen(true);
+                                  }}
+                                  href="#"
+                                >
+                                  <BsGear />
+                                </a>
+                              )}
                             </>
                           )}
                         </div>

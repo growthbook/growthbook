@@ -80,7 +80,7 @@ const DimensionsPage: FC = () => {
           <h3>User Dimensions</h3>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && permissions.createMetrics && (
+        {!hasFileConfig() && permissions.createDimensions && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -181,7 +181,7 @@ const DimensionsPage: FC = () => {
       {!error &&
         dimensions.length === 0 &&
         !hasFileConfig() &&
-        permissions.createMetrics && (
+        permissions.createDimensions && (
           <div className="alert alert-info">
             You don&apos;t have any user dimensions defined yet. Click the
             button above to create your first one.
@@ -206,7 +206,7 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        {permissions.organizationSettings && (
+        {permissions.editDatasourceSettings && (
           <Link href="/datasources">
             <a className="btn btn-outline-primary">View Data Sources</a>
           </Link>

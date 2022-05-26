@@ -4,7 +4,7 @@ import { MemberRole } from "back-end/types/organization";
 
 const roles: [MemberRole, string][] = [
   ["readonly", "View all features and experiment results"],
-  ["collaborator", "Participate in discussion threads and add ideas"],
+  ["collaborator", "Add comments and contribute ideas"],
   ["developer", "Manage features"],
   ["analyst", "Analyze experiments"],
   ["experimenter", "Manage features AND analyze experiments"],

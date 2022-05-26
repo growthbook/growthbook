@@ -210,7 +210,7 @@ export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -242,7 +242,7 @@ export async function postFeatureDraft(
   >,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -271,7 +271,7 @@ export async function postFeatureRule(
   req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -293,7 +293,7 @@ export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -318,7 +318,7 @@ export async function putFeatureRule(
   >,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -380,7 +380,7 @@ export async function postFeatureMoveRule(
   >,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -409,7 +409,7 @@ export async function deleteFeatureRule(
   req: AuthRequest<{ environment: string; i: number }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -436,7 +436,7 @@ export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -447,6 +447,11 @@ export async function putFeature(
   }
 
   const updates = req.body;
+
+  // Changing the project can affect production if using project-scoped api keys
+  if ("project" in updates) {
+    req.checkPermissions("createFeatures", "publishFeatures");
+  }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
     "tags",

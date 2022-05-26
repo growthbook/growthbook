@@ -18,6 +18,7 @@ export type Permissions = {
   // All of the above, plus:
   publishFeatures?: boolean;
   createFeatures?: boolean;
+  createFeatureDrafts?: boolean;
 
   // Admin only
   // All of the above, plus:

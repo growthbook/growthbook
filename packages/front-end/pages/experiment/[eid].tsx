@@ -151,10 +151,7 @@ const ExperimentPage = (): ReactElement => {
     wrapClasses += " multivariations";
   }
 
-  const canEdit =
-    experiment.status === "draft"
-      ? permissions.draftExperiments
-      : permissions.runExperiments;
+  const canEdit = permissions.createAnalyses;
 
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -381,7 +378,7 @@ const ExperimentPage = (): ReactElement => {
             </MoreMenu>
           </div>
         )}
-        {permissions.runExperiments && ctaButton && (
+        {permissions.createAnalyses && ctaButton && (
           <div className="experiment-actions col-auto">{ctaButton}</div>
         )}
       </div>
@@ -411,7 +408,7 @@ const ExperimentPage = (): ReactElement => {
         <div style={{ flex: 1 }} />
         {currentPhase && experiment.status === "running" && (
           <div className="col-auto">
-            {permissions.runExperiments ? (
+            {permissions.createAnalyses ? (
               <div
                 onClick={(e) => {
                   e.preventDefault();
@@ -497,14 +494,15 @@ const ExperimentPage = (): ReactElement => {
                   await mutate();
                 }}
                 // Only allow inline edit when first creating a description
-                canCreate={true}
+                canCreate={canEdit}
                 canEdit={false}
                 className="mb-4"
               />
 
               <div className="mb-4">
                 <h4>Hypothesis</h4>
-                {experiment.hypothesis || (
+                {experiment.hypothesis}
+                {canEdit ? (
                   <p>
                     <a
                       href="#"
@@ -515,6 +513,10 @@ const ExperimentPage = (): ReactElement => {
                     >
                       <em>Add hypothesis</em>
                     </a>
+                  </p>
+                ) : (
+                  <p>
+                    <em>No hypothesis</em>
                   </p>
                 )}
               </div>
@@ -557,7 +559,7 @@ const ExperimentPage = (): ReactElement => {
                       {v.screenshots.length > 0 ? (
                         <Carousel
                           deleteImage={
-                            !permissions.draftExperiments || experiment.archived
+                            !permissions.createAnalyses || experiment.archived
                               ? null
                               : async (j) => {
                                   const { status, message } = await apiCall<{
@@ -596,7 +598,7 @@ const ExperimentPage = (): ReactElement => {
                         <div className="image-blank" />
                       )}
                       <div style={{ flex: 1 }} />
-                      {permissions.draftExperiments && !experiment.archived && (
+                      {permissions.createAnalyses && !experiment.archived && (
                         <div className="p-3">
                           <ScreenshotUpload
                             experiment={experiment.id}
@@ -839,24 +841,26 @@ const ExperimentPage = (): ReactElement => {
                 {experiment.autoSnapshots && experiment.nextSnapshotAttempt ? (
                   <span title={datetime(experiment.nextSnapshotAttempt)}>
                     {ago(experiment.nextSnapshotAttempt)}{" "}
-                    <Button
-                      color="link text-danger"
-                      className="btn-sm"
-                      onClick={async () => {
-                        await apiCall(`/experiment/${experiment.id}`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            autoSnapshots: false,
-                          }),
-                        });
-                        mutate({
-                          ...data,
-                          experiment: { ...experiment, autoSnapshots: false },
-                        });
-                      }}
-                    >
-                      cancel
-                    </Button>
+                    {canEdit && permissions.runQueries && (
+                      <Button
+                        color="link text-danger"
+                        className="btn-sm"
+                        onClick={async () => {
+                          await apiCall(`/experiment/${experiment.id}`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              autoSnapshots: false,
+                            }),
+                          });
+                          mutate({
+                            ...data,
+                            experiment: { ...experiment, autoSnapshots: false },
+                          });
+                        }}
+                      >
+                        cancel
+                      </Button>
+                    )}
                   </span>
                 ) : (
                   <div>

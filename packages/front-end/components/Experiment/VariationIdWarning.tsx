@@ -6,6 +6,7 @@ import {
 } from "back-end/types/report";
 import { useState } from "react";
 import FixVariationIds from "./FixVariationIds";
+import usePermissions from "../../hooks/usePermissions";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -38,6 +39,8 @@ const VariationIdWarning: FC<{
   setVariationIds,
 }) => {
   const [idModal, setIdModal] = useState(false);
+
+  const permissions = usePermissions();
 
   if (!results) return null;
   const variationResults = results?.variations || [];
@@ -111,18 +114,20 @@ const VariationIdWarning: FC<{
             : returnedVariations.length}{" "}
           (<CommaList vals={returnedVariations} />
           ).{" "}
-          {setVariationIds && (
-            <button
-              className="btn btn-info btn-sm ml-3"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                setIdModal(true);
-              }}
-            >
-              Update Ids
-            </button>
-          )}
+          {setVariationIds &&
+            permissions.runQueries &&
+            permissions.createAnalyses && (
+              <button
+                className="btn btn-info btn-sm ml-3"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIdModal(true);
+                }}
+              >
+                Update Ids
+              </button>
+            )}
         </div>
       </div>
     );

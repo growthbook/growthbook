@@ -39,7 +39,8 @@ export default function ExperimentReportsList({
   const { reports } = data;
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports = hasData && snapshot?.queries && !hasUserQuery;
+  const canCreateReports =
+    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
 
   if (!reports.length) {
     return null;
@@ -127,7 +128,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {(permissions.runExperiments || report.userId === userId) && (
+                  {(permissions.owner || report.userId === userId) && (
                     <>
                       <DeleteButton
                         displayName="Custom Report"

@@ -104,7 +104,7 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     return {};
   }
 
-  // Base permissions shared by everyone
+  // Base permissions shared by everyone (except readonly)
   const permissions: Permissions = {
     addComments: true,
     createIdeas: true,
@@ -115,6 +115,7 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   if (role === "developer" || role === "experimenter" || role === "admin") {
     permissions.publishFeatures = true;
     permissions.createFeatures = true;
+    permissions.createFeatureDrafts = true;
   }
 
   // Analysis permissions

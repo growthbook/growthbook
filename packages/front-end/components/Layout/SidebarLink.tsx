@@ -7,6 +7,7 @@ import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
+import { Permissions } from "back-end/types/organization";
 
 export type SidebarLinkProps = {
   name: string;
@@ -21,7 +22,7 @@ export type SidebarLinkProps = {
   cloudOnly?: boolean;
   selfHostedOnly?: boolean;
   autoClose?: boolean;
-  settingsPermission?: boolean;
+  permissions?: (keyof Permissions)[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
 };
@@ -31,8 +32,13 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const router = useRouter();
 
   if (props.superAdmin && !admin) return null;
-  if (props.settingsPermission && !permissions.organizationSettings)
-    return null;
+  if (props.permissions) {
+    for (let i = 0; i < props.permissions.length; i++) {
+      if (!permissions[props.permissions[i]]) {
+        return null;
+      }
+    }
+  }
 
   if (props.cloudOnly && !isCloud()) {
     return null;
@@ -105,8 +111,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
         >
           {props.subLinks.map((l) => {
             if (l.superAdmin && !admin) return null;
-            if (l.settingsPermission && !permissions.organizationSettings)
-              return null;
+
+            if (l.permissions) {
+              for (let i = 0; i < l.permissions.length; i++) {
+                if (!permissions[l.permissions[i]]) {
+                  return null;
+                }
+              }
+            }
             if (l.cloudOnly && !isCloud()) {
               return null;
             }

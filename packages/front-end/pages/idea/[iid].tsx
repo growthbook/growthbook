@@ -104,7 +104,7 @@ const IdeaPage = (): ReactElement => {
 
   return (
     <div className="container-fluid pagecontents pt-3">
-      {project && project !== idea.project && (
+      {project && project !== idea.project && permissions.createIdeas && (
         <div className="bg-info p-2 mb-3 text-center text-white">
           This idea is in a different project. Move it to{" "}
           <a
@@ -146,7 +146,7 @@ const IdeaPage = (): ReactElement => {
           </div>
         )}
         <div className="col"></div>
-        {!idea.archived && permissions.draftExperiments && !data.experiment && (
+        {!idea.archived && permissions.createAnalyses && !data.experiment && (
           <div className="col-md-auto">
             <button
               className="btn btn-outline-primary mr-3"
@@ -158,49 +158,51 @@ const IdeaPage = (): ReactElement => {
             </button>
           </div>
         )}
-        <div className="col-auto">
-          <MoreMenu id="idea-more-menu">
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={async (e) => {
-                e.preventDefault();
-                await apiCall(`/idea/${iid}`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    archived: !idea.archived,
-                  }),
-                });
-                mutate({
-                  ...data,
-                  idea: {
-                    ...data.idea,
-                    archived: !idea.archived,
-                  },
-                });
-              }}
-            >
-              <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
-            </a>
-            <DeleteButton
-              displayName="Idea"
-              link={true}
-              className="dropdown-item text-dark"
-              text="Delete"
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/idea/${iid}`,
-                  {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: iid }),
-                  }
-                );
+        {permissions.createIdeas && (
+          <div className="col-auto">
+            <MoreMenu id="idea-more-menu">
+              <a
+                href="#"
+                className="dropdown-item"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await apiCall(`/idea/${iid}`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      archived: !idea.archived,
+                    }),
+                  });
+                  mutate({
+                    ...data,
+                    idea: {
+                      ...data.idea,
+                      archived: !idea.archived,
+                    },
+                  });
+                }}
+              >
+                <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
+              </a>
+              <DeleteButton
+                displayName="Idea"
+                link={true}
+                className="dropdown-item text-dark"
+                text="Delete"
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/idea/${iid}`,
+                    {
+                      method: "DELETE",
+                      body: JSON.stringify({ id: iid }),
+                    }
+                  );
 
-                push("/ideas");
-              }}
-            />
-          </MoreMenu>
-        </div>
+                  push("/ideas");
+                }}
+              />
+            </MoreMenu>
+          </div>
+        )}
         {canEstimateImpact && <div className="col-md-3"></div>}
       </div>
       {data.experiment && (
@@ -223,7 +225,7 @@ const IdeaPage = (): ReactElement => {
         <div className="col">
           <InlineForm
             className="mb-4"
-            editing={edit}
+            editing={permissions.createIdeas && edit}
             onSave={form.handleSubmit(async (value) => {
               await apiCall<{ status: number; message?: string }>(
                 `/idea/${idea.id}`,
@@ -370,18 +372,20 @@ const IdeaPage = (): ReactElement => {
                 </div>
               </div>
 
-              {(!idea.estimateParams || !estimate) && (
-                <div className="mt-2 text-center">
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      setImpactOpen(true);
-                    }}
-                  >
-                    <FaChartLine /> Estimate Impact
-                  </button>
-                </div>
-              )}
+              {(!idea.estimateParams || !estimate) &&
+                permissions.runQueries &&
+                permissions.createIdeas && (
+                  <div className="mt-2 text-center">
+                    <button
+                      className="btn btn-outline-primary"
+                      onClick={() => {
+                        setImpactOpen(true);
+                      }}
+                    >
+                      <FaChartLine /> Estimate Impact
+                    </button>
+                  </div>
+                )}
 
               <hr />
               <ImpactProjections
@@ -396,7 +400,7 @@ const IdeaPage = (): ReactElement => {
                   <RightRailSection
                     title="Parameters"
                     open={() => setImpactOpen(true)}
-                    canOpen={true}
+                    canOpen={permissions.runQueries && permissions.createIdeas}
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
                       {getMetricById(estimate?.metric)?.name}

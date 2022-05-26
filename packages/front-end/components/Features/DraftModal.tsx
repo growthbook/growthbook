@@ -8,6 +8,7 @@ import { useState } from "react";
 import Field from "../Forms/Field";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useMemo } from "react";
+import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   feature: FeatureInterface;
@@ -59,6 +60,7 @@ function ExpandableDiff({
 
 export default function DraftModal({ feature, close, mutate }: Props) {
   const environments = useEnvironments();
+  const permissions = usePermissions();
 
   const { apiCall } = useAuth();
 
@@ -96,47 +98,53 @@ export default function DraftModal({ feature, close, mutate }: Props) {
   return (
     <Modal
       open={true}
-      header={"Publish Draft Changes"}
-      submit={async () => {
-        try {
-          await apiCall(`/feature/${feature.id}/publish`, {
-            method: "POST",
-            body: JSON.stringify({
-              draft: feature.draft,
-              comment,
-            }),
-          });
-        } catch (e) {
-          await mutate();
-          throw e;
-        }
-        await mutate();
-      }}
+      header={"Review Draft Changes"}
+      submit={
+        permissions.publishFeatures
+          ? async () => {
+              try {
+                await apiCall(`/feature/${feature.id}/publish`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    draft: feature.draft,
+                    comment,
+                  }),
+                });
+              } catch (e) {
+                await mutate();
+                throw e;
+              }
+              await mutate();
+            }
+          : null
+      }
       cta="Publish"
       close={close}
       closeCta="close"
       size="lg"
       secondaryCTA={
-        <Button
-          color="outline-danger"
-          onClick={async () => {
-            try {
-              await apiCall(`/feature/${feature.id}/discard`, {
-                method: "POST",
-                body: JSON.stringify({
-                  draft: feature.draft,
-                }),
-              });
-            } catch (e) {
+        permissions.createFeatureDrafts ? (
+          <Button
+            color="outline-danger"
+            onClick={async () => {
+              try {
+                await apiCall(`/feature/${feature.id}/discard`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    draft: feature.draft,
+                  }),
+                });
+              } catch (e) {
+                await mutate();
+                throw e;
+              }
               await mutate();
-              throw e;
-            }
-            await mutate();
-            close();
-          }}
-        >
-          Discard
-        </Button>
+              close();
+            }}
+          >
+            Discard
+          </Button>
+        ) : null
       }
     >
       <h3>Review Changes</h3>
@@ -149,15 +157,17 @@ export default function DraftModal({ feature, close, mutate }: Props) {
           <ExpandableDiff {...diff} key={diff.title} />
         ))}
       </div>
-      <Field
-        label="Add a Comment (optional)"
-        textarea
-        placeholder="Summary of changes..."
-        value={comment}
-        onChange={(e) => {
-          setComment(e.target.value);
-        }}
-      />
+      {permissions.publishFeatures && (
+        <Field
+          label="Add a Comment (optional)"
+          textarea
+          placeholder="Summary of changes..."
+          value={comment}
+          onChange={(e) => {
+            setComment(e.target.value);
+          }}
+        />
+      )}
     </Modal>
   );
 }

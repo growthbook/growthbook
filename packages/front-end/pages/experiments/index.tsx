@@ -136,7 +136,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <h3>All Experiments</h3>
             </div>
             <div style={{ flex: 1 }} />
-            {permissions.draftExperiments && (
+            {permissions.createAnalyses && (
               <div className="col-auto">
                 <button
                   className="btn btn-primary float-right"
@@ -306,7 +306,7 @@ const ExperimentsPage = (): React.ReactElement => {
               padding={false}
             >
               {showOnlyMyDrafts &&
-              permissions.draftExperiments &&
+              permissions.createAnalyses &&
               byStatus.myDrafts.length > 0 ? (
                 <>
                   {byStatus.myDrafts.length > 0 && (
@@ -395,7 +395,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <th></th>
                             <th style={{ width: "99%" }}>
                               Experiment
-                              {permissions.draftExperiments &&
+                              {permissions.createAnalyses &&
                                 byStatus.myDrafts.length > 0 && (
                                   <span className="pl-3">
                                     <a

@@ -140,7 +140,7 @@ export default function ReportPage() {
             </a>
           </Link>
         )}
-        {permissions.runExperiments &&
+        {permissions.createAnalyses &&
           (userId === report?.userId || !report?.userId) && (
             <DeleteButton
               displayName="Custom Report"
@@ -161,7 +161,7 @@ export default function ReportPage() {
           )}
         <h1 className="mb-0 mt-2">
           {report.title}{" "}
-          {permissions.runExperiments &&
+          {permissions.createAnalyses &&
             (userId === report?.userId || !report?.userId) && (
               <a
                 className="ml-2 cursor-pointer"
@@ -191,7 +191,7 @@ export default function ReportPage() {
         active={active}
         setActive={setActive}
         newStyle={true}
-        navClassName={permissions.runExperiments ? "" : "d-none"}
+        navClassName={permissions.createAnalyses ? "" : "d-none"}
       >
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
@@ -212,32 +212,34 @@ export default function ReportPage() {
                 )}
               </div>
               <div className="col-auto">
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    try {
-                      await apiCall(`/report/${report.id}/refresh`, {
-                        method: "POST",
-                      });
-                      mutate();
-                      setRefreshError("");
-                    } catch (e) {
-                      setRefreshError(e.message);
-                    }
-                  }}
-                >
-                  <RunQueriesButton
-                    icon="refresh"
-                    cta="Refresh Data"
-                    initialStatus={status}
-                    statusEndpoint={`/report/${report.id}/status`}
-                    cancelEndpoint={`/report/${report.id}/cancel`}
-                    color="outline-primary"
-                    onReady={() => {
-                      mutate();
+                {permissions.runQueries && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      try {
+                        await apiCall(`/report/${report.id}/refresh`, {
+                          method: "POST",
+                        });
+                        mutate();
+                        setRefreshError("");
+                      } catch (e) {
+                        setRefreshError(e.message);
+                      }
                     }}
-                  />
-                </form>
+                  >
+                    <RunQueriesButton
+                      icon="refresh"
+                      cta="Refresh Data"
+                      initialStatus={status}
+                      statusEndpoint={`/report/${report.id}/status`}
+                      cancelEndpoint={`/report/${report.id}/cancel`}
+                      color="outline-primary"
+                      onReady={() => {
+                        mutate();
+                      }}
+                    />
+                  </form>
+                )}
               </div>
               <div className="col-auto">
                 <ResultMoreMenu
@@ -289,7 +291,9 @@ export default function ReportPage() {
                     "It was just started " +
                       ago(report.args.startDate) +
                       ". Give it a little longer and click the 'Refresh' button to check again."}
-                  {!report.results && `Click the "Refresh" button.`}
+                  {!report.results &&
+                    permissions.runQueries &&
+                    `Click the "Refresh" button.`}
                 </div>
               )}
           </div>
@@ -388,7 +392,7 @@ export default function ReportPage() {
           key="configuration"
           anchor="configuration"
           display="Configuration"
-          visible={permissions.runExperiments}
+          visible={permissions.createAnalyses}
           forceRenderOnFocus={true}
         >
           <h2>Configuration</h2>
