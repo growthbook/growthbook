@@ -18,7 +18,11 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { replaceDateVars } from "../util/sql";
+import {
+  conditionToJavascript,
+  replaceDateVars,
+  getMixpanelPropertyColumn,
+} from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
@@ -165,7 +169,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               phase.dateEnded
             )}) {
               state.inExperiment = true;
-              state.variation = ${this.getPropertyColumn(
+              state.variation = ${getMixpanelPropertyColumn(
                 this.settings.events?.variationIdProperty || "Variant name"
               )};
               ${
@@ -500,7 +504,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       return col;
     }
 
-    return this.getPropertyColumn(col);
+    return getMixpanelPropertyColumn(col);
   }
 
   private getEvents(from: Date, to: Date, events: (string | undefined)[]) {
@@ -519,20 +523,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return `Events(${JSON.stringify(filter, null, 2)})`;
   }
   private getDimensionColumn(col: string, startDate: Date, endDate?: Date) {
-    return replaceDateVars(this.getPropertyColumn(col), startDate, endDate);
+    return replaceDateVars(getMixpanelPropertyColumn(col), startDate, endDate);
   }
-  private getPropertyColumn(col: string) {
-    // Use the column directly if it contains a reference to `event`
-    if (col.match(/\bevent\b/)) {
-      return col;
-    }
 
-    const colAccess = col.split(".").map((part) => {
-      if (part.substr(0, 1) !== "[") return `["${part}"]`;
-      return part;
-    });
-    return `event.properties${colAccess}`;
-  }
   private getValidMetricCondition(
     metric: MetricInterface,
     conversionWindowStart: string = ""
@@ -557,21 +550,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     }
 
     if (metric.conditions) {
-      metric.conditions.forEach(({ operator, value, column }) => {
-        const col = this.getPropertyColumn(column);
-        const encoded = JSON.stringify(value);
-
-        // Some operators map to special javascript syntax
-        if (operator === "~") {
-          checks.push(`${col}.match(/${value}/)`);
-        } else if (operator === "!~") {
-          checks.push(`!${col}.match(/${value}/)`);
-        } else if (operator === "=") {
-          checks.push(`${col} === ${encoded}`);
-        } else {
-          // All the other operators exactly match the javascript syntax so we can use them directly
-          checks.push(`${col} ${operator} ${encoded}`);
-        }
+      metric.conditions.forEach((condition) => {
+        checks.push(conditionToJavascript(condition));
       });
     }
 
@@ -582,7 +562,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   private getValidExperimentCondition(id: string, start: Date, end?: Date) {
     const experimentEvent = this.getExperimentEventName();
-    const experimentIdCol = this.getPropertyColumn(
+    const experimentIdCol = getMixpanelPropertyColumn(
       this.settings.events?.experimentIdProperty || "Experiment name"
     );
     let timeCheck = `event.time >= ${start.getTime()}`;
