@@ -9,6 +9,7 @@ import {
   UserModel,
 } from "../models/UserModel";
 import {
+  getDefaultPermissions,
   getOrganizationById,
   getPermissionsByRole,
   getRole,
@@ -107,7 +108,7 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.loginMethod = method || "";
-  req.permissions = {};
+  req.permissions = getDefaultPermissions();
 
   // Throw error if permissions don't pass
   req.checkPermissions = (...permissions) => {

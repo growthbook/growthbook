@@ -8,7 +8,10 @@ const roles: [MemberRole, string][] = [
   ["developer", "Manage features"],
   ["analyst", "Analyze experiments"],
   ["experimenter", "Manage features AND analyze experiments"],
-  ["admin", "Invite teammates and configure settings"],
+  [
+    "admin",
+    "All access + invite teammates and configure organization settings",
+  ],
 ];
 
 const RoleSelector: FC<{

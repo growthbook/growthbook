@@ -3,6 +3,7 @@ import {
   useAuth,
   UserOrganizations,
   SubscriptionStatus,
+  getDefaultPermissions,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
@@ -60,7 +61,7 @@ export type UserContextValue = {
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: {},
+  permissions: getDefaultPermissions(),
   settings: {},
 });
 
@@ -118,11 +119,11 @@ const ProtectedPage: React.FC<{
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
-  const permissions = currentOrg?.permissions || {};
+  const permissions = currentOrg?.permissions || getDefaultPermissions();
 
   // Always allow admins to view org settings at the very least
   if (data?.admin) {
-    permissions.organizationSettings = true;
+    //permissions.organizationSettings = true;
   }
 
   useEffect(() => {

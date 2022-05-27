@@ -256,8 +256,16 @@ export default function ReportPage() {
                     }
                   }}
                   supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                  configure={() => setActive("Configuration")}
-                  editMetrics={() => setActive("Configuration")}
+                  configure={
+                    permissions.createAnalyses
+                      ? () => setActive("Configuration")
+                      : null
+                  }
+                  editMetrics={
+                    permissions.createAnalyses
+                      ? () => setActive("Configuration")
+                      : null
+                  }
                   generateReport={false}
                   hasUserQuery={false}
                   notebookUrl={`/report/${report.id}/notebook`}
@@ -388,20 +396,22 @@ export default function ReportPage() {
             </>
           )}
         </Tab>
-        <Tab
-          key="configuration"
-          anchor="configuration"
-          display="Configuration"
-          visible={permissions.createAnalyses}
-          forceRenderOnFocus={true}
-        >
-          <h2>Configuration</h2>
-          <ConfigureReport
-            mutate={mutate}
-            report={report}
-            viewResults={() => setActive("Results")}
-          />
-        </Tab>
+        {permissions.createAnalyses && (
+          <Tab
+            key="configuration"
+            anchor="configuration"
+            display="Configuration"
+            visible={permissions.createAnalyses}
+            forceRenderOnFocus={true}
+          >
+            <h2>Configuration</h2>
+            <ConfigureReport
+              mutate={mutate}
+              report={report}
+              viewResults={() => setActive("Results")}
+            />
+          </Tab>
+        )}
       </ControlledTabs>
     </div>
   );

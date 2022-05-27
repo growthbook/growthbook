@@ -14,6 +14,7 @@ import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
 import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
+import usePermissions from "../../hooks/usePermissions";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -88,6 +89,7 @@ export default function CodeSnippetModal({
   defaultLanguage?: Language;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
+  const permissions = usePermissions();
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -113,18 +115,17 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
+    if (!permissions.organizationSettings) return;
     (async () => {
-      {
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              sdkInstructionsViewed: true,
-            },
-          }),
-        });
-        await update();
-      }
+      await apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: {
+            sdkInstructionsViewed: true,
+          },
+        }),
+      });
+      await update();
     })();
   }, [settings]);
 
@@ -135,14 +136,23 @@ export default function CodeSnippetModal({
         return;
       }
 
-      const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
-        method: "POST",
-        body: JSON.stringify({
-          description: `${environment} Features SDK`,
-          environment: environment,
-        }),
-      });
-      setApiKey(key.key);
+      try {
+        setApiKey("...");
+        const key = await apiCall<{ key: string }>(
+          `/keys?preferExisting=true`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              description: `${environment} Features SDK`,
+              environment: environment,
+            }),
+          }
+        );
+        setApiKey(key.key || "");
+      } catch (e) {
+        // Happens when user doesn't have permission to create new API keys
+        console.error(e);
+      }
     })();
   }, [environment]);
 

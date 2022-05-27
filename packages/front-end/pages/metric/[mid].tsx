@@ -346,8 +346,9 @@ const MetricPage: FC = () => {
               <div className="row">
                 <div className="col-12">
                   <InlineForm
-                    editing={canEdit && editing}
+                    editing={editing}
                     setEdit={setEditing}
+                    canEdit={canEdit}
                     onSave={form.handleSubmit(async (value) => {
                       await apiCall(`/metric/${metric.id}`, {
                         method: "PUT",
@@ -370,7 +371,7 @@ const MetricPage: FC = () => {
                               onChange={(e) =>
                                 form.setValue("name", e.target.value)
                               }
-                              editing={editing}
+                              editing={canEdit && editing}
                               save={save}
                               cancel={cancel}
                             />
@@ -390,7 +391,7 @@ const MetricPage: FC = () => {
                           )}
                         </div>
                         <MarkdownEditor
-                          editing={editing}
+                          editing={canEdit && editing}
                           cancel={cancel}
                           save={save}
                           defaultValue={metric.description}

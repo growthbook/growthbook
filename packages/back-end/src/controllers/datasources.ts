@@ -374,7 +374,7 @@ export async function putDataSource(
     return;
   }
 
-  if (type !== datasource.type) {
+  if (type && type !== datasource.type) {
     res.status(400).json({
       status: 400,
       message:
@@ -385,13 +385,20 @@ export async function putDataSource(
 
   try {
     const updates: Partial<DataSourceInterface> = {
-      name,
       dateUpdated: new Date(),
-      settings,
     };
+
+    if (name) {
+      updates.name = name;
+    }
+
+    if (settings) {
+      updates.settings = settings;
+    }
 
     if (
       type === "google_analytics" &&
+      params &&
       (params as GoogleAnalyticsParams).refreshToken
     ) {
       const oauth2Client = getOauth2Client();

@@ -702,8 +702,6 @@ export async function postApiKey(
   req: AuthRequest<{ description?: string; environment: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
-
   const { org } = getOrgFromReq(req);
   const { description, environment } = req.body;
 
@@ -718,6 +716,8 @@ export async function postApiKey(
     }
   }
 
+  // Only require permissions if we are creating a new API key
+  req.checkPermissions("organizationSettings");
   const key = await createApiKey(org.id, environment, description);
 
   res.status(200).json({

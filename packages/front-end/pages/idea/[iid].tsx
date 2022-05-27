@@ -225,7 +225,8 @@ const IdeaPage = (): ReactElement => {
         <div className="col">
           <InlineForm
             className="mb-4"
-            editing={permissions.createIdeas && edit}
+            editing={edit}
+            canEdit={permissions.createIdeas}
             onSave={form.handleSubmit(async (value) => {
               await apiCall<{ status: number; message?: string }>(
                 `/idea/${idea.id}`,
@@ -267,7 +268,7 @@ const IdeaPage = (): ReactElement => {
                       onChange={(e) => form.setValue("text", e.target.value)}
                     />
                   </div>
-                  {!edit && (
+                  {!edit && permissions.createIdeas && (
                     <div className="col-auto">
                       <button
                         className="btn btn-outline-secondary"
@@ -281,7 +282,7 @@ const IdeaPage = (): ReactElement => {
                   )}
                 </div>
 
-                {edit ? (
+                {edit && permissions.createIdeas ? (
                   <div className="py-2">
                     <div className="form-group">
                       <label>Tags</label>
@@ -336,7 +337,7 @@ const IdeaPage = (): ReactElement => {
 
                 <MarkdownEditor
                   defaultValue={idea.details || ""}
-                  editing={edit}
+                  editing={permissions.createIdeas && edit}
                   label="More Details"
                   form={form}
                   name="details"

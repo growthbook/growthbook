@@ -319,12 +319,14 @@ const Results: FC<{
           )}
         </>
       )}
-      <div className="px-3 mb-3">
-        <span className="text-muted">
-          Click the 3 dots next to the Update button above to configure this
-          report, download as a Jupyter notebook, and more.
-        </span>
-      </div>
+      {permissions.createAnalyses && (
+        <div className="px-3 mb-3">
+          <span className="text-muted">
+            Click the 3 dots next to the Update button above to configure this
+            report, download as a Jupyter notebook, and more.
+          </span>
+        </div>
+      )}
     </>
   );
 };

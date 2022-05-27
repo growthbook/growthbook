@@ -99,17 +99,41 @@ export function getRole(
   );
 }
 
+export function getDefaultPermissions(): Permissions {
+  return {
+    addComments: false,
+    createIdeas: false,
+    createPresentations: false,
+    publishFeatures: false,
+    createFeatures: false,
+    createFeatureDrafts: false,
+    createAnalyses: false,
+    createDimensions: false,
+    createMetrics: false,
+    createSegments: false,
+    runQueries: false,
+    editDatasourceSettings: false,
+    createDatasources: false,
+    organizationSettings: false,
+    owner: false,
+  };
+}
+
 export function getPermissionsByRole(role: MemberRole): Permissions {
-  if (role === "readonly") {
-    return {};
+  // Handle old, deprecated "designer" role
+  if (role === "designer") {
+    role = "collaborator";
   }
 
+  // Start with no permissions
+  const permissions = getDefaultPermissions();
+
   // Base permissions shared by everyone (except readonly)
-  const permissions: Permissions = {
-    addComments: true,
-    createIdeas: true,
-    createPresentations: true,
-  };
+  if (role !== "readonly") {
+    permissions.addComments = true;
+    permissions.createIdeas = true;
+    permissions.createPresentations = true;
+  }
 
   // Feature flag permissions
   if (role === "developer" || role === "experimenter" || role === "admin") {

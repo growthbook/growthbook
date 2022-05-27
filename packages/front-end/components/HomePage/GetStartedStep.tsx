@@ -43,10 +43,6 @@ export default function GetStartedStep({
     </div>
   );
 
-  if (permissionsError) {
-    hideCTA = true;
-  }
-
   return (
     <div
       className={clsx("card-body extra-padding", className, {
@@ -67,7 +63,7 @@ export default function GetStartedStep({
           </div>
           <div className="card-text mb-3">{text}</div>
           {permissionsError && (
-            <div className="alert alert-notice">
+            <div className="alert alert-info">
               <strong>Notice:</strong> You don&apos;t have the required
               permissions to complete this step.
             </div>
@@ -77,11 +73,12 @@ export default function GetStartedStep({
               "btn btn-outline-primary": finished,
               "btn btn-primary": !finished && current,
               "non-active-step": !finished && !current,
-              "d-none": !finished && hideCTA,
+              "d-none": permissionsError || (!finished && hideCTA),
             })}
             href="#"
             onClick={(e) => {
               e.preventDefault();
+              if (permissionsError) return;
               if (finished) {
                 onClick(true);
               } else if (!hideCTA) {

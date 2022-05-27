@@ -81,7 +81,7 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-success">connected</span>
         </div>
         <div style={{ flex: 1 }} />
-        {canEdit && (
+        {canEdit && permissions.createDatasources && (
           <div className="col-auto">
             <DeleteButton
               displayName={d.name}

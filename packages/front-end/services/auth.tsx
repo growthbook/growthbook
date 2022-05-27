@@ -34,6 +34,26 @@ export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
 
+export function getDefaultPermissions(): Permissions {
+  return {
+    addComments: false,
+    createIdeas: false,
+    createPresentations: false,
+    publishFeatures: false,
+    createFeatures: false,
+    createFeatureDrafts: false,
+    createAnalyses: false,
+    createDimensions: false,
+    createMetrics: false,
+    createSegments: false,
+    runQueries: false,
+    editDatasourceSettings: false,
+    createDatasources: false,
+    organizationSettings: false,
+    owner: false,
+  };
+}
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;

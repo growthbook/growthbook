@@ -232,9 +232,13 @@ const ExperimentsGetStarted = ({
                     }
                     hideCTA={hasFileConfig()}
                     permissionsError={
-                      !hasFileConfig() &&
-                      !permissions.createDatasources &&
-                      !hasDataSource
+                      // If data sources are managed in the UI
+                      // If there's already a data source, you only need edit access to be able to view it
+                      // Otherwise, you need full create access
+                      !hasFileConfig &&
+                      !(hasDataSource
+                        ? permissions.editDatasourceSettings
+                        : permissions.createDatasources)
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"

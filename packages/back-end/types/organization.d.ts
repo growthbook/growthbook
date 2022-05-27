@@ -2,29 +2,29 @@ import { ImplementationType } from "./experiment";
 
 export type Permissions = {
   // Colloborator
-  addComments?: boolean;
-  runQueries?: boolean;
-  createPresentations?: boolean;
-  createIdeas?: boolean;
+  addComments: boolean;
+  runQueries: boolean;
+  createPresentations: boolean;
+  createIdeas: boolean;
 
   // Analysts
-  createAnalyses?: boolean;
-  createMetrics?: boolean;
-  createDimensions?: boolean;
-  createSegments?: boolean;
-  editDatasourceSettings?: boolean;
+  createAnalyses: boolean;
+  createMetrics: boolean;
+  createDimensions: boolean;
+  createSegments: boolean;
+  editDatasourceSettings: boolean;
 
   // Developers
   // All of the above, plus:
-  publishFeatures?: boolean;
-  createFeatures?: boolean;
-  createFeatureDrafts?: boolean;
+  publishFeatures: boolean;
+  createFeatures: boolean;
+  createFeatureDrafts: boolean;
 
   // Admin only
   // All of the above, plus:
-  organizationSettings?: boolean;
-  createDatasources?: boolean;
-  owner?: boolean;
+  organizationSettings: boolean;
+  createDatasources: boolean;
+  owner: boolean;
 };
 
 export type MemberRole =

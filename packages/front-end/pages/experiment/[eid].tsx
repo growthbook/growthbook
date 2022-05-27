@@ -767,8 +767,14 @@ const ExperimentPage = (): ReactElement => {
           <div className="position-relative">
             <Results
               experiment={experiment}
-              editMetrics={() => setMetricsModalOpen(true)}
-              editResult={() => setStopModalOpen(true)}
+              editMetrics={
+                permissions.createAnalyses
+                  ? () => setMetricsModalOpen(true)
+                  : null
+              }
+              editResult={
+                permissions.createAnalyses ? () => setStopModalOpen(true) : null
+              }
               mutateExperiment={mutate}
             />
           </div>
