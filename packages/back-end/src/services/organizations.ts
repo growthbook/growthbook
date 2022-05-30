@@ -90,12 +90,24 @@ export async function getConfidenceLevelsForOrg(id: string) {
   };
 }
 
+// Handle old roles in a backwards-compatible way
+export function updateRole(role: MemberRole): MemberRole {
+  if (role === "designer") {
+    return "collaborator";
+  }
+  if (role === "developer") {
+    return "experimenter";
+  }
+  return role;
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string
-): MemberRole | null {
-  return (
-    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] || null
+): MemberRole {
+  return updateRole(
+    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
+      "readonly"
   );
 }
 
@@ -120,10 +132,7 @@ export function getDefaultPermissions(): Permissions {
 }
 
 export function getPermissionsByRole(role: MemberRole): Permissions {
-  // Handle old, deprecated "designer" role
-  if (role === "designer") {
-    role = "collaborator";
-  }
+  role = updateRole(role);
 
   // Start with no permissions
   const permissions = getDefaultPermissions();
@@ -136,7 +145,7 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   }
 
   // Feature flag permissions
-  if (role === "developer" || role === "experimenter" || role === "admin") {
+  if (role === "engineer" || role === "experimenter" || role === "admin") {
     permissions.publishFeatures = true;
     permissions.createFeatures = true;
     permissions.createFeatureDrafts = true;

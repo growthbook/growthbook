@@ -5,7 +5,7 @@ import { MemberRole } from "back-end/types/organization";
 const roles: [MemberRole, string][] = [
   ["readonly", "View all features and experiment results"],
   ["collaborator", "Add comments and contribute ideas"],
-  ["developer", "Manage features"],
+  ["engineer", "Manage features"],
   ["analyst", "Analyze experiments"],
   ["experimenter", "Manage features AND analyze experiments"],
   [
@@ -18,10 +18,6 @@ const RoleSelector: FC<{
   role: MemberRole;
   setRole: (role: MemberRole) => void;
 }> = ({ role, setRole }) => {
-  if (role === "designer") {
-    role = "collaborator";
-  }
-
   return (
     <div>
       {roles.map(([name, description]) => (
