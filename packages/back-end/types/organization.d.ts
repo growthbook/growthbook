@@ -15,7 +15,7 @@ export type Permissions = {
   createFeatureDrafts: boolean;
   organizationSettings: boolean;
   createDatasources: boolean;
-  owner: boolean;
+  superDelete: boolean;
 };
 
 export type MemberRole =

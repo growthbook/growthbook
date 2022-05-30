@@ -115,7 +115,7 @@ export function getDefaultPermissions(): Permissions {
     editDatasourceSettings: false,
     createDatasources: false,
     organizationSettings: false,
-    owner: false,
+    superDelete: false,
   };
 }
 
@@ -156,7 +156,7 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   if (role === "admin") {
     permissions.organizationSettings = true;
     permissions.createDatasources = true;
-    permissions.owner = true;
+    permissions.superDelete = true;
   }
 
   return permissions;

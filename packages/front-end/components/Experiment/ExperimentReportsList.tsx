@@ -128,7 +128,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {(permissions.owner || report.userId === userId) && (
+                  {(permissions.superDelete || report.userId === userId) && (
                     <>
                       <DeleteButton
                         displayName="Custom Report"

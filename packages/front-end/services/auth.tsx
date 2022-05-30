@@ -50,7 +50,7 @@ export function getDefaultPermissions(): Permissions {
     editDatasourceSettings: false,
     createDatasources: false,
     organizationSettings: false,
-    owner: false,
+    superDelete: false,
   };
 }
 

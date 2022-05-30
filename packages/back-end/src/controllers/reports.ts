@@ -161,7 +161,7 @@ export async function deleteReport(
 
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
-    req.checkPermissions("owner");
+    req.checkPermissions("superDelete");
   }
 
   await deleteReportById(org.id, req.params.id);
