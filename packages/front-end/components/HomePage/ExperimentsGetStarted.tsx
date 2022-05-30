@@ -235,7 +235,7 @@ const ExperimentsGetStarted = ({
                       // If data sources are managed in the UI
                       // If there's already a data source, you only need edit access to be able to view it
                       // Otherwise, you need full create access
-                      !hasFileConfig &&
+                      !hasFileConfig() &&
                       !(hasDataSource
                         ? permissions.editDatasourceSettings
                         : permissions.createDatasources)

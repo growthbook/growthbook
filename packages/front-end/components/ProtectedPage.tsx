@@ -121,9 +121,10 @@ const ProtectedPage: React.FC<{
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
   const permissions = currentOrg?.permissions || getDefaultPermissions();
 
-  // Always allow admins to view org settings at the very least
+  // Super admins always have some basic permissions
   if (data?.admin) {
-    //permissions.organizationSettings = true;
+    permissions.organizationSettings = true;
+    permissions.editDatasourceSettings = true;
   }
 
   useEffect(() => {

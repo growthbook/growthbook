@@ -46,8 +46,6 @@ export default function FeaturePage() {
   const [draftModal, setDraftModal] = useState(false);
   const permissions = usePermissions();
 
-  console.log(permissions);
-
   const [env, setEnv] = useEnvironmentState();
 
   const [ruleModal, setRuleModal] = useState<{
