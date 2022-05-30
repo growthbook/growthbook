@@ -24,6 +24,7 @@ export type MemberRole =
   | "designer"
   | "analyst"
   | "developer"
+  | "engineer"
   | "experimenter"
   | "admin";
 

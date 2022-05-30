@@ -12,6 +12,7 @@ import {
   addMemberToOrg,
   validateLogin,
   getPermissionsByRole,
+  updateRole,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -129,7 +130,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     email: req.email,
     admin: !!req.admin,
     organizations: validOrgs.map((org) => {
-      const role = getRole(org, userId) || "readonly";
+      const role = getRole(org, userId);
       return {
         id: org.id,
         name: org.name,
@@ -406,7 +407,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const roleMapping: Map<string, MemberRole> = new Map();
   members.forEach((m) => {
-    roleMapping.set(m.id, m.role);
+    roleMapping.set(m.id, updateRole(m.role));
   });
 
   const users = await getUsersByIds(members.map((m) => m.id));

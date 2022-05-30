@@ -169,7 +169,7 @@ export async function processJWT(
 
         const role: MemberRole = req.admin
           ? "admin"
-          : getRole(req.organization, user.id) || "collaborator";
+          : getRole(req.organization, user.id);
         req.permissions = getPermissionsByRole(role);
       } else {
         return res.status(404).json({
