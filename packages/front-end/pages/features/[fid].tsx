@@ -35,6 +35,7 @@ import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
 import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function FeaturePage() {
   const [edit, setEdit] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
+  const permissions = usePermissions();
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -165,7 +167,7 @@ export default function FeaturePage() {
               setDraftModal(true);
             }}
           >
-            Review and Publish
+            Review{permissions.publishFeatures && " and Publish"}
           </button>
         </div>
       )}
@@ -201,18 +203,20 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            <DeleteButton
-              useIcon={false}
-              displayName="Feature"
-              onClick={async () => {
-                await apiCall(`/feature/${data.feature.id}`, {
-                  method: "DELETE",
-                });
-                router.push("/features");
-              }}
-              className="dropdown-item"
-              text="Delete feature"
-            />
+            {permissions.createFeatures && (
+              <DeleteButton
+                useIcon={false}
+                displayName="Feature"
+                onClick={async () => {
+                  await apiCall(`/feature/${data.feature.id}`, {
+                    method: "DELETE",
+                  });
+                  router.push("/features");
+                }}
+                className="dropdown-item"
+                text="Delete feature"
+              />
+            )}
           </MoreMenu>
         </div>
       </div>
@@ -230,23 +234,27 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">none</em>
             )}
-            <a
-              className="ml-2 cursor-pointer"
-              onClick={() => setEditProjectModal(true)}
-            >
-              <GBEdit />
-            </a>
+            {permissions.createFeatures && (
+              <a
+                className="ml-2 cursor-pointer"
+                onClick={() => setEditProjectModal(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
           </div>
         )}
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          <a
-            className="ml-1 cursor-pointer"
-            onClick={() => setEditTagsModal(true)}
-          >
-            <GBEdit />
-          </a>
+          {permissions.createFeatureDrafts && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
         </div>
 
         <div className="col-auto ml-auto">
@@ -266,8 +274,8 @@ export default function FeaturePage() {
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={data.feature.description}
-            canEdit={true}
-            canCreate={true}
+            canEdit={permissions.createFeatureDrafts}
+            canCreate={permissions.createFeatureDrafts}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",
@@ -311,9 +319,11 @@ export default function FeaturePage() {
 
       <h3>
         Default Value
-        <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-          <GBEdit />
-        </a>
+        {permissions.createFeatureDrafts && (
+          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+            <GBEdit />
+          </a>
+        )}
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
@@ -365,101 +375,103 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      <div className="row">
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>Forced Value</h4>
-            <p>Target groups of users and give them all the same value.</p>
-            <div style={{ flex: 1 }} />
-            <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleModal({
-                    environment: env,
-                    i: getRules(data.feature, env).length,
-                    defaultType: "force",
-                  });
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "force",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Forced Rule
-              </button>
+      {permissions.createFeatureDrafts && (
+        <div className="row">
+          <div className="col mb-3">
+            <div
+              className="bg-white border p-3 d-flex flex-column"
+              style={{ height: "100%" }}
+            >
+              <h4>Forced Value</h4>
+              <p>Target groups of users and give them all the same value.</p>
+              <div style={{ flex: 1 }} />
+              <div>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setRuleModal({
+                      environment: env,
+                      i: getRules(data.feature, env).length,
+                      defaultType: "force",
+                    });
+                    track("Viewed Rule Modal", {
+                      source: "add-rule",
+                      type: "force",
+                    });
+                  }}
+                >
+                  <span className="h4 pr-2 m-0 d-inline-block align-top">
+                    <GBAddCircle />
+                  </span>
+                  Add Forced Rule
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="col mb-3">
+            <div
+              className="bg-white border p-3 d-flex flex-column"
+              style={{ height: "100%" }}
+            >
+              <h4>Percentage Rollout</h4>
+              <p>Release to a small percent of users while you monitor logs.</p>
+              <div style={{ flex: 1 }} />
+              <div>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setRuleModal({
+                      environment: env,
+                      i: getRules(data.feature, env).length,
+                      defaultType: "rollout",
+                    });
+                    track("Viewed Rule Modal", {
+                      source: "add-rule",
+                      type: "rollout",
+                    });
+                  }}
+                >
+                  <span className="h4 pr-2 m-0 d-inline-block align-top">
+                    <GBAddCircle />
+                  </span>
+                  Add Rollout Rule
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="col mb-3">
+            <div
+              className="bg-white border p-3 d-flex flex-column"
+              style={{ height: "100%" }}
+            >
+              <h4>A/B Experiment</h4>
+              <p>Measure the impact of this feature on your key metrics.</p>
+              <div style={{ flex: 1 }} />
+              <div>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setRuleModal({
+                      environment: env,
+                      i: getRules(data.feature, env).length,
+                      defaultType: "experiment",
+                    });
+                    track("Viewed Rule Modal", {
+                      source: "add-rule",
+                      type: "experiment",
+                    });
+                  }}
+                >
+                  <span className="h4 pr-2 m-0 d-inline-block align-top">
+                    <GBAddCircle />
+                  </span>
+                  Add Experiment Rule
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>Percentage Rollout</h4>
-            <p>Release to a small percent of users while you monitor logs.</p>
-            <div style={{ flex: 1 }} />
-            <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleModal({
-                    environment: env,
-                    i: getRules(data.feature, env).length,
-                    defaultType: "rollout",
-                  });
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "rollout",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Rollout Rule
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="col mb-3">
-          <div
-            className="bg-white border p-3 d-flex flex-column"
-            style={{ height: "100%" }}
-          >
-            <h4>A/B Experiment</h4>
-            <p>Measure the impact of this feature on your key metrics.</p>
-            <div style={{ flex: 1 }} />
-            <div>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRuleModal({
-                    environment: env,
-                    i: getRules(data.feature, env).length,
-                    defaultType: "experiment",
-                  });
-                  track("Viewed Rule Modal", {
-                    source: "add-rule",
-                    type: "experiment",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Experiment Rule
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

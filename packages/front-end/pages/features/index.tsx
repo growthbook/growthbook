@@ -29,6 +29,7 @@ import TagsFilter, {
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
+import usePermissions from "../../hooks/usePermissions";
 
 const NUM_PER_PAGE = 20;
 
@@ -36,6 +37,7 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
+  const permissions = usePermissions();
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -106,7 +108,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 && (
+        {features.length > 0 && permissions.createFeatures && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"

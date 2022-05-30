@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
 import Link from "next/link";
 import Code from "../Code";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function VisualCode({
   dom,
@@ -16,11 +17,13 @@ export default function VisualCode({
   control?: boolean;
   experimentId: string;
 }) {
+  const permissions = usePermissions();
+
   const [open, setOpen] = useState(false);
 
   const hasCode = dom.length > 0 || css.length > 0;
 
-  if (!hasCode) {
+  if (!hasCode && permissions.createAnalyses) {
     return control ? null : (
       <div className="alert alert-warning my-2">
         No visual changes yet.{" "}

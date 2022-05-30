@@ -5,8 +5,10 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import NewExperimentForm from "./NewExperimentForm";
 import { ago } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function NewFeatureExperiments() {
+  const permissions = usePermissions();
   const { project, datasources } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [
@@ -26,6 +28,8 @@ export default function NewFeatureExperiments() {
   if (!data || error || !data?.features?.length || !datasources.length) {
     return null;
   }
+
+  if (!permissions.createAnalyses) return null;
 
   const { feature, partialExperiment } = data.features[0];
 

@@ -9,6 +9,7 @@ import {
   UserModel,
 } from "../models/UserModel";
 import {
+  getDefaultPermissions,
   getOrganizationById,
   getPermissionsByRole,
   getRole,
@@ -107,7 +108,16 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.loginMethod = method || "";
-  req.permissions = {};
+  req.permissions = getDefaultPermissions();
+
+  // Throw error if permissions don't pass
+  req.checkPermissions = (...permissions) => {
+    for (let i = 0; i < permissions.length; i++) {
+      if (!req.permissions[permissions[i]]) {
+        throw new Error("You do not have permission to complete that action.");
+      }
+    }
+  };
 
   const user = await (IS_CLOUD
     ? getUserFromEmail(req.email)

@@ -13,6 +13,7 @@ import LoadingOverlay from "../LoadingOverlay";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
+import usePermissions from "../../hooks/usePermissions";
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -33,6 +34,7 @@ const ImportExperimentList: FC<{
   //useForm = true,
 }) => {
   const { getDatasourceById, ready, datasources } = useDefinitions();
+  const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
@@ -103,34 +105,36 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted)}
           </div>
         </div>
-        <div className="col-auto">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await apiCall<{ id: string }>("/experiments/import", {
-                method: "POST",
-                body: JSON.stringify({
-                  datasource: data.experiments.datasource,
-                  force: true,
-                }),
-              });
-              await mutate();
-            }}
-          >
-            <RunQueriesButton
-              cta="Refresh List"
-              initialStatus={getQueryStatus(
-                data.experiments.queries || [],
-                data.experiments.error
-              )}
-              statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
-              cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-              onReady={async () => {
+        {permissions.runQueries && (
+          <div className="col-auto">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await apiCall<{ id: string }>("/experiments/import", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    datasource: data.experiments.datasource,
+                    force: true,
+                  }),
+                });
                 await mutate();
               }}
-            />
-          </form>
-        </div>
+            >
+              <RunQueriesButton
+                cta="Refresh List"
+                initialStatus={getQueryStatus(
+                  data.experiments.queries || [],
+                  data.experiments.error
+                )}
+                statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
+                cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
+                onReady={async () => {
+                  await mutate();
+                }}
+              />
+            </form>
+          </div>
+        )}
       </div>
       {status === "failed" && (
         <div className="alert alert-danger my-3">

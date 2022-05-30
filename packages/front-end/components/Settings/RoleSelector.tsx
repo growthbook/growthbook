@@ -1,18 +1,27 @@
-import { MemberRole } from "../../services/auth";
 import { FC } from "react";
 import clsx from "clsx";
+import { MemberRole } from "back-end/types/organization";
 
 const roles: [MemberRole, string][] = [
-  ["collaborator", "Add ideas, comments, and presentations"],
-  ["designer", "Create and edit draft experiments"],
-  ["developer", "Start and stop experiments and create metrics"],
-  ["admin", "Invite team members, add API keys, and configure data sources"],
+  ["readonly", "View all features and experiment results"],
+  ["collaborator", "Add comments and contribute ideas"],
+  ["developer", "Manage features"],
+  ["analyst", "Analyze experiments"],
+  ["experimenter", "Manage features AND analyze experiments"],
+  [
+    "admin",
+    "All access + invite teammates and configure organization settings",
+  ],
 ];
 
 const RoleSelector: FC<{
   role: MemberRole;
   setRole: (role: MemberRole) => void;
 }> = ({ role, setRole }) => {
+  if (role === "designer") {
+    role = "collaborator";
+  }
+
   return (
     <div>
       {roles.map(([name, description]) => (
@@ -20,7 +29,6 @@ const RoleSelector: FC<{
           <button
             className={clsx("list-group-item list-group-item-action", {
               active: role === name,
-              "list-group-item-light": role === name,
             })}
             onClick={(e) => {
               e.preventDefault();
@@ -28,7 +36,7 @@ const RoleSelector: FC<{
             }}
           >
             <div className="d-flex w-100">
-              <strong style={{ width: 130 }}>{name}</strong>
+              <strong style={{ width: 115 }}>{name}</strong>
               <div style={{ flex: 1 }}>{description}</div>
             </div>
           </button>

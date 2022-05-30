@@ -1,13 +1,31 @@
 import { ImplementationType } from "./experiment";
 
 export type Permissions = {
-  draftExperiments?: boolean;
-  runExperiments?: boolean;
-  createMetrics?: boolean;
-  organizationSettings?: boolean;
+  addComments: boolean;
+  runQueries: boolean;
+  createPresentations: boolean;
+  createIdeas: boolean;
+  createAnalyses: boolean;
+  createMetrics: boolean;
+  createDimensions: boolean;
+  createSegments: boolean;
+  editDatasourceSettings: boolean;
+  publishFeatures: boolean;
+  createFeatures: boolean;
+  createFeatureDrafts: boolean;
+  organizationSettings: boolean;
+  createDatasources: boolean;
+  superDelete: boolean;
 };
 
-export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
+export type MemberRole =
+  | "readonly"
+  | "collaborator"
+  | "designer"
+  | "analyst"
+  | "developer"
+  | "experimenter"
+  | "admin";
 
 export interface Invite {
   email: string;

@@ -3,13 +3,13 @@ import { NextRouter, useRouter } from "next/router";
 import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import {
+  MemberRole,
   OrganizationInterface,
   OrganizationSettings,
+  Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, isCloud } from "./env";
-
-export type MemberRole = "collaborator" | "designer" | "developer" | "admin";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -24,6 +24,7 @@ export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
+  permissions?: Permissions;
   subscriptionStatus?: SubscriptionStatus;
   trialEnd?: Date;
   settings?: OrganizationSettings;
@@ -32,6 +33,26 @@ export type OrganizationMember = {
 export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
+
+export function getDefaultPermissions(): Permissions {
+  return {
+    addComments: false,
+    createIdeas: false,
+    createPresentations: false,
+    publishFeatures: false,
+    createFeatures: false,
+    createFeatureDrafts: false,
+    createAnalyses: false,
+    createDimensions: false,
+    createMetrics: false,
+    createSegments: false,
+    runQueries: false,
+    editDatasourceSettings: false,
+    createDatasources: false,
+    organizationSettings: false,
+    superDelete: false,
+  };
+}
 
 export interface AuthContextValue {
   isAuthenticated: boolean;

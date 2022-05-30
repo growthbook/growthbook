@@ -12,6 +12,7 @@ import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
+import usePermissions from "../../hooks/usePermissions";
 
 const SegmentPage: FC = () => {
   const {
@@ -22,6 +23,8 @@ const SegmentPage: FC = () => {
     error: segmentsError,
     mutateDefinitions: mutate,
   } = useDefinitions();
+
+  const permissions = usePermissions();
 
   const [
     segmentForm,
@@ -200,19 +203,21 @@ const SegmentPage: FC = () => {
           <h3>Segments</h3>
         </div>
         <div style={{ flex: 1 }}></div>
-        <div className="col-auto">
-          <Button
-            color="primary"
-            onClick={async () => {
-              setSegmentForm({});
-            }}
-          >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
-            </span>{" "}
-            New Segment
-          </Button>
-        </div>
+        {permissions.createSegments && (
+          <div className="col-auto">
+            <Button
+              color="primary"
+              onClick={async () => {
+                setSegmentForm({});
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>{" "}
+              New Segment
+            </Button>
+          </div>
+        )}
       </div>
       {segmentsError && (
         <div className="alert alert-danger">
@@ -235,7 +240,7 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   <th>Date Updated</th>
-                  <th></th>
+                  {permissions.createSegments && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -256,36 +261,38 @@ const SegmentPage: FC = () => {
                         <code>{s.sql}</code>
                       </td>
                       <td>{ago(s.dateUpdated)}</td>
-                      <td>
-                        <a
-                          href="#"
-                          className="tr-hover text-primary mr-3"
-                          title="Edit this segment"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSegmentForm(s);
-                          }}
-                        >
-                          <FaPencilAlt />
-                        </a>
-                        <DeleteButton
-                          link={true}
-                          className={"tr-hover text-primary"}
-                          displayName={s.name}
-                          title="Delete this segment"
-                          getConfirmationContent={getSegmentUsage(s)}
-                          onClick={async () => {
-                            await apiCall<{ status: number; message?: string }>(
-                              `/segments/${s.id}`,
-                              {
+                      {permissions.createSegments && (
+                        <td>
+                          <a
+                            href="#"
+                            className="tr-hover text-primary mr-3"
+                            title="Edit this segment"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSegmentForm(s);
+                            }}
+                          >
+                            <FaPencilAlt />
+                          </a>
+                          <DeleteButton
+                            link={true}
+                            className={"tr-hover text-primary"}
+                            displayName={s.name}
+                            title="Delete this segment"
+                            getConfirmationContent={getSegmentUsage(s)}
+                            onClick={async () => {
+                              await apiCall<{
+                                status: number;
+                                message?: string;
+                              }>(`/segments/${s.id}`, {
                                 method: "DELETE",
                                 body: JSON.stringify({ id: s.id }),
-                              }
-                            );
-                            await mutate({});
-                          }}
-                        />
-                      </td>
+                              });
+                              await mutate({});
+                            }}
+                          />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -296,8 +303,9 @@ const SegmentPage: FC = () => {
       )}
       {segments.length === 0 && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet. Click the button above
-          to create your first one.
+          You don&apos;t have any segments defined yet.{" "}
+          {permissions.createSegments &&
+            "Click the button above to create your first one."}
         </div>
       )}
     </div>

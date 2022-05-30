@@ -8,13 +8,9 @@ import { removeTagInFeature } from "../models/FeatureModel";
 import { TagInterface } from "../../types/tag";
 
 export async function postTag(req: AuthRequest<TagInterface>, res: Response) {
+  req.checkPermissions("organizationSettings");
+
   const { org } = getOrgFromReq(req);
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
   const { id, color, description } = req.body;
 
   await addTag(org.id, id, color, description);
@@ -28,14 +24,10 @@ export async function deleteTag(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
+  req.checkPermissions("organizationSettings");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  if (!req.permissions.organizationSettings) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have permission to perform that action.",
-    });
-  }
 
   // experiments
   await ExperimentModel.updateMany(

@@ -117,12 +117,7 @@ export async function postCreateBillingSession(
   res: Response
 ) {
   try {
-    if (!req.permissions?.organizationSettings) {
-      res.status(403).json({
-        status: 403,
-        message: "Only admins can view and modify billing settings",
-      });
-    }
+    req.checkPermissions("organizationSettings");
 
     const { org } = getOrgFromReq(req);
     if (!org.stripeCustomerId) {

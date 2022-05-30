@@ -136,6 +136,8 @@ export async function deletePresentation(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createPresentations");
+
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
@@ -176,6 +178,8 @@ export async function postPresentation(
   req: AuthRequest<Partial<PresentationInterface>>,
   res: Response
 ) {
+  req.checkPermissions("createPresentations");
+
   const data = req.body;
   const { org } = getOrgFromReq(req);
   data.organization = org.id;
@@ -198,6 +202,8 @@ export async function updatePresentation(
   req: AuthRequest<PresentationInterface, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createPresentations");
+
   const { id } = req.params;
   const data = req.body;
   const { org } = getOrgFromReq(req);

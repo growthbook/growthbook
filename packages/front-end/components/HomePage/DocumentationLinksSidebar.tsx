@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
+import usePermissions from "../../hooks/usePermissions";
 import track from "../../services/track";
 
 export default function DocumentationLinksSidebar({
@@ -9,6 +10,8 @@ export default function DocumentationLinksSidebar({
 }: {
   showVisualEditor?: boolean;
 }) {
+  const permissions = usePermissions();
+
   return (
     <div className="card gsbox mb-3">
       <div className="card-body">
@@ -83,20 +86,22 @@ export default function DocumentationLinksSidebar({
           </div>
         </div>
       </div>
-      <div className="card-body border-top">
-        <div className="card-title">
-          <h4 className="">Invite team</h4>
+      {permissions.organizationSettings && (
+        <div className="card-body border-top">
+          <div className="card-title">
+            <h4 className="">Invite team</h4>
+          </div>
+          <p className="card-text">Add teammates to your account</p>
+          <span className="action-link non-active-step">
+            <Link href="/settings/team">
+              <a className="boxlink">
+                Invite team <FiArrowRight />
+              </a>
+            </Link>
+          </span>
         </div>
-        <p className="card-text">Add teammates to your account</p>
-        <span className="action-link non-active-step">
-          <Link href="/settings/team">
-            <a className="boxlink">
-              Invite team <FiArrowRight />
-            </a>
-          </Link>
-        </span>
-      </div>
-      {showVisualEditor && (
+      )}
+      {showVisualEditor && permissions.organizationSettings && (
         <div className="card-body border-top">
           <div className="card-title">
             <h4 className="">Enable the Visual Editor</h4>

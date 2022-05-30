@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useMemo } from "react";
 import { useState } from "react";
 import { MdRestore } from "react-icons/md";
+import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import Dropdown from "../Dropdown/Dropdown";
@@ -27,6 +28,7 @@ export default function RevisionDropdown({
 }: Props) {
   const liveVersion = feature.revision?.version || 1;
   const isDraft = !!feature.draft?.active;
+  const permissions = usePermissions();
 
   const { apiCall } = useAuth();
   const [selectedRevision, setSelectedRevision] = useState(0);
@@ -166,7 +168,7 @@ export default function RevisionDropdown({
                             draft
                           </span>
                         </div>
-                      ) : (
+                      ) : permissions.createFeatureDrafts ? (
                         <a
                           href="#"
                           onClick={async (e) => {
@@ -184,7 +186,7 @@ export default function RevisionDropdown({
                             <MdRestore style={{ fontSize: "1.1em" }} />
                           </Tooltip>
                         </a>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                   <td>{row.comment || "--"}</td>

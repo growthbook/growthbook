@@ -23,6 +23,8 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
+  req.checkPermissions("createAnalyses");
+
   const { org } = getOrgFromReq(req);
 
   const snapshot = await ExperimentSnapshotModel.findOne({
@@ -148,6 +150,8 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createAnalyses");
+
   const { org } = getOrgFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
@@ -155,8 +159,9 @@ export async function deleteReport(
     throw new Error("Could not find report");
   }
 
-  if (report.userId !== req.userId && !req.permissions.runExperiments) {
-    throw new Error("You do not have permission to do this");
+  // Only allow admins to delete other people's reports
+  if (report.userId !== req.userId) {
+    req.checkPermissions("superDelete");
   }
 
   await deleteReportById(org.id, req.params.id);
@@ -170,6 +175,8 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("runQueries");
+
   const { org } = getOrgFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
@@ -191,6 +198,8 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createAnalyses", "runQueries");
+
   const { org } = getOrgFromReq(req);
 
   const report = await getReportById(org.id, req.params.id);
@@ -272,6 +281,8 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("runQueries");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const report = await getReportById(org.id, id);
