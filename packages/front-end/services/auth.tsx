@@ -204,6 +204,9 @@ export const AuthProvider: React.FC = ({ children }) => {
             init.headers["X-Organization"] = orgId;
           }
 
+          if (!init.credentials) {
+            init.credentials = "include";
+          }
           const response = await fetch(getApiHost() + url, init);
 
           const responseData = await response.json();
