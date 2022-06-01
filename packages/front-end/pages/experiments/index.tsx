@@ -126,7 +126,6 @@ const ExperimentsPage = (): React.ReactElement => {
       byStatus.myDrafts.push(test);
     }
   });
-  console.log(byStatus);
 
   return (
     <>
