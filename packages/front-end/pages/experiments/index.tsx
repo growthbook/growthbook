@@ -641,6 +641,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 id="archived"
                 anchor="archived"
                 count={byStatus.archived.length}
+                padding={false}
               >
                 <>
                   <table className="table table-hover experiment-table gbtable responsive-table">
@@ -649,6 +650,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         <th style={{ width: "99%" }}>Experiment</th>
                         <th>Tags</th>
                         <th>Owner</th>
+                        <th>State</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -662,9 +664,6 @@ const ExperimentsPage = (): React.ReactElement => {
                             return true;
                         })
                         .map((e) => {
-                          const phase = e.phases[e.phases.length - 1];
-                          if (!phase) return null;
-
                           return (
                             <tr
                               key={e.id}
@@ -704,6 +703,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               <td className="nowrap">
                                 {getUserDisplay(e.owner, false)}
                               </td>
+                              <td className="nowrap">{e.status}</td>
                             </tr>
                           );
                         })}
