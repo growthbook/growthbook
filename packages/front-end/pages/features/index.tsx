@@ -68,7 +68,7 @@ export default function FeaturesPage() {
 
   const filtered = filterByTags(list, tagsFilter);
 
-  const { sorted, SortableTH } = useSort(filtered, "id", 1);
+  const { sorted, SortableTH } = useSort(filtered, "id", 1, "features");
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
