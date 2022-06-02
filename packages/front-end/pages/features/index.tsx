@@ -29,6 +29,7 @@ import TagsFilter, {
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
+import Toggle from "../../components/Forms/Toggle";
 
 const NUM_PER_PAGE = 20;
 
@@ -41,6 +42,13 @@ export default function FeaturesPage() {
   const end = start + NUM_PER_PAGE;
 
   const { features, loading, error, mutate } = useFeaturesList();
+  let showToggle = false;
+  for (let i = start; i < end; i++) {
+    if (features[i] && features[i].archived) {
+      showToggle = true;
+      break;
+    }
+  }
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
@@ -67,6 +75,7 @@ export default function FeaturesPage() {
   const filtered = filterByTags(list, tagsFilter);
 
   const { sorted, SortableTH } = useSort(filtered, "id", 1);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -175,7 +184,18 @@ export default function FeaturesPage() {
             <div className="col">
               <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
+            {showToggle && (
+              <div className="col">
+                <Toggle
+                  value={showArchived}
+                  id="archived"
+                  setValue={setShowArchived}
+                ></Toggle>
+                Show Archived
+              </div>
+            )}
           </div>
+
           <table className="table gbtable table-hover">
             <thead>
               <tr>
@@ -217,12 +237,18 @@ export default function FeaturesPage() {
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;
 
-                return (
+                return !(!feature.archived || showArchived) ? null : (
                   <tr key={feature.id}>
                     <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a>{feature.id}</a>
-                      </Link>
+                      {feature.archived ? (
+                        <Link href={`/features/${feature.id}`}>
+                          <a style={{ color: "red" }}>{feature.id}</a>
+                        </Link>
+                      ) : (
+                        <Link href={`/features/${feature.id}`}>
+                          <a>{feature.id}</a>
+                        </Link>
+                      )}
                     </td>
                     <td>
                       <SortedTags tags={feature?.tags || []} />

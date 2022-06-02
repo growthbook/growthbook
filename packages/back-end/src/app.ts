@@ -507,6 +507,7 @@ app.post(
 );
 app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
 app.post("/feature/:id/publish", featuresController.postFeaturePublish);
+app.put("/feature/:id/archive", featuresController.archiveFeatureById);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureDraft);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);

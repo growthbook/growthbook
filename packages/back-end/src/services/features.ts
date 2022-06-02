@@ -132,6 +132,96 @@ export async function getFeatureDefinitions(
   return defs;
 }
 
+// Exact same as funciton above, but also filters out archived features
+export async function getUnarchivedFeatureDefinitions(
+  organization: string,
+  environment: string = "production",
+  project?: string
+) {
+  const features = await getAllFeatures(organization, project);
+
+  const defs: Record<string, FeatureDefinition> = {};
+  features.forEach((feature) => {
+    const settings = feature.environmentSettings?.[environment];
+
+    // Don't include features which are disabled for this environment
+    if (!settings || !settings.enabled || feature.archived) {
+      return;
+    }
+
+    defs[feature.id] = {
+      defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
+      rules:
+        settings.rules
+          ?.filter((r) => r.enabled)
+          ?.map((r) => {
+            const rule: FeatureDefinitionRule = {};
+            if (r.condition && r.condition !== "{}") {
+              try {
+                rule.condition = JSON.parse(r.condition);
+              } catch (e) {
+                // ignore condition parse errors here
+              }
+            }
+
+            if (r.type === "force") {
+              rule.force = getJSONValue(feature.valueType, r.value);
+            } else if (r.type === "experiment") {
+              rule.variations = r.values.map((v) =>
+                getJSONValue(feature.valueType, v.value)
+              );
+
+              const weights = r.values
+                .map((v) => v.weight)
+                .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+                .map((w) => roundVariationWeight(w));
+              const totalWeight = getTotalVariationWeight(weights);
+              if (totalWeight <= 0) {
+                rule.coverage = 0;
+              } else if (totalWeight < 0.999) {
+                rule.coverage = totalWeight;
+              }
+
+              const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
+              rule.weights = adjustWeights(
+                weights.map((w) => roundVariationWeight(w * multiplier))
+              );
+
+              if (r.trackingKey) {
+                rule.key = r.trackingKey;
+              }
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+              if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+                rule.namespace = [
+                  r.namespace.name,
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[0] as any) || 0,
+                  // eslint-disable-next-line
+                  parseFloat(r.namespace.range[1] as any) || 0,
+                ];
+              }
+            } else if (r.type === "rollout") {
+              rule.force = getJSONValue(feature.valueType, r.value);
+              rule.coverage =
+                r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+            }
+            return rule;
+          }) ?? [],
+    };
+    if (defs[feature.id].rules && !defs[feature.id].rules?.length) {
+      delete defs[feature.id].rules;
+    }
+  });
+
+  return defs;
+}
+
 export function getEnabledEnvironments(feature: FeatureInterface) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
     return !!feature.environmentSettings?.[env]?.enabled;

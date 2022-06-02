@@ -19,6 +19,7 @@ import {
   setDefaultValue,
   toggleFeatureEnvironment,
   updateFeature,
+  archiveFeature,
   getDraftRules,
   discardDraft,
   updateDraft,
@@ -30,7 +31,7 @@ import {
   arrayMove,
   featureUpdated,
   getEnabledEnvironments,
-  getFeatureDefinitions,
+  getUnarchivedFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
@@ -60,7 +61,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
-    const features = await getFeatureDefinitions(
+    //Archived features not to be shown
+    const features = await getUnarchivedFeatureDefinitions(
       organization,
       environment,
       project
@@ -121,6 +123,7 @@ export async function postFeatures(
     dateUpdated: new Date(),
     organization: org.id,
     id: id.toLowerCase(),
+    archived: false,
     revision: {
       version: 1,
       comment: "New feature",
@@ -499,6 +502,23 @@ export async function deleteFeatureById(
       details: auditDetailsDelete(feature),
     });
     featureUpdated(feature);
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function archiveFeatureById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id);
+
+  if (feature) {
+    await archiveFeature(feature.organization, id, !feature.archived);
   }
 
   res.status(200).json({

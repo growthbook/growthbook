@@ -33,6 +33,7 @@ import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
+import ConfirmButton from "../../components/Modal/ConfirmButton";
 import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
 
@@ -81,6 +82,7 @@ export default function FeaturePage() {
   const type = data.feature.valueType;
 
   const isDraft = !!data.feature.draft?.active;
+  const isArchived = data.feature.archived;
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -213,11 +215,67 @@ export default function FeaturePage() {
               className="dropdown-item"
               text="Delete feature"
             />
+            {isArchived ? (
+              <ConfirmButton
+                onClick={async () => {
+                  await apiCall(`/feature/${data.feature.id}/archive`, {
+                    method: "PUT",
+                  });
+                  router.push("/features");
+                }}
+                modalHeader="Unarchive Feature"
+                confirmationText={
+                  <>
+                    <p>
+                      Are you sure you want to continue? This will make the
+                      current feature active again.
+                    </p>
+                  </>
+                }
+                cta="Unarchive"
+                ctaColor="danger"
+              >
+                <button className="dropdown-item">Unarchive Feature</button>
+              </ConfirmButton>
+            ) : (
+              <ConfirmButton
+                onClick={async () => {
+                  await apiCall(`/feature/${data.feature.id}/archive`, {
+                    method: "PUT",
+                  });
+                  router.push("/features");
+                }}
+                modalHeader="Archive Feature"
+                confirmationText={
+                  <>
+                    <p>
+                      Are you sure you want to continue? This will make the
+                      current feature unactive.
+                    </p>
+                  </>
+                }
+                cta="Archive"
+                ctaColor="danger"
+              >
+                <button className="dropdown-item">Archive Feature</button>
+              </ConfirmButton>
+            )}
           </MoreMenu>
         </div>
       </div>
 
-      <h1>{fid}</h1>
+      <div className="row align-items-center mb-0">
+        <h1>{fid}</h1>
+        {isArchived && (
+          <div
+            className="badge badge-secondary mx-3 h4 mb-1"
+            style={{ fontSize: "1.1em" }}
+          >
+            {" "}
+            Archived
+          </div>
+        )}
+      </div>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
         {projects.length > 0 && (
