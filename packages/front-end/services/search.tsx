@@ -75,8 +75,9 @@ export function useFeatureSearch(
   };
 } {
   const router = useRouter();
-  const { q } = router.query as { q: string };
-  const [value, setValue] = useState(q ?? "");
+  const { q } = router.query;
+  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const [value, setValue] = useState(initialSearchTerm ?? "");
   const searchIndex = useMemo(() => {
     return index<FeatureInterface>(objects, fields, transform);
   }, [objects, transform]);
