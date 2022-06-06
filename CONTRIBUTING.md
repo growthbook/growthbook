@@ -9,7 +9,7 @@ If you just want to contribute a client library in a new language and not make c
 - MacOS or Linux (Windows may work too, but we haven't tested it)
 - [NodeJS](https://nodejs.org/en/download/package-manager/) 12.x or 14.x
   - Check version by running `node -v` on terminal
-- [Yarn](https://classic.yarnpkg.com/en/docs/install#windows-stable) 
+- [Yarn](https://classic.yarnpkg.com/en/docs/install) 
 - [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
@@ -37,7 +37,7 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 5. Run `yarn` to install dependencies
 6. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
 7. Run `yarn setup` to do the initial build
-8. Start MongoDB in Docker
+8. If you have Docker installed, start MongoDB in Docker:
 
 ```sh
 docker run -d -p 27017:27017 --name mongo \
@@ -47,6 +47,8 @@ docker run -d -p 27017:27017 --name mongo \
 ```
 If docker isn't running, view [this](https://stackoverflow.com/questions/44678725/cannot-connect-to-the-docker-daemon-at-unix-var-run-docker-sock-is-the-docker).
 Look at [this](https://www.digitalocean.com/community/questions/how-to-fix-docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socket) for other docker issues with Linux
+
+Otherwise, install [Mongo](https://www.mongodb.com/docs/manual/installation/) directly (no Docker) 
 
 8. Run `yarn dev` to start the app in dev mode
 9. Visit http://localhost:3000 in your browser and verify the app is working correctly
