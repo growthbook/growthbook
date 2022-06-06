@@ -80,7 +80,7 @@ const DimensionsPage: FC = () => {
           <h3>User Dimensions</h3>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && permissions.createMetrics && (
+        {!hasFileConfig() && permissions.createDimensions && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -116,7 +116,9 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   {!hasFileConfig() && <th>Date Updated</th>}
-                  {!hasFileConfig() && <th></th>}
+                  {!hasFileConfig() && permissions.createDimensions && (
+                    <th></th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -143,7 +145,7 @@ const DimensionsPage: FC = () => {
                         )}
                       </td>
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                      {!hasFileConfig() && (
+                      {!hasFileConfig() && permissions.createDimensions && (
                         <td>
                           <a
                             href="#"
@@ -178,15 +180,13 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error &&
-        dimensions.length === 0 &&
-        !hasFileConfig() &&
-        permissions.createMetrics && (
-          <div className="alert alert-info">
-            You don&apos;t have any user dimensions defined yet. Click the
-            button above to create your first one.
-          </div>
-        )}
+      {!error && dimensions.length === 0 && !hasFileConfig() && (
+        <div className="alert alert-info">
+          You don&apos;t have any user dimensions defined yet.{" "}
+          {permissions.createDimensions &&
+            "Click the button above to create your first one."}
+        </div>
+      )}
       {!error && dimensions.length === 0 && hasFileConfig() && (
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
@@ -206,7 +206,7 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        {permissions.organizationSettings && (
+        {permissions.editDatasourceSettings && (
           <Link href="/datasources">
             <a className="btn btn-outline-primary">View Data Sources</a>
           </Link>

@@ -9,6 +9,7 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
+import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   features: FeatureInterface[];
@@ -17,6 +18,7 @@ export interface Props {
 export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
+  const permissions = usePermissions();
 
   let step = -1;
   if (!settings?.sdkInstructionsViewed) {
@@ -61,6 +63,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
+              permissionsError={!permissions.createFeatures}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -80,6 +83,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
+              permissionsError={!permissions.createFeatures}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {

@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, Fragment, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { WebhookInterface } from "back-end/types/webhook";
@@ -61,78 +61,91 @@ const Webhooks: FC = () => {
           </thead>
           <tbody>
             {data.webhooks.map((webhook) => (
-              <tr key={webhook.id}>
-                <td>
-                  {webhook.name}
-                  {!webhook.featuresOnly && (
-                    <Tooltip text="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
-                      <span className="badge badge-warning ml-2">legacy</span>
-                    </Tooltip>
-                  )}
-                </td>
-                <td>{webhook.endpoint}</td>
-                <td>
-                  {!webhook.environment ? (
-                    <>
-                      <span className="badge badge-secondary mr-1">dev</span>
-                      <span className="badge badge-secondary">production</span>
-                    </>
-                  ) : (
-                    <span className="badge badge-secondary">
-                      {webhook.environment}
-                    </span>
-                  )}
-                </td>
-                {projects.length > 0 && (
+              <Fragment key={webhook.id}>
+                <tr>
                   <td>
-                    {webhook.project ? (
-                      getProjectById(webhook.project)?.name || webhook.project
-                    ) : (
-                      <em className="text-muted">All Projects</em>
+                    {webhook.name}
+                    {!webhook.featuresOnly && (
+                      <Tooltip text="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
+                        <span className="badge badge-warning ml-2">legacy</span>
+                      </Tooltip>
                     )}
                   </td>
-                )}
-                <td>
-                  <code>{webhook.signingKey}</code>
-                </td>
-                <td>
-                  {webhook.error ? (
-                    <pre className="text-danger mb-0 pb-0">{webhook.error}</pre>
-                  ) : webhook.lastSuccess ? (
-                    <em>
-                      <FaCheck className="text-success" /> last fired{" "}
-                      {ago(webhook.lastSuccess)}
-                    </em>
-                  ) : (
-                    <em>never fired</em>
+                  <td>{webhook.endpoint}</td>
+                  <td>
+                    {!webhook.environment ? (
+                      <>
+                        <span className="badge badge-secondary mr-1">dev</span>
+                        <span className="badge badge-secondary">
+                          production
+                        </span>
+                      </>
+                    ) : (
+                      <span className="badge badge-secondary">
+                        {webhook.environment}
+                      </span>
+                    )}
+                  </td>
+                  {projects.length > 0 && (
+                    <td>
+                      {webhook.project ? (
+                        getProjectById(webhook.project)?.name || webhook.project
+                      ) : (
+                        <em className="text-muted">All Projects</em>
+                      )}
+                    </td>
                   )}
-                </td>
-                <td>
-                  <a
-                    href="#"
-                    className="tr-hover text-primary mr-3"
-                    title="Edit this webhook"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setOpen(webhook);
-                    }}
-                  >
-                    <FaPencilAlt />
-                  </a>
-                  <DeleteButton
-                    link={true}
-                    className={"tr-hover text-primary"}
-                    displayName="Webhook"
-                    title="Delete this webhook"
-                    onClick={async () => {
-                      await apiCall(`/webhook/${webhook.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
-                    }}
-                  />
-                </td>
-              </tr>
+                  <td>
+                    <code>{webhook.signingKey}</code>
+                  </td>
+                  <td>
+                    {webhook.error ? (
+                      <pre className="text-danger">Error</pre>
+                    ) : webhook.lastSuccess ? (
+                      <em>
+                        <FaCheck className="text-success" /> last fired{" "}
+                        {ago(webhook.lastSuccess)}
+                      </em>
+                    ) : (
+                      <em>never fired</em>
+                    )}
+                  </td>
+                  <td>
+                    <a
+                      href="#"
+                      className="tr-hover text-primary mr-3"
+                      title="Edit this webhook"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOpen(webhook);
+                      }}
+                    >
+                      <FaPencilAlt />
+                    </a>
+                    <DeleteButton
+                      link={true}
+                      className={"tr-hover text-primary"}
+                      displayName="Webhook"
+                      title="Delete this webhook"
+                      onClick={async () => {
+                        await apiCall(`/webhook/${webhook.id}`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }}
+                    />
+                  </td>
+                </tr>
+                {webhook.error && (
+                  <tr>
+                    <td colSpan={6} className="border-0">
+                      <pre className="text-danger mb-0 pb-0">
+                        {webhook.error}
+                      </pre>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

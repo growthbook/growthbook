@@ -1,12 +1,13 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import InviteModal from "./InviteModal";
-import { useAuth, MemberRole } from "../../services/auth";
+import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
 import DeleteButton from "../DeleteButton";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
+import { MemberRole } from "back-end/types/organization";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 

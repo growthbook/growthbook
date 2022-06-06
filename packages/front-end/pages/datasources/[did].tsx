@@ -11,6 +11,7 @@ import EditDataSourceSettingsForm from "../../components/Settings/EditDataSource
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
+import usePermissions from "../../hooks/usePermissions";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -22,6 +23,8 @@ function quotePropertyName(name: string) {
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [editSettings, setEditSettings] = useState(false);
+
+  const permissions = usePermissions();
 
   const canEdit = !hasFileConfig();
 
@@ -78,7 +81,7 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-success">connected</span>
         </div>
         <div style={{ flex: 1 }} />
-        {canEdit && (
+        {canEdit && permissions.createDatasources && (
           <div className="col-auto">
             <DeleteButton
               displayName={d.name}
@@ -98,7 +101,7 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-9">
           <div className="row mb-3">
-            {canEdit && (
+            {canEdit && permissions.createDatasources && (
               <div className="col-auto">
                 <a
                   href="#"
@@ -111,19 +114,21 @@ const DataSourcePage: FC = () => {
                 </a>
               </div>
             )}
-            {(supportsSQL || supportsEvents) && canEdit && (
-              <div className="col-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditSettings(true);
-                  }}
-                >
-                  <FaCode /> Edit Query Settings
-                </a>
-              </div>
-            )}
+            {(supportsSQL || supportsEvents) &&
+              canEdit &&
+              permissions.editDatasourceSettings && (
+                <div className="col-auto">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditSettings(true);
+                    }}
+                  >
+                    <FaCode /> Edit Query Settings
+                  </a>
+                </div>
+              )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
@@ -298,36 +303,38 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
         </div>
         <div className="col-md-3">
-          {supportsImports && (
-            <div className="card">
-              <div className="card-body">
-                <h2>Import Past Experiments</h2>
-                <p>
-                  If you have past experiments already in your data source, you
-                  can import them to GrowthBook.
-                </p>
-                <Button
-                  color="outline-primary"
-                  onClick={async () => {
-                    const res = await apiCall<{ id: string }>(
-                      "/experiments/import",
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          datasource: d.id,
-                        }),
+          {supportsImports &&
+            permissions.runQueries &&
+            permissions.createAnalyses && (
+              <div className="card">
+                <div className="card-body">
+                  <h2>Import Past Experiments</h2>
+                  <p>
+                    If you have past experiments already in your data source,
+                    you can import them to GrowthBook.
+                  </p>
+                  <Button
+                    color="outline-primary"
+                    onClick={async () => {
+                      const res = await apiCall<{ id: string }>(
+                        "/experiments/import",
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            datasource: d.id,
+                          }),
+                        }
+                      );
+                      if (res.id) {
+                        await router.push(`/experiments/import/${res.id}`);
                       }
-                    );
-                    if (res.id) {
-                      await router.push(`/experiments/import/${res.id}`);
-                    }
-                  }}
-                >
-                  <FaCloudDownloadAlt /> Import
-                </Button>
+                    }}
+                  >
+                    <FaCloudDownloadAlt /> Import
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
 

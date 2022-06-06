@@ -53,6 +53,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
+        permissions: ["editDatasourceSettings"],
       },
     ],
   },
@@ -85,7 +86,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/settings",
     Icon: GBSettings,
     path: /^(settings|admin|projects|namespaces)/,
-    settingsPermission: true,
+    permissions: ["organizationSettings"],
     autoClose: true,
     subLinks: [
       {

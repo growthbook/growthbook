@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useSearch, useSort } from "../../services/search";
+import { useFeatureSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
@@ -30,6 +30,7 @@ import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";
+import usePermissions from "../../hooks/usePermissions";
 
 const NUM_PER_PAGE = 20;
 
@@ -37,6 +38,7 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
+  const permissions = usePermissions();
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -66,7 +68,7 @@ export default function FeaturesPage() {
 
   const environments = useEnvironments();
 
-  const { list, searchInputProps } = useSearch(features || [], [
+  const { list, searchInputProps } = useFeatureSearch(features || [], [
     "id",
     "description",
     "tags",
@@ -115,7 +117,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 && (
+        {features.length > 0 && permissions.createFeatures && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"

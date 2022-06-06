@@ -43,15 +43,17 @@ export default function ResultMoreMenu({
 
   return (
     <MoreMenu id="exp-result-actions">
-      <button
-        className="btn dropdown-item py-2"
-        onClick={(e) => {
-          e.preventDefault();
-          configure();
-        }}
-      >
-        <FaCog className="mr-2" /> Configure Analysis
-      </button>
+      {permissions.createAnalyses && (
+        <button
+          className="btn dropdown-item py-2"
+          onClick={(e) => {
+            e.preventDefault();
+            configure();
+          }}
+        >
+          <FaCog className="mr-2" /> Configure Analysis
+        </button>
+      )}
       {queries?.length > 0 && (
         <ViewAsyncQueriesButton
           queries={queries.map((q) => q.query)}
@@ -59,7 +61,7 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && (
+      {forceRefresh && permissions.runQueries && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -70,29 +72,33 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData && queries && !hasUserQuery && generateReport && (
-        <Button
-          className="dropdown-item py-2"
-          color="outline-info"
-          onClick={async () => {
-            const res = await apiCall<{ report: ReportInterface }>(
-              `/experiments/report/${id}`,
-              {
-                method: "POST",
+      {hasData &&
+        queries &&
+        !hasUserQuery &&
+        generateReport &&
+        permissions.createAnalyses && (
+          <Button
+            className="dropdown-item py-2"
+            color="outline-info"
+            onClick={async () => {
+              const res = await apiCall<{ report: ReportInterface }>(
+                `/experiments/report/${id}`,
+                {
+                  method: "POST",
+                }
+              );
+
+              if (!res.report) {
+                throw new Error("Failed to create report");
               }
-            );
 
-            if (!res.report) {
-              throw new Error("Failed to create report");
-            }
-
-            await router.push(`/report/${res.report.id}`);
-          }}
-        >
-          <GrTableAdd className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
-          Report
-        </Button>
-      )}
+              await router.push(`/report/${res.report.id}`);
+            }}
+          >
+            <GrTableAdd className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
+            Ad-hoc Report
+          </Button>
+        )}
 
       {hasData &&
         !hasUserQuery &&
@@ -134,7 +140,7 @@ export default function ResultMoreMenu({
           </Button>
         )}
 
-      {permissions.runExperiments && editMetrics && (
+      {permissions.createAnalyses && editMetrics && (
         <button
           type="button"
           className="dropdown-item py-2"

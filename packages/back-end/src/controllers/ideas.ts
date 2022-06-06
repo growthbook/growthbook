@@ -44,6 +44,8 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
+  req.checkPermissions("createIdeas", "runQueries");
+
   const { metric, segment } = req.body;
 
   const { org } = getOrgFromReq(req);
@@ -64,6 +66,8 @@ export async function postEstimatedImpactManual(
   req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
+  req.checkPermissions("createIdeas", "runQueries");
+
   const { org } = getOrgFromReq(req);
   const { conversionsPerDay, metric } = req.body;
 
@@ -92,6 +96,8 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
+  req.checkPermissions("createIdeas");
+
   const { org, userId } = getOrgFromReq(req);
   const data = req.body;
   data.organization = org.id;
@@ -175,6 +181,8 @@ export async function postIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createIdeas");
+
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
@@ -224,6 +232,8 @@ export async function deleteIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createIdeas");
+
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const { org } = getOrgFromReq(req);
