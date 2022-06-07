@@ -39,6 +39,7 @@ const SegmentForm: FC<{
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
+        console.log(value);
         if (sql && !value.sql.toLowerCase().includes("select")) {
           throw new Error(`Invalid SELECT statement`);
         }
@@ -88,8 +89,10 @@ const SegmentForm: FC<{
       <Field
         label={sql ? "SQL" : "Event Condition"}
         required
-        textarea
+        sqltextarea //TODO: I might need to come back and render sqltextarea or textarea dynamically
+        // textarea
         {...form.register("sql")}
+        // onChange={(v) => form.setValue("sql", v)}
         placeholder={
           sql
             ? `SELECT ${userIdType}, date FROM mytable`

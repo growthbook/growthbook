@@ -1,6 +1,10 @@
 import clsx from "clsx";
 import { ReactElement, ReactNode, useState, forwardRef } from "react";
 import TextareaAutosize from "react-textarea-autosize";
+import dynamic from "next/dynamic";
+const SqlTextArea = dynamic(() => import("../Forms/SqlTextArea"), {
+  ssr: false,
+});
 
 export type SelectOptions =
   | (
@@ -28,6 +32,7 @@ export type BaseFieldProps = {
   minRows?: number;
   maxRows?: number;
   textarea?: boolean;
+  sqltextarea?: boolean;
   prepend?: string;
   append?: string;
 };
@@ -86,9 +91,11 @@ const Field = forwardRef(
       labelClassName,
       label,
       prepend,
+      placeholder,
       append,
       render,
       textarea,
+      sqltextarea,
       minRows,
       maxRows,
       options,
@@ -118,6 +125,14 @@ const Field = forwardRef(
           className={cn}
           minRows={minRows || 2}
           maxRows={maxRows || 6}
+        />
+      );
+    } else if (sqltextarea) {
+      component = (
+        <SqlTextArea
+          {...(otherProps as unknown)}
+          ref={ref}
+          placeholder={placeholder}
         />
       );
     } else if (options || optionGroups) {
