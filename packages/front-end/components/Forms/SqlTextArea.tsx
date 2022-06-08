@@ -3,17 +3,16 @@ import AceEditor from "react-ace";
 
 import "ace-builds/src-noconflict/mode-sql";
 import "ace-builds/src-noconflict/theme-sqlserver";
-import "ace-builds/src-noconflict/ext-language_tools";
 
 interface SqlTextAreaProps {
   placeholder: string;
-  existingValue: string;
+  currentValue: string;
   setValue: (value: string) => void;
 }
 
 function SqlTextArea({
   placeholder,
-  existingValue,
+  currentValue,
   setValue,
 }: SqlTextAreaProps) {
   return (
@@ -25,7 +24,7 @@ function SqlTextArea({
         width="inherit"
         height="150px"
         placeholder={placeholder}
-        value={existingValue}
+        value={currentValue}
         onChange={(newValue) => setValue(newValue)}
       />
     </div>

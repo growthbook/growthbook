@@ -32,8 +32,8 @@ export type BaseFieldProps = {
   minRows?: number;
   maxRows?: number;
   textarea?: boolean;
-  sqlTextarea?: boolean;
-  existingValue?: string;
+  sqlTextArea?: boolean;
+  currentValue?: string;
   setValue?: (value: string) => void;
   prepend?: string;
   append?: string;
@@ -97,8 +97,8 @@ const Field = forwardRef(
       append,
       render,
       textarea,
-      sqlTextarea,
-      existingValue,
+      sqlTextArea,
+      currentValue,
       setValue,
       minRows,
       maxRows,
@@ -131,12 +131,12 @@ const Field = forwardRef(
           maxRows={maxRows || 6}
         />
       );
-    } else if (sqlTextarea) {
+    } else if (sqlTextArea) {
       component = (
         <SqlTextArea
           placeholder={placeholder}
           setValue={setValue}
-          existingValue={existingValue}
+          currentValue={currentValue}
         />
       );
     } else if (options || optionGroups) {

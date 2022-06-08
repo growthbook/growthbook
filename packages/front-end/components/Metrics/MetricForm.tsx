@@ -470,8 +470,8 @@ const MetricForm: FC<MetricFormProps> = ({
                 <Field
                   label="SQL"
                   required
-                  sqlTextarea
-                  existingValue={form.watch("sql")}
+                  sqlTextArea
+                  currentValue={form.watch("sql")}
                   setValue={(sql) => form.setValue("sql", sql)}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
