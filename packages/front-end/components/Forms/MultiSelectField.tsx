@@ -6,6 +6,7 @@ import ReactSelect, {
   MultiValueProps,
   Props,
   StylesConfig,
+  OptionProps,
 } from "react-select";
 import {
   SortableContainer,
@@ -35,8 +36,22 @@ const SortableMultiValue = SortableElement(
 );
 
 const SortableMultiValueLabel = SortableHandle(
-  (props: MultiValueGenericProps) => <components.MultiValueLabel {...props} />
+  (props: MultiValueGenericProps) => {
+    const label = <components.MultiValueLabel {...props} />;
+    if (props.data?.tooltip) {
+      return <div title={props.data.tooltip}>{label}</div>;
+    }
+    return label;
+  }
 );
+
+const OptionWithTitle = (props: OptionProps<SingleValue>) => {
+  const option = <components.Option {...props} />;
+  if (props.data?.tooltip) {
+    return <div title={props.data.tooltip}>{option}</div>;
+  }
+  return option;
+};
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
   Props<SingleValue, true> & SortableContainerProps
@@ -110,6 +125,7 @@ const MultiSelectField: FC<
               // @ts-ignore We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
+              Option: OptionWithTitle,
             }}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}

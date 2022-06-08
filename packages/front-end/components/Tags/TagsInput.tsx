@@ -60,14 +60,6 @@ const TagsInput: FC<{
           height: 10,
           width: 10,
         },
-        // add the description after
-        ":after": {
-          content: `" ${data.desc ? "- " + data.desc : ""} "`,
-          display: "inline",
-          color: "#777",
-          fontSize: "12px",
-          paddingLeft: "3px",
-        },
         ":active": {
           ...styles[":active"],
           backgroundColor: displayColor + "90",
@@ -104,7 +96,7 @@ const TagsInput: FC<{
               value: t.id,
               label: t.id,
               color: t.color,
-              desc: t.description,
+              tooltip: t.description,
             };
           }) ?? []
         }
