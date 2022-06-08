@@ -257,7 +257,7 @@ const EditDataSourceSettingsForm: FC<{
                           <Field
                             label="SQL"
                             required
-                            sqltextarea
+                            sqlTextarea
                             existingValue={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
