@@ -33,13 +33,14 @@ const SegmentForm: FC<{
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
+  console.log(form);
+
   return (
     <Modal
       close={close}
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
-        console.log(value); //TODO: Remove this before launching
         if (sql && !value.sql.toLowerCase().includes("select")) {
           throw new Error(`Invalid SELECT statement`);
         }
@@ -86,12 +87,15 @@ const SegmentForm: FC<{
           })}
         />
       )}
-      <Field
+      {/* <Field
         label={sql ? "SQL" : "Event Condition"}
         required
-        sqltextarea //TODO: I might need to come back and render sqltextarea or textarea dynamically
+        sqltextarea={sql}
+        textarea={!sql}
+        // sqltextarea //TODO: I might need to come back and render sqltextarea or textarea dynamically
         // textarea
-        setValue={(sql) => form.setValue("sql", sql)}
+        { ...( sql ? { setValue: (sql) => form.setValue("sql", sql) } : { ...form.register("sql") } ) } // TODO: This seems to work but if v confusing
+        // setValue={(sql) => form.setValue("sql", sql)} //TODO: This doesn't need to be set if !sql
         placeholder={
           sql
             ? `SELECT ${userIdType}, date FROM mytable`
@@ -110,7 +114,38 @@ const SegmentForm: FC<{
             </>
           )
         }
-      />
+      /> */}
+      {sql ? (
+        <Field
+          label="SQL"
+          required
+          sqltextarea
+          value={form.watch("sql")}
+          setValue={(sql) => form.setValue("sql", sql)}
+          placeholder={`SELECT ${userIdType}, date FROM mytable`}
+          helpText={
+            <>
+              Select two columns named <code>{userIdType}</code> and{" "}
+              <code>date</code>
+            </>
+          }
+        />
+      ) : (
+        <Field
+          label="Event Condition"
+          required
+          {...form.register("sql")}
+          textarea
+          minRows={3}
+          placeholder={"event.properties.$browser === 'Chrome'"}
+          helpText={
+            <>
+              Javascript condition used to filter events. Has access to an{" "}
+              <code>event</code> variable.
+            </>
+          }
+        />
+      )}
     </Modal>
   );
 };

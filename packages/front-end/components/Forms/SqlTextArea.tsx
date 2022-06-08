@@ -7,10 +7,11 @@ import "ace-builds/src-noconflict/ext-language_tools";
 
 interface SqlTextAreaProps {
   placeholder: string;
+  value: string;
   setValue: (value: string) => void;
 }
 
-function SqlTextArea({ placeholder, setValue }: SqlTextAreaProps) {
+function SqlTextArea({ placeholder, value, setValue }: SqlTextAreaProps) {
   return (
     <div className="border rounded">
       <AceEditor
@@ -19,8 +20,9 @@ function SqlTextArea({ placeholder, setValue }: SqlTextAreaProps) {
         name="sql"
         width="inherit"
         height="100px"
-        font-size="0.875rem"
+        // font-size="0.875rem"
         placeholder={placeholder}
+        value={value}
         onChange={(value) => setValue(value)}
       />
     </div>
