@@ -3,6 +3,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import MultiSelectField from "../Forms/MultiSelectField";
 import { StylesConfig } from "react-select";
 import { useDarkText } from "./Tag";
+import { TagInterface } from "back-end/types/tag";
 
 export interface ColorOption {
   readonly value: string;
@@ -19,14 +20,19 @@ const TagsInput: FC<{
   autoFocus?: boolean;
   style?: CSSProperties;
   closeMenuOnSelect?: boolean;
+  tagOptions?: TagInterface[];
+  prompt?: string;
 }> = ({
   onChange,
   value,
   style = {},
   autoFocus = true,
   closeMenuOnSelect = false,
+  tagOptions,
+  prompt = "Tags...",
 }) => {
   const { tags } = useDefinitions();
+  if (!tagOptions) tagOptions = tags;
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled, isFocused, isSelected }) => {
@@ -93,7 +99,7 @@ const TagsInput: FC<{
     <div style={style}>
       <MultiSelectField
         options={
-          tags.map((t) => {
+          tagOptions.map((t) => {
             return {
               value: t.id,
               label: t.id,
@@ -109,7 +115,7 @@ const TagsInput: FC<{
         closeMenuOnSelect={closeMenuOnSelect}
         autoFocus={autoFocus}
         customStyles={tagStyles}
-        placeholder="Tags..."
+        placeholder={prompt}
       />
     </div>
   );

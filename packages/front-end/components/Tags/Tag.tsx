@@ -1,27 +1,13 @@
-import React, { FC, DetailedHTMLProps, HTMLAttributes } from "react";
-import clsx from "clsx";
+import React, { FC } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 
-interface Props
-  extends DetailedHTMLProps<
-    HTMLAttributes<HTMLAnchorElement>,
-    HTMLAnchorElement
-  > {
+interface Props {
   tag: string;
   color?: string;
   description?: string;
-  onClick?: () => Promise<void>;
 }
 
-const Tag: FC<Props> = ({
-  tag,
-  color,
-  description,
-  onClick,
-  children,
-  className,
-  ...otherProps
-}) => {
+const Tag: FC<Props> = ({ tag, color, description, children }) => {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
@@ -29,36 +15,25 @@ const Tag: FC<Props> = ({
   const displayColor = color ?? fullTag?.color ?? "#029dd1";
 
   return (
-    <a
-      {...otherProps}
-      className={clsx("tag", "mr-2", "badge", "badge-primary", className)}
+    <span
+      className="tag mr-2 badge badge-primary"
       title={displayTitle}
       style={{
         backgroundColor: displayColor,
         color: useDarkText(displayColor) ? "#000000" : "#ffffff",
-        ...otherProps.style,
-      }}
-      href={onClick ? "#" : undefined}
-      onClick={async (e) => {
-        e.preventDefault();
-        if (!onClick) return;
-        try {
-          await onClick();
-        } catch (e) {
-          console.error(e);
-        }
+        cursor: "default",
       }}
     >
       {tag}
       {children && <> {children}</>}
-    </a>
+    </span>
   );
 };
 
 export default Tag;
 
 export function useDarkText(bgColor: string): boolean {
-  if (!bgColor || bgColor === "") return true;
+  if (!bgColor) return true;
   const color = bgColor.charAt(0) === "#" ? bgColor.substring(1, 7) : bgColor;
   const r = parseInt(color.substring(0, 2), 16); // hexToR
   const g = parseInt(color.substring(2, 4), 16); // hexToG
