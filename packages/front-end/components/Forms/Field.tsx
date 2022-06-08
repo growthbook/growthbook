@@ -33,7 +33,6 @@ export type BaseFieldProps = {
   maxRows?: number;
   textarea?: boolean;
   sqlTextarea?: boolean;
-  sqlTextareaHeight?: string;
   existingValue?: string;
   setValue?: (value: string) => void;
   prepend?: string;
@@ -99,7 +98,6 @@ const Field = forwardRef(
       render,
       textarea,
       sqlTextarea,
-      sqlTextareaHeight,
       existingValue,
       setValue,
       minRows,
@@ -139,7 +137,6 @@ const Field = forwardRef(
           placeholder={placeholder}
           setValue={setValue}
           existingValue={existingValue}
-          height={sqlTextareaHeight}
         />
       );
     } else if (options || optionGroups) {
