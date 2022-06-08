@@ -20,7 +20,6 @@ function SqlTextArea({ placeholder, value, setValue }: SqlTextAreaProps) {
         name="sql"
         width="inherit"
         height="100px"
-        // font-size="0.875rem"
         placeholder={placeholder}
         value={value}
         onChange={(value) => setValue(value)}

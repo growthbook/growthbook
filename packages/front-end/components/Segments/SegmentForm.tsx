@@ -33,8 +33,6 @@ const SegmentForm: FC<{
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
-  console.log(form);
-
   return (
     <Modal
       close={close}
@@ -87,34 +85,6 @@ const SegmentForm: FC<{
           })}
         />
       )}
-      {/* <Field
-        label={sql ? "SQL" : "Event Condition"}
-        required
-        sqltextarea={sql}
-        textarea={!sql}
-        // sqltextarea //TODO: I might need to come back and render sqltextarea or textarea dynamically
-        // textarea
-        { ...( sql ? { setValue: (sql) => form.setValue("sql", sql) } : { ...form.register("sql") } ) } // TODO: This seems to work but if v confusing
-        // setValue={(sql) => form.setValue("sql", sql)} //TODO: This doesn't need to be set if !sql
-        placeholder={
-          sql
-            ? `SELECT ${userIdType}, date FROM mytable`
-            : "event.properties.$browser === 'Chrome'"
-        }
-        helpText={
-          sql ? (
-            <>
-              Select two columns named <code>{userIdType}</code> and{" "}
-              <code>date</code>
-            </>
-          ) : (
-            <>
-              Javascript condition used to filter events. Has access to an{" "}
-              <code>event</code> variable.
-            </>
-          )
-        }
-      /> */}
       {sql ? (
         <Field
           label="SQL"
