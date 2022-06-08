@@ -39,7 +39,7 @@ const SegmentForm: FC<{
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
-        console.log(value);
+        console.log(value); //TODO: Remove this before launching
         if (sql && !value.sql.toLowerCase().includes("select")) {
           throw new Error(`Invalid SELECT statement`);
         }
@@ -91,8 +91,7 @@ const SegmentForm: FC<{
         required
         sqltextarea //TODO: I might need to come back and render sqltextarea or textarea dynamically
         // textarea
-        {...form.register("sql")}
-        // onChange={(v) => form.setValue("sql", v)}
+        setValue={(sql) => form.setValue("sql", sql)}
         placeholder={
           sql
             ? `SELECT ${userIdType}, date FROM mytable`

@@ -5,24 +5,15 @@ import "ace-builds/src-noconflict/mode-sql";
 import "ace-builds/src-noconflict/theme-sqlserver";
 import "ace-builds/src-noconflict/ext-language_tools";
 
-interface SqlTextAreaProps extends React.HTMLProps<HTMLTextAreaElement> {
+interface SqlTextAreaProps {
   placeholder: string;
+  setValue: (value: string) => void;
 }
 
-function SqlTextArea({ placeholder, ref, ...otherProps }: SqlTextAreaProps) {
-  console.log(otherProps.name);
-  console.log(otherProps.onChange);
-  console.log(ref);
-
-  function handleChange(newValue) {
-    console.log(newValue);
-    otherProps.onChange(newValue);
-  }
-
+function SqlTextArea({ placeholder, setValue }: SqlTextAreaProps) {
   return (
     <div className="border rounded">
       <AceEditor
-        // ref={ref}
         mode="sql"
         theme="sqlserver"
         name="sql"
@@ -30,9 +21,8 @@ function SqlTextArea({ placeholder, ref, ...otherProps }: SqlTextAreaProps) {
         height="100px"
         font-size="0.875rem"
         placeholder={placeholder}
-        onChange={handleChange}
+        onChange={(value) => setValue(value)}
       />
-      <input name="sql" onChange={(e) => handleChange(e)} />
     </div>
   );
 }
