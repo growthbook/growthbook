@@ -88,24 +88,31 @@ const DimensionForm: FC<{
           })}
         />
       )}
-      <Field
-        label={sql ? "SQL" : "Event Property"}
-        required
-        {...form.register("sql")}
-        textarea
-        minRows={3}
-        placeholder={
-          sql ? `SELECT ${userIdType}, browser as value FROM users` : "$browser"
-        }
-        helpText={
-          sql ? (
+      {sql ? (
+        <Field
+          label="SQL"
+          required
+          sqltextarea
+          value={form.watch("sql")}
+          setValue={(sql) => form.setValue("sql", sql)}
+          placeholder={`SELECT ${userIdType}, browser as value FROM users`}
+          helpText={
             <>
               Select two columns named <code>{userIdType}</code> and{" "}
               <code>value</code>
             </>
-          ) : null
-        }
-      />
+          }
+        />
+      ) : (
+        <Field
+          label="Event Condition"
+          required
+          {...form.register("sql")}
+          textarea
+          minRows={3}
+          placeholder={"$browser"}
+        />
+      )}
       <p>
         <strong>Important:</strong> Please limit dimensions to at most 50 unique
         values.

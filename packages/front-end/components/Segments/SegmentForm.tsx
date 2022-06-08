@@ -90,7 +90,7 @@ const SegmentForm: FC<{
           label="SQL"
           required
           sqltextarea
-          value={form.watch("sql")}
+          existingValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT ${userIdType}, date FROM mytable`}
           helpText={
