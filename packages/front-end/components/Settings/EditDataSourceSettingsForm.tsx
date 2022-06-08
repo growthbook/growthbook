@@ -255,14 +255,18 @@ const EditDataSourceSettingsForm: FC<{
                       <div className="row">
                         <div className="col">
                           <Field
-                            label="SQL Query"
-                            textarea
-                            minRows={10}
-                            maxRows={20}
+                            label="SQL"
                             required
-                            {...form.register(
+                            sqltextarea
+                            existingValue={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
+                            setValue={(sql) =>
+                              form.setValue(
+                                `settings.queries.exposure.${i}.query`,
+                                sql
+                              )
+                            }
                           />
 
                           <StringArrayField

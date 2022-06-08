@@ -23,7 +23,7 @@ function SqlTextArea({
         theme="sqlserver"
         name="sql"
         width="inherit"
-        height="100px"
+        height="150px"
         placeholder={placeholder}
         value={existingValue}
         onChange={(newValue) => setValue(newValue)}
