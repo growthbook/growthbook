@@ -93,9 +93,9 @@ const DimensionForm: FC<{
           label="SQL"
           required
           sqltextarea
-          value={form.watch("sql")}
+          existingValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
-          placeholder={`SELECT ${userIdType}, browser as value FROM users`}
+          placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
           helpText={
             <>
               Select two columns named <code>{userIdType}</code> and{" "}

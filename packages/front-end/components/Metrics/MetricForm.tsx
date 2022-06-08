@@ -469,14 +469,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 />
                 <Field
                   label="SQL"
-                  textarea
-                  {...form.register("sql")}
-                  minRows={8}
-                  maxRows={20}
-                  placeholder="SELECT ..."
-                  autoFocus
                   required
-                  minLength={15}
+                  sqltextarea
+                  existingValue={form.watch("sql")}
+                  setValue={(sql) => form.setValue("sql", sql)}
+                  placeholder={
+                    "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
+                  }
                 />
                 {value.type !== "binomial" && (
                   <Field

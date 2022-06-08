@@ -92,7 +92,7 @@ const SegmentForm: FC<{
           sqltextarea
           existingValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
-          placeholder={`SELECT ${userIdType}, date FROM mytable`}
+          placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           helpText={
             <>
               Select two columns named <code>{userIdType}</code> and{" "}
