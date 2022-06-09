@@ -30,7 +30,7 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import ConfirmModal from "../../components/ConfirmModal";
-import WatchButton from "../../components/Experiment/WatchButton";
+import WatchButton from "../../components/WatchButton";
 import HistoryTable from "../../components/HistoryTable";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
@@ -462,7 +462,7 @@ const ExperimentPage = (): ReactElement => {
           </>
         )}
         <div className="col-auto">
-          <WatchButton experiment={experiment.id} type="link" />
+          <WatchButton item={experiment.id} itemType="experiment" type="link" />
         </div>
       </div>
       <Tabs newStyle={true}>

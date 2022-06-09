@@ -5,6 +5,7 @@ const watchSchema = new mongoose.Schema({
   userId: String,
   organization: String,
   experiments: [String],
+  features: [String],
 });
 watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 

@@ -255,7 +255,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getWatchedExperiments(req: AuthRequest, res: Response) {
+export async function getWatchedItems(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
     const watch = await WatchModel.findOne({
@@ -265,6 +265,7 @@ export async function getWatchedExperiments(req: AuthRequest, res: Response) {
     res.status(200).json({
       status: 200,
       experiments: watch?.experiments || [],
+      features: watch?.features || [],
     });
   } catch (e) {
     res.status(400).json({

@@ -1,13 +1,14 @@
 import useApi from "../hooks/useApi";
 import { FC, createContext, useContext } from "react";
+import { JSONValue } from "@growthbook/growthbook-react";
 
 type WatchContextValue = {
-  watching: string[];
+  watching: JSONValue;
   refreshWatching: () => void;
 };
 
 const WatchContext = createContext<WatchContextValue>({
-  watching: [],
+  watching: {},
   refreshWatching: () => {
     // nothing by default
   },
@@ -20,9 +21,13 @@ export const useWatching = (): WatchContextValue => {
 const WatchProvider: FC = ({ children }) => {
   const { data, mutate } = useApi<{
     experiments: string[];
+    features: string[];
   }>("/user/watching");
 
-  const watching = data?.experiments || [];
+  const watching = {
+    experiments: data?.experiments || [],
+    features: data?.features || [],
+  };
 
   return (
     <WatchContext.Provider

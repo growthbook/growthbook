@@ -23,6 +23,7 @@ import {
   discardDraft,
   updateDraft,
 } from "../models/FeatureModel";
+import { WatchModel } from "../models/WatchModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import {
@@ -32,6 +33,7 @@ import {
   getEnabledEnvironments,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
+  ensureWatching,
 } from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
@@ -138,6 +140,7 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(feature);
+  await ensureWatching(userId, org.id, id);
 
   await req.audit({
     event: "feature.create",
@@ -371,6 +374,70 @@ export async function postFeatureToggle(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postWatchFeature(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const feature = await getFeature(org.id, id);
+    if (!feature) {
+      throw new Error("Could not find feature");
+    }
+    if (feature.organization !== org.id) {
+      res.status(403).json({
+        status: 403,
+        message: "You do not have access to this feature",
+      });
+      return;
+    }
+
+    await ensureWatching(userId, org.id, id);
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function postUnwatchFeature(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  try {
+    await WatchModel.updateOne(
+      {
+        userId: userId,
+        organization: org.id,
+      },
+      {
+        $pull: {
+          features: id,
+        },
+      }
+    );
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 
 export async function postFeatureMoveRule(

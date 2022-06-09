@@ -342,7 +342,7 @@ app.use(
 
 // Organization and Settings
 app.put("/user/name", organizationsController.putUserName);
-app.get("/user/watching", organizationsController.getWatchedExperiments);
+app.get("/user/watching", organizationsController.getWatchedItems);
 app.get("/organization/definitions", organizationsController.getDefinitions);
 app.get("/activity", organizationsController.getActivityFeed);
 app.get("/history/:type/:id", organizationsController.getHistory);
@@ -510,6 +510,8 @@ app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
 app.post("/feature/:id/publish", featuresController.postFeaturePublish);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureDraft);
+app.post("/feature/:id/watch", featuresController.postWatchFeature);
+app.post("/feature/:id/unwatch", featuresController.postUnwatchFeature);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);

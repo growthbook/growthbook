@@ -30,6 +30,7 @@ import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
+import WatchButton from "../../components/WatchButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -181,6 +182,7 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
+                <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
@@ -220,7 +222,14 @@ export default function FeaturesPage() {
                 if (isDraft) version++;
 
                 return (
-                  <tr key={feature.id}>
+                  <tr key={feature.id} className="hover-highlight">
+                    <td data-title="Watching status:" className="watching">
+                      <WatchButton
+                        item={feature.id}
+                        itemType="feature"
+                        type="icon"
+                      />
+                    </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
                         <a>{feature.id}</a>

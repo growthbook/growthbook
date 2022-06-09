@@ -21,6 +21,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
+import WatchButton from "../../components/WatchButton";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -267,6 +268,9 @@ export default function FeaturePage() {
           >
             View Audit Log
           </a>
+        </div>
+        <div className="col-auto">
+          <WatchButton item={data.feature.id} itemType="feature" type="link" />
         </div>
       </div>
 

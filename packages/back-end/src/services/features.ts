@@ -9,6 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { WatchModel } from "../models/WatchModel";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -207,4 +208,32 @@ export function verifyDraftsAreEqual(
       "New changes have been made to this feature. Please review and try again."
     );
   }
+}
+
+export async function ensureWatching(
+  userId: string,
+  orgId: string,
+  feature: string
+) {
+  await WatchModel.updateOne(
+    {
+      userId,
+      organization: orgId,
+    },
+    {
+      $addToSet: {
+        features: feature,
+      },
+    },
+    {
+      upsert: true,
+    }
+  );
+}
+
+export async function getFeatureWatchers(featureId: string) {
+  const watchers = await WatchModel.find({
+    feature: featureId,
+  });
+  return watchers;
 }

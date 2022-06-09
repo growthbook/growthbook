@@ -28,6 +28,7 @@ import TagsInput from "../Tags/TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useEnvironments } from "../../services/features";
+import { useWatching } from "../../services/WatchProvider";
 
 export type Props = {
   close: () => void;
@@ -57,6 +58,8 @@ function parseDefaultValue(
 export default function FeatureModal({ close, onSuccess }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
+
+  const { refreshWatching } = useWatching();
 
   const defaultEnvSettings: Record<string, FeatureEnvironment> = {};
   environments.forEach(
@@ -141,6 +144,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           });
         }
         refreshTags(values.tags);
+        refreshWatching();
 
         await onSuccess(res.feature);
       })}
