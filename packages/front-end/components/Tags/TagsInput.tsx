@@ -1,4 +1,4 @@
-import { CSSProperties, FC } from "react";
+import { FC } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import MultiSelectField from "../Forms/MultiSelectField";
 import { StylesConfig } from "react-select";
@@ -18,14 +18,12 @@ const TagsInput: FC<{
   onChange: (tags: string[]) => void;
   value: string[];
   autoFocus?: boolean;
-  style?: CSSProperties;
   closeMenuOnSelect?: boolean;
   tagOptions?: TagInterface[];
   prompt?: string;
 }> = ({
   onChange,
   value,
-  style = {},
   autoFocus = true,
   closeMenuOnSelect = false,
   tagOptions,
@@ -88,28 +86,26 @@ const TagsInput: FC<{
   };
 
   return (
-    <div style={style}>
-      <MultiSelectField
-        options={
-          tagOptions.map((t) => {
-            return {
-              value: t.id,
-              label: t.id,
-              color: t.color,
-              tooltip: t.description,
-            };
-          }) ?? []
-        }
-        value={value}
-        onChange={(value: string[]) => {
-          onChange(value.filter((t) => t.length > 0));
-        }}
-        closeMenuOnSelect={closeMenuOnSelect}
-        autoFocus={autoFocus}
-        customStyles={tagStyles}
-        placeholder={prompt}
-      />
-    </div>
+    <MultiSelectField
+      options={
+        tagOptions.map((t) => {
+          return {
+            value: t.id,
+            label: t.id,
+            color: t.color,
+            tooltip: t.description,
+          };
+        }) ?? []
+      }
+      value={value}
+      onChange={(value: string[]) => {
+        onChange(value.filter((t) => t.length > 0));
+      }}
+      closeMenuOnSelect={closeMenuOnSelect}
+      autoFocus={autoFocus}
+      customStyles={tagStyles}
+      placeholder={prompt}
+    />
   );
 };
 

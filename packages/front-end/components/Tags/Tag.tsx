@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
   description?: string;
 }
 
-const Tag: FC<Props> = ({ tag, color, description, children }) => {
+export default function Tag({ tag, color, description }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
@@ -25,12 +25,9 @@ const Tag: FC<Props> = ({ tag, color, description, children }) => {
       }}
     >
       {tag}
-      {children && <> {children}</>}
     </span>
   );
-};
-
-export default Tag;
+}
 
 export function useDarkText(bgColor: string): boolean {
   if (!bgColor) return true;
