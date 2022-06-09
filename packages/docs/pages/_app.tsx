@@ -83,6 +83,10 @@ const navLinks = [
         href: "/guide/GA-universal-analytics",
         name: "Google Analytics - UA",
       },
+      {
+        href: "/guide/mixpanel",
+        name: "Mixpanel",
+      },
     ],
   },
   {
