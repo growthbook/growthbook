@@ -1,5 +1,7 @@
 import { useState, useMemo, ChangeEvent, FC } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
+import { useRouter } from "next/router";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -47,6 +49,102 @@ export function useSearch<T>(
   const isFiltered = value.length >= 2;
 
   const list = isFiltered ? search<T>(searchIndex, value) : objects;
+
+  return {
+    list,
+    isFiltered,
+    searchInputProps: {
+      value,
+      onChange: (e: ChangeEvent<HTMLInputElement>): void => {
+        setValue(e.target.value);
+      },
+    },
+  };
+}
+
+export function useFeatureSearch(
+  objects: FeatureInterface[],
+  fields: string[],
+  transform?: TransformMapping
+): {
+  list: FeatureInterface[];
+  isFiltered: boolean;
+  searchInputProps: {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  };
+} {
+  const router = useRouter();
+  const { q } = router.query;
+  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const [value, setValue] = useState(initialSearchTerm ?? "");
+  const searchIndex = useMemo(() => {
+    return index<FeatureInterface>(objects, fields, transform);
+  }, [objects, transform]);
+
+  const searchTermArr = [];
+  const envSearch = {};
+  const parts = value.split(" ");
+  if (parts.length) {
+    parts.map((s) => {
+      if (s.toLowerCase().startsWith("on:")) {
+        const env = s.replace(/on:/gi, "");
+        envSearch[env] = true;
+      } else if (s.toLowerCase().startsWith("off:")) {
+        const env = s.replace(/off:/gi, "");
+        envSearch[env] = false;
+      } else {
+        searchTermArr.push(s);
+      }
+    });
+  }
+
+  const searchTerm = searchTermArr.join(" ");
+  const isFiltered = searchTerm.length >= 2;
+  let list = isFiltered
+    ? search<FeatureInterface>(searchIndex, searchTerm)
+    : objects;
+
+  // additional filtering if required:
+  if (envSearch && Object.keys(envSearch).length !== 0) {
+    list = list.filter((o) => {
+      // filtering by environment:
+      for (const env in envSearch) {
+        // special case for all environments:
+        if (env === "all") {
+          let match = true;
+          Object.keys(o.environmentSettings).map((e) => {
+            if (o.environmentSettings[e].enabled !== envSearch[env]) {
+              match = false;
+            }
+          });
+          return match;
+        } else {
+          // if we have a comma for multiple environments...
+          if (env.includes(",")) {
+            // AND these environments:
+            const andEnvs = env.split(",");
+            let match = true;
+            andEnvs.map((e) => {
+              if (
+                !o.environmentSettings[e] ||
+                o.environmentSettings[e].enabled !== envSearch[env]
+              ) {
+                match = false;
+              }
+            });
+            return match;
+          } else if (
+            o.environmentSettings[env] &&
+            o.environmentSettings[env].enabled === envSearch[env]
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+  }
 
   return {
     list,

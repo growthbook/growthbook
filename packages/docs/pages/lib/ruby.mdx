@@ -1,6 +1,6 @@
 # Ruby
 
-View the full documentation on [GitHub](https://github.com/growthbook/growthbook-ruby).
+View the full source code at [https://github.com/growthbook/growthbook-ruby](https://github.com/growthbook/growthbook-ruby).
 
 ## Installation
 
@@ -8,278 +8,136 @@ Install the gem
 
 `gem install growthbook`
 
-## Quick Usage
+## Quick start
 
 ```ruby
 require 'growthbook'
-
-# Do this once during app bootup
-client = Growthbook::Client.new
-
-# Logged-in id of the user being experimented on
-# Can also use an anonymous id like session (see below)
-user = client.user(id: "12345")
-
-# 2 variations, 50/50 split
-exp = Growthbook::Experiment.new("experiment-id", 2)
-
-result = user.experiment(exp)
-
-case result.variation
-when 0
-  puts "Control"
-when 1
-  puts "Variation"
-else
-  puts "Not in experiment"
-end
-```
-
-## Client Configuration
-
-The `Growthbook::Client` constructor takes an optional config hash.
-
-Currently, the only option is `enabled` which defaults to true. When false, all experiments are completely disabled.
-
-```ruby
-client = Growthbook::Config.new(enabled: false)
-
-# All user.experiment calls will now return -1
-```
-
-Config options are public instance variables and you can change them any time:
-
-```ruby
-client.enabled=true
-```
-
-## User Configuration
-
-The `client.user` method takes a single hash with a few possible keys:
-
-- `id` - The logged-in user id
-- `anonId` - An anonymous identifier for the user (session id, cookie, ip, etc.)
-- `attributes` - A hash with user attributes. These are never sent across the network and are only used to locally evaluate experiment targeting rules.
-
-Although all of these are technically optional, at least 1 type of id must be set or the user will be excluded from all experiments.
-
-Here is an example that uses all 3 properties:
-
-```ruby
-user = client.user(
-  # Logged-in user id
-  id: "12345",
-
-  # Anonymous id
-  anonId: "abcdef",
-
-  # Targeting attributes
-  attributes: {
-    :premium => true,
-    :accountAge => 36,
-    :geo => [
-      :region => "NY"
-    ]
-  }
-])
-```
-
-You can update these at any time:
-
-```ruby
-user.id="54321"
-user.anonId = "fedcba"
-user.attributes={
-  :premium => false
-}
-```
-
-## Experiment Configuration
-
-The default test is a 50/50 split with no targeting or customization. There are a few ways to configure this on a test-by-test basis.
-
-### Option 1: Global Configuration
-
-With this option, you configure all experiments globally once and then reference them via id throughout the code.
-
-```ruby
-client.experiments=[
-  # Default 50/50 2-way test
-  Growthbook::Experiment.new("my-test", 2),
-
-  # 3-way test with reduced coverage and unequal weights
-  Growthbook::Experiment.new(
-    "my-other-test",
-    3,
-    :coverage => 0.4,
-    :weights => [0.5, 0.25, 0.25]
-  )
-]
-
-# Later in code, pass the string id instead of the Experiment object
-result = user.experiment("my-test")
-```
-
-There is a helper method that can import a hash of multiple experiments at once. The expected format follows the GrowthBook API response.
-
-```ruby
+require 'uri'
+require 'net/http'
 require 'json'
 
-# Example response from the GrowthBook API
-json = '{
-  "status": 200,
-  "experiments": {
-    "my-test": {
-      "variations": 2
-    },
-    "my-other-test": {
-      "variations": 3,
-      "weights": [0.5, 0.25, 0.25]
-    }
-  }
-}'
-parsed = JSON.parse(json)
+# Fetch features from GrowthBook API (or a Redis cache, etc.)
+uri = URI('https://cdn.growthbook.io/api/features/MY_API_KEY')
+res = Net::HTTP.get_response(uri)
+features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
 
-client.importExperimentsHash(parsed["experiments"])
-```
-
-### Option 2: Inline Experiment Configuration
-
-As shown in the quick start above, you can use a `Growthbook::Experiment` object directly to run an experiment.
-
-The below example shows all of the possible experiment options you can set:
-
-```ruby
-# 1st argument is the experiment id
-# 2nd argument is the number of variations
-experiment = Growthbook::Experiment.new("my-experiment-id", 3,
-  # Percent of eligible traffic to include in the test (from 0 to 1)
-  :coverage => 0.5,
-
-  # How to split traffic between variations (must add to 1)
-  :weights => [0.34, 0.33, 0.33],
-
-  # If false, use the logged-in user id to assign variations
-  # If true, use the anonymous id
-  :anon => false,
-
-  # If set to an integer, force that variation for all users in the experiment
-  :force => 1,
-
-  # Targeting rules
-  # Evaluated against user attributes to determine who is included in the test
-  :targeting => ["source != google"],
-
-  # Add arbitrary data to the variations (see below for more info)
-  :data => {
-    "color" => ["blue","green","red"]
+# Create a context for the current user/request
+gb = Growthbook::Context.new(
+  features: features,
+  # User attributes for targeting / variation assignment
+  attributes: {
+    id: '123',
+    country: 'US'
   }
 )
 
-result = user.experiment(experiment)
+# Use a boolean feature flag
+if gb.on? :my_feature_key
+  puts 'My feature is on!'
+end
+
+# Get the value of a multivariate feature with a fallback
+btn_color = gb.feature_value(:signup_btn_color, 'pink')
 ```
 
-## Running Experiments
+## Track experiment impressions
 
-GrowthBook supports 3 different implementation approaches:
+When a feature's value is determined by an experiment (A/B test), you typically want to track that assignment event for later analysis.
 
-1.  Branching
-2.  Parameterization
-3.  Config System
-
-### Approach 1: Branching
-
-This is the simplest to understand and implement. You add branching via if/else or case statements:
+There are two ways to do this. First is by accessing all impressions at the end of a request:
 
 ```ruby
-result = user.experiment("experiment-id")
-
-if result.variation == 1
-    # Variation
-    buttonColor = "green"
-else
-    # Control or Not in experiment
-    buttonColor = "blue"
+gb.impressions.each do |key, result|
+  puts "Assigned variation #{result.variation_id} in experiment #{key}"
 end
 ```
 
-### Approach 2: Parameterization
-
-With this approach, you parameterize the variations by associating them with data.
+Second is by using a listener to get alerted in realtime as users are put into experiments:
 
 ```ruby
-experiment = Growthbook::Experiment.new("experiment-id", 2,
-  :data => {
-    "color" => ["blue", "green"]
-  }
-)
-
-result = user.experiment(experiment)
-
-# Will be either "blue" or "green"
-buttonColor = result.data["color"]
-
-# If no data is defined for the key, `nil` is returned
-result.data["unknown"] == nil # true
-```
-
-### Approach 3: Configuration System
-
-If you already have an existing configuration or feature flag system, you can do a deeper integration that
-avoids `experiment` calls throughout your code base entirely.
-
-All you need to do is modify your existing config system to get experiment overrides before falling back to your normal lookup process:
-
-```ruby
-# Your existing function
-def getConfig(key)
-  # Look for a valid matching experiment.
-  # If found, choose a variation and return the value for the requested key
-  result = user.lookupByDataKey(key)
-  if result != nil
-    return result.value
+class MyImpressionListener
+  def on_experiment_viewed(experiment, result)
+    puts "Assigned variation #{result.variation_id} in experiment #{experiment.key}"
   end
-
-  # Continue with your normal lookup process
-  ...
 end
+
+gb.listener = MyImpressionListener.new
 ```
 
-Instead of generic keys like `color`, you probably want to be more descriptive with this approach (e.g. `homepage.cta.color`).
+## Using with Rails
 
-With the following experiment data:
+The recommended way to use GrowthBook with a Rails app is as follows:
+
+1. Fetch the features from the GrowthBook API (or a cache) once at server startup
+2. At the start of each request, create a new Context object
+3. Use the Context object to evaluate features and run experiments during the request
+4. At the end of a request, track experiment impressions (if any) and destroy the Context instance
+5. (optional) Periodically refresh the list of features from the GrowthBook API in the background
+
+## Dev and QA helpers
+
+For dev/QA it's often useful to force specific feature values.
 
 ```ruby
-{
-  :data => {
-    "homepage.cta.color" => ["blue", "green"]
-  }
+# These take precedence over everything else when determining a feature's value
+gb.forced_features = {
+  my_feature: true,
+  other_feature: "new value"
 }
+
+# Will always be true
+gb.is_on?(:my_feature)
+
+# Will always be "new value"
+gb.feature_value(:other_feature)
 ```
 
-You can now do:
+For more predictability during QA, you can also globally disable all random assignment in experiments from running:
 
 ```ruby
-buttonColor = getConfig("homepage.cta.color")
+gb.enabled = false
 ```
 
-Your code now no longer cares where the value comes from. It could be a hard-coded config value or part of an experiment. This is the cleanest approach of the 3, but it can be difficult to debug if things go wrong.
+## Inline experiments
 
-## Tracking
+It's also possible to directly run an experiment directly in code without going through a feature flag.
 
-When someone is put into an experiment, you'll typically want to log this event in your analytics system.
+```ruby
+# Simple 50/50 experiment
+result = gb.run(Growthbook::InlineExperiment.new(
+  key: "my-experiment-key",
+  variations: ["red", "green"]
+))
 
-The user object has an array `resultsToTrack` that stores all experiment results that should be tracked.
+# Whether or not the user was included in the experiment (either true or false)
+puts(result.in_experiment ? 'included' : 'excluded')
 
-For example, if you are using Segment on the front-end, you can add something like this to the bottom of your HTML:
+# The value of the assigned variation (either "red" or "green")
+puts(result.value)
 
-```erb
-<% user.resultsToTrack.each do |result| %>
-  <script>
-  analytics.track("Experiment Viewed", {
-    experiment_id: "<%= result.experiment.id %>",
-    variation_id: <%= result.variation_id %>
-  })
-  </script>
-<% end %>
+# The variation index (either 0 or 1)
+puts(result.variation_id)
+```
+
+There are lots of additional options when running inline experiments:
+
+```ruby
+gb.run(Growthbook::InlineExperiment.new(
+  key: "my-experiment-key",
+  variations: ["red", "green"],
+  # Filter by context attributes
+  condition: {
+    country: {
+      "$in": ["US", "CA"]
+    }
+  },
+  # Adjust variation weights from the default 50/50 split
+  weights: [0.8, 0.2],
+  # Run for a subset of traffic (0 to 1, default = 1)
+  coverage: 0.5,
+  # Use a different context attribute for assigning a variation (default = "id")
+  hash_attribute: "device_id",
+  # Use a namespace to run mutually exclusive experiments
+  namespace: ["pricing-page", 0, 0.25]
+))
 ```

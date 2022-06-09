@@ -24,7 +24,7 @@ const IdeasPage = (): React.ReactElement => {
 
   const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
 
-  const { getUserDisplay } = useUser();
+  const { getUserDisplay, permissions } = useUser();
 
   const { list: displayedIdeas, searchInputProps } = useSearch(
     data?.ideas || [],
@@ -54,14 +54,16 @@ const IdeasPage = (): React.ReactElement => {
           When you&apos;re ready to test an idea, easily convert it to a full
           blown Experiment.
         </p>
-        <button
-          className="btn btn-success btn-lg"
-          onClick={() => {
-            setCurrent({});
-          }}
-        >
-          <FaPlus /> Add your first Idea
-        </button>
+        {permissions.createIdeas && (
+          <button
+            className="btn btn-success btn-lg"
+            onClick={() => {
+              setCurrent({});
+            }}
+          >
+            <FaPlus /> Add your first Idea
+          </button>
+        )}
         {current && (
           <IdeaForm
             mutate={mutate}
@@ -111,16 +113,18 @@ const IdeasPage = (): React.ReactElement => {
             </div>
           )}
           <div style={{ flex: 1 }} />
-          <div className="col-auto">
-            <button
-              className="btn btn-primary float-left"
-              onClick={() => {
-                setCurrent({});
-              }}
-            >
-              New Idea
-            </button>
-          </div>
+          {permissions.createIdeas && (
+            <div className="col-auto">
+              <button
+                className="btn btn-primary float-left"
+                onClick={() => {
+                  setCurrent({});
+                }}
+              >
+                New Idea
+              </button>
+            </div>
+          )}
         </div>
         <div className="row">
           {displayedIdeas

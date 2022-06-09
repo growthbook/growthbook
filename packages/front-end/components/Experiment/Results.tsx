@@ -98,7 +98,7 @@ const Results: FC<{
             "alert-warning": result === "dnf",
           })}
         >
-          {permissions.runExperiments && (
+          {permissions.createAnalyses && (
             <a
               href="#"
               className="alert-link float-right ml-2"
@@ -149,16 +149,18 @@ const Results: FC<{
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
           Add at least 1 metric to view results.{" "}
-          <button
-            className="btn btn-primary btn-sm ml-3"
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              editMetrics();
-            }}
-          >
-            Add Metrics
-          </button>
+          {permissions.createAnalyses && (
+            <button
+              className="btn btn-primary btn-sm ml-3"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                editMetrics();
+              }}
+            >
+              Add Metrics
+            </button>
+          )}
         </div>
       )}
       {!hasData &&
@@ -176,7 +178,7 @@ const Results: FC<{
                 ago(experiment.phases[phase].dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissions.runExperiments &&
+              permissions.runQueries &&
               `Click the "Update" button above.`}
           </div>
         )}
@@ -268,7 +270,7 @@ const Results: FC<{
             <div className="mb-3 p-3">
               <h3 className="mb-3">
                 Guardrails
-                {editMetrics && (
+                {editMetrics && permissions.createAnalyses && (
                   <a
                     href="#"
                     onClick={(e) => {
@@ -317,12 +319,14 @@ const Results: FC<{
           )}
         </>
       )}
-      <div className="px-3 mb-3">
-        <span className="text-muted">
-          Click the 3 dots next to the Update button above to configure this
-          report, download as a Jupyter notebook, and more.
-        </span>
-      </div>
+      {permissions.createAnalyses && (
+        <div className="px-3 mb-3">
+          <span className="text-muted">
+            Click the 3 dots next to the Update button above to configure this
+            report, download as a Jupyter notebook, and more.
+          </span>
+        </div>
+      )}
     </>
   );
 };

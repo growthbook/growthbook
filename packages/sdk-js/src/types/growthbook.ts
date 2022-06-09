@@ -80,6 +80,7 @@ export interface Result<T> {
   value: T;
   variationId: number;
   inExperiment: boolean;
+  hashUsed?: boolean;
   hashAttribute: string;
   hashValue: string;
 }

@@ -30,7 +30,9 @@ import path from "path";
 // Controllers
 import * as authController from "./controllers/auth";
 import * as organizationsController from "./controllers/organizations";
+import * as datasourcesController from "./controllers/datasources";
 import * as experimentsController from "./controllers/experiments";
+import * as metricsController from "./controllers/metrics";
 import * as reportsController from "./controllers/reports";
 import * as ideasController from "./controllers/ideas";
 import * as presentationController from "./controllers/presentations";
@@ -58,7 +60,9 @@ function wrapController(controller: Record<string, RequestHandler<any>>): void {
 }
 wrapController(authController);
 wrapController(organizationsController);
+wrapController(datasourcesController);
 wrapController(experimentsController);
+wrapController(metricsController);
 wrapController(ideasController);
 wrapController(presentationController);
 wrapController(discussionsController);
@@ -358,11 +362,11 @@ app.delete("/invite", organizationsController.deleteInvite);
 app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);
 app.put("/member/:id/role", organizationsController.putMemberRole);
-app.post("/oauth/google", organizationsController.postGoogleOauthRedirect);
+app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.get("/queries/:ids", organizationsController.getQueries);
-app.post("/organization/sample-data", organizationsController.postSampleData);
+app.get("/queries/:ids", datasourcesController.getQueries);
+app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 // tags
 app.post("/tag", tagsController.postTag);
@@ -380,21 +384,18 @@ app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
 app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
-app.get("/metrics", experimentsController.getMetrics);
-app.post("/metrics", experimentsController.postMetrics);
-app.get("/metric/:id", experimentsController.getMetric);
-app.put("/metric/:id", experimentsController.putMetric);
-app.delete("/metric/:id", experimentsController.deleteMetric);
-app.get("/metric/:id/usage", experimentsController.getMetricUsage);
-app.post("/metric/:id/analysis", experimentsController.postMetricAnalysis);
+app.get("/metrics", metricsController.getMetrics);
+app.post("/metrics", metricsController.postMetrics);
+app.get("/metric/:id", metricsController.getMetric);
+app.put("/metric/:id", metricsController.putMetric);
+app.delete("/metric/:id", metricsController.deleteMetric);
+app.get("/metric/:id/usage", metricsController.getMetricUsage);
+app.post("/metric/:id/analysis", metricsController.postMetricAnalysis);
 app.get(
   "/metric/:id/analysis/status",
-  experimentsController.getMetricAnalysisStatus
+  metricsController.getMetricAnalysisStatus
 );
-app.post(
-  "/metric/:id/analysis/cancel",
-  experimentsController.cancelMetricAnalysis
-);
+app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
@@ -516,11 +517,11 @@ app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
-app.get("/datasources", organizationsController.getDataSources);
-app.get("/datasource/:id", organizationsController.getDataSource);
-app.post("/datasources", organizationsController.postDataSources);
-app.put("/datasource/:id", organizationsController.putDataSource);
-app.delete("/datasource/:id", organizationsController.deleteDataSource);
+app.get("/datasources", datasourcesController.getDataSources);
+app.get("/datasource/:id", datasourcesController.getDataSource);
+app.post("/datasources", datasourcesController.postDataSources);
+app.put("/datasource/:id", datasourcesController.putDataSource);
+app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // API keys
 app.get("/keys", organizationsController.getApiKeys);

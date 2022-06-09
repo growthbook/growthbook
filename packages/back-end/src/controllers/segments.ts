@@ -29,6 +29,8 @@ export async function postSegments(
   req: AuthRequest<Partial<SegmentInterface>>,
   res: Response
 ) {
+  req.checkPermissions("createSegments");
+
   const { datasource, name, sql, userIdType } = req.body;
   if (!datasource || !sql || !name) {
     throw new Error("Missing required properties");
@@ -60,6 +62,8 @@ export async function putSegment(
   req: AuthRequest<Partial<SegmentInterface>>,
   res: Response
 ) {
+  req.checkPermissions("createSegments");
+
   const { id } = req.params;
   const segment = await SegmentModel.findOne({
     id,
@@ -141,6 +145,8 @@ export async function deleteSegment(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createSegments");
+
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const segment = await SegmentModel.findOne({

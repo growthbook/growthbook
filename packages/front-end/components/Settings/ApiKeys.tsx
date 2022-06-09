@@ -52,8 +52,8 @@ const ApiKeys: FC = () => {
         />
       )}
       <p>
-        API keys can be used with our SDKs (Javascript, React, Go, PHP, Python,
-        Android) or the Visual Editor.{" "}
+        API keys can be used with our SDKs (Javascript, React, Go, Ruby, PHP,
+        Python, Android) or the Visual Editor.{" "}
         <a
           href="https://docs.growthbook.io/app/api"
           target="_blank"

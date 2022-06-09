@@ -154,7 +154,8 @@ describe("experiments", () => {
     });
 
     expect(res.variationId).toEqual(1);
-    expect(res.inExperiment).toEqual(false);
+    expect(res.inExperiment).toEqual(true);
+    expect(res.hashUsed).toEqual(false);
 
     growthbook.destroy();
   });
@@ -406,8 +407,10 @@ describe("experiments", () => {
     const res2 = growthbook.run(exp);
 
     expect(res1.inExperiment).toEqual(false);
+    expect(res1.hashUsed).toEqual(false);
     expect(res1.value).toEqual(0);
-    expect(res2.inExperiment).toEqual(false);
+    expect(res2.inExperiment).toEqual(true);
+    expect(res2.hashUsed).toEqual(false);
     expect(res2.value).toEqual(1);
 
     growthbook.destroy();
@@ -433,8 +436,10 @@ describe("experiments", () => {
 
     expect(res1.value).toEqual(0);
     expect(res1.inExperiment).toEqual(false);
+    expect(res1.hashUsed).toEqual(false);
     expect(res2.value).toEqual(2);
-    expect(res2.inExperiment).toEqual(false);
+    expect(res2.inExperiment).toEqual(true);
+    expect(res2.hashUsed).toEqual(false);
 
     growthbook.destroy();
   });
@@ -533,6 +538,7 @@ describe("experiments", () => {
     };
     const res1 = growthbook.run(exp);
     expect(res1.inExperiment).toEqual(true);
+    expect(res1.hashUsed).toEqual(true);
     expect(res1.value).toEqual(1);
 
     growthbook.setForcedVariations({
@@ -540,12 +546,14 @@ describe("experiments", () => {
     });
 
     const res2 = growthbook.run(exp);
-    expect(res2.inExperiment).toEqual(false);
+    expect(res2.inExperiment).toEqual(true);
+    expect(res2.hashUsed).toEqual(false);
     expect(res2.value).toEqual(0);
 
     growthbook.setForcedVariations({});
     const res3 = growthbook.run(exp);
     expect(res3.inExperiment).toEqual(true);
+    expect(res3.hashUsed).toEqual(true);
     expect(res3.value).toEqual(1);
 
     growthbook.destroy();
@@ -561,12 +569,14 @@ describe("experiments", () => {
 
     const res1 = growthbook.run(exp);
     expect(res1.inExperiment).toEqual(false);
+    expect(res1.hashUsed).toEqual(false);
     expect(res1.value).toEqual(0);
 
     // Still works if explicitly forced
     context.forcedVariations = { "my-test": 1 };
     const res2 = growthbook.run(exp);
-    expect(res2.inExperiment).toEqual(false);
+    expect(res2.inExperiment).toEqual(true);
+    expect(res2.hashUsed).toEqual(false);
     expect(res2.value).toEqual(1);
 
     // Works if the experiment itself is forced
@@ -575,7 +585,8 @@ describe("experiments", () => {
       variations: [0, 1],
       force: 1,
     });
-    expect(res3.inExperiment).toEqual(false);
+    expect(res3.inExperiment).toEqual(true);
+    expect(res3.hashUsed).toEqual(false);
     expect(res3.value).toEqual(1);
 
     growthbook.destroy();
@@ -687,6 +698,17 @@ describe("experiments", () => {
     growthbook.destroy();
 
     expect(window._growthbook).toBeUndefined();
+  });
+
+  it("does not store growthbook in window when disabled", () => {
+    const context: Context = {
+      disableDevTools: true,
+    };
+    const growthbook = new GrowthBook(context);
+
+    expect(window._growthbook).toBeUndefined();
+
+    growthbook.destroy();
   });
 
   it("does not have bias when using namespaces", () => {

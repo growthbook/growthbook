@@ -9,6 +9,7 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
+import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   features: FeatureInterface[];
@@ -17,6 +18,7 @@ export interface Props {
 export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
+  const permissions = usePermissions();
 
   let step = -1;
   if (!settings?.sdkInstructionsViewed) {
@@ -57,10 +59,11 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
-              text="Integrate GrowthBook into your Javascript, React, Golang, PHP, Python, or Android application. More languages and frameworks coming soon!"
+              text="Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!"
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
+              permissionsError={!permissions.createFeatures}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -80,6 +83,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
+              permissionsError={!permissions.createFeatures}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {
@@ -111,7 +115,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    href="https://join.slack.com/t/growthbookusers/shared_invite/zt-oiq9s1qd-dHHvw4xjpnoRV1QQrq6vUg"
+                    href="https://slack.growthbook.io?ref=app-features"
                   >
                     Join us on Slack
                   </a>

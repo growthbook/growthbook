@@ -24,6 +24,8 @@ export async function postDimensions(
   req: AuthRequest<DimensionInterface>,
   res: Response
 ) {
+  req.checkPermissions("createDimensions");
+
   const { org } = getOrgFromReq(req);
   const { datasource, name, sql, userIdType } = req.body;
 
@@ -52,6 +54,8 @@ export async function putDimension(
   req: AuthRequest<DimensionInterface, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createDimensions");
+
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
@@ -85,6 +89,8 @@ export async function deleteDimension(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("createDimensions");
+
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const dimension = await findDimensionById(id, org.id);

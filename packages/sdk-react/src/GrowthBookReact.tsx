@@ -25,6 +25,7 @@ function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
       value: exp.variations[0],
       variationId: 0,
       inExperiment: false,
+      hashUsed: false,
       hashAttribute: exp.hashAttribute || "id",
       hashValue: "",
     };

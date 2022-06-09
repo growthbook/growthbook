@@ -14,6 +14,7 @@ import { useAttributeSchema } from "../../services/features";
 import { Language } from "../Code";
 import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
+import usePermissions from "../../hooks/usePermissions";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -25,6 +26,10 @@ function phpArrayFormat(json: unknown) {
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
+}
+
+function rubySymbol(name: string): string {
+  return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;
 }
 
 function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
@@ -84,6 +89,7 @@ export default function CodeSnippetModal({
   defaultLanguage?: Language;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
+  const permissions = usePermissions();
   const [state, setState] = useState<{
     tracking: TrackingType;
     gaDimension?: string;
@@ -109,18 +115,17 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
+    if (!permissions.organizationSettings) return;
     (async () => {
-      {
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              sdkInstructionsViewed: true,
-            },
-          }),
-        });
-        await update();
-      }
+      await apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: {
+            sdkInstructionsViewed: true,
+          },
+        }),
+      });
+      await update();
     })();
   }, [settings]);
 
@@ -131,14 +136,23 @@ export default function CodeSnippetModal({
         return;
       }
 
-      const key = await apiCall<{ key: string }>(`/keys?preferExisting=true`, {
-        method: "POST",
-        body: JSON.stringify({
-          description: `${environment} Features SDK`,
-          environment: environment,
-        }),
-      });
-      setApiKey(key.key);
+      try {
+        setApiKey("...");
+        const key = await apiCall<{ key: string }>(
+          `/keys?preferExisting=true`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              description: `${environment} Features SDK`,
+              environment: environment,
+            }),
+          }
+        );
+        setApiKey(key.key || "");
+      } catch (e) {
+        // Happens when user doesn't have permission to create new API keys
+        console.error(e);
+      }
     })();
   }, [environment]);
 
@@ -227,12 +241,6 @@ export default function CodeSnippetModal({
             language="javascript"
             code={`
 import { GrowthBook } from "@growthbook/growthbook";
-${
-  isCloud()
-    ? ""
-    : `\n// In production, we recommend putting a CDN in front of the API endpoint`
-}
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -249,7 +257,12 @@ const growthbook = new GrowthBook({
   }
 });
 
-// Load feature definitions from API
+// Load feature definitions from API${
+              isCloud()
+                ? ""
+                : `\n// In production, we recommend putting a CDN in front of the API endpoint`
+            }
+const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
@@ -290,12 +303,6 @@ if (growthbook.isOn(${JSON.stringify(featureId)})) {
             code={`
 import { GrowthBook, GrowthBookProvider, useFeature } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-${
-  isCloud()
-    ? ""
-    : `\n// In production, we recommend putting a CDN in front of the API endpoint`
-}
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
@@ -314,8 +321,12 @@ const growthbook = new GrowthBook({
 
 export default function MyApp() {
   useEffect(() => {
-    // Load feature definitions from API
-    fetch(FEATURES_ENDPOINT)
+    // Load feature definitions from API${
+      isCloud()
+        ? ""
+        : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
+    }
+    fetch("${getFeaturesUrl(apiKey)}")
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
@@ -468,6 +479,57 @@ val gb = GBSDKBuilder(
 if (gb.feature(${JSON.stringify(featureId)}).on) {
   // Feature is enabled!
 }
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Ruby" id="ruby">
+          <p>
+            Read the{" "}
+            <a
+              href="https://docs.growthbook.io/lib/ruby"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              full Ruby SDK docs
+            </a>{" "}
+            for more details.
+          </p>
+          <Code language="sh" code={`gem install growthbook`} />
+          <Code
+            language="ruby"
+            code={`
+require 'growthbook'
+require 'uri'
+require 'net/http'
+require 'json'
+
+# Fetch features from GrowthBook API
+# TODO: In production, we recommend adding a caching layer (Redis, etc.)
+uri = URI('${getFeaturesUrl(apiKey)}')
+res = Net::HTTP.get_response(uri)
+features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
+
+# Tracking callback when users are put into an experiment
+class MyImpressionListener
+  def on_experiment_viewed(experiment, result)
+    puts "Assigned variation #{result.variation_id} in experiment #{experiment.key}"
+  end
+end
+
+# Create a context for the current user/request
+gb = Growthbook::Context.new(
+  features: features,
+  # TODO: Real user attributes for targeting
+  attributes: ${indentLines(stringify(exampleAttributes), 4).replace(
+    /: null/g,
+    ": nil"
+  )},
+  listener: MyImpressionListener.new
+)
+
+if gb.on? ${rubySymbol(featureId)}
+  puts 'My feature is on!'
+end
             `.trim()}
           />
         </Tab>

@@ -140,7 +140,7 @@ export default function AnalysisSettingsBar({
               </div>
             ))}
         </div>
-        {permissions.runExperiments && experiment.metrics.length > 0 && (
+        {permissions.runQueries && experiment.metrics.length > 0 && (
           <div className="col-auto">
             {experiment.datasource && latest && latest.queries?.length > 0 ? (
               <form
@@ -219,7 +219,7 @@ export default function AnalysisSettingsBar({
           />
         </div>
       </div>
-      {permissions.runExperiments && datasource && (
+      {permissions.runQueries && datasource && (
         <div className="px-3">
           {refreshError && (
             <div className="alert alert-danger">

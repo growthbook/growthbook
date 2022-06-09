@@ -20,7 +20,9 @@ const EditDataSourceSettingsForm: FC<{
   onSuccess: () => void;
 }> = ({ data, onSuccess, onCancel, firstTime = false, source }) => {
   const form = useForm({
-    defaultValues: data,
+    defaultValues: {
+      settings: data.settings,
+    },
   });
 
   useEffect(() => {
@@ -39,7 +41,7 @@ const EditDataSourceSettingsForm: FC<{
     });
 
     track("Edit Data Source Queries", {
-      type: value.type,
+      type: data.type,
       schema: value.settings?.schemaFormat || "none",
       source,
     });

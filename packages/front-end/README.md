@@ -10,7 +10,7 @@ This document is meant for developers who want to contribute to the GrowthBook p
 - Tabs and Dropdowns (coming soon)
 - Authentication (coming soon)
 
-## Iteracting with the API
+## Interacting with the API
 
 There are two main ways to interact with the GrowthBook API. First is the `useApi` hook for fetching data for a component. Second is the `apiCall` function for making calls in response to user actions.
 
