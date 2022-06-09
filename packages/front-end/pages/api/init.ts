@@ -47,6 +47,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
-    apiCredentials: ENABLE_API_CREDENTIALS || false,
+    apiCredentials: !!ENABLE_API_CREDENTIALS,
   });
 }
