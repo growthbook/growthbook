@@ -259,7 +259,6 @@ const EditDataSourceSettingsForm: FC<{
                             required
                             syntax="sql"
                             codeTextArea
-                            codeTextAreaHeight="150px"
                             currentValue={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
@@ -454,9 +453,12 @@ const EditDataSourceSettingsForm: FC<{
                       label="Python runQuery definition"
                       placeholder="def runQuery(sql):"
                       {...form.register("settings.notebookRunQuery")}
-                      textarea
-                      minRows={5}
-                      maxRows={20}
+                      codeTextArea
+                      syntax="python"
+                      currentValue={form.watch(`settings.notebookRunQuery`)}
+                      setValue={(sql) =>
+                        form.setValue(`settings.notebookRunQuery`, sql)
+                      }
                       helpText="Used when exporting experiment results to a Jupyter notebook"
                     />
                   </div>

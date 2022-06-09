@@ -91,7 +91,6 @@ const SegmentForm: FC<{
           required
           syntax="sql"
           codeTextArea
-          codeTextAreaHeight="150px"
           currentValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}

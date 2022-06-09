@@ -94,7 +94,6 @@ const DimensionForm: FC<{
           required
           syntax="sql"
           codeTextArea
-          codeTextAreaHeight="150px"
           currentValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}

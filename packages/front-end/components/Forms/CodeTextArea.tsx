@@ -1,12 +1,10 @@
 import React from "react";
 import AceEditor from "react-ace";
-
 import "ace-builds/src-noconflict/mode-sql";
 import "ace-builds/src-noconflict/mode-javascript";
 import "ace-builds/src-noconflict/mode-python";
 import "ace-builds/src-noconflict/mode-yaml";
 import "ace-builds/src-noconflict/mode-json";
-
 import "ace-builds/src-noconflict/theme-textmate";
 
 interface SqlTextAreaProps {
@@ -30,7 +28,7 @@ function CodeTextArea({
         mode={syntax}
         theme="textmate"
         width="inherit"
-        height={codeTextAreaHeight || "150px"}
+        height={codeTextAreaHeight || "140px"}
         placeholder={placeholder}
         value={currentValue}
         onChange={(newValue) => setValue(newValue)}
