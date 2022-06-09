@@ -22,6 +22,7 @@ import {
   ReactSelectProps,
 } from "./SelectField";
 import { arrayMove } from "@dnd-kit/sortable";
+import CreatableSelect from "react-select/creatable";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -57,6 +58,10 @@ const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
   Props<SingleValue, true> & SortableContainerProps
 >;
 
+const SortableCreatableSelect = SortableContainer(
+  CreatableSelect
+) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
+
 const MultiSelectField: FC<
   Omit<
     FieldProps,
@@ -70,6 +75,7 @@ const MultiSelectField: FC<
     sort?: boolean;
     customStyles?: StylesConfig;
     closeMenuOnSelect?: boolean;
+    creatable?: boolean;
   }
 > = ({
   value,
@@ -81,6 +87,7 @@ const MultiSelectField: FC<
   disabled,
   autoFocus,
   customStyles,
+  creatable,
   closeMenuOnSelect = false,
   ...otherProps
 }) => {
@@ -89,6 +96,8 @@ const MultiSelectField: FC<
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
+
+  const Component = creatable ? SortableCreatableSelect : SortableSelect;
 
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
@@ -105,7 +114,7 @@ const MultiSelectField: FC<
       {...fieldProps}
       render={(id, ref) => {
         return (
-          <SortableSelect
+          <Component
             useDragHandle
             helperClass="multi-select-container"
             axis="xy"

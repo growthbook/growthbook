@@ -21,6 +21,7 @@ const TagsInput: FC<{
   closeMenuOnSelect?: boolean;
   tagOptions?: TagInterface[];
   prompt?: string;
+  creatable?: boolean;
 }> = ({
   onChange,
   value,
@@ -28,9 +29,25 @@ const TagsInput: FC<{
   closeMenuOnSelect = false,
   tagOptions,
   prompt = "Tags...",
+  creatable = true,
 }) => {
   const { tags } = useDefinitions();
   if (!tagOptions) tagOptions = tags;
+
+  // Add newly created values to the list of options
+  if (creatable) {
+    const tagSet = new Set(tagOptions.map((t) => t.id));
+    tagOptions = [...tagOptions];
+    value.forEach((value) => {
+      if (!tagSet.has(value)) {
+        tagOptions.push({
+          id: value,
+          description: "",
+          color: "#029dd1",
+        });
+      }
+    });
+  }
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled, isFocused, isSelected }) => {
@@ -105,6 +122,7 @@ const TagsInput: FC<{
       autoFocus={autoFocus}
       customStyles={tagStyles}
       placeholder={prompt}
+      creatable={creatable}
     />
   );
 };

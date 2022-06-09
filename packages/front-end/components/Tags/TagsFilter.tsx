@@ -93,6 +93,7 @@ export default function TagsFilter({
         autoFocus={open}
         closeMenuOnSelect={true}
         tagOptions={availableTags.map((t) => getTagById(t)).filter(Boolean)}
+        creatable={false}
       />
     </div>
   );
