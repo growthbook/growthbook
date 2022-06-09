@@ -9,7 +9,7 @@ import {
   Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, isCloud } from "./env";
+import { getApiHost, includeApiCredentials, isCloud } from "./env";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -204,7 +204,7 @@ export const AuthProvider: React.FC = ({ children }) => {
             init.headers["X-Organization"] = orgId;
           }
 
-          if (!init.credentials) {
+          if (!init.credentials && includeApiCredentials()) {
             init.credentials = "include";
           }
           const response = await fetch(getApiHost() + url, init);

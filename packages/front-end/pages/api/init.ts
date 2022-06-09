@@ -10,6 +10,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
+    ENABLE_API_CREDENTIALS,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -46,5 +47,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
+    apiCredentials: ENABLE_API_CREDENTIALS || false,
   });
 }
