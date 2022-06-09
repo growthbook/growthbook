@@ -257,7 +257,9 @@ const EditDataSourceSettingsForm: FC<{
                           <Field
                             label="SQL"
                             required
-                            sqlTextArea
+                            syntax="sql"
+                            codeTextArea
+                            codeTextAreaHeight="150px"
                             currentValue={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
