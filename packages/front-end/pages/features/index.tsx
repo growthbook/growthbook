@@ -184,7 +184,7 @@ export default function FeaturesPage() {
             <div className="col-auto">
               <Field placeholder="Search..." {...searchInputProps} />
             </div>
-            <div className="col">
+            <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
             {showArchivedToggle && (
