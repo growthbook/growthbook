@@ -455,10 +455,9 @@ const EditDataSourceSettingsForm: FC<{
                       label="Python runQuery definition"
                       language="python"
                       placeholder="def runQuery(sql):"
-                      {...form.register("settings.notebookRunQuery")}
                       value={form.watch(`settings.notebookRunQuery`)}
-                      setValue={(sql) =>
-                        form.setValue(`settings.notebookRunQuery`, sql)
+                      setValue={(python) =>
+                        form.setValue(`settings.notebookRunQuery`, python)
                       }
                       helpText="Used when exporting experiment results to a Jupyter notebook"
                     />

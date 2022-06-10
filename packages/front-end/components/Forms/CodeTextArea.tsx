@@ -34,6 +34,7 @@ export default function CodeTextArea({
   language,
   value,
   setValue,
+  placeholder,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -53,7 +54,7 @@ export default function CodeTextArea({
               height="140px"
               value={value}
               onChange={(newValue) => setValue(newValue)}
-              placeholder={fieldProps.placeholder}
+              placeholder={placeholder}
             />
           </div>
         );
