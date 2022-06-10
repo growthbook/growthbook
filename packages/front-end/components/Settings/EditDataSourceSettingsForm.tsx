@@ -262,7 +262,7 @@ const EditDataSourceSettingsForm: FC<{
                       <div className="row">
                         <div className="col">
                           <CodeTextArea
-                            label="SQL"
+                            label="SQL Query"
                             required
                             syntax="sql"
                             currentValue={form.watch(
