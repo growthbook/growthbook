@@ -1,10 +1,6 @@
 import clsx from "clsx";
 import { ReactElement, ReactNode, useState, forwardRef } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import dynamic from "next/dynamic";
-const CodeTextArea = dynamic(() => import("./CodeTextArea"), {
-  ssr: false,
-});
 
 export type SelectOptions =
   | (
@@ -32,11 +28,6 @@ export type BaseFieldProps = {
   minRows?: number;
   maxRows?: number;
   textarea?: boolean;
-  codeTextArea?: boolean;
-  codeTextAreaHeight?: string;
-  currentValue?: string;
-  setValue?: (value: string) => void;
-  syntax?: string;
   prepend?: string;
   append?: string;
 };
@@ -95,21 +86,15 @@ const Field = forwardRef(
       labelClassName,
       label,
       prepend,
-      placeholder,
       append,
       render,
       textarea,
-      codeTextArea,
-      codeTextAreaHeight,
-      currentValue,
-      setValue,
       minRows,
       maxRows,
       options,
       optionGroups,
       type = "text",
       initialOption,
-      syntax,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -133,16 +118,6 @@ const Field = forwardRef(
           className={cn}
           minRows={minRows || 2}
           maxRows={maxRows || 6}
-        />
-      );
-    } else if (codeTextArea) {
-      component = (
-        <CodeTextArea
-          syntax={syntax}
-          codeTextAreaHeight={codeTextAreaHeight}
-          placeholder={placeholder}
-          setValue={setValue}
-          currentValue={currentValue}
         />
       );
     } else if (options || optionGroups) {

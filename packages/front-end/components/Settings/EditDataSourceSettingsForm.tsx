@@ -11,6 +11,13 @@ import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
+import dynamic from "next/dynamic";
+const CodeTextArea = dynamic(
+  () => import("../../components/Forms/CodeTextArea"),
+  {
+    ssr: false,
+  }
+);
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -254,11 +261,10 @@ const EditDataSourceSettingsForm: FC<{
                       </div>
                       <div className="row">
                         <div className="col">
-                          <Field
+                          <CodeTextArea
                             label="SQL"
                             required
                             syntax="sql"
-                            codeTextArea
                             currentValue={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
@@ -449,12 +455,10 @@ const EditDataSourceSettingsForm: FC<{
               <div className="bg-light border my-2 p-3 ml-3">
                 <div className="row mb-3">
                   <div className="col">
-                    <Field
+                    <CodeTextArea
                       label="Python runQuery definition"
-                      placeholder="def runQuery(sql):"
-                      {...form.register("settings.notebookRunQuery")}
-                      codeTextArea
                       syntax="python"
+                      {...form.register("settings.notebookRunQuery")}
                       currentValue={form.watch(`settings.notebookRunQuery`)}
                       setValue={(sql) =>
                         form.setValue(`settings.notebookRunQuery`, sql)

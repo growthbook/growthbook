@@ -6,6 +6,13 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import dynamic from "next/dynamic";
+const CodeTextArea = dynamic(
+  () => import("../../components/Forms/CodeTextArea"),
+  {
+    ssr: false,
+  }
+);
 
 const DimensionForm: FC<{
   close: () => void;
@@ -89,11 +96,10 @@ const DimensionForm: FC<{
         />
       )}
       {sql ? (
-        <Field
+        <CodeTextArea
           label="SQL"
           required
           syntax="sql"
-          codeTextArea
           currentValue={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}

@@ -25,6 +25,13 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
+import dynamic from "next/dynamic";
+const CodeTextArea = dynamic(
+  () => import("../../components/Forms/CodeTextArea"),
+  {
+    ssr: false,
+  }
+);
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -467,11 +474,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <Field
+                <CodeTextArea
                   label="SQL"
                   required
                   syntax="sql"
-                  codeTextArea
                   currentValue={form.watch("sql")}
                   setValue={(sql) => form.setValue("sql", sql)}
                   placeholder={

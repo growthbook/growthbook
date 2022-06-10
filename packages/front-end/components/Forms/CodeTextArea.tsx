@@ -1,4 +1,5 @@
-import React from "react";
+import React, { ReactNode } from "react";
+import Field, { FieldProps } from "./Field";
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-sql";
 import "ace-builds/src-noconflict/mode-javascript";
@@ -7,13 +8,17 @@ import "ace-builds/src-noconflict/mode-yaml";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-textmate";
 
-interface SqlTextAreaProps {
+export type Props = Omit<
+  FieldProps,
+  "value" | "onChange" | "options" | "multi" | "initialOption"
+> & {
   syntax: string;
-  placeholder: string;
+  placeholder?: string;
   currentValue: string;
   setValue: (value: string) => void;
   codeTextAreaHeight?: string;
-}
+  helpText?: ReactNode;
+};
 
 function CodeTextArea({
   syntax,
@@ -21,19 +26,32 @@ function CodeTextArea({
   currentValue,
   setValue,
   codeTextAreaHeight,
-}: SqlTextAreaProps) {
+  ...otherProps
+}: Props) {
+  // eslint-disable-next-line
+  const fieldProps = otherProps as any;
+
   return (
-    <div className="border rounded">
-      <AceEditor
-        mode={syntax}
-        theme="textmate"
-        width="inherit"
-        height={codeTextAreaHeight || "140px"}
-        placeholder={placeholder}
-        value={currentValue}
-        onChange={(newValue) => setValue(newValue)}
-      />
-    </div>
+    <Field
+      {...fieldProps}
+      render={(id, ref) => {
+        return (
+          <div className="border rounded">
+            <AceEditor
+              name={id}
+              ref={ref}
+              mode={syntax}
+              theme="textmate"
+              width="inherit"
+              height={codeTextAreaHeight || "140px"}
+              placeholder={placeholder}
+              value={currentValue}
+              onChange={(newValue) => setValue(newValue)}
+            />
+          </div>
+        );
+      }}
+    />
   );
 }
 
