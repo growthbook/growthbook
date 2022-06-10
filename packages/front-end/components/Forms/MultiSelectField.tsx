@@ -5,6 +5,8 @@ import ReactSelect, {
   MultiValueGenericProps,
   MultiValueProps,
   Props,
+  StylesConfig,
+  OptionProps,
 } from "react-select";
 import {
   SortableContainer,
@@ -20,6 +22,7 @@ import {
   ReactSelectProps,
 } from "./SelectField";
 import { arrayMove } from "@dnd-kit/sortable";
+import CreatableSelect from "react-select/creatable";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -34,12 +37,30 @@ const SortableMultiValue = SortableElement(
 );
 
 const SortableMultiValueLabel = SortableHandle(
-  (props: MultiValueGenericProps) => <components.MultiValueLabel {...props} />
+  (props: MultiValueGenericProps) => {
+    const label = <components.MultiValueLabel {...props} />;
+    if (props.data?.tooltip) {
+      return <div title={props.data.tooltip}>{label}</div>;
+    }
+    return label;
+  }
 );
+
+const OptionWithTitle = (props: OptionProps<SingleValue>) => {
+  const option = <components.Option {...props} />;
+  if (props.data?.tooltip) {
+    return <div title={props.data.tooltip}>{option}</div>;
+  }
+  return option;
+};
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
   Props<SingleValue, true> & SortableContainerProps
 >;
+
+const SortableCreatableSelect = SortableContainer(
+  CreatableSelect
+) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
 const MultiSelectField: FC<
   Omit<
@@ -52,6 +73,9 @@ const MultiSelectField: FC<
     initialOption?: string;
     onChange: (value: string[]) => void;
     sort?: boolean;
+    customStyles?: StylesConfig;
+    closeMenuOnSelect?: boolean;
+    creatable?: boolean;
   }
 > = ({
   value,
@@ -62,6 +86,9 @@ const MultiSelectField: FC<
   sort = true,
   disabled,
   autoFocus,
+  customStyles,
+  creatable,
+  closeMenuOnSelect = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -69,6 +96,8 @@ const MultiSelectField: FC<
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
+
+  const Component = creatable ? SortableCreatableSelect : SortableSelect;
 
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
@@ -79,13 +108,13 @@ const MultiSelectField: FC<
       )
     );
   };
-
+  const mergeStyles = customStyles ? { styles: customStyles } : {};
   return (
     <Field
       {...fieldProps}
       render={(id, ref) => {
         return (
-          <SortableSelect
+          <Component
             useDragHandle
             helperClass="multi-select-container"
             axis="xy"
@@ -105,12 +134,13 @@ const MultiSelectField: FC<
               // @ts-ignore We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
+              Option: OptionWithTitle,
             }}
-            closeMenuOnSelect={false}
+            closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}
             placeholder={initialOption ?? placeholder}
-            {...ReactSelectProps}
+            {...{ ...ReactSelectProps, ...mergeStyles }}
           />
         );
       }}

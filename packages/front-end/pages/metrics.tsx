@@ -208,7 +208,7 @@ const MetricsPage = (): React.ReactElement => {
             Show archived
           </div>
         )}
-        <div className="col">
+        <div className="col-auto">
           <TagsFilter filter={tagsFilter} items={sorted} />
         </div>
       </div>

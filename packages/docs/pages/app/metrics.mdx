@@ -160,6 +160,8 @@ The lower you set this, the more you can be sure that your experiment directly c
 
 However, setting this too low can exclude valid conversions. In the above example, maybe your new checkout page is more memorable and makes people more likely to return later. With a short conversion window you wouldn't be able to capture this data.
 
+If you return multiple rows for the same user/experiment, we unique the list (ie: only counts as one user in the experiment) and count the earliest timestamp. From that point, the user has 72 hours (or whatever you change the window to) to convert.
+
 ### Converted Users Only
 
 This setting controls the denominator for the metric.
