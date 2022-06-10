@@ -11,13 +11,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
-import dynamic from "next/dynamic";
-const CodeTextArea = dynamic(
-  () => import("../../components/Forms/CodeTextArea"),
-  {
-    ssr: false,
-  }
-);
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;

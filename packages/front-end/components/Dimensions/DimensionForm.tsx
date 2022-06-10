@@ -6,13 +6,7 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import dynamic from "next/dynamic";
-const CodeTextArea = dynamic(
-  () => import("../../components/Forms/CodeTextArea"),
-  {
-    ssr: false,
-  }
-);
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const DimensionForm: FC<{
   close: () => void;

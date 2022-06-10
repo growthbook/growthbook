@@ -25,13 +25,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
-import dynamic from "next/dynamic";
-const CodeTextArea = dynamic(
-  () => import("../../components/Forms/CodeTextArea"),
-  {
-    ssr: false,
-  }
-);
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

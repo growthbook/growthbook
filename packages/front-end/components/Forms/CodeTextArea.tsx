@@ -1,12 +1,23 @@
 import React from "react";
 import Field, { FieldProps } from "./Field";
-import AceEditor from "react-ace";
-import "ace-builds/src-noconflict/mode-sql";
-import "ace-builds/src-noconflict/mode-javascript";
-import "ace-builds/src-noconflict/mode-python";
-import "ace-builds/src-noconflict/mode-yaml";
-import "ace-builds/src-noconflict/mode-json";
-import "ace-builds/src-noconflict/theme-textmate";
+import dynamic from "next/dynamic";
+const AceEditor = dynamic(
+  async () => {
+    const reactAce = await import("react-ace");
+    await import("ace-builds/src-min-noconflict/ext-language_tools");
+    await import("ace-builds/src-noconflict/mode-sql");
+    await import("ace-builds/src-noconflict/mode-javascript");
+    await import("ace-builds/src-noconflict/mode-python");
+    await import("ace-builds/src-noconflict/mode-yaml");
+    await import("ace-builds/src-noconflict/mode-json");
+    await import("ace-builds/src-noconflict/theme-textmate");
+
+    return reactAce;
+  },
+  {
+    ssr: false, // react-ace doesn't support server side rendering as it uses the window object.
+  }
+);
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
 
@@ -31,12 +42,11 @@ export default function CodeTextArea({
   return (
     <Field
       {...fieldProps}
-      render={(id, ref) => {
+      render={(id) => {
         return (
           <div className="border rounded">
             <AceEditor
               name={id}
-              ref={ref}
               mode={language}
               theme="textmate"
               width="inherit"
