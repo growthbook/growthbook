@@ -275,7 +275,6 @@ const EditDataSourceSettingsForm: FC<{
                               )
                             }
                           />
-
                           <StringArrayField
                             label="Dimension Columns"
                             value={form.watch(
@@ -400,15 +399,18 @@ const EditDataSourceSettingsForm: FC<{
                         </div>
                         <div className="row">
                           <div className="col">
-                            <Field
+                            <CodeTextArea
                               label="SQL Query"
-                              textarea
-                              minRows={10}
-                              maxRows={20}
-                              required
-                              {...form.register(
+                              syntax="sql"
+                              currentValue={form.watch(
                                 `settings.queries.identityJoins.${i}.query`
                               )}
+                              setValue={(sql) =>
+                                form.setValue(
+                                  `settings.queries.identityJoins.${i}.query`,
+                                  sql
+                                )
+                              }
                             />
                           </div>
                           <div className="col-md-5 col-lg-4">
@@ -458,6 +460,7 @@ const EditDataSourceSettingsForm: FC<{
                     <CodeTextArea
                       label="Python runQuery definition"
                       syntax="python"
+                      placeholder="def runQuery(sql):"
                       {...form.register("settings.notebookRunQuery")}
                       currentValue={form.watch(`settings.notebookRunQuery`)}
                       setValue={(sql) =>
