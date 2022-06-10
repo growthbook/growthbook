@@ -14,6 +14,7 @@ import DeleteButton from "./DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 import useUser from "../hooks/useUser";
+import usePermissions from "../hooks/usePermissions";
 
 const DiscussionThread: FC<{
   type: DiscussionParentType;
@@ -31,6 +32,12 @@ const DiscussionThread: FC<{
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const [edit, setEdit] = useState(null);
+
+  const permissions = usePermissions();
+
+  if (!permissions.addComments) {
+    allowNewComments = false;
+  }
 
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/${type}/${id}`

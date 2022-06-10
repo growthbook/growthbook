@@ -11,6 +11,7 @@ export default function InlineForm({
   onSave,
   onStartEdit,
   children,
+  canEdit = true,
 }: {
   editing: boolean;
   setEdit: (edit: boolean) => void;
@@ -21,11 +22,13 @@ export default function InlineForm({
     save: () => Promise<void>;
     cancel: () => void;
   }) => ReactElement;
+  canEdit?: boolean;
 }): ReactElement {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>(null);
 
   const startEditing = () => {
+    if (!canEdit) return;
     onStartEdit();
     setEdit(true);
   };
@@ -43,7 +46,7 @@ export default function InlineForm({
     setSaving(false);
   };
 
-  if (!editing) {
+  if (!canEdit || !editing) {
     return (
       <div onDoubleClick={startEditing} className={className}>
         {children({

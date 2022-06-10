@@ -3,6 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Toggle from "../Forms/Toggle";
 import track from "../../services/track";
+import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   feature: FeatureInterface;
@@ -19,6 +20,7 @@ export default function EnvironmentToggle({
 }: Props) {
   const [toggling, setToggling] = useState(false);
   const { apiCall } = useAuth();
+  const permissions = usePermissions();
 
   id = id || feature.id + "__" + environment;
 
@@ -29,6 +31,7 @@ export default function EnvironmentToggle({
     <Toggle
       value={env?.enabled ?? false}
       id={id}
+      disabled={!permissions.publishFeatures}
       setValue={async (on) => {
         if (toggling) return;
         if (on && env?.enabled) return;

@@ -9,6 +9,7 @@ import { datetime } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
+import usePermissions from "../../hooks/usePermissions";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   name: "My Datasource",
@@ -28,6 +29,8 @@ const DataSources: FC = () => {
     ready,
     getDatasourceById,
   } = useDefinitions();
+
+  const permissions = usePermissions();
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -101,7 +104,7 @@ const DataSources: FC = () => {
         </div>
       )}
 
-      {!hasFileConfig() && (
+      {!hasFileConfig() && permissions.createDatasources && (
         <button
           className="btn btn-primary"
           onClick={(e) => {

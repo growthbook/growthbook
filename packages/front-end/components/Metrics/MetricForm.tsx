@@ -630,22 +630,23 @@ const MetricForm: FC<MetricFormProps> = ({
                     label="Identifier Types Supported"
                   />
                 )}
-                {Object.keys(value.userIdTypes).map((type) => {
-                  return (
-                    <Field
-                      key={type}
-                      label={type + " Column"}
-                      placeholder={type}
-                      value={value.userIdColumns[type] || ""}
-                      onChange={(e) => {
-                        form.setValue("userIdColumns", {
-                          ...value.userIdColumns,
-                          [type]: e.target.value,
-                        });
-                      }}
-                    />
-                  );
-                })}
+                {customizeUserIds &&
+                  value.userIdTypes.map((type) => {
+                    return (
+                      <Field
+                        key={type}
+                        label={type + " Column"}
+                        placeholder={type}
+                        value={value.userIdColumns[type] || ""}
+                        onChange={(e) => {
+                          form.setValue("userIdColumns", {
+                            ...value.userIdColumns,
+                            [type]: e.target.value,
+                          });
+                        }}
+                      />
+                    );
+                  })}
               </>
             )}
           </div>

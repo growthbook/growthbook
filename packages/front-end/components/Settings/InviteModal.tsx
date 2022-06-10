@@ -1,10 +1,11 @@
 import { FC, useState } from "react";
-import { MemberRole, useAuth } from "../../services/auth";
+import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
+import { MemberRole } from "back-end/types/organization";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -79,7 +80,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             required
             {...form.register("email")}
           />
-          <div className="mb-2">Role</div>
           <RoleSelector
             role={form.watch("role")}
             setRole={(role) => {

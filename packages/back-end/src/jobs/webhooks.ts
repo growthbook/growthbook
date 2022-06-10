@@ -80,6 +80,19 @@ export default function (ag: Agenda) {
     async (error: Error, job: WebhookJob) => {
       if (!job.attrs.data) return;
 
+      // record the failure:
+      const webhookId = job.attrs.data?.webhookId;
+      if (webhookId) {
+        const webhook = await WebhookModel.findOne({
+          id: webhookId,
+        });
+        if (webhook) {
+          webhook.set("error", "Error: " + job.attrs.failReason || "unknown");
+          await webhook.save();
+        }
+      }
+
+      // retry:
       const retryCount = job.attrs.data.retryCount;
       let nextRunAt = Date.now();
       // Wait 30s after the first failure

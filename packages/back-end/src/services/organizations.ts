@@ -90,28 +90,84 @@ export async function getConfidenceLevelsForOrg(id: string) {
   };
 }
 
+// Handle old roles in a backwards-compatible way
+export function updateRole(role: MemberRole): MemberRole {
+  if (role === "designer") {
+    return "collaborator";
+  }
+  if (role === "developer") {
+    return "experimenter";
+  }
+  return role;
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string
-): MemberRole | null {
-  return (
-    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] || null
+): MemberRole {
+  return updateRole(
+    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
+      "readonly"
   );
 }
 
+export function getDefaultPermissions(): Permissions {
+  return {
+    addComments: false,
+    createIdeas: false,
+    createPresentations: false,
+    publishFeatures: false,
+    createFeatures: false,
+    createFeatureDrafts: false,
+    createAnalyses: false,
+    createDimensions: false,
+    createMetrics: false,
+    createSegments: false,
+    runQueries: false,
+    editDatasourceSettings: false,
+    createDatasources: false,
+    organizationSettings: false,
+    superDelete: false,
+  };
+}
+
 export function getPermissionsByRole(role: MemberRole): Permissions {
-  const permissions: Permissions = {};
-  switch (role) {
-    case "admin":
-      permissions.organizationSettings = true;
-    // falls through
-    case "developer":
-      permissions.runExperiments = true;
-      permissions.createMetrics = true;
-    // falls through
-    case "designer":
-      permissions.draftExperiments = true;
+  role = updateRole(role);
+
+  // Start with no permissions
+  const permissions = getDefaultPermissions();
+
+  // Base permissions shared by everyone (except readonly)
+  if (role !== "readonly") {
+    permissions.addComments = true;
+    permissions.createIdeas = true;
+    permissions.createPresentations = true;
   }
+
+  // Feature flag permissions
+  if (role === "engineer" || role === "experimenter" || role === "admin") {
+    permissions.publishFeatures = true;
+    permissions.createFeatures = true;
+    permissions.createFeatureDrafts = true;
+  }
+
+  // Analysis permissions
+  if (role === "analyst" || role === "experimenter" || role === "admin") {
+    permissions.createAnalyses = true;
+    permissions.createDimensions = true;
+    permissions.createMetrics = true;
+    permissions.createSegments = true;
+    permissions.runQueries = true;
+    permissions.editDatasourceSettings = true;
+  }
+
+  // Admin permissions
+  if (role === "admin") {
+    permissions.organizationSettings = true;
+    permissions.createDatasources = true;
+    permissions.superDelete = true;
+  }
+
   return permissions;
 }
 

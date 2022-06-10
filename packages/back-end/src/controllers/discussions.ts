@@ -16,6 +16,8 @@ export async function postDiscussions(
   >,
   res: Response
 ) {
+  req.checkPermissions("addComments");
+
   const { org, userId, email, userName } = getOrgFromReq(req);
   const { parentId, parentType } = req.params;
   const { comment } = req.body;
@@ -52,6 +54,8 @@ export async function deleteComment(
   >,
   res: Response
 ) {
+  req.checkPermissions("addComments");
+
   const { org, userId } = getOrgFromReq(req);
   const { parentId, parentType, index } = req.params;
 
@@ -100,6 +104,8 @@ export async function putComment(
   >,
   res: Response
 ) {
+  req.checkPermissions("addComments");
+
   const { org, userId } = getOrgFromReq(req);
   const { parentId, parentType, index } = req.params;
   const { comment } = req.body;
@@ -221,6 +227,8 @@ export async function postImageUploadUrl(
   req: AuthRequest<null, { filetype: string }>,
   res: Response
 ) {
+  req.checkPermissions("addComments");
+
   const { org } = getOrgFromReq(req);
   const { filetype } = req.params;
 

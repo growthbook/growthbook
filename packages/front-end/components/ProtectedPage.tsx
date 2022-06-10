@@ -2,14 +2,18 @@ import { useEffect, useState, createContext } from "react";
 import {
   useAuth,
   UserOrganizations,
-  MemberRole,
   SubscriptionStatus,
+  getDefaultPermissions,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import track from "../services/track";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  Permissions,
+  MemberRole,
+} from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
@@ -40,28 +44,6 @@ export function getCurrentUser() {
   return currentUser;
 }
 
-export type Permissions = {
-  draftExperiments?: boolean;
-  runExperiments?: boolean;
-  createMetrics?: boolean;
-  organizationSettings?: boolean;
-};
-function getPermissionsByRole(role: MemberRole): Permissions {
-  const permissions: Permissions = {};
-  switch (role) {
-    case "admin":
-      permissions.organizationSettings = true;
-    // falls through
-    case "developer":
-      permissions.runExperiments = true;
-      permissions.createMetrics = true;
-    // falls through
-    case "designer":
-      permissions.draftExperiments = true;
-  }
-  return permissions;
-}
-
 export type UserContextValue = {
   userId?: string;
   name?: string;
@@ -79,7 +61,7 @@ export type UserContextValue = {
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: {},
+  permissions: getDefaultPermissions(),
   settings: {},
 });
 
@@ -136,7 +118,14 @@ const ProtectedPage: React.FC<{
   };
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+  const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
+  const permissions = currentOrg?.permissions || getDefaultPermissions();
+
+  // Super admins always have some basic permissions
+  if (data?.admin) {
+    permissions.organizationSettings = true;
+    permissions.editDatasourceSettings = true;
+  }
 
   useEffect(() => {
     currentUser = {
@@ -238,9 +227,9 @@ const ProtectedPage: React.FC<{
     },
     refreshUsers,
     role,
+    permissions,
     subscriptionStatus: currentOrg?.subscriptionStatus || "active",
     trialEnd: currentOrg?.trialEnd,
-    permissions: getPermissionsByRole(role),
     settings: currentOrg?.settings || {},
   };
 
