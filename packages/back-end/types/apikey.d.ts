@@ -3,5 +3,6 @@ export interface ApiKeyInterface {
   environment?: string;
   description?: string;
   organization: string;
+  includeDrafts?: boolean;
   dateCreated: Date;
 }

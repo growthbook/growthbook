@@ -12,6 +12,8 @@ When you first start setting up features in GrowthBook, we create a "production"
 
 You can add new environments by going to **Settings -> Environments**.
 
+You can add new API keys for your existing environments by going to **Settings -> API Keys**.
+
 ## Feature Definitions Endpoint
 
 The primary API endpoint is for fetching feature definitions.
@@ -47,6 +49,12 @@ Here is an example API response:
 The `status` field mirrors the HTTP status. The `features` field has feature definitions indexed by the feature key.
 
 Each feature definition has a default value and optional rules that override the value based on targeting conditions. Rules can also be experiments or rollouts where values are randomly assigned to users.
+
+_Note_: If a feature is toggled `off` for an environment, it will not be included in the API response.
+
+### Draft Feature Changes
+
+By default, the features endpoint does not include unpublished changes. You can change this behavior on a per-key basis. This is especially useful for dev or QA environments so you can verify changes before publishing them to production.
 
 ### Project-scoping
 

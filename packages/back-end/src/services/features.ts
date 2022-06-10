@@ -46,7 +46,8 @@ function getJSONValue(type: FeatureValueType, value: string): any {
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
-  project?: string
+  project?: string,
+  includeDrafts?: boolean
 ) {
   const features = await getAllFeatures(organization, project);
 
@@ -59,10 +60,23 @@ export async function getFeatureDefinitions(
       return;
     }
 
+    let defaultValue = feature.defaultValue;
+    let rules = settings.rules;
+
+    // If this API key should include draft changes
+    if (includeDrafts && feature.draft?.active) {
+      if ("defaultValue" in feature.draft) {
+        defaultValue = feature.draft.defaultValue || feature.defaultValue;
+      }
+      if (feature.draft.rules?.[environment]) {
+        rules = feature.draft.rules[environment];
+      }
+    }
+
     defs[feature.id] = {
-      defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
+      defaultValue: getJSONValue(feature.valueType, defaultValue),
       rules:
-        settings.rules
+        rules
           ?.filter((r) => r.enabled)
           ?.map((r) => {
             const rule: FeatureDefinitionRule = {};

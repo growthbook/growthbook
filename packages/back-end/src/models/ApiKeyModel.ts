@@ -10,6 +10,7 @@ const apiKeySchema = new mongoose.Schema({
   description: String,
   organization: String,
   dateCreated: Date,
+  includeDrafts: Boolean,
 });
 
 export type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
