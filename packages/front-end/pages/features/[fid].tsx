@@ -205,72 +205,65 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-        {permissions.createFeatures && (<DeleteButton
-              useIcon={false}
-              displayName="Feature"
-              onClick={async () => {
-                await apiCall(`/feature/${data.feature.id}`, {
-                  method: "DELETE",
-                });
-                router.push("/features");
-              }}
-              className="dropdown-item"
-              text="Delete feature"
-            />) }
-            {(isArchived && permissions.createFeatures) ? (
-              <ConfirmButton
+            {permissions.createFeatures && (
+              <DeleteButton
+                useIcon={false}
+                displayName="Feature"
                 onClick={async () => {
-                  await apiCall(`/feature/${data.feature.id}/archive`, {
-                    method: "PUT",
+                  await apiCall(`/feature/${data.feature.id}`, {
+                    method: "DELETE",
                   });
                   router.push("/features");
                 }}
-                modalHeader="Unarchive Feature"
-                confirmationText={
-                  <>
-                    <p>
-                      Are you sure you want to continue? This will make the
-                      current feature active again.
-                    </p>
-                  </>
-                }
-                cta="Unarchive"
-                ctaColor="danger"
-              >
-                <button className="dropdown-item">Unarchive Feature</button>
-              </ConfirmButton>
-            ) : (
+                className="dropdown-item"
+                text="Delete feature"
+              />
+            )}
+            {permissions.createFeatures && (
               <ConfirmButton
                 onClick={async () => {
                   await apiCall(`/feature/${data.feature.id}/archive`, {
-                    method: "PUT",
+                    method: "POST",
                   });
                   router.push("/features");
                 }}
-                modalHeader="Archive Feature"
-                confirmationText={
-                  <>
-                    <p>
-                      Are you sure you want to continue? This will make the
-                      current feature unactive.
-                    </p>
-                  </>
+                modalHeader={
+                  isArchived ? "Unarchive Feature" : "Archive Feature"
                 }
-                cta="Archive"
+                confirmationText={
+                  isArchived ? (
+                    <>
+                      <p>
+                        Are you sure you want to continue? This will make the
+                        current feature active again.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        Are you sure you want to continue? This will make the
+                        current feature unactive.
+                      </p>
+                    </>
+                  )
+                }
+                cta={isArchived ? "Unarchive" : "Archive"}
                 ctaColor="danger"
               >
-                <button className="dropdown-item">Archive Feature</button>
+                <button className="dropdown-item">
+                  {isArchived ? "Unarchive" : "Archive"} Feature
+                </button>
               </ConfirmButton>
             )}
           </MoreMenu>
         </div>
       </div>
 
-      <div className="row align-items-center mb-0">
-        <h1>{fid}</h1>
+      <div className="row align-items-center mb-3">
+        <h1 className="col-auto mb-0">{fid}</h1>
         {isArchived && (
           <div
-            className="badge badge-secondary mx-3 h4 mb-1"
+            className="badge badge-secondary mx-3 h4 mb-0"
             style={{ fontSize: "1.1em" }}
           >
             {" "}

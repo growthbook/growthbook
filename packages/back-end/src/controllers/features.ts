@@ -31,7 +31,7 @@ import {
   arrayMove,
   featureUpdated,
   getEnabledEnvironments,
-  getUnarchivedFeatureDefinitions,
+  getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
@@ -62,7 +62,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     }
 
     //Archived features not to be shown
-    const features = await getUnarchivedFeatureDefinitions(
+    const features = await getFeatureDefinitions(
       organization,
       environment,
       project
@@ -542,14 +542,24 @@ export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.permissions.organizationSettings;
+  req.checkPermissions("createFeatures", "publishFeatures");
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const feature = await getFeature(org.id, id);
 
-  if (feature) {
-    await archiveFeature(feature.organization, id, !feature.archived);
+  if (!feature) {
+    throw new Error("Could not find feature");
   }
+  await archiveFeature(feature.organization, id, !feature.archived);
+
+  await req.audit({
+    event: "feature.archive",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+  });
+  featureUpdated(feature);
 
   res.status(200).json({
     status: 200,
