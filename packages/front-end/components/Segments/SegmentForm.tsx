@@ -96,8 +96,8 @@ const SegmentForm: FC<{
         <CodeTextArea
           label="SQL"
           required
-          syntax="sql"
-          currentValue={form.watch("sql")}
+          language="sql"
+          value={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           helpText={

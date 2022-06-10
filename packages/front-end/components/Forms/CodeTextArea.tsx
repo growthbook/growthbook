@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React from "react";
 import Field, { FieldProps } from "./Field";
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-sql";
@@ -8,24 +8,21 @@ import "ace-builds/src-noconflict/mode-yaml";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-textmate";
 
+export type Language = "sql" | "json" | "javascript" | "python" | "yml";
+
 export type Props = Omit<
   FieldProps,
   "value" | "onChange" | "options" | "multi" | "initialOption"
 > & {
-  syntax: string;
-  placeholder?: string;
-  currentValue: string;
+  language: Language;
+  value: string;
   setValue: (value: string) => void;
-  codeTextAreaHeight?: string;
-  helpText?: ReactNode;
 };
 
-function CodeTextArea({
-  syntax,
-  placeholder,
-  currentValue,
+export default function CodeTextArea({
+  language,
+  value,
   setValue,
-  codeTextAreaHeight,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -40,13 +37,13 @@ function CodeTextArea({
             <AceEditor
               name={id}
               ref={ref}
-              mode={syntax}
+              mode={language}
               theme="textmate"
               width="inherit"
-              height={codeTextAreaHeight || "140px"}
-              placeholder={placeholder}
-              value={currentValue}
+              height="140px"
+              value={value}
               onChange={(newValue) => setValue(newValue)}
+              placeholder={fieldProps.placeholder}
             />
           </div>
         );
@@ -54,5 +51,3 @@ function CodeTextArea({
     />
   );
 }
-
-export default CodeTextArea;

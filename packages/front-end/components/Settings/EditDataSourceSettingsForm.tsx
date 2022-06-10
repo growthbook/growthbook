@@ -264,8 +264,8 @@ const EditDataSourceSettingsForm: FC<{
                           <CodeTextArea
                             label="SQL Query"
                             required
-                            syntax="sql"
-                            currentValue={form.watch(
+                            language="sql"
+                            value={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
                             setValue={(sql) =>
@@ -401,8 +401,8 @@ const EditDataSourceSettingsForm: FC<{
                           <div className="col">
                             <CodeTextArea
                               label="SQL Query"
-                              syntax="sql"
-                              currentValue={form.watch(
+                              language="sql"
+                              value={form.watch(
                                 `settings.queries.identityJoins.${i}.query`
                               )}
                               setValue={(sql) =>
@@ -459,10 +459,10 @@ const EditDataSourceSettingsForm: FC<{
                   <div className="col">
                     <CodeTextArea
                       label="Python runQuery definition"
-                      syntax="python"
+                      language="python"
                       placeholder="def runQuery(sql):"
                       {...form.register("settings.notebookRunQuery")}
-                      currentValue={form.watch(`settings.notebookRunQuery`)}
+                      value={form.watch(`settings.notebookRunQuery`)}
                       setValue={(sql) =>
                         form.setValue(`settings.notebookRunQuery`, sql)
                       }

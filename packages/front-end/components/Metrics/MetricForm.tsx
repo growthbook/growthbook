@@ -477,8 +477,8 @@ const MetricForm: FC<MetricFormProps> = ({
                 <CodeTextArea
                   label="SQL"
                   required
-                  syntax="sql"
-                  currentValue={form.watch("sql")}
+                  language="sql"
+                  value={form.watch("sql")}
                   setValue={(sql) => form.setValue("sql", sql)}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"

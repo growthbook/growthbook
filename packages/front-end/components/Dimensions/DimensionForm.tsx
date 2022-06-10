@@ -99,8 +99,8 @@ const DimensionForm: FC<{
         <CodeTextArea
           label="SQL"
           required
-          syntax="sql"
-          currentValue={form.watch("sql")}
+          language="sql"
+          value={form.watch("sql")}
           setValue={(sql) => form.setValue("sql", sql)}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
           helpText={
