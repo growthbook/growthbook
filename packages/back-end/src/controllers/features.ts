@@ -509,10 +509,11 @@ export async function deleteFeatureById(
   });
 }
 
-export async function archiveFeatureById(
+export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  req.permissions.organizationSettings;
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const feature = await getFeature(org.id, id);
