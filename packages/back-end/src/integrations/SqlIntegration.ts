@@ -14,6 +14,7 @@ import {
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
+  Dimension,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -470,23 +471,38 @@ export default abstract class SqlIntegration
     return `COALESCE(${nullable}, ${fallback})`;
   }
 
+  private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
+    if (!dimension) {
+      return "'All'";
+    } else if (dimension.type === "activation") {
+      return this.ifElse(
+        `a.${baseIdType} IS NULL`,
+        "'Not Activated'",
+        "'Activated'"
+      );
+    } else if (dimension.type === "user") {
+      return "d.value";
+    } else if (dimension.type === "date") {
+      return this.formatDate(this.dateTrunc("e.conversion_start"));
+    } else if (dimension.type === "experiment") {
+      return "e.dimension";
+    }
+
+    throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const {
-      metric,
-      experiment,
-      phase,
-      dimension,
-      activationMetric,
-      segment,
-    } = params;
+    const { metric, experiment, phase, activationMetric, segment } = params;
+
+    let dimension = params.dimension;
+    if (dimension?.type === "activation" && !activationMetric) {
+      dimension = null;
+    }
 
     const exposureQuery = this.getExposureQuery(
       experiment.exposureQueryId || "",
       experiment.userIdType
     );
-
-    const activationDimension =
-      activationMetric && dimension?.type === "activation";
 
     // Get rough date filter for metrics to improve performance
     const metricStart = new Date(phase.dateStarted);
@@ -533,6 +549,8 @@ export default abstract class SqlIntegration
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
+
+    const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -606,21 +624,7 @@ export default abstract class SqlIntegration
         }
         SELECT
           e.${baseIdType},
-          ${
-            dimension?.type === "user"
-              ? "d.value"
-              : dimension?.type === "experiment"
-              ? "e.dimension"
-              : dimension?.type === "date"
-              ? this.formatDate(this.dateTrunc("e.conversion_start"))
-              : activationDimension
-              ? this.ifElse(
-                  `a.${baseIdType} IS NULL`,
-                  "'Not Activated'",
-                  "'Activated'"
-                )
-              : "'All'"
-          } as dimension,
+          ${dimensionCol} as dimension,
           ${
             removeMultipleExposures
               ? this.ifElse(
@@ -653,14 +657,16 @@ export default abstract class SqlIntegration
           ${
             activationMetric
               ? `
-          ${activationDimension ? "LEFT " : ""}JOIN __activatedUsers a ON (
+          ${
+            dimension?.type === "activation" ? "LEFT " : ""
+          }JOIN __activatedUsers a ON (
             a.${baseIdType} = e.${baseIdType}
           )`
               : ""
           }
         ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
-          dimension, e.${baseIdType}${
+        ${dimension ? dimensionCol + ", " : ""}e.${baseIdType}${
         removeMultipleExposures ? "" : ", e.variation"
       }
       )
