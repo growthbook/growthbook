@@ -225,7 +225,7 @@ export default function FeaturePage() {
                   await apiCall(`/feature/${data.feature.id}/archive`, {
                     method: "POST",
                   });
-                  router.push("/features");
+                  mutate();
                 }}
                 modalHeader={
                   isArchived ? "Unarchive Feature" : "Archive Feature"
@@ -242,7 +242,8 @@ export default function FeaturePage() {
                     <>
                       <p>
                         Are you sure you want to continue? This will make the
-                        current feature unactive.
+                        current feature inactive. It will not be included in API
+                        responses or Webhook payloads.
                       </p>
                     </>
                   )
@@ -251,7 +252,7 @@ export default function FeaturePage() {
                 ctaColor="danger"
               >
                 <button className="dropdown-item">
-                  {isArchived ? "Unarchive" : "Archive"} Feature
+                  {isArchived ? "Unarchive" : "Archive"} feature
                 </button>
               </ConfirmButton>
             )}

@@ -70,8 +70,8 @@ export default function FeaturesPage() {
   const filtered = filterByTags(list, tagsFilter);
 
   let showArchivedToggle = false;
-  for (let i = 0; i < filtered.length; i++) {
-    if (features[i] && features[i].archived) {
+  for (const everyFeature of filtered) {
+    if (everyFeature && everyFeature.archived) {
       showArchivedToggle = true;
       break;
     }
