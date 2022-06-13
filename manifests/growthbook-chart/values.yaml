@@ -1,0 +1,140 @@
+# Growthbook specific configs. 
+# Reference https://docs.growthbook.io/self-host/config
+growthbookConfig:
+  APP_ORIGIN: "http://localhost:3000"
+  API_HOST: "http://localhost:3100"
+
+# Default values for growthbook-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: growthbook/growthbook
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# MongoDB database configs for Growthbook
+# Reference https://github.com/bitnami/charts/tree/master/bitnami/mongodb
+mongodb:
+  # mongodb.create -- Whenever you whant to deploy a new MongoDB instance
+  create: true
+
+  auth:
+    # auth.rootUser -- Setup MongoDB dependency root user
+    rootUser: "root"
+    # auth.rootPassword -- Setup MongoDB dependency root password
+    rootPassword: "password"
+
+  # For security reasons, MONGODB_URI must be stored as secret. 
+  # If you don't want to handle secrets manually you can adopt externalSecrets approach listed bellow. Please, make sure you have a external secrets provider setup
+  # The secret name that contains MONGODB_URI
+  secretName: mysecret
+  # Key name that has MONGODB_URI value
+  secretKeyName: myMongoUriKey
+
+
+# https://github.com/external-secrets/external-secrets
+externalSecrets:
+  # externalSecrets.enabled -- Get's external secrets using external Secrets provider
+  enabled: false
+  secrets: {}
+    # - name: "mongodb-credentials"
+    #   refreshInterval: "1m"
+    #   secretStoreName: "vault-externalsecrets-provider-backend"
+    #   targetName: "mongodb-credentials"
+    #   remotePath: "path/my-secret"
+    #   remoteValue: "credentials"
+    #   kind: "ClusterSecretStore" # "SecretStore" 
+    #   dataFrom: {}
+    #   data: 
+    #   - secretKey: MONGODB_URI
+    #     remoteRef:
+    #       key: path/my-secret
+    #       property: uri
+
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  ports: 
+  - 3000
+  - 3100
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http3000
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http3000
