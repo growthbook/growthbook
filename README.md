@@ -44,6 +44,8 @@ Create a free [GrowthBook Cloud](https://app.growthbook.io) account to get start
 
 ### Open Source
 
+#### Try Docker-Compose 
+
 The included [docker-compose.yml](https://github.com/growthbook/growthbook/blob/main/docker-compose.yml) file contains the GrowthBook App and a MongoDB instance (for storing cached experiment results and metadata):
 
 ```sh
@@ -53,6 +55,16 @@ docker-compose up -d
 ```
 
 Then visit http://localhost:3000 to view the app.
+
+### Try Kubernetes
+
+The included [growhtbook-chart](https://github.com/growthbook/growthbook/blob/main/manifests/) directory contains a helm chart for GrowthBook App and MongoDB:
+
+```sh
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook/manifests/growthbook-chart
+helm install growthbook-app .
+```
 
 Check out the full [Self-Hosting Instructions](https://docs.growthbook.io/self-host) for more details.
 

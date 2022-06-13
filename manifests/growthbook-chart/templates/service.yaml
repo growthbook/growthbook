@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "growthbook-chart.fullname" . }}
+  labels:
+    {{- include "growthbook-chart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    {{ range .Values.service.ports }}
+    - port: {{ . }}
+      targetPort: http
+      protocol: TCP
+      name: "http-{{ . }}"
+    {{ end }}
+  selector:
+    {{- include "growthbook-chart.selectorLabels" . | nindent 4 }}
