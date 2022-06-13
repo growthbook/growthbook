@@ -127,6 +127,9 @@ export default abstract class SqlIntegration
   castUserDateCol(column: string): string {
     return column;
   }
+  useAliasInGroupBy(): boolean {
+    return true;
+  }
 
   private getExposureQuery(
     exposureQueryId: string,
@@ -551,6 +554,9 @@ export default abstract class SqlIntegration
     const aggregate = this.getAggregateMetricColumn(metric, "m");
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
+    const dimensionGroupBy = this.useAliasInGroupBy()
+      ? "dimension"
+      : dimensionCol;
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -666,7 +672,7 @@ export default abstract class SqlIntegration
           }
         ${segment ? `WHERE s.date <= e.conversion_start` : ""}
         GROUP BY
-        ${dimension ? dimensionCol + ", " : ""}e.${baseIdType}${
+        ${dimension ? dimensionGroupBy + ", " : ""}e.${baseIdType}${
         removeMultipleExposures ? "" : ", e.variation"
       }
       )
