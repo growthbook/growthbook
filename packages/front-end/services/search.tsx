@@ -148,23 +148,10 @@ export function useSort<T>(
   fieldName: string,
   compFunctions?: Record<string, (a: T, b: T) => number>
 ) {
-  const [direction, setDirection] = useLocalStorage(
-    `${fieldName}:sort-dir`,
-    defaultDir
-  );
-  const [sort, setSort] = useState({
+  const [sort, setSort] = useLocalStorage(`${fieldName}:sort-dir`, {
     field: defaultField,
-    dir: direction,
+    dir: defaultDir,
   });
-
-  const updateSort = (field) => {
-    const dir = sort.field === field ? sort.dir * -1 : 1;
-    setSort({
-      field,
-      dir,
-    });
-    setDirection(dir);
-  };
 
   const sorted = useMemo(() => {
     const sorted = [...items];
@@ -193,7 +180,7 @@ export function useSort<T>(
           className="cursor-pointer"
           onClick={(e) => {
             e.preventDefault();
-            updateSort(field);
+            setSort({ field, dir: sort.field === field ? sort.dir * -1 : 1 });
           }}
         >
           {children}{" "}
