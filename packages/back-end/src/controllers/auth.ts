@@ -301,3 +301,65 @@ export async function postChangePassword(
     status: 200,
   });
 }
+
+export async function postAdminChangePassword(
+  req: AuthRequest<{
+    loggedInUserId: string;
+    loggedInUserRole: string;
+    userToUpdateId: string;
+    newPassword: string;
+  }>,
+  res: Response
+) {
+  const {
+    loggedInUserId,
+    loggedInUserRole,
+    userToUpdateId,
+    newPassword,
+  } = req.body;
+
+  const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
+  const __growthbookid = req.cookies["__growthbookid"];
+
+  if (!refreshToken || !__growthbookid) {
+    throw new Error("Invalid user");
+  }
+
+  if (IS_CLOUD) {
+    throw new Error(
+      "This functionality is not available with GrowthBook Cloud"
+    );
+  }
+
+  if (!loggedInUserId) {
+    throw new Error("You must be logged in to do this.");
+  }
+
+  if (loggedInUserRole !== "admin") {
+    throw new Error("You must be an admin to do this.");
+  }
+
+  if (!userToUpdateId) {
+    throw new Error("Please specify a user to update.");
+  }
+
+  if (!newPassword) {
+    throw new Error("Please enter a new password.");
+  }
+
+  // TODO: Do we want to check to make sure the user this admin is trying to update is actually a member in the admin's org?
+
+  //TODO: This updates the refresh token, double check if this is ok and if this is the best method.
+  //Extra security level, crack open the provided refreshToken and ensure userId inside matches the loggedInUserId
+  const adminUserId = await getUserIdFromAuthRefreshToken(refreshToken);
+
+  if (!adminUserId || adminUserId !== loggedInUserId) {
+    throw new Error("Invalid user");
+  }
+
+  await updatePassword(userToUpdateId, newPassword);
+
+  res.status(200).json({
+    status: 200,
+  });
+}

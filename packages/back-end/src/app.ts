@@ -276,6 +276,7 @@ if (!IS_CLOUD) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
+  app.post("/auth/adminreset", authController.postAdminChangePassword); // New endpoint specifically for allowing admins to reset user passwords
 }
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 

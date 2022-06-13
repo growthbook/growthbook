@@ -8,6 +8,7 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
+import { ResetUserPassword } from "./ResetUserPassword";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -17,12 +18,32 @@ const MemberList: FC<{
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
-  const { userId } = useUser();
+  const user = useUser();
   const [roleModal, setRoleModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
+  const [updatedPassword, setUpdatedPassword] = useState();
 
   const onInvite = () => {
     setInviting(true);
+  };
+
+  const updateOtherUserPassword = async () => {
+    const data = {
+      loggedInUserId: user.userId,
+      loggedInUserRole: user.role,
+      userToUpdateId: roleModal.id,
+      newPassword: updatedPassword,
+    };
+    await apiCall("/auth/adminreset", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json", //TODO: Do I need this?
+      },
+      body: JSON.stringify(data),
+    });
+
+    setRoleModal(null);
   };
 
   const onSubmitChangeRole = async () => {
@@ -33,6 +54,7 @@ const MemberList: FC<{
       }),
     });
     mutate();
+    setRoleModal(null);
   };
 
   return (
@@ -42,16 +64,28 @@ const MemberList: FC<{
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
       {roleModal && (
-        <Modal
-          close={() => setRoleModal(null)}
-          header="Change Role"
-          open={true}
-          submit={onSubmitChangeRole}
-        >
-          <p>
-            Change role for <strong>{roleModal.name}</strong>:
-          </p>
-          <RoleSelector role={role} setRole={setRole} />
+        <Modal close={() => setRoleModal(null)} header="Edit User" open={true}>
+          <div className="mb-1">
+            <div className=" bg-white p-3 border">
+              <p>
+                Change role for <strong>{roleModal.name}</strong>:
+              </p>
+              <RoleSelector
+                role={role}
+                setRole={setRole}
+                onSubmitChangeRole={onSubmitChangeRole}
+              />
+            </div>
+            <div className=" bg-white p-3 border">
+              <p style={{ paddingTop: "16px" }}>
+                Reset password for <strong>{roleModal.name}</strong>:
+              </p>
+              <ResetUserPassword
+                setUpdatedPassword={setUpdatedPassword}
+                updateOtherUserPassword={updateOtherUserPassword}
+              />
+            </div>
+          </div>
         </Modal>
       )}
       <table className="table appbox gbtable table-hover">
@@ -70,7 +104,7 @@ const MemberList: FC<{
               <td>{member.email}</td>
               <td>{member.role}</td>
               <td>
-                {member.id !== userId && (
+                {member.id !== user.userId && (
                   <>
                     <a
                       href="#"

@@ -17,7 +17,8 @@ const roles: [MemberRole, string][] = [
 const RoleSelector: FC<{
   role: MemberRole;
   setRole: (role: MemberRole) => void;
-}> = ({ role, setRole }) => {
+  onSubmitChangeRole: () => void;
+}> = ({ role, setRole, onSubmitChangeRole }) => {
   return (
     <div>
       {roles.map(([name, description]) => (
@@ -38,6 +39,9 @@ const RoleSelector: FC<{
           </button>
         </div>
       ))}
+      <button className="btn btn-primary mt-3" onClick={onSubmitChangeRole}>
+        Update Role
+      </button>
     </div>
   );
 };
