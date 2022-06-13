@@ -174,7 +174,7 @@ export default function FeaturePage() {
         </div>
       )}
 
-      <div className="row align-items-center">
+      <div className="row align-items-center mb-2">
         <div className="col-auto">
           <Link href="/features">
             <a>
@@ -259,17 +259,17 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <div className="row align-items-center mb-3">
-        <h1 className="col-auto mb-0">{fid}</h1>
+      <div>
         {isArchived && (
-          <div
-            className="badge badge-secondary mx-3 h4 mb-0"
-            style={{ fontSize: "1.1em" }}
-          >
-            {" "}
-            Archived
+          <div className="alert alert-secondary mb-2">
+            <strong>This feature is archived.</strong> It will not be included
+            in API responses or Webhook payloads.
           </div>
         )}
+      </div>
+
+      <div className="row align-items-center mb-2">
+        <h1 className="col-auto mb-0">{fid}</h1>
       </div>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>

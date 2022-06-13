@@ -244,10 +244,13 @@ export default function FeaturesPage() {
                   if (isDraft) version++;
 
                   return (
-                    <tr key={feature.id}>
+                    <tr
+                      key={feature.id}
+                      className={feature.archived ? "text-muted" : ""}
+                    >
                       <td>
                         <Link href={`/features/${feature.id}`}>
-                          <a style={feature.archived ? { color: "red" } : null}>
+                          <a className={feature.archived ? "text-muted" : null}>
                             {feature.id}
                           </a>
                         </Link>

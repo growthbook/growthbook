@@ -558,6 +558,10 @@ export async function postFeatureArchive(
       object: "feature",
       id: feature.id,
     },
+    details: auditDetailsUpdate(
+      { archived: feature.archived }, // Old state
+      { archived: !feature.archived } // New state
+    ),
   });
   featureUpdated(feature);
 
