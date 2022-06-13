@@ -1,9 +1,7 @@
+import { useState } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import Dropdown from "../Dropdown/Dropdown";
-import DropdownLink from "../Dropdown/DropdownLink";
-import Tag from "./Tag";
-
-const MAX_TAGS = 12;
+import { useDefinitions } from "../../services/DefinitionsContext";
+import TagsInput from "./TagsInput";
 
 interface ItemWithTags {
   tags?: string[];
@@ -46,15 +44,17 @@ export default function TagsFilter({
   filter: { tags, setTags },
   items,
 }: Props) {
+  const [open, setOpen] = useState(false);
+
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];
+  const { getTagById } = useDefinitions();
   items.forEach((item) => {
     if (item.tags) {
       item.tags.forEach((tag) => {
         counts[tag] = counts[tag] || 0;
         counts[tag]++;
-
-        if (!availableTags.includes(tag) && !tags.includes(tag)) {
+        if (!availableTags.includes(tag)) {
           availableTags.push(tag);
         }
       });
@@ -68,58 +68,33 @@ export default function TagsFilter({
     return null;
   }
 
-  const numToShow = Math.max(0, MAX_TAGS - tags.length);
+  if (!open && !tags.length) {
+    return (
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(true);
+        }}
+      >
+        Filter by tags...
+      </a>
+    );
+  }
 
   return (
-    <div className="d-inline-flex">
-      <div>Filter by tags:</div>
-      <div>
-        {tags.map((tag) => (
-          <Tag
-            tag={tag}
-            key={tag}
-            onClick={async () => {
-              setTags(tags.filter((t) => t !== tag));
-            }}
-            description="Remove tag filter"
-            className="mx-1"
-          >
-            <strong className="ml-1">&times;</strong>
-          </Tag>
-        ))}
-        {availableTags.slice(0, numToShow).map((tag) => {
-          return (
-            <Tag
-              tag={tag}
-              key={tag}
-              onClick={async () => {
-                setTags([...tags, tag]);
-              }}
-              description="Add tag filter"
-              className="mx-1 text-dark"
-              color="#fff"
-            />
-          );
-        })}
-      </div>
-      {availableTags.length > numToShow && (
-        <div className="ml-2">
-          <Dropdown uuid="tags-filter-more-menu" toggle={"more"}>
-            {availableTags.slice(numToShow).map((tag) => {
-              return (
-                <DropdownLink
-                  onClick={async () => {
-                    setTags([...tags, tag]);
-                  }}
-                  key={tag}
-                >
-                  {tag}
-                </DropdownLink>
-              );
-            })}
-          </Dropdown>
-        </div>
-      )}
+    <div style={{ minWidth: 207 }}>
+      <TagsInput
+        value={tags}
+        onChange={(value) => {
+          setTags(value);
+        }}
+        prompt={"Filter by tags..."}
+        autoFocus={open}
+        closeMenuOnSelect={true}
+        tagOptions={availableTags.map((t) => getTagById(t)).filter(Boolean)}
+        creatable={false}
+      />
     </div>
   );
 }

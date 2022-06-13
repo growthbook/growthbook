@@ -6,6 +6,7 @@ import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import CodeTextArea from "../../components/Forms/CodeTextArea";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -85,30 +86,37 @@ const SegmentForm: FC<{
           })}
         />
       )}
-      <Field
-        label={sql ? "SQL" : "Event Condition"}
-        required
-        textarea
-        {...form.register("sql")}
-        placeholder={
-          sql
-            ? `SELECT ${userIdType}, date FROM mytable`
-            : "event.properties.$browser === 'Chrome'"
-        }
-        helpText={
-          sql ? (
+      {sql ? (
+        <CodeTextArea
+          label="SQL"
+          required
+          language="sql"
+          value={form.watch("sql")}
+          setValue={(sql) => form.setValue("sql", sql)}
+          placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
+          helpText={
             <>
               Select two columns named <code>{userIdType}</code> and{" "}
               <code>date</code>
             </>
-          ) : (
+          }
+        />
+      ) : (
+        <Field
+          label="Event Condition"
+          required
+          {...form.register("sql")}
+          textarea
+          minRows={3}
+          placeholder={"event.properties.$browser === 'Chrome'"}
+          helpText={
             <>
               Javascript condition used to filter events. Has access to an{" "}
               <code>event</code> variable.
             </>
-          )
-        }
-      />
+          }
+        />
+      )}
     </Modal>
   );
 };

@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useSearch, useSort } from "../../services/search";
+import { useFeatureSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
@@ -60,7 +60,7 @@ export default function FeaturesPage() {
 
   const environments = useEnvironments();
 
-  const { list, searchInputProps } = useSearch(features || [], [
+  const { list, searchInputProps } = useFeatureSearch(features || [], [
     "id",
     "description",
     "tags",
@@ -174,7 +174,7 @@ export default function FeaturesPage() {
             <div className="col-auto">
               <Field placeholder="Search..." {...searchInputProps} />
             </div>
-            <div className="col">
+            <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
           </div>

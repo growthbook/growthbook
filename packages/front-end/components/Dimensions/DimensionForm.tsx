@@ -6,6 +6,7 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -88,24 +89,31 @@ const DimensionForm: FC<{
           })}
         />
       )}
-      <Field
-        label={sql ? "SQL" : "Event Property"}
-        required
-        {...form.register("sql")}
-        textarea
-        minRows={3}
-        placeholder={
-          sql ? `SELECT ${userIdType}, browser as value FROM users` : "$browser"
-        }
-        helpText={
-          sql ? (
+      {sql ? (
+        <CodeTextArea
+          label="SQL"
+          required
+          language="sql"
+          value={form.watch("sql")}
+          setValue={(sql) => form.setValue("sql", sql)}
+          placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
+          helpText={
             <>
               Select two columns named <code>{userIdType}</code> and{" "}
               <code>value</code>
             </>
-          ) : null
-        }
-      />
+          }
+        />
+      ) : (
+        <Field
+          label="Event Condition"
+          required
+          {...form.register("sql")}
+          textarea
+          minRows={3}
+          placeholder={"$browser"}
+        />
+      )}
       <p>
         <strong>Important:</strong> Please limit dimensions to at most 50 unique
         values.
