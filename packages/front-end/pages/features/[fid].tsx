@@ -37,6 +37,7 @@ import DraftModal from "../../components/Features/DraftModal";
 import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
+import DiscussionThread from "../../components/DiscussionThread";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -378,6 +379,11 @@ export default function FeaturePage() {
           );
         })}
       </ControlledTabs>
+
+      <div className="mb-4">
+        <h3>Comments</h3>
+        <DiscussionThread type="feature" id={data.feature.id} />
+      </div>
 
       {permissions.createFeatureDrafts && (
         <div className="row">
