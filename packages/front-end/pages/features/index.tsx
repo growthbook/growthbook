@@ -29,6 +29,7 @@ import TagsFilter, {
 import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
+import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
 
 const NUM_PER_PAGE = 20;
@@ -68,7 +69,16 @@ export default function FeaturesPage() {
 
   const filtered = filterByTags(list, tagsFilter);
 
+  let showArchivedToggle = false;
+  for (const everyFeature of filtered) {
+    if (everyFeature && everyFeature.archived) {
+      showArchivedToggle = true;
+      break;
+    }
+  }
+
   const { sorted, SortableTH } = useSort(filtered, "id", 1, "features");
+  const [showArchived, setShowArchived] = useState(false);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -177,7 +187,18 @@ export default function FeaturesPage() {
             <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={sorted} />
             </div>
+            {showArchivedToggle && (
+              <div className="col">
+                <Toggle
+                  value={showArchived}
+                  id="archived"
+                  setValue={setShowArchived}
+                ></Toggle>
+                Show Archived
+              </div>
+            )}
           </div>
+
           <table className="table gbtable table-hover">
             <thead>
               <tr>
@@ -199,84 +220,92 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.slice(start, end).map((feature) => {
-                let rules = [];
-                environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
-                );
+              {sorted
+                .filter((f) => !f.archived || showArchived)
+                .slice(start, end)
+                .map((feature) => {
+                  let rules = [];
+                  environments.forEach(
+                    (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  );
 
-                // When showing a summary of rules, prefer experiments to rollouts to force rules
-                const orderedRules = [
-                  ...rules.filter((r) => r.type === "experiment"),
-                  ...rules.filter((r) => r.type === "rollout"),
-                  ...rules.filter((r) => r.type === "force"),
-                ];
+                  // When showing a summary of rules, prefer experiments to rollouts to force rules
+                  const orderedRules = [
+                    ...rules.filter((r) => r.type === "experiment"),
+                    ...rules.filter((r) => r.type === "rollout"),
+                    ...rules.filter((r) => r.type === "force"),
+                  ];
 
-                const firstRule = orderedRules[0];
-                const totalRules = rules.length || 0;
+                  const firstRule = orderedRules[0];
+                  const totalRules = rules.length || 0;
 
-                const isDraft = !!feature.draft?.active;
-                let version = feature.revision?.version || 1;
-                if (isDraft) version++;
+                  const isDraft = !!feature.draft?.active;
+                  let version = feature.revision?.version || 1;
+                  if (isDraft) version++;
 
-                return (
-                  <tr key={feature.id}>
-                    <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a>{feature.id}</a>
-                      </Link>
-                    </td>
-                    <td>
-                      <SortedTags tags={feature?.tags || []} />
-                    </td>
-                    {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
+                  return (
+                    <tr
+                      key={feature.id}
+                      className={feature.archived ? "text-muted" : ""}
+                    >
+                      <td>
+                        <Link href={`/features/${feature.id}`}>
+                          <a className={feature.archived ? "text-muted" : null}>
+                            {feature.id}
+                          </a>
+                        </Link>
+                      </td>
+                      <td>
+                        <SortedTags tags={feature?.tags || []} />
+                      </td>
+                      {toggleEnvs.map((en) => (
+                        <td key={en.id} className="position-relative">
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={en.id}
+                            mutate={mutate}
+                          />
+                        </td>
+                      ))}
+                      <td>
+                        <ValueDisplay
+                          value={getFeatureDefaultValue(feature)}
+                          type={feature.valueType}
+                          full={false}
                         />
                       </td>
-                    ))}
-                    <td>
-                      <ValueDisplay
-                        value={getFeatureDefaultValue(feature)}
-                        type={feature.valueType}
-                        full={false}
-                      />
-                    </td>
-                    <td>
-                      {firstRule && (
-                        <span className="text-dark">{firstRule.type}</span>
-                      )}
-                      {totalRules > 1 && (
-                        <small className="text-muted ml-1">
-                          +{totalRules - 1} more
-                        </small>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}{" "}
-                      {isDraft && (
-                        <Tooltip text="This is a draft version and is not visible to users">
-                          <FaExclamationTriangle className="text-warning" />
-                        </Tooltip>
-                      )}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
-                    </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
+                      <td>
+                        {firstRule && (
+                          <span className="text-dark">{firstRule.type}</span>
+                        )}
+                        {totalRules > 1 && (
+                          <small className="text-muted ml-1">
+                            +{totalRules - 1} more
+                          </small>
+                        )}
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
+                      <td style={{ textAlign: "center" }}>
+                        {version}{" "}
+                        {isDraft && (
+                          <Tooltip text="This is a draft version and is not visible to users">
+                            <FaExclamationTriangle className="text-warning" />
+                          </Tooltip>
+                        )}
+                      </td>
+                      <td title={datetime(feature.dateUpdated)}>
+                        {ago(feature.dateUpdated)}
+                      </td>
+                      {showGraphs && (
+                        <td style={{ width: 170 }}>
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               {!sorted.length && (
                 <tr>
                   <td colSpan={showGraphs ? 7 : 6}>No matching features</td>

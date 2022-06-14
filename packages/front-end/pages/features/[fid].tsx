@@ -33,6 +33,7 @@ import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
 import DraftModal from "../../components/Features/DraftModal";
+import ConfirmButton from "../../components/Modal/ConfirmButton";
 import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
@@ -83,6 +84,7 @@ export default function FeaturePage() {
   const type = data.feature.valueType;
 
   const isDraft = !!data.feature.draft?.active;
+  const isArchived = data.feature.archived;
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -172,7 +174,7 @@ export default function FeaturePage() {
         </div>
       )}
 
-      <div className="row align-items-center">
+      <div className="row align-items-center mb-2">
         <div className="col-auto">
           <Link href="/features">
             <a>
@@ -217,11 +219,59 @@ export default function FeaturePage() {
                 text="Delete feature"
               />
             )}
+            {permissions.createFeatures && (
+              <ConfirmButton
+                onClick={async () => {
+                  await apiCall(`/feature/${data.feature.id}/archive`, {
+                    method: "POST",
+                  });
+                  mutate();
+                }}
+                modalHeader={
+                  isArchived ? "Unarchive Feature" : "Archive Feature"
+                }
+                confirmationText={
+                  isArchived ? (
+                    <>
+                      <p>
+                        Are you sure you want to continue? This will make the
+                        current feature active again.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        Are you sure you want to continue? This will make the
+                        current feature inactive. It will not be included in API
+                        responses or Webhook payloads.
+                      </p>
+                    </>
+                  )
+                }
+                cta={isArchived ? "Unarchive" : "Archive"}
+                ctaColor="danger"
+              >
+                <button className="dropdown-item">
+                  {isArchived ? "Unarchive" : "Archive"} feature
+                </button>
+              </ConfirmButton>
+            )}
           </MoreMenu>
         </div>
       </div>
 
-      <h1>{fid}</h1>
+      <div>
+        {isArchived && (
+          <div className="alert alert-secondary mb-2">
+            <strong>This feature is archived.</strong> It will not be included
+            in API responses or Webhook payloads.
+          </div>
+        )}
+      </div>
+
+      <div className="row align-items-center mb-2">
+        <h1 className="col-auto mb-0">{fid}</h1>
+      </div>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
         {projects.length > 0 && (
