@@ -130,8 +130,8 @@ const MemberList: FC<{
                 {member.id !== userId && (
                   <>
                     <MoreMenu id="test">
-                      <a
-                        className="dropdown-item"
+                      <button
+                        className="dropdown-item pe-auto"
                         onClick={(e) => {
                           e.preventDefault();
                           setRoleModal(member);
@@ -139,16 +139,16 @@ const MemberList: FC<{
                         }}
                       >
                         Edit Role
-                      </a>
-                      <a
-                        className="dropdown-item"
+                      </button>
+                      <button
+                        className="dropdown-item pe-auto"
                         onClick={(e) => {
                           e.preventDefault();
                           setPasswordResetModal(member);
                         }}
                       >
                         Reset Password
-                      </a>
+                      </button>
                       <DeleteButton
                         link={true}
                         text="Delete User"
