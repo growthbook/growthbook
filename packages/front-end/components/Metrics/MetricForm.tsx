@@ -25,6 +25,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -467,16 +468,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <Field
+                <CodeTextArea
                   label="SQL"
-                  textarea
-                  {...form.register("sql")}
-                  minRows={8}
-                  maxRows={20}
-                  placeholder="SELECT ..."
-                  autoFocus
                   required
-                  minLength={15}
+                  language="sql"
+                  value={form.watch("sql")}
+                  setValue={(sql) => form.setValue("sql", sql)}
+                  placeholder={
+                    "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
+                  }
                 />
                 {value.type !== "binomial" && (
                   <Field

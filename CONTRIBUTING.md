@@ -9,7 +9,7 @@ If you just want to contribute a client library in a new language and not make c
 - MacOS or Linux (Windows may work too, but we haven't tested it)
 - [NodeJS](https://nodejs.org/en/download/package-manager/) 12.x or 14.x
   - Check version by running `node -v` on terminal
-- [Yarn](https://classic.yarnpkg.com/en/docs/install) 
+- [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
@@ -19,12 +19,13 @@ If you just want to contribute a client library in a new language and not make c
 ## Windows users
 
 One sure shot way to run GrowthBook on Windows is through installing [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/setup/environment#set-up-your-linux-user-info). These are some of the steps to follow, also outlined in the link above:
-  1. Search for your terminal app in the windows search bar
-  2. Select the option to "Run as administrator"
-  3. Now, on the terminal, run `wsl --install`
-  4. After the installation is complete, restart your computer
-  5. Set up your Linux username and password
-  6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Desbian) to update and upgrade packages
+
+1. Search for your terminal app in the windows search bar
+2. Select the option to "Run as administrator"
+3. Now, on the terminal, run `wsl --install`
+4. After the installation is complete, restart your computer
+5. Set up your Linux username and password
+6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Desbian) to update and upgrade packages
 
 Now you have the basic Linux system set up, and can follow along with all the other steps
 
@@ -32,12 +33,16 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 
 1. Fork the project
 2. Clone your forked project by running `git clone git@github.com:{ YOUR_USERNAME }/growthbook.git`
-    - Can also use `git clone` and list the HTTPS URL of the repo afterwards  
-4. Run `cd growthbook`
-5. Run `yarn` to install dependencies
-6. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
-7. Run `yarn setup` to do the initial build
-8. If you have Docker installed, start MongoDB in Docker:
+   - Can also use `git clone` and list the HTTPS URL of the repo afterwards
+3. Run `cd growthbook`
+4. Run `yarn` to install dependencies
+5. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
+   - Run `curl -sSL https://install.python-poetry.org | python3 -`
+   - Install the lastest version of the python virutal environment `sudo apt install python<version #>-venv`
+   - Add poetry's path to your shell config file (~/.bashrc, ~/.zshrc, etc) `export PATH="<the path>:$PATH"` for [help](https://linuxize.com/post/how-to-add-directory-to-path-in-linux/)
+   - Run `poetry -v` to confirm a successful install
+6. Run `yarn setup` to do the initial build
+7. If you have Docker installed, start MongoDB in Docker:
 
 ```sh
 docker run -d -p 27017:27017 --name mongo \
@@ -45,10 +50,11 @@ docker run -d -p 27017:27017 --name mongo \
   -e MONGO_INITDB_ROOT_PASSWORD=password \
   mongo
 ```
+
 If docker isn't running, view [this](https://stackoverflow.com/questions/44678725/cannot-connect-to-the-docker-daemon-at-unix-var-run-docker-sock-is-the-docker).
 Look at [this](https://www.digitalocean.com/community/questions/how-to-fix-docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socket) for other docker issues with Linux
 
-Otherwise, install [Mongo](https://www.mongodb.com/docs/manual/installation/) directly (no Docker) 
+Otherwise, install [Mongo](https://www.mongodb.com/docs/manual/installation/) directly (no Docker)
 
 8. Run `yarn dev` to start the app in dev mode
 9. Visit http://localhost:3000 in your browser and verify the app is working correctly

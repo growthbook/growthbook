@@ -59,6 +59,7 @@ const MetricsPage = (): React.ReactElement => {
     ),
     "name",
     1,
+    "metrics",
     {
       datasource: (a, b) => {
         const da = a.datasource

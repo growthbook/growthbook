@@ -77,7 +77,7 @@ export default function FeaturesPage() {
     }
   }
 
-  const { sorted, SortableTH } = useSort(filtered, "id", 1);
+  const { sorted, SortableTH } = useSort(filtered, "id", 1, "features");
   const [showArchived, setShowArchived] = useState(false);
 
   // Reset to page 1 when a filter is applied
