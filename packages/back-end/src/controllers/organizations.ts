@@ -873,7 +873,8 @@ export async function putAdminResetUserPassword(
   }>,
   res: Response
 ) {
-  const { userToUpdateId, updatedPassword } = req.body;
+  const { updatedPassword } = req.body;
+  const userToUpdateId = req.params.id;
 
   if (IS_CLOUD) {
     throw new Error(
@@ -887,7 +888,7 @@ export async function putAdminResetUserPassword(
     (member) => member.id === userToUpdateId
   );
 
-  // Only update the password is the request came from an admin, and the member
+  // Only update the password if the request came from an admin, and the member
   // we're updating is in the same org as the requester
   if (isUserToUpdateInSameOrg && isAdmin) {
     await updatePassword(userToUpdateId, updatedPassword);
