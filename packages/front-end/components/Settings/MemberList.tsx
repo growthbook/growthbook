@@ -36,14 +36,12 @@ const MemberList: FC<{
 
   const onResetPasswordSubmit = async (formData) => {
     const data = {
-      loggedInUserId: user.userId,
-      loggedInUserRole: user.role,
       userToUpdateId: passwordResetModal.id,
       updatedPassword: formData.updatedPassword,
     };
 
-    await apiCall("/auth/adminreset", {
-      method: "POST",
+    await apiCall(`/member/${passwordResetModal.id}/admin-password-reset`, {
+      method: "PUT",
       credentials: "include",
       body: JSON.stringify(data),
     });

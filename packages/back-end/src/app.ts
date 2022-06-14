@@ -276,7 +276,6 @@ if (!IS_CLOUD) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
-  app.post("/auth/adminreset", authController.postAdminChangePassword); // New endpoint specifically for allowing admins to reset user passwords
 }
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
@@ -368,6 +367,10 @@ app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
+app.put(
+  "/member/:id/admin-password-reset",
+  organizationsController.putAdminResetUserPassword
+);
 
 // tags
 app.post("/tag", tagsController.postTag);
