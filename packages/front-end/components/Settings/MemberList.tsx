@@ -9,6 +9,7 @@ import { MemberRole } from "back-end/types/organization";
 import Field from "../Forms/Field";
 import { useForm } from "react-hook-form";
 import MoreMenu from "../Dropdown/MoreMenu";
+import DeleteButton from "../DeleteButton";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -155,18 +156,19 @@ const MemberList: FC<{
                       >
                         Reset Password
                       </a>
-                      <a
+                      <DeleteButton
+                        link={true}
+                        text="Delete User"
+                        useIcon={false}
                         className="dropdown-item"
-                        onClick={async (e) => {
-                          e.preventDefault();
+                        displayName={member.email}
+                        onClick={async () => {
                           await apiCall(`/member/${member.id}`, {
                             method: "DELETE",
                           });
                           mutate();
                         }}
-                      >
-                        Delete User
-                      </a>
+                      />
                     </MoreMenu>
                   </>
                 )}
