@@ -8,7 +8,8 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
-import { ResetUserPassword } from "./ResetUserPassword";
+import Field from "../Forms/Field";
+import { useForm } from "react-hook-form";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -21,29 +22,36 @@ const MemberList: FC<{
   const user = useUser();
   const [roleModal, setRoleModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
-  const [updatedPassword, setUpdatedPassword] = useState();
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const form = useForm({
+    defaultValues: {
+      updatedPassword: "",
+    },
+  });
 
   const onInvite = () => {
     setInviting(true);
   };
 
-  const updateOtherUserPassword = async () => {
+  const updateOtherUserPassword = async (formData) => {
     const data = {
       loggedInUserId: user.userId,
       loggedInUserRole: user.role,
       userToUpdateId: roleModal.id,
-      newPassword: updatedPassword,
+      updatedPassword: formData.updatedPassword,
     };
-    await apiCall("/auth/adminreset", {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json", //TODO: Do I need this?
-      },
-      body: JSON.stringify(data),
-    });
-
-    setRoleModal(null);
+    try {
+      await apiCall("/auth/adminreset", {
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      form.reset();
+      setSuccess(true);
+    } catch (error) {
+      setError(error.message);
+    }
   };
 
   const onSubmitChangeRole = async () => {
@@ -57,6 +65,12 @@ const MemberList: FC<{
     setRoleModal(null);
   };
 
+  const handleClose = () => {
+    setRoleModal(null);
+    form.reset();
+    setSuccess(false);
+  };
+
   return (
     <div className="my-4">
       <h5>Active Members</h5>
@@ -64,7 +78,12 @@ const MemberList: FC<{
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
       {roleModal && (
-        <Modal close={() => setRoleModal(null)} header="Edit User" open={true}>
+        <Modal
+          close={() => handleClose()}
+          header="Edit User"
+          open={true}
+          closeCta="Close"
+        >
           <div className="mb-1">
             <div className=" bg-white p-3 border">
               <p>
@@ -77,13 +96,37 @@ const MemberList: FC<{
               />
             </div>
             <div className=" bg-white p-3 border">
-              <p style={{ paddingTop: "16px" }}>
+              <p>
                 Reset password for <strong>{roleModal.name}</strong>:
               </p>
-              <ResetUserPassword
-                setUpdatedPassword={setUpdatedPassword}
-                updateOtherUserPassword={updateOtherUserPassword}
-              />
+              {success ? (
+                <div className="alert alert-success">
+                  Password successfully changed.
+                </div>
+              ) : (
+                <>
+                  <Field
+                    placeholder="Enter a new password"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="updated-password"
+                    {...form.register("updatedPassword")}
+                    error={error}
+                    onChange={() => setError("")}
+                  />
+                  <button
+                    style={{ marginTop: "none" }}
+                    type="submit"
+                    className="btn btn-primary mt-3 align-middle"
+                    onClick={form.handleSubmit(async (data) => {
+                      await updateOtherUserPassword(data);
+                    })}
+                  >
+                    Reset Password
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </Modal>

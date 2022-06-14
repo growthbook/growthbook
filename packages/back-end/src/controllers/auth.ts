@@ -307,7 +307,7 @@ export async function postAdminChangePassword(
     loggedInUserId: string;
     loggedInUserRole: string;
     userToUpdateId: string;
-    newPassword: string;
+    updatedPassword: string;
   }>,
   res: Response
 ) {
@@ -315,7 +315,7 @@ export async function postAdminChangePassword(
     loggedInUserId,
     loggedInUserRole,
     userToUpdateId,
-    newPassword,
+    updatedPassword,
   } = req.body;
 
   const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
@@ -343,7 +343,7 @@ export async function postAdminChangePassword(
     throw new Error("Please specify a user to update.");
   }
 
-  if (!newPassword) {
+  if (!updatedPassword) {
     throw new Error("Please enter a new password.");
   }
 
@@ -357,7 +357,7 @@ export async function postAdminChangePassword(
     throw new Error("Invalid user");
   }
 
-  await updatePassword(userToUpdateId, newPassword);
+  await updatePassword(userToUpdateId, updatedPassword);
 
   res.status(200).json({
     status: 200,
