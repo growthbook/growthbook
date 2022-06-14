@@ -476,7 +476,7 @@ export default abstract class SqlIntegration
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
     if (!dimension) {
-      return "'All'";
+      return this.castToString("'All'");
     } else if (dimension.type === "activation") {
       return this.ifElse(
         `a.${baseIdType} IS NULL`,
