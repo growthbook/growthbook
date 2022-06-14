@@ -2,6 +2,7 @@ import React, { FC, useState } from "react";
 import InviteModal from "./InviteModal";
 import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
+import DeleteButton from "../DeleteButton";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
@@ -9,7 +10,6 @@ import { MemberRole } from "back-end/types/organization";
 import Field from "../Forms/Field";
 import { useForm } from "react-hook-form";
 import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -19,7 +19,7 @@ const MemberList: FC<{
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
-  const user = useUser();
+  const { userId } = useUser();
   const [roleModal, setRoleModal] = useState<Member>(null);
   const [passwordResetModal, setPasswordResetModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
@@ -127,7 +127,7 @@ const MemberList: FC<{
               <td>{member.email}</td>
               <td>{member.role}</td>
               <td>
-                {member.id !== user.userId && (
+                {member.id !== userId && (
                   <>
                     <MoreMenu id="test">
                       <a
