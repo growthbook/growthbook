@@ -17,7 +17,7 @@ const roles: [MemberRole, string][] = [
 const RoleSelector: FC<{
   role: MemberRole;
   setRole: (role: MemberRole) => void;
-  onSubmitChangeRole: () => void;
+  onSubmitChangeRole?: () => void;
 }> = ({ role, setRole, onSubmitChangeRole }) => {
   return (
     <div>
@@ -39,9 +39,11 @@ const RoleSelector: FC<{
           </button>
         </div>
       ))}
-      <button className="btn btn-primary mt-3" onClick={onSubmitChangeRole}>
-        Update Role
-      </button>
+      {onSubmitChangeRole && (
+        <button className="btn btn-primary mt-3" onClick={onSubmitChangeRole}>
+          Update Role
+        </button>
+      )}
     </div>
   );
 };
