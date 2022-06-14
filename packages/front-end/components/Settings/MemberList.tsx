@@ -1,15 +1,14 @@
 import React, { FC, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
-import DeleteButton from "../DeleteButton";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
 import Field from "../Forms/Field";
 import { useForm } from "react-hook-form";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 type Member = { id: string; name: string; email: string; role: MemberRole };
 
@@ -21,8 +20,8 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const user = useUser();
   const [roleModal, setRoleModal] = useState<Member>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
-  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const form = useForm({
     defaultValues: {
@@ -34,24 +33,19 @@ const MemberList: FC<{
     setInviting(true);
   };
 
-  const updateOtherUserPassword = async (formData) => {
+  const onResetPasswordSubmit = async (formData) => {
     const data = {
       loggedInUserId: user.userId,
       loggedInUserRole: user.role,
-      userToUpdateId: roleModal.id,
+      userToUpdateId: passwordResetModal.id,
       updatedPassword: formData.updatedPassword,
     };
-    try {
-      await apiCall("/auth/adminreset", {
-        method: "POST",
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      form.reset();
-      setSuccess(true);
-    } catch (error) {
-      setError(error.message);
-    }
+
+    await apiCall("/auth/adminreset", {
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
   };
 
   const onSubmitChangeRole = async () => {
@@ -65,12 +59,6 @@ const MemberList: FC<{
     setRoleModal(null);
   };
 
-  const handleClose = () => {
-    setRoleModal(null);
-    form.reset();
-    setSuccess(false);
-  };
-
   return (
     <div className="my-4">
       <h5>Active Members</h5>
@@ -79,59 +67,57 @@ const MemberList: FC<{
       )}
       {roleModal && (
         <Modal
-          close={() => handleClose()}
-          header="Edit User"
+          close={() => setRoleModal(null)}
+          header="Change Role"
           open={true}
-          closeCta="Close"
+          submit={onSubmitChangeRole}
         >
-          <div className="mb-1">
-            <div className=" bg-white p-3 border">
-              <p>
-                Change role for <strong>{roleModal.name}</strong>:
-              </p>
-              <RoleSelector
-                role={role}
-                setRole={setRole}
-                onSubmitChangeRole={onSubmitChangeRole}
-              />
-            </div>
-            <div className=" bg-white p-3 border">
-              <p>
-                Reset password for <strong>{roleModal.name}</strong>:
-              </p>
-              {success ? (
-                <div className="alert alert-success">
-                  Password successfully changed.
-                </div>
-              ) : (
-                <>
-                  <Field
-                    placeholder="Enter a new password"
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="updated-password"
-                    {...form.register("updatedPassword")}
-                    error={error}
-                    onChange={() => setError("")}
-                  />
-                  <button
-                    style={{ marginTop: "none" }}
-                    type="submit"
-                    className="btn btn-primary mt-3 align-middle"
-                    onClick={form.handleSubmit(async (data) => {
-                      await updateOtherUserPassword(data);
-                    })}
-                  >
-                    Reset Password
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+          <p>
+            Change role for <strong>{roleModal.name}</strong>:
+          </p>
+          <RoleSelector role={role} setRole={setRole} />
         </Modal>
       )}
-      <table className="table appbox gbtable table-hover">
+      {passwordResetModal && (
+        <Modal
+          close={() => {
+            form.reset();
+            setSuccess(false);
+            setPasswordResetModal(null);
+          }}
+          header="Change Password"
+          open={true}
+          autoCloseOnSubmit={false}
+          closeCta={success ? "Close" : "Cancel"}
+          submit={
+            success
+              ? null
+              : form.handleSubmit(async (data) => {
+                  await onResetPasswordSubmit(data);
+                  setSuccess(true);
+                })
+          }
+        >
+          <p>
+            Change password for <strong>{passwordResetModal.name}</strong>:
+          </p>
+          {success ? (
+            <div className="alert alert-success">
+              Password successfully changed.
+            </div>
+          ) : (
+            <Field
+              placeholder="Enter a new password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="updated-password"
+              {...form.register("updatedPassword")}
+            />
+          )}
+        </Modal>
+      )}
+      <table className="table appbox gbtable">
         <thead>
           <tr>
             <th>Name</th>
@@ -149,28 +135,39 @@ const MemberList: FC<{
               <td>
                 {member.id !== user.userId && (
                   <>
-                    <a
-                      href="#"
-                      className="tr-hover mr-3"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRoleModal(member);
-                        setRole(member.role);
-                      }}
-                    >
-                      <FaPencilAlt />
-                    </a>
-                    <DeleteButton
-                      link={true}
-                      className="tr-hover"
-                      displayName={member.email}
-                      onClick={async () => {
-                        await apiCall(`/member/${member.id}`, {
-                          method: "DELETE",
-                        });
-                        mutate();
-                      }}
-                    />
+                    <MoreMenu id="test">
+                      <a
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRoleModal(member);
+                          setRole(member.role);
+                        }}
+                      >
+                        Edit Role
+                      </a>
+                      <a
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPasswordResetModal(member);
+                        }}
+                      >
+                        Reset Password
+                      </a>
+                      <a
+                        className="dropdown-item"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          await apiCall(`/member/${member.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                        }}
+                      >
+                        Delete User
+                      </a>
+                    </MoreMenu>
                   </>
                 )}
               </td>
