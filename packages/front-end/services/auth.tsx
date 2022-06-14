@@ -131,6 +131,18 @@ export const AuthProvider: React.FC = ({ children }) => {
       });
   }, []);
 
+  function getDetailedError(error: string): string {
+    switch (error) {
+      case "Failed to fetch":
+        return (
+          error +
+          `. If you want to run GrowthBook on a different host than localhost, you need to add \`APP_ORIGIN=<your app url>\` and \`API_HOST=<your API url>\` to your \`docker-compose.yml\` file.`
+        );
+      default:
+        return error;
+    }
+  }
+
   const orgList = [...organizations];
   if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
     orgList.push({
@@ -163,7 +175,7 @@ export const AuthProvider: React.FC = ({ children }) => {
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger">{getDetailedError(error)}</div>
       </Modal>
     );
   }
