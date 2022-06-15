@@ -24,8 +24,6 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] = useState<Member>(null);
   const [role, setRole] = useState<MemberRole>("admin");
 
-  console.log(isCloud);
-
   const onInvite = () => {
     setInviting(true);
   };
