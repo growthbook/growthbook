@@ -873,6 +873,8 @@ export async function putAdminResetUserPassword(
   }>,
   res: Response
 ) {
+  req.checkPermissions("organizationSettings");
+
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;
 
@@ -882,7 +884,6 @@ export async function putAdminResetUserPassword(
     );
   }
 
-  const isAdmin = req.permissions.organizationSettings;
   const { org } = getOrgFromReq(req);
   const isUserToUpdateInSameOrg = org.members.find(
     (member) => member.id === userToUpdateId
@@ -890,9 +891,13 @@ export async function putAdminResetUserPassword(
 
   // Only update the password if the request came from an admin, and the member
   // we're updating is in the same org as the requester
-  if (isUserToUpdateInSameOrg && isAdmin) {
-    await updatePassword(userToUpdateId, updatedPassword);
+  if (!isUserToUpdateInSameOrg) {
+    throw new Error(
+      "Cannot change password of users outside your organization."
+    );
   }
+
+  await updatePassword(userToUpdateId, updatedPassword);
 
   res.status(200).json({
     status: 200,
