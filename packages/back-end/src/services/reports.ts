@@ -57,6 +57,21 @@ export function reportArgsFromSnapshot(
   };
 }
 
+function unnestActivationMetric(
+  metric: string,
+  map: Map<string, MetricInterface>,
+  visited?: Set<string>
+): MetricInterface[] {
+  visited = visited || new Set();
+  const m = map.get(metric);
+  if (!m) return [];
+  if (visited.has(metric)) return [];
+
+  visited.add(metric);
+  if (!m.denominator) return [m];
+  return [...unnestActivationMetric(m.denominator, map, visited), m];
+}
+
 export async function startExperimentAnalysis(
   organization: string,
   args: ExperimentReportArgs,
@@ -73,8 +88,12 @@ export async function startExperimentAnalysis(
     throw new Error("Missing datasource for report");
   }
 
-  const activationMetricObj =
-    metricMap.get(args.activationMetric || "") || null;
+  const activationMetrics: MetricInterface[] = [];
+  if (args.activationMetric) {
+    activationMetrics.push(
+      ...unnestActivationMetric(args.activationMetric, metricMap)
+    );
+  }
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
@@ -151,20 +170,26 @@ export async function startExperimentAnalysis(
       experimentObj,
       experimentPhaseObj,
       selectedMetrics,
-      activationMetricObj,
+      activationMetrics[0],
       dimensionObj?.type === "user" ? dimensionObj.dimension : null
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     selectedMetrics.forEach((m) => {
+      const allActivationMetrics: MetricInterface[] = [...activationMetrics];
+      if (m.denominator) {
+        allActivationMetrics.push(
+          ...unnestActivationMetric(m.denominator, metricMap)
+        );
+      }
       queryDocs[m.id] = getExperimentMetric(
         integration,
         {
           metric: m,
           experiment: experimentObj,
           dimension: dimensionObj,
-          activationMetric: activationMetricObj,
+          activationMetrics: allActivationMetrics,
           phase: experimentPhaseObj,
           segment: segmentObj,
         },

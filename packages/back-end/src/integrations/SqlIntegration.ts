@@ -453,7 +453,10 @@ export default abstract class SqlIntegration
     };
   }
 
-  private getActivatedUsersCTE(baseIdType: string) {
+  private getActivatedUsersCTE(
+    baseIdType: string,
+    activationMetrics: MetricInterface[]
+  ) {
     return `
       SELECT
         e.${baseIdType},
@@ -461,12 +464,25 @@ export default abstract class SqlIntegration
         a.conversion_end
       FROM
         __experiment e
-        JOIN __activationMetric a ON (
-          a.${baseIdType} = e.${baseIdType}
-        )
+        ${activationMetrics
+          .map((m, i) => {
+            const prevAlias = i ? `a${i - 1}` : "e";
+            const alias = `a${i}`;
+            return `JOIN __activationMetric ${alias} ON (
+            ${alias}.${baseIdType} = ${prevAlias}.${baseIdType}
+          )`;
+          })
+          .join("\n")}
       WHERE
-        a.conversion_start >= e.conversion_start
-        AND a.conversion_start <= e.conversion_end`;
+        ${activationMetrics
+          .map((m, i) => {
+            const prevAlias = i ? `a${i - 1}` : "e";
+            const alias = `a${i}`;
+            return `
+              ${alias}.conversion_start >= ${prevAlias}.conversion_start
+              AND ${alias}.conversion_start <= ${prevAlias}.conversion_end`;
+          })
+          .join("\n AND ")}`;
   }
 
   private ifNullFallback(nullable: string | null, fallback: string) {
@@ -495,10 +511,10 @@ export default abstract class SqlIntegration
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { metric, experiment, phase, activationMetric, segment } = params;
+    const { metric, experiment, phase, activationMetrics, segment } = params;
 
     let dimension = params.dimension;
-    if (dimension?.type === "activation" && !activationMetric) {
+    if (dimension?.type === "activation" && !activationMetrics.length) {
       dimension = null;
     }
 
@@ -511,15 +527,18 @@ export default abstract class SqlIntegration
     const metricStart = new Date(phase.dateStarted);
     const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
     if (metricEnd) {
+      let activationMetricHours = 0;
+      activationMetrics.forEach((m) => {
+        activationMetricHours +=
+          m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+      });
+
       metricEnd.setHours(
         metricEnd.getHours() +
           // Add conversion window so metric has time to convert after experiment ends
           (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
-          // If using an activation metric, also need to allow for that conversion time
-          (activationMetric
-            ? activationMetric.conversionWindowHours ||
-              DEFAULT_CONVERSION_WINDOW_HOURS
-            : 0)
+          // If using activation metrics, also need to allow for that conversion time
+          activationMetricHours
       );
     }
 
@@ -542,7 +561,7 @@ export default abstract class SqlIntegration
           : [],
         segment ? [segment.userIdType || "user_id"] : [],
         metric.userIdTypes || [],
-        activationMetric?.userIdTypes || [],
+        ...activationMetrics.map((m) => m.userIdTypes || []),
       ],
       phase.dateStarted,
       phase.dateEnded,
@@ -574,12 +593,12 @@ export default abstract class SqlIntegration
         phase,
         baseIdType,
         conversionWindowHours:
-          (activationMetric
-            ? activationMetric.conversionWindowHours
+          (activationMetrics.length > 0
+            ? activationMetrics[0].conversionWindowHours
             : metric.conversionWindowHours) || 0,
         conversionDelayHours:
-          (activationMetric
-            ? activationMetric.conversionDelayHours
+          (activationMetrics.length > 0
+            ? activationMetrics[0].conversionDelayHours
             : metric.conversionDelayHours) || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
@@ -609,19 +628,28 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
+      ${activationMetrics
+        .map((m, i) => {
+          const nextMetric = activationMetrics[i + 1] || metric;
+          return `, __activationMetric${i} as (${this.getMetricCTE({
+            metric: m,
+            conversionWindowHours:
+              nextMetric.conversionWindowHours ||
+              DEFAULT_CONVERSION_WINDOW_HOURS,
+            conversionDelayHours: nextMetric.conversionDelayHours,
+            baseIdType,
+            idJoinMap,
+            startDate: metricStart,
+            endDate: metricEnd,
+          })})`;
+        })
+        .join("\n")}
       ${
-        activationMetric
-          ? `, __activationMetric as (${this.getMetricCTE({
-              metric: activationMetric,
-              conversionWindowHours:
-                metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
-              conversionDelayHours: metric.conversionDelayHours,
+        activationMetrics.length > 0
+          ? `, __activatedUsers as (${this.getActivatedUsersCTE(
               baseIdType,
-              idJoinMap,
-              startDate: metricStart,
-              endDate: metricEnd,
-            })})
-            , __activatedUsers as (${this.getActivatedUsersCTE(baseIdType)})`
+              activationMetrics
+            )})`
           : ""
       }
       , __distinctUsers as (
@@ -641,11 +669,11 @@ export default abstract class SqlIntegration
               : "e.variation"
           } as variation,
           MIN(${this.ifNullFallback(
-            activationMetric ? "a.conversion_start" : null,
+            activationMetrics.length > 0 ? "a.conversion_start" : null,
             "e.conversion_start"
           )}) as conversion_start,
           MIN(${this.ifNullFallback(
-            activationMetric ? "a.conversion_end" : null,
+            activationMetrics.length > 0 ? "a.conversion_end" : null,
             "e.conversion_end"
           )}) as conversion_end
         FROM
@@ -661,7 +689,7 @@ export default abstract class SqlIntegration
               : ""
           }
           ${
-            activationMetric
+            activationMetrics.length > 0
               ? `
           ${
             dimension?.type === "activation" ? "LEFT " : ""

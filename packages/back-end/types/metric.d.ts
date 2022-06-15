@@ -37,6 +37,7 @@ export interface MetricInterface {
   inverse: boolean;
   ignoreNulls: boolean;
   cap?: number;
+  denominator?: string;
   conversionWindowHours?: number;
   conversionDelayHours?: number;
   tags?: string[];
