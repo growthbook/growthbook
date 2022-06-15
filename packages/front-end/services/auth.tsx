@@ -131,15 +131,17 @@ export const AuthProvider: React.FC = ({ children }) => {
       });
   }, []);
 
+  const isLocal = (url: string) => url.includes("localhost");
+
   function getDetailedError(error: string): string {
-    switch (error) {
-      case "Failed to fetch":
+    const curUrl = window.location.origin;
+    if (!isCloud()) {
+      if (!isLocal(curUrl) && isLocal(getApiHost())) {
         return (
           error +
           `. If you want to run GrowthBook on a different host than localhost, you need to add \`APP_ORIGIN=<your app url>\` and \`API_HOST=<your API url>\` to your \`docker-compose.yml\` file.`
         );
-      default:
-        return error;
+      }
     }
   }
 
