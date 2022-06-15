@@ -17,6 +17,8 @@ import cloneDeep from "lodash/cloneDeep";
 import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
+  if (!d || !d.params) return;
+
   Object.keys(d.params).forEach((p) => {
     if (
       [
