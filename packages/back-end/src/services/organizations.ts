@@ -346,6 +346,13 @@ function validateConfig(config: ConfigFile, organizationId: string) {
   const errors: string[] = [];
 
   const datasourceIds: string[] = [];
+  if (!config.datasources)
+    errors.push(
+      `Missing object \`datasources\` check your config.yml validity`
+    );
+  if (!config.metrics)
+    errors.push(`Missing object \`metrics\` check your config.yml validity`);
+
   if (config.datasources) {
     Object.keys(config.datasources).forEach((k) => {
       try {
