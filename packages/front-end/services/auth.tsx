@@ -143,6 +143,7 @@ export const AuthProvider: React.FC = ({ children }) => {
         );
       }
     }
+    return error;
   }
 
   const orgList = [...organizations];
