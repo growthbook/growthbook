@@ -93,7 +93,7 @@ const MemberList: FC<{
                       >
                         Edit Role
                       </button>
-                      {!isCloud && (
+                      {!isCloud() && (
                         <button
                           className="dropdown-item pe-auto"
                           onClick={(e) => {
