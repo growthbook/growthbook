@@ -5,10 +5,6 @@ import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
 
-type Row = {
-  [key: string]: string;
-};
-
 export default function ResultsDownloadButton({
   results,
   experiment,
@@ -18,21 +14,8 @@ export default function ResultsDownloadButton({
 }) {
   const { getMetricById, ready } = useDefinitions();
 
-  // Get most of the data
   const csvRows = [];
 
-  // First, get the variations
-  const variations = experiment.variations.map((variant) => {
-    return {
-      name: variant.name,
-      key: variant.key,
-      relativeRisk: undefined,
-    };
-  });
-
-  console.log("variations", variations);
-
-  // Get the risk of choosing metric
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return experiment.metrics
@@ -50,45 +33,32 @@ export default function ResultsDownloadButton({
       .filter((row) => row.metric);
   }, [results, ready]);
 
-  rows.map((row) => {
-    // console.log(variations.length, row)
-    row.variations.map((variation, variationIndex) => {
-      const { relativeRisk } = getRisk(variationIndex, row);
-      // console.log(`${variationIndex}relativeRisk`, relativeRisk);
-      variations[variationIndex].relativeRisk = relativeRisk;
+  rows.forEach((row) => {
+    row.variations.forEach((variant, index) => {
+      variant.name = experiment.variations[index].name;
+      const { relativeRisk } = getRisk(index, row);
+      variant.relativeRisk = relativeRisk;
     });
   });
 
-  console.log(variations);
+  rows.forEach((row) => {
+    const updatedRow = {};
+    const metric = getMetricById(row.metric.id);
+    updatedRow.metricName = metric.name;
 
-  // Get all of the metrics by name.
-  experiment.metrics.forEach((metricId) => {
-    const row: Row = {};
-    const metric = getMetricById(metricId);
-    row.metricName = metric.name;
+    row.variations.forEach((variation) => {
+      updatedRow[`usersIn${variation.name}`] = variation.users;
+      updatedRow[`countOf${variation.name}`] = variation.value;
+      updatedRow[`conversionRateOf${variation.name}`] = variation.cr;
+      updatedRow[`riskOfChoosing${variation.name}`] = variation.relativeRisk;
 
-    //Now, loop through each variation of variations to get the specs
-    variations.forEach((variant) => {
-      // Now, get the results of the current variation
-      const variationResults =
-        results.variations[variant.key].metrics[metricId];
-      // const { relativeRisk } = getRisk(i, variationResults);
-      // console.log(relativeRisk);
-      // console.log('variationResults', variationResults)
-      row[`usersIn${variant.name}`] = variationResults.users;
-      row[`countOf${variant.name}`] = variationResults.value;
-      row[`conversionRateOf${variant.name}`] = variationResults.cr;
-      row[`riskOfChoosing${variant.name}`] = variant.relativeRisk;
-
-      if (variationResults.chanceToWin) {
-        row[`chanceToWin`] = variationResults.chanceToWin;
+      if (variation.chanceToWin) {
+        updatedRow[`chanceToBeatControl`] = variation.chanceToWin;
       }
     });
-    csvRows.push(row);
-  });
 
-  // Output that will ultimately be converted to CSV
-  console.log("csvRows", csvRows);
+    csvRows.push(updatedRow);
+  });
 
   function generateCsv(data) {
     const csvRows = [];
