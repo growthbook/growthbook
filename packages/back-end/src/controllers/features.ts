@@ -19,6 +19,7 @@ import {
   setDefaultValue,
   toggleFeatureEnvironment,
   updateFeature,
+  archiveFeature,
   getDraftRules,
   discardDraft,
   updateDraft,
@@ -62,6 +63,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
+    //Archived features not to be shown
     const features = await getFeatureDefinitions(
       organization,
       environment,
@@ -125,6 +127,7 @@ export async function postFeatures(
     dateUpdated: new Date(),
     organization: org.id,
     id: id.toLowerCase(),
+    archived: false,
     revision: {
       version: 1,
       comment: "New feature",
@@ -582,6 +585,38 @@ export async function deleteFeatureById(
     });
     featureUpdated(feature);
   }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureArchive(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("createFeatures", "publishFeatures");
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  await archiveFeature(feature.organization, id, !feature.archived);
+
+  await req.audit({
+    event: "feature.archive",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(
+      { archived: feature.archived }, // Old state
+      { archived: !feature.archived } // New state
+    ),
+  });
+  featureUpdated(feature);
 
   res.status(200).json({
     status: 200,

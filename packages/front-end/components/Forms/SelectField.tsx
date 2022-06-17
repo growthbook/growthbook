@@ -3,7 +3,7 @@ import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 
-export type SingleValue = { label: string; value: string };
+export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
 
 export function useSelectOptions(

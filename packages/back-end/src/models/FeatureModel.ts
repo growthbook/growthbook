@@ -14,6 +14,7 @@ import { saveRevision } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
+  archived: Boolean,
   description: String,
   organization: String,
   project: String,
@@ -103,6 +104,14 @@ export async function updateFeature(
       $set: updates,
     }
   );
+}
+
+export async function archiveFeature(
+  organization: string,
+  id: string,
+  isArchived: boolean
+) {
+  await updateFeature(organization, id, { archived: isArchived });
 }
 
 function setEnvironmentSettings(

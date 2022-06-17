@@ -11,6 +11,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -254,17 +255,20 @@ const EditDataSourceSettingsForm: FC<{
                       </div>
                       <div className="row">
                         <div className="col">
-                          <Field
+                          <CodeTextArea
                             label="SQL Query"
-                            textarea
-                            minRows={10}
-                            maxRows={20}
                             required
-                            {...form.register(
+                            language="sql"
+                            value={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
+                            setValue={(sql) =>
+                              form.setValue(
+                                `settings.queries.exposure.${i}.query`,
+                                sql
+                              )
+                            }
                           />
-
                           <StringArrayField
                             label="Dimension Columns"
                             value={form.watch(
@@ -389,15 +393,18 @@ const EditDataSourceSettingsForm: FC<{
                         </div>
                         <div className="row">
                           <div className="col">
-                            <Field
+                            <CodeTextArea
                               label="SQL Query"
-                              textarea
-                              minRows={10}
-                              maxRows={20}
-                              required
-                              {...form.register(
+                              language="sql"
+                              value={form.watch(
                                 `settings.queries.identityJoins.${i}.query`
                               )}
+                              setValue={(sql) =>
+                                form.setValue(
+                                  `settings.queries.identityJoins.${i}.query`,
+                                  sql
+                                )
+                              }
                             />
                           </div>
                           <div className="col-md-5 col-lg-4">
@@ -444,13 +451,14 @@ const EditDataSourceSettingsForm: FC<{
               <div className="bg-light border my-2 p-3 ml-3">
                 <div className="row mb-3">
                   <div className="col">
-                    <Field
+                    <CodeTextArea
                       label="Python runQuery definition"
+                      language="python"
                       placeholder="def runQuery(sql):"
-                      {...form.register("settings.notebookRunQuery")}
-                      textarea
-                      minRows={5}
-                      maxRows={20}
+                      value={form.watch(`settings.notebookRunQuery`)}
+                      setValue={(python) =>
+                        form.setValue(`settings.notebookRunQuery`, python)
+                      }
                       helpText="Used when exporting experiment results to a Jupyter notebook"
                     />
                   </div>

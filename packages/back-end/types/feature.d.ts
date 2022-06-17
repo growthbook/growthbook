@@ -27,6 +27,7 @@ export interface FeatureDraftChanges {
 
 export interface FeatureInterface {
   id: string;
+  archived?: boolean;
   description?: string;
   organization: string;
   project?: string;

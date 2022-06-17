@@ -11,6 +11,7 @@ const env: {
     date: string;
   };
   sentryDSN: string;
+  apiCredentials: boolean;
 } = {
   telemetry: "enable",
   cloud: false,
@@ -18,6 +19,7 @@ const env: {
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
+  apiCredentials: false,
 };
 
 export async function initEnv() {
@@ -43,6 +45,9 @@ export function isTelemetryEnabled() {
 }
 export function inTelemetryDebugMode(): boolean {
   return env.telemetry === "debug";
+}
+export function includeApiCredentials() {
+  return env.apiCredentials;
 }
 export function hasFileConfig() {
   return env.config === "file";

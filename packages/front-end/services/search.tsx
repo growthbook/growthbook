@@ -2,6 +2,7 @@ import { useState, useMemo, ChangeEvent, FC } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -241,13 +242,15 @@ export function search<T>(index: IndexedObject<T>[], q: string): T[] {
 export function useSort<T>(
   items: T[],
   defaultField: string,
-  defaultDir: number = 1,
+  defaultDir: number,
+  fieldName: string,
   compFunctions?: Record<string, (a: T, b: T) => number>
 ) {
-  const [sort, setSort] = useState({
+  const [sort, setSort] = useLocalStorage(`${fieldName}:sort-dir`, {
     field: defaultField,
     dir: defaultDir,
   });
+
   const sorted = useMemo(() => {
     const sorted = [...items];
     sorted.sort((a, b) => {
@@ -275,10 +278,7 @@ export function useSort<T>(
           className="cursor-pointer"
           onClick={(e) => {
             e.preventDefault();
-            setSort({
-              field,
-              dir: sort.field === field ? sort.dir * -1 : 1,
-            });
+            setSort({ field, dir: sort.field === field ? sort.dir * -1 : 1 });
           }}
         >
           {children}{" "}
