@@ -216,6 +216,8 @@ export default function AnalysisSettingsBar({
             hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
+            experiment={experiment}
+            results={snapshot.results?.[0]}
           />
         </div>
       </div>

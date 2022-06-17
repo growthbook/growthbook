@@ -2,13 +2,18 @@ import { useRouter } from "next/router";
 import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { GrTableAdd } from "react-icons/gr";
 import { Queries } from "back-end/types/query";
-import { ReportInterface } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  ReportInterface,
+} from "back-end/types/report";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
 import usePermissions from "../../hooks/usePermissions";
+import { ResultsDownloadButton } from "./ResultsDownloadButton";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -23,6 +28,8 @@ export default function ResultMoreMenu({
   notebookFilename,
   hasUserQuery,
   forceRefresh,
+  experiment,
+  results,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -36,6 +43,8 @@ export default function ResultMoreMenu({
   notebookFilename?: string;
   hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
+  experiment: ExperimentInterfaceStringDates;
+  results?: ExperimentReportResultDimension;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -150,6 +159,9 @@ export default function ResultMoreMenu({
         >
           <FaPencilAlt className="mr-2" /> Add/Remove Metrics
         </button>
+      )}
+      {results && (
+        <ResultsDownloadButton results={results} experiment={experiment} />
       )}
     </MoreMenu>
   );
