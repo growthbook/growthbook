@@ -56,7 +56,10 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
+export const FeatureModel = mongoose.model<FeatureDocument>(
+  "Feature",
+  featureSchema
+);
 
 export async function getAllFeatures(
   organization: string,

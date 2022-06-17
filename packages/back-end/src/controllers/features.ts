@@ -33,7 +33,7 @@ import {
   getEnabledEnvironments,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
-  ensureWatching,
+  ensureWatchingFeature,
 } from "../services/features";
 import { getExperimentByTrackingKey } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
@@ -140,7 +140,7 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(feature);
-  await ensureWatching(userId, org.id, id);
+  await ensureWatchingFeature(userId, org.id, feature.id);
 
   await req.audit({
     event: "feature.create",
@@ -383,30 +383,16 @@ export async function postWatchFeature(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
 
-  try {
-    const feature = await getFeature(org.id, id);
-    if (!feature) {
-      throw new Error("Could not find feature");
-    }
-    if (feature.organization !== org.id) {
-      res.status(403).json({
-        status: 403,
-        message: "You do not have access to this feature",
-      });
-      return;
-    }
-
-    await ensureWatching(userId, org.id, id);
-
-    return res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
+  const feature = await getFeature(org.id, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
   }
+
+  await ensureWatchingFeature(userId, org.id, id);
+
+  return res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postUnwatchFeature(

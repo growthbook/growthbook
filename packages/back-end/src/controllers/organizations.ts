@@ -39,6 +39,7 @@ import {
 } from "../services/audit";
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
+import { FeatureModel } from "../models/FeatureModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
@@ -225,6 +226,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
         status: 200,
         events: [],
         experiments: [],
+        features: [],
       });
     }
 
@@ -241,11 +243,23 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
         name: true,
       }
     );
+    const features = await FeatureModel.find(
+      {
+        id: {
+          $in: experimentIds,
+        },
+      },
+      {
+        _id: false,
+        id: true,
+      }
+    );
 
     res.status(200).json({
       status: 200,
       events: docs,
       experiments,
+      features,
     });
   } catch (e) {
     res.status(400).json({

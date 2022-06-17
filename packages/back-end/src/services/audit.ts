@@ -68,11 +68,15 @@ export async function getWatchedAudits(
     return [];
   }
 
+  const allWatchedThings = doc.experiments.concat(doc.features);
+
   return AuditModel.find({
     organization,
-    "entity.object": "experiment",
+    "entity.object": {
+      $in: ["experiment", "feature"],
+    },
     "entity.id": {
-      $in: doc.experiments,
+      $in: allWatchedThings,
     },
     event: {
       $in: [
@@ -80,6 +84,9 @@ export async function getWatchedAudits(
         "experiment.stop",
         "experiment.phase",
         "experiment.results",
+        "feature.publish",
+        "feature.update",
+        "feature.toggle",
       ],
     },
   })

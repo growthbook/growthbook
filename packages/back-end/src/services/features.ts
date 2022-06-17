@@ -210,7 +210,7 @@ export function verifyDraftsAreEqual(
   }
 }
 
-export async function ensureWatching(
+export async function ensureWatchingFeature(
   userId: string,
   orgId: string,
   feature: string
@@ -229,11 +229,4 @@ export async function ensureWatching(
       upsert: true,
     }
   );
-}
-
-export async function getFeatureWatchers(featureId: string) {
-  const watchers = await WatchModel.find({
-    feature: featureId,
-  });
-  return watchers;
 }

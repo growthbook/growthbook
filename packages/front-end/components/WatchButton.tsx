@@ -5,14 +5,26 @@ import { useWatching } from "../services/WatchProvider";
 
 const WatchButton: FC<{
   item: string;
-  itemType: string;
+  itemType: "feature" | "experiment";
   type?: "button" | "icon" | "link";
 }> = ({ item, itemType, type = "button" }) => {
-  const { watching, refreshWatching } = useWatching();
+  const {
+    watchedExperiments,
+    watchedFeatures,
+    refreshWatching,
+  } = useWatching();
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const isWatching = watching[itemType + "s"].includes(item);
+  let isWatching;
+  let urlFirst;
+  if (itemType == "feature") {
+    urlFirst = "feature";
+    isWatching = watchedFeatures.includes(item);
+  } else if (itemType == "experiment") {
+    urlFirst = "experiment";
+    isWatching = watchedExperiments.includes(item);
+  }
 
   let classNames =
     "watchaction watch-" + type + (isWatching ? " watching" : " notwatching");
@@ -38,7 +50,7 @@ const WatchButton: FC<{
         setLoading(true);
         try {
           await apiCall(
-            `/${itemType}/${item}/${isWatching ? "unwatch" : "watch"}`,
+            `/${urlFirst}/${item}/${isWatching ? "unwatch" : "watch"}`,
             {
               method: "POST",
             }
