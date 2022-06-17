@@ -43,7 +43,7 @@ export default function ResultMoreMenu({
   notebookFilename?: string;
   hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   results?: ExperimentReportResultDimension;
 }) {
   const { apiCall } = useAuth();
