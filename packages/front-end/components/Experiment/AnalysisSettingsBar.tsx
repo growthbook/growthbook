@@ -217,7 +217,7 @@ export default function AnalysisSettingsBar({
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
             experiment={experiment}
-            results={snapshot.results?.[0]}
+            results={snapshot?.results?.[0]}
           />
         </div>
       </div>
