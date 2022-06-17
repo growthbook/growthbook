@@ -12,7 +12,7 @@ import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
 import usePermissions from "../../hooks/usePermissions";
-import { ResultsDownloadButton } from "./ResultsDownloadButton";
+import ResultsDownloadButton from "./ResultsDownloadButton";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export default function ResultMoreMenu({

@@ -9,7 +9,7 @@ type Row = {
   [key: string]: string;
 };
 
-export function ResultsDownloadButton({
+export default function ResultsDownloadButton({
   results,
   experiment,
 }: {
