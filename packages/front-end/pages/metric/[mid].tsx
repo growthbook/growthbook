@@ -60,6 +60,7 @@ const MetricPage: FC = () => {
     mutateDefinitions,
     getDatasourceById,
     getSegmentById,
+    getMetricById,
     segments,
   } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -698,6 +699,13 @@ const MetricPage: FC = () => {
                             <Code language="sql" code={metric.aggregation} />
                           </div>
                         )}
+                      </RightRailSectionGroup>
+                      <RightRailSectionGroup
+                        title="Denominator"
+                        type="commaList"
+                        empty="All Experiment Users"
+                      >
+                        {getMetricById(metric.denominator)?.name}
                       </RightRailSectionGroup>
                     </>
                   ) : (

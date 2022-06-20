@@ -76,6 +76,19 @@ WHERE
 
 **Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
 
+#### Denominator (Ratio / Funnel Metrics)
+
+By default, metrics are evaluated against all users in an experiment: `(# users who converted) / (# users in experiment)`
+
+You can instead choose another metric to use as the denominator. This acts just like an "activation metric" in an experiment to filter the list of users who are included in the analysis to those who first convert on the denominator metric.
+
+For example, it's common to have multiple metrics related to revenue, all selecting the exact same data but with different denominators:
+
+- **Revenue per User** - default denominator of "All Users in Experiment"
+- **Average Order Value** - denominator set to a metric which only includes paying customers.
+
+Another common example is a funnel conversion metric like `Add To Cart -> Start Checkout` or `Signup Completion Rate`.
+
 ### 2. Javascript (Mixpanel only)
 
 We query Mixpanel data sources using their proprietary JQL language based on Javascript. This allows for extreme flexibility when defining metrics.
@@ -164,10 +177,4 @@ If you return multiple rows for the same user/experiment, we unique the list (ie
 
 ### Converted Users Only
 
-This setting controls the denominator for the metric.
-
-When set to `No` (the default), the average metric value is calculated as `(total value) / (number of users)`.
-
-When set to `Yes`, the denominator only includes users who have a non-null value for this metric. So the average value is calculated as `(total value) / (number of users with non-null value)`.
-
-The most common use case is with Revenue. Setting to "No" gives you `Revenue per User`. Setting to "Yes" gives you `Average Order Value`.
+This setting is deprecated and has been replaced by "Denominator" above.
