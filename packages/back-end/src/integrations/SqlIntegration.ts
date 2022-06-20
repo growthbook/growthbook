@@ -460,15 +460,15 @@ export default abstract class SqlIntegration
     return `
       SELECT
         e.${baseIdType},
-        a.conversion_start,
-        a.conversion_end
+        a${activationMetrics.length - 1}.conversion_start,
+        a${activationMetrics.length - 1}.conversion_end
       FROM
         __experiment e
         ${activationMetrics
           .map((m, i) => {
             const prevAlias = i ? `a${i - 1}` : "e";
             const alias = `a${i}`;
-            return `JOIN __activationMetric ${alias} ON (
+            return `JOIN __activationMetric${i} ${alias} ON (
             ${alias}.${baseIdType} = ${prevAlias}.${baseIdType}
           )`;
           })
