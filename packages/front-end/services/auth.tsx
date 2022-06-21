@@ -9,7 +9,12 @@ import {
   Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, includeApiCredentials, isCloud } from "./env";
+import {
+  getApiHost,
+  getAppOrigin,
+  includeApiCredentials,
+  isCloud,
+} from "./env";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -140,6 +145,13 @@ export const AuthProvider: React.FC = ({ children }) => {
         return (
           error +
           `. If you want to run GrowthBook on a different host than localhost, you need to add \`APP_ORIGIN=<your app url>\` and \`API_HOST=<your API url>\` to your \`docker-compose.yml\` file.`
+        );
+      }
+      if (isLocal(curUrl) && !isLocal(getAppOrigin())) {
+        console.log("APP Origin: ", getAppOrigin());
+        return (
+          error +
+          `. Make sure \`APP_ORIGIN=<your app url>\` in your \`docker-compose.yml\` file matches your application origin`
         );
       }
     }
