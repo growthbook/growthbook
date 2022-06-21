@@ -283,12 +283,15 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
+          name: "Control",
         },
         {
           value: value,
           weight: 0.5,
+          name: "",
         },
       ],
+      coverage: 1,
       namespace: {
         enabled: false,
         name: "",
@@ -601,7 +604,9 @@ export function getExperimentDefinitionFromFeature(
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
-      if (feature.valueType === "boolean") {
+      if (v?.name) {
+        name = v.name;
+      } else if (feature.valueType === "boolean") {
         name = v.value === "true" ? "On" : "Off";
       }
       return {

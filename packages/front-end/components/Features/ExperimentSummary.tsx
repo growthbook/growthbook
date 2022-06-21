@@ -8,13 +8,11 @@ import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useState } from "react";
+import React, { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import {
-  getExperimentDefinitionFromFeature,
-  getTotalVariationWeight,
-} from "../../services/features";
+import { getExperimentDefinitionFromFeature } from "../../services/features";
 import Modal from "../Modal";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -23,6 +21,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ExperimentSummary({
   values,
+  coverage,
   type,
   hashAttribute,
   trackingKey,
@@ -31,6 +30,7 @@ export default function ExperimentSummary({
   expRule,
 }: {
   values: ExperimentValue[];
+  coverage: number;
   type: FeatureValueType;
   hashAttribute: string;
   trackingKey: string;
@@ -38,7 +38,8 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
   expRule: ExperimentRule;
 }) {
-  const totalPercent = getTotalVariationWeight(values.map((v) => v.weight));
+  // const totalPercent =
+  //   coverage ?? getTotalVariationWeight(values.map((v) => v.weight));
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
@@ -119,69 +120,72 @@ export default function ExperimentSummary({
           )}
         </div>
       </div>
+      <div className="mb-3 row">
+        <div className="col-auto">
+          <strong>INCLUDE</strong>
+        </div>
+        <div className="col-auto">
+          <span className="mr-1 border px-2 py-1 bg-light rounded">
+            {percentFormatter.format(coverage)}
+          </span>{" "}
+          of users
+        </div>
+      </div>
       <strong>SERVE</strong>
+
       <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
           {values.map((r, j) => (
             <tr key={j}>
               <td
-                className="text-muted"
+                className="text-muted position-relative"
                 style={{ fontSize: "0.9em", width: 25 }}
               >
+                <div
+                  className={`${"variationColor" + (j % 9)}`}
+                  style={{
+                    width: "6px",
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                  }}
+                />
                 {j}.
               </td>
               <td>
                 <ValueDisplay value={r.value} type={type} />
               </td>
+              <td>{r?.name}</td>
               <td>
                 <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
+                  <div
+                    style={{
+                      width: "4em",
+                      maxWidth: "4em",
+                      margin: "0 0 0 auto",
+                    }}
+                  >
                     {percentFormatter.format(r.weight)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      className="progress d-none d-md-flex"
-                      style={{
-                        minWidth: 150,
-                      }}
-                    >
-                      <div
-                        className="progress-bar bg-info"
-                        style={{
-                          width: r.weight * 100 + "%",
-                        }}
-                      />
-                    </div>
                   </div>
                 </div>
               </td>
             </tr>
           ))}
-          {totalPercent < 0.999 && (
-            <tr>
-              <td colSpan={2}>
-                <em className="text-muted">unallocated, skip rule</em>
-              </td>
-              <td>
-                <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
-                    {percentFormatter.format(1 - totalPercent)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="progress">
-                      <div
-                        className="progress-bar"
-                        style={{
-                          width: (1 - totalPercent) * 100 + "%",
-                          backgroundColor: "#ccc",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td colSpan={4}>
+              <ExperimentSplitVisual
+                values={values}
+                coverage={coverage}
+                label="Traffic split"
+                unallocated="Unallocated (skips this rule)"
+                type={type}
+                showValues={false}
+                stackLeft={true}
+                showPercentages={true}
+              />
+            </td>
+          </tr>
         </tbody>
       </table>
       <div className="row align-items-center">

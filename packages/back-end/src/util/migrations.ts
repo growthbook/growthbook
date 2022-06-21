@@ -14,6 +14,26 @@ import {
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
 
+function roundVariationWeight(num: number): number {
+  return Math.round(num * 1000) / 1000;
+}
+function getTotalVariationWeight(weights: number[]): number {
+  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
+}
+
+// Adjusts an array of weights so it always sums to exactly 1
+function adjustWeights(weights: number[]): number[] {
+  const diff = getTotalVariationWeight(weights) - 1;
+  const nDiffs = Math.round(Math.abs(diff) * 1000);
+  return weights.map((v, i) => {
+    const j = weights.length - i - 1;
+    let d = 0;
+    if (diff < 0 && i < nDiffs) d = 0.001;
+    else if (diff > 0 && j < nDiffs) d = -0.001;
+    return +(v + d).toFixed(3);
+  });
+}
+
 export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
   const newDoc = { ...doc };
 
@@ -201,6 +221,46 @@ export function upgradeFeatureInterface(
     "production",
     newFeature
   );
+
+  // Add weights/coverage translation here:
+  for (const env in newFeature.environmentSettings) {
+    if (
+      newFeature.environmentSettings[env] &&
+      newFeature.environmentSettings[env]?.rules
+    ) {
+      newFeature.environmentSettings[
+        env
+      ].rules = newFeature.environmentSettings[env].rules.map((r) => {
+        if (r.type === "experiment") {
+          if (r.coverage !== 0 || !r.coverage) {
+            // old style without coverage, so recreate:
+            const rule = { coverage: 1, ...r };
+            const weights = r.values
+              .map((v) => v.weight)
+              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+              .map((w) => roundVariationWeight(w));
+            const totalWeight = getTotalVariationWeight(weights);
+            if (totalWeight <= 0) {
+              rule.coverage = 0;
+            } else if (totalWeight < 0.999) {
+              rule.coverage = totalWeight;
+            }
+
+            const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
+            const adjustedWeights = adjustWeights(
+              weights.map((w) => roundVariationWeight(w * multiplier))
+            );
+
+            rule.values = rule.values.map((v, j) => {
+              return { ...v, weight: adjustedWeights[j] };
+            });
+            return rule;
+          }
+        }
+        return r;
+      });
+    }
+  }
 
   // Ignore drafts if nothing has changed
   if (newFeature.draft?.active && !draftHasChanges(newFeature)) {

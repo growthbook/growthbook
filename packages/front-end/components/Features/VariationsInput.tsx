@@ -3,9 +3,11 @@ import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { getDefaultVariationValue } from "../../services/features";
 import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
-import Tooltip from "../Tooltip";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import { GBAddCircle } from "../Icons";
-import React from "react";
+import React, { useState } from "react";
+import styles from "./VariationsInput.module.scss";
+import Tooltip from "../Tooltip";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -32,6 +34,23 @@ function getEqualWeights(n: number): number[] {
       return +(w + d).toFixed(3);
     });
 }
+// const percentFormatter = new Intl.NumberFormat(undefined, {
+//   style: "percent",
+//   maximumFractionDigits: 2,
+// });
+
+function percentToDecimal(val: string): number {
+  return parseFloat((parseFloat(val) / 100).toFixed(2));
+}
+function inverseDecimal(val: number): number {
+  return parseFloat((1 - val).toFixed(2));
+}
+function inversePercentAsDecimal(val: string): number {
+  return parseFloat((1 - parseFloat(val) / 100).toFixed(2));
+}
+function decimalToPercent(val: string): number {
+  return Math.round(parseFloat(val) * 100);
+}
 
 export default function VariationsInput({
   form,
@@ -43,117 +62,272 @@ export default function VariationsInput({
     control: form.control,
     name: `${formPrefix}values`,
   });
+  let isEqualWeights = true;
+  values.fields.forEach((v, i) => {
+    if (
+      form.watch(`${formPrefix}values.${0}.weight`) !==
+      form.watch(`${formPrefix}values.${i}.weight`)
+    ) {
+      isEqualWeights = false;
+    }
+  });
+  const [customSplit, setCustomSplit] = useState(!isEqualWeights);
+  const weights: { weight: number; value: string }[] = values.fields.map(
+    (v, i) => {
+      return {
+        weight: form.watch(`${formPrefix}values.${i}.weight`),
+        value: form.watch(`${formPrefix}values.${i}.value`),
+      };
+    }
+  );
 
   return (
     <div className="form-group">
-      <label>Variations and Weights</label>
-      <table className="table table-bordered gbtable bg-light">
-        <thead>
-          <tr>
-            <th>Id</th>
-            <th>Variation</th>
-            <th>
-              Percent of Users{" "}
-              <Tooltip
-                innerClassName="text-left"
-                tipMinWidth={"200px"}
-                text={
-                  "The ratio of users (from 0 to 1) that sees each variation. Total sum must be less than or equal to 1. Anything left over will be excluded from the experiment."
-                }
+      <label>Exposure, Variations and Weights</label>
+      <div className="gbtable bg-light">
+        <div className="p-2 pb-0 border-bottom">
+          <label>
+            Percent of traffic exposed to this experiment{" "}
+            <Tooltip text="Unallocated traffic will skip this rule" />
+          </label>
+          <div className="row align-items-center pb-3 p-2">
+            <div className="col">
+              <input
+                value={form.watch(`${formPrefix}coverage`)}
+                onChange={(e) => {
+                  form.setValue(
+                    `${formPrefix}coverage`,
+                    parseFloat(e.target.value).toFixed(3)
+                  );
+                }}
+                min="0"
+                max="1"
+                step="0.01"
+                type="range"
+                className="w-100"
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {values.fields.map((val, i) => {
-            return (
-              <tr key={i}>
-                <td style={{ width: 40 }}>{i}</td>
-                <td>
-                  <FeatureValueField
-                    label=""
-                    form={form}
-                    field={`${formPrefix}values.${i}.value`}
-                    valueType={valueType}
-                  />
-                </td>
-                <td>
+            </div>
+            <div
+              className={`col-auto position-relative ${styles.percentInputWrap}`}
+              style={{ fontSize: "1em" }}
+            >
+              <input
+                className={`form-control ${styles.percentInput}`}
+                value={parseFloat(
+                  (form.watch(`${formPrefix}coverage`) * 100).toFixed(3)
+                )}
+                onChange={(e) => {
+                  let decimal = parseFloat(
+                    (parseFloat(e.target.value) / 100).toFixed(3)
+                  );
+                  if (decimal > 1) decimal = 1;
+                  if (decimal < 0) decimal = 0;
+                  form.setValue(`${formPrefix}coverage`, decimal);
+                }}
+              />
+              <span>%</span>
+            </div>
+          </div>
+        </div>
+        <table className="table bg-light mb-0">
+          <thead className={`${styles.variationSplitHeader}`}>
+            <tr>
+              <th className="pl-3">Id</th>
+              <th>Variation</th>
+              <th>
+                Name <Tooltip text="Optional way to identify the variations." />
+              </th>
+              <th>
+                Split
+                <div className="d-inline-block float-right form-check form-check-inline">
+                  <label className="mb-0">
+                    <input
+                      type="checkbox"
+                      className="form-check-input position-relative"
+                      checked={customSplit}
+                      value={1}
+                      onChange={(e) => {
+                        setCustomSplit(e.target.checked);
+                      }}
+                      id="checkbox-customsplits"
+                      style={{ top: "2px" }}
+                    />{" "}
+                    Customize split
+                  </label>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {values.fields.map((val, i) => {
+              return (
+                <tr key={i}>
+                  <td style={{ width: 45 }} className="position-relative pl-3">
+                    <div
+                      className={`${styles.colorMarker} ${
+                        "variationColor" + (i % 9)
+                      }`}
+                    />
+                    {i}
+                  </td>
+                  <td>
+                    <FeatureValueField
+                      label=""
+                      form={form}
+                      field={`${formPrefix}values.${i}.value`}
+                      valueType={valueType}
+                    />
+                  </td>
+                  <td>
+                    <Field
+                      label=""
+                      {...form.register(`${formPrefix}values.${i}.name`)}
+                    />
+                  </td>
+                  <td>
+                    <div className="row">
+                      {customSplit ? (
+                        <div className="col d-flex flex-row">
+                          <input
+                            value={(
+                              form.watch(`${formPrefix}values.${i}.weight`) *
+                              100
+                            ).toFixed(0)}
+                            onChange={(e) => {
+                              form.setValue(
+                                `${formPrefix}values.${i}.weight`,
+                                percentToDecimal(e.target.value)
+                              );
+                              if (values.fields.length === 2) {
+                                form.setValue(
+                                  `${formPrefix}values.${(i + 1) % 2}.weight`,
+                                  inversePercentAsDecimal(e.target.value)
+                                );
+                              }
+                            }}
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            type="range"
+                            className="w-100 mr-3"
+                          />
+                          <div
+                            className={`position-relative ${styles.percentInputWrap}`}
+                          >
+                            <Field
+                              value={decimalToPercent(
+                                form.watch(`${formPrefix}values.${i}.weight`)
+                              )}
+                              onChange={(e) => {
+                                // the split now should add to 100% if there are two variations.
+                                let newValue = percentToDecimal(e.target.value);
+                                if (newValue > 1) newValue = 1;
+                                if (newValue < 0) newValue = 0;
+                                form.setValue(
+                                  `${formPrefix}values.${i}.weight`,
+                                  newValue
+                                );
+
+                                if (values.fields.length === 2) {
+                                  form.setValue(
+                                    `${formPrefix}values.${(i + 1) % 2}.weight`,
+                                    inverseDecimal(newValue)
+                                  );
+                                }
+                              }}
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="1"
+                              className={styles.percentInput}
+                            />
+                            <span>%</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="col d-flex flex-row">
+                          {parseFloat(
+                            form.watch(`${formPrefix}values.${i}.weight`)
+                          ) * 100}
+                          %
+                        </div>
+                      )}
+                      {values.fields.length > 2 && (
+                        <div className="col-auto">
+                          <button
+                            className="btn btn-link text-danger"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              values.remove(i);
+                            }}
+                            type="button"
+                          >
+                            remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {valueType !== "boolean" && (
+              <tr>
+                <td colSpan={3}>
                   <div className="row">
                     <div className="col">
-                      <Field
-                        {...form.register(`${formPrefix}values.${i}.weight`, {
-                          valueAsNumber: true,
-                        })}
-                        type="number"
-                        min={0}
-                        max={1}
-                        step=".001"
-                      />
-                    </div>
-                    {values.fields.length > 2 && (
-                      <div className="col-auto">
-                        <button
-                          className="btn btn-link text-danger"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            values.remove(i);
-                          }}
-                          type="button"
+                      <a
+                        className="btn btn-outline-primary"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          values.append({
+                            value: getDefaultVariationValue(defaultValue),
+                            weight: 0,
+                          });
+                        }}
+                      >
+                        <span
+                          className={`h4 pr-2 m-0 d-inline-block align-top`}
                         >
-                          remove
-                        </button>
-                      </div>
-                    )}
+                          <GBAddCircle />
+                        </span>
+                        add another variation
+                      </a>
+                    </div>
+                    <div className="col-auto">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const weights = getEqualWeights(values.fields.length);
+                          values.fields.forEach((v, i) => {
+                            form.setValue(
+                              `${formPrefix}values.${i}.weight`,
+                              weights[i]
+                            );
+                          });
+                        }}
+                      >
+                        set equal weights
+                      </a>
+                    </div>
                   </div>
                 </td>
               </tr>
-            );
-          })}
-          {valueType !== "boolean" && (
+            )}
             <tr>
-              <td colSpan={3}>
-                <div className="row">
-                  <div className="col">
-                    <a
-                      className="btn btn-outline-primary"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        values.append({
-                          value: getDefaultVariationValue(defaultValue),
-                          weight: 0,
-                        });
-                      }}
-                    >
-                      <span className={`h4 pr-2 m-0 d-inline-block align-top`}>
-                        <GBAddCircle />
-                      </span>
-                      add another variation
-                    </a>
-                  </div>
-                  <div className="col-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const weights = getEqualWeights(values.fields.length);
-                        values.fields.forEach((v, i) => {
-                          form.setValue(
-                            `${formPrefix}values.${i}.weight`,
-                            weights[i]
-                          );
-                        });
-                      }}
-                    >
-                      set equal weights
-                    </a>
-                  </div>
-                </div>
+              <td colSpan={4} className="pb-2">
+                <ExperimentSplitVisual
+                  coverage={form.watch(`${formPrefix}coverage`)}
+                  values={weights}
+                  type={valueType}
+                />
               </td>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

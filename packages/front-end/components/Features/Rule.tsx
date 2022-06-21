@@ -52,9 +52,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
-
     const rules = getRules(feature, environment);
-
     const environments = useEnvironments();
 
     return (
@@ -238,6 +236,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment" && (
               <ExperimentSummary
                 values={rule.values}
+                coverage={rule.coverage}
                 type={type}
                 feature={feature}
                 experiment={experiments[rule.trackingKey || feature.id]}

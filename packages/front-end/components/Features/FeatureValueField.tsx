@@ -1,6 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { FeatureValueType } from "back-end/types/feature";
 import Field from "../Forms/Field";
+import Toggle from "../Forms/Toggle";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -23,30 +24,16 @@ export default function FeatureValueField({
       <div className="form-group">
         <label>{label}</label>
         <div>
-          <div className="form-check form-check-inline">
-            <input
-              className="form-check-input"
-              type="radio"
-              {...form.register(field)}
-              id={field + "__off"}
-              value="false"
-            />
-            <label className="form-check-label" htmlFor={field + "__off"}>
-              OFF
-            </label>
-          </div>
-          <div className="form-check form-check-inline">
-            <input
-              className="form-check-input"
-              type="radio"
-              {...form.register(field)}
-              id={field + "__on"}
-              value="true"
-            />
-            <label className="form-check-label" htmlFor={field + "__on"}>
-              ON
-            </label>
-          </div>
+          <Toggle
+            id={field + "__toggle"}
+            value={form.watch(field) === "true"}
+            setValue={(v) => {
+              form.setValue(field, v ? "true" : "false");
+            }}
+          />
+          <span className="text-muted pl-2">
+            <strong>{form.watch(field) === "true" ? "on" : "off"}</strong>
+          </span>
         </div>
       </div>
     );

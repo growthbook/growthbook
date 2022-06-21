@@ -215,7 +215,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           } else if (rule.type === "experiment") {
             const otherVal = getDefaultVariationValue(defaultValue);
             form.setValue("defaultValue", otherVal);
-
+            form.setValue("rule.coverage", 1);
             if (val === "boolean") {
               form.setValue("rule.values", [
                 {
