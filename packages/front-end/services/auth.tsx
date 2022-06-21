@@ -15,6 +15,7 @@ import {
   includeApiCredentials,
   isCloud,
 } from "./env";
+import { ReactElement } from "react";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -138,20 +139,31 @@ export const AuthProvider: React.FC = ({ children }) => {
 
   const isLocal = (url: string) => url.includes("localhost");
 
-  function getDetailedError(error: string): string {
+  function getDetailedError(error: string): string | ReactElement {
     const curUrl = window.location.origin;
     if (!isCloud()) {
-      if (!isLocal(curUrl) && isLocal(getApiHost())) {
+      // Using a custom domain to access the app, but env variables are still localhost
+      if (
+        !isLocal(curUrl) &&
+        (isLocal(getApiHost()) || isLocal(getAppOrigin()))
+      ) {
         return (
-          error +
-          `. If you want to run GrowthBook on a different host than localhost, you need to add \`APP_ORIGIN=<your app url>\` and \`API_HOST=<your API url>\` to your \`docker-compose.yml\` file.`
-        );
-      }
-      if (isLocal(curUrl) && !isLocal(getAppOrigin())) {
-        console.log("APP Origin: ", getAppOrigin());
-        return (
-          error +
-          `. Make sure \`APP_ORIGIN=<your app url>\` in your \`docker-compose.yml\` file matches your application origin`
+          <div>
+            <div>
+              <strong>{error}.</strong>
+            </div>{" "}
+            It looks like you are using a custom domain. Make sure to set the
+            environment variables{" "}
+            <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
+            <code className="font-weight-bold">API_HOST</code>.{" "}
+            <a
+              href="https://docs.growthbook.io/self-host/config#domains-and-ports"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View docs
+            </a>
+          </div>
         );
       }
     }
