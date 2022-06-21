@@ -3,6 +3,7 @@ import styles from "./ExperimentSplitVisual.module.scss";
 import React, { CSSProperties } from "react";
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import Tooltip from "../Tooltip";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 export interface Props {
   label?: string;
@@ -25,12 +26,21 @@ export default function VariationsInput({
   showPercentages = true,
 }: Props) {
   let previewLeft = 0;
+  const totalWeights = parseFloat(
+    values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(2)
+  );
 
   return (
-    <>
+    <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
       <div className="row">
         <div className="col">
           <label>{label}</label>
+          {totalWeights !== 1 && (
+            <span className="ml-2 text-danger">
+              <FaExclamationTriangle className="text-danger mr-2" />
+              <span className="">Please adjust weights to sum to 100.</span>
+            </span>
+          )}
         </div>
         <div className={clsx("col-auto", styles.legend)} />
         <div className={clsx("col-auto", styles.legend)}>
@@ -158,6 +168,6 @@ export default function VariationsInput({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { getDefaultVariationValue } from "../../services/features";
 import Field from "../Forms/Field";
@@ -31,25 +31,28 @@ function getEqualWeights(n: number): number[] {
       let d = 0;
       if (diff < 0 && i < nDiffs) d = 0.001;
       else if (diff > 0 && j < nDiffs) d = -0.001;
-      return +(w + d).toFixed(3);
+      return +(w + d).toFixed(2);
     });
 }
-// const percentFormatter = new Intl.NumberFormat(undefined, {
-//   style: "percent",
-//   maximumFractionDigits: 2,
-// });
 
 function percentToDecimal(val: string): number {
   return parseFloat((parseFloat(val) / 100).toFixed(2));
 }
-function inverseDecimal(val: number): number {
-  return parseFloat((1 - val).toFixed(2));
-}
-function inversePercentAsDecimal(val: string): number {
-  return parseFloat((1 - parseFloat(val) / 100).toFixed(2));
-}
 function decimalToPercent(val: string): number {
   return Math.round(parseFloat(val) * 100);
+}
+function floatRound(val: number): number {
+  return parseFloat(val.toFixed(2));
+}
+
+function getWeightExcept(variationValues: ExperimentValue[], i): number {
+  let total = 0;
+  variationValues.forEach((v, j) => {
+    if (j !== i) {
+      total += v.weight;
+    }
+  });
+  return floatRound(total);
 }
 
 export default function VariationsInput({
@@ -72,14 +75,55 @@ export default function VariationsInput({
     }
   });
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
-  const weights: { weight: number; value: string }[] = values.fields.map(
-    (v, i) => {
-      return {
-        weight: form.watch(`${formPrefix}values.${i}.weight`),
-        value: form.watch(`${formPrefix}values.${i}.value`),
-      };
+  const variationValues: ExperimentValue[] = values.fields.map((v, i) => {
+    return {
+      weight: form.watch(`${formPrefix}values.${i}.weight`),
+      value: form.watch(`${formPrefix}values.${i}.value`),
+      name: form.watch(`${formPrefix}values.${i}.name`),
+    };
+  });
+
+  const rebalance = (i: number) => {
+    const newValue = form.watch(`${formPrefix}values.${i}.weight`);
+    const currentTotal = getWeightExcept(variationValues, i) + newValue;
+
+    const nextValue = floatRound(
+      parseFloat(
+        form.watch(
+          `${formPrefix}values.${(i + 1) % values.fields.length}.weight`
+        )
+      )
+    );
+    if (currentTotal < 1) {
+      // we are under the limit, so we can add the diff:
+      form.setValue(
+        `${formPrefix}values.${(i + 1) % values.fields.length}.weight`,
+        floatRound(nextValue + (1 - currentTotal))
+      );
+    } else if (currentTotal > 1) {
+      let overage = floatRound(currentTotal - 1);
+      // the sum is over the limit
+      // loop through the other variations (in order) and adjust until we're under the limit.
+      let j = 1;
+      while (overage > 0 && j < values.fields.length) {
+        const nextValue = floatRound(
+          parseFloat(
+            form.watch(
+              `${formPrefix}values.${(j + i) % values.fields.length}.weight`
+            )
+          )
+        );
+        const adjustedValue =
+          nextValue >= overage ? floatRound(nextValue - overage) : 0;
+        overage = floatRound(overage - (nextValue - adjustedValue));
+        form.setValue(
+          `${formPrefix}values.${(j + i) % values.fields.length}.weight`,
+          adjustedValue
+        );
+        j++;
+      }
     }
-  );
+  };
 
   return (
     <div className="form-group">
@@ -88,7 +132,7 @@ export default function VariationsInput({
         <div className="p-2 pb-0 border-bottom">
           <label>
             Percent of traffic exposed to this experiment{" "}
-            <Tooltip text="Unallocated traffic will skip this rule" />
+            <Tooltip text="Unallocated traffic will skip this rule." />
           </label>
           <div className="row align-items-center pb-3 p-2">
             <div className="col">
@@ -108,24 +152,30 @@ export default function VariationsInput({
               />
             </div>
             <div
-              className={`col-auto position-relative ${styles.percentInputWrap}`}
+              className={`col-auto ${styles.percentInputWrap}`}
               style={{ fontSize: "1em" }}
             >
-              <input
-                className={`form-control ${styles.percentInput}`}
-                value={parseFloat(
-                  (form.watch(`${formPrefix}coverage`) * 100).toFixed(3)
-                )}
-                onChange={(e) => {
-                  let decimal = parseFloat(
-                    (parseFloat(e.target.value) / 100).toFixed(3)
-                  );
-                  if (decimal > 1) decimal = 1;
-                  if (decimal < 0) decimal = 0;
-                  form.setValue(`${formPrefix}coverage`, decimal);
-                }}
-              />
-              <span>%</span>
+              <div className="form-group mb-0 position-relative">
+                <input
+                  className={`form-control ${styles.percentInput}`}
+                  value={parseFloat(
+                    (form.watch(`${formPrefix}coverage`) * 100).toFixed(3)
+                  )}
+                  onChange={(e) => {
+                    let decimal = parseFloat(
+                      (parseFloat(e.target.value) / 100).toFixed(3)
+                    );
+                    if (decimal > 1) decimal = 1;
+                    if (decimal < 0) decimal = 0;
+                    form.setValue(`${formPrefix}coverage`, decimal);
+                  }}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="1"
+                />
+                <span>%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -135,7 +185,8 @@ export default function VariationsInput({
               <th className="pl-3">Id</th>
               <th>Variation</th>
               <th>
-                Name <Tooltip text="Optional way to identify the variations." />
+                Name{" "}
+                <Tooltip text="Optional way to identify the variations within GrowthBook." />
               </th>
               <th>
                 Split
@@ -198,12 +249,7 @@ export default function VariationsInput({
                                 `${formPrefix}values.${i}.weight`,
                                 percentToDecimal(e.target.value)
                               );
-                              if (values.fields.length === 2) {
-                                form.setValue(
-                                  `${formPrefix}values.${(i + 1) % 2}.weight`,
-                                  inversePercentAsDecimal(e.target.value)
-                                );
-                              }
+                              rebalance(i);
                             }}
                             min="0"
                             max="100"
@@ -227,13 +273,7 @@ export default function VariationsInput({
                                   `${formPrefix}values.${i}.weight`,
                                   newValue
                                 );
-
-                                if (values.fields.length === 2) {
-                                  form.setValue(
-                                    `${formPrefix}values.${(i + 1) % 2}.weight`,
-                                    inverseDecimal(newValue)
-                                  );
-                                }
+                                rebalance(i);
                               }}
                               type="number"
                               min={0}
@@ -273,7 +313,7 @@ export default function VariationsInput({
             })}
             {valueType !== "boolean" && (
               <tr>
-                <td colSpan={3}>
+                <td colSpan={4}>
                   <div className="row">
                     <div className="col">
                       <a
@@ -307,6 +347,7 @@ export default function VariationsInput({
                               weights[i]
                             );
                           });
+                          //rebalance(0);
                         }}
                       >
                         set equal weights
@@ -320,7 +361,7 @@ export default function VariationsInput({
               <td colSpan={4} className="pb-2">
                 <ExperimentSplitVisual
                   coverage={form.watch(`${formPrefix}coverage`)}
-                  values={weights}
+                  values={variationValues}
                   type={valueType}
                 />
               </td>
