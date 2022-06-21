@@ -794,6 +794,9 @@ pre {
   input:checked + label {
     background: $purple;
   }
+  &.toggle-secondary input:checked + label {
+    background: $blue;
+  }
 
   label:active:after {
     width: 30px;

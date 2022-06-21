@@ -178,7 +178,7 @@ export default function ExperimentSummary({
                 values={values}
                 coverage={coverage}
                 label="Traffic split"
-                unallocated="Unallocated (skips this rule)"
+                unallocated="Not included (skips this rule)"
                 type={type}
                 showValues={false}
                 stackLeft={true}

@@ -6,15 +6,19 @@ export default function Toggle({
   label = "",
   id,
   disabled = false,
+  type = "primary",
 }: {
   id: string;
   value: boolean;
   label?: string | ReactElement;
   setValue: (value: boolean) => void;
   disabled?: boolean;
+  type?: string;
 }) {
   return (
-    <div className={`toggle-switch ${disabled ? "disabled" : ""}`}>
+    <div
+      className={`toggle-switch ${disabled ? "disabled" : ""} toggle-${type}`}
+    >
       <input
         type="checkbox"
         id={id}

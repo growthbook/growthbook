@@ -31,18 +31,18 @@ function getEqualWeights(n: number): number[] {
       let d = 0;
       if (diff < 0 && i < nDiffs) d = 0.001;
       else if (diff > 0 && j < nDiffs) d = -0.001;
-      return +(w + d).toFixed(2);
+      return +(w + d).toFixed(3);
     });
 }
 
 function percentToDecimal(val: string): number {
-  return parseFloat((parseFloat(val) / 100).toFixed(2));
+  return parseFloat((parseFloat(val) / 100).toFixed(3));
 }
 function decimalToPercent(val: string): number {
-  return Math.round(parseFloat(val) * 100);
+  return parseFloat((parseFloat(val) * 100).toFixed(1));
 }
 function floatRound(val: number): number {
-  return parseFloat(val.toFixed(2));
+  return parseFloat(val.toFixed(3));
 }
 
 function getWeightExcept(variationValues: ExperimentValue[], i): number {
@@ -86,7 +86,6 @@ export default function VariationsInput({
   const rebalance = (i: number) => {
     const newValue = form.watch(`${formPrefix}values.${i}.weight`);
     const currentTotal = getWeightExcept(variationValues, i) + newValue;
-
     const nextValue = floatRound(
       parseFloat(
         form.watch(
@@ -227,6 +226,7 @@ export default function VariationsInput({
                       form={form}
                       field={`${formPrefix}values.${i}.value`}
                       valueType={valueType}
+                      type="secondary"
                     />
                   </td>
                   <td>
@@ -240,10 +240,9 @@ export default function VariationsInput({
                       {customSplit ? (
                         <div className="col d-flex flex-row">
                           <input
-                            value={(
-                              form.watch(`${formPrefix}values.${i}.weight`) *
-                              100
-                            ).toFixed(0)}
+                            value={decimalToPercent(
+                              form.watch(`${formPrefix}values.${i}.weight`)
+                            )}
                             onChange={(e) => {
                               form.setValue(
                                 `${formPrefix}values.${i}.weight`,
@@ -278,7 +277,7 @@ export default function VariationsInput({
                               type="number"
                               min={0}
                               max={100}
-                              step="1"
+                              step="0.1"
                               className={styles.percentInput}
                             />
                             <span>%</span>
@@ -286,9 +285,9 @@ export default function VariationsInput({
                         </div>
                       ) : (
                         <div className="col d-flex flex-row">
-                          {parseFloat(
+                          {decimalToPercent(
                             form.watch(`${formPrefix}values.${i}.weight`)
-                          ) * 100}
+                          )}
                           %
                         </div>
                       )}

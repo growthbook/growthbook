@@ -17,7 +17,7 @@ export interface Props {
 }
 export default function VariationsInput({
   label = "Traffic Split Preview",
-  unallocated = "Unallocated",
+  unallocated = "Not included",
   coverage,
   values,
   showValues = false,
@@ -27,7 +27,7 @@ export default function VariationsInput({
 }: Props) {
   let previewLeft = 0;
   const totalWeights = parseFloat(
-    values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(2)
+    values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3)
   );
 
   return (
@@ -73,7 +73,7 @@ export default function VariationsInput({
               const thisLeft = previewLeft;
               previewLeft += 100 * val.weight;
               const additionalStyles: CSSProperties = {
-                width: val.weight * coverage * 100 + "%",
+                width: (val.weight ? val.weight * coverage * 100 : 0) + "%",
                 height: 30,
               };
               if (!stackLeft) {
@@ -90,7 +90,9 @@ export default function VariationsInput({
                     : "off"
                   : val.value) +
                 " (" +
-                parseFloat((val.weight * coverage * 100).toPrecision(5)) +
+                parseFloat(
+                  (val.weight ? val.weight * coverage * 100 : 0).toPrecision(5)
+                ) +
                 "%)";
               return (
                 <div
@@ -110,7 +112,10 @@ export default function VariationsInput({
                     <div className={`${styles.percentMarker}`}>
                       <span>
                         {parseFloat(
-                          (val.weight * coverage * 100).toPrecision(5)
+                          (val.weight
+                            ? val.weight * coverage * 100
+                            : 0
+                          ).toPrecision(4)
                         ) + "%"}
                         {showValues && (
                           <>

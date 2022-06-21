@@ -309,6 +309,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           form={form}
           field="defaultValue"
           valueType={valueType}
+          type="secondary"
         />
       ) : rule?.type === "rollout" ? (
         <>
@@ -332,12 +333,14 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             form={form}
             field="rule.value"
             valueType={valueType}
+            type="secondary"
           />
           <FeatureValueField
             label={"Fallback value"}
             form={form}
             field="defaultValue"
             valueType={valueType}
+            type="secondary"
           />
         </>
       ) : rule?.type === "force" ? (
@@ -359,6 +362,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             form={form}
             field="defaultValue"
             valueType={valueType}
+            type="secondary"
           />
         </>
       ) : (
@@ -397,6 +401,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             form={form}
             field="defaultValue"
             valueType={valueType}
+            type="secondary"
           />
         </>
       )}
