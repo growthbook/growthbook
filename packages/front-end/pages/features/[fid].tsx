@@ -376,11 +376,6 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      <div className="mb-4">
-        <h3>Comments</h3>
-        <DiscussionThread type="feature" id={data.feature.id} />
-      </div>
-
       {permissions.createFeatureDrafts && (
         <div className="row">
           <div className="col mb-3">
@@ -478,6 +473,11 @@ export default function FeaturePage() {
           </div>
         </div>
       )}
+
+      <div className="mb-4">
+        <h3>Comments</h3>
+        <DiscussionThread type="feature" id={data.feature.id} />
+      </div>
     </div>
   );
 }
