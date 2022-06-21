@@ -310,31 +310,34 @@ export default function VariationsInput({
                 </tr>
               );
             })}
-            {valueType !== "boolean" && (
+            {(valueType !== "boolean" || !isEqualWeights) && (
               <tr>
                 <td colSpan={4}>
                   <div className="row">
                     <div className="col">
-                      <a
-                        className="btn btn-outline-primary"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          values.append({
-                            value: getDefaultVariationValue(defaultValue),
-                            weight: 0,
-                          });
-                        }}
-                      >
-                        <span
-                          className={`h4 pr-2 m-0 d-inline-block align-top`}
+                      {valueType !== "boolean" && (
+                        <a
+                          className="btn btn-outline-primary"
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            values.append({
+                              value: getDefaultVariationValue(defaultValue),
+                              weight: 0,
+                            });
+                          }}
                         >
-                          <GBAddCircle />
-                        </span>
-                        add another variation
-                      </a>
+                          <span
+                            className={`h4 pr-2 m-0 d-inline-block align-top`}
+                          >
+                            <GBAddCircle />
+                          </span>
+                          add another variation
+                        </a>
+                      )}
                     </div>
-                    <div className="col-auto">
+
+                    <div className="col-auto text-right">
                       <a
                         href="#"
                         onClick={(e) => {
