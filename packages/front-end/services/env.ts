@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/react";
 const env: {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
+  appOrigin: string;
   apiHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
@@ -15,6 +16,7 @@ const env: {
 } = {
   telemetry: "enable",
   cloud: false,
+  appOrigin: "",
   apiHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
@@ -32,6 +34,10 @@ export async function initEnv() {
       dsn: env.sentryDSN,
     });
   }
+}
+
+export function getAppOrigin(): string {
+  return env.appOrigin;
 }
 
 export function getApiHost(): string {

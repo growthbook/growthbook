@@ -9,7 +9,13 @@ import {
   Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, includeApiCredentials, isCloud } from "./env";
+import {
+  getApiHost,
+  getAppOrigin,
+  includeApiCredentials,
+  isCloud,
+} from "./env";
+import { ReactElement } from "react";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -131,6 +137,39 @@ export const AuthProvider: React.FC = ({ children }) => {
       });
   }, []);
 
+  const isLocal = (url: string) => url.includes("localhost");
+
+  function getDetailedError(error: string): string | ReactElement {
+    const curUrl = window.location.origin;
+    if (!isCloud()) {
+      // Using a custom domain to access the app, but env variables are still localhost
+      if (
+        !isLocal(curUrl) &&
+        (isLocal(getApiHost()) || isLocal(getAppOrigin()))
+      ) {
+        return (
+          <div>
+            <div>
+              <strong>{error}.</strong>
+            </div>{" "}
+            It looks like you are using a custom domain. Make sure to set the
+            environment variables{" "}
+            <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
+            <code className="font-weight-bold">API_HOST</code>.{" "}
+            <a
+              href="https://docs.growthbook.io/self-host/config#domains-and-ports"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View docs
+            </a>
+          </div>
+        );
+      }
+    }
+    return error;
+  }
+
   const orgList = [...organizations];
   if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
     orgList.push({
@@ -163,7 +202,7 @@ export const AuthProvider: React.FC = ({ children }) => {
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger">{getDetailedError(error)}</div>
       </Modal>
     );
   }
