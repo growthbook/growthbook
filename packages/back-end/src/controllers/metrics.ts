@@ -337,7 +337,7 @@ export async function postMetrics(
     }
   }
 
-  const owner: UserRef = {
+  const userRef: UserRef = {
     id: userId,
     name: userName,
     email: email,
@@ -345,7 +345,7 @@ export async function postMetrics(
 
   const metric = await createMetric({
     organization: org.id,
-    owner,
+    userRef,
     datasource,
     name,
     description,
