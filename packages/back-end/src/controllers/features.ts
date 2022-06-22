@@ -114,9 +114,16 @@ export async function postFeatures(
     };
   });
 
+  const userRef = {
+    id: userId,
+    name: userName,
+    email,
+  };
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
+    userRef,
     description: "",
     project: "",
     environmentSettings,
