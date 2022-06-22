@@ -31,6 +31,7 @@ import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
+import { getOwnerByUserRef } from "../../services/utils";
 
 const NUM_PER_PAGE = 20;
 
@@ -203,6 +204,7 @@ export default function FeaturesPage() {
             <thead>
               <tr>
                 <SortableTH field="id">Feature Key</SortableTH>
+                <th>Owner</th>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
                   <th key={en.id}>{en.id}</th>
@@ -255,6 +257,7 @@ export default function FeaturesPage() {
                           </a>
                         </Link>
                       </td>
+                      <td>{getOwnerByUserRef(feature.userRef)}</td>
                       <td>
                         <SortedTags tags={feature?.tags || []} />
                       </td>

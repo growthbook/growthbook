@@ -11,6 +11,7 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { getOrgFromReq } from "../services/organizations";
+import { UserRef } from "../../types/user";
 
 export async function getAllDimensions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -26,7 +27,7 @@ export async function postDimensions(
 ) {
   req.checkPermissions("createDimensions");
 
-  const { org } = getOrgFromReq(req);
+  const { org, userId, email, userName } = getOrgFromReq(req);
   const { datasource, name, sql, userIdType } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
@@ -34,9 +35,16 @@ export async function postDimensions(
     throw new Error("Invalid data source");
   }
 
+  const userRef: UserRef = {
+    id: userId,
+    name: userName,
+    email,
+  };
+
   const doc = await createDimension({
     datasource,
     userIdType,
+    userRef,
     name,
     sql,
     id: uniqid("dim_"),

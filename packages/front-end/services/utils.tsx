@@ -44,9 +44,9 @@ export function getEvenSplit(n: number) {
   return weights;
 }
 
-export function getDisplayedOwnerByUser(user: UserRef | undefined) {
-  if (user === undefined) return "N/A";
-  if (user.name) return user.name;
-  if (user.email) return user.email;
+export function getOwnerByUserRef(userRef: UserRef | undefined) {
+  if (userRef === undefined) return "N/A";
+  if (userRef.name) return userRef.name;
+  if (userRef.email) return userRef.email;
   return "N/A";
 }

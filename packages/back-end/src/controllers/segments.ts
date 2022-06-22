@@ -35,14 +35,21 @@ export async function postSegments(
   if (!datasource || !sql || !name) {
     throw new Error("Missing required properties");
   }
-  const { org } = getOrgFromReq(req);
+  const { org, userId, userName, email } = getOrgFromReq(req);
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
+  const userRef = {
+    id: userId,
+    name: userName,
+    email,
+  };
+
   const doc = await SegmentModel.create({
+    userRef,
     datasource,
     userIdType,
     name,

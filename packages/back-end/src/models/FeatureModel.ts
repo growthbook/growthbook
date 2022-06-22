@@ -17,6 +17,11 @@ const featureSchema = new mongoose.Schema({
   archived: Boolean,
   description: String,
   organization: String,
+  userRef: {
+    id: String,
+    name: String,
+    email: String,
+  },
   project: String,
   dateCreated: Date,
   dateUpdated: Date,
