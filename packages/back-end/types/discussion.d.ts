@@ -2,7 +2,8 @@ export type DiscussionParentType =
   | "experiment"
   | "idea"
   | "metric"
-  | "presentation";
+  | "presentation"
+  | "feature";
 
 export interface Comment {
   date: Date;
