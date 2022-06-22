@@ -156,6 +156,7 @@ export default function RuleModal({
           form={form}
           field="value"
           valueType={feature.valueType}
+          type="secondary"
         />
       )}
       {type === "rollout" && (
@@ -165,6 +166,7 @@ export default function RuleModal({
             form={form}
             field="value"
             valueType={feature.valueType}
+            type="secondary"
           />
           <RolloutPercentInput
             value={form.watch("coverage")}

@@ -148,7 +148,7 @@ export default function VariationsInput({
                 }}
               >
                 <Tooltip
-                  text={`Unallocated: ${parseFloat(
+                  text={`Not included: ${parseFloat(
                     ((1 - coverage) * 100).toPrecision(5)
                   )}% - users will skip this rule`}
                   style={{ width: "100%", height: "100%" }}
