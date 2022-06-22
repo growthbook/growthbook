@@ -17,6 +17,11 @@ const metricSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  owner: {
+    id: String,
+    name: String,
+    email: String,
+  },
   datasource: String,
   name: String,
   description: String,

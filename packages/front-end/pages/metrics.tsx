@@ -19,6 +19,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
+import { getDisplayedOwnerByUser } from "../services/utils";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -219,6 +220,7 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="name">Name</SortableTH>
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
+            <th>Owner</th>
             <SortableTH field="datasource" className="d-none d-lg-table-cell">
               Data Source
             </SortableTH>
@@ -261,6 +263,7 @@ const MetricsPage = (): React.ReactElement => {
               <td className="nowrap">
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
+              <td>{getDisplayedOwnerByUser(metric.owner)}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
                   ? getDatasourceById(metric.datasource)?.name || "Unknown"

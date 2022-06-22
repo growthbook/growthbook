@@ -1,4 +1,5 @@
 import { Queries } from "./query";
+import { UserRef } from "./user";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
@@ -29,6 +30,7 @@ export interface Condition {
 export interface MetricInterface {
   id: string;
   organization: string;
+  owner?: UserRef;
   datasource: string;
   name: string;
   description: string;
