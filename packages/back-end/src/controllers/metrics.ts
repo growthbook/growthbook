@@ -28,6 +28,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { UserRef } from "../../types/user";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
@@ -291,7 +292,8 @@ export async function postMetrics(
 ) {
   req.checkPermissions("createMetrics");
 
-  const { org } = getOrgFromReq(req);
+  const { org, userId, email, userName } = getOrgFromReq(req);
+
   const {
     name,
     description,
@@ -334,8 +336,15 @@ export async function postMetrics(
     }
   }
 
+  const owner: UserRef = {
+    id: userId,
+    name: userName,
+    email: email,
+  };
+
   const metric = await createMetric({
     organization: org.id,
+    owner,
     datasource,
     name,
     description,
