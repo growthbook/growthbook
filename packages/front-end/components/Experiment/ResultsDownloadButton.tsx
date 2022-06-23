@@ -59,6 +59,10 @@ export default function ResultsDownloadButton({
       if (variation.chanceToWin) {
         updatedRow[`chanceToBeatControl`] = variation.chanceToWin;
       }
+
+      if (variation.expected) {
+        updatedRow[`percentChangeOf${variation.name}`] = variation.expected;
+      }
     });
 
     csvRows.push(updatedRow);
@@ -72,7 +76,6 @@ export default function ResultsDownloadButton({
     headers.sort();
 
     headers.forEach((header, i) => {
-      console.log(header);
       if (header === "metricName") {
         headers.splice(i, 1);
       }
