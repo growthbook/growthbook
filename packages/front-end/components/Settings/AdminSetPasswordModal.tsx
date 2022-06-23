@@ -11,7 +11,7 @@ type Props = {
 };
 
 export default function AdminSetPasswordModal({ member, close }: Props) {
-  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
   const { apiCall } = useAuth();
   const form = useForm({
     defaultValues: {
@@ -25,36 +25,26 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
       header="Change Password"
       open={true}
       autoCloseOnSubmit={false}
-      closeCta={passwordResetSuccess ? "Close" : "Cancel"}
-      submit={
-        passwordResetSuccess
-          ? null
-          : form.handleSubmit(async (data) => {
-              await apiCall(`/member/${member.id}/admin-password-reset`, {
-                method: "PUT",
-                credentials: "include",
-                body: JSON.stringify(data),
-              });
-              setPasswordResetSuccess(true);
-            })
-      }
+      successMessage={successMessage}
+      submit={form.handleSubmit(async (data) => {
+        await apiCall(`/member/${member.id}/admin-password-reset`, {
+          method: "PUT",
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        setSuccessMessage("Password successfully changed.");
+      })}
     >
       <p>
         Change password for <strong>{member.name}</strong>:
       </p>
-      {passwordResetSuccess ? (
-        <div className="alert alert-success">
-          Password successfully changed.
-        </div>
-      ) : (
-        <Field
-          placeholder="Enter a new password"
-          type="password"
-          required
-          minLength={8}
-          {...form.register("updatedPassword")}
-        />
-      )}
+      <Field
+        placeholder="Enter a new password"
+        type="password"
+        required
+        minLength={8}
+        {...form.register("updatedPassword")}
+      />
     </Modal>
   );
 }

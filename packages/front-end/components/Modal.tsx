@@ -21,6 +21,7 @@ type ModalProps = {
   close?: () => void;
   submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
+  successMessage?: string;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -41,6 +42,7 @@ const Modal: FC<ModalProps> = ({
   solidOverlay = false,
   error: externalError,
   secondaryCTA,
+  successMessage,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,13 +119,23 @@ const Modal: FC<ModalProps> = ({
           )}
         </>
       )}
-      <div
-        className="modal-body"
-        ref={bodyRef}
-        style={overflowAuto ? { overflowY: "auto" } : {}}
-      >
-        {children}
-      </div>
+      {!successMessage ? (
+        <div
+          className="modal-body"
+          ref={bodyRef}
+          style={overflowAuto ? { overflowY: "auto" } : {}}
+        >
+          {children}
+        </div>
+      ) : (
+        <div
+          className="modal-body"
+          ref={bodyRef}
+          style={overflowAuto ? { overflowY: "auto" } : {}}
+        >
+          <div className="alert alert-success">{successMessage}</div>
+        </div>
+      )}
       {submit || close ? (
         <div className="modal-footer">
           {error && (
@@ -136,7 +148,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          {submit ? (
+          {submit && !successMessage ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
               type="submit"
@@ -148,7 +160,7 @@ const Modal: FC<ModalProps> = ({
             ""
           )}
           {secondaryCTA}
-          {close && (
+          {close && !successMessage ? (
             <button
               className="btn btn-link"
               onClick={(e) => {
@@ -157,6 +169,16 @@ const Modal: FC<ModalProps> = ({
               }}
             >
               {closeCta}
+            </button>
+          ) : (
+            <button
+              className="btn btn-link"
+              onClick={(e) => {
+                e.preventDefault();
+                close();
+              }}
+            >
+              Close
             </button>
           )}
         </div>
