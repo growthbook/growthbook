@@ -5,6 +5,10 @@ import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
 
+type UpdatedRow = {
+  metricName?: string;
+};
+
 export default function ResultsDownloadButton({
   results,
   experiment,
@@ -42,7 +46,7 @@ export default function ResultsDownloadButton({
   });
 
   rows.forEach((row) => {
-    const updatedRow = {};
+    const updatedRow: UpdatedRow = {};
     const metric = getMetricById(row.metric.id);
     updatedRow.metricName = metric.name;
 
@@ -62,7 +66,20 @@ export default function ResultsDownloadButton({
 
   function generateCsv(data) {
     const csvRows = [];
+    // Here I need to sort the data[0] keys so 'metricName" is first, with the rest of the keys being in alpha-numeric order
     const headers = Object.keys(data[0]);
+
+    headers.sort();
+
+    headers.forEach((header, i) => {
+      console.log(header);
+      if (header === "metricName") {
+        headers.splice(i, 1);
+      }
+    });
+
+    headers.unshift("metricName");
+
     csvRows.push(headers.join(","));
 
     for (const row of data) {
