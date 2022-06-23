@@ -4,6 +4,10 @@ import React, { CSSProperties } from "react";
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import Tooltip from "../Tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import {
+  getVariationColor,
+  getVariationDefaultName,
+} from "../../services/features";
 
 export interface Props {
   label?: string;
@@ -15,7 +19,7 @@ export interface Props {
   stackLeft?: boolean;
   showPercentages?: boolean;
 }
-export default function VariationsInput({
+export default function ExperimentSplitVisual({
   label = "Traffic Split Preview",
   unallocated = "Not included",
   coverage,
@@ -42,21 +46,22 @@ export default function VariationsInput({
             </span>
           )}
         </div>
-        <div className={clsx("col-auto", styles.legend)} />
-        <div className={clsx("col-auto", styles.legend)}>
-          <div
-            className={clsx(
-              styles.legend_box,
-              styles.used,
-              "progress-bar-striped"
-            )}
-            style={{ backgroundColor: "#e0e0e0" }}
-          />{" "}
-          {unallocated}{" "}
-          <strong>
-            ({parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"})
-          </strong>
-        </div>
+        {coverage < 1 && (
+          <div className={clsx("col-auto", styles.legend)}>
+            <div
+              className={clsx(
+                styles.legend_box,
+                styles.used,
+                "progress-bar-striped"
+              )}
+              style={{ backgroundColor: "#e0e0e0" }}
+            />{" "}
+            {unallocated}{" "}
+            <strong>
+              ({parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"})
+            </strong>
+          </div>
+        )}
       </div>
       <div
         className="position-relative progress-bar-striped mb-5"
@@ -75,31 +80,23 @@ export default function VariationsInput({
               const additionalStyles: CSSProperties = {
                 width: (val.weight ? val.weight * coverage * 100 : 0) + "%",
                 height: 30,
+                backgroundColor: getVariationColor(i),
               };
               if (!stackLeft) {
                 additionalStyles.position = "absolute";
                 additionalStyles.left = thisLeft + "%";
               }
 
-              const variationLabel =
-                (val?.name
-                  ? val.name
-                  : type === "boolean"
-                  ? val.value === "true"
-                    ? "on"
-                    : "off"
-                  : val.value) +
-                " (" +
-                parseFloat(
-                  (val.weight ? val.weight * coverage * 100 : 0).toPrecision(5)
-                ) +
-                "%)";
+              const valueDisplay = getVariationDefaultName(val, type);
+
+              const variationLabel = `${valueDisplay} (${parseFloat(
+                (val.weight ? val.weight * coverage * 100 : 0).toPrecision(5)
+              )}%)`;
+
               return (
                 <div
                   key={i}
-                  className={`${styles.previewBar} ${
-                    "variationColor" + (i % 9)
-                  }`}
+                  className={`${styles.previewBar}`}
                   style={additionalStyles}
                 >
                   <Tooltip
@@ -120,16 +117,7 @@ export default function VariationsInput({
                         {showValues && (
                           <>
                             {" "}
-                            -{" "}
-                            <strong>
-                              {val?.name
-                                ? val.name
-                                : type === "boolean"
-                                ? val.value === "true"
-                                  ? "on"
-                                  : "off"
-                                : val.value}
-                            </strong>
+                            - <strong>{valueDisplay}</strong>
                           </>
                         )}
                       </span>

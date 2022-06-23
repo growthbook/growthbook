@@ -1,6 +1,10 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
-import { getDefaultVariationValue } from "../../services/features";
+import {
+  getDefaultVariationValue,
+  getVariationColor,
+  getVariationDefaultName,
+} from "../../services/features";
 import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -17,9 +21,9 @@ export interface Props {
   formPrefix?: string;
 }
 
-// Returns n "equal" decimals rounded to 2 places that add up to 1
+// Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
-// For example, getEqualWeights(3) returns [0.34, 0.33, 0.33]
+// For example, getEqualWeights(3) returns [0.334, 0.333, 0.333]
 function getEqualWeights(n: number): number[] {
   const w = Math.round(1000 / n) / 1000;
   const diff = w * n - 1;
@@ -38,21 +42,49 @@ function getEqualWeights(n: number): number[] {
 function percentToDecimal(val: string): number {
   return parseFloat((parseFloat(val) / 100).toFixed(3));
 }
-function decimalToPercent(val: string): number {
-  return parseFloat((parseFloat(val) * 100).toFixed(1));
+function decimalToPercent(val: number): number {
+  return parseFloat((val * 100).toFixed(1));
 }
 function floatRound(val: number): number {
   return parseFloat(val.toFixed(3));
 }
 
-function getWeightExcept(variationValues: ExperimentValue[], i): number {
-  let total = 0;
-  variationValues.forEach((v, j) => {
-    if (j !== i) {
-      total += v.weight;
+// Updates one of the variation weights and rebalances
+// the rest of the weights to keep the sum equal to 1
+function rebalance(weights: number[], i: number, newValue: number): number[] {
+  // Clamp new value
+  if (newValue > 1) newValue = 1;
+  if (newValue < 0) newValue = 0;
+
+  // Update the new value
+  weights = [...weights];
+  weights[i] = newValue;
+
+  // Current sum of weights
+  const currentTotal = floatRound(weights.reduce((sum, w) => sum + w, 0));
+  // The sum is too low, increment the next variation's weight
+  if (currentTotal < 1) {
+    const nextIndex = (i + 1) % weights.length;
+    const nextValue = floatRound(weights[nextIndex]);
+    weights[(i + 1) % weights.length] = floatRound(
+      nextValue + (1 - currentTotal)
+    );
+  } else if (currentTotal > 1) {
+    // The sum is too high, loop through the other variations and decrement weights
+    let overage = floatRound(currentTotal - 1);
+    let j = 1;
+    while (overage > 0 && j < weights.length) {
+      const nextIndex = (j + i) % weights.length;
+      const nextValue = floatRound(weights[nextIndex]);
+      const adjustedValue =
+        nextValue >= overage ? floatRound(nextValue - overage) : 0;
+      overage = floatRound(overage - (nextValue - adjustedValue));
+      weights[nextIndex] = adjustedValue;
+      j++;
     }
-  });
-  return floatRound(total);
+  }
+
+  return weights;
 }
 
 export default function VariationsInput({
@@ -65,16 +97,7 @@ export default function VariationsInput({
     control: form.control,
     name: `${formPrefix}values`,
   });
-  let isEqualWeights = true;
-  values.fields.forEach((v, i) => {
-    if (
-      form.watch(`${formPrefix}values.${0}.weight`) !==
-      form.watch(`${formPrefix}values.${i}.weight`)
-    ) {
-      isEqualWeights = false;
-    }
-  });
-  const [customSplit, setCustomSplit] = useState(!isEqualWeights);
+
   const variationValues: ExperimentValue[] = values.fields.map((v, i) => {
     return {
       weight: form.watch(`${formPrefix}values.${i}.weight`),
@@ -82,70 +105,43 @@ export default function VariationsInput({
       name: form.watch(`${formPrefix}values.${i}.name`),
     };
   });
+  const weights = variationValues.map((v) => v.weight);
+  const coverage: number = form.watch(`${formPrefix}coverage`);
 
-  const rebalance = (i: number) => {
-    const newValue = form.watch(`${formPrefix}values.${i}.weight`);
-    const currentTotal = getWeightExcept(variationValues, i) + newValue;
-    const nextValue = floatRound(
-      parseFloat(
-        form.watch(
-          `${formPrefix}values.${(i + 1) % values.fields.length}.weight`
-        )
-      )
-    );
-    if (currentTotal < 1) {
-      // we are under the limit, so we can add the diff:
-      form.setValue(
-        `${formPrefix}values.${(i + 1) % values.fields.length}.weight`,
-        floatRound(nextValue + (1 - currentTotal))
-      );
-    } else if (currentTotal > 1) {
-      let overage = floatRound(currentTotal - 1);
-      // the sum is over the limit
-      // loop through the other variations (in order) and adjust until we're under the limit.
-      let j = 1;
-      while (overage > 0 && j < values.fields.length) {
-        const nextValue = floatRound(
-          parseFloat(
-            form.watch(
-              `${formPrefix}values.${(j + i) % values.fields.length}.weight`
-            )
-          )
-        );
-        const adjustedValue =
-          nextValue >= overage ? floatRound(nextValue - overage) : 0;
-        overage = floatRound(overage - (nextValue - adjustedValue));
-        form.setValue(
-          `${formPrefix}values.${(j + i) % values.fields.length}.weight`,
-          adjustedValue
-        );
-        j++;
+  const isEqualWeights = weights.every((w) => w === weights[0]);
+  const [customSplit, setCustomSplit] = useState(!isEqualWeights);
+
+  const rebalanceAndUpdate = (i: number, newValue: number) => {
+    rebalance(weights, i, newValue).forEach((w, j) => {
+      // The weight needs updating
+      if (w !== weights[j]) {
+        form.setValue(`${formPrefix}values.${j}.weight`, w);
       }
-    }
+    });
   };
 
   return (
     <div className="form-group">
       <label>Exposure, Variations and Weights</label>
       <div className="gbtable bg-light">
-        <div className="p-2 pb-0 border-bottom">
+        <div className="p-3 pb-0 border-bottom">
           <label>
-            Percent of traffic exposed to this experiment{" "}
-            <Tooltip text="Unallocated traffic will skip this rule." />
+            Percent of traffic included in this experiment{" "}
+            <Tooltip text="Users not included in the experiment will skip this rule." />
           </label>
-          <div className="row align-items-center pb-3 p-2">
+          <div className="row align-items-center pb-3">
             <div className="col">
               <input
-                value={form.watch(`${formPrefix}coverage`)}
+                value={decimalToPercent(coverage)}
                 onChange={(e) => {
-                  form.setValue(
-                    `${formPrefix}coverage`,
-                    parseFloat(e.target.value).toFixed(3)
-                  );
+                  let decimal = percentToDecimal(e.target.value);
+                  if (decimal > 1) decimal = 1;
+                  if (decimal < 0) decimal = 0;
+                  form.setValue(`${formPrefix}coverage`, decimal);
                 }}
                 min="0"
-                max="1"
-                step="0.01"
+                max="100"
+                step="1"
                 type="range"
                 className="w-100"
               />
@@ -157,13 +153,9 @@ export default function VariationsInput({
               <div className="form-group mb-0 position-relative">
                 <input
                   className={`form-control ${styles.percentInput}`}
-                  value={parseFloat(
-                    (form.watch(`${formPrefix}coverage`) * 100).toFixed(3)
-                  )}
+                  value={decimalToPercent(coverage)}
                   onChange={(e) => {
-                    let decimal = parseFloat(
-                      (parseFloat(e.target.value) / 100).toFixed(3)
-                    );
+                    let decimal = percentToDecimal(e.target.value);
                     if (decimal > 1) decimal = 1;
                     if (decimal < 0) decimal = 0;
                     form.setValue(`${formPrefix}coverage`, decimal);
@@ -214,9 +206,9 @@ export default function VariationsInput({
                 <tr key={i}>
                   <td style={{ width: 45 }} className="position-relative pl-3">
                     <div
-                      className={`${styles.colorMarker} ${
-                        "variationColor" + (i % 9)
-                      }`}
+                      style={{
+                        backgroundColor: getVariationColor(i),
+                      }}
                     />
                     {i}
                   </td>
@@ -226,12 +218,15 @@ export default function VariationsInput({
                       form={form}
                       field={`${formPrefix}values.${i}.value`}
                       valueType={valueType}
-                      type="secondary"
                     />
                   </td>
                   <td>
                     <Field
                       label=""
+                      placeholder={`${getVariationDefaultName(
+                        variationValues[i],
+                        valueType
+                      )}`}
                       {...form.register(`${formPrefix}values.${i}.name`)}
                     />
                   </td>
@@ -240,15 +235,12 @@ export default function VariationsInput({
                       {customSplit ? (
                         <div className="col d-flex flex-row">
                           <input
-                            value={decimalToPercent(
-                              form.watch(`${formPrefix}values.${i}.weight`)
-                            )}
+                            value={decimalToPercent(weights[i])}
                             onChange={(e) => {
-                              form.setValue(
-                                `${formPrefix}values.${i}.weight`,
+                              rebalanceAndUpdate(
+                                i,
                                 percentToDecimal(e.target.value)
                               );
-                              rebalance(i);
                             }}
                             min="0"
                             max="100"
@@ -260,19 +252,13 @@ export default function VariationsInput({
                             className={`position-relative ${styles.percentInputWrap}`}
                           >
                             <Field
-                              value={decimalToPercent(
-                                form.watch(`${formPrefix}values.${i}.weight`)
-                              )}
+                              value={decimalToPercent(weights[i])}
                               onChange={(e) => {
                                 // the split now should add to 100% if there are two variations.
-                                let newValue = percentToDecimal(e.target.value);
-                                if (newValue > 1) newValue = 1;
-                                if (newValue < 0) newValue = 0;
-                                form.setValue(
-                                  `${formPrefix}values.${i}.weight`,
-                                  newValue
+                                rebalanceAndUpdate(
+                                  i,
+                                  percentToDecimal(e.target.value)
                                 );
-                                rebalance(i);
                               }}
                               type="number"
                               min={0}
@@ -285,10 +271,7 @@ export default function VariationsInput({
                         </div>
                       ) : (
                         <div className="col d-flex flex-row">
-                          {decimalToPercent(
-                            form.watch(`${formPrefix}values.${i}.weight`)
-                          )}
-                          %
+                          {decimalToPercent(weights[i])}%
                         </div>
                       )}
                       {values.fields.length > 2 && (
@@ -323,6 +306,7 @@ export default function VariationsInput({
                             e.preventDefault();
                             values.append({
                               value: getDefaultVariationValue(defaultValue),
+                              name: "",
                               weight: 0,
                             });
                           }}
@@ -342,14 +326,14 @@ export default function VariationsInput({
                         href="#"
                         onClick={(e) => {
                           e.preventDefault();
-                          const weights = getEqualWeights(values.fields.length);
-                          values.fields.forEach((v, i) => {
-                            form.setValue(
-                              `${formPrefix}values.${i}.weight`,
-                              weights[i]
-                            );
-                          });
-                          //rebalance(0);
+                          getEqualWeights(values.fields.length).forEach(
+                            (w, i) => {
+                              form.setValue(
+                                `${formPrefix}values.${i}.weight`,
+                                w
+                              );
+                            }
+                          );
                         }}
                       >
                         set equal weights
@@ -362,7 +346,7 @@ export default function VariationsInput({
             <tr>
               <td colSpan={4} className="pb-2">
                 <ExperimentSplitVisual
-                  coverage={form.watch(`${formPrefix}coverage`)}
+                  coverage={coverage}
                   values={variationValues}
                   type={valueType}
                 />

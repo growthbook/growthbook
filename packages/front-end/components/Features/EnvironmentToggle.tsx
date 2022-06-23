@@ -56,6 +56,7 @@ export default function EnvironmentToggle({
         setToggling(false);
         mutate();
       }}
+      type="environment"
     />
   );
 }

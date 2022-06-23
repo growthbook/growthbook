@@ -431,34 +431,6 @@ pre {
   }
 }
 
-.variationColor0 {
-  background-color: #8f66dc;
-}
-.variationColor1 {
-  background-color: #e5a6f3;
-}
-.variationColor2 {
-  background-color: #38aecc;
-}
-.variationColor3 {
-  background-color: #f5dd90;
-}
-.variationColor4 {
-  background-color: #3383ec;
-}
-.variationColor5 {
-  background-color: #80c17b;
-}
-.variationColor6 {
-  background-color: #79c4e0;
-}
-.variationColor7 {
-  background-color: #f87a7a;
-}
-.variationColor8 {
-  background-color: #6cc160;
-}
-
 .app-sidebar-header {
   .selected {
     background-color: $purple;
@@ -794,7 +766,7 @@ pre {
   input:checked + label {
     background: $purple;
   }
-  &.toggle-secondary input:checked + label {
+  &.toggle-featureValue input:checked + label {
     background: $blue;
   }
 

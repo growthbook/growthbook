@@ -19,7 +19,6 @@ export default function FeatureValueField({
   form,
   field,
   helpText,
-  type = "primary",
 }: Props) {
   if (valueType === "boolean") {
     return (
@@ -32,7 +31,7 @@ export default function FeatureValueField({
             setValue={(v) => {
               form.setValue(field, v ? "true" : "false");
             }}
-            type={type}
+            type="featureValue"
           />
           <span className="text-muted pl-2">
             <strong>{form.watch(field) === "true" ? "on" : "off"}</strong>

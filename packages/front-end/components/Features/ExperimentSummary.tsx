@@ -10,7 +10,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import React, { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
-import { getExperimentDefinitionFromFeature } from "../../services/features";
+import {
+  getExperimentDefinitionFromFeature,
+  getVariationColor,
+} from "../../services/features";
 import Modal from "../Modal";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -38,8 +41,6 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
   expRule: ExperimentRule;
 }) {
-  // const totalPercent =
-  //   coverage ?? getTotalVariationWeight(values.map((v) => v.weight));
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
@@ -142,13 +143,13 @@ export default function ExperimentSummary({
                 style={{ fontSize: "0.9em", width: 25 }}
               >
                 <div
-                  className={`${"variationColor" + (j % 9)}`}
                   style={{
                     width: "6px",
                     position: "absolute",
                     top: 0,
                     bottom: 0,
                     left: 0,
+                    backgroundColor: getVariationColor(j),
                   }}
                 />
                 {j}.

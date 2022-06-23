@@ -6,14 +6,14 @@ export default function Toggle({
   label = "",
   id,
   disabled = false,
-  type = "primary",
+  type = "toggle",
 }: {
   id: string;
   value: boolean;
   label?: string | ReactElement;
   setValue: (value: boolean) => void;
   disabled?: boolean;
-  type?: string;
+  type?: "featureValue" | "environment" | "toggle";
 }) {
   return (
     <div

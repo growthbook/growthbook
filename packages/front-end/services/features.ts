@@ -6,6 +6,7 @@ import {
 } from "back-end/types/organization";
 import {
   ExperimentRule,
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
@@ -85,6 +86,19 @@ export function getTotalVariationWeight(weights: number[]): number {
   return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
 }
 
+export function getVariationDefaultName(
+  val: ExperimentValue,
+  type: FeatureValueType
+) {
+  return val.name
+    ? val.name
+    : type === "boolean"
+    ? val.value === "true"
+      ? "on"
+      : "off"
+    : val.value;
+}
+
 type NamespaceGaps = { start: number; end: number }[];
 export function findGaps(
   namespaces: NamespaceUsage,
@@ -135,6 +149,21 @@ export function useFeaturesList(withProject = true) {
     error,
     mutate,
   };
+}
+
+export function getVariationColor(i: number) {
+  const colors = [
+    "#8f66dc",
+    "#e5a6f3",
+    "#38aecc",
+    "#f5dd90",
+    "#3383ec",
+    "#80c17b",
+    "#79c4e0",
+    "#f87a7a",
+    "#6cc160",
+  ];
+  return colors[i % colors.length];
 }
 
 export function useAttributeSchema() {
@@ -283,7 +312,7 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
-          name: "Control",
+          name: "",
         },
         {
           value: value,
