@@ -11,17 +11,24 @@ import MoreMenu from "../Dropdown/MoreMenu";
 import { isCloud } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 
-type Member = { id: string; name: string; email: string; role: MemberRole };
+export type MemberInfo = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+};
 
 const MemberList: FC<{
-  members: Member[];
+  members: MemberInfo[];
   mutate: () => void;
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
-  const [roleModal, setRoleModal] = useState<Member>(null);
-  const [passwordResetModal, setPasswordResetModal] = useState<Member>(null);
+  const [roleModal, setRoleModal] = useState<MemberInfo>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
+    null
+  );
   const [role, setRole] = useState<MemberRole>("admin");
 
   const onInvite = () => {
@@ -36,7 +43,6 @@ const MemberList: FC<{
       }),
     });
     mutate();
-    setRoleModal(null);
   };
 
   return (
@@ -84,7 +90,7 @@ const MemberList: FC<{
                   <>
                     <MoreMenu id="test">
                       <button
-                        className="dropdown-item pe-auto"
+                        className="dropdown-item"
                         onClick={(e) => {
                           e.preventDefault();
                           setRoleModal(member);
@@ -95,7 +101,7 @@ const MemberList: FC<{
                       </button>
                       {!isCloud() && (
                         <button
-                          className="dropdown-item pe-auto"
+                          className="dropdown-item"
                           onClick={(e) => {
                             e.preventDefault();
                             setPasswordResetModal(member);

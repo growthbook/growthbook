@@ -2,13 +2,11 @@ import React, { useState } from "react";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import { MemberRole } from "back-end/types/organization";
 import { useAuth } from "../../services/auth";
-
-type Member = { id: string; name: string; email: string; role: MemberRole };
+import type { MemberInfo } from "./MemberList";
 
 type Props = {
-  member: Member;
+  member: MemberInfo;
   close: () => void;
 };
 
@@ -54,7 +52,6 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
           type="password"
           required
           minLength={8}
-          autoComplete="updated-password"
           {...form.register("updatedPassword")}
         />
       )}

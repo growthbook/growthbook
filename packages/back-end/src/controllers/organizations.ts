@@ -889,8 +889,7 @@ export async function putAdminResetUserPassword(
     (member) => member.id === userToUpdateId
   );
 
-  // Only update the password if the request came from an admin, and the member
-  // we're updating is in the same org as the requester
+  // Only update the password if the member we're updating is in the same org as the requester
   if (!isUserToUpdateInSameOrg) {
     throw new Error(
       "Cannot change password of users outside your organization."
