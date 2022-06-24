@@ -80,6 +80,14 @@ const navLinks = [
     name: "How to",
     links: [
       {
+        href: "/guide/nextjs-and-growthbook",
+        name: "NextJS and GrowthBook",
+      },
+      {
+        href: "/guide/create-react-app-and-growthbook",
+        name: "Create React App and GrowthBook",
+      },
+      {
         href: "/guide/GA-universal-analytics",
         name: "Google Analytics - UA",
       },
