@@ -9,7 +9,12 @@ import { encryptParams } from "../src/services/datasource";
 import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
 import { PostgresConnectionParams } from "../types/integrations/postgres";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureRule, LegacyFeatureInterface } from "../types/feature";
+import {
+  ExperimentRule,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "../types/feature";
 
 describe("backend", () => {
   it("updates old metric objects - earlyStart", () => {
@@ -583,6 +588,134 @@ describe("backend", () => {
       draft: {
         active: false,
       },
+    });
+  });
+
+  it("converts old variation weights to use coverage", () => {
+    const origRule: ExperimentRule = {
+      type: "experiment",
+      description: "",
+      hashAttribute: "id",
+      id: "123",
+      trackingKey: "",
+      values: [
+        {
+          value: "a",
+          weight: 0.1,
+        },
+        {
+          value: "b",
+          weight: 0.4,
+        },
+      ],
+    };
+
+    const origFeature: FeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        prod: {
+          enabled: true,
+          rules: [origRule],
+        },
+      },
+    };
+
+    expect(
+      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
+        "prod"
+      ].rules[0]
+    ).toEqual({
+      ...origRule,
+      coverage: 0.5,
+      values: [
+        {
+          value: "a",
+          weight: 0.2,
+        },
+        {
+          value: "b",
+          weight: 0.8,
+        },
+      ],
+    });
+
+    origRule.values[0].weight = 0.9;
+    origRule.values[1].weight = 0.3;
+    expect(
+      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
+        "prod"
+      ].rules[0]
+    ).toEqual({
+      ...origRule,
+      coverage: 1,
+      values: [
+        {
+          value: "a",
+          weight: 0.75,
+        },
+        {
+          value: "b",
+          weight: 0.25,
+        },
+      ],
+    });
+
+    origRule.values[0].weight = 0;
+    origRule.values[1].weight = 0.5;
+    expect(
+      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
+        "prod"
+      ].rules[0]
+    ).toEqual({
+      ...origRule,
+      coverage: 0.5,
+      values: [
+        {
+          value: "a",
+          weight: 0,
+        },
+        {
+          value: "b",
+          weight: 1,
+        },
+      ],
+    });
+
+    origRule.values[0].weight = 0.4;
+    origRule.values[1].weight = 0.6;
+    expect(
+      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
+        "prod"
+      ].rules[0]
+    ).toEqual({
+      ...origRule,
+      coverage: 1,
+      values: [
+        {
+          value: "a",
+          weight: 0.4,
+        },
+        {
+          value: "b",
+          weight: 0.6,
+        },
+      ],
+    });
+
+    origRule.values[0].weight = 0.4;
+    origRule.values[1].weight = 0.6;
+    origRule.coverage = 0.5;
+    expect(
+      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
+        "prod"
+      ].rules[0]
+    ).toEqual({
+      ...origRule,
     });
   });
 });
