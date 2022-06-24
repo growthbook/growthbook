@@ -23,14 +23,14 @@ export default function ResultsDownloadButton({
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return experiment.metrics
-      .map((m) => {
-        const metric = getMetricById(m);
+      .map((row) => {
+        const metric = getMetricById(row);
         return {
           label: metric?.name,
           metric,
           rowClass: metric?.inverse ? "inverse" : "",
-          variations: results.variations.map((v) => {
-            return v.metrics[m];
+          variations: results.variations.map((variant) => {
+            return variant.metrics[row];
           }),
         };
       })
@@ -47,21 +47,20 @@ export default function ResultsDownloadButton({
 
   rows.forEach((row) => {
     const updatedRow: UpdatedRow = {};
-    const metric = getMetricById(row.metric.id);
-    updatedRow.metricName = metric.name;
+    updatedRow.metricName = row.metric.name;
 
-    row.variations.forEach((variation) => {
-      updatedRow[`usersIn${variation.name}`] = variation.users;
-      updatedRow[`countOf${variation.name}`] = variation.value;
-      updatedRow[`conversionRateOf${variation.name}`] = variation.cr;
-      updatedRow[`riskOfChoosing${variation.name}`] = variation.relativeRisk;
+    row.variations.forEach((variant) => {
+      updatedRow[`usersIn${variant.name}`] = variant.users;
+      updatedRow[`countOf${variant.name}`] = variant.value;
+      updatedRow[`conversionRateOf${variant.name}`] = variant.cr;
+      updatedRow[`riskOfChoosing${variant.name}`] = variant.relativeRisk;
 
-      if (variation.chanceToWin) {
-        updatedRow[`chanceToBeatControl`] = variation.chanceToWin;
+      if (variant.chanceToWin) {
+        updatedRow[`chanceToBeatControl`] = variant.chanceToWin;
       }
 
-      if (variation.expected) {
-        updatedRow[`percentChangeOf${variation.name}`] = variation.expected;
+      if (variant.expected) {
+        updatedRow[`percentChangeOf${variant.name}`] = variant.expected;
       }
     });
 
