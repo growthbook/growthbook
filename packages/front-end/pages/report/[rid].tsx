@@ -272,6 +272,10 @@ export default function ReportPage() {
                   notebookFilename={report.title}
                   queries={report.queries}
                   queryError={report.error}
+                  // metrics={experiment.metrics}
+                  // results={snapshot?.results?}
+                  variations={variations}
+                  // trackingKey={experiment.trackingKey}
                 />
               </div>
             </div>

@@ -1,28 +1,53 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentReportResultDimension } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
+import { Parser } from "json2csv";
 
 type UpdatedRow = {
-  metricName?: string;
+  metricName: string;
+  variantName: string;
+  riskOfChoosing: number;
+  users: number;
+  count: number;
+  conversionRate: number;
+  changeToBeatControl: number | null;
+  percentChange: number | null;
 };
 
 export default function ResultsDownloadButton({
   results,
-  experiment,
+  metrics,
+  variations,
+  trackingKey,
 }: {
   results?: ExperimentReportResultDimension;
-  experiment: ExperimentInterfaceStringDates;
+  metrics: string[];
+  variations: ExperimentReportVariation[];
+  trackingKey: string;
 }) {
   const { getMetricById, ready } = useDefinitions();
+  const headers = [
+    "metricName",
+    "variationName",
+    "riskOfChoosing",
+    "users",
+    "count",
+    "conversionRate",
+    "chanceToBeatControl",
+    "percentChange",
+  ];
+  const json2csvParser = new Parser({ headers });
 
   const csvRows = [];
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
-    return experiment.metrics
+    return metrics
       .map((row) => {
         const metric = getMetricById(row);
         return {
@@ -37,66 +62,36 @@ export default function ResultsDownloadButton({
       .filter((row) => row.metric);
   }, [results, ready]);
 
+  console.log("rows", rows);
+
   rows.forEach((row) => {
     row.variations.forEach((variant, index) => {
-      variant.name = experiment.variations[index].name;
+      variant.name = variations[index].name;
       const { relativeRisk } = getRisk(index, row);
       variant.relativeRisk = relativeRisk;
     });
   });
 
   rows.forEach((row) => {
-    const updatedRow: UpdatedRow = {};
-    updatedRow.metricName = row.metric.name;
-
     row.variations.forEach((variant) => {
-      updatedRow[`usersIn${variant.name}`] = variant.users;
-      updatedRow[`countOf${variant.name}`] = variant.value;
-      updatedRow[`conversionRateOf${variant.name}`] = variant.cr;
-      updatedRow[`riskOfChoosing${variant.name}`] = variant.relativeRisk;
+      const updatedRow: UpdatedRow = {};
+      updatedRow.metricName = row.metric.name;
+      updatedRow.variantName = variant.name;
+      updatedRow.riskOfChoosing = variant.relativeRisk;
+      updatedRow.users = variant.users;
+      updatedRow.count = variant.value;
+      updatedRow.conversionRate = variant.cr;
+      updatedRow.changeToBeatControl = variant.chanceToWin || null;
+      updatedRow.percentChange = variant.expected || null;
 
-      if (variant.chanceToWin) {
-        updatedRow[`chanceToBeatControl`] = variant.chanceToWin;
-      }
-
-      if (variant.expected) {
-        updatedRow[`percentChangeOf${variant.name}`] = variant.expected;
-      }
+      csvRows.push(updatedRow);
     });
-
-    csvRows.push(updatedRow);
   });
 
-  function generateCsv(data) {
-    const csvRows = [];
-    // Here I need to sort the data[0] keys so 'metricName" is first, with the rest of the keys being in alpha-numeric order
-    const headers = Object.keys(data[0]);
-
-    headers.sort();
-
-    headers.forEach((header, i) => {
-      if (header === "metricName") {
-        headers.splice(i, 1);
-      }
-    });
-
-    headers.unshift("metricName");
-
-    csvRows.push(headers.join(","));
-
-    for (const row of data) {
-      const values = headers.map((header) => {
-        const formattedValues = ("" + row[header]).replace(/"/g, '\\"');
-        return `"${formattedValues}"`;
-      });
-      csvRows.push(values.join(","));
-    }
-    return csvRows.join("\n");
-  }
+  const csv = json2csvParser.parse(csvRows);
 
   const href = useMemo(() => {
     try {
-      const csv = generateCsv(csvRows);
       const blob = new Blob([csv], { type: "text/csv" });
       return window.URL.createObjectURL(blob);
     } catch (e) {
@@ -112,7 +107,7 @@ export default function ResultsDownloadButton({
       type="button"
       className="dropdown-item py-2"
       href={href}
-      download={`${experiment.trackingKey}.csv`}
+      download={`${trackingKey}.csv`}
     >
       <FaFileExport className="mr-2" /> Export CSV
     </a>

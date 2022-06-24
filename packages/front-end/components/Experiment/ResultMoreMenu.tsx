@@ -4,6 +4,7 @@ import { GrTableAdd } from "react-icons/gr";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
+  ExperimentReportVariation,
   ReportInterface,
 } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
@@ -13,7 +14,6 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
 import usePermissions from "../../hooks/usePermissions";
 import ResultsDownloadButton from "./ResultsDownloadButton";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -28,8 +28,10 @@ export default function ResultMoreMenu({
   notebookFilename,
   hasUserQuery,
   forceRefresh,
-  experiment,
   results,
+  metrics,
+  variations,
+  trackingKey,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -43,8 +45,10 @@ export default function ResultMoreMenu({
   notebookFilename?: string;
   hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
-  experiment?: ExperimentInterfaceStringDates;
   results?: ExperimentReportResultDimension;
+  metrics?: string[];
+  variations?: ExperimentReportVariation[];
+  trackingKey?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -161,7 +165,12 @@ export default function ResultMoreMenu({
         </button>
       )}
       {results && (
-        <ResultsDownloadButton results={results} experiment={experiment} />
+        <ResultsDownloadButton
+          results={results}
+          metrics={metrics}
+          variations={variations}
+          trackingKey={trackingKey}
+        />
       )}
     </MoreMenu>
   );
