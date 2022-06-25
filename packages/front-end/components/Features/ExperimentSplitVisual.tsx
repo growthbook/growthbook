@@ -34,6 +34,8 @@ export default function ExperimentSplitVisual({
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3)
   );
 
+  const coverageVal = coverage ? coverage : 0;
+
   return (
     <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
       <div className="row">
@@ -76,9 +78,11 @@ export default function ExperimentSplitVisual({
           <div className="w-100 d-flex flex-row">
             {values.map((val, i) => {
               const thisLeft = previewLeft;
+              const percentVal =
+                val.weight && coverage ? val.weight * coverage * 100 : 0;
               previewLeft += 100 * val.weight;
               const additionalStyles: CSSProperties = {
-                width: (val.weight ? val.weight * coverage * 100 : 0) + "%",
+                width: percentVal + "%",
                 height: 30,
                 backgroundColor: getVariationColor(i),
               };
@@ -90,7 +94,7 @@ export default function ExperimentSplitVisual({
               const valueDisplay = getVariationDefaultName(val, type);
 
               const variationLabel = `${valueDisplay} (${parseFloat(
-                (val.weight ? val.weight * coverage * 100 : 0).toPrecision(5)
+                percentVal.toPrecision(5)
               )}%)`;
 
               return (
@@ -108,12 +112,7 @@ export default function ExperimentSplitVisual({
                   {showPercentages && (
                     <div className={`${styles.percentMarker}`}>
                       <span>
-                        {parseFloat(
-                          (val.weight
-                            ? val.weight * coverage * 100
-                            : 0
-                          ).toPrecision(4)
-                        ) + "%"}
+                        {parseFloat(percentVal.toPrecision(4)) + "%"}
                         {showValues && (
                           <>
                             {" "}
@@ -126,18 +125,18 @@ export default function ExperimentSplitVisual({
                 </div>
               );
             })}
-            {stackLeft && coverage < 1 && (
+            {stackLeft && coverageVal < 1 && (
               <div
                 className={`${styles.previewBar} unallocated`}
                 style={{
                   position: "relative",
-                  width: (1 - coverage) * 100 + "%",
+                  width: (1 - coverageVal) * 100 + "%",
                   height: 30,
                 }}
               >
                 <Tooltip
                   text={`Not included: ${parseFloat(
-                    ((1 - coverage) * 100).toPrecision(5)
+                    ((1 - coverageVal) * 100).toPrecision(5)
                   )}% - users will skip this rule`}
                   style={{ width: "100%", height: "100%" }}
                 >
@@ -146,7 +145,8 @@ export default function ExperimentSplitVisual({
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
                     <span>
-                      {parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"}
+                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                        "%"}
                       {showValues && (
                         <>
                           {" "}

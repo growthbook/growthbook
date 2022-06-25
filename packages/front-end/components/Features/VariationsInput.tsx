@@ -107,7 +107,6 @@ export default function VariationsInput({
   });
   const weights = variationValues.map((v) => v.weight);
   const coverage: number = form.watch(`${formPrefix}coverage`);
-
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
@@ -117,6 +116,12 @@ export default function VariationsInput({
       if (w !== weights[j]) {
         form.setValue(`${formPrefix}values.${j}.weight`, w);
       }
+    });
+  };
+
+  const setEqualWeights = () => {
+    getEqualWeights(values.fields.length).forEach((w, i) => {
+      form.setValue(`${formPrefix}values.${i}.weight`, w);
     });
   };
 
@@ -132,7 +137,7 @@ export default function VariationsInput({
           <div className="row align-items-center pb-3">
             <div className="col">
               <input
-                value={decimalToPercent(coverage)}
+                value={isNaN(coverage) ? 0 : decimalToPercent(coverage)}
                 onChange={(e) => {
                   let decimal = percentToDecimal(e.target.value);
                   if (decimal > 1) decimal = 1;
@@ -153,7 +158,7 @@ export default function VariationsInput({
               <div className="form-group mb-0 position-relative">
                 <input
                   className={`form-control ${styles.percentInput}`}
-                  value={decimalToPercent(coverage)}
+                  value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
                   onChange={(e) => {
                     let decimal = percentToDecimal(e.target.value);
                     if (decimal > 1) decimal = 1;
@@ -190,6 +195,9 @@ export default function VariationsInput({
                       value={1}
                       onChange={(e) => {
                         setCustomSplit(e.target.checked);
+                        if (!e.target.checked) {
+                          setEqualWeights();
+                        }
                       }}
                       id="checkbox-customsplits"
                       style={{ top: "2px" }}
@@ -257,8 +265,17 @@ export default function VariationsInput({
                                 // the split now should add to 100% if there are two variations.
                                 rebalanceAndUpdate(
                                   i,
-                                  percentToDecimal(e.target.value)
+                                  e.target.value === ""
+                                    ? 0
+                                    : percentToDecimal(e.target.value)
                                 );
+                                if (e.target.value === "") {
+                                  // I hate this, but not is also the easiest
+                                  setTimeout(() => {
+                                    e.target.focus();
+                                    e.target.select();
+                                  }, 100);
+                                }
                               }}
                               type="number"
                               min={0}
@@ -280,7 +297,32 @@ export default function VariationsInput({
                             className="btn btn-link text-danger"
                             onClick={(e) => {
                               e.preventDefault();
+                              const diffWeight = floatRound(
+                                weights[i] / (values.fields.length - 1)
+                              );
                               values.remove(i);
+
+                              // values.remove doesn't immediately adjust the size of the array, so we have to special case the rebalancing here:
+                              // keep the same proportion split but redistribute in the remaining weights:
+                              const trimmedWeights = [...weights].filter(
+                                (w, j) => i !== j
+                              );
+                              let currentSum = 0;
+                              trimmedWeights.forEach((w, j) => {
+                                if (j === trimmedWeights.length - 1) {
+                                  // to prevent rounding errors, we'll set the last index to have the remainder to 100%.
+                                  form.setValue(
+                                    `${formPrefix}values.${j}.weight`,
+                                    floatRound(1 - currentSum)
+                                  );
+                                } else {
+                                  form.setValue(
+                                    `${formPrefix}values.${j}.weight`,
+                                    floatRound(w + diffWeight)
+                                  );
+                                  currentSum += floatRound(w + diffWeight);
+                                }
+                              });
                             }}
                             type="button"
                           >
@@ -326,14 +368,7 @@ export default function VariationsInput({
                         href="#"
                         onClick={(e) => {
                           e.preventDefault();
-                          getEqualWeights(values.fields.length).forEach(
-                            (w, i) => {
-                              form.setValue(
-                                `${formPrefix}values.${i}.weight`,
-                                w
-                              );
-                            }
-                          );
+                          setEqualWeights();
                         }}
                       >
                         set equal weights
