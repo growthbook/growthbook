@@ -16,6 +16,7 @@ import { parseDimensionId } from "./experiments";
 import { updateReport } from "../models/ReportModel";
 import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { expandDenominatorMetrics } from "../util/sql";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -73,8 +74,14 @@ export async function startExperimentAnalysis(
     throw new Error("Missing datasource for report");
   }
 
-  const activationMetricObj =
-    metricMap.get(args.activationMetric || "") || null;
+  const activationMetrics: MetricInterface[] = [];
+  if (args.activationMetric) {
+    activationMetrics.push(
+      ...expandDenominatorMetrics(args.activationMetric, metricMap)
+        .map((m) => metricMap.get(m) as MetricInterface)
+        .filter(Boolean)
+    );
+  }
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
@@ -151,20 +158,29 @@ export async function startExperimentAnalysis(
       experimentObj,
       experimentPhaseObj,
       selectedMetrics,
-      activationMetricObj,
+      activationMetrics[0],
       dimensionObj?.type === "user" ? dimensionObj.dimension : null
     );
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
     selectedMetrics.forEach((m) => {
+      const denominatorMetrics: MetricInterface[] = [];
+      if (m.denominator) {
+        denominatorMetrics.push(
+          ...expandDenominatorMetrics(m.denominator, metricMap)
+            .map((m) => metricMap.get(m) as MetricInterface)
+            .filter(Boolean)
+        );
+      }
       queryDocs[m.id] = getExperimentMetric(
         integration,
         {
           metric: m,
           experiment: experimentObj,
           dimension: dimensionObj,
-          activationMetric: activationMetricObj,
+          activationMetrics,
+          denominatorMetrics,
           phase: experimentPhaseObj,
           segment: segmentObj,
         },

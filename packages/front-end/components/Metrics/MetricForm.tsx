@@ -26,6 +26,7 @@ import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import { useMemo } from "react";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -142,7 +143,7 @@ const MetricForm: FC<MetricFormProps> = ({
   initialStep = 0,
   advanced = false,
 }) => {
-  const { datasources, getDatasourceById } = useDefinitions();
+  const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
@@ -189,6 +190,7 @@ const MetricForm: FC<MetricFormProps> = ({
       description: current.description || "",
       type: current.type || "binomial",
       table: current.table || "",
+      denominator: current.denominator || "",
       column: current.column || "",
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
@@ -226,6 +228,7 @@ const MetricForm: FC<MetricFormProps> = ({
     timestampColumn: form.watch("timestampColumn"),
     userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
+    denominator: form.watch("denominator"),
     column: form.watch("column"),
     table: form.watch("table"),
     type: form.watch("type"),
@@ -235,6 +238,19 @@ const MetricForm: FC<MetricFormProps> = ({
     sql: form.watch("sql"),
     conditions: form.watch("conditions"),
   };
+
+  const denominatorOptions = useMemo(() => {
+    return metrics
+      .filter((m) => m.id !== current?.id)
+      .filter((m) => m.datasource === value.datasource)
+      .filter((m) => m.type === "binomial")
+      .map((m) => {
+        return {
+          value: m.id,
+          label: m.name,
+        };
+      });
+  }, [metrics, value.datasource]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -488,6 +504,16 @@ const MetricForm: FC<MetricFormProps> = ({
                     helpText="When there are multiple metric rows for a user"
                   />
                 )}
+                <SelectField
+                  label="Denominator"
+                  options={denominatorOptions}
+                  initialOption="All Experiment Users"
+                  value={value.denominator}
+                  onChange={(denominator) => {
+                    form.setValue("denominator", denominator);
+                  }}
+                  helpText="Use this to define ratio or funnel metrics"
+                />
               </div>
             ) : datasourceType === "google_analytics" ? (
               <GoogleAnalyticsMetrics
@@ -772,22 +798,6 @@ const MetricForm: FC<MetricFormProps> = ({
             </small>
           </div>
         )}
-        {ignoreNullsSupported && value.type !== "binomial" && (
-          <div className="form-group">
-            Converted Users Only
-            <BooleanSelect
-              required
-              control={form.control}
-              name="ignoreNulls"
-              falseLabel="No"
-              trueLabel="Yes"
-            />
-            <small className="text-muted">
-              If yes, exclude anyone with a metric value less than or equal to
-              zero from analysis.
-            </small>
-          </div>
-        )}
         {!showAdvanced ? (
           <a
             href="#"
@@ -801,6 +811,22 @@ const MetricForm: FC<MetricFormProps> = ({
           </a>
         ) : (
           <>
+            {ignoreNullsSupported && value.type !== "binomial" && (
+              <div className="form-group">
+                Converted Users Only
+                <BooleanSelect
+                  required
+                  control={form.control}
+                  name="ignoreNulls"
+                  falseLabel="No"
+                  trueLabel="Yes"
+                />
+                <small className="text-muted">
+                  If yes, exclude anyone with a metric value less than or equal
+                  to zero from analysis.
+                </small>
+              </div>
+            )}
             <div className="form-group">
               Risk thresholds
               <div className="riskbar row align-items-center pt-3">

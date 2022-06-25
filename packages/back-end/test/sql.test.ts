@@ -3,6 +3,7 @@ import {
   replaceDateVars,
   conditionToJavascript,
   getMixpanelPropertyColumn,
+  expandDenominatorMetrics,
 } from "../src/util/sql";
 
 describe("backend", () => {
@@ -153,5 +154,28 @@ describe("backend", () => {
     expect(
       conditionToJavascript({ column: "v", operator: "!~", value: "abc.*" })
     ).toEqual(`!event.properties["v"].match(/abc.*/)`);
+  });
+
+  it("expands denominator metrics", () => {
+    const metricMap = new Map<string, { denominator?: string }>(
+      Object.entries({
+        a: { denominator: "b" },
+        b: {},
+        c: { denominator: "d" },
+        d: { denominator: "c" },
+        e: { denominator: "c" },
+        f: { denominator: "f" },
+        g: { denominator: "h" },
+      })
+    );
+
+    expect(expandDenominatorMetrics("a", metricMap)).toEqual(["b", "a"]);
+    expect(expandDenominatorMetrics("b", metricMap)).toEqual(["b"]);
+    expect(expandDenominatorMetrics("c", metricMap)).toEqual(["d", "c"]);
+    expect(expandDenominatorMetrics("d", metricMap)).toEqual(["c", "d"]);
+    expect(expandDenominatorMetrics("e", metricMap)).toEqual(["d", "c", "e"]);
+    expect(expandDenominatorMetrics("f", metricMap)).toEqual(["f"]);
+    expect(expandDenominatorMetrics("g", metricMap)).toEqual(["g"]);
+    expect(expandDenominatorMetrics("h", metricMap)).toEqual([]);
   });
 });

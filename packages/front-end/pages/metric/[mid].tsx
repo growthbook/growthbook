@@ -60,6 +60,7 @@ const MetricPage: FC = () => {
     mutateDefinitions,
     getDatasourceById,
     getSegmentById,
+    getMetricById,
     segments,
   } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -692,12 +693,26 @@ const MetricPage: FC = () => {
                       )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
-                        {metric.type !== "binomial" && metric.aggregation && (
-                          <div className="mt-2">
-                            User Value Aggregation:
-                            <Code language="sql" code={metric.aggregation} />
-                          </div>
-                        )}
+                      </RightRailSectionGroup>
+                      {metric.type !== "binomial" && metric.aggregation && (
+                        <RightRailSectionGroup
+                          title="User Value Aggregation"
+                          type="custom"
+                        >
+                          <Code language="sql" code={metric.aggregation} />
+                        </RightRailSectionGroup>
+                      )}
+                      <RightRailSectionGroup title="Denominator" type="custom">
+                        <strong>
+                          {metric.denominator ? (
+                            <Link href={`/metric/${metric.denominator}`}>
+                              {getMetricById(metric.denominator)?.name ||
+                                "Unknown"}
+                            </Link>
+                          ) : (
+                            "All Experiment Users"
+                          )}
+                        </strong>
                       </RightRailSectionGroup>
                     </>
                   ) : (

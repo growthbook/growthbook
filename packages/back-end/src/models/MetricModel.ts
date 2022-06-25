@@ -27,6 +27,7 @@ const metricSchema = new mongoose.Schema({
   inverse: Boolean,
   ignoreNulls: Boolean,
   cap: Number,
+  denominator: String,
   conversionWindowHours: Number,
   conversionDelayHours: Number,
   winRisk: Number,
