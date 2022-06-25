@@ -132,6 +132,9 @@ export function conditionToJavascript({ operator, value, column }: Condition) {
   }
 }
 
+// Recursively create list of metric denominators in order
+// For example, a "step3" metric has denominator "step2", which itself has denominator "step1"
+// If you pass "step3" into this, it will return ["step1","step2","step3"]
 export function expandDenominatorMetrics(
   metric: string,
   map: Map<string, { denominator?: string }>,

@@ -165,6 +165,7 @@ describe("backend", () => {
         d: { denominator: "c" },
         e: { denominator: "c" },
         f: { denominator: "f" },
+        g: { denominator: "h" },
       })
     );
 
@@ -174,6 +175,7 @@ describe("backend", () => {
     expect(expandDenominatorMetrics("d", metricMap)).toEqual(["c", "d"]);
     expect(expandDenominatorMetrics("e", metricMap)).toEqual(["d", "c", "e"]);
     expect(expandDenominatorMetrics("f", metricMap)).toEqual(["f"]);
-    expect(expandDenominatorMetrics("g", metricMap)).toEqual([]);
+    expect(expandDenominatorMetrics("g", metricMap)).toEqual(["g"]);
+    expect(expandDenominatorMetrics("h", metricMap)).toEqual([]);
   });
 });
