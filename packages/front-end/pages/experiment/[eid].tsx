@@ -13,15 +13,9 @@ import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import Carousel from "../../components/Carousel";
-import {
-  FaStop,
-  FaPlay,
-  FaPencilAlt,
-  FaPalette,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
+import { FaStop, FaPlay, FaPalette, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
-import { ago, datetime } from "../../services/dates";
+import { ago, datetime, daysBetween } from "../../services/dates";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
 import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
@@ -394,73 +388,7 @@ const ExperimentPage = (): ReactElement => {
             </a>
           )}
         </h2>
-        <StatusIndicator
-          status={experiment.status}
-          archived={experiment.archived}
-          showBubble={true}
-          className="mx-3 h4 mb-0"
-        />
-        {experiment.status === "stopped" && experiment.results && (
-          <div className="col-auto">
-            <ResultsIndicator results={experiment.results} />
-          </div>
-        )}
         <div style={{ flex: 1 }} />
-        {currentPhase && experiment.status === "running" && (
-          <div className="col-auto">
-            {permissions.createAnalyses ? (
-              <div
-                onClick={(e) => {
-                  e.preventDefault();
-                  setPhaseModalOpen(true);
-                }}
-                className="cursor-pointer"
-              >
-                <span className="mr-2 purple-phase">
-                  {phaseSummary(currentPhase)}
-                </span>
-                <FaPencilAlt />
-              </div>
-            ) : (
-              <span className="text-muted">{phaseSummary(currentPhase)}</span>
-            )}
-          </div>
-        )}
-
-        {experiment.status === "draft" ? (
-          <div className="col-auto">
-            <span className="statuslabel">Created: </span>{" "}
-            <span className="" title={datetime(experiment.dateCreated)}>
-              {ago(experiment.dateCreated)}
-            </span>
-          </div>
-        ) : (
-          <>
-            <div className="col-auto">
-              <span className="statuslabel">Started: </span>{" "}
-              <span className="" title={datetime(currentPhase?.dateStarted)}>
-                {ago(currentPhase?.dateStarted)}
-              </span>
-            </div>
-            {experiment.status !== "running" ? (
-              <div className="col-auto">
-                <span className="statuslabel">Ended: </span>{" "}
-                <span
-                  className=""
-                  title={
-                    currentPhase.dateEnded
-                      ? datetime(currentPhase?.dateEnded)
-                      : ""
-                  }
-                >
-                  {currentPhase?.dateEnded && ago(currentPhase?.dateEnded)}
-                </span>
-              </div>
-            ) : (
-              ""
-            )}
-          </>
-        )}
         <div className="col-auto">
           <WatchButton experiment={experiment.id} type="link" />
         </div>
@@ -613,28 +541,56 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
-              {projects.length > 0 && (
-                <>
-                  <RightRailSection
-                    title="Project"
-                    open={() => setProjectModalOpen(true)}
-                    canOpen={canEdit}
-                  >
-                    <RightRailSectionGroup empty="None" type="commaList">
-                      {getProjectById(experiment.project)?.name}
-                    </RightRailSectionGroup>
-                  </RightRailSection>
-                  <hr />
-                </>
-              )}
-              <RightRailSection
-                title="Tags"
-                open={() => setTagsModalOpen(true)}
-                canOpen={canEdit && !experiment.archived}
-              >
-                <RightRailSectionGroup type="tags">
-                  {experiment.tags}
+              <RightRailSection title="Status">
+                <RightRailSectionGroup title="Status" type="custom">
+                  <StatusIndicator
+                    status={experiment.status}
+                    archived={experiment.archived}
+                    showBubble={true}
+                    className="mx-3 h4 mb-0"
+                  />
+                  {experiment.status === "stopped" && experiment.results && (
+                    <div className="col-auto">
+                      <ResultsIndicator results={experiment.results} />
+                    </div>
+                  )}
                 </RightRailSectionGroup>
+                {experiment.phases?.length > 0 && (
+                  <RightRailSectionGroup title="Phases" type="custom">
+                    <ol>
+                      {experiment.phases.map((phase, i) => (
+                        <li key={i}>
+                          {phaseSummary(phase)}
+                          <div style={{ fontSize: "0.8em" }}>
+                            started{" "}
+                            <strong
+                              className=""
+                              title={datetime(phase?.dateStarted)}
+                            >
+                              {ago(phase?.dateStarted)}
+                            </strong>
+                            {phase?.dateEnded && (
+                              <span
+                                className=""
+                                title={"Ended: " + datetime(phase.dateEnded)}
+                              >
+                                {" "}
+                                , ran for
+                                <strong>
+                                  {daysBetween(
+                                    phase.dateStarted,
+                                    phase.dateEnded
+                                  )}{" "}
+                                  days
+                                </strong>
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </RightRailSectionGroup>
+                )}
               </RightRailSection>
               <hr />
               <RightRailSection
@@ -704,6 +660,31 @@ const ExperimentPage = (): ReactElement => {
                     })}
                   </RightRailSectionGroup>
                 )}
+              </RightRailSection>
+
+              {projects.length > 0 && (
+                <>
+                  <hr />
+                  <RightRailSection
+                    title="Project"
+                    open={() => setProjectModalOpen(true)}
+                    canOpen={canEdit}
+                  >
+                    <RightRailSectionGroup empty="None" type="commaList">
+                      {getProjectById(experiment.project)?.name}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                </>
+              )}
+              <hr />
+              <RightRailSection
+                title="Tags"
+                open={() => setTagsModalOpen(true)}
+                canOpen={canEdit && !experiment.archived}
+              >
+                <RightRailSectionGroup type="tags">
+                  {experiment.tags}
+                </RightRailSectionGroup>
               </RightRailSection>
 
               {(experiment.implementation === "visual" || showTargeting) && (
