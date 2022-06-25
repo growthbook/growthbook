@@ -455,29 +455,31 @@ export default abstract class SqlIntegration
 
   private getActivatedUsersCTE(
     baseIdType: string,
-    activationMetrics: MetricInterface[]
+    metrics: MetricInterface[],
+    tablePrefix: string = "__activationMetric",
+    initialTable: string = "__experiment"
   ) {
     return `
       SELECT
-        e.${baseIdType},
-        a${activationMetrics.length - 1}.conversion_start,
-        a${activationMetrics.length - 1}.conversion_end
+        initial.${baseIdType},
+        t${metrics.length - 1}.conversion_start,
+        t${metrics.length - 1}.conversion_end
       FROM
-        __experiment e
-        ${activationMetrics
+        ${initialTable} initial
+        ${metrics
           .map((m, i) => {
-            const prevAlias = i ? `a${i - 1}` : "e";
-            const alias = `a${i}`;
-            return `JOIN __activationMetric${i} ${alias} ON (
+            const prevAlias = i ? `t${i - 1}` : "initial";
+            const alias = `t${i}`;
+            return `JOIN ${tablePrefix}${i} ${alias} ON (
             ${alias}.${baseIdType} = ${prevAlias}.${baseIdType}
           )`;
           })
           .join("\n")}
       WHERE
-        ${activationMetrics
+        ${metrics
           .map((m, i) => {
-            const prevAlias = i ? `a${i - 1}` : "e";
-            const alias = `a${i}`;
+            const prevAlias = i ? `t${i - 1}` : "initial";
+            const alias = `t${i}`;
             return `
               ${alias}.conversion_start >= ${prevAlias}.conversion_start
               AND ${alias}.conversion_start <= ${prevAlias}.conversion_end`;
@@ -510,8 +512,29 @@ export default abstract class SqlIntegration
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
   }
 
+  private getMetricConversionBase(
+    col: string,
+    denominatorMetrics: boolean,
+    activationMetrics: boolean
+  ): string {
+    if (denominatorMetrics) {
+      return `du.${col}`;
+    }
+    if (activationMetrics) {
+      return `a.${col}`;
+    }
+    return `e.${col}`;
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { metric, experiment, phase, activationMetrics, segment } = params;
+    const {
+      metric,
+      experiment,
+      phase,
+      activationMetrics,
+      denominatorMetrics,
+      segment,
+    } = params;
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {
@@ -527,9 +550,9 @@ export default abstract class SqlIntegration
     const metricStart = new Date(phase.dateStarted);
     const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
     if (metricEnd) {
-      let activationMetricHours = 0;
-      activationMetrics.forEach((m) => {
-        activationMetricHours +=
+      let additionalHours = 0;
+      activationMetrics.concat(denominatorMetrics).forEach((m) => {
+        additionalHours +=
           m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
       });
 
@@ -537,8 +560,8 @@ export default abstract class SqlIntegration
         metricEnd.getHours() +
           // Add conversion window so metric has time to convert after experiment ends
           (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
-          // If using activation metrics, also need to allow for that conversion time
-          activationMetricHours
+          // If using activation or denominator metrics, also need to allow for that conversion time
+          additionalHours
       );
     }
 
@@ -562,6 +585,7 @@ export default abstract class SqlIntegration
         segment ? [segment.userIdType || "user_id"] : [],
         metric.userIdTypes || [],
         ...activationMetrics.map((m) => m.userIdTypes || []),
+        ...denominatorMetrics.map((m) => m.userIdTypes || []),
       ],
       phase.dateStarted,
       phase.dateEnded,
@@ -576,6 +600,13 @@ export default abstract class SqlIntegration
     const dimensionGroupBy = this.useAliasInGroupBy()
       ? "dimension"
       : dimensionCol;
+
+    const intialMetric =
+      activationMetrics.length > 0
+        ? activationMetrics[0]
+        : denominatorMetrics.length > 0
+        ? denominatorMetrics[0]
+        : metric;
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -592,14 +623,8 @@ export default abstract class SqlIntegration
         experiment,
         phase,
         baseIdType,
-        conversionWindowHours:
-          (activationMetrics.length > 0
-            ? activationMetrics[0].conversionWindowHours
-            : metric.conversionWindowHours) || 0,
-        conversionDelayHours:
-          (activationMetrics.length > 0
-            ? activationMetrics[0].conversionDelayHours
-            : metric.conversionDelayHours) || 0,
+        conversionWindowHours: intialMetric.conversionWindowHours || 0,
+        conversionDelayHours: intialMetric.conversionDelayHours || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
       })})
@@ -630,7 +655,8 @@ export default abstract class SqlIntegration
       }
       ${activationMetrics
         .map((m, i) => {
-          const nextMetric = activationMetrics[i + 1] || metric;
+          const nextMetric =
+            activationMetrics[i + 1] || denominatorMetrics[0] || metric;
           return `, __activationMetric${i} as (${this.getMetricCTE({
             metric: m,
             conversionWindowHours:
@@ -652,6 +678,34 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
+      ${denominatorMetrics
+        .map((m, i) => {
+          const nextMetric = denominatorMetrics[i + 1] || metric;
+          return `, __denominator${i} as (${this.getMetricCTE({
+            metric: m,
+            conversionWindowHours:
+              nextMetric.conversionWindowHours ||
+              DEFAULT_CONVERSION_WINDOW_HOURS,
+            conversionDelayHours: nextMetric.conversionDelayHours,
+            baseIdType,
+            idJoinMap,
+            startDate: metricStart,
+            endDate: metricEnd,
+          })})`;
+        })
+        .join("\n")}
+      ${
+        denominatorMetrics.length > 0
+          ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
+              baseIdType,
+              denominatorMetrics,
+              "__denominator",
+              dimension?.type !== "activation" && activationMetrics.length > 0
+                ? "__activatedUsers"
+                : "__experiment"
+            )})`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -668,13 +722,15 @@ export default abstract class SqlIntegration
                 )
               : "e.variation"
           } as variation,
-          MIN(${this.ifNullFallback(
-            activationMetrics.length > 0 ? "a.conversion_start" : null,
-            "e.conversion_start"
+          MIN(${this.getMetricConversionBase(
+            "conversion_start",
+            denominatorMetrics.length > 0,
+            activationMetrics.length > 0 && dimension?.type !== "activation"
           )}) as conversion_start,
-          MIN(${this.ifNullFallback(
-            activationMetrics.length > 0 ? "a.conversion_end" : null,
-            "e.conversion_end"
+          MIN(${this.getMetricConversionBase(
+            "conversion_end",
+            denominatorMetrics.length > 0,
+            activationMetrics.length > 0 && dimension?.type !== "activation"
           )}) as conversion_end
         FROM
           __experiment e
@@ -696,6 +752,11 @@ export default abstract class SqlIntegration
           }JOIN __activatedUsers a ON (
             a.${baseIdType} = e.${baseIdType}
           )`
+              : ""
+          }
+          ${
+            denominatorMetrics.length > 0
+              ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
         ${segment ? `WHERE s.date <= e.conversion_start` : ""}

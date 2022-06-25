@@ -58,6 +58,7 @@ export type ExperimentMetricQueryParams = {
   phase: ExperimentPhase;
   metric: MetricInterface;
   activationMetrics: MetricInterface[];
+  denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
 };

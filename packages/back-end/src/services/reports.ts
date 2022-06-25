@@ -177,9 +177,9 @@ export async function startExperimentAnalysis(
   // Run as multiple async queries (new way for sql datasources)
   else {
     selectedMetrics.forEach((m) => {
-      const allActivationMetrics: MetricInterface[] = [...activationMetrics];
+      const denominatorMetrics: MetricInterface[] = [];
       if (m.denominator) {
-        allActivationMetrics.push(
+        denominatorMetrics.push(
           ...unnestActivationMetric(m.denominator, metricMap)
         );
       }
@@ -189,7 +189,8 @@ export async function startExperimentAnalysis(
           metric: m,
           experiment: experimentObj,
           dimension: dimensionObj,
-          activationMetrics: allActivationMetrics,
+          activationMetrics,
+          denominatorMetrics,
           phase: experimentPhaseObj,
           segment: segmentObj,
         },

@@ -697,7 +697,7 @@ const MetricPage: FC = () => {
                       {metric.type !== "binomial" && metric.aggregation && (
                         <RightRailSectionGroup
                           title="User Value Aggregation"
-                          tyle="custom"
+                          type="custom"
                         >
                           <Code language="sql" code={metric.aggregation} />
                         </RightRailSectionGroup>
