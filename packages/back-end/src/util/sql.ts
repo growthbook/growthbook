@@ -131,3 +131,18 @@ export function conditionToJavascript({ operator, value, column }: Condition) {
     return `${col}+'' ${operator} ${comp}`;
   }
 }
+
+export function expandDenominatorMetrics(
+  metric: string,
+  map: Map<string, { denominator?: string }>,
+  visited?: Set<string>
+): string[] {
+  visited = visited || new Set();
+  const m = map.get(metric);
+  if (!m) return [];
+  if (visited.has(metric)) return [];
+
+  visited.add(metric);
+  if (!m.denominator) return [metric];
+  return [...expandDenominatorMetrics(m.denominator, map, visited), metric];
+}

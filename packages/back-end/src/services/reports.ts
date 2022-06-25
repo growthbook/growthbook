@@ -16,6 +16,7 @@ import { parseDimensionId } from "./experiments";
 import { updateReport } from "../models/ReportModel";
 import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { expandDenominatorMetrics } from "../util/sql";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -57,21 +58,6 @@ export function reportArgsFromSnapshot(
   };
 }
 
-function unnestActivationMetric(
-  metric: string,
-  map: Map<string, MetricInterface>,
-  visited?: Set<string>
-): MetricInterface[] {
-  visited = visited || new Set();
-  const m = map.get(metric);
-  if (!m) return [];
-  if (visited.has(metric)) return [];
-
-  visited.add(metric);
-  if (!m.denominator) return [m];
-  return [...unnestActivationMetric(m.denominator, map, visited), m];
-}
-
 export async function startExperimentAnalysis(
   organization: string,
   args: ExperimentReportArgs,
@@ -91,7 +77,9 @@ export async function startExperimentAnalysis(
   const activationMetrics: MetricInterface[] = [];
   if (args.activationMetric) {
     activationMetrics.push(
-      ...unnestActivationMetric(args.activationMetric, metricMap)
+      ...expandDenominatorMetrics(args.activationMetric, metricMap)
+        .map((m) => metricMap.get(m) as MetricInterface)
+        .filter(Boolean)
     );
   }
 
@@ -180,7 +168,9 @@ export async function startExperimentAnalysis(
       const denominatorMetrics: MetricInterface[] = [];
       if (m.denominator) {
         denominatorMetrics.push(
-          ...unnestActivationMetric(m.denominator, metricMap)
+          ...expandDenominatorMetrics(m.denominator, metricMap)
+            .map((m) => metricMap.get(m) as MetricInterface)
+            .filter(Boolean)
         );
       }
       queryDocs[m.id] = getExperimentMetric(
