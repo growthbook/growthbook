@@ -5,6 +5,7 @@ import fs from "fs";
 // Get env variables at runtime on the front-end while still using SSG
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const {
+    APP_ORIGIN,
     API_HOST,
     IS_CLOUD,
     DISABLE_TELEMETRY,
@@ -34,6 +35,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .toString();
   }
   res.status(200).json({
+    appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
     cloud: !!IS_CLOUD,
     config: hasConfigFile ? "file" : "db",

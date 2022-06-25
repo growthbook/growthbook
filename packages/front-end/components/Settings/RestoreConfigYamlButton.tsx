@@ -8,7 +8,6 @@ import Page from "../Modal/Page";
 import { useForm } from "react-hook-form";
 import Field from "../Forms/Field";
 import { load, dump } from "js-yaml";
-import { useMemo } from "react";
 import { createPatch } from "diff";
 import { html } from "diff2html";
 import { useAuth } from "../../services/auth";
@@ -17,6 +16,7 @@ import cloneDeep from "lodash/cloneDeep";
 import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
+  if (!d || !d.params) return;
   Object.keys(d.params).forEach((p) => {
     if (
       [
@@ -51,6 +51,7 @@ export default function RestoreConfigYamlButton({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [parsed, setParsed] = useState(null);
+  const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -67,93 +68,96 @@ export default function RestoreConfigYamlButton({
     settings,
   });
 
-  const diffHTML = useMemo(() => {
-    if (!parsed) return "";
+  function parseConfig(json) {
+    try {
+      // Only include relevent objects in original value
+      // Merge original value to new value to backfill missing properties
+      const origConfig = cloneDeep(config);
+      const newConfig = cloneDeep(json);
 
-    // Only include relevent objects in original value
-    // Merge original value to new value to backfill missing properties
-    const origConfig = cloneDeep(config);
-    const newConfig = cloneDeep(parsed);
+      if (origConfig.datasources) {
+        Object.keys(origConfig.datasources).forEach((k) => {
+          if (!newConfig?.datasources?.[k]) {
+            delete origConfig.datasources[k];
+          } else {
+            const o = origConfig.datasources[k];
+            const n = newConfig.datasources[k];
 
-    if (origConfig.datasources) {
-      Object.keys(origConfig.datasources).forEach((k) => {
-        if (!newConfig?.datasources?.[k]) {
-          delete origConfig.datasources[k];
-        } else {
-          const o = origConfig.datasources[k];
-          const n = newConfig.datasources[k];
+            newConfig.datasources[k] = {
+              ...o,
+              ...n,
+              settings: {
+                ...o.settings,
+                ...n.settings,
+              },
+              params: {
+                ...o.params,
+                ...n.params,
+              },
+            };
+          }
+        });
+      }
+      if (origConfig.metrics) {
+        Object.keys(origConfig.metrics).forEach((k) => {
+          if (!newConfig?.metrics?.[k]) {
+            delete origConfig.metrics[k];
+          } else {
+            const o = origConfig.metrics[k];
+            const n = newConfig.metrics[k];
 
-          newConfig.datasources[k] = {
-            ...o,
-            ...n,
-            settings: {
-              ...o.settings,
-              ...n.settings,
-            },
-            params: {
-              ...o.params,
-              ...n.params,
-            },
-          };
-        }
-      });
+            newConfig.metrics[k] = {
+              ...o,
+              ...n,
+            };
+          }
+        });
+      }
+      if (origConfig.dimensions) {
+        Object.keys(origConfig.dimensions).forEach((k) => {
+          if (!newConfig?.dimensions?.[k]) {
+            delete origConfig.dimensions[k];
+          } else {
+            const o = origConfig.dimensions[k];
+            const n = newConfig.dimensions[k];
+
+            newConfig.dimensions[k] = {
+              ...o,
+              ...n,
+            };
+          }
+        });
+      }
+
+      // Mask secrets in datasource settings
+      if (origConfig.datasources) {
+        Object.keys(origConfig.datasources).forEach((k) => {
+          sanitizeSecrets(
+            origConfig.datasources[k] as DataSourceInterfaceWithParams
+          );
+        });
+      }
+      if (newConfig.datasources) {
+        Object.keys(newConfig.datasources).forEach((k) => {
+          sanitizeSecrets(newConfig.datasources[k]);
+        });
+      }
+
+      const patch = createPatch(
+        "config.yml",
+        dump(origConfig, { skipInvalid: true }),
+        dump(newConfig, { skipInvalid: true }),
+        "",
+        "",
+        { context: 10 }
+      );
+
+      setDiffHTML(html(patch, {}));
+    } catch (e) {
+      console.error(e);
+      throw new Error(e);
     }
-    if (origConfig.metrics) {
-      Object.keys(origConfig.metrics).forEach((k) => {
-        if (!newConfig?.metrics?.[k]) {
-          delete origConfig.metrics[k];
-        } else {
-          const o = origConfig.metrics[k];
-          const n = newConfig.metrics[k];
-
-          newConfig.metrics[k] = {
-            ...o,
-            ...n,
-          };
-        }
-      });
-    }
-    if (origConfig.dimensions) {
-      Object.keys(origConfig.dimensions).forEach((k) => {
-        if (!newConfig?.dimensions?.[k]) {
-          delete origConfig.dimensions[k];
-        } else {
-          const o = origConfig.dimensions[k];
-          const n = newConfig.dimensions[k];
-
-          newConfig.dimensions[k] = {
-            ...o,
-            ...n,
-          };
-        }
-      });
-    }
-
-    // Mask secrets in datasource settings
-    if (origConfig.datasources) {
-      Object.keys(origConfig.datasources).forEach((k) => {
-        sanitizeSecrets(
-          origConfig.datasources[k] as DataSourceInterfaceWithParams
-        );
-      });
-    }
-    if (newConfig.datasources) {
-      Object.keys(newConfig.datasources).forEach((k) => {
-        sanitizeSecrets(newConfig.datasources[k]);
-      });
-    }
-
-    const patch = createPatch(
-      "config.yml",
-      dump(origConfig, { skipInvalid: true }),
-      dump(newConfig, { skipInvalid: true }),
-      "",
-      "",
-      { context: 10 }
-    );
-
-    return html(patch, {});
-  }, [parsed]);
+  }
 
   return (
     <div>
@@ -191,6 +195,7 @@ export default function RestoreConfigYamlButton({
               }
 
               setParsed(json);
+              parseConfig(json);
             }}
           >
             <div>
