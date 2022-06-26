@@ -32,7 +32,7 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook();
 
 // Load feature definitions (from API, database, etc.)
-await fetch("https://cdn.growthbook.io/api/features/<your api key>")
+fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
   .then((parsed) => {
     growthbook.setFeatures(parsed.features);

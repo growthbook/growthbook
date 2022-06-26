@@ -55,7 +55,7 @@ export async function getFeatureDefinitions(
     const settings = feature.environmentSettings?.[environment];
 
     // Don't include features which are disabled for this environment
-    if (!settings || !settings.enabled) {
+    if (!settings || !settings.enabled || feature.archived) {
       return;
     }
 

@@ -26,6 +26,7 @@ export type EventType =
   | "feature.publish"
   | "feature.update"
   | "feature.toggle"
+  | "feature.archive"
   | "feature.delete"
   | "metric.create"
   | "metric.update"
