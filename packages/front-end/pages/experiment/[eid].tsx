@@ -13,9 +13,9 @@ import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import Carousel from "../../components/Carousel";
-import { FaStop, FaPlay, FaPalette, FaExternalLinkAlt } from "react-icons/fa";
+import { FaPalette, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
-import { ago, datetime, daysBetween } from "../../services/dates";
+import { ago, date, datetime, daysBetween } from "../../services/dates";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
 import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
@@ -47,6 +47,7 @@ import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
+import clsx from "clsx";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -96,45 +97,6 @@ const ExperimentPage = (): ReactElement => {
     newData.experiment.variations[variation].screenshots.push(screenshot);
     mutate(newData);
   };
-
-  let ctaButton = null;
-  if (experiment.archived) {
-    ctaButton = null;
-  } else if (experiment.status === "draft") {
-    ctaButton = (
-      <button
-        type="button"
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setPhaseModalOpen(true);
-        }}
-      >
-        <span className="h4 pr-2 m-0 d-inline-block align-top">
-          <FaPlay />
-        </span>{" "}
-        Start
-      </button>
-    );
-  } else if (experiment.status === "running") {
-    ctaButton = (
-      <>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setStopModalOpen(true);
-          }}
-        >
-          <span className="h4 pr-2 m-0 d-inline-block align-top">
-            <FaStop />
-          </span>{" "}
-          Stop Experiment
-        </button>
-      </>
-    );
-  }
 
   const currentPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -273,7 +235,7 @@ const ExperimentPage = (): ReactElement => {
           </a>
         </div>
       )}
-      <div className="row mb-2">
+      <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <Link href="/experiments">
             <a>
@@ -282,6 +244,10 @@ const ExperimentPage = (): ReactElement => {
           </Link>
         </div>
         <div style={{ flex: 1 }} />
+
+        <div className="col-auto">
+          <WatchButton experiment={experiment.id} type="link" />
+        </div>
         {canEdit && (
           <div className="col-auto">
             <MoreMenu id="experiment-more-menu">
@@ -372,9 +338,6 @@ const ExperimentPage = (): ReactElement => {
             </MoreMenu>
           </div>
         )}
-        {permissions.createAnalyses && ctaButton && (
-          <div className="experiment-actions col-auto">{ctaButton}</div>
-        )}
       </div>
       <div className="row align-items-center mb-3">
         <h2 className="col-auto mb-0">
@@ -388,10 +351,6 @@ const ExperimentPage = (): ReactElement => {
             </a>
           )}
         </h2>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <WatchButton experiment={experiment.id} type="link" />
-        </div>
       </div>
       <Tabs newStyle={true}>
         <Tab display="Info" anchor="info">
@@ -429,8 +388,9 @@ const ExperimentPage = (): ReactElement => {
 
               <div className="mb-4">
                 <h4>Hypothesis</h4>
-                {experiment.hypothesis}
-                {canEdit ? (
+                {experiment.hypothesis ? (
+                  experiment.hypothesis
+                ) : canEdit ? (
                   <p>
                     <a
                       href="#"
@@ -542,12 +502,11 @@ const ExperimentPage = (): ReactElement => {
             </div>
             <div className="col-md-3">
               <RightRailSection title="Status">
-                <RightRailSectionGroup title="Status" type="custom">
+                <RightRailSectionGroup type="custom">
                   <StatusIndicator
                     status={experiment.status}
                     archived={experiment.archived}
                     showBubble={true}
-                    className="mx-3 h4 mb-0"
                   />
                   {experiment.status === "stopped" && experiment.results && (
                     <div className="col-auto">
@@ -556,35 +515,52 @@ const ExperimentPage = (): ReactElement => {
                   )}
                 </RightRailSectionGroup>
                 {experiment.phases?.length > 0 && (
-                  <RightRailSectionGroup title="Phases" type="custom">
-                    <ol>
+                  <RightRailSectionGroup type="custom">
+                    <ol className="list-group">
                       {experiment.phases.map((phase, i) => (
-                        <li key={i}>
-                          {phaseSummary(phase)}
-                          <div style={{ fontSize: "0.8em" }}>
-                            started{" "}
-                            <strong
-                              className=""
-                              title={datetime(phase?.dateStarted)}
-                            >
-                              {ago(phase?.dateStarted)}
-                            </strong>
-                            {phase?.dateEnded && (
-                              <span
-                                className=""
-                                title={"Ended: " + datetime(phase.dateEnded)}
-                              >
-                                {" "}
-                                , ran for
-                                <strong>
-                                  {daysBetween(
-                                    phase.dateStarted,
-                                    phase.dateEnded
-                                  )}{" "}
-                                  days
+                        <li
+                          key={i}
+                          className={clsx("list-group-item py-2 px-3", {
+                            "list-group-item-light": phase?.dateEnded,
+                          })}
+                        >
+                          <div className="d-flex">
+                            <div className="mr-2">{i + 1}.</div>
+                            <div>
+                              {phaseSummary(phase)}
+                              <div style={{ fontSize: "0.8em" }}>
+                                started{" "}
+                                <strong
+                                  className=""
+                                  title={datetime(phase?.dateStarted)}
+                                >
+                                  {date(phase?.dateStarted)}
                                 </strong>
-                              </span>
-                            )}
+                                {phase?.dateEnded ? (
+                                  <span
+                                    className=""
+                                    title={
+                                      "Ended: " + datetime(phase.dateEnded)
+                                    }
+                                  >
+                                    {" "}
+                                    , ran for{" "}
+                                    <strong>
+                                      {daysBetween(
+                                        phase.dateStarted,
+                                        phase.dateEnded
+                                      )}{" "}
+                                      days
+                                    </strong>
+                                  </span>
+                                ) : (
+                                  ", active"
+                                )}
+                              </div>
+                            </div>
+                            <div className="ml-auto">
+                              <MoreMenu id="phase-status"></MoreMenu>
+                            </div>
                           </div>
                         </li>
                       ))}

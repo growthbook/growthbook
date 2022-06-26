@@ -22,7 +22,7 @@ export function daysBetween(
   date1: string | Date,
   date2: string | Date
 ): number {
-  return differenceInDays(getValidDate(date1), getValidDate(date2));
+  return differenceInDays(getValidDate(date2), getValidDate(date1));
 }
 export function subtractMonths(date: string | Date, num: number): Date {
   return addMonths(getValidDate(date), -1 * num);
