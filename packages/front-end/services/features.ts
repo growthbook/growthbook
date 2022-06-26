@@ -96,6 +96,8 @@ export function getVariationDefaultName(
     ? val.value === "true"
       ? "on"
       : "off"
+    : type === "json"
+    ? val.name
     : val.value;
 }
 
