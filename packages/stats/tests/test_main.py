@@ -60,6 +60,25 @@ class TestNorm(TestCase):
         self.assertEqual(result["chance_to_win"], 0.5)
         self.assertEqual(result["expected"], 0)
 
+    def test_inexact_log_approximation(self):
+        expected = {
+            "chance_to_win": 0.5,
+            "expected": 0,
+            "ci": [0, 0],
+            "uplift": {"dist": "lognormal", "mean": 0, "stddev": 0},
+            "risk": [0, 0],
+        }
+
+        result = gaussian_ab_test(
+            m_a=0.26, s_a=5.12, n_a=381, m_b=0.84, s_b=12.26, n_b=24145
+        )
+
+        for key in expected.keys():
+            ex = expected[key]
+            res = result[key]
+
+            self.assertEqual(res, ex)
+
 
 if __name__ == "__main__":
     unittest_main()

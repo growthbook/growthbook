@@ -4,8 +4,7 @@ import numpy as np
 from scipy.stats import beta, norm, rv_continuous
 from scipy.special import digamma, polygamma, roots_hermitenorm
 from .orthogonal import roots_sh_jacobi
-
-EPSILON = 1e-04
+from gbstats.bayesian.constants import EPSILON
 
 
 class BayesABDist(ABC):
