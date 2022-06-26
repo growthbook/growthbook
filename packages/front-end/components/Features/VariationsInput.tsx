@@ -235,6 +235,7 @@ export default function VariationsInput({
                 <tr key={i}>
                   <td style={{ width: 45 }} className="position-relative pl-3">
                     <div
+                      className={styles.colorMarker}
                       style={{
                         backgroundColor: getVariationColor(i),
                       }}
