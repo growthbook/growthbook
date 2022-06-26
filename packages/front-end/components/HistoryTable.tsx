@@ -64,15 +64,23 @@ function EventDetails({
   return <Code language="json" code={JSON.stringify(json, null, 2)} />;
 }
 
-function HistoryTableRow({
+export function HistoryTableRow({
   event,
   open,
   setOpen,
+  isActivity = false,
+  experimentName = "",
 }: {
   event: AuditInterface;
   open: boolean;
   setOpen: (open: boolean) => void;
+  isActivity?: boolean;
+  experimentName?: string;
 }) {
+  let itemName = event.entity.id;
+  if (experimentName) {
+    itemName = experimentName;
+  }
   return (
     <>
       <tr
@@ -83,6 +91,20 @@ function HistoryTableRow({
         className={open ? "highlight" : event.details ? "hover-highlight" : ""}
       >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
+        {isActivity && (
+          <>
+            <td>{event.entity.object}</td>
+            <Link
+              href={
+                experimentName
+                  ? `/experiment/${event.entity.id}`
+                  : `/features/${event.entity.id}`
+              }
+            >
+              <td style={{ color: "blue" }}>{itemName}</td>
+            </Link>
+          </>
+        )}
         <td>{event.user.name || event.user.email}</td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
@@ -91,7 +113,7 @@ function HistoryTableRow({
       </tr>
       {open && event.details && (
         <tr>
-          <td colSpan={4} className="bg-light p-3">
+          <td colSpan={6} className="bg-light p-3">
             <EventDetails eventType={event.event} details={event.details} />
           </td>
         </tr>

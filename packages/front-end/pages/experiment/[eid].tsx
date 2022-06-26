@@ -19,6 +19,8 @@ import {
   FaPencilAlt,
   FaPalette,
   FaExternalLinkAlt,
+  FaAngleDown,
+  FaAngleUp,
 } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "../../services/dates";
@@ -67,6 +69,7 @@ const ExperimentPage = (): ReactElement => {
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [watcherListOpen, setWatcherListOpen] = useState(false);
 
   const showTargeting = useFeature("show-experiment-targeting").on;
 
@@ -76,6 +79,10 @@ const ExperimentPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
   }>(`/experiment/${eid}`);
+
+  const watcherIds = useApi<{
+    userIds: string[];
+  }>(`/experiment/${eid}/watchers`);
 
   useSwitchOrg(data?.experiment?.organization);
 
@@ -154,6 +161,8 @@ const ExperimentPage = (): ReactElement => {
   const canEdit = permissions.createAnalyses;
 
   const datasource = getDatasourceById(experiment.datasource);
+
+  const allUserIds = watcherIds?.data?.userIds;
 
   return (
     <div className={wrapClasses}>
@@ -612,13 +621,14 @@ const ExperimentPage = (): ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-md-3" key="Right">
               {projects.length > 0 && (
                 <>
                   <RightRailSection
                     title="Project"
                     open={() => setProjectModalOpen(true)}
                     canOpen={canEdit}
+                    key="Project"
                   >
                     <RightRailSectionGroup empty="None" type="commaList">
                       {getProjectById(experiment.project)?.name}
@@ -631,6 +641,7 @@ const ExperimentPage = (): ReactElement => {
                 title="Tags"
                 open={() => setTagsModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
+                key="Tags"
               >
                 <RightRailSectionGroup type="tags">
                   {experiment.tags}
@@ -641,6 +652,7 @@ const ExperimentPage = (): ReactElement => {
                 title="Data Source"
                 open={() => setDataSourceModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
+                key="Data Source"
               >
                 <RightRailSectionGroup title="Data Source" type="commaList">
                   {experiment.datasource ? datasource?.name : "Manual"}
@@ -673,6 +685,7 @@ const ExperimentPage = (): ReactElement => {
                 title="Metrics"
                 open={() => setMetricsModalOpen(true)}
                 canOpen={canEdit && !experiment.archived}
+                key="Metrics"
               >
                 <RightRailSectionGroup title="Goals" type="custom">
                   {experiment.metrics.map((m) => {
@@ -713,6 +726,7 @@ const ExperimentPage = (): ReactElement => {
                     title="Targeting"
                     open={() => setTargetingModalOpen(true)}
                     canOpen={canEdit && !experiment.archived}
+                    key="Targeting"
                   >
                     <RightRailSectionGroup title="URL" type="code" empty="Any">
                       {experiment.targetURLRegex}
@@ -730,7 +744,11 @@ const ExperimentPage = (): ReactElement => {
               )}
               {data.idea && <hr />}
               {data.idea && (
-                <RightRailSection title="Linked Idea" canOpen={false}>
+                <RightRailSection
+                  title="Linked Idea"
+                  canOpen={false}
+                  key="Linked Idea"
+                >
                   <div className="my-1">
                     {data.idea.impactScore && (
                       <div className="float-right text-right">
@@ -754,6 +772,34 @@ const ExperimentPage = (): ReactElement => {
                   </div>
                 </RightRailSection>
               )}
+              <hr />
+              <RightRailSection title="Watcher List" key="WatcherList">
+                <tr
+                  onClick={async () => {
+                    setWatcherListOpen(!watcherListOpen);
+                  }}
+                >
+                  <td>
+                    {" "}
+                    <RightRailSectionGroup
+                      title={`Watchers - ${allUserIds?.length}`}
+                    >
+                      {" "}
+                    </RightRailSectionGroup>
+                  </td>
+                  <td style={{ width: 30 }}>
+                    {watcherListOpen ? <FaAngleUp /> : <FaAngleDown />}
+                  </td>
+                </tr>
+                {watcherListOpen &&
+                  allUserIds.map((id) => (
+                    <tr key={id}>
+                      <td colSpan={4} className="bg-light p-0.5">
+                        {id}
+                      </td>
+                    </tr>
+                  ))}
+              </RightRailSection>
             </div>
           </div>
         </Tab>
@@ -763,6 +809,7 @@ const ExperimentPage = (): ReactElement => {
           lazy={true}
           visible={experiment.status !== "draft"}
           padding={false}
+          key="Results"
         >
           <div className="position-relative">
             <Results

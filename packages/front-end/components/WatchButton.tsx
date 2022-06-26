@@ -17,12 +17,9 @@ const WatchButton: FC<{
   const [loading, setLoading] = useState(false);
 
   let isWatching;
-  let urlFirst;
   if (itemType == "feature") {
-    urlFirst = "feature";
     isWatching = watchedFeatures.includes(item);
   } else if (itemType == "experiment") {
-    urlFirst = "experiment";
     isWatching = watchedExperiments.includes(item);
   }
 
@@ -50,7 +47,7 @@ const WatchButton: FC<{
         setLoading(true);
         try {
           await apiCall(
-            `/${urlFirst}/${item}/${isWatching ? "unwatch" : "watch"}`,
+            `/user/${isWatching ? "unwatch" : "watch"}/${itemType}/${item}`,
             {
               method: "POST",
             }

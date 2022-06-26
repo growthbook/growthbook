@@ -670,7 +670,8 @@ export async function createSnapshot(
 export async function ensureWatching(
   userId: string,
   orgId: string,
-  experiment: string
+  item: string,
+  type: string
 ) {
   await WatchModel.updateOne(
     {
@@ -679,7 +680,7 @@ export async function ensureWatching(
     },
     {
       $addToSet: {
-        experiments: experiment,
+        [type]: item,
       },
     },
     {
@@ -688,9 +689,13 @@ export async function ensureWatching(
   );
 }
 
-export async function getExperimentWatchers(experimentId: string) {
+export async function getExperimentWatchers(
+  experimentId: string,
+  orgId: string
+) {
   const watchers = await WatchModel.find({
-    experiment: experimentId,
+    experiments: experimentId,
+    organization: orgId,
   });
   return watchers;
 }
