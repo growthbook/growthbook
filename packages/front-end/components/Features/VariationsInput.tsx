@@ -39,6 +39,27 @@ function getEqualWeights(n: number): number[] {
     });
 }
 
+function distributeWeights(weights: number[], customSplit: boolean): number[] {
+  // Always just use equal weights if we're not customizing them
+  if (!customSplit) return getEqualWeights(weights.length);
+
+  // Get current sum and distribute the different equally so it adds to 1
+  const sum = weights.reduce((sum, w) => sum + w, 0);
+  const diff = (sum - 1) / weights.length;
+  const newWeights = weights.map((w) => floatRound(w - diff));
+
+  // With rounding, the end result might be slightly off and need an adjustment
+  const adjustment = floatRound(newWeights.reduce((sum, w) => sum + w, -1));
+  if (adjustment) {
+    const i = newWeights.findIndex((w) => w >= adjustment);
+    if (i >= 0) {
+      newWeights[i] = floatRound(newWeights[i] - adjustment);
+    }
+  }
+
+  return newWeights;
+}
+
 function percentToDecimal(val: string): number {
   return parseFloat((parseFloat(val) / 100).toFixed(3));
 }
@@ -297,32 +318,19 @@ export default function VariationsInput({
                             className="btn btn-link text-danger"
                             onClick={(e) => {
                               e.preventDefault();
-                              const diffWeight = floatRound(
-                                weights[i] / (values.fields.length - 1)
-                              );
-                              values.remove(i);
 
-                              // values.remove doesn't immediately adjust the size of the array, so we have to special case the rebalancing here:
-                              // keep the same proportion split but redistribute in the remaining weights:
-                              const trimmedWeights = [...weights].filter(
-                                (w, j) => i !== j
+                              const newValues = [...variationValues];
+                              newValues.splice(i, 1);
+
+                              const newWeights = distributeWeights(
+                                newValues.map((v) => v.weight),
+                                customSplit
                               );
-                              let currentSum = 0;
-                              trimmedWeights.forEach((w, j) => {
-                                if (j === trimmedWeights.length - 1) {
-                                  // to prevent rounding errors, we'll set the last index to have the remainder to 100%.
-                                  form.setValue(
-                                    `${formPrefix}values.${j}.weight`,
-                                    floatRound(1 - currentSum)
-                                  );
-                                } else {
-                                  form.setValue(
-                                    `${formPrefix}values.${j}.weight`,
-                                    floatRound(w + diffWeight)
-                                  );
-                                  currentSum += floatRound(w + diffWeight);
-                                }
+
+                              newValues.forEach((v, j) => {
+                                v.weight = newWeights[j] || 0;
                               });
+                              values.replace(newValues);
                             }}
                             type="button"
                           >
@@ -346,11 +354,25 @@ export default function VariationsInput({
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            values.append({
-                              value: getDefaultVariationValue(defaultValue),
-                              name: "",
-                              weight: 0,
+
+                            const newWeights = distributeWeights(
+                              [...weights, 0],
+                              customSplit
+                            );
+
+                            // Add a new value and update weights
+                            const newValues = [
+                              ...variationValues,
+                              {
+                                value: getDefaultVariationValue(defaultValue),
+                                name: "",
+                                weight: 0,
+                              },
+                            ];
+                            newValues.forEach((v, i) => {
+                              v.weight = newWeights[i] || 0;
                             });
+                            values.replace(newValues);
                           }}
                         >
                           <span
