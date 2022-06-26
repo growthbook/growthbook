@@ -88,13 +88,6 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
-      {!firstPhase && (
-        <div className="alert alert-warning">
-          Changing the traffic percent or split will start a new phase of the
-          experiment. All previously collected results data will be archived and
-          it will start fresh from this point on.
-        </div>
-      )}
       <div className="row">
         {!firstPhase && (
           <Field

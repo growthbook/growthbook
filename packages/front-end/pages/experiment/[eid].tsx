@@ -42,12 +42,13 @@ import VisualCode from "../../components/Experiment/VisualCode";
 import { IdeaInterface } from "back-end/types/idea";
 import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
-import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
 import clsx from "clsx";
+import EditPhaseModal from "../../components/Experiment/EditPhaseModal";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -62,6 +63,9 @@ const ExperimentPage = (): ReactElement => {
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [editPhaseModalOpen, setEditPhaseModalOpen] = useState<number | null>(
+    null
+  );
 
   const showTargeting = useFeature("show-experiment-targeting").on;
 
@@ -210,6 +214,14 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+        />
+      )}
+      {editPhaseModalOpen !== null && (
+        <EditPhaseModal
+          close={() => setEditPhaseModalOpen(null)}
+          mutate={mutate}
+          experiment={experiment}
+          i={editPhaseModalOpen}
         />
       )}
       {project && project !== experiment.project && (
@@ -559,12 +571,36 @@ const ExperimentPage = (): ReactElement => {
                               </div>
                             </div>
                             <div className="ml-auto">
-                              <MoreMenu id="phase-status"></MoreMenu>
+                              <MoreMenu id="phase-status">
+                                <a
+                                  className="dropdown-item"
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setEditPhaseModalOpen(i);
+                                  }}
+                                >
+                                  Edit
+                                </a>
+                              </MoreMenu>
                             </div>
                           </div>
                         </li>
                       ))}
                     </ol>
+                    {experiment.status === "running" && (
+                      <div className="mt-1 text-center">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPhaseModalOpen(true);
+                          }}
+                        >
+                          <GBAddCircle /> add new phase
+                        </a>
+                      </div>
+                    )}
                   </RightRailSectionGroup>
                 )}
               </RightRailSection>
