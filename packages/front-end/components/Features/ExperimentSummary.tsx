@@ -46,6 +46,10 @@ export default function ExperimentSummary({
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
   const expDefinition = getExperimentDefinitionFromFeature(feature, expRule);
+  const namespaceRange = expRule?.namespace
+    ? expRule.namespace.range[1] - expRule.namespace.range[0]
+    : 1;
+  const effectiveCoverage = namespaceRange * coverage;
 
   return (
     <div>
@@ -107,13 +111,7 @@ export default function ExperimentSummary({
           {expRule?.namespace && expRule?.namespace?.enabled && (
             <>
               {" "}
-              <span>and include </span>
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(
-                  expRule.namespace.range[1] - expRule.namespace.range[0]
-                )}
-              </span>{" "}
-              <span>of the namespace </span>
+              <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
                 {expRule.namespace.name}
               </span>
@@ -127,9 +125,24 @@ export default function ExperimentSummary({
         </div>
         <div className="col-auto">
           <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {percentFormatter.format(coverage)}
+            {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
-          of users
+          of users in the experiment
+          {expRule?.namespace && expRule?.namespace?.enabled && (
+            <>
+              <span>( </span>
+              <span className="border px-2 py-1 bg-light rounded">
+                {percentFormatter.format(
+                  expRule.namespace.range[1] - expRule.namespace.range[0]
+                )}
+              </span>{" "}
+              of the namespace and{" "}
+              <span className="border px-2 py-1 bg-light rounded">
+                {percentFormatter.format(coverage)}
+              </span>
+              <span> exposure)</span>
+            </>
+          )}
         </div>
       </div>
       <strong>SERVE</strong>
@@ -177,7 +190,7 @@ export default function ExperimentSummary({
             <td colSpan={4}>
               <ExperimentSplitVisual
                 values={values}
-                coverage={coverage}
+                coverage={effectiveCoverage}
                 label="Traffic split"
                 unallocated="Not included (skips this rule)"
                 type={type}
