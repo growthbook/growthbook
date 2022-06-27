@@ -9,14 +9,15 @@ import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
 
 type UpdatedRow = {
-  metricName: string;
-  variantName: string;
-  riskOfChoosing: number;
-  users: number;
-  count: number;
-  conversionRate: number;
-  changeToBeatControl: number | null;
-  percentChange: number | null;
+  dimension?: string;
+  metricName?: string;
+  variantName?: string;
+  riskOfChoosing?: number;
+  users?: number;
+  count?: number;
+  conversionRate?: number;
+  chanceToBeatControl?: number | null;
+  percentChange?: number | null;
 };
 
 export default function ResultsDownloadButton({
@@ -24,69 +25,69 @@ export default function ResultsDownloadButton({
   metrics,
   variations,
   trackingKey,
+  dimension,
 }: {
-  results?: ExperimentReportResultDimension;
+  results?: ExperimentReportResultDimension[];
   metrics: string[];
   variations: ExperimentReportVariation[];
   trackingKey: string;
+  dimension: string;
 }) {
-  const { getMetricById, ready } = useDefinitions();
-  const headers = [
-    "metricName",
-    "variationName",
-    "riskOfChoosing",
-    "users",
-    "count",
-    "conversionRate",
-    "chanceToBeatControl",
-    "percentChange",
-  ];
-  const json2csvParser = new Parser({ headers });
+  const { getMetricById, getDimensionById, ready } = useDefinitions();
+
+  const json2csvParser = new Parser();
 
   const csvRows = [];
+  let rows = [];
 
-  const rows = useMemo<ExperimentTableRow[]>(() => {
-    if (!results || !results.variations || !ready) return [];
-    return metrics
-      .map((row) => {
-        const metric = getMetricById(row);
-        return {
-          label: metric?.name,
-          metric,
-          rowClass: metric?.inverse ? "inverse" : "",
-          variations: results.variations.map((variant) => {
-            return variant.metrics[row];
-          }),
-        };
-      })
-      .filter((row) => row.metric);
-  }, [results, ready]);
+  const dimensionName = getDimensionById(dimension);
 
-  console.log("rows", rows);
-
-  rows.forEach((row) => {
-    row.variations.forEach((variant, index) => {
-      variant.name = variations[index].name;
-      const { relativeRisk } = getRisk(index, row);
-      variant.relativeRisk = relativeRisk;
-    });
+  results.forEach((result) => {
+    const rowsArr = useMemo<ExperimentTableRow[]>(() => {
+      if (!result || !result.variations || !ready) return [];
+      return metrics
+        .map((m) => {
+          const metric = getMetricById(m);
+          return {
+            label: metric?.name,
+            metric,
+            rowClass: metric?.inverse ? "inverse" : "",
+            variations: result.variations.map((v) => {
+              return v.metrics[m];
+            }),
+          };
+        })
+        .filter((row) => row.metric);
+    }, [results, ready]);
+    rows = rowsArr;
   });
 
   rows.forEach((row) => {
-    row.variations.forEach((variant) => {
-      const updatedRow: UpdatedRow = {};
-      updatedRow.metricName = row.metric.name;
-      updatedRow.variantName = variant.name;
-      updatedRow.riskOfChoosing = variant.relativeRisk;
-      updatedRow.users = variant.users;
-      updatedRow.count = variant.value;
-      updatedRow.conversionRate = variant.cr;
-      updatedRow.changeToBeatControl = variant.chanceToWin || null;
-      updatedRow.percentChange = variant.expected || null;
-
-      csvRows.push(updatedRow);
+    results.forEach((dimension) => {
+      console.log("dimension", dimension);
+      dimension.variations.forEach((variation, index) => {
+        for (const metric in variation.metrics) {
+          const updatedRow: UpdatedRow = {};
+          if (dimension.name !== "All") {
+            updatedRow[dimensionName.name] = dimension.name;
+          }
+          updatedRow.metricName = getMetricById(metric).name;
+          updatedRow.variantName = variations[index].name;
+          const { relativeRisk } = getRisk(index, row);
+          updatedRow.riskOfChoosing = relativeRisk;
+          updatedRow.users = variation.metrics[metric].users;
+          updatedRow.count = variation.metrics[metric].value;
+          updatedRow.conversionRate = variation.metrics[metric].cr;
+          updatedRow.chanceToBeatControl =
+            variation.metrics[metric].chanceToWin || null;
+          updatedRow.percentChange = variation.metrics[metric].expected || null;
+          csvRows.push(updatedRow);
+        }
+      });
     });
   });
+
+  console.log("csvRows", csvRows);
 
   const csv = json2csvParser.parse(csvRows);
 

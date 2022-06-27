@@ -67,6 +67,7 @@ export default function AnalysisSettingsBar({
   mutateExperiment: () => void;
   editMetrics: () => void;
 }) {
+  // console.log(dimension);
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const outdated = isOutdated(experiment, snapshot);
@@ -217,9 +218,10 @@ export default function AnalysisSettingsBar({
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
             metrics={experiment.metrics}
-            results={snapshot?.results?.[0]}
+            results={snapshot?.results}
             variations={experiment.variations}
             trackingKey={experiment.trackingKey}
+            dimension={dimension}
           />
         </div>
       </div>

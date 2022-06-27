@@ -32,6 +32,7 @@ export default function ResultMoreMenu({
   metrics,
   variations,
   trackingKey,
+  dimension,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -49,6 +50,7 @@ export default function ResultMoreMenu({
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
+  dimension?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -170,6 +172,7 @@ export default function ResultMoreMenu({
           metrics={metrics}
           variations={variations}
           trackingKey={trackingKey}
+          dimension={dimension}
         />
       )}
     </MoreMenu>
