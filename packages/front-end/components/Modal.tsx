@@ -46,6 +46,7 @@ const Modal: FC<ModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     setError(externalError);
@@ -119,23 +120,17 @@ const Modal: FC<ModalProps> = ({
           )}
         </>
       )}
-      {!successMessage ? (
-        <div
-          className="modal-body"
-          ref={bodyRef}
-          style={overflowAuto ? { overflowY: "auto" } : {}}
-        >
-          {children}
-        </div>
-      ) : (
-        <div
-          className="modal-body"
-          ref={bodyRef}
-          style={overflowAuto ? { overflowY: "auto" } : {}}
-        >
+      <div
+        className="modal-body"
+        ref={bodyRef}
+        style={overflowAuto ? { overflowY: "auto" } : {}}
+      >
+        {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
-        </div>
-      )}
+        ) : (
+          children
+        )}
+      </div>
       {submit || close ? (
         <div className="modal-footer">
           {error && (
@@ -148,7 +143,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          {submit && !successMessage ? (
+          {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
               type="submit"
@@ -222,10 +217,12 @@ const Modal: FC<ModalProps> = ({
               setLoading(true);
               try {
                 await submit();
-                if (close && autoCloseOnSubmit) {
+
+                setLoading(false);
+                if (successMessage) {
+                  setIsSuccess(true);
+                } else if (close && autoCloseOnSubmit) {
                   close();
-                } else {
-                  setLoading(false);
                 }
               } catch (e) {
                 setError(e.message);

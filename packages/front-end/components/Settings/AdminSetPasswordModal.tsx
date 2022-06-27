@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
@@ -11,7 +11,6 @@ type Props = {
 };
 
 export default function AdminSetPasswordModal({ member, close }: Props) {
-  const [successMessage, setSuccessMessage] = useState(null);
   const { apiCall } = useAuth();
   const form = useForm({
     defaultValues: {
@@ -25,14 +24,13 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
       header="Change Password"
       open={true}
       autoCloseOnSubmit={false}
-      successMessage={successMessage}
+      successMessage="Password successfully changed."
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/member/${member.id}/admin-password-reset`, {
           method: "PUT",
           credentials: "include",
           body: JSON.stringify(data),
         });
-        setSuccessMessage("Password successfully changed.");
       })}
     >
       <p>
