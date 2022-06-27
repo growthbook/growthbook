@@ -155,27 +155,15 @@ const Modal: FC<ModalProps> = ({
             ""
           )}
           {secondaryCTA}
-          {close && !successMessage ? (
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-            >
-              {closeCta}
-            </button>
-          ) : (
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-            >
-              Close
-            </button>
-          )}
+          <button
+            className="btn btn-link"
+            onClick={(e) => {
+              e.preventDefault();
+              close();
+            }}
+          >
+            {isSuccess && successMessage ? "Close" : closeCta}
+          </button>
         </div>
       ) : (
         ""
