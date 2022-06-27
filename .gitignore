@@ -26,3 +26,6 @@ coverage.xml
 .coverage
 .tox
 .ipynb_checkpoints
+
+# Python virtual environment
+venv/
