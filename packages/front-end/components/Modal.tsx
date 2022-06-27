@@ -198,7 +198,7 @@ const Modal: FC<ModalProps> = ({
             : null
         }
       >
-        {submit ? (
+        {submit && !isSuccess ? (
           <form
             onSubmit={async (e) => {
               e.preventDefault();
