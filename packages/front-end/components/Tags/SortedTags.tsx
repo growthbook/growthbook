@@ -3,9 +3,10 @@ import Tag from "./Tag";
 
 export interface Props {
   tags?: string[];
+  color?: string;
 }
 
-export default function SortedTags({ tags }: Props) {
+export default function SortedTags({ tags, color }: Props) {
   const { tags: all } = useDefinitions();
 
   if (!tags || !tags.length) return null;
@@ -20,7 +21,7 @@ export default function SortedTags({ tags }: Props) {
   return (
     <>
       {sorted.map((tag) => (
-        <Tag tag={tag} key={tag} />
+        <Tag tag={tag} color={color} key={tag} />
       ))}
     </>
   );

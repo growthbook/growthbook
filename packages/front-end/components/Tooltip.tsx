@@ -5,19 +5,25 @@ import { MdInfoOutline } from "react-icons/md";
 // todo: add support for variable positioning instead of just bottom.
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
-  text: string;
+  text?: string;
+  ToolTipComp?: JSX.Element;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   innerClassName?: string;
   children?: ReactNode;
+  textColor?: string;
+  bgColor?: string;
 }
 const Tooltip: FC<Props> = ({
   text,
+  ToolTipComp,
   children,
   className,
   tipMinWidth = "140px",
   tipPosition = "bottom",
-  innerClassName = "",
+  innerClassName,
+  textColor = "white",
+  bgColor = "dodgerBlue",
   ...otherProps
 }) => {
   if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
@@ -29,9 +35,14 @@ const Tooltip: FC<Props> = ({
           <div className="arrow" />
           <div
             className={`tooltip-inner ${innerClassName}`}
-            style={tipMinWidth ? { minWidth: tipMinWidth } : {}}
+            style={{
+              minWidth: tipMinWidth ? tipMinWidth : null,
+              backgroundColor: bgColor,
+              color: textColor,
+            }}
           >
-            {text}
+            {text && text}
+            {ToolTipComp && ToolTipComp}
           </div>
         </div>
       </div>

@@ -42,3 +42,12 @@ export function getEvenSplit(n: number) {
 
   return weights;
 }
+
+export function isNullUndefinedOrEmpty(x) {
+  if (x === null) return true;
+  if (x === undefined) return true;
+  if (x === {}) return true;
+  if (x === []) return true;
+  if (x === "") return true;
+  return false;
+}
