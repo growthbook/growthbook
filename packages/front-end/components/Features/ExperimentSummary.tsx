@@ -46,9 +46,10 @@ export default function ExperimentSummary({
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
   const expDefinition = getExperimentDefinitionFromFeature(feature, expRule);
-  const namespaceRange = expRule?.namespace
-    ? expRule.namespace.range[1] - expRule.namespace.range[0]
-    : 1;
+  const namespaceRange =
+    expRule?.namespace && expRule?.namespace?.enabled
+      ? expRule.namespace.range[1] - expRule.namespace.range[0]
+      : 1;
   const effectiveCoverage = namespaceRange * coverage;
 
   return (
