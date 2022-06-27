@@ -49,6 +49,7 @@ import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
 import clsx from "clsx";
 import EditPhaseModal from "../../components/Experiment/EditPhaseModal";
+import EditStatusModal from "../../components/Experiment/EditStatusModal";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -57,6 +58,7 @@ const ExperimentPage = (): ReactElement => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [stopModalOpen, setStopModalOpen] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -222,6 +224,13 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           i={editPhaseModalOpen}
+        />
+      )}
+      {statusModalOpen && (
+        <EditStatusModal
+          close={() => setStatusModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
         />
       )}
       {project && project !== experiment.project && (
@@ -513,18 +522,24 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
             <div className="col-md-3">
-              <RightRailSection title="Status">
+              <RightRailSection
+                title="Status"
+                open={() => setStatusModalOpen(true)}
+                canOpen={canEdit && !experiment.archived}
+              >
                 <RightRailSectionGroup type="custom">
-                  <StatusIndicator
-                    status={experiment.status}
-                    archived={experiment.archived}
-                    showBubble={true}
-                  />
-                  {experiment.status === "stopped" && experiment.results && (
-                    <div className="col-auto">
-                      <ResultsIndicator results={experiment.results} />
-                    </div>
-                  )}
+                  <div className="d-flex">
+                    <StatusIndicator
+                      status={experiment.status}
+                      archived={experiment.archived}
+                      showBubble={true}
+                    />
+                    {experiment.status === "stopped" && experiment.results && (
+                      <div className="col-auto">
+                        <ResultsIndicator results={experiment.results} />
+                      </div>
+                    )}
+                  </div>
                 </RightRailSectionGroup>
                 {experiment.phases?.length > 0 && (
                   <RightRailSectionGroup type="custom">
@@ -532,7 +547,7 @@ const ExperimentPage = (): ReactElement => {
                       {experiment.phases.map((phase, i) => (
                         <li
                           key={i}
-                          className={clsx("list-group-item py-2 px-3", {
+                          className={clsx("list-group-item py-2 px-2", {
                             "list-group-item-light": phase?.dateEnded,
                           })}
                         >
@@ -588,10 +603,11 @@ const ExperimentPage = (): ReactElement => {
                         </li>
                       ))}
                     </ol>
-                    {experiment.status === "running" && (
-                      <div className="mt-1 text-center">
+                    {experiment.phases?.length > 0 && (
+                      <div className="mt-1">
                         <a
                           href="#"
+                          className="text-muted"
                           onClick={(e) => {
                             e.preventDefault();
                             setPhaseModalOpen(true);
