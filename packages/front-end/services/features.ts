@@ -90,15 +90,19 @@ export function getVariationDefaultName(
   val: ExperimentValue,
   type: FeatureValueType
 ) {
-  return val.name
-    ? val.name
-    : type === "boolean"
-    ? val.value === "true"
-      ? "on"
-      : "off"
-    : type === "json"
-    ? val.name
-    : val.value;
+  if (val.name) {
+    return val.name;
+  }
+
+  if (type === "boolean") {
+    return val.value === "true" ? "On" : "Off";
+  }
+
+  if (type === "json") {
+    return "";
+  }
+
+  return val.value;
 }
 
 type NamespaceGaps = { start: number; end: number }[];
@@ -626,8 +630,6 @@ export function getExperimentDefinitionFromFeature(
     return null;
   }
 
-  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
-
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
@@ -648,10 +650,8 @@ export function getExperimentDefinitionFromFeature(
     }),
     phases: [
       {
-        coverage: totalPercent,
-        variationWeights: expRule.values.map((v) =>
-          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
-        ),
+        coverage: expRule.coverage || 1,
+        variationWeights: expRule.values.map((v) => v.weight),
         phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),

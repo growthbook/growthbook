@@ -1,9 +1,4 @@
-import {
-  ExperimentRule,
-  ExperimentValue,
-  FeatureInterface,
-  FeatureValueType,
-} from "back-end/types/feature";
+import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -23,33 +18,27 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function ExperimentSummary({
-  values,
-  coverage,
-  type,
-  hashAttribute,
-  trackingKey,
+  rule,
   experiment,
   feature,
-  expRule,
 }: {
-  values: ExperimentValue[];
-  coverage: number;
-  type: FeatureValueType;
-  hashAttribute: string;
-  trackingKey: string;
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
-  expRule: ExperimentRule;
+  rule: ExperimentRule;
 }) {
+  const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
+  const type = feature.valueType;
+
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
-  const expDefinition = getExperimentDefinitionFromFeature(feature, expRule);
-  const namespaceRange =
-    expRule?.namespace && expRule?.namespace?.enabled
-      ? expRule.namespace.range[1] - expRule.namespace.range[0]
-      : 1;
+  const expDefinition = getExperimentDefinitionFromFeature(feature, rule);
+
+  const hasNamespace = namespace && namespace.enabled;
+  const namespaceRange = hasNamespace
+    ? namespace.range[1] - namespace.range[0]
+    : 1;
   const effectiveCoverage = namespaceRange * coverage;
 
   return (
@@ -107,14 +96,14 @@ export default function ExperimentSummary({
           {" "}
           users by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {hashAttribute}
+            {hashAttribute || ""}
           </span>
-          {expRule?.namespace && expRule?.namespace?.enabled && (
+          {hasNamespace && (
             <>
               {" "}
               <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {expRule.namespace.name}
+                {namespace.name}
               </span>
             </>
           )}
@@ -129,13 +118,11 @@ export default function ExperimentSummary({
             {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
           of users in the experiment
-          {expRule?.namespace && expRule?.namespace?.enabled && (
+          {hasNamespace && (
             <>
-              <span>( </span>
+              <span> (</span>
               <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(
-                  expRule.namespace.range[1] - expRule.namespace.range[0]
-                )}
+                {percentFormatter.format(namespaceRange)}
               </span>{" "}
               of the namespace and{" "}
               <span className="border px-2 py-1 bg-light rounded">
@@ -209,9 +196,9 @@ export default function ExperimentSummary({
         </div>
         <div className="col">
           {" "}
-          the split with the key{" "}
+          the result using the key{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {trackingKey}
+            {trackingKey || feature.id}
           </span>{" "}
         </div>
         <div className="col-auto">

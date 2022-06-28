@@ -222,7 +222,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
                 {
                   value: otherVal,
                   weight: 0.5,
-                  name: "Control",
+                  name: "",
                 },
                 {
                   value: defaultValue,

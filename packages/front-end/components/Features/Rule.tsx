@@ -235,14 +235,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             )}
             {rule.type === "experiment" && (
               <ExperimentSummary
-                values={rule.values}
-                coverage={rule.coverage}
-                type={type}
                 feature={feature}
                 experiment={experiments[rule.trackingKey || feature.id]}
-                hashAttribute={rule.hashAttribute || ""}
-                trackingKey={rule.trackingKey || feature.id}
-                expRule={rule}
+                rule={rule}
               />
             )}
           </div>
