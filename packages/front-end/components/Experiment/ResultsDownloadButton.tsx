@@ -9,6 +9,7 @@ import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
 
 type UpdatedRow = {
+  date?: string;
   dimension?: string;
   metricName?: string;
   variantName?: string;
@@ -42,6 +43,10 @@ export default function ResultsDownloadButton({
 
   const dimensionName = getDimensionById(dimension);
 
+  if (dimension === "pre:date") {
+    results.sort((a, b) => (a.name > b.name ? 1 : b.name > a.name ? -1 : 0));
+  }
+
   results.forEach((result) => {
     const rowsArr = useMemo<ExperimentTableRow[]>(() => {
       if (!result || !result.variations || !ready) return [];
@@ -59,19 +64,21 @@ export default function ResultsDownloadButton({
         })
         .filter((row) => row.metric);
     }, [results, ready]);
-    rows.push(rowsArr[0]); // This feels hacky. I need to figure out a better way to do this.
+    rows.push(rowsArr[0]); //TODO: This feels hacky. I need to figure out a better way to do this.
   });
 
   rows.forEach((row, rowIndex) => {
     row.variations.forEach((variation, index) => {
       const updatedRow: UpdatedRow = {};
-      if (results[rowIndex].name !== "All") {
+      if (dimension === "pre:date") {
+        updatedRow.date = results[rowIndex].name;
+      } else if (results[rowIndex].name !== "All") {
         updatedRow[dimensionName.name] = results[rowIndex].name;
       }
       updatedRow.metricName = row.label;
       updatedRow.variantName = variations[index].name;
       const { relativeRisk } = getRisk(index, row);
-      updatedRow.riskOfChoosing = relativeRisk;
+      updatedRow.riskOfChoosing = relativeRisk; //TODO: This doesn't look like it should exist when sorting by date. Need to confirm.
       updatedRow.users = variation.users;
       updatedRow.count = variation.value;
       updatedRow.conversionRate = variation.cr;
