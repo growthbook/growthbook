@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
@@ -55,6 +58,7 @@ export default function AnalysisSettingsBar({
   mutate,
   mutateExperiment,
   editMetrics,
+  variations,
 }: {
   experiment: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -66,8 +70,8 @@ export default function AnalysisSettingsBar({
   mutate: () => void;
   mutateExperiment: () => void;
   editMetrics: () => void;
+  variations: Variation[];
 }) {
-  // console.log(dimension);
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const outdated = isOutdated(experiment, snapshot);
@@ -219,7 +223,7 @@ export default function AnalysisSettingsBar({
             hasData={hasData}
             metrics={experiment.metrics}
             results={snapshot.results}
-            variations={experiment.variations}
+            variations={variations}
             trackingKey={experiment.trackingKey}
             dimension={dimension}
           />
