@@ -6,6 +6,7 @@ import {
 } from "back-end/types/organization";
 import {
   ExperimentRule,
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
@@ -85,6 +86,25 @@ export function getTotalVariationWeight(weights: number[]): number {
   return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
 }
 
+export function getVariationDefaultName(
+  val: ExperimentValue,
+  type: FeatureValueType
+) {
+  if (val.name) {
+    return val.name;
+  }
+
+  if (type === "boolean") {
+    return val.value === "true" ? "On" : "Off";
+  }
+
+  if (type === "json") {
+    return "";
+  }
+
+  return val.value;
+}
+
 type NamespaceGaps = { start: number; end: number }[];
 export function findGaps(
   namespaces: NamespaceUsage,
@@ -135,6 +155,21 @@ export function useFeaturesList(withProject = true) {
     error,
     mutate,
   };
+}
+
+export function getVariationColor(i: number) {
+  const colors = [
+    "#8f66dc",
+    "#e5a6f3",
+    "#38aecc",
+    "#f5dd90",
+    "#3383ec",
+    "#80c17b",
+    "#79c4e0",
+    "#f87a7a",
+    "#6cc160",
+  ];
+  return colors[i % colors.length];
 }
 
 export function useAttributeSchema() {
@@ -283,12 +318,15 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
+          name: "",
         },
         {
           value: value,
           weight: 0.5,
+          name: "",
         },
       ],
+      coverage: 1,
       namespace: {
         enabled: false,
         name: "",
@@ -592,8 +630,6 @@ export function getExperimentDefinitionFromFeature(
     return null;
   }
 
-  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
-
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
@@ -601,7 +637,9 @@ export function getExperimentDefinitionFromFeature(
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
-      if (feature.valueType === "boolean") {
+      if (v?.name) {
+        name = v.name;
+      } else if (feature.valueType === "boolean") {
         name = v.value === "true" ? "On" : "Off";
       }
       return {
@@ -612,10 +650,8 @@ export function getExperimentDefinitionFromFeature(
     }),
     phases: [
       {
-        coverage: totalPercent,
-        variationWeights: expRule.values.map((v) =>
-          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
-        ),
+        coverage: expRule.coverage || 1,
+        variationWeights: expRule.values.map((v) => v.weight),
         phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),

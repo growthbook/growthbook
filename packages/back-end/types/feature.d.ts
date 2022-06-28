@@ -68,6 +68,7 @@ export interface RolloutRule extends BaseRule {
 type ExperimentValue = {
   value: string;
   weight: number;
+  name?: string;
 };
 
 type NamespaceValue = {
@@ -81,6 +82,7 @@ export interface ExperimentRule extends BaseRule {
   trackingKey: string;
   hashAttribute: string;
   namespace?: NamespaceValue;
+  coverage?: number;
   values: ExperimentValue[];
 }
 
