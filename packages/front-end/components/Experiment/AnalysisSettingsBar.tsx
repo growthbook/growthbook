@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  Variation,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
@@ -17,6 +14,7 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import usePermissions from "../../hooks/usePermissions";
 import DimensionChooser from "../Dimensions/DimensionChooser";
+import { ExperimentReportVariation } from "back-end/types/report";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -70,7 +68,7 @@ export default function AnalysisSettingsBar({
   mutate: () => void;
   mutateExperiment: () => void;
   editMetrics: () => void;
-  variations: Variation[];
+  variations: ExperimentReportVariation[];
 }) {
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);

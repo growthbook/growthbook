@@ -1,4 +1,7 @@
-import { ExperimentReportResultDimension } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -18,16 +21,6 @@ type UpdatedRow = {
   percentChange?: number | null;
 };
 
-export type Variation = {
-  description?: string;
-  dom?: string[];
-  key?: string;
-  name: string;
-  screenshots?: string[];
-  id?: string;
-  weight?: number;
-};
-
 export default function ResultsDownloadButton({
   results,
   metrics,
@@ -37,7 +30,7 @@ export default function ResultsDownloadButton({
 }: {
   results?: ExperimentReportResultDimension[];
   metrics: string[];
-  variations: Variation[];
+  variations: ExperimentReportVariation[];
   trackingKey: string;
   dimension: string;
 }) {

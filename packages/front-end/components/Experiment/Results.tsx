@@ -145,7 +145,7 @@ const Results: FC<{
         setPhase={setPhase}
         latest={latest}
         editMetrics={editMetrics}
-        variations={experiment.variations}
+        variations={variations}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">

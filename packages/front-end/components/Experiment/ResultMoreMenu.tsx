@@ -4,6 +4,7 @@ import { GrTableAdd } from "react-icons/gr";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
+  ExperimentReportVariation,
   ReportInterface,
 } from "back-end/types/report";
 import { useAuth } from "../../services/auth";
@@ -12,7 +13,7 @@ import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
 import usePermissions from "../../hooks/usePermissions";
-import ResultsDownloadButton, { Variation } from "./ResultsDownloadButton";
+import ResultsDownloadButton from "./ResultsDownloadButton";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -47,7 +48,7 @@ export default function ResultMoreMenu({
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
-  variations?: Variation[];
+  variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
 }) {
