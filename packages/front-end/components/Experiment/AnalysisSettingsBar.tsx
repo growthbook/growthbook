@@ -218,7 +218,7 @@ export default function AnalysisSettingsBar({
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
             metrics={experiment.metrics}
-            results={snapshot?.results}
+            results={snapshot.results}
             variations={experiment.variations}
             trackingKey={experiment.trackingKey}
             dimension={dimension}
