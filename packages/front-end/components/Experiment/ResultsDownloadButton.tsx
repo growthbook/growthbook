@@ -38,7 +38,7 @@ export default function ResultsDownloadButton({
   const json2csvParser = new Parser();
 
   const csvRows = [];
-  let rows = [];
+  const rows = [];
 
   const dimensionName = getDimensionById(dimension);
 
@@ -59,35 +59,27 @@ export default function ResultsDownloadButton({
         })
         .filter((row) => row.metric);
     }, [results, ready]);
-    rows = rowsArr;
+    rows.push(rowsArr[0]); // This feels hacky. I need to figure out a better way to do this.
   });
 
-  rows.forEach((row) => {
-    results.forEach((dimension) => {
-      console.log("dimension", dimension);
-      dimension.variations.forEach((variation, index) => {
-        for (const metric in variation.metrics) {
-          const updatedRow: UpdatedRow = {};
-          if (dimension.name !== "All") {
-            updatedRow[dimensionName.name] = dimension.name;
-          }
-          updatedRow.metricName = getMetricById(metric).name;
-          updatedRow.variantName = variations[index].name;
-          const { relativeRisk } = getRisk(index, row);
-          updatedRow.riskOfChoosing = relativeRisk;
-          updatedRow.users = variation.metrics[metric].users;
-          updatedRow.count = variation.metrics[metric].value;
-          updatedRow.conversionRate = variation.metrics[metric].cr;
-          updatedRow.chanceToBeatControl =
-            variation.metrics[metric].chanceToWin || null;
-          updatedRow.percentChange = variation.metrics[metric].expected || null;
-          csvRows.push(updatedRow);
-        }
-      });
+  rows.forEach((row, rowIndex) => {
+    row.variations.forEach((variation, index) => {
+      const updatedRow: UpdatedRow = {};
+      if (results[rowIndex].name !== "All") {
+        updatedRow[dimensionName.name] = results[rowIndex].name;
+      }
+      updatedRow.metricName = row.label;
+      updatedRow.variantName = variations[index].name;
+      const { relativeRisk } = getRisk(index, row);
+      updatedRow.riskOfChoosing = relativeRisk;
+      updatedRow.users = variation.users;
+      updatedRow.count = variation.value;
+      updatedRow.conversionRate = variation.cr;
+      updatedRow.chanceToBeatControl = variation.chanceToWin || null;
+      updatedRow.percentChange = variation.expected || null;
+      csvRows.push(updatedRow);
     });
   });
-
-  console.log("csvRows", csvRows);
 
   const csv = json2csvParser.parse(csvRows);
 
