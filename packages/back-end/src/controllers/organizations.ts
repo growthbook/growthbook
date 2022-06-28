@@ -18,7 +18,7 @@ import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
 } from "../services/datasource";
-import { createUser, getUsersByIds } from "../services/users";
+import { createUser, getUsersByIds, updatePassword } from "../services/users";
 import { getAllTags } from "../models/TagModel";
 import {
   getAllApiKeysByOrganization,
@@ -860,6 +860,43 @@ export async function postImportConfig(req: AuthRequest, res: Response) {
 export async function putUpload(req: Request, res: Response) {
   const { signature, path } = req.query as { signature: string; path: string };
   await uploadFile(path, signature, req.body);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putAdminResetUserPassword(
+  req: AuthRequest<{
+    userToUpdateId: string;
+    updatedPassword: string;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { updatedPassword } = req.body;
+  const userToUpdateId = req.params.id;
+
+  if (IS_CLOUD) {
+    throw new Error(
+      "This functionality is not available with GrowthBook Cloud"
+    );
+  }
+
+  const { org } = getOrgFromReq(req);
+  const isUserToUpdateInSameOrg = org.members.find(
+    (member) => member.id === userToUpdateId
+  );
+
+  // Only update the password if the member we're updating is in the same org as the requester
+  if (!isUserToUpdateInSameOrg) {
+    throw new Error(
+      "Cannot change password of users outside your organization."
+    );
+  }
+
+  await updatePassword(userToUpdateId, updatedPassword);
 
   res.status(200).json({
     status: 200,

@@ -1,5 +1,4 @@
 import React, { FC, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
@@ -8,17 +7,28 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
+import MoreMenu from "../Dropdown/MoreMenu";
+import { isCloud } from "../../services/env";
+import AdminSetPasswordModal from "./AdminSetPasswordModal";
 
-type Member = { id: string; name: string; email: string; role: MemberRole };
+export type MemberInfo = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+};
 
 const MemberList: FC<{
-  members: Member[];
+  members: MemberInfo[];
   mutate: () => void;
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
-  const [roleModal, setRoleModal] = useState<Member>(null);
+  const [roleModal, setRoleModal] = useState<MemberInfo>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
+    null
+  );
   const [role, setRole] = useState<MemberRole>("admin");
 
   const onInvite = () => {
@@ -54,7 +64,13 @@ const MemberList: FC<{
           <RoleSelector role={role} setRole={setRole} />
         </Modal>
       )}
-      <table className="table appbox gbtable table-hover">
+      {passwordResetModal && (
+        <AdminSetPasswordModal
+          close={() => setPasswordResetModal(null)}
+          member={passwordResetModal}
+        />
+      )}
+      <table className="table appbox gbtable">
         <thead>
           <tr>
             <th>Name</th>
@@ -72,28 +88,42 @@ const MemberList: FC<{
               <td>
                 {member.id !== userId && (
                   <>
-                    <a
-                      href="#"
-                      className="tr-hover mr-3"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRoleModal(member);
-                        setRole(member.role);
-                      }}
-                    >
-                      <FaPencilAlt />
-                    </a>
-                    <DeleteButton
-                      link={true}
-                      className="tr-hover"
-                      displayName={member.email}
-                      onClick={async () => {
-                        await apiCall(`/member/${member.id}`, {
-                          method: "DELETE",
-                        });
-                        mutate();
-                      }}
-                    />
+                    <MoreMenu id="test">
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRoleModal(member);
+                          setRole(member.role);
+                        }}
+                      >
+                        Edit Role
+                      </button>
+                      {!isCloud() && (
+                        <button
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPasswordResetModal(member);
+                          }}
+                        >
+                          Reset Password
+                        </button>
+                      )}
+                      <DeleteButton
+                        link={true}
+                        text="Delete User"
+                        useIcon={false}
+                        className="dropdown-item"
+                        displayName={member.email}
+                        onClick={async () => {
+                          await apiCall(`/member/${member.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                        }}
+                      />
+                    </MoreMenu>
                   </>
                 )}
               </td>

@@ -367,6 +367,10 @@ app.post("/subscription/start", stripeController.postStartTrial);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
+app.put(
+  "/member/:id/admin-password-reset",
+  organizationsController.putAdminResetUserPassword
+);
 
 // tags
 app.post("/tag", tagsController.postTag);
