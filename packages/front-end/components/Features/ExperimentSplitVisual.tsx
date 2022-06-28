@@ -44,7 +44,7 @@ export default function ExperimentSplitVisual({
           {totalWeights !== 1 && (
             <span className="ml-2 text-danger">
               <FaExclamationTriangle className="text-danger mr-2" />
-              <span className="">Please adjust weights to sum to 100.</span>
+              <span className="">Please adjust weights to sum to 100%.</span>
             </span>
           )}
         </div>

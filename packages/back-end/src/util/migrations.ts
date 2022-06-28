@@ -208,6 +208,34 @@ function draftHasChanges(feature: FeatureInterface) {
   return false;
 }
 
+export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
+  // Old style experiment rule without coverage
+  if (rule.type === "experiment" && !("coverage" in rule)) {
+    rule.coverage = 1;
+    const weights = rule.values
+      .map((v) => v.weight)
+      .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+      .map((w) => roundVariationWeight(w));
+    const totalWeight = getTotalVariationWeight(weights);
+    if (totalWeight <= 0) {
+      rule.coverage = 0;
+    } else if (totalWeight < 0.999) {
+      rule.coverage = totalWeight;
+    }
+
+    const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
+    const adjustedWeights = adjustWeights(
+      weights.map((w) => roundVariationWeight(w * multiplier))
+    );
+
+    rule.values = rule.values.map((v, j) => {
+      return { ...v, weight: adjustedWeights[j] };
+    });
+  }
+
+  return rule;
+}
+
 export function upgradeFeatureInterface(
   feature: LegacyFeatureInterface
 ): FeatureInterface {
@@ -222,43 +250,18 @@ export function upgradeFeatureInterface(
     newFeature
   );
 
-  // Add weights/coverage translation here:
+  // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {
-    if (
-      newFeature.environmentSettings[env] &&
-      newFeature.environmentSettings[env]?.rules
-    ) {
-      newFeature.environmentSettings[
-        env
-      ].rules = newFeature.environmentSettings[env].rules.map((r) => {
-        if (r.type === "experiment") {
-          if (r.coverage !== 0 || !r.coverage) {
-            // old style without coverage, so recreate:
-            const rule = { coverage: 1, ...r };
-            const weights = r.values
-              .map((v) => v.weight)
-              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-              .map((w) => roundVariationWeight(w));
-            const totalWeight = getTotalVariationWeight(weights);
-            if (totalWeight <= 0) {
-              rule.coverage = 0;
-            } else if (totalWeight < 0.999) {
-              rule.coverage = totalWeight;
-            }
-
-            const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
-            const adjustedWeights = adjustWeights(
-              weights.map((w) => roundVariationWeight(w * multiplier))
-            );
-
-            rule.values = rule.values.map((v, j) => {
-              return { ...v, weight: adjustedWeights[j] };
-            });
-            return rule;
-          }
-        }
-        return r;
-      });
+    const settings = newFeature.environmentSettings[env];
+    if (settings?.rules) {
+      settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
+    }
+  }
+  // Upgrade all draft rules
+  if (newFeature.draft?.rules) {
+    for (const env in newFeature.draft.rules) {
+      const rules = newFeature.draft.rules;
+      rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
     }
   }
 

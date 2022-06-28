@@ -2,6 +2,7 @@ import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
   upgradeFeatureInterface,
+  upgradeFeatureRule,
   upgradeMetricDoc,
 } from "../src/util/migrations";
 import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
@@ -591,7 +592,7 @@ describe("backend", () => {
     });
   });
 
-  it("converts old variation weights to use coverage", () => {
+  it("migrates old feature rules", () => {
     const origRule: ExperimentRule = {
       type: "experiment",
       description: "",
@@ -610,26 +611,7 @@ describe("backend", () => {
       ],
     };
 
-    const origFeature: FeatureInterface = {
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: "",
-      defaultValue: "true",
-      valueType: "boolean",
-      id: "",
-      environmentSettings: {
-        prod: {
-          enabled: true,
-          rules: [origRule],
-        },
-      },
-    };
-
-    expect(
-      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
-        "prod"
-      ].rules[0]
-    ).toEqual({
+    expect(upgradeFeatureRule(cloneDeep(origRule))).toEqual({
       ...origRule,
       coverage: 0.5,
       values: [
@@ -646,11 +628,7 @@ describe("backend", () => {
 
     origRule.values[0].weight = 0.9;
     origRule.values[1].weight = 0.3;
-    expect(
-      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
-        "prod"
-      ].rules[0]
-    ).toEqual({
+    expect(upgradeFeatureRule(cloneDeep(origRule))).toEqual({
       ...origRule,
       coverage: 1,
       values: [
@@ -667,11 +645,7 @@ describe("backend", () => {
 
     origRule.values[0].weight = 0;
     origRule.values[1].weight = 0.5;
-    expect(
-      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
-        "prod"
-      ].rules[0]
-    ).toEqual({
+    expect(upgradeFeatureRule(cloneDeep(origRule))).toEqual({
       ...origRule,
       coverage: 0.5,
       values: [
@@ -688,11 +662,7 @@ describe("backend", () => {
 
     origRule.values[0].weight = 0.4;
     origRule.values[1].weight = 0.6;
-    expect(
-      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
-        "prod"
-      ].rules[0]
-    ).toEqual({
+    expect(upgradeFeatureRule(cloneDeep(origRule))).toEqual({
       ...origRule,
       coverage: 1,
       values: [
@@ -710,12 +680,73 @@ describe("backend", () => {
     origRule.values[0].weight = 0.4;
     origRule.values[1].weight = 0.6;
     origRule.coverage = 0.5;
-    expect(
-      upgradeFeatureInterface(cloneDeep(origFeature)).environmentSettings[
-        "prod"
-      ].rules[0]
-    ).toEqual({
+    expect(upgradeFeatureRule(cloneDeep(origRule))).toEqual({
       ...origRule,
     });
+  });
+
+  it("upgrades all rules", () => {
+    const origRule: ExperimentRule = {
+      type: "experiment",
+      description: "",
+      hashAttribute: "id",
+      id: "123",
+      trackingKey: "",
+      values: [
+        {
+          value: "a",
+          weight: 0.1,
+        },
+        {
+          value: "b",
+          weight: 0.4,
+        },
+      ],
+    };
+    const newRule = {
+      ...origRule,
+      coverage: 0.5,
+      values: [
+        {
+          value: "a",
+          weight: 0.2,
+        },
+        {
+          value: "b",
+          weight: 0.8,
+        },
+      ],
+    };
+
+    const origFeature: FeatureInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: "",
+      defaultValue: "true",
+      valueType: "boolean",
+      id: "",
+      environmentSettings: {
+        prod: {
+          enabled: true,
+          rules: [origRule],
+        },
+        test: {
+          enabled: true,
+          rules: [origRule],
+        },
+      },
+      draft: {
+        active: true,
+        rules: {
+          dev: [origRule],
+        },
+      },
+    };
+
+    const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+
+    expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
+    expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
+    expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
   });
 });
