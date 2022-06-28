@@ -35,7 +35,7 @@ export async function postDimensions(
     throw new Error("Invalid data source");
   }
 
-  const userRef: UserRef = {
+  const owner: UserRef = {
     id: userId,
     name: userName,
     email,
@@ -44,7 +44,7 @@ export async function postDimensions(
   const doc = await createDimension({
     datasource,
     userIdType,
-    userRef,
+    owner,
     name,
     sql,
     id: uniqid("dim_"),

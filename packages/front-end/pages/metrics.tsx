@@ -263,7 +263,7 @@ const MetricsPage = (): React.ReactElement => {
               <td className="nowrap">
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
-              <td>{getOwnerByUserRef(metric.userRef)}</td>
+              <td>{getOwnerByUserRef(metric.owner)}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
                   ? getDatasourceById(metric.datasource)?.name || "Unknown"

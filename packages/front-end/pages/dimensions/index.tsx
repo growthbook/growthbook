@@ -129,7 +129,7 @@ const DimensionsPage: FC = () => {
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
-                      <td>{getOwnerByUserRef(s.userRef)}</td>
+                      <td>{getOwnerByUserRef(s.owner)}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource?.name}
                       </td>

@@ -42,14 +42,14 @@ export async function postSegments(
     throw new Error("Invalid data source");
   }
 
-  const userRef = {
+  const owner = {
     id: userId,
     name: userName,
     email,
   };
 
   const doc = await SegmentModel.create({
-    userRef,
+    owner,
     datasource,
     userIdType,
     name,

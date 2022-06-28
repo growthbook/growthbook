@@ -17,7 +17,7 @@ const featureSchema = new mongoose.Schema({
   archived: Boolean,
   description: String,
   organization: String,
-  userRef: {
+  owner: {
     id: String,
     name: String,
     email: String,

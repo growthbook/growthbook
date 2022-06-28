@@ -45,8 +45,9 @@ export function getEvenSplit(n: number) {
 }
 
 export function getOwnerByUserRef(userRef: UserRef | undefined) {
-  if (userRef === undefined) return "N/A";
+  if (!userRef) return undefined;
+  if (userRef === undefined) return undefined;
   if (userRef.name) return userRef.name;
   if (userRef.email) return userRef.email;
-  return "N/A";
+  return undefined;
 }

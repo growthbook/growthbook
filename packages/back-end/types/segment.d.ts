@@ -3,7 +3,7 @@ import { UserRef } from "./user";
 export interface SegmentInterface {
   id: string;
   organization: string;
-  userRef: UserRef;
+  owner: UserRef;
   datasource: string;
   userIdType: string;
   name: string;

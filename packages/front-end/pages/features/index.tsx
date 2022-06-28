@@ -257,7 +257,7 @@ export default function FeaturesPage() {
                           </a>
                         </Link>
                       </td>
-                      <td>{getOwnerByUserRef(feature.userRef)}</td>
+                      <td>{getOwnerByUserRef(feature.owner)}</td>
                       <td>
                         <SortedTags tags={feature?.tags || []} />
                       </td>

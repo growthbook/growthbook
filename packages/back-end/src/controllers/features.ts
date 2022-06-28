@@ -114,7 +114,7 @@ export async function postFeatures(
     };
   });
 
-  const userRef = {
+  const owner = {
     id: userId,
     name: userName,
     email,
@@ -123,7 +123,7 @@ export async function postFeatures(
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
-    userRef,
+    owner,
     description: "",
     project: "",
     environmentSettings,
