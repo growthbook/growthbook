@@ -20,8 +20,6 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
-  name?: string;
-  relativeRisk?: number;
 }
 
 export interface SnapshotVariation {
