@@ -101,7 +101,7 @@ export default function ChanceToWinColumn({
         <>
           {percentFormatter.format(chanceToWin)}
           {sigText !== "" && (
-            <Tooltip text={sigText} className="d-block" tipPosition={"top"}>
+            <Tooltip body={sigText} className="d-block" tipPosition={"top"}>
               {" "}
             </Tooltip>
           )}

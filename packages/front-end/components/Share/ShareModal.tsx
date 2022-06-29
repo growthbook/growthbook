@@ -444,7 +444,7 @@ const ShareModal = ({
                               <></>
                             ) : (
                               <span className="text-warning pl-3">
-                                <Tooltip text="This experiment is missing screen shots">
+                                <Tooltip body="This experiment is missing screen shots">
                                   <FiAlertTriangle />
                                 </Tooltip>
                               </span>
