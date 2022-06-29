@@ -86,16 +86,16 @@ const TagsInput: FC<{
         ...styles,
         borderRadius: 4,
         backgroundColor: data.color,
-        color: useDarkText(data.color) ? "#000000" : "#ffffff",
+        color: useDarkText(data.color) ? "#000000" : "#ffffff", // eslint-disable-line
       };
     },
     multiValueLabel: (styles, { data }) => ({
       ...styles,
-      color: useDarkText(data.color) ? "#000000" : "#ffffff",
+      color: useDarkText(data.color) ? "#000000" : "#ffffff", // eslint-disable-line
     }),
     multiValueRemove: (styles, { data }) => ({
       ...styles,
-      color: useDarkText(data.color) ? "#000000" : "#ffffff",
+      color: useDarkText(data.color) ? "#000000" : "#ffffff", // eslint-disable-line
       ":hover": {
         backgroundColor: data.color + "cc",
       },
