@@ -7,8 +7,9 @@ import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
+import { MetricInterface, MetricStats } from "back-end/types/metric";
 
-type UpdatedRow = {
+type CsvRow = {
   date?: string;
   dimension?: string;
   metricName?: string;
@@ -19,6 +20,23 @@ type UpdatedRow = {
   conversionRate?: number;
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
+};
+
+type Variation = {
+  buckets?: { x: number; y: number }[];
+  ci?: [number, number];
+  cr: number;
+  risk?: [number, number];
+  stats?: MetricStats;
+  users: number;
+  value: number;
+};
+
+type Row = {
+  label?: string;
+  metric?: MetricInterface;
+  rowClass?: string;
+  variations?: Variation[];
 };
 
 export default function ResultsDownloadButton({
@@ -38,8 +56,7 @@ export default function ResultsDownloadButton({
 
   const json2csvParser = new Parser();
 
-  const csvRows = [];
-  const rows = [];
+  const csvRows: CsvRow[] = [];
 
   const dimensionName = getDimensionById(dimension);
 
@@ -47,29 +64,28 @@ export default function ResultsDownloadButton({
     results.sort((a, b) => (a.name > b.name ? 1 : b.name > a.name ? -1 : 0));
   }
 
-  results.forEach((result) => {
-    const rowsArr = useMemo<ExperimentTableRow[]>(() => {
-      if (!result || !result.variations || !ready) return [];
-      return metrics
-        .map((m) => {
-          const metric = getMetricById(m);
-          return {
-            label: metric?.name,
-            metric,
-            rowClass: metric?.inverse ? "inverse" : "",
-            variations: result.variations.map((v) => {
-              return v.metrics[m];
-            }),
-          };
-        })
-        .filter((row) => row.metric);
-    }, [results, ready]);
-    rows.push(rowsArr[0]); //TODO: This feels hacky. I need to figure out a better way to do this.
-  });
+  const rows = useMemo<ExperimentTableRow[]>(() => {
+    const rowsArr = [];
+    if (!results || !variations || !ready) return [];
+    results.forEach((result) => {
+      metrics.forEach((m) => {
+        const row: Row = {};
+        const metric = getMetricById(m);
+        (row.label = metric?.name),
+          (row.metric = metric),
+          (row.rowClass = metric?.inverse ? "inverse" : ""),
+          (row.variations = result.variations.map((v) => {
+            return v.metrics[m];
+          })),
+          rowsArr.push(row);
+      });
+    });
+    return rowsArr;
+  }, [results, ready, variations]);
 
   rows.forEach((row, rowIndex) => {
     row.variations.forEach((variation, index) => {
-      const updatedRow: UpdatedRow = {};
+      const updatedRow: CsvRow = {};
       if (dimension === "pre:date") {
         updatedRow.date = results[rowIndex].name;
       } else if (results[rowIndex].name !== "All") {
@@ -78,7 +94,7 @@ export default function ResultsDownloadButton({
       updatedRow.metricName = row.label;
       updatedRow.variantName = variations[index].name;
       const { relativeRisk } = getRisk(index, row);
-      updatedRow.riskOfChoosing = relativeRisk; //TODO: This doesn't look like it should exist when sorting by date. Need to confirm.
+      updatedRow.riskOfChoosing = relativeRisk;
       updatedRow.users = variation.users;
       updatedRow.count = variation.value;
       updatedRow.conversionRate = variation.cr;
@@ -98,7 +114,7 @@ export default function ResultsDownloadButton({
       console.error(e);
       return "";
     }
-  }, []);
+  }, [csv]);
 
   if (!href) return null;
 
