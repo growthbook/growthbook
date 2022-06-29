@@ -68,15 +68,13 @@ export async function getWatchedAudits(
     return [];
   }
 
-  const allWatchedThings = doc.experiments.concat(doc.features);
-
-  return AuditModel.find({
+  const experiments = await AuditModel.find({
     organization,
     "entity.object": {
-      $in: ["experiment", "feature"],
+      $in: "experiment",
     },
     "entity.id": {
-      $in: allWatchedThings,
+      $in: doc.experiments,
     },
     event: {
       $in: [
@@ -84,16 +82,33 @@ export async function getWatchedAudits(
         "experiment.stop",
         "experiment.phase",
         "experiment.results",
-        "feature.publish",
-        "feature.update",
-        "feature.toggle",
       ],
     },
   })
     .sort({
       dateCreated: -1,
     })
-    .limit(options?.limit || 50);
+    .limit(options?.limit || 25);
+
+  const features = await AuditModel.find({
+    organization,
+    "entity.object": {
+      $in: "feature",
+    },
+    "entity.id": {
+      $in: doc.features,
+    },
+    event: {
+      $in: ["feature.publish", "feature.update", "feature.toggle"],
+    },
+  })
+    .sort({
+      dateCreated: -1,
+    })
+    .limit(options?.limit || 25);
+
+  const all = experiments.concat(features);
+  return all;
 }
 
 export function auditDetailsCreate<T>(

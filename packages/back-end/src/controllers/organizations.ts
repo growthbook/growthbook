@@ -219,7 +219,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
     const docs = await getWatchedAudits(userId, org.id, {
-      limit: 50,
+      limit: 25,
     });
 
     if (!docs.length) {

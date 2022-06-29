@@ -245,33 +245,36 @@ export default function FeaturesPage() {
                   let version = feature.revision?.version || 1;
                   if (isDraft) version++;
 
-                return (
-                  <tr key={feature.id} className={feature.archived ? "text-muted" : ""}>
-                    <td data-title="Watching status:" className="watching">
-                      <WatchButton
-                        item={feature.id}
-                        itemType="feature"
-                        type="icon"
-                      />
-                    </td>
-                    <td>
-                      <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : null}>
-                            {feature.id}
-                        </a>
-                      </Link>
-                    </td>
-                    <td>
-                      <SortedTags tags={feature?.tags || []} />
-                    </td>
-                    {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
+                  return (
+                    <tr
+                      key={feature.id}
+                      className={feature.archived ? "text-muted" : ""}
+                    >
+                      <td data-title="Watching status:" className="watching">
+                        <WatchButton
+                          item={feature.id}
+                          itemType="feature"
+                          type="icon"
                         />
                       </td>
+                      <td>
+                        <Link href={`/features/${feature.id}`}>
+                          <a className={feature.archived ? "text-muted" : null}>
+                            {feature.id}
+                          </a>
+                        </Link>
+                      </td>
+                      <td>
+                        <SortedTags tags={feature?.tags || []} />
+                      </td>
+                      {toggleEnvs.map((en) => (
+                        <td key={en.id} className="position-relative">
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={en.id}
+                            mutate={mutate}
+                          />
+                        </td>
                       ))}
                       <td>
                         <ValueDisplay
