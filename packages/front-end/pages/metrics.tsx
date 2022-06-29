@@ -19,56 +19,6 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
-import { isNullUndefinedOrEmpty } from "../services/utils";
-
-interface MetricToolTipCompProps {
-  metric: MetricInterface;
-}
-
-function truncateMetricDescription(metricDescription: string) {
-  if (metricDescription.length < 300) return metricDescription;
-  return `${metricDescription.substring(0, 300)}...`;
-}
-
-const MetricToolTipComp = ({
-  metric,
-}: MetricToolTipCompProps): React.ReactElement => {
-  return (
-    <div className="text-left">
-      {!isNullUndefinedOrEmpty(metric.description) && (
-        <div>
-          <b>Description:</b> {truncateMetricDescription(metric.description)}
-        </div>
-      )}
-      {!isNullUndefinedOrEmpty(metric.type) && (
-        <div>
-          <b>Type:</b> {metric.type}
-        </div>
-      )}
-      {!isNullUndefinedOrEmpty(metric.tags) && metric.tags.length > 0 && (
-        <div>
-          <b>Tags:</b>{" "}
-          <SortedTags tags={Object.values(metric.tags)} color="purple" />
-        </div>
-      )}
-      {!isNullUndefinedOrEmpty(metric.cap) && (
-        <div>
-          <b>Cap:</b> {metric.cap}
-        </div>
-      )}
-      {!isNullUndefinedOrEmpty(metric.conversionDelayHours) && (
-        <div>
-          <b>Conversion Delay Hours:</b> {metric.conversionDelayHours}
-        </div>
-      )}
-      {!isNullUndefinedOrEmpty(metric.conversionWindowHours) && (
-        <div>
-          <b>Conversion Window Hours:</b> {metric.conversionWindowHours}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -216,7 +166,7 @@ const MetricsPage = (): React.ReactElement => {
             Your Metrics{" "}
             <small className="text-muted">
               <Tooltip
-                text=" Metrics define success and failure for your business. Create metrics
+                body=" Metrics define success and failure for your business. Create metrics
         here to use throughout the GrowthBook app."
               />
             </small>
@@ -302,21 +252,13 @@ const MetricsPage = (): React.ReactElement => {
             >
               <td>
                 <Link href={`/metric/${metric.id}`}>
-                  <Tooltip
-                    tipPosition="top"
-                    tipMinWidth="240px"
-                    ToolTipComp={<MetricToolTipComp metric={metric} />}
+                  <a
+                    className={`${
+                      metric.status === "archived" ? "text-muted" : "text-dark"
+                    } font-weight-bold`}
                   >
-                    <a
-                      className={`${
-                        metric.status === "archived"
-                          ? "text-muted"
-                          : "text-dark"
-                      } font-weight-bold`}
-                    >
-                      {metric.name}
-                    </a>
-                  </Tooltip>
+                    {metric.name}
+                  </a>
                 </Link>
               </td>
               <td>{metric.type}</td>

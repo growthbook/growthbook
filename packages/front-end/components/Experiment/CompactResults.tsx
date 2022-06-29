@@ -16,6 +16,7 @@ import {
 import { ExperimentStatus } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import Link from "next/link";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -104,7 +105,13 @@ const CompactResults: FC<{
           renderLabelColumn={(label, metric) => {
             const metricLink = (
               <Link href={`/metric/${metric.id}`}>
-                <a className="text-dark font-weight-bold">{label}</a>
+                <Tooltip
+                  tipPosition="top"
+                  tipMinWidth="240px"
+                  body={<MetricTooltipBody metric={metric} />}
+                >
+                  <a className="text-dark font-weight-bold">{label}</a>
+                </Tooltip>
               </Link>
             );
             if (!metric.inverse) {
@@ -115,7 +122,7 @@ const CompactResults: FC<{
               <>
                 {metricLink}{" "}
                 <Tooltip
-                  text="metric is inverse, lower is better"
+                  body="metric is inverse, lower is better"
                   className="inverse-indicator"
                 >
                   <MdSwapCalls />
