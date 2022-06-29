@@ -85,7 +85,7 @@ export function HistoryTableRow({
     <>
       <tr
         onClick={() => {
-          if (event.details) setOpen(!open);
+          if (event.details && !isActivity) setOpen(!open);
         }}
         style={{ cursor: event.details ? "pointer" : "" }}
         className={open ? "highlight" : event.details ? "hover-highlight" : ""}
@@ -94,20 +94,28 @@ export function HistoryTableRow({
         {isActivity && (
           <>
             <td>{event.entity.object}</td>
-            <Link
-              href={
-                experimentName
-                  ? `/experiment/${event.entity.id}`
-                  : `/features/${event.entity.id}`
-              }
-            >
-              <td style={{ color: "blue" }}>{itemName}</td>
-            </Link>
+            <td>
+              <a
+                href={
+                  experimentName
+                    ? `/experiment/${event.entity.id}`
+                    : `/features/${event.entity.id}`
+                }
+              >
+                {" "}
+                {itemName}{" "}
+              </a>
+            </td>
           </>
         )}
         <td>{event.user.name || event.user.email}</td>
         <td>{event.event}</td>
-        <td style={{ width: 30 }}>
+        <td
+          onClick={() => {
+            if (event.details && isActivity) setOpen(!open);
+          }}
+          style={{ width: 30 }}
+        >
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
         </td>
       </tr>

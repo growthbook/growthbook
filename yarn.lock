@@ -3296,6 +3296,11 @@ ace-builds@^1.4.14, ace-builds@^1.5.3:
   resolved "https://registry.yarnpkg.com/ace-builds/-/ace-builds-1.5.3.tgz#05f81d3464a9ea19696e5e6fd0f924d37dab442f"
   integrity sha512-WN5BKR2aTSuBmisO8jo3Fytk6sOmJGki82v/Boeic81IgYN8pFHNkXq2anDF0XkmfDWMqLbRoW9sjc/GtKzQbQ==
 
+ace-builds@^1.7.0:
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/ace-builds/-/ace-builds-1.7.0.tgz#2a3c163cbbea817985ea4346dde187a47cbdd211"
+  integrity sha512-5sruz5avLYUGRH5iWbpM4vLnAhHEoryviLP0J2uxKd4I2VQ9ImFCJDehSpiukjP745x2ypg/NIfLoWpvmBLDWg==
+
 acorn-globals@^6.0.0:
   version "6.0.0"
   resolved "https://registry.yarnpkg.com/acorn-globals/-/acorn-globals-6.0.0.tgz#46cdd39f0f8ff08a876619b55f5ac8a6dc770b45"

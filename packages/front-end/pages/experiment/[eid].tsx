@@ -55,6 +55,7 @@ import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
+import useUser from "../../hooks/useUser";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -83,6 +84,8 @@ const ExperimentPage = (): ReactElement => {
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${eid}/watchers`);
+
+  const { users } = useUser();
 
   useSwitchOrg(data?.experiment?.organization);
 
@@ -795,7 +798,7 @@ const ExperimentPage = (): ReactElement => {
                   allUserIds.map((id) => (
                     <tr key={id}>
                       <td colSpan={4} className="bg-light p-0.5">
-                        {id}
+                        {users.has(id) ? users.get(id).name : id}
                       </td>
                     </tr>
                   ))}
