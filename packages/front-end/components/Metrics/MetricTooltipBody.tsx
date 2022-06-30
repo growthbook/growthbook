@@ -30,7 +30,7 @@ const MetricTooltipBody = ({
       <MetricTooltipBodyRow
         property={metric.tags}
         label={"Tags:"}
-        body={<SortedTags tags={metric.tags} color="purple" />}
+        body={<SortedTags tags={metric.tags} />}
       />
       <MetricTooltipBodyRow
         property={metric.cap}
