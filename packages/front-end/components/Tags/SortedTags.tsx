@@ -3,7 +3,6 @@ import Tag from "./Tag";
 
 export interface Props {
   tags?: string[];
-  color?: string;
 }
 
 export default function SortedTags({ tags }: Props) {

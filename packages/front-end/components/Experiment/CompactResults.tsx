@@ -105,12 +105,10 @@ const CompactResults: FC<{
           renderLabelColumn={(label, metric) => {
             const metricLink = (
               <Tooltip
-                tipTriggerPosition="position-fixed"
+                tipTriggerPosition="fixed"
                 tipPosition="right"
                 tipMinWidth="240px"
                 theme="white"
-                bgColor="white"
-                textColor="black"
                 body={<MetricTooltipBody metric={metric} />}
               >
                 <Link href={`/metric/${metric.id}`}>
