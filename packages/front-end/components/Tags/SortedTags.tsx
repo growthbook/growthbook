@@ -6,7 +6,7 @@ export interface Props {
   color?: string;
 }
 
-export default function SortedTags({ tags, color }: Props) {
+export default function SortedTags({ tags }: Props) {
   const { tags: all } = useDefinitions();
 
   if (!tags || !tags.length) return null;
@@ -21,7 +21,7 @@ export default function SortedTags({ tags, color }: Props) {
   return (
     <>
       {sorted.map((tag) => (
-        <Tag tag={tag} color={color} key={tag} />
+        <Tag tag={tag} key={tag} />
       ))}
     </>
   );

@@ -104,15 +104,19 @@ const CompactResults: FC<{
           users={users}
           renderLabelColumn={(label, metric) => {
             const metricLink = (
-              <Link href={`/metric/${metric.id}`}>
-                <Tooltip
-                  tipPosition="top"
-                  tipMinWidth="240px"
-                  body={<MetricTooltipBody metric={metric} />}
-                >
+              <Tooltip
+                tipTriggerPosition="position-fixed"
+                tipPosition="right"
+                tipMinWidth="240px"
+                theme="white"
+                bgColor="white"
+                textColor="black"
+                body={<MetricTooltipBody metric={metric} />}
+              >
+                <Link href={`/metric/${metric.id}`}>
                   <a className="text-dark font-weight-bold">{label}</a>
-                </Tooltip>
-              </Link>
+                </Link>
+              </Tooltip>
             );
             if (!metric.inverse) {
               return metricLink;

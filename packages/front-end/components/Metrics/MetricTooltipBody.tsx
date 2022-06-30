@@ -17,7 +17,6 @@ const MetricTooltipBody = ({
 
   return (
     <div className="text-left">
-      {console.log(metric)}
       <MetricTooltipBodyRow
         property={metric.description}
         label={"Description:"}

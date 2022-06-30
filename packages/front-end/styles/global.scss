@@ -541,11 +541,46 @@ pre {
 
 .tiptrigger {
   display: inline-block;
-  position: relative;
   .tooltip {
     display: none;
     font-family: inherit;
     opacity: 0;
+
+    &.bs-tooltip-top {
+      bottom: 1rem;
+      left: 50%;
+      transform: translate(-50%, 0);
+
+      .arrow::before {
+        border-top-color: $blue;
+      }
+    }
+    &.bs-tooltip-top.white {
+      .arrow::before {
+        border-top-color: white;
+      }
+    }
+
+    &.bs-tooltip-right {
+      top: 50%;
+      left: 100%;
+      transform: translate(0, -50%);
+
+      .arrow {
+        top: calc(50% - 0.4rem);
+        left: 0;
+        margin-left: 0;
+      }
+
+      .arrow::before {
+        border-right-color: $blue;
+      }
+    }
+    &.bs-tooltip-right.white {
+      .arrow::before {
+        border-right-color: lightgray;
+      }
+    }
 
     &.bs-tooltip-bottom {
       top: 100%;
@@ -556,6 +591,12 @@ pre {
         border-bottom-color: $blue;
       }
     }
+    &.bs-tooltip-bottom.white {
+      .arrow::before {
+        border-bottom-color: white;
+      }
+    }
+
     &.bs-tooltip-left {
       .arrow {
         display: none;
@@ -564,6 +605,12 @@ pre {
         border-left-color: $blue;
       }
     }
+    &.bs-tooltip-left.white {
+      .arrow::before {
+        border-left-color: white;
+      }
+    }
+
     .arrow {
       left: 50%;
       margin-left: -0.4rem;
@@ -574,16 +621,6 @@ pre {
       padding: 0.7em 1em;
       background-color: $blue;
       box-shadow: 1px 1px 4px rgb(0 0 0 / 40%);
-    }
-
-    &.bs-tooltip-top {
-      bottom: 1rem;
-      left: 50%;
-      transform: translate(-50%, 0);
-
-      .arrow::before {
-        border-top-color: $blue;
-      }
     }
   }
   &:hover .tooltip {
