@@ -5,7 +5,7 @@ import {
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { ExperimentTableRow, getRisk } from "../../services/experiments";
+import { getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 
@@ -60,53 +60,58 @@ export default function ResultsDownloadButton({
 
   const dimensionName = getDimensionById(dimension);
 
-  if (dimension === "pre:date") {
-    results.sort((a, b) => (a.name > b.name ? 1 : b.name > a.name ? -1 : 0));
-  }
-
-  const rows = useMemo<ExperimentTableRow[]>(() => {
-    const rowsArr = [];
+  const getRows = () => {
+    const rows = [];
     if (!results || !variations || !ready) return [];
+
     results.forEach((result) => {
       metrics.forEach((m) => {
         const row: Row = {};
         const metric = getMetricById(m);
-        (row.label = metric?.name),
-          (row.metric = metric),
-          (row.rowClass = metric?.inverse ? "inverse" : ""),
-          (row.variations = result.variations.map((v) => {
-            return v.metrics[m];
-          })),
-          rowsArr.push(row);
+        row.label = metric?.name;
+        row.metric = metric;
+        row.rowClass = metric?.inverse ? "inverse" : "";
+        row.variations = result.variations.map((v) => {
+          return v.metrics[m];
+        });
+        rows.push(row);
       });
     });
-    return rowsArr;
-  }, [results, ready, variations]);
 
-  rows.forEach((row, rowIndex) => {
-    row.variations.forEach((variation, index) => {
-      const updatedRow: CsvRow = {};
-      if (dimension === "pre:date") {
-        updatedRow.date = results[rowIndex].name;
-      } else if (results[rowIndex].name !== "All") {
-        updatedRow[dimensionName.name] = results[rowIndex].name;
-      }
-      updatedRow.metricName = row.label;
-      updatedRow.variantName = variations[index].name;
-      const { relativeRisk } = getRisk(index, row);
-      updatedRow.riskOfChoosing = relativeRisk;
-      updatedRow.users = variation.users;
-      updatedRow.count = variation.value;
-      updatedRow.conversionRate = variation.cr;
-      updatedRow.chanceToBeatControl = variation.chanceToWin || null;
-      updatedRow.percentChange = variation.expected || null;
-      csvRows.push(updatedRow);
+    rows.forEach((row, rowIndex) => {
+      row.variations.forEach((variation, index) => {
+        const updatedRow: CsvRow = {};
+        if (dimension === "pre:date") {
+          updatedRow.date = results[rowIndex].name;
+        } else if (results[rowIndex].name !== "All") {
+          updatedRow[dimensionName.name] = results[rowIndex].name;
+        }
+        updatedRow.metricName = row.label;
+        updatedRow.variantName = variations[index].name;
+        const { relativeRisk } = getRisk(index, row);
+        updatedRow.riskOfChoosing = relativeRisk;
+        updatedRow.users = variation.users;
+        updatedRow.count = variation.value;
+        updatedRow.conversionRate = variation.cr;
+        updatedRow.chanceToBeatControl = variation.chanceToWin || null;
+        updatedRow.percentChange = variation.expected || null;
+        csvRows.push(updatedRow);
+      });
     });
-  });
 
-  const csv = json2csvParser.parse(csvRows);
+    return csvRows;
+  };
 
   const href = useMemo(() => {
+    const rows = getRows();
+
+    if (dimension === "pre:date") {
+      // Sort the rows by row.date to make csv cleaner
+      rows.sort((a, b) => (a.date > b.date ? 1 : b.date > a.date ? -1 : 0));
+    }
+
+    const csv = json2csvParser.parse(rows);
+
     try {
       const blob = new Blob([csv], { type: "text/csv" });
       return window.URL.createObjectURL(blob);
@@ -114,7 +119,7 @@ export default function ResultsDownloadButton({
       console.error(e);
       return "";
     }
-  }, [csv]);
+  }, [results, ready, variations, dimension]);
 
   if (!href) return null;
 
@@ -123,7 +128,9 @@ export default function ResultsDownloadButton({
       type="button"
       className="dropdown-item py-2"
       href={href}
-      download={`${trackingKey}.csv`}
+      download={`${trackingKey}${
+        dimensionName?.name ? `-${dimensionName.name}` : ""
+      }.csv`}
     >
       <FaFileExport className="mr-2" /> Export CSV
     </a>
