@@ -141,7 +141,7 @@ You can test out different variations by deleting the visitor_id from localStora
 ## 5. Analyze Results
 
 Before you can analyze the results, you will need to connect GrowthBook to the event tracking and a data source. In the
-trackingCallback in `src/index.js`, instead of doing a `console.log`, you could use Mixpanel, Rudderstack, Jitsu,
+trackingCallback in `src/index.js`, instead of doing a `console.log`, you could use [Mixpanel](/guide/mixpanel), Rudderstack, Jitsu,
 Segment or another event tracking system.
 
 Then, throughout your app, you can similarly track events when users do something you care about, like sign up, convert, or buy something.
@@ -154,7 +154,7 @@ and show you the results. Follow the directions for the data source you're using
 There's so much more you can do with GrowthBook beyond a simple on/off A/B test...
 
 - Add complex targeting and override rules for your features
-- Set up webhooks to keep a cached copy of features in your database
-- Use the useFeature React hook for more control in your code
-- Install the Chrome DevTools Extension to test different variations and scenarios
-- Read about the powerful statistics engine that is used to analyze experiment results.
+- Set up [webhooks](/app/webhooks) to keep a cached copy of features in your database
+- Use the [useFeature](/lib/react#usefeature-hook) React hook for more control in your code
+- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to test different variations and scenarios
+- Read about the [powerful statistics engine](/statistics) that is used to analyze experiment results.
