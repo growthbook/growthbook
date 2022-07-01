@@ -5,6 +5,7 @@ import SortedTags from "../Tags/SortedTags";
 const RightRailSectionGroup: FC<{
   title?: string;
   type?:
+    | "owner"
     | "badge"
     | "code"
     | "list"

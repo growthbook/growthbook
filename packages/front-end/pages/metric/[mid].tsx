@@ -50,7 +50,7 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
-import { getOwnerByUserRef } from "../../services/utils";
+import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -68,7 +68,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
-  // const [editOwner, setEditOwner] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
   const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
@@ -257,6 +257,19 @@ const MetricPage: FC = () => {
                 tags,
               }),
             });
+          }}
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={metric.owner}
+          save={async (owner) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+            mutate();
           }}
         />
       )}
@@ -644,11 +657,11 @@ const MetricPage: FC = () => {
           <div className="appbox p-3" style={{ marginTop: "7px" }}>
             <RightRailSection
               title="Owner"
-              open={() => setEditModalOpen(0)}
+              open={() => setEditOwnerModal(true)}
               canOpen={canEdit}
             >
               <RightRailSectionGroup type="custom">
-                {getOwnerByUserRef(metric.owner)}
+                {metric.owner}
               </RightRailSectionGroup>
             </RightRailSection>
 

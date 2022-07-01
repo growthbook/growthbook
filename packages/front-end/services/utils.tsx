@@ -1,5 +1,4 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
-import { UserRef } from "back-end/types/user";
 import React from "react";
 
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
@@ -42,12 +41,4 @@ export function getEvenSplit(n: number) {
   }
 
   return weights;
-}
-
-export function getOwnerByUserRef(userRef: UserRef | undefined) {
-  if (!userRef) return undefined;
-  if (userRef === undefined) return undefined;
-  if (userRef.name) return userRef.name;
-  if (userRef.email) return userRef.email;
-  return undefined;
 }

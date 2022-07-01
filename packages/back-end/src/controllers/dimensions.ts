@@ -11,7 +11,6 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { getOrgFromReq } from "../services/organizations";
-import { UserRef } from "../../types/user";
 
 export async function getAllDimensions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -27,7 +26,7 @@ export async function postDimensions(
 ) {
   req.checkPermissions("createDimensions");
 
-  const { org, userId, email, userName } = getOrgFromReq(req);
+  const { org, userName } = getOrgFromReq(req);
   const { datasource, name, sql, userIdType } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
@@ -35,16 +34,10 @@ export async function postDimensions(
     throw new Error("Invalid data source");
   }
 
-  const owner: UserRef = {
-    id: userId,
-    name: userName,
-    email,
-  };
-
   const doc = await createDimension({
     datasource,
     userIdType,
-    owner,
+    owner: userName,
     name,
     sql,
     id: uniqid("dim_"),
@@ -72,7 +65,7 @@ export async function putDimension(
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, owner } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -84,6 +77,7 @@ export async function putDimension(
     userIdType,
     name,
     sql,
+    owner,
     dateUpdated: new Date(),
   });
 

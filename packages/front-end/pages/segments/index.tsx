@@ -13,7 +13,6 @@ import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { getOwnerByUserRef } from "../../services/utils";
 
 const SegmentPage: FC = () => {
   const {
@@ -251,7 +250,7 @@ const SegmentPage: FC = () => {
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
-                      <td>{getOwnerByUserRef(s.owner)}</td>
+                      <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource?.name}
                       </td>

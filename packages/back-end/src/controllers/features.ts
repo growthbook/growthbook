@@ -114,16 +114,10 @@ export async function postFeatures(
     };
   });
 
-  const owner = {
-    id: userId,
-    name: userName,
-    email,
-  };
-
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
-    owner,
+    owner: userName,
     description: "",
     project: "",
     environmentSettings,
@@ -467,6 +461,7 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "owner",
   ];
 
   if (

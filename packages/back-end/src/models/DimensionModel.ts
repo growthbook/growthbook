@@ -8,11 +8,7 @@ const dimensionSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
-  owner: {
-    id: String,
-    name: String,
-    email: String,
-  },
+  owner: String,
   datasource: String,
   userIdType: String,
   name: String,

@@ -1,9 +1,7 @@
-import { UserRef } from "./user";
-
 export interface DimensionInterface {
   id: string;
   organization: string;
-  owner: UserRef;
+  owner: string;
   datasource: string;
   userIdType: string;
   name: string;

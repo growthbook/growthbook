@@ -38,6 +38,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
 import DiscussionThread from "../../components/DiscussionThread";
+import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function FeaturePage() {
   } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -94,6 +96,19 @@ export default function FeaturePage() {
           close={() => setEdit(false)}
           feature={data.feature}
           mutate={mutate}
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={data.feature.owner}
+          save={async (owner) => {
+            await apiCall(`/feature/${data.feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+            mutate();
+          }}
         />
       )}
       {ruleModal !== null && (
@@ -272,6 +287,20 @@ export default function FeaturePage() {
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{fid}</h1>
+      </div>
+
+      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
+        <div className="col-auto">
+          Owner: {data.feature.owner ? data.feature.owner : "None"}
+          {permissions.createFeatures && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>

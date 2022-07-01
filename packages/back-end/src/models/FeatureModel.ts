@@ -17,11 +17,7 @@ const featureSchema = new mongoose.Schema({
   archived: Boolean,
   description: String,
   organization: String,
-  owner: {
-    id: String,
-    name: String,
-    email: String,
-  },
+  owner: String,
   project: String,
   dateCreated: Date,
   dateUpdated: Date,
