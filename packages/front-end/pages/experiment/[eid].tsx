@@ -162,7 +162,11 @@ const ExperimentPage = (): ReactElement => {
 
   const datasource = getDatasourceById(experiment.datasource);
 
-  const allUserIds = watcherIds?.data?.userIds;
+  // Get name or email of all active users watching this experiment
+  const usersWatching = (watcherIds?.data?.userIds || [])
+    .map((id) => users.get(id))
+    .filter(Boolean)
+    .map((u) => u.name || u.email);
 
   return (
     <div className={wrapClasses}>
@@ -763,15 +767,16 @@ const ExperimentPage = (): ReactElement => {
                   </div>
                 </RightRailSection>
               )}
-              <hr />
-              <RightRailSection title="Watcher List">
-                <RightRailSectionGroup
-                  title={`Watchers - ${allUserIds?.length}`}
-                  type="list"
-                >
-                  {allUserIds?.map((id) => users.get(id)?.name || id)}
-                </RightRailSectionGroup>
-              </RightRailSection>
+              {usersWatching.length > 0 && (
+                <>
+                  <hr />
+                  <RightRailSection title="Watching">
+                    <RightRailSectionGroup type="list">
+                      {usersWatching}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                </>
+              )}
             </div>
           </div>
         </Tab>
