@@ -233,6 +233,7 @@ export async function postImageUploadUrl(
   const { filetype } = req.params;
 
   const now = new Date();
+  console.log("filetype", filetype);
   const { uploadURL, fileURL } = await getFileUploadURL(
     filetype,
     `${org.id}/${now.toISOString().substr(0, 7)}/`

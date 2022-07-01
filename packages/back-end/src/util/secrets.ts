@@ -10,8 +10,12 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export const UPLOAD_METHOD =
-  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local";
+export let UPLOAD_METHOD = //TODO: Come back and update this to const. Just did this for testing.
+  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local"; //TODO: Need to update to support Google Cloud Storage
+
+UPLOAD_METHOD = "google-cloud";
+
+console.log("UPLOAD_METHOD", UPLOAD_METHOD);
 
 export const MONGODB_URI =
   process.env.MONGODB_URI ??

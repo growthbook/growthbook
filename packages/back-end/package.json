@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@google-cloud/bigquery": "^5.5.0",
+    "@google-cloud/storage": "^6.2.2",
     "@slack/web-api": "^5.14.0",
     "agenda": "^4.2.1",
     "asn1.js": "^5.4.1",
