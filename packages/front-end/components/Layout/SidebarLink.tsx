@@ -31,6 +31,12 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, admin } = useUser();
   const router = useRouter();
 
+  const path = router.route.substr(1);
+  const selected = props.path.test(path);
+  const showSubMenuIcons = true;
+
+  const [open, setOpen] = useState(selected);
+
   if (props.superAdmin && !admin) return null;
   if (props.permissions) {
     for (let i = 0; i < props.permissions.length; i++) {
@@ -46,12 +52,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   if (props.selfHostedOnly && isCloud()) {
     return null;
   }
-
-  const path = router.route.substr(1);
-  const selected = props.path.test(path);
-  const showSubMenuIcons = true;
-
-  const [open, setOpen] = useState(selected);
 
   return (
     <>

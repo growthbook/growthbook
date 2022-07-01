@@ -20,7 +20,7 @@ export default function Tag({ tag, color, description }: Props) {
       title={displayTitle}
       style={{
         backgroundColor: displayColor,
-        color: useDarkText(displayColor) ? "#000000" : "#ffffff",
+        color: isLight(displayColor) ? "#000000" : "#ffffff",
         cursor: "default",
       }}
     >
@@ -29,7 +29,7 @@ export default function Tag({ tag, color, description }: Props) {
   );
 }
 
-export function useDarkText(bgColor: string): boolean {
+export function isLight(bgColor: string): boolean {
   if (!bgColor) return true;
   const color = bgColor.charAt(0) === "#" ? bgColor.substring(1, 7) : bgColor;
   const r = parseInt(color.substring(0, 2), 16); // hexToR
