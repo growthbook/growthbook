@@ -98,7 +98,7 @@ const SRMWarning: FC<{
       <div className="alert alert-danger">
         <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>. We
         expected a <code>{formatTrafficSplit(expected, 1)}</code> split, but
-        obversed a <code>{formatTrafficSplit(observed, 1)}</code> split (p-value
+        obsersed a <code>{formatTrafficSplit(observed, 1)}</code> split (p-value
         = <code>{srm}</code>). There is likely a bug in the implementation.{" "}
         <a
           href="#"

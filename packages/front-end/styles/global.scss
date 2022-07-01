@@ -766,6 +766,9 @@ pre {
   input:checked + label {
     background: $purple;
   }
+  &.toggle-featureValue input:checked + label {
+    background: $blue;
+  }
 
   label:active:after {
     width: 30px;

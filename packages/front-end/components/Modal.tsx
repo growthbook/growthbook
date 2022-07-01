@@ -21,6 +21,7 @@ type ModalProps = {
   close?: () => void;
   submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
+  successMessage?: string;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -41,9 +42,11 @@ const Modal: FC<ModalProps> = ({
   solidOverlay = false,
   error: externalError,
   secondaryCTA,
+  successMessage,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     setError(externalError);
@@ -122,7 +125,11 @@ const Modal: FC<ModalProps> = ({
         ref={bodyRef}
         style={overflowAuto ? { overflowY: "auto" } : {}}
       >
-        {children}
+        {isSuccess ? (
+          <div className="alert alert-success">{successMessage}</div>
+        ) : (
+          children
+        )}
       </div>
       {submit || close ? (
         <div className="modal-footer">
@@ -136,7 +143,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          {submit ? (
+          {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
               type="submit"
@@ -156,7 +163,7 @@ const Modal: FC<ModalProps> = ({
                 close();
               }}
             >
-              {closeCta}
+              {isSuccess && successMessage ? "Close" : closeCta}
             </button>
           )}
         </div>
@@ -191,7 +198,7 @@ const Modal: FC<ModalProps> = ({
             : null
         }
       >
-        {submit ? (
+        {submit && !isSuccess ? (
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -200,10 +207,12 @@ const Modal: FC<ModalProps> = ({
               setLoading(true);
               try {
                 await submit();
-                if (close && autoCloseOnSubmit) {
+
+                setLoading(false);
+                if (successMessage) {
+                  setIsSuccess(true);
+                } else if (close && autoCloseOnSubmit) {
                   close();
-                } else {
-                  setLoading(false);
                 }
               } catch (e) {
                 setError(e.message);

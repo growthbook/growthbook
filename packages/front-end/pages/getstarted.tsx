@@ -6,7 +6,7 @@ import useApi from "../hooks/useApi";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { useFeaturesList } from "../services/features";
 
-const getStartedPage = (): React.ReactElement => {
+const GetStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();
 
   const {
@@ -48,4 +48,4 @@ const getStartedPage = (): React.ReactElement => {
   );
 };
 
-export default getStartedPage;
+export default GetStartedPage;

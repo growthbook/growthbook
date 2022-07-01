@@ -184,6 +184,7 @@ export default function FeatureModal({ close, onSuccess }: Props) {
                   environmentSettings[env.id].enabled = on;
                   form.setValue("environmentSettings", environmentSettings);
                 }}
+                type="environment"
               />
             </div>
           </div>
@@ -215,16 +216,18 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           } else if (rule.type === "experiment") {
             const otherVal = getDefaultVariationValue(defaultValue);
             form.setValue("defaultValue", otherVal);
-
+            form.setValue("rule.coverage", 1);
             if (val === "boolean") {
               form.setValue("rule.values", [
                 {
                   value: otherVal,
                   weight: 0.5,
+                  name: "",
                 },
                 {
                   value: defaultValue,
                   weight: 0.5,
+                  name: "",
                 },
               ]);
             } else {

@@ -1,0 +1,27 @@
+@import "../../styles/colors.scss";
+
+.variationSplitHeader {
+  th {
+    background-color: #f3f3f3;
+  }
+}
+.colorMarker {
+  width: 6px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.percentInput {
+  width: 6em;
+}
+.percentInputWrap {
+  span {
+    position: absolute;
+    right: 26px;
+    top: 7px;
+    z-index: 10000;
+    color: $gray-600;
+  }
+}

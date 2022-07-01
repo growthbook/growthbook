@@ -76,6 +76,7 @@
     "@types/react-paginate": "^7.1.1",
     "@types/react-syntax-highlighter": "^11.0.4",
     "@types/react-textarea-autosize": "4.3.5",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "sass": "^1.26.5",
     "typescript": "4.3.5"
   },

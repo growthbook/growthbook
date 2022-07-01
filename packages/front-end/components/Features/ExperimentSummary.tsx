@@ -1,20 +1,16 @@
-import {
-  ExperimentRule,
-  ExperimentValue,
-  FeatureInterface,
-  FeatureValueType,
-} from "back-end/types/feature";
+import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useState } from "react";
+import React, { useState } from "react";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import {
   getExperimentDefinitionFromFeature,
-  getTotalVariationWeight,
+  getVariationColor,
 } from "../../services/features";
 import Modal from "../Modal";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -22,28 +18,28 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function ExperimentSummary({
-  values,
-  type,
-  hashAttribute,
-  trackingKey,
+  rule,
   experiment,
   feature,
-  expRule,
 }: {
-  values: ExperimentValue[];
-  type: FeatureValueType;
-  hashAttribute: string;
-  trackingKey: string;
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
-  expRule: ExperimentRule;
+  rule: ExperimentRule;
 }) {
-  const totalPercent = getTotalVariationWeight(values.map((v) => v.weight));
+  const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
+  const type = feature.valueType;
+
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
-  const expDefinition = getExperimentDefinitionFromFeature(feature, expRule);
+  const expDefinition = getExperimentDefinitionFromFeature(feature, rule);
+
+  const hasNamespace = namespace && namespace.enabled;
+  const namespaceRange = hasNamespace
+    ? namespace.range[1] - namespace.range[0]
+    : 1;
+  const effectiveCoverage = namespaceRange * coverage;
 
   return (
     <div>
@@ -100,88 +96,98 @@ export default function ExperimentSummary({
           {" "}
           users by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {hashAttribute}
+            {hashAttribute || ""}
           </span>
-          {expRule?.namespace && expRule?.namespace?.enabled && (
+          {hasNamespace && (
             <>
               {" "}
-              <span>and include </span>
+              <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(
-                  expRule.namespace.range[1] - expRule.namespace.range[0]
-                )}
-              </span>{" "}
-              <span>of the namespace </span>
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {expRule.namespace.name}
+                {namespace.name}
               </span>
             </>
           )}
         </div>
       </div>
+      <div className="mb-3 row">
+        <div className="col-auto">
+          <strong>INCLUDE</strong>
+        </div>
+        <div className="col-auto">
+          <span className="mr-1 border px-2 py-1 bg-light rounded">
+            {percentFormatter.format(effectiveCoverage)}
+          </span>{" "}
+          of users in the experiment
+          {hasNamespace && (
+            <>
+              <span> (</span>
+              <span className="border px-2 py-1 bg-light rounded">
+                {percentFormatter.format(namespaceRange)}
+              </span>{" "}
+              of the namespace and{" "}
+              <span className="border px-2 py-1 bg-light rounded">
+                {percentFormatter.format(coverage)}
+              </span>
+              <span> exposure)</span>
+            </>
+          )}
+        </div>
+      </div>
       <strong>SERVE</strong>
+
       <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
           {values.map((r, j) => (
             <tr key={j}>
               <td
-                className="text-muted"
+                className="text-muted position-relative"
                 style={{ fontSize: "0.9em", width: 25 }}
               >
+                <div
+                  style={{
+                    width: "6px",
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    backgroundColor: getVariationColor(j),
+                  }}
+                />
                 {j}.
               </td>
               <td>
                 <ValueDisplay value={r.value} type={type} />
               </td>
+              <td>{r?.name}</td>
               <td>
                 <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
+                  <div
+                    style={{
+                      width: "4em",
+                      maxWidth: "4em",
+                      margin: "0 0 0 auto",
+                    }}
+                  >
                     {percentFormatter.format(r.weight)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      className="progress d-none d-md-flex"
-                      style={{
-                        minWidth: 150,
-                      }}
-                    >
-                      <div
-                        className="progress-bar bg-info"
-                        style={{
-                          width: r.weight * 100 + "%",
-                        }}
-                      />
-                    </div>
                   </div>
                 </div>
               </td>
             </tr>
           ))}
-          {totalPercent < 0.999 && (
-            <tr>
-              <td colSpan={2}>
-                <em className="text-muted">unallocated, skip rule</em>
-              </td>
-              <td>
-                <div className="d-flex">
-                  <div style={{ width: "4em", maxWidth: "4em" }}>
-                    {percentFormatter.format(1 - totalPercent)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="progress">
-                      <div
-                        className="progress-bar"
-                        style={{
-                          width: (1 - totalPercent) * 100 + "%",
-                          backgroundColor: "#ccc",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td colSpan={4}>
+              <ExperimentSplitVisual
+                values={values}
+                coverage={effectiveCoverage}
+                label="Traffic split"
+                unallocated="Not included (skips this rule)"
+                type={type}
+                showValues={false}
+                stackLeft={true}
+                showPercentages={true}
+              />
+            </td>
+          </tr>
         </tbody>
       </table>
       <div className="row align-items-center">
@@ -190,9 +196,9 @@ export default function ExperimentSummary({
         </div>
         <div className="col">
           {" "}
-          the split with the key{" "}
+          the result using the key{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {trackingKey}
+            {trackingKey || feature.id}
           </span>{" "}
         </div>
         <div className="col-auto">
