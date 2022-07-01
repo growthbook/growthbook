@@ -767,15 +767,10 @@ const ExperimentPage = (): ReactElement => {
               <RightRailSection title="Watcher List">
                 <RightRailSectionGroup
                   title={`Watchers - ${allUserIds?.length}`}
-                  empty=""
-                ></RightRailSectionGroup>
-                {allUserIds?.map((id) => (
-                  <ul key={id}>
-                    <li className="bg-light p-0.5">
-                      {users.has(id) ? users.get(id).name : id}
-                    </li>
-                  </ul>
-                ))}
+                  type="list"
+                >
+                  {allUserIds?.map((id) => users.get(id)?.name || id)}
+                </RightRailSectionGroup>
               </RightRailSection>
             </div>
           </div>

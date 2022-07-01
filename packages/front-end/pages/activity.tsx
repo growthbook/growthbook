@@ -50,6 +50,11 @@ const Activity: FC = () => {
               itemName={
                 nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
               }
+              url={
+                event.entity.object === "feature"
+                  ? `/features/${event.entity.id}`
+                  : `/${event.entity.object}/${event.entity.id}`
+              }
             />
           ))}
         </tbody>

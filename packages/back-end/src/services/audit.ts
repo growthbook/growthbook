@@ -63,12 +63,12 @@ export async function getWatchedAudits(userId: string, organization: string) {
   if (!doc) {
     return [];
   }
+  const startTime = new Date();
+  startTime.setDate(startTime.getDate() - 7);
 
   const experiments = await AuditModel.find({
     organization,
-    "entity.object": {
-      $in: "experiment",
-    },
+    "entity.object": "experiment",
     "entity.id": {
       $in: doc.experiments,
     },
@@ -81,7 +81,7 @@ export async function getWatchedAudits(userId: string, organization: string) {
       ],
     },
     dateCreated: {
-      $gte: new Date(new Date().getTime() - 7 * 60 * 60 * 24 * 1000),
+      $gte: startTime,
     },
   }).sort({
     dateCreated: -1,
@@ -89,9 +89,7 @@ export async function getWatchedAudits(userId: string, organization: string) {
 
   const features = await AuditModel.find({
     organization,
-    "entity.object": {
-      $in: "feature",
-    },
+    "entity.object": "feature",
     "entity.id": {
       $in: doc.features,
     },
@@ -99,7 +97,7 @@ export async function getWatchedAudits(userId: string, organization: string) {
       $in: ["feature.publish", "feature.update", "feature.toggle"],
     },
     dateCreated: {
-      $gte: new Date(new Date().getTime() - 7 * 60 * 60 * 24 * 1000),
+      $gte: startTime,
     },
   }).sort({
     dateCreated: -1,

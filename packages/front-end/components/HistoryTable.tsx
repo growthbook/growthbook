@@ -70,12 +70,14 @@ export function HistoryTableRow({
   setOpen,
   isActivity = false,
   itemName = "",
+  url = "",
 }: {
   event: AuditInterface;
   open: boolean;
   setOpen: (open: boolean) => void;
   isActivity?: boolean;
   itemName?: string;
+  url?: string;
 }) {
   itemName = itemName || event.entity.id;
   return (
@@ -92,13 +94,7 @@ export function HistoryTableRow({
           <>
             <td>{event.entity.object}</td>
             <td>
-              <Link
-                href={
-                  event.entity.object === "experiment"
-                    ? `/experiment/${event.entity.id}`
-                    : `/features/${event.entity.id}`
-                }
-              >
+              <Link href={url}>
                 <a>{itemName}</a>
               </Link>
             </td>
