@@ -55,11 +55,7 @@ export async function findByEntityParent(
   );
 }
 
-export async function getWatchedAudits(
-  userId: string,
-  organization: string,
-  options?: QueryOptions
-) {
+export async function getWatchedAudits(userId: string, organization: string) {
   const doc = await WatchModel.findOne({
     userId,
     organization,
@@ -84,11 +80,12 @@ export async function getWatchedAudits(
         "experiment.results",
       ],
     },
-  })
-    .sort({
-      dateCreated: -1,
-    })
-    .limit(options?.limit || 25);
+    dateCreated: {
+      $gte: new Date(new Date().getTime() - 7 * 60 * 60 * 24 * 1000),
+    },
+  }).sort({
+    dateCreated: -1,
+  });
 
   const features = await AuditModel.find({
     organization,
@@ -101,11 +98,12 @@ export async function getWatchedAudits(
     event: {
       $in: ["feature.publish", "feature.update", "feature.toggle"],
     },
-  })
-    .sort({
-      dateCreated: -1,
-    })
-    .limit(options?.limit || 25);
+    dateCreated: {
+      $gte: new Date(new Date().getTime() - 7 * 60 * 60 * 24 * 1000),
+    },
+  }).sort({
+    dateCreated: -1,
+  });
 
   const all = experiments.concat(features);
   return all;

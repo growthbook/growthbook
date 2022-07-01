@@ -17,8 +17,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "ace-builds": "^1.7.0",
-    "react-ace": "^10.1.0",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {

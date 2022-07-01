@@ -69,18 +69,15 @@ export function HistoryTableRow({
   open,
   setOpen,
   isActivity = false,
-  experimentName = "",
+  itemName = "",
 }: {
   event: AuditInterface;
   open: boolean;
   setOpen: (open: boolean) => void;
   isActivity?: boolean;
-  experimentName?: string;
+  itemName?: string;
 }) {
-  let itemName = event.entity.id;
-  if (experimentName) {
-    itemName = experimentName;
-  }
+  itemName = itemName || event.entity.id;
   return (
     <>
       <tr
@@ -95,16 +92,15 @@ export function HistoryTableRow({
           <>
             <td>{event.entity.object}</td>
             <td>
-              <a
+              <Link
                 href={
-                  experimentName
+                  event.entity.object === "experiment"
                     ? `/experiment/${event.entity.id}`
                     : `/features/${event.entity.id}`
                 }
               >
-                {" "}
-                {itemName}{" "}
-              </a>
+                <a>{itemName}</a>
+              </Link>
             </td>
           </>
         )}
@@ -121,7 +117,7 @@ export function HistoryTableRow({
       </tr>
       {open && event.details && (
         <tr>
-          <td colSpan={6} className="bg-light p-3">
+          <td colSpan={isActivity ? 6 : 4} className="bg-light p-3">
             <EventDetails eventType={event.event} details={event.details} />
           </td>
         </tr>

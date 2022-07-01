@@ -218,9 +218,7 @@ export async function getUsers(req: AuthRequest, res: Response) {
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(userId, org.id, {
-      limit: 25,
-    });
+    const docs = await getWatchedAudits(userId, org.id);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -281,8 +279,11 @@ export async function postWatchItem(
   if (!item) {
     throw new Error(`Could not find ${item}`);
   }
-
-  await ensureWatching(userId, org.id, id, type + "s");
+  if (type == "feature") {
+    await ensureWatching(userId, org.id, id, "features");
+  } else {
+    await ensureWatching(userId, org.id, id, "experiments");
+  }
 
   return res.status(200).json({
     status: 200,

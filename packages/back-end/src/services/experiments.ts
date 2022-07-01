@@ -671,7 +671,7 @@ export async function ensureWatching(
   userId: string,
   orgId: string,
   item: string,
-  type: string
+  type: "experiments" | "features"
 ) {
   await WatchModel.updateOne(
     {

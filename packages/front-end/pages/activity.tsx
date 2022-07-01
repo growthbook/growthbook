@@ -47,7 +47,7 @@ const Activity: FC = () => {
                 setOpen(open ? event.id : "");
               }}
               isActivity={true}
-              experimentName={
+              itemName={
                 nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
               }
             />
