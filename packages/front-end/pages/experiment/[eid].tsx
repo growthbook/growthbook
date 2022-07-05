@@ -30,7 +30,7 @@ import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import ConfirmModal from "../../components/ConfirmModal";
-import WatchButton from "../../components/Experiment/WatchButton";
+import WatchButton from "../../components/WatchButton";
 import HistoryTable from "../../components/HistoryTable";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
@@ -53,6 +53,7 @@ import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
+import useUser from "../../hooks/useUser";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -76,6 +77,12 @@ const ExperimentPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
   }>(`/experiment/${eid}`);
+
+  const watcherIds = useApi<{
+    userIds: string[];
+  }>(`/experiment/${eid}/watchers`);
+
+  const { users } = useUser();
 
   useSwitchOrg(data?.experiment?.organization);
 
@@ -154,6 +161,12 @@ const ExperimentPage = (): ReactElement => {
   const canEdit = permissions.createAnalyses;
 
   const datasource = getDatasourceById(experiment.datasource);
+
+  // Get name or email of all active users watching this experiment
+  const usersWatching = (watcherIds?.data?.userIds || [])
+    .map((id) => users.get(id))
+    .filter(Boolean)
+    .map((u) => u.name || u.email);
 
   return (
     <div className={wrapClasses}>
@@ -462,7 +475,7 @@ const ExperimentPage = (): ReactElement => {
           </>
         )}
         <div className="col-auto">
-          <WatchButton experiment={experiment.id} type="link" />
+          <WatchButton item={experiment.id} itemType="experiment" type="link" />
         </div>
       </div>
       <Tabs newStyle={true}>
@@ -754,6 +767,16 @@ const ExperimentPage = (): ReactElement => {
                   </div>
                 </RightRailSection>
               )}
+              {usersWatching.length > 0 && (
+                <>
+                  <hr />
+                  <RightRailSection title="Watching">
+                    <RightRailSectionGroup type="list">
+                      {usersWatching}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                </>
+              )}
             </div>
           </div>
         </Tab>
@@ -763,6 +786,7 @@ const ExperimentPage = (): ReactElement => {
           lazy={true}
           visible={experiment.status !== "draft"}
           padding={false}
+          key="Results"
         >
           <div className="position-relative">
             <Results

@@ -31,7 +31,7 @@ const TopNav: FC<{
   const router = useRouter();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  const { watching } = useWatching();
+  const { watchedExperiments, watchedFeatures } = useWatching();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
@@ -160,7 +160,7 @@ const TopNav: FC<{
                 </button>
               )}
 
-            {watching.length > 0 && (
+            {(watchedExperiments.length > 0 || watchedFeatures.length > 0) && (
               <Link href="/activity">
                 <a className="nav-link mr-1 text-secondary">
                   <FaBell />

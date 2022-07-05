@@ -31,6 +31,7 @@ import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
+import WatchButton from "../../components/WatchButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -202,6 +203,7 @@ export default function FeaturesPage() {
           <table className="table gbtable table-hover">
             <thead>
               <tr>
+                <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
@@ -248,6 +250,13 @@ export default function FeaturesPage() {
                       key={feature.id}
                       className={feature.archived ? "text-muted" : ""}
                     >
+                      <td data-title="Watching status:" className="watching">
+                        <WatchButton
+                          item={feature.id}
+                          itemType="feature"
+                          type="icon"
+                        />
+                      </td>
                       <td>
                         <Link href={`/features/${feature.id}`}>
                           <a className={feature.archived ? "text-muted" : null}>

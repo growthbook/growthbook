@@ -39,6 +39,8 @@ import {
 } from "../services/audit";
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
+import { getExperimentById, ensureWatching } from "../services/experiments";
+import { getFeature } from "../models/FeatureModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
@@ -216,15 +218,14 @@ export async function getUsers(req: AuthRequest, res: Response) {
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(userId, org.id, {
-      limit: 50,
-    });
+    const docs = await getWatchedAudits(userId, org.id);
 
     if (!docs.length) {
       return res.status(200).json({
         status: 200,
         events: [],
         experiments: [],
+        features: [],
       });
     }
 
@@ -255,7 +256,73 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getWatchedExperiments(req: AuthRequest, res: Response) {
+export async function postWatchItem(
+  req: AuthRequest<null, { type: string; id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { type, id } = req.params;
+  let item;
+
+  if (type === "feature") {
+    item = await getFeature(org.id, id);
+  } else if (type === "experiment") {
+    item = await getExperimentById(id);
+    if (item && item.organization !== org.id) {
+      res.status(403).json({
+        status: 403,
+        message: "You do not have access to this experiment",
+      });
+      return;
+    }
+  }
+  if (!item) {
+    throw new Error(`Could not find ${item}`);
+  }
+  if (type == "feature") {
+    await ensureWatching(userId, org.id, id, "features");
+  } else {
+    await ensureWatching(userId, org.id, id, "experiments");
+  }
+
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postUnwatchItem(
+  req: AuthRequest<null, { type: string; id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { type, id } = req.params;
+  const pluralType = type + "s";
+
+  try {
+    await WatchModel.updateOne(
+      {
+        userId: userId,
+        organization: org.id,
+      },
+      {
+        $pull: {
+          [pluralType]: id,
+        },
+      }
+    );
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function getWatchedItems(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
     const watch = await WatchModel.findOne({
@@ -265,6 +332,7 @@ export async function getWatchedExperiments(req: AuthRequest, res: Response) {
     res.status(200).json({
       status: 200,
       experiments: watch?.experiments || [],
+      features: watch?.features || [],
     });
   } catch (e) {
     res.status(400).json({

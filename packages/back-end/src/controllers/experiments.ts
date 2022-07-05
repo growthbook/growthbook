@@ -12,6 +12,7 @@ import {
   ensureWatching,
   processPastExperiments,
   experimentUpdated,
+  getExperimentWatchers,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import { MetricStats } from "../../types/metric";
@@ -21,7 +22,6 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
-import { WatchModel } from "../models/WatchModel";
 import {
   getStatusEndpoint,
   startRun,
@@ -40,7 +40,6 @@ import { getMetricById } from "../models/MetricModel";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
@@ -471,7 +470,7 @@ export async function postExperiments(
       details: auditDetailsCreate(experiment.toJSON()),
     });
 
-    await ensureWatching(userId, org.id, experiment.id);
+    await ensureWatching(userId, org.id, experiment.id, "experiments");
 
     await experimentUpdated(experiment);
 
@@ -663,7 +662,7 @@ export async function postExperiment(
   // If there are new tags to add
   await addTagsDiff(org.id, existing.tags || [], data.tags || []);
 
-  await ensureWatching(userId, org.id, exp.id);
+  await ensureWatching(userId, org.id, exp.id, "experiments");
 
   if (requiresWebhook) {
     await experimentUpdated(exp, existing.project || "");
@@ -1017,7 +1016,7 @@ export async function postExperimentPhase(
       details: auditDetailsUpdate(existing, exp.toJSON()),
     });
 
-    await ensureWatching(userId, org.id, exp.id);
+    await ensureWatching(userId, org.id, exp.id, "experiments");
 
     await experimentUpdated(exp);
 
@@ -1032,68 +1031,18 @@ export async function postExperimentPhase(
   }
 }
 
-export async function watchExperiment(
+export async function getWatchingUsers(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
   const { id } = req.params;
-
-  try {
-    const exp = await getExperimentById(id);
-    if (!exp) {
-      throw new Error("Could not find experiment");
-    }
-    if (exp.organization !== org.id) {
-      res.status(403).json({
-        status: 403,
-        message: "You do not have access to this experiment",
-      });
-      return;
-    }
-
-    await ensureWatching(userId, org.id, id);
-
-    return res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
-}
-
-export async function unwatchExperiment(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org, userId } = getOrgFromReq(req);
-  const { id } = req.params;
-
-  try {
-    await WatchModel.updateOne(
-      {
-        userId: userId,
-        organization: org.id,
-      },
-      {
-        $pull: {
-          experiments: id,
-        },
-      }
-    );
-
-    return res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
+  const watchers = await getExperimentWatchers(id, org.id);
+  const userIds = watchers.map((w) => w.userId);
+  res.status(200).json({
+    status: 200,
+    userIds,
+  });
 }
 
 export async function deleteExperiment(
@@ -1525,7 +1474,7 @@ export async function addScreenshot(
     }),
   });
 
-  await ensureWatching(userId, org.id, exp.id);
+  await ensureWatching(userId, org.id, exp.id, "experiments");
 
   res.status(200).json({
     status: 200,

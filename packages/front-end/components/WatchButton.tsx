@@ -1,17 +1,27 @@
 import { FC, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
-import { useWatching } from "../../services/WatchProvider";
+import { useAuth } from "../services/auth";
+import { useWatching } from "../services/WatchProvider";
 
 const WatchButton: FC<{
-  experiment: string;
+  item: string;
+  itemType: "feature" | "experiment";
   type?: "button" | "icon" | "link";
-}> = ({ experiment, type = "button" }) => {
-  const { watching, refreshWatching } = useWatching();
+}> = ({ item, itemType, type = "button" }) => {
+  const {
+    watchedExperiments,
+    watchedFeatures,
+    refreshWatching,
+  } = useWatching();
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const isWatching = watching.includes(experiment);
+  let isWatching;
+  if (itemType == "feature") {
+    isWatching = watchedFeatures.includes(item);
+  } else if (itemType == "experiment") {
+    isWatching = watchedExperiments.includes(item);
+  }
 
   let classNames =
     "watchaction watch-" + type + (isWatching ? " watching" : " notwatching");
@@ -37,7 +47,7 @@ const WatchButton: FC<{
         setLoading(true);
         try {
           await apiCall(
-            `/experiment/${experiment}/${isWatching ? "unwatch" : "watch"}`,
+            `/user/${isWatching ? "unwatch" : "watch"}/${itemType}/${item}`,
             {
               method: "POST",
             }
