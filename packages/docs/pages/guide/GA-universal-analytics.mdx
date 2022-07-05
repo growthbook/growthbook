@@ -1,6 +1,6 @@
 # Configuring GrowthBook to work with Google Analytics - Universal Analytics (UA)
 
-<div class="bg-blue-50 py-3 mb-5 px-4 font-semibold text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
+<div class="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
   GrowthBook supports using your existing Google Analytics UA as a data source for your experiment analysis.
 Keep in mind, however, that there are some limitations with using GA as data source, namely it only supports
 running one experiment at a time. Using GA4 (or any other supported event tracking) as a data source provides more flexibility and has no limits.
@@ -25,7 +25,8 @@ well as the divider string when you connect GrowthBook to your GA data source:
   alt="GA Data Source"
   style={{ width: 500, margin: "0 auto" }}
 />
-<div class="bg-blue-50 py-3 mb-5 px-4 font-semibold text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
+
+<div class="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
   The `delimiter` mentioned above is needed for GA as both the experiment name and the variation id need to be passed into a single text value. You can think of the delimiter as just a diver or seperator between those two fields. 
 </div>
 ## 2. Implement the the GrowthBook code
