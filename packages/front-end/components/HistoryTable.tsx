@@ -83,11 +83,17 @@ export function HistoryTableRow({
   return (
     <>
       <tr
-        onClick={() => {
-          if (event.details && !isActivity) setOpen(!open);
-        }}
         style={{ cursor: event.details ? "pointer" : "" }}
         className={open ? "highlight" : event.details ? "hover-highlight" : ""}
+        onClick={(e) => {
+          // Don't toggle the row's open state if a link was clicked
+          const target = e.target as HTMLElement;
+          if (target && target.closest("a")) {
+            return;
+          }
+
+          setOpen(!open);
+        }}
       >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
         {isActivity && (
@@ -102,12 +108,7 @@ export function HistoryTableRow({
         )}
         <td>{event.user.name || event.user.email}</td>
         <td>{event.event}</td>
-        <td
-          onClick={() => {
-            if (event.details && isActivity) setOpen(!open);
-          }}
-          style={{ width: 30 }}
-        >
+        <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
         </td>
       </tr>

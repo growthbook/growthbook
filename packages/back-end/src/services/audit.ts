@@ -83,8 +83,6 @@ export async function getWatchedAudits(userId: string, organization: string) {
     dateCreated: {
       $gte: startTime,
     },
-  }).sort({
-    dateCreated: -1,
   });
 
   const features = await AuditModel.find({
@@ -99,11 +97,11 @@ export async function getWatchedAudits(userId: string, organization: string) {
     dateCreated: {
       $gte: startTime,
     },
-  }).sort({
-    dateCreated: -1,
   });
 
-  const all = experiments.concat(features);
+  const all = experiments
+    .concat(features)
+    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime());
   return all;
 }
 
