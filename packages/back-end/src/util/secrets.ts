@@ -10,12 +10,17 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export let UPLOAD_METHOD = //TODO: Come back and update this to const. Just did this for testing.
-  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local"; //TODO: Need to update to support Google Cloud Storage
+export let UPLOAD_METHOD: string;
 
-UPLOAD_METHOD = "google-cloud";
+if (IS_CLOUD || process.env.UPLOAD_METHOD === "s3") {
+  UPLOAD_METHOD = "s3";
+} else if (IS_CLOUD || process.env.UPLOAD_METHOD === "google-cloud") {
+  UPLOAD_METHOD = "google-cloud";
+} else {
+  UPLOAD_METHOD = "local";
+}
 
-console.log("UPLOAD_METHOD", UPLOAD_METHOD);
+// UPLOAD_METHOD = "google-cloud"; //TODO: Need to remove this - temporarily hard-coding it for now
 
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
@@ -45,6 +50,10 @@ if (prod && ENCRYPTION_KEY === "dev") {
     "Cannot use ENCRYPTION_KEY=dev in production. Please set to a long random string."
   );
 }
+
+export const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || "";
+export const GCS_KEY_FILENAME = process.env.GCS_KEY_FILENAME || "";
+export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "";
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
