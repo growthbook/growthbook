@@ -12,11 +12,11 @@ type CsvRow = {
   date?: string;
   dimension?: string;
   metric?: string;
-  variant?: string;
+  variation?: string;
   riskOfChoosing?: number;
   users?: number;
-  count?: number;
-  value?: number;
+  totalValue?: number;
+  perUserValue?: number;
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
 };
@@ -47,7 +47,14 @@ export default function ResultsDownloadButton({
 
     if (!results || !variations || !ready) return [];
 
-    results.forEach((result) => {
+    const resultsCopy = [...results];
+
+    if (dimension === "pre:date") {
+      // Sort the rows by row.name to make csv cleaner
+      resultsCopy.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    resultsCopy.forEach((result) => {
       metrics.forEach((m) => {
         result.variations.forEach((variation, index) => {
           const metric = getMetricById(m);
@@ -59,17 +66,18 @@ export default function ResultsDownloadButton({
               return v.metrics[m];
             }),
           };
+          const stats = variation.metrics[m];
           const { relativeRisk } = getRisk(index, row);
           csvRows.push({
             ...(result.name !== "All" && { [dimensionName]: result.name }),
             metric: metric?.name,
-            variant: variations[index].name,
+            variation: variations[index].name,
             riskOfChoosing: relativeRisk,
-            users: variation.metrics[m].users,
-            count: variation.metrics[m].value,
-            value: variation.metrics[m].cr,
-            chanceToBeatControl: variation.metrics[m].chanceToWin || null,
-            percentChange: variation.metrics[m].expected || null,
+            users: stats.users,
+            totalValue: stats.value,
+            perUserValue: stats.cr,
+            chanceToBeatControl: stats.chanceToWin || null,
+            percentChange: stats.expected || null,
           });
         });
       });
@@ -82,11 +90,6 @@ export default function ResultsDownloadButton({
     try {
       const json2csvParser = new Parser();
       const rows = getRows();
-
-      if (dimension === "pre:date") {
-        // Sort the rows by row.date to make csv cleaner
-        rows.sort((a, b) => a.date.localeCompare(b.date));
-      }
 
       const csv = json2csvParser.parse(rows);
 
