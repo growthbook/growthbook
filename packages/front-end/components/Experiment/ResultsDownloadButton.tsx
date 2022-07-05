@@ -5,9 +5,8 @@ import {
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { getRisk } from "../../services/experiments";
+import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
-import { MetricInterface, MetricStats } from "back-end/types/metric";
 
 type CsvRow = {
   date?: string;
@@ -20,23 +19,6 @@ type CsvRow = {
   conversionRate?: number;
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
-};
-
-type Variation = {
-  buckets?: { x: number; y: number }[];
-  ci?: [number, number];
-  cr: number;
-  risk?: [number, number];
-  stats?: MetricStats;
-  users: number;
-  value: number;
-};
-
-type Row = {
-  label?: string;
-  metric?: MetricInterface;
-  rowClass?: string;
-  variations?: Variation[];
 };
 
 export default function ResultsDownloadButton({
@@ -63,42 +45,33 @@ export default function ResultsDownloadButton({
   const getRows = () => {
     const csvRows: CsvRow[] = [];
 
-    const rows = [];
     if (!results || !variations || !ready) return [];
 
     results.forEach((result) => {
       metrics.forEach((m) => {
-        const row: Row = {};
-        const metric = getMetricById(m);
-        row.label = metric?.name;
-        row.metric = metric;
-        if (result.name !== "All") {
-          row[dimensionName] = result.name;
-        }
-        row.rowClass = metric?.inverse ? "inverse" : "";
-        row.variations = result.variations.map((v) => {
-          return v.metrics[m];
+        result.variations.forEach((variation, index) => {
+          const metric = getMetricById(m);
+          const row: ExperimentTableRow = {
+            label: metric?.name,
+            metric: metric,
+            rowClass: metric?.inverse ? "inverse" : "",
+            variations: result.variations.map((v) => {
+              return v.metrics[m];
+            }),
+          };
+          const { relativeRisk } = getRisk(index, row);
+          csvRows.push({
+            ...(result.name !== "All" && { [dimensionName]: result.name }),
+            metricName: metric?.name,
+            variantName: variations[index].name,
+            riskOfChoosing: relativeRisk,
+            users: variation.metrics[m].users,
+            count: variation.metrics[m].value,
+            conversionRate: variation.metrics[m].cr,
+            chanceToBeatControl: variation.metrics[m].chanceToWin || null,
+            percentChange: variation.metrics[m].expected || null,
+          });
         });
-        rows.push(row);
-      });
-    });
-
-    rows.forEach((row) => {
-      row.variations?.forEach((variation, index) => {
-        const updatedRow: CsvRow = {};
-        if (row[dimensionName]) {
-          updatedRow[dimensionName] = row[dimensionName];
-        }
-        updatedRow.metricName = row.label;
-        updatedRow.variantName = variations[index].name;
-        const { relativeRisk } = getRisk(index, row);
-        updatedRow.riskOfChoosing = relativeRisk;
-        updatedRow.users = variation.users;
-        updatedRow.count = variation.value;
-        updatedRow.conversionRate = variation.cr;
-        updatedRow.chanceToBeatControl = variation.chanceToWin || null;
-        updatedRow.percentChange = variation.expected || null;
-        csvRows.push(updatedRow);
       });
     });
 
