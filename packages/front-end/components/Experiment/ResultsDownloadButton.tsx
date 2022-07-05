@@ -11,12 +11,12 @@ import { Parser } from "json2csv";
 type CsvRow = {
   date?: string;
   dimension?: string;
-  metricName?: string;
-  variantName?: string;
+  metric?: string;
+  variant?: string;
   riskOfChoosing?: number;
   users?: number;
   count?: number;
-  conversionRate?: number;
+  value?: number;
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
 };
@@ -62,12 +62,12 @@ export default function ResultsDownloadButton({
           const { relativeRisk } = getRisk(index, row);
           csvRows.push({
             ...(result.name !== "All" && { [dimensionName]: result.name }),
-            metricName: metric?.name,
-            variantName: variations[index].name,
+            metric: metric?.name,
+            variant: variations[index].name,
             riskOfChoosing: relativeRisk,
             users: variation.metrics[m].users,
             count: variation.metrics[m].value,
-            conversionRate: variation.metrics[m].cr,
+            value: variation.metrics[m].cr,
             chanceToBeatControl: variation.metrics[m].chanceToWin || null,
             percentChange: variation.metrics[m].expected || null,
           });
