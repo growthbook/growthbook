@@ -54,13 +54,15 @@ export default function ResultsDownloadButton({
 }) {
   const { getMetricById, getDimensionById, ready } = useDefinitions();
 
-  const json2csvParser = new Parser();
-
-  const csvRows: CsvRow[] = [];
-
-  const dimensionName = getDimensionById(dimension);
+  const dimensionName =
+    getDimensionById(dimension)?.name ||
+    dimension?.split(":")?.[1] ||
+    dimension ||
+    null;
 
   const getRows = () => {
+    const csvRows: CsvRow[] = [];
+
     const rows = [];
     if (!results || !variations || !ready) return [];
 
@@ -70,6 +72,9 @@ export default function ResultsDownloadButton({
         const metric = getMetricById(m);
         row.label = metric?.name;
         row.metric = metric;
+        if (result.name !== "All") {
+          row[dimensionName] = result.name;
+        }
         row.rowClass = metric?.inverse ? "inverse" : "";
         row.variations = result.variations.map((v) => {
           return v.metrics[m];
@@ -78,13 +83,11 @@ export default function ResultsDownloadButton({
       });
     });
 
-    rows.forEach((row, rowIndex) => {
-      row.variations.forEach((variation, index) => {
+    rows.forEach((row) => {
+      row.variations?.forEach((variation, index) => {
         const updatedRow: CsvRow = {};
-        if (dimension === "pre:date") {
-          updatedRow.date = results[rowIndex].name;
-        } else if (results[rowIndex].name !== "All") {
-          updatedRow[dimensionName.name] = results[rowIndex].name;
+        if (row[dimensionName]) {
+          updatedRow[dimensionName] = row[dimensionName];
         }
         updatedRow.metricName = row.label;
         updatedRow.variantName = variations[index].name;
@@ -103,16 +106,17 @@ export default function ResultsDownloadButton({
   };
 
   const href = useMemo(() => {
-    const rows = getRows();
-
-    if (dimension === "pre:date") {
-      // Sort the rows by row.date to make csv cleaner
-      rows.sort((a, b) => (a.date > b.date ? 1 : b.date > a.date ? -1 : 0));
-    }
-
-    const csv = json2csvParser.parse(rows);
-
     try {
+      const json2csvParser = new Parser();
+      const rows = getRows();
+
+      if (dimension === "pre:date") {
+        // Sort the rows by row.date to make csv cleaner
+        rows.sort((a, b) => a.date.localeCompare(b.date));
+      }
+
+      const csv = json2csvParser.parse(rows);
+
       const blob = new Blob([csv], { type: "text/csv" });
       return window.URL.createObjectURL(blob);
     } catch (e) {
@@ -128,9 +132,7 @@ export default function ResultsDownloadButton({
       type="button"
       className="dropdown-item py-2"
       href={href}
-      download={`${trackingKey}${
-        dimensionName?.name ? `-${dimensionName.name}` : ""
-      }.csv`}
+      download={`${trackingKey}${dimensionName ? `-${dimensionName}` : ""}.csv`}
     >
       <FaFileExport className="mr-2" /> Export CSV
     </a>
