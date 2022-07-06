@@ -50,7 +50,7 @@ export default function ResultsDownloadButton({
     const resultsCopy = [...results];
 
     if (dimension === "pre:date") {
-      // Sort the rows by row.name to make csv cleaner
+      // Sort the results by date to make csv cleaner
       resultsCopy.sort((a, b) => a.name.localeCompare(b.name));
     }
 
@@ -83,7 +83,6 @@ export default function ResultsDownloadButton({
         });
       });
     });
-
     return csvRows;
   };
 
