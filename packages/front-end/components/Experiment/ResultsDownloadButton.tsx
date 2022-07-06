@@ -67,9 +67,10 @@ export default function ResultsDownloadButton({
             }),
           };
           const stats = variation.metrics[m];
+          if (!stats) return [];
           const { relativeRisk } = getRisk(index, row);
           csvRows.push({
-            ...(result.name !== "All" && { [dimensionName]: result.name }),
+            ...(dimensionName && { [dimensionName]: result.name }),
             metric: metric?.name,
             variation: variations[index].name,
             riskOfChoosing: relativeRisk,
@@ -88,8 +89,10 @@ export default function ResultsDownloadButton({
 
   const href = useMemo(() => {
     try {
-      const json2csvParser = new Parser();
       const rows = getRows();
+      if (!rows) return "";
+
+      const json2csvParser = new Parser();
 
       const csv = json2csvParser.parse(rows);
 
@@ -108,7 +111,11 @@ export default function ResultsDownloadButton({
       type="button"
       className="dropdown-item py-2"
       href={href}
-      download={`${trackingKey}${dimensionName ? `-${dimensionName}` : ""}.csv`}
+      download={
+        trackingKey
+          ? `${trackingKey}${dimensionName ? `-${dimensionName}` : ""}.csv`
+          : "results.csv"
+      }
     >
       <FaFileExport className="mr-2" /> Export CSV
     </a>
