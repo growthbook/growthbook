@@ -429,6 +429,11 @@ app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.post("/experiment/:id/watch", experimentsController.watchExperiment);
 app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.put(
+  "/experiment/:id/phase/:phase",
+  experimentsController.putExperimentPhase
+);
 app.delete(
   "/experiment/:id/phase/:phase",
   experimentsController.deleteExperimentPhase

@@ -597,6 +597,21 @@ const ExperimentPage = (): ReactElement => {
                                 >
                                   Edit
                                 </a>
+                                <DeleteButton
+                                  displayName="phase"
+                                  useIcon={false}
+                                  className="dropdown-item"
+                                  text="Delete"
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/experiment/${experiment.id}/phase/${i}`,
+                                      {
+                                        method: "DELETE",
+                                      }
+                                    );
+                                    mutate();
+                                  }}
+                                />
                               </MoreMenu>
                             </div>
                           </div>

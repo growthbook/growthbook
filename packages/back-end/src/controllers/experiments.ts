@@ -34,6 +34,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
+  ExperimentStatus,
   Variation,
 } from "../../types/experiment";
 import { getMetricById } from "../models/MetricModel";
@@ -783,6 +784,69 @@ export async function postExperimentUnarchive(
   }
 }
 
+export async function postExperimentStatus(
+  req: AuthRequest<
+    {
+      status: ExperimentStatus;
+      reason: string;
+      dateEnded: string;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  req.checkPermissions("createAnalyses");
+
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { status, reason, dateEnded } = req.body;
+
+  const exp = await getExperimentById(id);
+  if (!exp) {
+    throw new Error("Experiment not found");
+  }
+  if (exp.organization !== org.id) {
+    throw new Error("You do not have access to this experiment");
+  }
+
+  const existing = exp.toJSON();
+
+  // If status changed from running to stopped, update the latest phase
+  const phases = [...existing.phases];
+  if (
+    exp.status === "running" &&
+    status === "stopped" &&
+    phases?.length > 0 &&
+    !phases[phases.length - 1].dateEnded
+  ) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      reason,
+      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+    };
+    exp.set("phases", phases);
+  }
+
+  exp.set("status", status);
+
+  await exp.save();
+
+  await req.audit({
+    event: "experiment.status",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: auditDetailsUpdate(existing, exp.toJSON()),
+  });
+
+  await experimentUpdated(exp);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postExperimentStop(
   req: AuthRequest<
     { reason: string; dateEnded: string } & Partial<ExperimentInterface>,
@@ -939,6 +1003,64 @@ export async function deleteExperimentPhase(
     },
     details: auditDetailsUpdate(existing, exp.toJSON()),
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putExperimentPhase(
+  req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
+  res: Response
+) {
+  req.checkPermissions("createAnalyses");
+
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const i = parseInt(req.params.phase);
+  const phase = req.body;
+
+  const exp = await getExperimentById(id);
+
+  if (!exp) {
+    throw new Error("Experiment not found");
+  }
+
+  if (exp.organization !== org.id) {
+    throw new Error("You do not have access to this experiment");
+  }
+
+  const existing = exp.toJSON();
+
+  if (!existing.phases?.[i]) {
+    throw new Error("Invalid phase");
+  }
+
+  phase.dateStarted = phase.dateStarted
+    ? getValidDate(phase.dateStarted + ":00Z")
+    : new Date();
+  phase.dateEnded = phase.dateEnded
+    ? getValidDate(phase.dateEnded + ":00Z")
+    : undefined;
+
+  const phases = [...existing.phases];
+  phases[i] = {
+    ...phases[i],
+    ...phase,
+  };
+  exp.set("phases", phases);
+  await exp.save();
+
+  await req.audit({
+    event: "experiment.phase",
+    entity: {
+      object: "experiment",
+      id: exp.id,
+    },
+    details: auditDetailsUpdate(existing, exp.toJSON()),
+  });
+
+  await experimentUpdated(exp);
 
   res.status(200).json({
     status: 200,

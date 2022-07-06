@@ -6,6 +6,7 @@ import {
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { getEvenSplit } from "../../services/utils";
+import { useAuth } from "../../services/auth";
 
 export interface Props {
   close: () => void;
@@ -29,6 +30,7 @@ export default function EditPhaseModal({
         : "",
     },
   });
+  const { apiCall } = useAuth();
 
   const weights = form.watch("variationWeights");
   const weightSum = weights.reduce((sum, w) => sum + w, 0);
@@ -39,9 +41,11 @@ export default function EditPhaseModal({
       open={true}
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}
-      submit={form.handleSubmit((value) => {
-        // TODO: save with an API call
-        console.log(i, value);
+      submit={form.handleSubmit(async (value) => {
+        await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
+          method: "PUT",
+          body: JSON.stringify(value),
+        });
         mutate();
       })}
     >
