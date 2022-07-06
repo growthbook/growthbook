@@ -75,6 +75,15 @@ Optional. If not specified, GrowthBook will use the local file system to store u
 - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
 - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
 
+### Google Cloud Services Uploads
+
+Optional. If not specified, GrowthBook will use the local file system to store uploads.
+
+- **UPLOAD_METHOD** (set to "google-cloud" instead of default value "local")
+- **GCS_PROJECT_ID**
+- **GCS_KEY_FILENAME**
+- **GCS_BUCKET**
+
 ### Other Settings
 
 - **EXPERIMENT_REFRESH_FREQUENCY** - Default update schedule for experiment results. Update when stale for X hours (default `6`).

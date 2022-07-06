@@ -102,6 +102,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     return {
       uploadURL,
       fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
+      uploadMethod: UPLOAD_METHOD,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
     const uploadURL = await uploadFileToGCS().catch(console.error);
@@ -110,9 +111,9 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     return {
       uploadURL,
       fileURL,
+      uploadMethod: "google-cloud",
     };
-  } // Otherwise, use the local file system
-  else {
+  } else {
     const fileURL = `/upload/${filePath}`;
     const uploadURL = `/upload?path=${filePath}&signature=${getFileSignature(
       filePath
@@ -120,6 +121,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     return {
       uploadURL,
       fileURL,
+      uploadMethod: UPLOAD_METHOD,
     };
   }
 }
