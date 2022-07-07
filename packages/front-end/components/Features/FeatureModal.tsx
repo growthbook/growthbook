@@ -311,8 +311,9 @@ export default function FeatureModal({ close, onSuccess }: Props) {
       {!rule ? (
         <FeatureValueField
           label={"Value"}
-          form={form}
-          field="defaultValue"
+          id="defaultValue"
+          value={form.watch("defaultValue")}
+          setValue={(v) => form.setValue("defaultValue", v)}
           valueType={valueType}
         />
       ) : rule?.type === "rollout" ? (
@@ -333,15 +334,10 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             label="Percent of users to include"
           />
           <FeatureValueField
-            label={"Value when included"}
-            form={form}
-            field="rule.value"
-            valueType={valueType}
-          />
-          <FeatureValueField
             label={"Fallback value"}
-            form={form}
-            field="defaultValue"
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
           />
         </>
@@ -355,14 +351,16 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           />
           <FeatureValueField
             label={"Value When Targeted"}
-            form={form}
-            field="rule.value"
+            id="ruleValue"
+            value={form.watch("rule.value")}
+            setValue={(v) => form.setValue("rule.value", v)}
             valueType={valueType}
           />
           <FeatureValueField
             label={"Fallback Value"}
-            form={form}
-            field="defaultValue"
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
           />
         </>
@@ -383,8 +381,15 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
           <VariationsInput
-            form={form}
-            formPrefix="rule."
+            coverage={form.watch("rule.coverage")}
+            setCoverage={(coverage) => form.setValue("rule.coverage", coverage)}
+            setWeight={(i, weight) =>
+              form.setValue(`rule.values.${i}.weight`, weight)
+            }
+            variations={form.watch("rule.values") || []}
+            setVariations={(variations) =>
+              form.setValue("rule.values", variations)
+            }
             defaultValue={rule?.values?.[0]?.value}
             valueType={valueType}
           />
@@ -399,8 +404,9 @@ export default function FeatureModal({ close, onSuccess }: Props) {
           <FeatureValueField
             label={"Fallback Value"}
             helpText={"For people excluded from the experiment"}
-            form={form}
-            field="defaultValue"
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
           />
         </>

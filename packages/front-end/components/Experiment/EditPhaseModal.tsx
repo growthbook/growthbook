@@ -5,8 +5,8 @@ import {
 } from "back-end/types/experiment";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { getEvenSplit } from "../../services/utils";
 import { useAuth } from "../../services/auth";
+import VariationsInput from "../Features/VariationsInput";
 
 export interface Props {
   close: () => void;
@@ -32,10 +32,6 @@ export default function EditPhaseModal({
   });
   const { apiCall } = useAuth();
 
-  const weights = form.watch("variationWeights");
-  const weightSum = weights.reduce((sum, w) => sum + w, 0);
-  const validWeights = weightSum >= 0.99 && weightSum <= 1.01;
-
   return (
     <Modal
       open={true}
@@ -48,6 +44,7 @@ export default function EditPhaseModal({
         });
         mutate();
       })}
+      size="lg"
     >
       <Field
         label="Type of Phase"
@@ -77,54 +74,26 @@ export default function EditPhaseModal({
           placeholder="(optional)"
         />
       )}
-      <Field
-        label="Percent of Traffic (0 to 1)"
-        {...form.register("coverage", { valueAsNumber: true })}
-        type="number"
-        min="0"
-        max="1"
-        step="0.01"
+
+      <VariationsInput
+        valueType={"string"}
+        coverage={form.watch("coverage")}
+        setCoverage={(coverage) => form.setValue("coverage", coverage)}
+        setWeight={(i, weight) =>
+          form.setValue(`variationWeights.${i}`, weight)
+        }
+        valueAsId={true}
+        variations={
+          experiment.variations.map((v, i) => {
+            return {
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+            };
+          }) || []
+        }
+        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
       />
-      <div className="form-group">
-        <div className="d-flex align-items-center">
-          <label>Traffic Split</label>
-          <div className="ml-auto">
-            <button
-              className="btn btn-sm btn-outline-primary w-100"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue(
-                  "variationWeights",
-                  getEvenSplit(experiment.variations.length)
-                );
-              }}
-            >
-              Even Split
-            </button>
-          </div>
-        </div>
-        <div className="row">
-          {experiment.variations.map((v, i) => (
-            <div className={`col-auto mb-2`} key={i}>
-              <Field
-                type="number"
-                min="0"
-                max="1"
-                step="0.01"
-                prepend={v.name}
-                {...form.register(`variationWeights.${i}`, {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-          ))}
-        </div>
-        {!validWeights && (
-          <div className="alert alert-danger">
-            Variation weights must add to 1
-          </div>
-        )}
-      </div>
     </Modal>
   );
 }

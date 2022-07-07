@@ -12,6 +12,7 @@ import GroupsInput from "../GroupsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import { useFeature } from "@growthbook/growthbook-react";
+import VariationsInput from "../Features/VariationsInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -72,12 +73,6 @@ const NewPhaseForm: FC<{
     refreshWatching();
   });
 
-  const maxSplitCols = experiment.variations.length > 2 ? 6 : 3;
-  const splitCols = Math.max(
-    Math.round(12 / experiment.variations.length - 1),
-    maxSplitCols
-  );
-
   return (
     <Modal
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -116,56 +111,26 @@ const NewPhaseForm: FC<{
             "holdout",
           ]}
         />
-        <Field
-          label="Percent of Traffic (0 to 1)"
-          containerClassName="col-lg"
-          {...form.register("coverage", { valueAsNumber: true })}
-          type="number"
-          min="0"
-          max="1"
-          step="0.01"
-        />
       </div>
-      <div className="row">
-        <div className="col-md">
-          <label>Traffic Split</label>
-          <div className="row">
-            {experiment.variations.map((v, i) => (
-              <div className={`col-${splitCols} mb-2`} key={i}>
-                <Field
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  prepend={v.name}
-                  {...form.register(`variationWeights.${i}`, {
-                    valueAsNumber: true,
-                  })}
-                />
-              </div>
-            ))}
-            <div className="col">
-              <button
-                className="btn btn-outline-primary w-100"
-                onClick={(e) => {
-                  e.preventDefault();
-                  form.setValue(
-                    "variationWeights",
-                    getEvenSplit(experiment.variations.length)
-                  );
-                }}
-              >
-                Even Split
-              </button>
-            </div>
-          </div>
-          {!isValid && (
-            <div className="alert alert-danger">
-              The total traffic split must add up to 1
-            </div>
-          )}
-        </div>
-      </div>
+      <VariationsInput
+        valueType={"string"}
+        coverage={form.watch("coverage")}
+        setCoverage={(coverage) => form.setValue("coverage", coverage)}
+        setWeight={(i, weight) =>
+          form.setValue(`variationWeights.${i}`, weight)
+        }
+        valueAsId={true}
+        variations={
+          experiment.variations.map((v, i) => {
+            return {
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+            };
+          }) || []
+        }
+        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
+      />
       {(experiment.implementation === "visual" || showGroups) && (
         <div className="row">
           <div className="col">
