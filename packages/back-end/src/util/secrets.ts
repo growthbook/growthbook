@@ -49,11 +49,9 @@ if (prod && ENCRYPTION_KEY === "dev") {
   );
 }
 
-export const GCS_PROJECT_ID =
-  process.env.GCS_PROJECT_ID || "adept-arbor-354914";
-export const GCS_KEY_FILENAME =
-  process.env.GCS_KEY_FILENAME || "mytestkey2.json";
-export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "gb_test_bucket_1";
+export const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || "";
+export const GCS_PRIVATE_KEY_FILEPATH = process.env.GCS_KEY_FILENAME || "";
+export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "";
 export const GCS_DOMAIN =
   process.env.GCS_DOMAIN || `https://storage.googleapis.com/${GCS_BUCKET}/`;
 

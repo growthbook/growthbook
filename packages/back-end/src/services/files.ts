@@ -10,7 +10,7 @@ import {
   S3_REGION,
   UPLOAD_METHOD,
   GCS_PROJECT_ID,
-  GCS_KEY_FILENAME,
+  GCS_PRIVATE_KEY_FILEPATH,
   GCS_BUCKET,
   GCS_DOMAIN,
 } from "../util/secrets";
@@ -73,7 +73,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
 
   async function getSignedUrl() {
     const projectId = GCS_PROJECT_ID;
-    const keyFilename = GCS_KEY_FILENAME;
+    const keyFilename = GCS_PRIVATE_KEY_FILEPATH;
     const bucketName = GCS_BUCKET;
 
     const storage = new Storage({
