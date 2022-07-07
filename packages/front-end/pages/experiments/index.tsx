@@ -8,7 +8,7 @@ import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { useRouter } from "next/router";
 import { useSearch } from "../../services/search";
-import WatchButton from "../../components/Experiment/WatchButton";
+import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
@@ -225,7 +225,11 @@ const ExperimentsPage = (): React.ReactElement => {
                                 data-title="Watching status:"
                                 className="watching"
                               >
-                                <WatchButton experiment={e.id} type="icon" />
+                                <WatchButton
+                                  item={e.id}
+                                  itemType="experiment"
+                                  type="icon"
+                                />
                               </td>
                               <td
                                 onClick={() => {
@@ -438,7 +442,8 @@ const ExperimentsPage = (): React.ReactElement => {
                                     className="watching"
                                   >
                                     <WatchButton
-                                      experiment={e.id}
+                                      item={e.id}
+                                      itemType="experiment"
                                       type="icon"
                                     />
                                   </td>
@@ -566,7 +571,11 @@ const ExperimentsPage = (): React.ReactElement => {
                                 data-title="Watch status:"
                                 className="watching"
                               >
-                                <WatchButton experiment={e.id} type="icon" />
+                                <WatchButton
+                                  item={e.id}
+                                  itemType="experiment"
+                                  type="icon"
+                                />
                               </td>
                               <td
                                 onClick={() => {

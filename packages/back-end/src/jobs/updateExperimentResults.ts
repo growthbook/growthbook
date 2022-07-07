@@ -328,7 +328,10 @@ async function sendSignificanceEmail(
           experimentChanges.length +
           " significant changes"
       );
-      const watchers = await getExperimentWatchers(experiment.id);
+      const watchers = await getExperimentWatchers(
+        experiment.id,
+        experiment.organization
+      );
       const userIds = watchers.map((w) => w.userId);
 
       await sendExperimentChangesEmail(

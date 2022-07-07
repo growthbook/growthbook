@@ -64,25 +64,48 @@ function EventDetails({
   return <Code language="json" code={JSON.stringify(json, null, 2)} />;
 }
 
-function HistoryTableRow({
+export function HistoryTableRow({
   event,
   open,
   setOpen,
+  isActivity = false,
+  itemName = "",
+  url = "",
 }: {
   event: AuditInterface;
   open: boolean;
   setOpen: (open: boolean) => void;
+  isActivity?: boolean;
+  itemName?: string;
+  url?: string;
 }) {
+  itemName = itemName || event.entity.id;
   return (
     <>
       <tr
-        onClick={() => {
-          if (event.details) setOpen(!open);
-        }}
         style={{ cursor: event.details ? "pointer" : "" }}
         className={open ? "highlight" : event.details ? "hover-highlight" : ""}
+        onClick={(e) => {
+          // Don't toggle the row's open state if a link was clicked
+          const target = e.target as HTMLElement;
+          if (target && target.closest("a")) {
+            return;
+          }
+
+          setOpen(!open);
+        }}
       >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
+        {isActivity && (
+          <>
+            <td>{event.entity.object}</td>
+            <td>
+              <Link href={url}>
+                <a>{itemName}</a>
+              </Link>
+            </td>
+          </>
+        )}
         <td>{event.user.name || event.user.email}</td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
@@ -91,7 +114,7 @@ function HistoryTableRow({
       </tr>
       {open && event.details && (
         <tr>
-          <td colSpan={4} className="bg-light p-3">
+          <td colSpan={isActivity ? 6 : 4} className="bg-light p-3">
             <EventDetails eventType={event.event} details={event.details} />
           </td>
         </tr>

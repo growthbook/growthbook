@@ -34,7 +34,10 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { getExperimentByTrackingKey } from "../services/experiments";
+import {
+  getExperimentByTrackingKey,
+  ensureWatching,
+} from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
@@ -141,6 +144,7 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(feature);
+  await ensureWatching(userId, org.id, feature.id, "features");
 
   await req.audit({
     event: "feature.create",

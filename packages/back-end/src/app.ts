@@ -342,7 +342,9 @@ app.use(
 
 // Organization and Settings
 app.put("/user/name", organizationsController.putUserName);
-app.get("/user/watching", organizationsController.getWatchedExperiments);
+app.get("/user/watching", organizationsController.getWatchedItems);
+app.post("/user/watch/:type/:id", organizationsController.postWatchItem);
+app.post("/user/unwatch/:type/:id", organizationsController.postUnwatchItem);
 app.get("/organization/definitions", organizationsController.getDefinitions);
 app.get("/activity", organizationsController.getActivityFeed);
 app.get("/history/:type/:id", organizationsController.getHistory);
@@ -426,8 +428,7 @@ app.post(
 );
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
-app.post("/experiment/:id/watch", experimentsController.watchExperiment);
-app.post("/experiment/:id/unwatch", experimentsController.unwatchExperiment);
+app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
