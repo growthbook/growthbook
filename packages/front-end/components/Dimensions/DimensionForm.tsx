@@ -71,7 +71,6 @@ const DimensionForm: FC<{
         label="Owner"
         options={memberUsernameOptions}
         comboBox
-        listId="editOwner"
         {...form.register("owner")}
       />
       <SelectField

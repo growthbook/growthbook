@@ -68,7 +68,6 @@ const SegmentForm: FC<{
         label="Owner"
         options={memberUsernameOptions}
         comboBox
-        listId="editOwner"
         {...form.register("owner")}
       />
       <SelectField
