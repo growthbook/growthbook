@@ -50,7 +50,6 @@ export async function uploadFile(
   await fs.promises.writeFile(fullPath, contents);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const mimetypes: { [key: string]: string } = {
     png: "image/png",
