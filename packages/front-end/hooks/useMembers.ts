@@ -1,31 +1,19 @@
-import { UserRef } from "back-end/types/user";
-import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../services/auth";
+import { useMemo } from "react";
+import useUser from "./useUser";
 
 export default function useMembers() {
-  const [members, setMembers] = useState<UserRef[]>([]);
-  const { apiCall } = useAuth();
+  const { users } = useUser();
 
-  useEffect(() => {
-    async function setUsernames() {
-      const res = await apiCall<{ status: number; users: UserRef[] }>(
-        "/members",
-        {
-          method: "GET",
-        }
-      );
-      setMembers(res.users);
+  const memberUsernameOptions = useMemo(() => {
+    const memberUsernameOptions = [];
+    for (const user of users.values()) {
+      memberUsernameOptions.push({
+        display: user.name ? user.name : user.email,
+        value: user.name ? user.name : user.email,
+      });
     }
-    setUsernames();
-  }, []);
+    return memberUsernameOptions;
+  }, [users]);
 
-  const memberUsernameOptions = useMemo(
-    () =>
-      members.map((member) => {
-        return { display: member.name, value: member.name };
-      }),
-    [members]
-  );
-
-  return { members, memberUsernameOptions };
+  return { memberUsernameOptions };
 }

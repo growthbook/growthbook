@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import Field from "../Forms/Field";
 import useMembers from "../../hooks/useMembers";
 
-const EditTagsForm: FC<{
+const EditOwnerModal: FC<{
   owner: string;
   save: (ownerName: string) => Promise<void>;
   cancel: () => void;
@@ -30,11 +30,10 @@ const EditTagsForm: FC<{
         label="Owner"
         options={memberUsernameOptions}
         comboBox
-        listId="editOwner"
         {...form.register("owner")}
       />
     </Modal>
   );
 };
 
-export default EditTagsForm;
+export default EditOwnerModal;

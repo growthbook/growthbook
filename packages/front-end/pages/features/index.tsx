@@ -203,7 +203,6 @@ export default function FeaturesPage() {
             <thead>
               <tr>
                 <SortableTH field="id">Feature Key</SortableTH>
-                <th>Owner</th>
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
                   <th key={en.id}>{en.id}</th>
@@ -256,7 +255,6 @@ export default function FeaturesPage() {
                           </a>
                         </Link>
                       </td>
-                      <td>{feature.owner}</td>
                       <td>
                         <SortedTags tags={feature?.tags || []} />
                       </td>

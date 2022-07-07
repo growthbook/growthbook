@@ -290,20 +290,6 @@ export default function FeaturePage() {
       </div>
 
       <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
-        <div className="col-auto">
-          Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.createFeatures && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditOwnerModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-      </div>
-
-      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
         {projects.length > 0 && (
           <div className="col-auto">
             Project:{" "}
@@ -331,6 +317,18 @@ export default function FeaturePage() {
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+
+        <div className="col-auto">
+          Owner: {data.feature.owner ? data.feature.owner : "None"}
+          {permissions.createFeatures && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />
             </a>

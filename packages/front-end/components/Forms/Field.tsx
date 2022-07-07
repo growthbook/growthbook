@@ -31,7 +31,6 @@ export type BaseFieldProps = {
   prepend?: string;
   append?: string;
   comboBox?: boolean;
-  listId?: string;
 };
 
 export type FieldProps = BaseFieldProps &
@@ -98,7 +97,6 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
-      listId,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -125,6 +123,7 @@ const Field = forwardRef(
         />
       );
     } else if (comboBox && options) {
+      const listId = `${fieldId}_datalist`;
       component = (
         <>
           <input
@@ -133,10 +132,10 @@ const Field = forwardRef(
             id={fieldId}
             type={type}
             className={cn}
-            list={listId ? listId : "combo-box-default-id"}
+            list={listId}
             autoComplete="off"
           />
-          <datalist id={listId ? listId : "combo-box-default-id"}>
+          <datalist id={listId}>
             {options && <Options options={options} />}
           </datalist>
         </>
@@ -169,7 +168,6 @@ const Field = forwardRef(
           id={fieldId}
           type={type}
           className={cn}
-          list={listId}
         />
       );
     }
