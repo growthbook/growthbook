@@ -70,10 +70,9 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const filename = uniqid("img_");
   const filePath = `${pathPrefix}${filename}.${ext}`;
 
-  async function getSignedUrl() {
+  async function getSignedGoogleUrl() {
     const projectId = GCS_PROJECT_ID;
     const keyFilename = GCS_PRIVATE_KEY_FILEPATH;
-    const bucketName = GCS_BUCKET;
 
     const storage = new Storage({
       projectId,
@@ -88,7 +87,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     };
 
     const [url] = await storage
-      .bucket(bucketName)
+      .bucket(GCS_BUCKET)
       .file(filePath)
       .getSignedUrl(options);
 
@@ -110,7 +109,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
       fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
-    const uploadURL = await getSignedUrl().catch(console.error);
+    const uploadURL = await getSignedGoogleUrl().catch(console.error);
 
     return {
       uploadURL,
