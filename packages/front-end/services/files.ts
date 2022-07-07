@@ -2,10 +2,7 @@ import { ApiCallType } from "./auth";
 import { getApiHost } from "./env";
 
 export async function uploadFile(
-  apiCall: ApiCallType<{
-    uploadURL: string;
-    fileURL: string;
-  }>,
+  apiCall: ApiCallType<{ uploadURL: string; fileURL: string }>,
   file: File
 ) {
   const ext = file.name.split(".").reverse()[0];
