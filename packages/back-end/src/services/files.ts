@@ -12,8 +12,9 @@ import {
   GCS_PROJECT_ID,
   GCS_KEY_FILENAME,
   GCS_BUCKET,
+  GCS_DOMAIN,
 } from "../util/secrets";
-import { Storage } from "@google-cloud/storage";
+import { Storage, GetSignedUrlConfig } from "@google-cloud/storage";
 
 let s3: AWS.S3;
 function getS3(): AWS.S3 {
@@ -70,23 +71,29 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const filename = uniqid("img_");
   const filePath = `${pathPrefix}${filename}.${ext}`;
 
-  // const filePath =
-  //   "/Users/michaelknowlton/growthbook/packages/back-end/stock-photo.jpeg";
-
-  async function uploadFileToGCS() {
+  async function getSignedUrl() {
     const projectId = GCS_PROJECT_ID;
     const keyFilename = GCS_KEY_FILENAME;
+    const bucketName = GCS_BUCKET;
 
     const storage = new Storage({
       projectId,
       keyFilename,
     });
 
-    const url = await storage.bucket(GCS_BUCKET).upload(filePath, {
-      destination: filename,
-    });
+    const options: GetSignedUrlConfig = {
+      version: "v4",
+      action: "write",
+      expires: Date.now() + 15 * 60 * 1000,
+      contentType: mimetypes[ext],
+    };
 
-    return url[0].metadata.mediaLink;
+    const [url] = await storage
+      .bucket(bucketName)
+      .file(filePath)
+      .getSignedUrl(options);
+
+    return url;
   }
 
   if (UPLOAD_METHOD === "s3") {
@@ -102,16 +109,13 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     return {
       uploadURL,
       fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
-      uploadMethod: UPLOAD_METHOD,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
-    const uploadURL = await uploadFileToGCS().catch(console.error);
-    const fileURL = uploadURL;
+    const uploadURL = await getSignedUrl().catch(console.error);
 
     return {
       uploadURL,
-      fileURL,
-      uploadMethod: "google-cloud",
+      fileURL: GCS_DOMAIN + (GCS_DOMAIN.endsWith("/") ? "" : "/") + filePath,
     };
   } else {
     const fileURL = `/upload/${filePath}`;
@@ -121,7 +125,6 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     return {
       uploadURL,
       fileURL,
-      uploadMethod: UPLOAD_METHOD,
     };
   }
 }

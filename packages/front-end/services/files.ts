@@ -5,26 +5,22 @@ export async function uploadFile(
   apiCall: ApiCallType<{
     uploadURL: string;
     fileURL: string;
-    uploadMethod: string;
   }>,
   file: File
 ) {
   const ext = file.name.split(".").reverse()[0];
-  const { uploadURL, fileURL, uploadMethod } = await apiCall(
-    `/file/upload/${ext}`,
-    {
-      method: "POST",
-    }
-  );
+  const { uploadURL, fileURL } = await apiCall(`/file/upload/${ext}`, {
+    method: "POST",
+  });
 
   const res = await fetch(
     uploadURL.match(/^\//) ? getApiHost() + uploadURL : uploadURL,
     {
-      method: "GET",
+      method: "PUT",
       headers: {
         "Content-Type": file.type,
       },
-      ...(uploadMethod !== "google-cloud" && { body: file }),
+      body: file,
     }
   );
 

@@ -233,7 +233,7 @@ export async function postImageUploadUrl(
   const { filetype } = req.params;
 
   const now = new Date();
-  const { uploadURL, fileURL, uploadMethod } = await getFileUploadURL(
+  const { uploadURL, fileURL } = await getFileUploadURL(
     filetype,
     `${org.id}/${now.toISOString().substr(0, 7)}/`
   );
@@ -242,6 +242,5 @@ export async function postImageUploadUrl(
     status: 200,
     uploadURL,
     fileURL,
-    uploadMethod,
   });
 }

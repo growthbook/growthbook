@@ -20,8 +20,6 @@ if (IS_CLOUD || process.env.UPLOAD_METHOD === "s3") {
   UPLOAD_METHOD = "local";
 }
 
-// UPLOAD_METHOD = "google-cloud"; //TODO: Need to remove this - temporarily hard-coding it for now
-
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
   (prod ? "" : "mongodb://root:password@localhost:27017/");
@@ -51,9 +49,13 @@ if (prod && ENCRYPTION_KEY === "dev") {
   );
 }
 
-export const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || "";
-export const GCS_KEY_FILENAME = process.env.GCS_KEY_FILENAME || "";
-export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "";
+export const GCS_PROJECT_ID =
+  process.env.GCS_PROJECT_ID || "adept-arbor-354914";
+export const GCS_KEY_FILENAME =
+  process.env.GCS_KEY_FILENAME || "mytestkey2.json";
+export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "gb_test_bucket_1";
+export const GCS_DOMAIN =
+  process.env.GCS_DOMAIN || `https://storage.googleapis.com/${GCS_BUCKET}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
