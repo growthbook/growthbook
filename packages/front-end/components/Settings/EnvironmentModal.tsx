@@ -6,6 +6,7 @@ import { Environment } from "back-end/types/organization";
 import Toggle from "../Forms/Toggle";
 import { useEnvironments } from "../../services/features";
 import useUser from "../../hooks/useUser";
+import Tooltip from "../Tooltip";
 
 export default function EnvironmentModal({
   existing,
@@ -21,6 +22,7 @@ export default function EnvironmentModal({
       id: existing.id || "",
       description: existing.description || "",
       toggleOnList: existing.toggleOnList || false,
+      defaultState: existing.defaultState || true,
     },
   });
   const { apiCall } = useAuth();
@@ -44,6 +46,7 @@ export default function EnvironmentModal({
           if (!env) throw new Error("Could not edit environment");
           env.description = value.description;
           env.toggleOnList = value.toggleOnList;
+          env.defaultState = value.defaultState;
         } else {
           if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
@@ -54,6 +57,7 @@ export default function EnvironmentModal({
             id: value.id.toLowerCase(),
             description: value.description,
             toggleOnList: value.toggleOnList,
+            defaultState: value.defaultState,
           });
         }
 
@@ -106,8 +110,26 @@ export default function EnvironmentModal({
         placeholder=""
         textarea
       />
+      <div className="mb-3">
+        <Toggle
+          id={"defaultToggle"}
+          label="Identifier"
+          value={!!form.watch("defaultState")}
+          setValue={(value) => {
+            form.setValue("defaultState", value);
+          }}
+        />{" "}
+        <label form="defaultToggle">
+          Default state{" "}
+          <Tooltip
+            tipPosition="top"
+            text="The default state for this environment when adding new features"
+          />
+        </label>
+      </div>
       <Toggle
         id={"toggle"}
+        type="featureValue"
         label="Identifier"
         value={!!form.watch("toggleOnList")}
         setValue={(value) => {

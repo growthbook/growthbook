@@ -63,7 +63,11 @@ export default function FeatureModal({ close, onSuccess }: Props) {
 
   const defaultEnvSettings: Record<string, FeatureEnvironment> = {};
   environments.forEach(
-    (e) => (defaultEnvSettings[e.id] = { enabled: true, rules: [] })
+    (e) =>
+      (defaultEnvSettings[e.id] = {
+        enabled: e.defaultState ?? true,
+        rules: [],
+      })
   );
 
   const form = useForm({
