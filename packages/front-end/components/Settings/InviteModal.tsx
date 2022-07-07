@@ -6,6 +6,10 @@ import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
+import useApi from "../../hooks/useApi";
+import { SettingsApiResponse } from "../../pages/settings";
+import { isCloud } from "../../services/env";
+import Link from "next/link";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -23,6 +27,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
+  const { data } = useApi<SettingsApiResponse>(`/organization`);
+
+  const numOfFreeSeats = 5; // Do we have a place in the app where we define universal constants like this? Just thinking if we ever want to update this in the future
+  const totalSeats =
+    data.organization.invites.length + data.organization.members.length;
+  const hasActiveSubscription =
+    data.organization.subscription?.status === "active" ||
+    data.organization.subscription?.status === "trialing";
+  const canInviteUser = Boolean(
+    emailSent === null &&
+      (totalSeats < numOfFreeSeats ||
+        (totalSeats >= numOfFreeSeats && hasActiveSubscription))
+  );
+  const pricePerSeat = 2000; // Eventually this will need to come from stripe so we can support different price amounts
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
@@ -58,6 +76,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      ctaEnabled={!isCloud() || canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
     >
@@ -86,6 +105,25 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
+          {isCloud() && totalSeats >= numOfFreeSeats && hasActiveSubscription && (
+            <p className="mt-3 mb-0 alert-warning alert">
+              This user will be assigned a new seat{" "}
+              <strong>(${pricePerSeat / 100}/month)</strong>
+            </p>
+          )}
+          {isCloud() && totalSeats >= numOfFreeSeats && !hasActiveSubscription && (
+            <p className="mt-3 mb-0 alert-warning alert">
+              Whoops! You&apos;re currently in the <strong>Free Plan</strong>{" "}
+              which only allows {numOfFreeSeats} seats. To add a seat ($
+              {pricePerSeat / 100}/month), please{" "}
+              <strong>
+                <Link href={"/settings/billing"}>
+                  <a target="_blank">upgrade your plan</a>
+                </Link>
+              </strong>
+              .
+            </p>
+          )}
         </>
       )}
     </Modal>
