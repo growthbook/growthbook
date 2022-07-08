@@ -30,6 +30,7 @@ export type BaseFieldProps = {
   textarea?: boolean;
   prepend?: string;
   append?: string;
+  comboBox?: boolean;
 };
 
 export type FieldProps = BaseFieldProps &
@@ -95,6 +96,7 @@ const Field = forwardRef(
       optionGroups,
       type = "text",
       initialOption,
+      comboBox,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -119,6 +121,24 @@ const Field = forwardRef(
           minRows={minRows || 2}
           maxRows={maxRows || 6}
         />
+      );
+    } else if (comboBox && options) {
+      const listId = `${fieldId}_datalist`;
+      component = (
+        <>
+          <input
+            {...otherProps}
+            ref={ref}
+            id={fieldId}
+            type={type}
+            className={cn}
+            list={listId}
+            autoComplete="off"
+          />
+          <datalist id={listId}>
+            {options && <Options options={options} />}
+          </datalist>
+        </>
       );
     } else if (options || optionGroups) {
       component = (

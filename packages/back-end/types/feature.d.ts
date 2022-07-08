@@ -30,6 +30,7 @@ export interface FeatureInterface {
   archived?: boolean;
   description?: string;
   organization: string;
+  owner: string;
   project?: string;
   dateCreated: Date;
   dateUpdated: Date;

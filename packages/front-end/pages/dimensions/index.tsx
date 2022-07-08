@@ -112,6 +112,7 @@ const DimensionsPage: FC = () => {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Owner</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
@@ -127,6 +128,7 @@ const DimensionsPage: FC = () => {
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
+                      <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource?.name}
                       </td>
