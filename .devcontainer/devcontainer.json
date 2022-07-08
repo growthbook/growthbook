@@ -1,6 +1,9 @@
 {
-  "build": { "dockerfile": "Dockerfile" },
+  "name": "Growthbook devcontainer",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
   "postCreateCommand": "sudo sh .devcontainer/dockerBuild.sh",
-  "forwardPorts": [27017, 3000, 3100]
-  // "dockerComposeFile": "docker-compose.yml"
+  "forwardPorts": [3000, 3100, 27017],
+  "remoteUser": "node"
 }

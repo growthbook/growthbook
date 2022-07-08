@@ -1,20 +1,10 @@
 FROM mcr.microsoft.com/vscode/devcontainers/typescript-node
 
-# RUN yarn
+ARG MONGO_TOOLS_VERSION=5.0
+RUN curl -sSL "https://www.mongodb.org/static/pgp/server-${MONGO_TOOLS_VERSION}.asc" | gpg --dearmor > /usr/share/keyrings/mongodb-archive-keyring.gpg \
+        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-archive-keyring.gpg] http://repo.mongodb.org/apt/debian $(lsb_release -cs)/mongodb-org/${MONGO_TOOLS_VERSION} main" | tee /etc/apt/sources.list.d/mongodb-org-${MONGO_TOOLS_VERSION}.list \
+        && apt-get update && export DEBIAN_FRONTEND=noninteractive \
+        && apt-get install -y mongodb-database-tools mongodb-mongosh \
+        && apt-get clean -y && rm -rf /var/lib/apt/lists/*;
 
-# WORKDIR /root/workspaces/growthbook
-# RUN yarn dev
-# CMD ["yarn"]
-
-#Docker install to run mongodb
-# RUN curl -fsSL https://get.docker.com | sh
-# RUN docker run -d -p 27017:27017 --name mongo -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=password mongo
-
-# RUN yarn dev
-
-# # The front-end app (NextJS)
-# EXPOSE 3000
-# # The back-end api (Express)
-# EXPOSE 3100
-# # Start both front-end and back-end at once
-# CMD ["yarn","start"]
+RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
