@@ -6,12 +6,12 @@ export default function useMembers() {
 
   const memberUsernameOptions = useMemo(() => {
     const memberUsernameOptions = [];
-    for (const user of users.values()) {
+    users.forEach((user) => {
       memberUsernameOptions.push({
         display: user.name ? user.name : user.email,
         value: user.name ? user.name : user.email,
       });
-    }
+    });
     return memberUsernameOptions;
   }, [users]);
 
