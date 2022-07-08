@@ -7,12 +7,14 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../../components/Forms/CodeTextArea";
+import useMembers from "../../hooks/useMembers";
 
 const SegmentForm: FC<{
   close: () => void;
   current: Partial<SegmentInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
+  const { memberUsernameOptions } = useMembers();
   const {
     datasources,
     getDatasourceById,
@@ -24,6 +26,7 @@ const SegmentForm: FC<{
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
+      owner: current.owner || "",
     },
   });
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
@@ -61,6 +64,12 @@ const SegmentForm: FC<{
       })}
     >
       <Field label="Name" required {...form.register("name")} />
+      <Field
+        label="Owner"
+        options={memberUsernameOptions}
+        comboBox
+        {...form.register("owner")}
+      />
       <SelectField
         label="Data Source"
         required

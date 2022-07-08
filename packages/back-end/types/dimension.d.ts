@@ -1,6 +1,7 @@
 export interface DimensionInterface {
   id: string;
   organization: string;
+  owner: string;
   datasource: string;
   userIdType: string;
   name: string;

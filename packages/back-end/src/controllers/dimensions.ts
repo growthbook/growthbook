@@ -26,7 +26,7 @@ export async function postDimensions(
 ) {
   req.checkPermissions("createDimensions");
 
-  const { org } = getOrgFromReq(req);
+  const { org, userName } = getOrgFromReq(req);
   const { datasource, name, sql, userIdType } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
@@ -37,6 +37,7 @@ export async function postDimensions(
   const doc = await createDimension({
     datasource,
     userIdType,
+    owner: userName,
     name,
     sql,
     id: uniqid("dim_"),
@@ -64,7 +65,7 @@ export async function putDimension(
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, owner } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -76,6 +77,7 @@ export async function putDimension(
     userIdType,
     name,
     sql,
+    owner,
     dateUpdated: new Date(),
   });
 

@@ -7,12 +7,14 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import useMembers from "../../hooks/useMembers";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
+  const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
     datasources,
@@ -24,6 +26,7 @@ const DimensionForm: FC<{
       sql: current.sql || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
+      owner: current.owner || "",
     },
   });
 
@@ -64,6 +67,12 @@ const DimensionForm: FC<{
       })}
     >
       <Field label="Name" required {...form.register("name")} />
+      <Field
+        label="Owner"
+        options={memberUsernameOptions}
+        comboBox
+        {...form.register("owner")}
+      />
       <SelectField
         label="Data Source"
         required
