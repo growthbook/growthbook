@@ -6,7 +6,6 @@ import { Environment } from "back-end/types/organization";
 import Toggle from "../Forms/Toggle";
 import { useEnvironments } from "../../services/features";
 import useUser from "../../hooks/useUser";
-import Tooltip from "../Tooltip";
 
 export default function EnvironmentModal({
   existing,
@@ -22,7 +21,7 @@ export default function EnvironmentModal({
       id: existing.id || "",
       description: existing.description || "",
       toggleOnList: existing.toggleOnList || false,
-      defaultState: existing.defaultState || true,
+      defaultState: existing.defaultState ?? true,
     },
   });
   const { apiCall } = useAuth();
@@ -119,24 +118,17 @@ export default function EnvironmentModal({
             form.setValue("defaultState", value);
           }}
         />{" "}
-        <label form="defaultToggle">
-          Default state{" "}
-          <Tooltip
-            tipPosition="top"
-            text="The default state for this environment when adding new features"
-          />
-        </label>
+        <label htmlFor="defaultToggle">Default state for new features</label>
       </div>
       <Toggle
         id={"toggle"}
-        type="featureValue"
         label="Identifier"
         value={!!form.watch("toggleOnList")}
         setValue={(value) => {
           form.setValue("toggleOnList", value);
         }}
       />{" "}
-      <label>Show toggle on feature list </label>
+      <label htmlFor="toggle">Show toggle on feature list </label>
     </Modal>
   );
 }
