@@ -1,9 +1,6 @@
 {
   "build": { "dockerfile": "Dockerfile" },
-
-  "customizations": {
-    "vscode": {
-      "extensions": ["dbaeumer.vscode-eslint"]
-    }
-  }
+  "postCreateCommand": "sudo sh .devcontainer/dockerBuild.sh",
+  "forwardPorts": [27017, 3000, 3100]
+  // "dockerComposeFile": "docker-compose.yml"
 }
