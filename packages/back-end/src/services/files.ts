@@ -9,9 +9,7 @@ import {
   S3_DOMAIN,
   S3_REGION,
   UPLOAD_METHOD,
-  GCS_PROJECT_ID,
-  GCS_PRIVATE_KEY_FILEPATH,
-  GCS_BUCKET,
+  GCS_BUCKET_NAME,
   GCS_DOMAIN,
 } from "../util/secrets";
 import { Storage, GetSignedUrlConfig } from "@google-cloud/storage";
@@ -71,13 +69,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const filePath = `${pathPrefix}${filename}.${ext}`;
 
   async function getSignedGoogleUrl() {
-    const projectId = GCS_PROJECT_ID;
-    const keyFilename = GCS_PRIVATE_KEY_FILEPATH;
-
-    const storage = new Storage({
-      projectId,
-      keyFilename,
-    });
+    const storage = new Storage();
 
     const options: GetSignedUrlConfig = {
       version: "v4",
@@ -87,7 +79,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     };
 
     const [url] = await storage
-      .bucket(GCS_BUCKET)
+      .bucket(GCS_BUCKET_NAME)
       .file(filePath)
       .getSignedUrl(options);
 
@@ -110,6 +102,10 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
     const uploadURL = await getSignedGoogleUrl().catch(console.error);
+
+    if (!uploadURL) {
+      throw new Error("Unable to generate a signed URL for this upload.");
+    }
 
     return {
       uploadURL,

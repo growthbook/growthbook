@@ -10,15 +10,16 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export let UPLOAD_METHOD: string;
+export const UPLOAD_METHOD = (() => {
+  if (IS_CLOUD) return "s3";
 
-if (IS_CLOUD || process.env.UPLOAD_METHOD === "s3") {
-  UPLOAD_METHOD = "s3";
-} else if (IS_CLOUD || process.env.UPLOAD_METHOD === "google-cloud") {
-  UPLOAD_METHOD = "google-cloud";
-} else {
-  UPLOAD_METHOD = "local";
-}
+  const method = process.env.UPLOAD_METHOD;
+  if (method && ["s3", "google-cloud"].includes(method)) {
+    return method;
+  }
+
+  return "local";
+})();
 
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
@@ -49,11 +50,10 @@ if (prod && ENCRYPTION_KEY === "dev") {
   );
 }
 
-export const GCS_PROJECT_ID = process.env.GCS_PROJECT_ID || "";
-export const GCS_PRIVATE_KEY_FILEPATH = process.env.GCS_KEY_FILENAME || "";
-export const GCS_BUCKET = process.env.GCS_BUCKET_NAME || "";
+export const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || "";
 export const GCS_DOMAIN =
-  process.env.GCS_DOMAIN || `https://storage.googleapis.com/${GCS_BUCKET}/`;
+  process.env.GCS_DOMAIN ||
+  `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
