@@ -10,8 +10,16 @@ if (fs.existsSync(".env.local")) {
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-export const UPLOAD_METHOD =
-  IS_CLOUD || process.env.UPLOAD_METHOD === "s3" ? "s3" : "local";
+export const UPLOAD_METHOD = (() => {
+  if (IS_CLOUD) return "s3";
+
+  const method = process.env.UPLOAD_METHOD;
+  if (method && ["s3", "google-cloud"].includes(method)) {
+    return method;
+  }
+
+  return "local";
+})();
 
 export const MONGODB_URI =
   process.env.MONGODB_URI ??
@@ -41,6 +49,11 @@ if (prod && ENCRYPTION_KEY === "dev") {
     "Cannot use ENCRYPTION_KEY=dev in production. Please set to a long random string."
   );
 }
+
+export const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || "";
+export const GCS_DOMAIN =
+  process.env.GCS_DOMAIN ||
+  `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if (prod && !IS_CLOUD && JWT_SECRET === "dev") {

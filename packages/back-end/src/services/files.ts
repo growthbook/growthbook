@@ -9,7 +9,10 @@ import {
   S3_DOMAIN,
   S3_REGION,
   UPLOAD_METHOD,
+  GCS_BUCKET_NAME,
+  GCS_DOMAIN,
 } from "../util/secrets";
+import { Storage, GetSignedUrlConfig } from "@google-cloud/storage";
 
 let s3: AWS.S3;
 function getS3(): AWS.S3 {
@@ -65,6 +68,24 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
   const filename = uniqid("img_");
   const filePath = `${pathPrefix}${filename}.${ext}`;
 
+  async function getSignedGoogleUrl() {
+    const storage = new Storage();
+
+    const options: GetSignedUrlConfig = {
+      version: "v4",
+      action: "write",
+      expires: Date.now() + 15 * 60 * 1000,
+      contentType: mimetypes[ext],
+    };
+
+    const [url] = await storage
+      .bucket(GCS_BUCKET_NAME)
+      .file(filePath)
+      .getSignedUrl(options);
+
+    return url;
+  }
+
   if (UPLOAD_METHOD === "s3") {
     const s3Params = {
       Bucket: S3_BUCKET,
@@ -79,9 +100,14 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
       uploadURL,
       fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
     };
-  }
-  // Otherwise, use the local file system
-  else {
+  } else if (UPLOAD_METHOD === "google-cloud") {
+    const uploadURL = await getSignedGoogleUrl();
+
+    return {
+      uploadURL,
+      fileURL: GCS_DOMAIN + (GCS_DOMAIN.endsWith("/") ? "" : "/") + filePath,
+    };
+  } else {
     const fileURL = `/upload/${filePath}`;
     const uploadURL = `/upload?path=${filePath}&signature=${getFileSignature(
       filePath
