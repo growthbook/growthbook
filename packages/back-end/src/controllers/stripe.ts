@@ -174,7 +174,6 @@ export async function postCreateBillingSession(
 }
 
 export async function postWebhook(req: Request, res: Response) {
-  console.log("this got hit!");
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
   if (!sig) {
@@ -189,8 +188,6 @@ export async function postWebhook(req: Request, res: Response) {
     console.error(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
-
-  console.log("webhook hit with event", event);
 
   switch (event.type) {
     case "checkout.session.completed": {
