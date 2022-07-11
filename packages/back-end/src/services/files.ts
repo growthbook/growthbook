@@ -101,11 +101,7 @@ export async function getFileUploadURL(ext: string, pathPrefix: string) {
       fileURL: S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
-    const uploadURL = await getSignedGoogleUrl().catch(console.error);
-
-    if (!uploadURL) {
-      throw new Error("Unable to generate a signed URL for this upload.");
-    }
+    const uploadURL = await getSignedGoogleUrl();
 
     return {
       uploadURL,
