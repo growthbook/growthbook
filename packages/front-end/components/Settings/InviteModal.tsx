@@ -5,7 +5,7 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
-import { MemberRole } from "back-end/types/organization";
+import type { MemberRole } from "back-end/types/organization";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
 import router from "next/router";
