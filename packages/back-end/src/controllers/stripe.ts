@@ -112,6 +112,38 @@ export async function postStartTrial(
   }
 }
 
+export async function postNewSubscription(
+  req: AuthRequest<{ qty: number; email: string }>,
+  res: Response
+) {
+  const { qty, email } = req.body;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer_email: email,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: STRIPE_PRICE,
+          quantity: qty,
+        },
+      ],
+      success_url: "http://localhost:3000/settings/team",
+      cancel_url: "http://localhost:3000/settings/team",
+    });
+    res.status(200).json({
+      status: 200,
+      session,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
 export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
@@ -142,6 +174,7 @@ export async function postCreateBillingSession(
 }
 
 export async function postWebhook(req: Request, res: Response) {
+  console.log("this got hit!");
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
   if (!sig) {
@@ -156,6 +189,8 @@ export async function postWebhook(req: Request, res: Response) {
     console.error(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
+
+  console.log("webhook hit with event", event);
 
   switch (event.type) {
     case "checkout.session.completed": {

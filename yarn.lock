@@ -10688,6 +10688,13 @@ qs@6.7.0:
   resolved "https://registry.yarnpkg.com/qs/-/qs-6.7.0.tgz#41dc1a015e3d581f1621776be31afb2876a9b1bc"
   integrity sha512-VCdBRNFTX1fyE7Nb6FYoURo/SPe62QCaAyzJvUjwRaIsc+NePBEniHlvxFmmX56+HZphIGtV0XeCirBtpDrTyQ==
 
+qs@^6.10.3:
+  version "6.11.0"
+  resolved "https://registry.yarnpkg.com/qs/-/qs-6.11.0.tgz#fd0d963446f7a65e1367e01abd85429453f0c37a"
+  integrity sha512-MvjoMCJwEarSbUYk5O+nmoSzSutSsTwF85zcHPQ9OrlFoZOYIjaqBAJIqIXjptyD5vThxGq52Xu/MaJzRkIk4Q==
+  dependencies:
+    side-channel "^1.0.4"
+
 qs@^6.6.0, qs@^6.7.0:
   version "6.10.1"
   resolved "https://registry.yarnpkg.com/qs/-/qs-6.10.1.tgz#4931482fa8d647a5aab799c5271d2133b981fb6a"
@@ -10871,10 +10878,10 @@ react-fast-compare@^3.2.0:
   resolved "https://registry.yarnpkg.com/react-fast-compare/-/react-fast-compare-3.2.0.tgz#641a9da81b6a6320f270e89724fb45a0b39e43bb"
   integrity sha512-rtGImPZ0YyLrscKI9xTpV8psd6I8VAtjKCzQDlzyDvqJA8XOW78TXYQwNRNd8g8JZnDu8q9Fu/1v4HPAVwVdHA==
 
-react-hook-form@^7.31.0:
-  version "7.31.0"
-  resolved "https://registry.yarnpkg.com/react-hook-form/-/react-hook-form-7.31.0.tgz#a36d4fd257e08bbb7c141b29159df1eb2f1a3979"
-  integrity sha512-dDZSOk0eRf8z2EFt/XVA+HnmffxMYSWQaVX5EXCp2ozYtqyqrCDdfQRVBoVC43YyKIDtWfbiRcFkMvnvxv9q5g==
+react-hook-form@^7.33.1:
+  version "7.33.1"
+  resolved "https://registry.yarnpkg.com/react-hook-form/-/react-hook-form-7.33.1.tgz#8c4410e3420788d3b804d62cc4c142915c2e46d0"
+  integrity sha512-ydTfTxEJdvgjCZBj5DDXRc58oTEfnFupEwwTAQ9FSKzykEJkX+3CiAkGtAMiZG7IPWHuzgT6AOBfogiKhUvKgg==
 
 react-icons@^4.3.1:
   version "4.3.1"
@@ -12493,6 +12500,14 @@ stripe@^8.106.0:
   dependencies:
     "@types/node" ">=8.1.0"
     qs "^6.6.0"
+
+stripe@^9.12.0:
+  version "9.12.0"
+  resolved "https://registry.yarnpkg.com/stripe/-/stripe-9.12.0.tgz#a0497763af9ebd6c1b456fd008f377ecee1658b3"
+  integrity sha512-dl87y8d137fw2VnfId/HngZ8/J1QLXf3MhoPEeg4MY5VNeryOBnUfew3jXG6sHW/ojRZ1vrKJEZjv3SJSbgUAw==
+  dependencies:
+    "@types/node" ">=8.1.0"
+    qs "^6.10.3"
 
 stubs@^3.0.0:
   version "3.0.0"

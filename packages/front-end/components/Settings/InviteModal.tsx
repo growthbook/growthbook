@@ -8,8 +8,10 @@ import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
+import router from "next/router";
+import useUser from "../../hooks/useUser";
+import { Stripe } from "stripe";
 import { isCloud } from "../../services/env";
-import Link from "next/link";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -28,6 +30,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
   const { data } = useApi<SettingsApiResponse>(`/organization`);
+  const user = useUser();
 
   const numOfFreeSeats = 5; // Do we have a place in the app where we define universal constants like this? Just thinking if we ever want to update this in the future
   const totalSeats =
@@ -70,6 +73,23 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   const email = form.watch("email");
 
+  const startStripeSubscription = async () => {
+    const resp = await apiCall<{
+      status: number;
+      session: Stripe.Checkout.Session;
+    }>(`/subscription/checkout`, {
+      method: "POST",
+      body: JSON.stringify({
+        qty: totalSeats + 1,
+        email: user.email,
+      }),
+    });
+
+    if (resp.session.url) {
+      router.push(resp.session.url);
+    }
+  };
+
   return (
     <Modal
       close={close}
@@ -105,7 +125,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          {isCloud() && totalSeats >= numOfFreeSeats && hasActiveSubscription && (
+          {isCloud() && totalSeats <= numOfFreeSeats && hasActiveSubscription && (
             <p className="mt-3 mb-0 alert-warning alert">
               This user will be assigned a new seat{" "}
               <strong>(${pricePerSeat / 100}/month)</strong>
@@ -117,9 +137,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               which only allows {numOfFreeSeats} seats. To add a seat ($
               {pricePerSeat / 100}/month), please{" "}
               <strong>
-                <Link href={"/settings/billing"}>
-                  <a target="_blank">upgrade your plan</a>
-                </Link>
+                <button
+                  type="button"
+                  className="btn btn-link p-0 align-baseline shadow-none"
+                  onClick={startStripeSubscription}
+                >
+                  <strong>upgrade your plan</strong>
+                </button>
               </strong>
               .
             </p>

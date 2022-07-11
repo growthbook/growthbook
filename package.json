@@ -18,6 +18,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "stripe": "^9.12.0",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
