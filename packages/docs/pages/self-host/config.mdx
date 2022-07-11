@@ -67,34 +67,30 @@ Only required if using Google Analytics as a data source
 ### File Uploads
 
 The **UPLOAD_METHOD** environment variable controls where to store uploaded files
-and screenshots. The supported values are "local", "s3", and "google-cloud".
+and screenshots. The supported values are `local`, `s3`, and `google-cloud`.
 
 #### local
 
 This is the default value. Uploads are stored in the GrowthBook docker container at
-`/usr/local/src/app/packages/back-end/uploads`.
+`/usr/local/src/app/packages/back-end/uploads`. In production, you should mount a volume here to persist uploads across container restarts.
 
-In production, you should mount a volume here to persist uploads across container restarts.
+#### s3
 
-#### S3 File Uploads
+Store uploads in an AWS S3 bucket.
 
-Optional. If specified, GrowthBook will use your S3 instance to store uploads.
-
-- **UPLOAD_METHOD** (set to "s3" instead of default value "local")
 - **S3_BUCKET**
 - **S3_REGION** (defaults to `us-east-1`)
 - **S3_DOMAIN** (defaults to `https://${S3_BUCKET}.s3.amazonaws.com/`)
 - **AWS_ACCESS_KEY_ID** (not required when deployed to AWS with an instance role)
 - **AWS_SECRET_ACCESS_KEY** (not required when deployed to AWS with an instance role)
 
-#### Google Cloud Services File Uploads
+#### google-cloud
 
-Optional. If specified, GrowthBook will use your Google Cloud Services instance to store uploads.
+Store uploads in a Google Cloud Storage bucket.
 
-- **UPLOAD_METHOD** (set to "google-cloud" instead of default value "local")
-- **GOOGLE_APPLICATION_CREDENTIALS** (not required when deployed to Google Cloud with an instance role)
 - **GCS_BUCKET_NAME**
-- **GCS_DOMAIN** (optional. defaults to `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`)
+- **GCS_DOMAIN** (defaults to `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`)
+- **GOOGLE_APPLICATION_CREDENTIALS** (not required when deployed to GCP with an instance service account)
 
 ### Other Settings
 
