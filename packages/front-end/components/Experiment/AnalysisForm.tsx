@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
-import type { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
