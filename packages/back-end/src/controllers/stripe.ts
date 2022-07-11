@@ -113,16 +113,24 @@ export async function postStartTrial(
 }
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number; email: string }>,
+  req: AuthRequest<{ qty: number; email: string; organizationId: string }>,
   res: Response
 ) {
-  const { qty, email } = req.body;
+  const { qty, email, organizationId } = req.body;
+
+  if (!organizationId) {
+    res.status(400).json({
+      status: 400,
+      message: "No organization created",
+    });
+  }
 
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
       payment_method_types: ["card"],
+      client_reference_id: organizationId,
       line_items: [
         {
           price: STRIPE_PRICE,
@@ -191,11 +199,27 @@ export async function postWebhook(req: Request, res: Response) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const { subscription } = event.data
+      const { subscription, client_reference_id, customer } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
-      if (subscription) {
-        updateSubscription(subscription);
+
+      if (client_reference_id && customer && typeof customer === "string") {
+        // Add stripeCustomerId to organization
+        await updateOrganization(client_reference_id, {
+          stripeCustomerId: customer,
+        });
+
+        // Then update orgs subscription info
+        if (subscription) {
+          updateSubscription(subscription);
+        }
+      } else {
+        console.error("Unable to find & updated existing organization"); //TODO: As this is a webhook, these errors should probably alert/bubble up somewhere
+        res.status(400).json({
+          status: 400,
+          message: "Unable to find & updated existing organization",
+        });
       }
+
       break;
     }
 

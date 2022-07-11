@@ -463,6 +463,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 
   const {
+    id,
     invites,
     members,
     ownerEmail,
@@ -486,6 +487,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     status: 200,
     apiKeys,
     organization: {
+      id,
       invites,
       ownerEmail,
       name,

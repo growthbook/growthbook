@@ -23,6 +23,7 @@ export type SettingsApiResponse = {
   status: number;
   apiKeys: ApiKeyInterface[];
   organization?: {
+    id: string;
     invites: {
       email: string;
       key: string;
