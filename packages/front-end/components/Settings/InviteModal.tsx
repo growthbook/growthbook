@@ -11,7 +11,7 @@ import { SettingsApiResponse } from "../../pages/settings";
 import router from "next/router";
 import useUser from "../../hooks/useUser";
 import { Stripe } from "stripe";
-// import { isCloud } from "../../services/env";
+import { isCloud } from "../../services/env";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -35,10 +35,9 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const numOfFreeSeats = 5; // Do we have a place in the app where we define universal constants like this? Just thinking if we ever want to update this in the future
   const totalSeats =
     data.organization.invites.length + data.organization.members.length;
-  // const hasActiveSubscription =
-  //   data.organization.subscription?.status === "active" ||
-  //   data.organization.subscription?.status === "trialing";
-  const hasActiveSubscription = true;
+  const hasActiveSubscription =
+    data.organization.subscription?.status === "active" ||
+    data.organization.subscription?.status === "trialing";
   const canInviteUser = Boolean(
     emailSent === null &&
       (totalSeats < numOfFreeSeats ||
@@ -98,7 +97,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
-      ctaEnabled={canInviteUser}
+      ctaEnabled={!isCloud() || canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
     >
@@ -127,13 +126,19 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          {totalSeats <= numOfFreeSeats && hasActiveSubscription && (
+          {isCloud() &&
+            data.organization.subscription?.status === "past_due" && (
+              <p className="mt-3 mb-0 alert-danger alert">
+                Whoops! Your bill is past due. Please update your billing info.
+              </p>
+            )}
+          {isCloud() && totalSeats <= numOfFreeSeats && hasActiveSubscription && (
             <p className="mt-3 mb-0 alert-warning alert">
               This user will be assigned a new seat{" "}
               <strong>(${pricePerSeat / 100}/month)</strong>
             </p>
           )}
-          {totalSeats >= numOfFreeSeats && !hasActiveSubscription && (
+          {isCloud() && totalSeats >= numOfFreeSeats && !hasActiveSubscription && (
             <p className="mt-3 mb-0 alert-warning alert">
               Whoops! You&apos;re currently in the <strong>Free Plan</strong>{" "}
               which only allows {numOfFreeSeats} seats. To add a seat ($
