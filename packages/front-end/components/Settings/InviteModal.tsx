@@ -95,7 +95,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     }>(`/subscription/checkout`, {
       method: "POST",
       body: JSON.stringify({
-        qty: totalSeats + 1,
+        qty: totalSeats,
         email: user.email,
         organizationId: data.organization.id,
       }),

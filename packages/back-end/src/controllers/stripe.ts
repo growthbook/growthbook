@@ -152,6 +152,33 @@ export async function postNewSubscription(
   }
 }
 
+export async function getSubscriptionData(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+
+  const subscriptionId = org.subscription?.id;
+
+  if (!subscriptionId) {
+    res.status(400).json({
+      status: 400,
+      message: "No organization found",
+    });
+  } else {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      res.status(200).json({
+        status: 200,
+        subscription,
+      });
+    } catch (e) {
+      res.status(400).json({
+        status: 400,
+        message: e.message,
+      });
+    }
+  }
+}
+
 export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
