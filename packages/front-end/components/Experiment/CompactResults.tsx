@@ -15,7 +15,8 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
-import MetricsVirtualPortalTooltip from "./MetricsVirtualPortalTooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Link from "next/link";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -103,7 +104,14 @@ const CompactResults: FC<{
           users={users}
           renderLabelColumn={(label, metric) => {
             const metricLink = (
-              <MetricsVirtualPortalTooltip label={label} metric={metric} />
+              <Tooltip
+                body={<MetricTooltipBody metric={metric} />}
+                tipPosition="right"
+              >
+                <Link href={`/metric/${metric.id}`}>
+                  <a className="text-dark font-weight-bold">{label}</a>
+                </Link>
+              </Tooltip>
             );
             if (!metric.inverse) {
               return metricLink;

@@ -72,7 +72,7 @@ export default function ChanceToWinColumn({
   return (
     <td
       className={clsx(
-        "variation chance result-number align-middle tiptrigger d-table-cell",
+        "variation chance result-number align-middle d-table-cell",
         className
       )}
     >
