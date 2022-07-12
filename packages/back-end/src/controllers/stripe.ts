@@ -181,7 +181,49 @@ export async function postCreateBillingSession(
   }
 }
 
+export async function postUpdateStripeSubscription(
+  req: AuthRequest<{
+    qty: number;
+    organizationId: string;
+    subscriptionId: string;
+  }>,
+  res: Response
+) {
+  console.log("stripe update was called successfully");
+  const { qty, organizationId, subscriptionId } = req.body;
+
+  try {
+    req.checkPermissions("organizationSettings");
+
+    if (!organizationId) {
+      throw new Error("Missing customer id");
+    }
+
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    stripe.subscriptions.update(subscriptionId, {
+      items: [
+        {
+          id: subscription.items.data[0].id,
+          quantity: qty,
+        },
+      ],
+    });
+
+    res.status(200).json({
+      status: 200,
+      subscription,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
 export async function postWebhook(req: Request, res: Response) {
+  console.log("The webhook was hit");
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
   if (!sig) {
@@ -197,18 +239,18 @@ export async function postWebhook(req: Request, res: Response) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log("event", event);
+
   switch (event.type) {
     case "checkout.session.completed": {
       const { subscription, client_reference_id, customer } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
 
       if (client_reference_id && customer && typeof customer === "string") {
-        // Add stripeCustomerId to organization
         await updateOrganization(client_reference_id, {
           stripeCustomerId: customer,
         });
 
-        // Then update orgs subscription info
         if (subscription) {
           updateSubscription(subscription);
         }
@@ -234,6 +276,7 @@ export async function postWebhook(req: Request, res: Response) {
     }
 
     case "customer.subscription.deleted":
+    case "subscription_scheduled.canceled": //TODO: Need to test this and make sure the shape of the subscription is accurate.
     case "customer.subscription.updated": {
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;

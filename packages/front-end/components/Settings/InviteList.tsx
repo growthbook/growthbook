@@ -3,6 +3,8 @@ import { FaTrash, FaEnvelope } from "react-icons/fa";
 import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
+import useApi from "../../hooks/useApi";
+import { SettingsApiResponse } from "../../pages/settings";
 
 const InviteList: FC<{
   invites: { key: string; email: string; role: string; dateCreated: string }[];
@@ -15,6 +17,9 @@ const InviteList: FC<{
   const { apiCall } = useAuth();
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
+  const { data } = useApi<SettingsApiResponse>(`/organization`);
+  const totalSeats =
+    data.organization.invites.length + data.organization.members.length;
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -133,10 +138,22 @@ const InviteList: FC<{
                 </button>
                 <button
                   className="btn btn-outline-danger"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     setDeleteInvite({ email, key });
                     setResendMessage(null);
+                    await apiCall<{
+                      qty: string;
+                      organizationId: string;
+                      subscriptionId: string;
+                    }>(`/subscription/updateSubscription`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        qty: totalSeats - 1,
+                        organizationId: data.organization.id,
+                        subscriptionId: data.organization.subscription.id,
+                      }),
+                    });
                   }}
                 >
                   <FaTrash /> Remove
