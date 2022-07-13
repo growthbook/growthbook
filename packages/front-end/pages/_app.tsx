@@ -12,6 +12,7 @@ import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { BillingErrorBanner } from "../components/BillingErrorBanner";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
@@ -85,6 +86,7 @@ function App({
                 <DefinitionsProvider>
                   <Layout />
                   <main className={`main ${parts[0]}`}>
+                    <BillingErrorBanner />
                     <Component {...pageProps} />
                   </main>
                 </DefinitionsProvider>
