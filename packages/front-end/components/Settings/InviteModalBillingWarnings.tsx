@@ -31,7 +31,7 @@ export const InviteModalBillingWarnings: FC<{
     }>(`/subscription/checkout`, {
       method: "POST",
       body: JSON.stringify({
-        qty: totalSeats + 1,
+        qty: currentNumOfSeats + 1,
         email: email,
         organizationId: organizationId,
       }),
@@ -66,7 +66,7 @@ export const InviteModalBillingWarnings: FC<{
             <strong>(${pricePerSeat}/month)</strong>.
           </p>
         )}
-      {totalSeats >= numOfFreeSeats && !hasActiveSubscription && (
+      {currentNumOfSeats >= numOfFreeSeats && !hasActiveSubscription && (
         <p className="mt-3 mb-0 alert-warning alert">
           Whoops! You&apos;re currently in the <strong>Free Plan</strong> which
           only allows {numOfFreeSeats} seats. To add a seat (${pricePerSeat}

@@ -48,10 +48,9 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const hasActiveSubscription =
     data.organization.subscription?.status === "active" ||
     data.organization.subscription?.status === "trialing";
-  // const hasActiveSubscription = false; //TODO: I'll remove this, its just a temporary def for testing
   const canInviteUser = Boolean(
     emailSent === null &&
-      (totalSeats < numOfFreeSeats ||
+      (currentNumOfSeats < numOfFreeSeats ||
         (totalSeats >= numOfFreeSeats && hasActiveSubscription))
   );
   const pricePerSeat = subscriptionData?.plan.metadata.price || 20;
@@ -105,7 +104,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
-      // ctaEnabled={canInviteUser} //TODO: I'll remove this, its just a temporary def for testing
       ctaEnabled={!isCloud() || canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
@@ -139,7 +137,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             status={data.organization.subscription?.status}
             currentNumOfSeats={currentNumOfSeats}
             numOfFreeSeats={numOfFreeSeats}
-            hasActiveSubscription
+            hasActiveSubscription={hasActiveSubscription}
             pricePerSeat={pricePerSeat}
             totalSeats={totalSeats}
             email={user.email}
