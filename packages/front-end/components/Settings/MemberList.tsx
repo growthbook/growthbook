@@ -34,8 +34,7 @@ const MemberList: FC<{
   const [role, setRole] = useState<MemberRole>("admin");
   const { data } = useApi<SettingsApiResponse>(`/organization`);
 
-  const totalSeats =
-    data.organization.invites.length + data.organization.members.length;
+  const totalSeats = data.organization.subscription.qty || 0;
 
   const onInvite = () => {
     setInviting(true);

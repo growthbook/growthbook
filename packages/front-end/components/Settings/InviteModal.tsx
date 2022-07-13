@@ -8,10 +8,9 @@ import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
-import router from "next/router";
 import useUser from "../../hooks/useUser";
-import { Stripe } from "stripe";
 import { isCloud } from "../../services/env";
+import { InviteModalBillingWarnings } from "./InviteModalBillingWarnings";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -43,11 +42,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   }, []);
 
   const numOfFreeSeats = subscriptionData?.plan.metadata.freeSeats || 5;
+  const currentNumOfSeats =
+    data.organization.members.length + data.organization.invites.length;
   const totalSeats = data.organization.subscription.qty || 0;
-  // const hasActiveSubscription =
-  //   data.organization.subscription?.status === "active" ||
-  //   data.organization.subscription?.status === "trialing";
-  const hasActiveSubscription = false;
+  const hasActiveSubscription =
+    data.organization.subscription?.status === "active" ||
+    data.organization.subscription?.status === "trialing";
+  // const hasActiveSubscription = false; //TODO: I'll remove this, its just a temporary def for testing
   const canInviteUser = Boolean(
     emailSent === null &&
       (totalSeats < numOfFreeSeats ||
@@ -66,20 +67,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       body: JSON.stringify(value),
     });
 
-    const res = await apiCall<{
-      qty: string;
-      organizationId: string;
-      subscriptionId: string;
-    }>(`/subscription/updateSubscription`, {
-      method: "POST",
-      body: JSON.stringify({
-        qty: totalSeats + 1,
-        organizationId: data.organization.id,
-        subscriptionId: data.organization.subscription.id,
-      }),
-    });
-
-    console.log("res", res);
+    if (totalSeats <= currentNumOfSeats) {
+      await apiCall<{
+        qty: string;
+        organizationId: string;
+        subscriptionId: string;
+      }>(`/subscription/updateSubscription`, {
+        method: "POST",
+        body: JSON.stringify({
+          qty: totalSeats + 1,
+          organizationId: data.organization.id,
+          subscriptionId: data.organization.subscription.id,
+        }),
+      });
+    }
 
     if (resp.emailSent) {
       mutate();
@@ -98,30 +99,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   const email = form.watch("email");
 
-  const startStripeSubscription = async () => {
-    const resp = await apiCall<{
-      status: number;
-      session: Stripe.Checkout.Session;
-    }>(`/subscription/checkout`, {
-      method: "POST",
-      body: JSON.stringify({
-        qty: totalSeats,
-        email: user.email,
-        organizationId: data.organization.id,
-      }),
-    });
-
-    if (resp.session.url) {
-      router.push(resp.session.url);
-    }
-  };
-
   return (
     <Modal
       close={close}
       header="Invite Member"
       open={true}
       cta="Invite"
+      // ctaEnabled={canInviteUser} //TODO: I'll remove this, its just a temporary def for testing
       ctaEnabled={!isCloud() || canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
@@ -151,35 +135,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          {isCloud() &&
-            data.organization.subscription?.status === "past_due" && (
-              <p className="mt-3 mb-0 alert-danger alert">
-                Whoops! Your bill is past due. Please update your billing info.
-              </p>
-            )}
-          {isCloud() && totalSeats <= numOfFreeSeats && hasActiveSubscription && (
-            <p className="mt-3 mb-0 alert-warning alert">
-              This user will be assigned a new seat{" "}
-              <strong>(${pricePerSeat / 100}/month)</strong>
-            </p>
-          )}
-          {isCloud() && totalSeats >= numOfFreeSeats && !hasActiveSubscription && (
-            <p className="mt-3 mb-0 alert-warning alert">
-              Whoops! You&apos;re currently in the <strong>Free Plan</strong>{" "}
-              which only allows {numOfFreeSeats} seats. To add a seat ($
-              {pricePerSeat / 100}/month), please{" "}
-              <strong>
-                <button
-                  type="button"
-                  className="btn btn-link p-0 align-baseline shadow-none"
-                  onClick={startStripeSubscription}
-                >
-                  <strong>upgrade your plan</strong>
-                </button>
-              </strong>
-              .
-            </p>
-          )}
+          <InviteModalBillingWarnings
+            status={data.organization.subscription?.status}
+            currentNumOfSeats={currentNumOfSeats}
+            numOfFreeSeats={numOfFreeSeats}
+            hasActiveSubscription
+            pricePerSeat={pricePerSeat}
+            totalSeats={totalSeats}
+            email={user.email}
+            organizationId={data.organization.id}
+          />
         </>
       )}
     </Modal>

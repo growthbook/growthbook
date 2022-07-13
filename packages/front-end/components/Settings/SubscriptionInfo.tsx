@@ -32,6 +32,8 @@ const SubscriptionInfo: FC<{
 
   if (!subscriptionData) return <LoadingOverlay />;
 
+  const numOfFreeSeats = subscriptionData?.plan.metadata.freeSeats || 5;
+
   return (
     <>
       <div className="row align-items-center">
@@ -43,7 +45,11 @@ const SubscriptionInfo: FC<{
         </div>
         <div className="col-md-12 mb-3">
           <strong>Current Monthly Price:</strong>{" "}
-          {`$${(qty - 5) * subscriptionData.plan.metadata.price}`}
+          {qty > numOfFreeSeats
+            ? `$${
+                (qty - numOfFreeSeats) * subscriptionData.plan.metadata.price
+              }`
+            : "$0"}
           <Tooltip
             text={`Your first ${subscriptionData.plan.metadata.freeSeats} seats are free. And each additional seat is $${subscriptionData.plan.metadata.price}/month.`}
             tipMinWidth="200px"
