@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
@@ -28,22 +28,32 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   });
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
+  const [subscriptionData, setSubscriptionData] = useState(null);
   const { apiCall } = useAuth();
   const { data } = useApi<SettingsApiResponse>(`/organization`);
   const user = useUser();
 
-  const numOfFreeSeats = 5; // Do we have a place in the app where we define universal constants like this? Just thinking if we ever want to update this in the future
-  const totalSeats =
-    data.organization.invites.length + data.organization.members.length;
-  const hasActiveSubscription =
-    data.organization.subscription?.status === "active" ||
-    data.organization.subscription?.status === "trialing";
+  useEffect(() => {
+    const getSubscriptionData = async () => {
+      const { subscription } = await apiCall(`/subscription`);
+      setSubscriptionData(subscription);
+    };
+
+    getSubscriptionData();
+  }, []);
+
+  const numOfFreeSeats = subscriptionData?.plan.metadata.freeSeats || 5;
+  const totalSeats = data.organization.subscription.qty || 0;
+  // const hasActiveSubscription =
+  //   data.organization.subscription?.status === "active" ||
+  //   data.organization.subscription?.status === "trialing";
+  const hasActiveSubscription = false;
   const canInviteUser = Boolean(
     emailSent === null &&
       (totalSeats < numOfFreeSeats ||
         (totalSeats >= numOfFreeSeats && hasActiveSubscription))
   );
-  const pricePerSeat = 2000; // Eventually this will need to come from stripe so we can support different price amounts
+  const pricePerSeat = subscriptionData?.plan.metadata.price || 20;
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
