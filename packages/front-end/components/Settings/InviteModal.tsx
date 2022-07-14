@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
@@ -11,6 +11,7 @@ import { SettingsApiResponse } from "../../pages/settings";
 import useUser from "../../hooks/useUser";
 import { isCloud } from "../../services/env";
 import { InviteModalBillingWarnings } from "./InviteModalBillingWarnings";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -27,33 +28,26 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   });
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
-  const [subscriptionData, setSubscriptionData] = useState(null);
   const { apiCall } = useAuth();
   const { data } = useApi<SettingsApiResponse>(`/organization`);
   const user = useUser();
+  const { seatsInFreeTier, pricePerSeat } = useStripeSubscription();
 
-  useEffect(() => {
-    const getSubscriptionData = async () => {
-      const { subscription } = await apiCall(`/subscription`);
-      setSubscriptionData(subscription);
-    };
-
-    getSubscriptionData();
-  }, []);
-
-  const numOfFreeSeats = subscriptionData?.plan.metadata.freeSeats || 5;
-  const currentNumOfSeats =
+  const activeAndInvitedUsers =
     data.organization.members.length + data.organization.invites.length;
-  const totalSeats = data.organization.subscription.qty || 0;
+
+  const currentPaidSeats = data.organization.subscription.qty || 0;
+
   const hasActiveSubscription =
     data.organization.subscription?.status === "active" ||
     data.organization.subscription?.status === "trialing";
+
   const canInviteUser = Boolean(
     emailSent === null &&
-      (currentNumOfSeats < numOfFreeSeats ||
-        (totalSeats >= numOfFreeSeats && hasActiveSubscription))
+      (activeAndInvitedUsers < seatsInFreeTier ||
+        (currentPaidSeats >= seatsInFreeTier && hasActiveSubscription) ||
+        !isCloud())
   );
-  const pricePerSeat = subscriptionData?.plan.metadata.price || 20;
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
@@ -66,7 +60,9 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       body: JSON.stringify(value),
     });
 
-    if (totalSeats <= currentNumOfSeats) {
+    // Don't update the Stripe subscription if someone is adding a user right after they started a subscription.
+    // This is the only time where currentPaidSeats <= activeAndInvitedUsers
+    if (currentPaidSeats <= activeAndInvitedUsers) {
       await apiCall<{
         qty: string;
         organizationId: string;
@@ -74,7 +70,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       }>(`/subscription/updateSubscription`, {
         method: "POST",
         body: JSON.stringify({
-          qty: totalSeats + 1,
+          qty: currentPaidSeats + 1,
           organizationId: data.organization.id,
           subscriptionId: data.organization.subscription.id,
         }),
@@ -104,7 +100,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
-      ctaEnabled={!isCloud() || canInviteUser}
+      ctaEnabled={canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
     >
@@ -135,11 +131,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
           />
           <InviteModalBillingWarnings
             subscriptionStatus={data.organization.subscription?.status}
-            currentNumOfSeats={currentNumOfSeats}
-            numOfFreeSeats={numOfFreeSeats}
+            activeAndInvitedUsers={activeAndInvitedUsers}
+            seatsInFreeTier={seatsInFreeTier}
             hasActiveSubscription={hasActiveSubscription}
             pricePerSeat={pricePerSeat}
-            totalSeats={totalSeats}
+            currentPaidSeats={currentPaidSeats}
             email={user.email}
             organizationId={data.organization.id}
           />

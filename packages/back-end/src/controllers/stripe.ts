@@ -216,7 +216,6 @@ export async function postUpdateStripeSubscription(
   }>,
   res: Response
 ) {
-  console.log("stripe update was called successfully");
   const { qty, organizationId, subscriptionId } = req.body;
 
   try {
@@ -250,7 +249,6 @@ export async function postUpdateStripeSubscription(
 }
 
 export async function postWebhook(req: Request, res: Response) {
-  console.log("The webhook was hit");
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
   if (!sig) {
@@ -265,8 +263,6 @@ export async function postWebhook(req: Request, res: Response) {
     console.error(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
-
-  console.log("event", event);
 
   switch (event.type) {
     case "checkout.session.completed": {

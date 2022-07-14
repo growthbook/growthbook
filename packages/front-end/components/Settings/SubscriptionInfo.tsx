@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from "react";
+import { FC, useState } from "react";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip";
@@ -6,6 +6,7 @@ import { Stripe } from "stripe";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
 import useUser from "../../hooks/useUser";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const SubscriptionInfo: FC<{
   id: string;
@@ -23,68 +24,60 @@ const SubscriptionInfo: FC<{
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [subscriptionData, setSubscriptionData] = useState(null);
   const { data } = useApi<SettingsApiResponse>(`/organization`);
   const { email } = useUser();
+  const {
+    subscriptionData,
+    seatsInFreeTier,
+    pricePerSeat,
+    planName,
+    nextBillDate,
+    dateToBeCanceled,
+    cancelationDate,
+    subscriptionStatus,
+    pendingCancelation,
+  } = useStripeSubscription();
 
-  const currentNumOfSeats =
+  const activeAndInvitedUsers =
     data.organization.members.length + data.organization.invites.length;
 
-  useEffect(() => {
-    const getSubscriptionData = async () => {
-      const { subscription } = await apiCall(`/subscription`);
-      setSubscriptionData(subscription);
-    };
-
-    getSubscriptionData();
-  }, []);
-
   if (!subscriptionData) return <LoadingOverlay />;
-
-  const numOfFreeSeats = subscriptionData?.plan.metadata.freeSeats || 5;
 
   return (
     <>
       <div className="row align-items-center">
         <div className="col-auto mb-3">
-          <strong>Current Plan:</strong> {subscriptionData.plan.nickname}
+          <strong>Current Plan:</strong> {planName}
         </div>
         <div className="col-md-12 mb-3">
           <strong>Number Of Seats:</strong> {qty}
         </div>
         <div className="col-md-12 mb-3">
           <strong>Current Monthly Price:</strong>{" "}
-          {qty > numOfFreeSeats
-            ? `$${
-                (qty - numOfFreeSeats) * subscriptionData.plan.metadata.price
-              }`
+          {qty > seatsInFreeTier
+            ? `$${(qty - seatsInFreeTier) * pricePerSeat}`
             : "$0"}
           <Tooltip
-            text={`Your first ${subscriptionData.plan.metadata.freeSeats} seats are free. And each additional seat is $${subscriptionData.plan.metadata.price}/month.`}
+            text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${pricePerSeat}/month.`}
             tipMinWidth="200px"
           />
         </div>
-        {subscriptionData.status !== "canceled" && (
+        {subscriptionStatus !== "canceled" && (
           <div className="col-md-12 mb-3">
-            <strong>Next Bill Date:</strong>{" "}
-            {new Date(
-              subscriptionData.current_period_end * 1000
-            ).toDateString()}
+            <strong>Next Bill Date: </strong>
+            {nextBillDate}
           </div>
         )}
-        {subscriptionData.cancel_at_period_end && subscriptionData.cancel_at && (
+        {pendingCancelation && dateToBeCanceled && (
           <div className="col-md-12 mb-3 alert alert-danger">
             Your plan will be canceled, but is still available until the end of
             of your billing period on
-            {` ${new Date(subscriptionData.cancel_at * 1000).toDateString()}.`}
+            {` ${dateToBeCanceled}.`}
           </div>
         )}
-        {subscriptionData.status === "canceled" && (
+        {subscriptionStatus === "canceled" && (
           <div className="col-md-12 mb-3 alert alert-danger">
-            Your plan was canceled on{" "}
-            {` ${new Date(
-              subscriptionData.canceled_at * 1000
-            ).toDateString()}.`}
+            Your plan was canceled on {` ${cancelationDate}.`}
           </div>
         )}
         <div className="col-md-12 mb-3 d-flex flex-row">
@@ -115,12 +108,12 @@ const SubscriptionInfo: FC<{
                 setLoading(false);
               }}
             >
-              {subscriptionData.status !== "canceled"
+              {subscriptionStatus !== "canceled"
                 ? "Manage Subscription"
                 : "View Previous Invoices"}
             </button>
           </div>
-          {subscriptionData.status === "canceled" && (
+          {subscriptionStatus === "canceled" && (
             <div className="col-auto">
               <button
                 className="btn btn-success"
@@ -133,7 +126,7 @@ const SubscriptionInfo: FC<{
                     }>(`/subscription/checkout`, {
                       method: "POST",
                       body: JSON.stringify({
-                        qty: currentNumOfSeats,
+                        qty: activeAndInvitedUsers,
                         email: email,
                         organizationId: data.organization.id,
                       }),
