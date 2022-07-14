@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import router from "next/router";
 import { Stripe } from "stripe";
 import { useAuth } from "../../services/auth";
@@ -26,25 +26,31 @@ export const InviteModalBillingWarnings: FC<{
   organizationId,
 }) => {
   const { apiCall } = useAuth();
+  const [error, setError] = useState(null);
 
   const startStripeSubscription = async () => {
-    const resp = await apiCall<{
-      status: number;
-      session: Stripe.Checkout.Session;
-    }>(`/subscription/checkout`, {
-      method: "POST",
-      body: JSON.stringify({
-        qty:
-          subscriptionStatus === "canceled"
-            ? activeAndInvitedUsers
-            : activeAndInvitedUsers + 1,
-        email: email,
-        organizationId: organizationId,
-      }),
-    });
+    setError(null);
+    try {
+      const resp = await apiCall<{
+        status: number;
+        session: Stripe.Checkout.Session;
+      }>(`/subscription/checkout`, {
+        method: "POST",
+        body: JSON.stringify({
+          qty:
+            subscriptionStatus === "canceled"
+              ? activeAndInvitedUsers
+              : activeAndInvitedUsers + 1,
+          email: email,
+          organizationId: organizationId,
+        }),
+      });
 
-    if (resp.session.url) {
-      router.push(resp.session.url);
+      if (resp.session.url) {
+        router.push(resp.session.url);
+      }
+    } catch (e) {
+      setError(e.message);
     }
   };
 
@@ -113,6 +119,7 @@ export const InviteModalBillingWarnings: FC<{
           .
         </p>
       )}
+      {error && <div className="alert alert-danger">{error}</div>}
     </>
   );
 };
