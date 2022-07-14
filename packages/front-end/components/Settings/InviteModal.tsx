@@ -31,7 +31,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const { apiCall } = useAuth();
   const { data } = useApi<SettingsApiResponse>(`/organization`);
   const user = useUser();
-  const { seatsInFreeTier, pricePerSeat } = useStripeSubscription();
+  const {
+    seatsInFreeTier,
+    pricePerSeat,
+    discountedPricePerSeat,
+  } = useStripeSubscription();
 
   const activeAndInvitedUsers =
     data.organization.members.length + data.organization.invites.length;
@@ -135,6 +139,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             seatsInFreeTier={seatsInFreeTier}
             hasActiveSubscription={hasActiveSubscription}
             pricePerSeat={pricePerSeat}
+            discountedPricePerSeat={discountedPricePerSeat}
             currentPaidSeats={currentPaidSeats}
             email={user.email}
             organizationId={data.organization.id}

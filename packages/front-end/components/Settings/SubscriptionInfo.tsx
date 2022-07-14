@@ -36,6 +36,9 @@ const SubscriptionInfo: FC<{
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
+    discountedPricePerSeat,
+    standardMonthlyPrice,
+    discountedMonthlyPrice,
   } = useStripeSubscription();
 
   const activeAndInvitedUsers =
@@ -52,16 +55,28 @@ const SubscriptionInfo: FC<{
         <div className="col-md-12 mb-3">
           <strong>Number Of Seats:</strong> {qty}
         </div>
-        <div className="col-md-12 mb-3">
-          <strong>Current Monthly Price:</strong>{" "}
-          {qty > seatsInFreeTier
-            ? `$${(qty - seatsInFreeTier) * pricePerSeat}`
-            : "$0"}
-          <Tooltip
-            text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${pricePerSeat}/month.`}
-            tipMinWidth="200px"
-          />
-        </div>
+        {discountedPricePerSeat ? (
+          <div className="col-md-12 mb-3">
+            <strong>Current Monthly Price:</strong>{" "}
+            <span style={{ textDecoration: "line-through" }}>
+              {`Regularly $${standardMonthlyPrice}/month`}
+            </span>
+            {`  $${discountedMonthlyPrice}/month`}
+            <Tooltip
+              text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${discountedPricePerSeat}/month after your discount.`}
+              tipMinWidth="200px"
+            />
+          </div>
+        ) : (
+          <div className="col-md-12 mb-3">
+            <strong>Current Monthly Price:</strong>{" "}
+            {`  $${standardMonthlyPrice}/month`}
+            <Tooltip
+              text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${pricePerSeat}/month.`}
+              tipMinWidth="200px"
+            />
+          </div>
+        )}
         {subscriptionStatus !== "canceled" && (
           <div className="col-md-12 mb-3">
             <strong>Next Bill Date: </strong>

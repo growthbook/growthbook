@@ -28,6 +28,14 @@ export default function useStripeSubscription() {
   ).toDateString();
   const subscriptionStatus = subscriptionData?.status;
   const pendingCancelation = subscriptionData?.cancel_at_period_end;
+  const discountedPricePerSeat =
+    pricePerSeat * (subscriptionData?.discount?.coupon.percent_off / 100);
+  console.log(discountedPricePerSeat);
+
+  const standardMonthlyPrice =
+    pricePerSeat * (subscriptionData?.quantity - seatsInFreeTier);
+  const discountedMonthlyPrice =
+    discountedPricePerSeat * (subscriptionData?.quantity - seatsInFreeTier);
 
   return {
     subscriptionData,
@@ -39,5 +47,8 @@ export default function useStripeSubscription() {
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
+    discountedPricePerSeat,
+    standardMonthlyPrice,
+    discountedMonthlyPrice,
   };
 }

@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import {
   STRIPE_SECRET,
   APP_ORIGIN,
-  STRIPE_PRICE,
+  STRIPE_5_PRICE,
+  STRIPE_10_PRICE,
   STRIPE_WEBHOOK_SECRET,
   STRIPE_DEFAULT_COUPON,
 } from "../util/secrets";
@@ -94,7 +95,7 @@ export async function postStartTrial(
       },
       items: [
         {
-          price: STRIPE_PRICE,
+          price: STRIPE_5_PRICE,
           quantity: qty,
         },
       ],
@@ -118,12 +119,23 @@ export async function postNewSubscription(
 ) {
   const { qty, email, organizationId } = req.body;
 
+  // Getting this as I imagine we'll use it to define an org's price as standard (STRIPE_5_PRICE) or special (STRIPE_10_PRICE)
+  const { org } = getOrgFromReq(req);
+
   if (!organizationId) {
     res.status(400).json({
       status: 400,
       message: "No organization created",
     });
   }
+
+  const getPrice = () => {
+    if (org) {
+      return STRIPE_5_PRICE;
+    } else {
+      return STRIPE_10_PRICE;
+    }
+  };
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -133,10 +145,11 @@ export async function postNewSubscription(
       client_reference_id: organizationId,
       line_items: [
         {
-          price: STRIPE_PRICE,
+          price: getPrice(),
           quantity: qty,
         },
       ],
+      allow_promotion_codes: true,
       success_url: "http://localhost:3000/settings/team",
       cancel_url: "http://localhost:3000/settings/team",
     });

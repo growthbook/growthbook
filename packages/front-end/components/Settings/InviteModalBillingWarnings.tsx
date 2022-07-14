@@ -10,6 +10,7 @@ export const InviteModalBillingWarnings: FC<{
   seatsInFreeTier: number;
   hasActiveSubscription: boolean;
   pricePerSeat: number;
+  discountedPricePerSeat?: number;
   currentPaidSeats: number;
   email: string;
   organizationId;
@@ -19,6 +20,7 @@ export const InviteModalBillingWarnings: FC<{
   seatsInFreeTier,
   hasActiveSubscription,
   pricePerSeat,
+  discountedPricePerSeat,
   currentPaidSeats,
   email,
   organizationId,
@@ -87,7 +89,11 @@ export const InviteModalBillingWarnings: FC<{
         hasActiveSubscription && (
           <p className="mt-3 mb-0 alert-warning alert">
             This user will be assigned a new seat{" "}
-            <strong>(${pricePerSeat}/month)</strong>.
+            <strong>
+              (${discountedPricePerSeat ? discountedPricePerSeat : pricePerSeat}
+              /month)
+            </strong>
+            .
           </p>
         )}
       {activeAndInvitedUsers >= seatsInFreeTier && !hasActiveSubscription && (
