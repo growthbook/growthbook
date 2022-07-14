@@ -120,39 +120,41 @@ const SubscriptionInfo: FC<{
                 : "View Previous Invoices"}
             </button>
           </div>
-          <div className="col-auto">
-            <button
-              className="btn btn-success"
-              onClick={async (e) => {
-                e.preventDefault();
-                try {
-                  const resp = await apiCall<{
-                    status: number;
-                    session: Stripe.Checkout.Session;
-                  }>(`/subscription/checkout`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      qty: currentNumOfSeats,
-                      email: email,
-                      organizationId: data.organization.id,
-                    }),
-                  });
+          {subscriptionData.status === "canceled" && (
+            <div className="col-auto">
+              <button
+                className="btn btn-success"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const resp = await apiCall<{
+                      status: number;
+                      session: Stripe.Checkout.Session;
+                    }>(`/subscription/checkout`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        qty: currentNumOfSeats,
+                        email: email,
+                        organizationId: data.organization.id,
+                      }),
+                    });
 
-                  if (resp && resp.session.url) {
-                    window.location.href = resp.session.url;
-                    return;
-                  } else {
-                    throw new Error("Unknown response");
+                    if (resp && resp.session.url) {
+                      window.location.href = resp.session.url;
+                      return;
+                    } else {
+                      throw new Error("Unknown response");
+                    }
+                  } catch (e) {
+                    setError(e.message);
                   }
-                } catch (e) {
-                  setError(e.message);
-                }
-                setLoading(false);
-              }}
-            >
-              Renew Your Plan
-            </button>
-          </div>
+                  setLoading(false);
+                }}
+              >
+                Renew Your Plan
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {error && <div className="alert alert-danger">{error}</div>}

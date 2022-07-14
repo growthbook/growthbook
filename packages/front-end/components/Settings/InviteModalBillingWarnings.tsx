@@ -5,7 +5,7 @@ import { useAuth } from "../../services/auth";
 import { isCloud } from "../../services/env";
 
 export const InviteModalBillingWarnings: FC<{
-  status: string;
+  subscriptionStatus: string;
   currentNumOfSeats: number;
   numOfFreeSeats: number;
   hasActiveSubscription: boolean;
@@ -14,7 +14,7 @@ export const InviteModalBillingWarnings: FC<{
   email: string;
   organizationId;
 }> = ({
-  status,
+  subscriptionStatus,
   currentNumOfSeats,
   numOfFreeSeats,
   hasActiveSubscription,
@@ -31,7 +31,10 @@ export const InviteModalBillingWarnings: FC<{
     }>(`/subscription/checkout`, {
       method: "POST",
       body: JSON.stringify({
-        qty: currentNumOfSeats + 1,
+        qty:
+          subscriptionStatus === "canceled"
+            ? currentNumOfSeats
+            : currentNumOfSeats + 1,
         email: email,
         organizationId: organizationId,
       }),
@@ -44,13 +47,33 @@ export const InviteModalBillingWarnings: FC<{
 
   if (!isCloud()) return null;
 
+  if (subscriptionStatus === "past_due")
+    return (
+      <p className="mt-3 mb-0 alert-danger alert">
+        Whoops! Your bill is past due. Please update your billing info.
+      </p>
+    );
+
+  if (subscriptionStatus === "canceled")
+    return (
+      <p className="mt-3 mb-0 alert-danger alert">
+        Whoops! You don&apos;t have an active subscription. To add a new user,
+        please{" "}
+        <strong>
+          <button
+            type="button"
+            className="btn btn-link p-0 align-baseline shadow-none"
+            onClick={startStripeSubscription}
+          >
+            <strong>restart your subscription</strong>
+          </button>
+        </strong>
+        .
+      </p>
+    );
+
   return (
     <>
-      {status === "past_due" && (
-        <p className="mt-3 mb-0 alert-danger alert">
-          Whoops! Your bill is past due. Please update your billing info.
-        </p>
-      )}
       {currentNumOfSeats < numOfFreeSeats && (
         <p className="mt-3 mb-0 alert alert-info">{`You have ${
           numOfFreeSeats - currentNumOfSeats

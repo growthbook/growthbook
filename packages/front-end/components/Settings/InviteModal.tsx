@@ -134,7 +134,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             }}
           />
           <InviteModalBillingWarnings
-            status={data.organization.subscription?.status}
+            subscriptionStatus={data.organization.subscription?.status}
             currentNumOfSeats={currentNumOfSeats}
             numOfFreeSeats={numOfFreeSeats}
             hasActiveSubscription={hasActiveSubscription}
