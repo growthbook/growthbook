@@ -145,6 +145,14 @@ export async function updateOrganizationByStripeId(
   );
 }
 
+export async function findOrganizationByStripeCustomerId(id: string) {
+  const doc = await OrganizationModel.findOne({
+    stripeCustomerId: id,
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function hasOrganization() {
   const res = await OrganizationModel.findOne();
   return !!res;

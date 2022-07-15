@@ -12,10 +12,12 @@ import { AuthRequest } from "../types/AuthRequest";
 import {
   updateOrganization,
   updateOrganizationByStripeId,
+  findOrganizationByStripeCustomerId,
 } from "../models/OrganizationModel";
 import { createOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
+import { getUsersByIds } from "../services/users";
 
 async function updateSubscription(subscription: string | Stripe.Subscription) {
   // Make sure we have the full subscription object
@@ -38,6 +40,7 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
       status: subscription.status,
     },
   });
+  console.log(`org was updated at ${new Date()}`);
 }
 export async function postStartTrial(
   req: AuthRequest<{ qty: number; name: string }>,
@@ -240,18 +243,23 @@ export async function postUpdateStripeSubscription(
 
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-    stripe.subscriptions.update(subscriptionId, {
-      items: [
-        {
-          id: subscription.items.data[0].id,
-          quantity: qty,
-        },
-      ],
-    });
+    const updatedSubscription = await stripe.subscriptions.update(
+      subscriptionId,
+      {
+        items: [
+          {
+            id: subscription.items.data[0].id,
+            quantity: qty,
+          },
+        ],
+      }
+    );
+
+    await updateSubscription(updatedSubscription);
 
     res.status(200).json({
       status: 200,
-      subscription,
+      updatedSubscription,
     });
   } catch (e) {
     res.status(400).json({
@@ -297,7 +305,6 @@ export async function postWebhook(req: Request, res: Response) {
           message: "Unable to find & updated existing organization",
         });
       }
-
       break;
     }
 
@@ -312,12 +319,60 @@ export async function postWebhook(req: Request, res: Response) {
     }
 
     case "customer.subscription.deleted":
-    case "subscription_scheduled.canceled": //TODO: Need to test this and make sure the shape of the subscription is accurate.
+    case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
-      if (subscription) {
-        updateSubscription(subscription);
+
+      // Get the current subscription data instead of relying on a potentially outdated event
+      const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
+        subscription.id
+      );
+
+      // Get stripeCustomerId
+      const stripeCustomerId =
+        typeof currentStripeSubscriptionData.customer === "string"
+          ? currentStripeSubscriptionData.customer
+          : currentStripeSubscriptionData.customer.id;
+
+      // Get the organization connected to stripeCustomerId
+      const currentDbSubscription = await findOrganizationByStripeCustomerId(
+        stripeCustomerId
+      );
+
+      // If Stripe's status, trialEnd, or subscriptionId's don't match our DB, update our DB.
+      if (
+        currentStripeSubscriptionData.status !==
+          currentDbSubscription?.subscription?.status ||
+        currentStripeSubscriptionData.trial_end !==
+          currentDbSubscription?.subscription?.trialEnd ||
+        currentStripeSubscriptionData.id !==
+          currentDbSubscription.subscription.id
+      ) {
+        updateSubscription(currentStripeSubscriptionData);
+      }
+
+      // This is a bit weird, but the organization.members array can have duplicates, so this just returns an array of unique users.
+      const users = await getUsersByIds(
+        currentDbSubscription?.members?.map((m) => m.id) || []
+      );
+
+      const activeAndInvitedMembers =
+        (currentDbSubscription?.invites?.length || 0) + (users.length || 0);
+
+      // If Stripe's qty doesn't match our DB, update Stripe's subscription.
+      if (
+        currentStripeSubscriptionData.items.data[0].quantity !==
+        activeAndInvitedMembers
+      ) {
+        await stripe.subscriptions.update(subscription.id, {
+          items: [
+            {
+              id: subscription.items.data[0].id,
+              quantity: activeAndInvitedMembers,
+            },
+          ],
+        });
       }
       break;
     }
