@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import Tuple
 from warnings import warn
+
 import numpy as np
 from scipy.stats import beta, norm, rv_continuous
 from scipy.special import digamma, polygamma, roots_hermitenorm
+
 from .orthogonal import roots_sh_jacobi
-from gbstats.bayesian.constants import EPSILON
+from gbstats.bayesian.constants import EPSILON, NORM_PRIOR
 
 
 class BayesABDist(ABC):
@@ -95,39 +98,30 @@ class Beta(BayesABDist):
 class Norm(BayesABDist):
     dist = norm
 
-    @staticmethod
-    def posterior(prior, data):
+    def __init__(self, mean: float, std_dev: float, num_observations: int) -> None:
+        self.mean = mean
+        self.std_dev = std_dev
+        self.num_observations = num_observations
+        self.posterior_mean = None
+        self.posterior_std_dev = None
+
+    def get_posterior(self, prior) -> Tuple[float, float]:
+        """Get the posterior by updating the prior with the collected data"""
         inv_var_0 = prior[2] / np.power(prior[1], 2)
-        inv_var_d = data[2] / np.power(data[1], 2)
+        inv_var_d = self.num_observations / np.power(self.std_dev, 2)
         var = 1 / (inv_var_0 + inv_var_d)
 
-        loc = var * (inv_var_0 * prior[0] + inv_var_d * data[0])
-        scale = np.sqrt(var)
-        return loc, scale
+        self.posterior_mean = var * (inv_var_0 * prior[0] + inv_var_d * self.mean)
+        self.posterior_std_dev = np.sqrt(var)
+        return self.posterior_mean, self.posterior_std_dev
 
     @staticmethod
-    def moments(par1, par2, log=False):
-        if np.sum(par2 < 0):
-            raise RuntimeError("got negative standard deviation.")
+    def posterior():
+        pass
 
-        if log:
-            if np.sum(par1 <= 0):
-                raise RuntimeError("got mu <= 0. cannot use log approximation.")
-
-            max_prob = np.max(norm.cdf(0, par1, par2))
-            if max_prob > EPSILON:
-                warn(
-                    f"probability of being negative is higher than {EPSILON} (={max_prob}). "
-                    f"log approximation is in-exact",
-                    RuntimeWarning,
-                )
-
-            mean = np.log(par1)
-            var = np.power(par2 / par1, 2)
-        else:
-            mean = par1
-            var = np.power(par2, 2)
-        return mean, var
+    @staticmethod
+    def moments():
+        pass
 
     @staticmethod
     def gq(n, par1, par2):
