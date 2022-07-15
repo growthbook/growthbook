@@ -5,7 +5,6 @@ import {
   STRIPE_5_PRICE,
   STRIPE_10_PRICE,
   STRIPE_WEBHOOK_SECRET,
-  STRIPE_DEFAULT_COUPON,
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
@@ -14,7 +13,6 @@ import {
   updateOrganizationByStripeId,
   findOrganizationByStripeCustomerId,
 } from "../models/OrganizationModel";
-import { createOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 import { getUsersByIds } from "../services/users";
@@ -41,79 +39,6 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
     },
   });
   console.log(`org was updated at ${new Date()}`);
-}
-export async function postStartTrial(
-  req: AuthRequest<{ qty: number; name: string }>,
-  res: Response
-) {
-  const { qty, name } = req.body;
-
-  // If user already has a subscription, return immediately
-  if (req.organization?.subscription?.id) {
-    return res.status(200).json({
-      status: 200,
-    });
-  }
-
-  try {
-    // Create organization first if needed
-    if (!req.organization) {
-      if (name.length < 3) {
-        throw new Error("Company name must be at least 3 characters long");
-      }
-      req.organization = await createOrganization(
-        req.email || "",
-        req.userId || "",
-        name,
-        ""
-      );
-    }
-
-    // Create customer in Stripe if not exists
-    if (!req.organization.stripeCustomerId) {
-      const resp = await stripe.customers.create({
-        email: req.email || "",
-        name: req.name || "",
-        metadata: {
-          user: req.userId || "",
-          organization: req.organization.id,
-        },
-      });
-      req.organization.stripeCustomerId = resp.id;
-
-      await updateOrganization(req.organization.id, {
-        stripeCustomerId: resp.id,
-      });
-    }
-
-    // Start subscription trial without payment method
-    const subscription = await stripe.subscriptions.create({
-      customer: req.organization.stripeCustomerId,
-      coupon: STRIPE_DEFAULT_COUPON,
-      collection_method: "charge_automatically",
-      trial_from_plan: true,
-      metadata: {
-        user: req.userId || "",
-        organization: req.organization.id,
-      },
-      items: [
-        {
-          price: STRIPE_5_PRICE,
-          quantity: qty,
-        },
-      ],
-    });
-
-    // Save in Mongo
-    await updateSubscription(subscription);
-
-    res.status(200).json({ status: 200 });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
 }
 
 export async function postNewSubscription(
