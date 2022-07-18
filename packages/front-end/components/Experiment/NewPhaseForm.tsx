@@ -112,25 +112,6 @@ const NewPhaseForm: FC<{
           ]}
         />
       </div>
-      <VariationsInput
-        valueType={"string"}
-        coverage={form.watch("coverage")}
-        setCoverage={(coverage) => form.setValue("coverage", coverage)}
-        setWeight={(i, weight) =>
-          form.setValue(`variationWeights.${i}`, weight)
-        }
-        valueAsId={true}
-        variations={
-          experiment.variations.map((v, i) => {
-            return {
-              value: v.key || i + "",
-              name: v.name,
-              weight: form.watch(`variationWeights.${i}`),
-            };
-          }) || []
-        }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
-      />
       {(experiment.implementation === "visual" || showGroups) && (
         <div className="row">
           <div className="col">
@@ -149,7 +130,26 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
-      <div style={{ height: 150 }} />
+      <VariationsInput
+        valueType={"string"}
+        coverage={form.watch("coverage")}
+        setCoverage={(coverage) => form.setValue("coverage", coverage)}
+        setWeight={(i, weight) =>
+          form.setValue(`variationWeights.${i}`, weight)
+        }
+        valueAsId={true}
+        variations={
+          experiment.variations.map((v, i) => {
+            return {
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+            };
+          }) || []
+        }
+        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
+        showPreview={false}
+      />
     </Modal>
   );
 };

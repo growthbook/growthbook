@@ -93,6 +93,7 @@ export default function EditPhaseModal({
           }) || []
         }
         coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
+        showPreview={false}
       />
     </Modal>
   );

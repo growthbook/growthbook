@@ -808,7 +808,6 @@ const ExperimentPage = (): ReactElement => {
           display="Results"
           anchor="results"
           lazy={true}
-          visible={experiment.status !== "draft"}
           padding={false}
           key="Results"
         >
@@ -822,6 +821,11 @@ const ExperimentPage = (): ReactElement => {
               }
               editResult={
                 permissions.createAnalyses ? () => setStopModalOpen(true) : null
+              }
+              addPhase={
+                permissions.createAnalyses
+                  ? () => setPhaseModalOpen(true)
+                  : null
               }
               mutateExperiment={mutate}
             />

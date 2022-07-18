@@ -10,6 +10,7 @@ export interface Props {
   id: string;
   helpText?: string;
   type?: string;
+  placeholder?: string;
 }
 
 export default function FeatureValueField({
@@ -19,6 +20,7 @@ export default function FeatureValueField({
   setValue,
   id,
   helpText,
+  placeholder,
 }: Props) {
   if (valueType === "boolean") {
     return (
@@ -45,6 +47,7 @@ export default function FeatureValueField({
     <Field
       label={label}
       value={value}
+      placeholder={placeholder}
       onChange={(e) => {
         setValue(e.target.value);
       }}

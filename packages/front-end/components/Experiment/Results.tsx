@@ -25,10 +25,11 @@ const CompactResults = dynamic(() => import("./CompactResults"));
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
-  editMetrics: () => void;
-  editResult: () => void;
+  editMetrics?: () => void;
+  editResult?: () => void;
+  addPhase?: () => void;
   mutateExperiment: () => void;
-}> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
+}> = ({ experiment, editMetrics, editResult, addPhase, mutateExperiment }) => {
   const { getMetricById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -98,7 +99,7 @@ const Results: FC<{
             "alert-warning": result === "dnf",
           })}
         >
-          {permissions.createAnalyses && (
+          {editResult && (
             <a
               href="#"
               className="alert-link float-right ml-2"
@@ -134,199 +135,241 @@ const Results: FC<{
           )}
         </div>
       )}
-      <AnalysisSettingsBar
-        experiment={experiment}
-        snapshot={snapshot}
-        dimension={dimension}
-        mutate={mutate}
-        mutateExperiment={mutateExperiment}
-        phase={phase}
-        setDimension={setDimension}
-        setPhase={setPhase}
-        latest={latest}
-        editMetrics={editMetrics}
-        variations={variations}
-      />
-      {experiment.metrics.length === 0 && (
-        <div className="alert alert-info m-3">
-          Add at least 1 metric to view results.{" "}
-          {permissions.createAnalyses && (
-            <button
-              className="btn btn-primary btn-sm ml-3"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-            >
-              Add Metrics
-            </button>
-          )}
+      {experiment.status === "running" && hasData && editResult && (
+        <div className="px-3 py-2 text-muted border-bottom">
+          <div className="d-flex align-items-center">
+            <div>This experiment is currently running.</div>
+            <div className="ml-2">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editResult();
+                }}
+              >
+                Add Results
+              </a>
+            </div>
+          </div>
         </div>
       )}
-      {!hasData &&
-        !snapshot?.unknownVariations?.length &&
-        status !== "running" &&
-        experiment.metrics.length > 0 && (
-          <div className="alert alert-info m-3">
-            No data yet.{" "}
-            {snapshot &&
-              phaseAgeMinutes >= 120 &&
-              "Make sure your experiment is tracking properly."}
-            {snapshot &&
-              phaseAgeMinutes < 120 &&
-              "It was just started " +
-                ago(experiment.phases[phase].dateStarted) +
-                ". Give it a little longer and click the 'Update' button above to check again."}
-            {!snapshot &&
-              permissions.runQueries &&
-              `Click the "Update" button above.`}
-          </div>
-        )}
-      {snapshot && !snapshot.dimension && (
-        <VariationIdWarning
-          unknownVariations={snapshot.unknownVariations || []}
-          isUpdating={status === "running"}
-          results={snapshot.results?.[0]}
-          variations={variations}
-          setVariationIds={async (ids) => {
-            // Don't do anything if the query is currently running
-            if (status === "running") {
-              throw new Error("Cancel running query first");
-            }
-
-            // Update variation ids
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({
-                variations: experiment.variations.map((v, i) => {
-                  return {
-                    ...v,
-                    key: ids[i] ?? v.key,
-                  };
-                }),
-              }),
-            });
-
-            // Fetch results again
-            await apiCall(`/experiment/${experiment.id}/snapshot`, {
-              method: "POST",
-              body: JSON.stringify({
-                phase,
-                dimension,
-              }),
-            });
-
-            mutateExperiment();
-            mutate();
-          }}
-        />
-      )}
-      {hasData &&
-        snapshot.dimension &&
-        (snapshot.dimension === "pre:date" ? (
-          <DateResults
-            metrics={experiment.metrics}
-            guardrails={experiment.guardrails}
-            results={snapshot.results}
-            variations={variations}
-          />
-        ) : (
-          <BreakDownResults
-            isLatestPhase={phase === experiment.phases.length - 1}
-            metrics={experiment.metrics}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results || []}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            dimensionId={snapshot.dimension}
-            activationMetric={experiment.activationMetric}
-            guardrails={experiment.guardrails}
-            variations={variations}
-            key={snapshot.dimension}
-          />
-        ))}
-      {hasData && !snapshot.dimension && (
+      {!experiment.phases?.length ? (
         <>
-          <div className="float-right pr-3">
-            <FilterSummary
-              experiment={experiment}
-              phase={phaseObj}
-              snapshot={snapshot}
-            />
+          <div className="alert alert-info">
+            This experiment doesn&apos;t have any phases yet.
           </div>
-          <CompactResults
-            id={experiment.id}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            metrics={experiment.metrics}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results?.[0]}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            multipleExposures={snapshot.multipleExposures || 0}
-            variations={variations}
-            editMetrics={editMetrics}
-          />
-          {experiment.guardrails?.length > 0 && (
-            <div className="mb-3 p-3">
-              <h3 className="mb-3">
-                Guardrails
-                {editMetrics && permissions.createAnalyses && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editMetrics();
-                    }}
-                    className="ml-2"
-                    style={{ fontSize: "0.8rem" }}
-                  >
-                    Adjust Guardrails
-                  </a>
-                )}
-              </h3>
-              <div className="row mt-3">
-                {experiment.guardrails.map((g) => {
-                  const metric = getMetricById(g);
-                  if (!metric) return "";
-
-                  const data = snapshot.results[0]?.variations;
-                  if (!data) return "";
-
-                  const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
-                  return (
-                    <div
-                      className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
-                      key={g}
-                    >
-                      <GuardrailResults
-                        data={data}
-                        variations={variations}
-                        metric={metric}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {showReports && (
-            <div className="p-3">
-              <ExperimentReportsList
-                experiment={experiment}
-                snapshot={snapshot}
-              />
+          {addPhase && (
+            <div className="text-center my-5">
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={(e) => {
+                  e.preventDefault();
+                  addPhase();
+                }}
+              >
+                Add a Phase
+              </button>
             </div>
           )}
         </>
-      )}
-      {permissions.createAnalyses && (
-        <div className="px-3 mb-3">
-          <span className="text-muted">
-            Click the 3 dots next to the Update button above to configure this
-            report, download as a Jupyter notebook, and more.
-          </span>
-        </div>
+      ) : (
+        <>
+          <AnalysisSettingsBar
+            experiment={experiment}
+            snapshot={snapshot}
+            dimension={dimension}
+            mutate={mutate}
+            mutateExperiment={mutateExperiment}
+            phase={phase}
+            setDimension={setDimension}
+            setPhase={setPhase}
+            latest={latest}
+            editMetrics={editMetrics}
+            variations={variations}
+          />
+          {experiment.metrics.length === 0 && (
+            <div className="alert alert-info m-3">
+              Add at least 1 metric to view results.{" "}
+              {editMetrics && (
+                <button
+                  className="btn btn-primary btn-sm ml-3"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editMetrics();
+                  }}
+                >
+                  Add Metrics
+                </button>
+              )}
+            </div>
+          )}
+          {!hasData &&
+            !snapshot?.unknownVariations?.length &&
+            status !== "running" &&
+            experiment.metrics.length > 0 && (
+              <div className="alert alert-info m-3">
+                No data yet.{" "}
+                {snapshot &&
+                  phaseAgeMinutes >= 120 &&
+                  "Make sure your experiment is tracking properly."}
+                {snapshot &&
+                  phaseAgeMinutes < 120 &&
+                  "It was just started " +
+                    ago(experiment.phases[phase].dateStarted) +
+                    ". Give it a little longer and click the 'Update' button above to check again."}
+                {!snapshot &&
+                  permissions.runQueries &&
+                  `Click the "Update" button above.`}
+              </div>
+            )}
+          {snapshot && !snapshot.dimension && (
+            <VariationIdWarning
+              unknownVariations={snapshot.unknownVariations || []}
+              isUpdating={status === "running"}
+              results={snapshot.results?.[0]}
+              variations={variations}
+              setVariationIds={async (ids) => {
+                // Don't do anything if the query is currently running
+                if (status === "running") {
+                  throw new Error("Cancel running query first");
+                }
+
+                // Update variation ids
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    variations: experiment.variations.map((v, i) => {
+                      return {
+                        ...v,
+                        key: ids[i] ?? v.key,
+                      };
+                    }),
+                  }),
+                });
+
+                // Fetch results again
+                await apiCall(`/experiment/${experiment.id}/snapshot`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    phase,
+                    dimension,
+                  }),
+                });
+
+                mutateExperiment();
+                mutate();
+              }}
+            />
+          )}
+          {hasData &&
+            snapshot.dimension &&
+            (snapshot.dimension === "pre:date" ? (
+              <DateResults
+                metrics={experiment.metrics}
+                guardrails={experiment.guardrails}
+                results={snapshot.results}
+                variations={variations}
+              />
+            ) : (
+              <BreakDownResults
+                isLatestPhase={phase === experiment.phases.length - 1}
+                metrics={experiment.metrics}
+                reportDate={snapshot.dateCreated}
+                results={snapshot.results || []}
+                status={experiment.status}
+                startDate={phaseObj?.dateStarted}
+                dimensionId={snapshot.dimension}
+                activationMetric={experiment.activationMetric}
+                guardrails={experiment.guardrails}
+                variations={variations}
+                key={snapshot.dimension}
+              />
+            ))}
+          {hasData && !snapshot.dimension && (
+            <>
+              <div className="float-right pr-3">
+                <FilterSummary
+                  experiment={experiment}
+                  phase={phaseObj}
+                  snapshot={snapshot}
+                />
+              </div>
+              <CompactResults
+                id={experiment.id}
+                isLatestPhase={phase === experiment.phases.length - 1}
+                metrics={experiment.metrics}
+                reportDate={snapshot.dateCreated}
+                results={snapshot.results?.[0]}
+                status={experiment.status}
+                startDate={phaseObj?.dateStarted}
+                multipleExposures={snapshot.multipleExposures || 0}
+                variations={variations}
+                editMetrics={editMetrics}
+              />
+              {experiment.guardrails?.length > 0 && (
+                <div className="mb-3 p-3">
+                  <h3 className="mb-3">
+                    Guardrails
+                    {editMetrics && (
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          editMetrics();
+                        }}
+                        className="ml-2"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        Adjust Guardrails
+                      </a>
+                    )}
+                  </h3>
+                  <div className="row mt-3">
+                    {experiment.guardrails.map((g) => {
+                      const metric = getMetricById(g);
+                      if (!metric) return "";
+
+                      const data = snapshot.results[0]?.variations;
+                      if (!data) return "";
+
+                      const xlargeCols =
+                        experiment.guardrails.length === 2 ? 6 : 4;
+                      return (
+                        <div
+                          className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
+                          key={g}
+                        >
+                          <GuardrailResults
+                            data={data}
+                            variations={variations}
+                            metric={metric}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {showReports && (
+                <div className="p-3">
+                  <ExperimentReportsList
+                    experiment={experiment}
+                    snapshot={snapshot}
+                  />
+                </div>
+              )}
+            </>
+          )}
+          {permissions.createAnalyses && (
+            <div className="px-3 mb-3">
+              <span className="text-muted">
+                Click the 3 dots next to the Update button above to configure
+                this report, download as a Jupyter notebook, and more.
+              </span>
+            </div>
+          )}
+        </>
       )}
     </>
   );

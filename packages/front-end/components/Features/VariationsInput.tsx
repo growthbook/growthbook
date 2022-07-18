@@ -11,6 +11,7 @@ import { GBAddCircle } from "../Icons";
 import React, { useState } from "react";
 import styles from "./VariationsInput.module.scss";
 import Tooltip from "../Tooltip";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -22,6 +23,7 @@ export interface Props {
   setCoverage: (coverage: number) => void;
   coverageTooltip?: string;
   valueAsId?: boolean;
+  showPreview?: boolean;
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1
@@ -130,6 +132,7 @@ export default function VariationsInput({
   defaultValue = "",
   coverageTooltip = "Users not included in the experiment will skip this rule.",
   valueAsId = false,
+  showPreview = true,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -156,7 +159,11 @@ export default function VariationsInput({
 
   return (
     <div className="form-group">
-      <label>Exposure, Variations and Weights</label>
+      {setVariations ? (
+        <label>Exposure, Variations and Weights</label>
+      ) : (
+        <label>Exposure and Weights</label>
+      )}
       <div className="gbtable bg-light">
         <div className="p-3 pb-0 border-bottom">
           <label>
@@ -260,6 +267,7 @@ export default function VariationsInput({
                       <FeatureValueField
                         id={`value_${i}`}
                         value={val.value}
+                        placeholder={valueAsId ? i : ""}
                         setValue={(value) => {
                           const newVariations = [...variations];
                           newVariations[i] = {
@@ -351,30 +359,70 @@ export default function VariationsInput({
                           {decimalToPercent(weights[i])}%
                         </div>
                       )}
-                      {variations.length > 2 && setVariations && (
+                      {setVariations && (
                         <div className="col-auto">
-                          <button
-                            className="btn btn-link text-danger"
-                            onClick={(e) => {
-                              e.preventDefault();
+                          <MoreMenu id={`variation-menu-${i}`}>
+                            {i > 0 && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
 
-                              const newValues = [...variations];
-                              newValues.splice(i, 1);
+                                  const newValues = [...variations];
+                                  [newValues[i], newValues[i - 1]] = [
+                                    newValues[i - 1],
+                                    newValues[i],
+                                  ];
 
-                              const newWeights = distributeWeights(
-                                newValues.map((v) => v.weight),
-                                customSplit
-                              );
+                                  setVariations(newValues);
+                                }}
+                              >
+                                move up
+                              </button>
+                            )}
+                            {i < variations.length - 1 && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
 
-                              newValues.forEach((v, j) => {
-                                v.weight = newWeights[j] || 0;
-                              });
-                              setVariations(newValues);
-                            }}
-                            type="button"
-                          >
-                            remove
-                          </button>
+                                  const newValues = [...variations];
+                                  [newValues[i], newValues[i + 1]] = [
+                                    newValues[i + 1],
+                                    newValues[i],
+                                  ];
+
+                                  setVariations(newValues);
+                                }}
+                              >
+                                move down
+                              </button>
+                            )}
+                            {variations.length > 2 && (
+                              <button
+                                className="dropdown-item text-danger"
+                                onClick={(e) => {
+                                  e.preventDefault();
+
+                                  const newValues = [...variations];
+                                  newValues.splice(i, 1);
+
+                                  const newWeights = distributeWeights(
+                                    newValues.map((v) => v.weight),
+                                    customSplit
+                                  );
+
+                                  newValues.forEach((v, j) => {
+                                    v.weight = newWeights[j] || 0;
+                                  });
+                                  setVariations(newValues);
+                                }}
+                                type="button"
+                              >
+                                remove
+                              </button>
+                            )}
+                          </MoreMenu>
                         </div>
                       )}
                     </div>
@@ -439,15 +487,17 @@ export default function VariationsInput({
                 </td>
               </tr>
             )}
-            <tr>
-              <td colSpan={4} className="pb-2">
-                <ExperimentSplitVisual
-                  coverage={coverage}
-                  values={variations}
-                  type={valueType}
-                />
-              </td>
-            </tr>
+            {showPreview && (
+              <tr>
+                <td colSpan={4} className="pb-2">
+                  <ExperimentSplitVisual
+                    coverage={coverage}
+                    values={variations}
+                    type={valueType}
+                  />
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
