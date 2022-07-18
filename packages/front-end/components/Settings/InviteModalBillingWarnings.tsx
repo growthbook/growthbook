@@ -13,7 +13,6 @@ export const InviteModalBillingWarnings: FC<{
   discountedPricePerSeat?: number;
   currentPaidSeats: number;
   email: string;
-  organizationId;
 }> = ({
   subscriptionStatus,
   activeAndInvitedUsers,
@@ -23,7 +22,6 @@ export const InviteModalBillingWarnings: FC<{
   discountedPricePerSeat,
   currentPaidSeats,
   email,
-  organizationId,
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState(null);
@@ -42,7 +40,6 @@ export const InviteModalBillingWarnings: FC<{
               ? activeAndInvitedUsers
               : activeAndInvitedUsers + 1,
           email: email,
-          organizationId: organizationId,
         }),
       });
 

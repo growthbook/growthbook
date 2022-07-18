@@ -69,13 +69,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     if (currentPaidSeats <= activeAndInvitedUsers) {
       await apiCall<{
         qty: string;
-        organizationId: string;
         subscriptionId: string;
       }>(`/subscription/updateSubscription`, {
         method: "POST",
         body: JSON.stringify({
           qty: currentPaidSeats + 1,
-          organizationId: data.organization.id,
           subscriptionId: data.organization.subscription.id,
         }),
       });
@@ -142,7 +140,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             discountedPricePerSeat={discountedPricePerSeat}
             currentPaidSeats={currentPaidSeats}
             email={user.email}
-            organizationId={data.organization.id}
           />
         </>
       )}

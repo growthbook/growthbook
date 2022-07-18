@@ -11,7 +11,6 @@ import {
   updateOrganization,
   updateOrganizationByStripeId,
   findOrganizationByStripeCustomerId,
-  findOrganizationById,
 } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
@@ -41,26 +40,21 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
 }
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number; email: string; organizationId: string }>,
+  req: AuthRequest<{ qty: number; email: string }>,
   res: Response
 ) {
-  const { qty, email, organizationId } = req.body;
-
-  if (!organizationId) {
-    res.status(400).json({
-      status: 400,
-      message: "No organization created",
-    });
-  }
-
-  const org = await findOrganizationById(organizationId);
+  const { qty, email } = req.body;
 
   try {
+    const { org } = getOrgFromReq(req);
+
+    req.checkPermissions("organizationSettings");
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
       payment_method_types: ["card"],
-      client_reference_id: organizationId,
+      client_reference_id: org.id,
       line_items: [
         {
           price: org?.price || STRIPE_PRICE,
@@ -169,27 +163,20 @@ export async function postCreateBillingSession(
 export async function postUpdateStripeSubscription(
   req: AuthRequest<{
     qty: number;
-    organizationId: string;
     subscriptionId: string;
   }>,
   res: Response
 ) {
-  const { qty, organizationId, subscriptionId } = req.body;
+  const { qty, subscriptionId } = req.body;
 
   if (!subscriptionId) {
-    res.status(200).json({
+    return res.status(200).json({
       status: 200,
       subscription: null,
     });
   }
 
   try {
-    req.checkPermissions("organizationSettings");
-
-    if (!organizationId) {
-      throw new Error("Missing customer id");
-    }
-
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
     const updatedSubscription = await stripe.subscriptions.update(
@@ -270,6 +257,8 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.deleted":
     case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
+      console.log("updated webhook was hit");
+      console.log(event.data.object);
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
 

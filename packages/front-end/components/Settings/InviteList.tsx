@@ -108,13 +108,11 @@ const InviteList: FC<{
           });
           await apiCall<{
             qty: string;
-            organizationId: string;
             subscriptionId: string;
           }>(`/subscription/updateSubscription`, {
             method: "POST",
             body: JSON.stringify({
               qty: totalSeats - 1,
-              organizationId: data.organization.id,
               subscriptionId: data.organization.subscription.id,
             }),
           });
