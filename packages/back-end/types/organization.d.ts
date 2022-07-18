@@ -136,6 +136,7 @@ export interface OrganizationInterface {
     };
   };
   settings?: OrganizationSettings;
+  price?: string;
 }
 
 export type NamespaceUsage = Record<

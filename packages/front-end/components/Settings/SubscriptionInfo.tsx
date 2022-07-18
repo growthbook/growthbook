@@ -37,8 +37,8 @@ const SubscriptionInfo: FC<{
     subscriptionStatus,
     pendingCancelation,
     discountedPricePerSeat,
-    standardMonthlyPrice,
-    discountedMonthlyPrice,
+    getStandardMonthlyPrice,
+    getDiscountedMonthlyPrice,
   } = useStripeSubscription();
 
   const activeAndInvitedUsers =
@@ -62,10 +62,12 @@ const SubscriptionInfo: FC<{
             {discountedPricePerSeat ? (
               <div className="col-md-12 mb-3">
                 <strong>Current Monthly Price:</strong>{" "}
-                <span style={{ textDecoration: "line-through" }}>
-                  {`Regularly $${standardMonthlyPrice}/month`}
-                </span>
-                {`  $${discountedMonthlyPrice}/month`}
+                {seatsInFreeTier < subscriptionData?.quantity && (
+                  <span style={{ textDecoration: "line-through" }}>
+                    {`Regularly $${getStandardMonthlyPrice()}/month`}
+                  </span>
+                )}
+                {`  $${getDiscountedMonthlyPrice()}/month`}
                 <Tooltip
                   text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${discountedPricePerSeat}/month after your discount.`}
                   tipMinWidth="200px"
@@ -74,7 +76,7 @@ const SubscriptionInfo: FC<{
             ) : (
               <div className="col-md-12 mb-3">
                 <strong>Current Monthly Price:</strong>{" "}
-                {`  $${standardMonthlyPrice}/month`}
+                {`  $${getStandardMonthlyPrice()}/month`}
                 <Tooltip
                   text={`Your first ${seatsInFreeTier} seats are free. And each additional seat is $${pricePerSeat}/month.`}
                   tipMinWidth="200px"

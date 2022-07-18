@@ -32,6 +32,7 @@ const organizationSchema = new mongoose.Schema({
       role: String,
     },
   ],
+  price: String,
   stripeCustomerId: String,
   subscription: {
     id: String,

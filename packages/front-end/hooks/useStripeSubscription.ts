@@ -32,11 +32,23 @@ export default function useStripeSubscription() {
     pricePerSeat * (subscriptionData?.discount?.coupon.percent_off / 100) ||
     null;
 
-  const standardMonthlyPrice =
-    pricePerSeat * (subscriptionData?.quantity - seatsInFreeTier);
-  const discountedMonthlyPrice =
-    discountedPricePerSeat * (subscriptionData?.quantity - seatsInFreeTier) ||
-    null;
+  const getStandardMonthlyPrice = () => {
+    if (subscriptionData?.quantity < seatsInFreeTier) {
+      return 0;
+    } else {
+      return pricePerSeat * (subscriptionData?.quantity - seatsInFreeTier);
+    }
+  };
+
+  const getDiscountedMonthlyPrice = () => {
+    if (subscriptionData?.quantity < seatsInFreeTier) {
+      return 0;
+    } else {
+      return (
+        discountedPricePerSeat * (subscriptionData?.quantity - seatsInFreeTier)
+      );
+    }
+  };
 
   return {
     subscriptionData,
@@ -49,7 +61,7 @@ export default function useStripeSubscription() {
     subscriptionStatus,
     pendingCancelation,
     discountedPricePerSeat,
-    standardMonthlyPrice,
-    discountedMonthlyPrice,
+    getStandardMonthlyPrice,
+    getDiscountedMonthlyPrice,
   };
 }

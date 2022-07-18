@@ -59,9 +59,7 @@ export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-export const STRIPE_5_PRICE = process.env.STRIPE_5_PRICE || "";
-export const STRIPE_10_PRICE = process.env.STIPE_10_PRICE || "";
-export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON || "";
+export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 

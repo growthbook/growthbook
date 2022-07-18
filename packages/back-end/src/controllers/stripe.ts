@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import {
   STRIPE_SECRET,
   APP_ORIGIN,
-  STRIPE_5_PRICE,
-  STRIPE_10_PRICE,
+  STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
 } from "../util/secrets";
 import { Stripe } from "stripe";
@@ -12,6 +11,7 @@ import {
   updateOrganization,
   updateOrganizationByStripeId,
   findOrganizationByStripeCustomerId,
+  findOrganizationById,
 } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
@@ -47,9 +47,6 @@ export async function postNewSubscription(
 ) {
   const { qty, email, organizationId } = req.body;
 
-  // Getting this as I imagine we'll use it to define an org's price as standard (STRIPE_5_PRICE) or special (STRIPE_10_PRICE)
-  const { org } = getOrgFromReq(req);
-
   if (!organizationId) {
     res.status(400).json({
       status: 400,
@@ -57,13 +54,9 @@ export async function postNewSubscription(
     });
   }
 
-  const getPrice = () => {
-    if (org) {
-      return STRIPE_5_PRICE;
-    } else {
-      return STRIPE_10_PRICE;
-    }
-  };
+  const org = await findOrganizationById(organizationId);
+
+  console.log("org.price", org?.price);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -73,13 +66,13 @@ export async function postNewSubscription(
       client_reference_id: organizationId,
       line_items: [
         {
-          price: getPrice(),
+          price: org?.price || STRIPE_PRICE,
           quantity: qty,
         },
       ],
       allow_promotion_codes: true,
-      success_url: "http://localhost:3000/settings/team",
-      cancel_url: "http://localhost:3000/settings/team",
+      success_url: `${APP_ORIGIN}/settings/team`,
+      cancel_url: `${APP_ORIGIN}/settings/team`,
     });
     res.status(200).json({
       status: 200,
