@@ -38,7 +38,6 @@ async function updateSubscription(subscription: string | Stripe.Subscription) {
       status: subscription.status,
     },
   });
-  console.log(`org was updated at ${new Date()}`);
 }
 
 export async function postNewSubscription(
@@ -55,8 +54,6 @@ export async function postNewSubscription(
   }
 
   const org = await findOrganizationById(organizationId);
-
-  console.log("org.price", org?.price);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -239,7 +236,6 @@ export async function postWebhook(req: Request, res: Response) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      console.log("stripe webhook was hit");
       const { subscription, client_reference_id, customer } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
 
@@ -247,8 +243,6 @@ export async function postWebhook(req: Request, res: Response) {
         await updateOrganization(client_reference_id, {
           stripeCustomerId: customer,
         });
-
-        console.log("subscription", subscription);
 
         if (subscription) {
           updateSubscription(subscription);
@@ -276,7 +270,6 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.deleted":
     case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
-      console.log("customer updated was hit", event.data.object);
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
 
