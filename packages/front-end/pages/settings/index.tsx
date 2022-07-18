@@ -54,6 +54,8 @@ export type SettingsApiResponse = {
     };
     slackTeam?: string;
     settings?: OrganizationSettings;
+    price?: string;
+    stripeCustomerId?: string;
   };
 };
 
