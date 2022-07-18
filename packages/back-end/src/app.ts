@@ -371,6 +371,7 @@ app.post(
   stripeController.postUpdateStripeSubscription
 );
 app.get("/subscription", stripeController.getSubscriptionData);
+app.get("/price", stripeController.getPriceData);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/organization/sample-data", datasourcesController.postSampleData);

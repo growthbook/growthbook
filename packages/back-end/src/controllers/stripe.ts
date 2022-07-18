@@ -92,9 +92,9 @@ export async function getSubscriptionData(req: AuthRequest, res: Response) {
   const subscriptionId = org.subscription?.id;
 
   if (!subscriptionId) {
-    res.status(400).json({
-      status: 400,
-      message: "No organization found",
+    res.status(200).json({
+      status: 200,
+      subscription: null,
     });
   } else {
     try {
@@ -110,6 +110,33 @@ export async function getSubscriptionData(req: AuthRequest, res: Response) {
         message: e.message,
       });
     }
+  }
+}
+
+export async function getPriceData(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+
+  const priceId = org.price;
+
+  if (!priceId) {
+    return res.status(400).json({
+      status: 400,
+      message: "No price found.",
+    });
+  }
+
+  try {
+    const price = await stripe.prices.retrieve(priceId);
+
+    res.status(200).json({
+      status: 200,
+      price,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 }
 
@@ -151,6 +178,13 @@ export async function postUpdateStripeSubscription(
   res: Response
 ) {
   const { qty, organizationId, subscriptionId } = req.body;
+
+  if (!subscriptionId) {
+    res.status(200).json({
+      status: 200,
+      subscription: null,
+    });
+  }
 
   try {
     req.checkPermissions("organizationSettings");
@@ -205,6 +239,7 @@ export async function postWebhook(req: Request, res: Response) {
 
   switch (event.type) {
     case "checkout.session.completed": {
+      console.log("stripe webhook was hit");
       const { subscription, client_reference_id, customer } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
 
@@ -212,6 +247,8 @@ export async function postWebhook(req: Request, res: Response) {
         await updateOrganization(client_reference_id, {
           stripeCustomerId: customer,
         });
+
+        console.log("subscription", subscription);
 
         if (subscription) {
           updateSubscription(subscription);
@@ -239,6 +276,7 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.deleted":
     case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
+      console.log("customer updated was hit", event.data.object);
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
 

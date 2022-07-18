@@ -472,6 +472,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     subscription,
     connections,
     settings,
+    price,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -503,6 +504,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
         };
       }),
       settings,
+      price,
     },
   });
 }

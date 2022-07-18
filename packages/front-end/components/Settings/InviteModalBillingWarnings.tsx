@@ -54,7 +54,7 @@ export const InviteModalBillingWarnings: FC<{
     }
   };
 
-  if (!isCloud()) return null;
+  if (!isCloud() || !seatsInFreeTier) return null;
 
   if (subscriptionStatus === "past_due")
     return (
