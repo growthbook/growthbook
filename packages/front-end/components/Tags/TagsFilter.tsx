@@ -43,8 +43,6 @@ export default function TagsFilter({
   filter: { tags, setTags },
   items,
 }: Props) {
-  const { tags: currentTags } = useDefinitions();
-
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];
   const { getTagById } = useDefinitions();
@@ -63,7 +61,7 @@ export default function TagsFilter({
     return (counts[b] || 0) - (counts[a] || 0);
   });
 
-  if (!tags.length && !currentTags.length) return null;
+  if (!tags.length && !availableTags.length) return null;
 
   return (
     <div style={{ minWidth: 207 }}>
@@ -75,9 +73,8 @@ export default function TagsFilter({
         prompt={"Filter by tags..."}
         closeMenuOnSelect={true}
         tagOptions={
-          availableTags.length
-            ? availableTags.map((t) => getTagById(t)).filter(Boolean)
-            : null
+          availableTags.length &&
+          availableTags.map((t) => getTagById(t)).filter(Boolean)
         }
         creatable={false}
       />
