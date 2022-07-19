@@ -40,9 +40,6 @@ export default function useStripeSubscription() {
     getSeatsInFreeTier();
   }, [data]);
 
-  const activeAndInvitedUsers =
-    data.organization.members.length + data.organization.invites.length;
-
   const planName = subscriptionData?.plan.nickname;
   const nextBillDate = new Date(
     subscriptionData?.current_period_end * 1000
@@ -60,18 +57,20 @@ export default function useStripeSubscription() {
     null;
 
   const getStandardMonthlyPrice = () => {
-    if (activeAndInvitedUsers < seatsInFreeTier) {
+    if (subscriptionData?.quantity < seatsInFreeTier) {
       return 0;
     } else {
-      return pricePerSeat * (activeAndInvitedUsers - seatsInFreeTier);
+      return pricePerSeat * (subscriptionData?.quantity - seatsInFreeTier);
     }
   };
 
   const getDiscountedMonthlyPrice = () => {
-    if (activeAndInvitedUsers < seatsInFreeTier) {
+    if (subscriptionData?.quantity < seatsInFreeTier) {
       return 0;
     } else {
-      return discountedPricePerSeat * (activeAndInvitedUsers - seatsInFreeTier);
+      return (
+        discountedPricePerSeat * (subscriptionData?.quantity - seatsInFreeTier)
+      );
     }
   };
 
@@ -88,6 +87,5 @@ export default function useStripeSubscription() {
     discountedPricePerSeat,
     getStandardMonthlyPrice,
     getDiscountedMonthlyPrice,
-    activeAndInvitedUsers,
   };
 }

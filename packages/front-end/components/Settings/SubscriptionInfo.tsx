@@ -39,10 +39,12 @@ const SubscriptionInfo: FC<{
     discountedPricePerSeat,
     getStandardMonthlyPrice,
     getDiscountedMonthlyPrice,
-    activeAndInvitedUsers,
   } = useStripeSubscription();
 
   if (!subscriptionData) return <LoadingOverlay />;
+
+  const activeAndInvitedUsers =
+    data.organization.members.length + data.organization.invites.length;
 
   return (
     <>

@@ -14,7 +14,7 @@ import {
 } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
-import { getUsersByIds } from "../services/users";
+// import { getUsersByIds } from "../services/users";
 
 async function updateSubscription(subscription: string | Stripe.Subscription) {
   // Make sure we have the full subscription object
@@ -46,9 +46,13 @@ export async function postNewSubscription(
   const { qty, email } = req.body;
 
   try {
+    req.checkPermissions("organizationSettings");
+
     const { org } = getOrgFromReq(req);
 
-    req.checkPermissions("organizationSettings");
+    if (!org) {
+      throw new Error("No organization found");
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -78,45 +82,49 @@ export async function postNewSubscription(
 }
 
 export async function getSubscriptionData(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  try {
+    req.checkPermissions("organizationSettings");
 
-  const subscriptionId = org.subscription?.id;
+    const { org } = getOrgFromReq(req);
 
-  if (!subscriptionId) {
-    res.status(200).json({
-      status: 200,
-      subscription: null,
-    });
-  } else {
-    try {
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscriptionId = org.subscription?.id;
 
-      res.status(200).json({
+    if (!subscriptionId) {
+      return res.status(200).json({
         status: 200,
-        subscription,
-      });
-    } catch (e) {
-      res.status(400).json({
-        status: 400,
-        message: e.message,
+        subscription: null,
       });
     }
+
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    res.status(200).json({
+      status: 200,
+      subscription,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 }
 
 export async function getPriceData(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-
-  const priceId = org.price;
-
-  if (!priceId) {
-    return res.status(400).json({
-      status: 400,
-      message: "No price found.",
-    });
-  }
-
   try {
+    req.checkPermissions("organizationSettings");
+
+    const { org } = getOrgFromReq(req);
+
+    const priceId = org.price;
+
+    if (!priceId) {
+      return res.status(400).json({
+        status: 400,
+        message: "No price found.",
+      });
+    }
+
     const price = await stripe.prices.retrieve(priceId);
 
     res.status(200).json({
@@ -139,6 +147,7 @@ export async function postCreateBillingSession(
     req.checkPermissions("organizationSettings");
 
     const { org } = getOrgFromReq(req);
+
     if (!org.stripeCustomerId) {
       throw new Error("Missing customer id");
     }
@@ -167,6 +176,8 @@ export async function postUpdateStripeSubscription(
   }>,
   res: Response
 ) {
+  req.checkPermissions("organizationSettings");
+
   const { qty, subscriptionId } = req.body;
 
   if (!subscriptionId) {
@@ -290,28 +301,28 @@ export async function postWebhook(req: Request, res: Response) {
         updateSubscription(currentStripeSubscriptionData);
       }
 
-      // This is a bit weird, but the organization.members array can have duplicates, so this just returns an array of unique users.
-      const users = await getUsersByIds(
-        currentDbSubscription?.members?.map((m) => m.id) || []
-      );
+      // // This is a bit weird, but the organization.members array can have duplicates, so this just returns an array of unique users.
+      // const users = await getUsersByIds(
+      //   currentDbSubscription?.members?.map((m) => m.id) || []
+      // );
 
-      const activeAndInvitedMembers =
-        (currentDbSubscription?.invites?.length || 0) + (users.length || 0);
+      // const activeAndInvitedMembers =
+      //   (currentDbSubscription?.invites?.length || 0) + (users.length || 0);
 
-      // If Stripe's qty doesn't match our DB, update Stripe's subscription.
-      if (
-        currentStripeSubscriptionData.items.data[0].quantity !==
-        activeAndInvitedMembers
-      ) {
-        await stripe.subscriptions.update(subscription.id, {
-          items: [
-            {
-              id: subscription.items.data[0].id,
-              quantity: activeAndInvitedMembers,
-            },
-          ],
-        });
-      }
+      // // If Stripe's qty doesn't match our DB, update Stripe's subscription.
+      // if (
+      //   currentStripeSubscriptionData.items.data[0].quantity !==
+      //   activeAndInvitedMembers
+      // ) {
+      //   await stripe.subscriptions.update(subscription.id, {
+      //     items: [
+      //       {
+      //         id: subscription.items.data[0].id,
+      //         quantity: activeAndInvitedMembers,
+      //       },
+      //     ],
+      //   });
+      // }
       break;
     }
   }
