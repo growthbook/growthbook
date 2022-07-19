@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import TagsInput from "./TagsInput";
@@ -44,7 +43,7 @@ export default function TagsFilter({
   filter: { tags, setTags },
   items,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const { tags: currentTags } = useDefinitions();
 
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];
@@ -64,23 +63,7 @@ export default function TagsFilter({
     return (counts[b] || 0) - (counts[a] || 0);
   });
 
-  if (!tags.length && !availableTags.length) {
-    return null;
-  }
-
-  if (!open && !tags.length) {
-    return (
-      <a
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(true);
-        }}
-      >
-        Filter by tags...
-      </a>
-    );
-  }
+  if (!tags.length && !currentTags.length) return null;
 
   return (
     <div style={{ minWidth: 207 }}>
@@ -90,9 +73,12 @@ export default function TagsFilter({
           setTags(value);
         }}
         prompt={"Filter by tags..."}
-        autoFocus={open}
         closeMenuOnSelect={true}
-        tagOptions={availableTags.map((t) => getTagById(t)).filter(Boolean)}
+        tagOptions={
+          availableTags.length
+            ? availableTags.map((t) => getTagById(t)).filter(Boolean)
+            : null
+        }
         creatable={false}
       />
     </div>
