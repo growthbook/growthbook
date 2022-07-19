@@ -114,6 +114,8 @@ new GrowthBook({
 });
 ```
 
+If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+
 ### Feature Usage Callback
 
 GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
