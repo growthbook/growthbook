@@ -1,9 +1,10 @@
-import { ReactElement, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import WelcomeFrame from "./WelcomeFrame";
 import Field from "../Forms/Field";
+import { useRouter } from "next/router";
 
 export default function Welcome({
   onSuccess,
@@ -26,6 +27,13 @@ export default function Welcome({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
+  const { pathname } = useRouter();
+
+  useEffect(() => {
+    if (pathname === "/invitation") {
+      setState("register");
+    }
+  }, [pathname]);
 
   const welcomeMsg = [
     <>Welcome to GrowthBook!</>,
