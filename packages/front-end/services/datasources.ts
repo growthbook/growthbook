@@ -282,21 +282,12 @@ FROM
 WHERE
   ${userId} is not null`;
   },
-  getIdentitySQL: (tablePrefix) => {
-    return [
-      {
-        ids: ["anonymous_id"],
-        query: `SELECT
-  anonymous_id
-FROM
-  ${tablePrefix}identifies`,
-      },
-    ];
+  getIdentitySQL: () => {
+    return [];
   },
   userIdTypes: ["anonymous_id"],
   getMetricSQL: (name, type, tablePrefix) => {
     return `SELECT
-  user_id,
   anonymous_id,
   received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
 FROM
