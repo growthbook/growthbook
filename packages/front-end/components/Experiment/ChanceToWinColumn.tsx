@@ -76,37 +76,37 @@ export default function ChanceToWinColumn({
         className
       )}
     >
-      {!baseline?.value || !stats?.value ? (
-        <em>no data</em>
-      ) : !enoughData ? (
-        <NotEnoughData
-          experimentStatus={status}
-          isLatestPhase={isLatestPhase}
-          baselineValue={baseline?.value}
-          variationValue={stats?.value}
-          minSampleSize={minSampleSize}
-          snapshotCreated={snapshotDate}
-          phaseStart={startDate}
-        />
-      ) : suspiciousChange ? (
-        <div>
-          <div className="mb-1">
-            <span className="badge badge-pill badge-warning">
-              suspicious result
-            </span>
+      <Tooltip
+        body={sigText}
+        className="d-block"
+        tipPosition={"top"}
+        shouldDisplay={sigText !== ""}
+      >
+        {!baseline?.value || !stats?.value ? (
+          <em>no data</em>
+        ) : !enoughData ? (
+          <NotEnoughData
+            experimentStatus={status}
+            isLatestPhase={isLatestPhase}
+            baselineValue={baseline?.value}
+            variationValue={stats?.value}
+            minSampleSize={minSampleSize}
+            snapshotCreated={snapshotDate}
+            phaseStart={startDate}
+          />
+        ) : suspiciousChange ? (
+          <div>
+            <div className="mb-1">
+              <span className="badge badge-pill badge-warning">
+                suspicious result
+              </span>
+            </div>
+            <small className="text-muted">value changed too much</small>
           </div>
-          <small className="text-muted">value changed too much</small>
-        </div>
-      ) : (
-        <>
-          {percentFormatter.format(chanceToWin)}
-          {sigText !== "" && (
-            <Tooltip body={sigText} className="d-block" tipPosition={"top"}>
-              {" "}
-            </Tooltip>
-          )}
-        </>
-      )}
+        ) : (
+          <>{percentFormatter.format(chanceToWin)}</>
+        )}
+      </Tooltip>
     </td>
   );
 }
