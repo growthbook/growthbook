@@ -78,4 +78,7 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
+  useAliasInActivation(): boolean {
+    return true;
+  }
 }

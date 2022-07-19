@@ -130,6 +130,9 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
+  useAliasInActivation(): boolean {
+    return false;
+  }
 
   private getExposureQuery(
     exposureQueryId: string,
@@ -462,8 +465,12 @@ export default abstract class SqlIntegration
     return `
       SELECT
         initial.${baseIdType},
-        t${metrics.length - 1}.conversion_start,
-        t${metrics.length - 1}.conversion_end
+        t${metrics.length - 1}.conversion_start ${
+      this.useAliasInActivation() ? "as conversion_start" : ""
+    },
+        t${metrics.length - 1}.conversion_end ${
+      this.useAliasInActivation() ? "as conversion_end" : ""
+    }
       FROM
         ${initialTable} initial
         ${metrics
