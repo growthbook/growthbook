@@ -29,7 +29,7 @@ const RadioSelector: FC<{
                 type="radio"
                 name={name}
                 value={key}
-                className="m-1 mr-2"
+                className="m-1 mr-2 h-100"
                 checked={value === key}
                 onChange={(e) => {
                   if (e.target.checked) {
