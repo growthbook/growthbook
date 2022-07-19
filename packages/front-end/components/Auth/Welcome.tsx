@@ -33,7 +33,7 @@ export default function Welcome({
     if (pathname === "/invitation") {
       setState("register");
     }
-  }, []);
+  }, [pathname]);
 
   const welcomeMsg = [
     <>Welcome to GrowthBook!</>,
