@@ -14,6 +14,7 @@ import {
 import cases from "./cases.json";
 
 type Cases = {
+  specVersion: string;
   // value, hash
   hash: [string, number][];
   // name, context, experiment, value, inExperiment
