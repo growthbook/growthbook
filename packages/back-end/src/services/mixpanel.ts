@@ -64,6 +64,7 @@ export async function runQuery<T extends MixpanelResultRow>(
     headers: {
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
+      "X-Mixpanel-Integration-ID": "growthbook",
       Authorization: `Basic ${Buffer.from(
         `${conn.username}:${conn.secret}`
       ).toString("base64")}`,

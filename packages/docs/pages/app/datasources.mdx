@@ -174,7 +174,8 @@ const growthbook = new GrowthBook({
   trackingCallback: function(experiment, result) {
     mixpanel.track("$experiment_started", {
       "Experiment name": experiment.key,
-      "Variant name":  result.variationId
+      "Variant name":  result.variationId,
+      "$source": "growthbook",
     })
   }
 })
