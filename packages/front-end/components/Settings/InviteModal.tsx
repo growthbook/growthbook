@@ -8,7 +8,6 @@ import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
-import useUser from "../../hooks/useUser";
 import { isCloud } from "../../services/env";
 import { InviteModalBillingWarnings } from "./InviteModalBillingWarnings";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
@@ -30,7 +29,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
   const { data } = useApi<SettingsApiResponse>(`/organization`);
-  const user = useUser();
   const {
     seatsInFreeTier,
     pricePerSeat,
@@ -139,7 +137,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             pricePerSeat={pricePerSeat}
             discountedPricePerSeat={discountedPricePerSeat}
             currentPaidSeats={currentPaidSeats}
-            email={user.email}
           />
         </>
       )}

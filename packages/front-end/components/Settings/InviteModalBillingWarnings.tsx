@@ -12,7 +12,6 @@ export const InviteModalBillingWarnings: FC<{
   pricePerSeat: number;
   discountedPricePerSeat?: number;
   currentPaidSeats: number;
-  email: string;
 }> = ({
   subscriptionStatus,
   activeAndInvitedUsers,
@@ -21,7 +20,6 @@ export const InviteModalBillingWarnings: FC<{
   pricePerSeat,
   discountedPricePerSeat,
   currentPaidSeats,
-  email,
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState(null);
@@ -39,7 +37,6 @@ export const InviteModalBillingWarnings: FC<{
             subscriptionStatus === "canceled"
               ? activeAndInvitedUsers
               : activeAndInvitedUsers + 1,
-          email: email,
         }),
       });
 

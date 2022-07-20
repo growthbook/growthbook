@@ -43,7 +43,7 @@ export async function postNewSubscription(
   req: AuthRequest<{ qty: number; email: string }>,
   res: Response
 ) {
-  const { qty, email } = req.body;
+  const { qty } = req.body;
 
   try {
     req.checkPermissions("organizationSettings");
@@ -54,11 +54,27 @@ export async function postNewSubscription(
       throw new Error("No organization found");
     }
 
+    let stripeCustomerId: string;
+
+    if (org.stripeCustomerId) {
+      stripeCustomerId = org.stripeCustomerId;
+    } else {
+      const { id } = await stripe.customers.create({
+        metadata: {
+          growthBookId: org.id,
+        },
+      });
+      stripeCustomerId = id;
+    }
+
+    await updateOrganization(org.id, {
+      stripeCustomerId: stripeCustomerId,
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: email,
       payment_method_types: ["card"],
-      client_reference_id: org.id,
+      customer: stripeCustomerId,
       line_items: [
         {
           price: org?.price || STRIPE_PRICE,
@@ -234,17 +250,11 @@ export async function postWebhook(req: Request, res: Response) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const { subscription, client_reference_id, customer } = event.data
+      const { subscription } = event.data
         .object as Stripe.Response<Stripe.Checkout.Session>;
 
-      if (client_reference_id && customer && typeof customer === "string") {
-        await updateOrganization(client_reference_id, {
-          stripeCustomerId: customer,
-        });
-
-        if (subscription) {
-          updateSubscription(subscription);
-        }
+      if (subscription) {
+        updateSubscription(subscription);
       } else {
         console.error("Unable to find & updated existing organization"); //TODO: As this is a webhook, these errors should probably alert/bubble up somewhere
         res.status(400).json({
