@@ -62,21 +62,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       body: JSON.stringify(value),
     });
 
-    // Don't update the Stripe subscription if someone is adding a user right after they started a subscription.
-    // This is the only time where currentPaidSeats <= activeAndInvitedUsers
-    if (currentPaidSeats <= activeAndInvitedUsers) {
-      await apiCall<{
-        qty: string;
-        subscriptionId: string;
-      }>(`/subscription/updateSubscription`, {
-        method: "POST",
-        body: JSON.stringify({
-          qty: currentPaidSeats + 1,
-          subscriptionId: data.organization.subscription.id,
-        }),
-      });
-    }
-
     if (resp.emailSent) {
       mutate();
       close();

@@ -13,6 +13,7 @@ import {
   validateLogin,
   getPermissionsByRole,
   updateRole,
+  getOrganizationById,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -67,6 +68,7 @@ import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
+import { updateStripeSubscription } from "../services/stripe";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -608,6 +610,17 @@ export async function postInvite(req: AuthRequest, res: Response) {
   const { email, role } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
+
+  if (org.subscription?.id) {
+    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
+    const currentMembers = org.members?.map((m) => m.id) || [];
+    const uniqueMembers = [...new Set(currentMembers)];
+    const qty = uniqueMembers.length + org.invites.length;
+    console.log("qty", qty);
+    console.log("org.subscription.qty", org.subscription?.qty);
+    await updateStripeSubscription(org.subscription.id, qty);
+  }
+
   return res.status(200).json({
     status: 200,
     inviteUrl,
@@ -636,6 +649,17 @@ export async function deleteMember(
   }
 
   await removeMember(org, id);
+
+  // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
+  const updatedOrg = await getOrganizationById(org.id);
+
+  if (org.subscription?.id) {
+    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
+    const currentMembers = updatedOrg?.members?.map((m) => m.id) || [];
+    const uniqueMembers = [...new Set(currentMembers)];
+    const qty = uniqueMembers.length + (updatedOrg?.invites?.length || 0);
+    await updateStripeSubscription(org.subscription.id, qty);
+  }
 
   res.status(200).json({
     status: 200,
@@ -678,6 +702,17 @@ export async function deleteInvite(
   const { key } = req.body;
 
   await revokeInvite(org, key);
+
+  // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
+  const updatedOrg = await getOrganizationById(org.id);
+
+  if (org.subscription?.id) {
+    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
+    const currentMembers = updatedOrg?.members?.map((m) => m.id) || [];
+    const uniqueMembers = [...new Set(currentMembers)];
+    const qty = uniqueMembers.length + (updatedOrg?.invites.length || 0);
+    await updateStripeSubscription(org.subscription.id, qty);
+  }
 
   res.status(200).json({
     status: 200,

@@ -9,35 +9,11 @@ import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   updateOrganization,
-  updateOrganizationByStripeId,
   findOrganizationByStripeCustomerId,
 } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
+import { updateSubscription } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
-// import { getUsersByIds } from "../services/users";
-
-async function updateSubscription(subscription: string | Stripe.Subscription) {
-  // Make sure we have the full subscription object
-  if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(subscription);
-  }
-
-  const stripeCustomerId =
-    typeof subscription.customer === "string"
-      ? subscription.customer
-      : subscription.customer.id;
-
-  await updateOrganizationByStripeId(stripeCustomerId, {
-    subscription: {
-      id: subscription.id,
-      qty: subscription.items.data[0].quantity || 1,
-      trialEnd: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
-        : null,
-      status: subscription.status,
-    },
-  });
-}
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; email: string }>,
@@ -185,53 +161,6 @@ export async function postCreateBillingSession(
   }
 }
 
-export async function postUpdateStripeSubscription(
-  req: AuthRequest<{
-    qty: number;
-    subscriptionId: string;
-  }>,
-  res: Response
-) {
-  req.checkPermissions("organizationSettings");
-
-  const { qty, subscriptionId } = req.body;
-
-  if (!subscriptionId) {
-    return res.status(200).json({
-      status: 200,
-      subscription: null,
-    });
-  }
-
-  try {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-    const updatedSubscription = await stripe.subscriptions.update(
-      subscriptionId,
-      {
-        items: [
-          {
-            id: subscription.items.data[0].id,
-            quantity: qty,
-          },
-        ],
-      }
-    );
-
-    await updateSubscription(updatedSubscription);
-
-    res.status(200).json({
-      status: 200,
-      updatedSubscription,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
-}
-
 export async function postWebhook(req: Request, res: Response) {
   const payload: Buffer = req.body;
   const sig = req.headers["stripe-signature"];
@@ -279,7 +208,7 @@ export async function postWebhook(req: Request, res: Response) {
     case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
       console.log("updated webhook was hit");
-      console.log(event.data.object);
+      // console.log(event.data.object);
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
 

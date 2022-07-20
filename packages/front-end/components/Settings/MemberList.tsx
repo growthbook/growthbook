@@ -10,8 +10,6 @@ import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { isCloud } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import useApi from "../../hooks/useApi";
-import { SettingsApiResponse } from "../../pages/settings";
 
 export type MemberInfo = {
   id: string;
@@ -32,9 +30,6 @@ const MemberList: FC<{
     null
   );
   const [role, setRole] = useState<MemberRole>("admin");
-  const { data } = useApi<SettingsApiResponse>(`/organization`);
-
-  const totalSeats = data.organization.subscription.qty || 0;
 
   const onInvite = () => {
     setInviting(true);
@@ -124,16 +119,6 @@ const MemberList: FC<{
                         onClick={async () => {
                           await apiCall(`/member/${member.id}`, {
                             method: "DELETE",
-                          });
-                          await apiCall<{
-                            qty: string;
-                            subscriptionId: string;
-                          }>(`/subscription/updateSubscription`, {
-                            method: "POST",
-                            body: JSON.stringify({
-                              qty: totalSeats - 1,
-                              subscriptionId: data.organization.subscription.id,
-                            }),
                           });
                           mutate();
                         }}
