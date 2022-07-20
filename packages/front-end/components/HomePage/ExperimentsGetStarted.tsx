@@ -188,7 +188,7 @@ const ExperimentsGetStarted = ({
                           <FaDatabase /> Import Sample Data
                         </Button>
 
-                        <Tooltip text="Includes a sample experiment with results. Don't worry, it's easy to remove later.">
+                        <Tooltip body="Includes a sample experiment with results. Don't worry, it's easy to remove later.">
                           <FaQuestionCircle className="text-dark" />
                         </Tooltip>
                       </div>

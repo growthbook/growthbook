@@ -47,7 +47,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <th>Data Type</th>
                 <th>
                   Identifier{" "}
-                  <Tooltip text="Any attribute that uniquely identifies a user, account, device, or similar.">
+                  <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                     <FaQuestionCircle
                       style={{ position: "relative", top: "-1px" }}
                     />

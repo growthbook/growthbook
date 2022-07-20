@@ -66,7 +66,7 @@ const Webhooks: FC = () => {
                   <td>
                     {webhook.name}
                     {!webhook.featuresOnly && (
-                      <Tooltip text="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
+                      <Tooltip body="In addition to features, legacy webhooks also include experiment overrides which are now deprecated">
                         <span className="badge badge-warning ml-2">legacy</span>
                       </Tooltip>
                     )}

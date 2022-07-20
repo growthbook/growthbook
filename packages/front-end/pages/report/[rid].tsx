@@ -126,7 +126,7 @@ export default function ReportPage() {
             }}
           />
           <Tooltip
-            text={
+            body={
               "A published report will be visible to other users of your team"
             }
           />

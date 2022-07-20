@@ -139,7 +139,7 @@ export default function InitialOrgSettings(): ReactElement {
               >
                 Enable Visual Editor{" "}
                 <Tooltip
-                  text="The visual editor allows you to create A/B tests by editing pages from the front-end. You will need to add a snippet of code to your site. (You can change this at any time later). "
+                  body="The visual editor allows you to create A/B tests by editing pages from the front-end. You will need to add a snippet of code to your site. (You can change this at any time later). "
                   tipMinWidth="200px"
                 />
               </label>

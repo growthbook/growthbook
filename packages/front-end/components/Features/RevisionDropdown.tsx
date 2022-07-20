@@ -182,7 +182,7 @@ export default function RevisionDropdown({
                             }
                           }}
                         >
-                          <Tooltip text="Revert to this version (will create a new draft for you to review)">
+                          <Tooltip body="Revert to this version (will create a new draft for you to review)">
                             <MdRestore style={{ fontSize: "1.1em" }} />
                           </Tooltip>
                         </a>

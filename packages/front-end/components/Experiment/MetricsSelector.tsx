@@ -44,7 +44,7 @@ const MetricsSelector: FC<{
         <div className="metric-from-tag text-muted form-inline mt-2">
           <span style={{ fontSize: "0.82rem" }}>
             Select metric by tag:{" "}
-            <Tooltip text="Metrics can be tagged for grouping. Select any tag to add those metrics">
+            <Tooltip body="Metrics can be tagged for grouping. Select any tag to add those metrics">
               <FaQuestionCircle />
             </Tooltip>
           </span>
