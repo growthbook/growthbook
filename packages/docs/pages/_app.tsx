@@ -34,6 +34,10 @@ const navLinks = [
         href: "/self-host/config",
         name: "Configuration",
       },
+      {
+        href: "/self-host/updating",
+        name: "Updating",
+      },
     ],
   },
   {

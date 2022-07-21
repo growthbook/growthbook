@@ -1,6 +1,6 @@
 import Link from "next/link";
 import styles from "./Layout.module.scss";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
@@ -9,8 +9,9 @@ import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
-import { getGrowthBookBuild } from "../../services/env";
+import { getGrowthBookBuild, isCloud } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import fetch from "node-fetch";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -192,7 +193,25 @@ const backgroundShade = (color: string) => {
 
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
+  const [isOldVersion, setIsOldVersion] = useState(false);
   const settings = useOrgSettings();
+
+  const build = getGrowthBookBuild();
+
+  useEffect(() => {
+    async function checkVersions() {
+      const res = await fetch(
+        "https://api.github.com/repos/growthbook/growthbook/branches/main"
+      );
+      const jsonRes = await res.json();
+      const remoteSha = jsonRes.commit.sha;
+
+      if (build.sha !== remoteSha) setIsOldVersion(true);
+    }
+
+    if (isCloud()) return;
+    checkVersions().catch((e) => console.error(e));
+  }, []);
 
   // hacky:
   const router = useRouter();
@@ -239,8 +258,6 @@ const Layout = (): React.ReactElement => {
       .sidebarlink a, .sublink a {color: ${textColor}}
       `;
   }
-
-  const build = getGrowthBookBuild();
 
   return (
     <>
@@ -342,6 +359,21 @@ const Layout = (): React.ReactElement => {
             View Docs <FaArrowRight className="ml-2" />
           </a>
         </div>
+        {!isCloud() && isOldVersion && (
+          <div className="px-3 my-1 text-center">
+            <small>
+              <span className="text-muted">GrowthBook has a new version:</span>{" "}
+              <a
+                href={`https://docs.growthbook.io/self-host/updating`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-white"
+              >
+                {`Updating to Latest Docs`}
+              </a>
+            </small>
+          </div>
+        )}
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
