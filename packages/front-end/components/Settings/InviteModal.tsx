@@ -9,7 +9,7 @@ import { MemberRole } from "back-end/types/organization";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
 import { isCloud } from "../../services/env";
-import { InviteModalBillingWarnings } from "./InviteModalBillingWarnings";
+import { InviteModalSubscriptionInfo } from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
@@ -114,7 +114,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          <InviteModalBillingWarnings
+          <InviteModalSubscriptionInfo
             subscriptionStatus={data.organization.subscription?.status}
             activeAndInvitedUsers={activeAndInvitedUsers}
             seatsInFreeTier={seatsInFreeTier}

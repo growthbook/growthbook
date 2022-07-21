@@ -4,7 +4,7 @@ import { Stripe } from "stripe";
 import { useAuth } from "../../services/auth";
 import { isCloud } from "../../services/env";
 
-export const InviteModalBillingWarnings: FC<{
+export const InviteModalSubscriptionInfo: FC<{
   subscriptionStatus: string;
   activeAndInvitedUsers: number;
   seatsInFreeTier: number;

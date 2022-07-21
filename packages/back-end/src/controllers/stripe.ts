@@ -129,13 +129,6 @@ export async function getPriceData(req: AuthRequest, res: Response) {
 
     const priceId = org.priceId || STRIPE_PRICE;
 
-    if (!priceId) {
-      return res.status(400).json({
-        status: 400,
-        message: "No price found.",
-      });
-    }
-
     if (!priceData) {
       priceData = await stripe.prices.retrieve(priceId, {
         expand: ["tiers"],
@@ -230,11 +223,8 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.deleted":
     case "subscription_scheduled.canceled":
     case "customer.subscription.updated": {
-      console.log("updated webhook was hit");
-      // console.log(event.data.object);
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
-
       // Get the current subscription data instead of relying on a potentially outdated event
       const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
         subscription.id
