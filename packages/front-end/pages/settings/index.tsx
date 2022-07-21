@@ -40,6 +40,7 @@ export type SettingsApiResponse = {
       role: MemberRole;
     }[];
     subscription?: {
+      id: string;
       qty: number;
       trialEnd: Date;
       status:
