@@ -256,29 +256,6 @@ export async function postWebhook(req: Request, res: Response) {
       ) {
         updateSubscription(currentStripeSubscriptionData);
       }
-
-      // // This is a bit weird, but the organization.members array can have duplicates, so this just returns an array of unique users.
-      // const users = await getUsersByIds(
-      //   currentDbSubscription?.members?.map((m) => m.id) || []
-      // );
-
-      // const activeAndInvitedMembers =
-      //   (currentDbSubscription?.invites?.length || 0) + (users.length || 0);
-
-      // // If Stripe's qty doesn't match our DB, update Stripe's subscription.
-      // if (
-      //   currentStripeSubscriptionData.items.data[0].quantity !==
-      //   activeAndInvitedMembers
-      // ) {
-      //   await stripe.subscriptions.update(subscription.id, {
-      //     items: [
-      //       {
-      //         id: subscription.items.data[0].id,
-      //         quantity: activeAndInvitedMembers,
-      //       },
-      //     ],
-      //   });
-      // }
       break;
     }
   }

@@ -133,7 +133,7 @@ const InviteList: FC<{
                 </button>
                 <button
                   className="btn btn-outline-danger"
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault();
                     setDeleteInvite({ email, key });
                     setResendMessage(null);

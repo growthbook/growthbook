@@ -40,7 +40,6 @@ export type SettingsApiResponse = {
       role: MemberRole;
     }[];
     subscription?: {
-      id: string;
       qty: number;
       trialEnd: Date;
       status:
@@ -54,8 +53,6 @@ export type SettingsApiResponse = {
     };
     slackTeam?: string;
     settings?: OrganizationSettings;
-    price?: string;
-    stripeCustomerId?: string;
   };
 };
 
