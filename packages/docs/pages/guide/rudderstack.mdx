@@ -1,120 +1,93 @@
 # Configuring GrowthBook to work with Rudderstack
 
-GrowthBook supports Rudderstack as an event source for easily adding A/B testing to your application. This document outlines how to integrate Rudderstack with your Next.js application with data going to BigQuery, but is applicable if you have Rudderstack on other tech stacks.
+GrowthBook supports Rudderstack as an event source for easily adding A/B testing to your application. This document is a
+how-to guide for setting up Rudderstack with your application, connecting Rudderstack to BigQuery and then connecting
+GrowthBook to this data.
 
 ## 1. Setup Rudderstack
 
 If you have already set up Rudderstack, you can skip this step. Rudderstack allows you to send events from your application to any data destination, including BigQuery, which is what we're going to use it for here.
 
-<img
-  src="/images/guides/mixpanel-2-add-service-account.png"
-  alt="Add Mixpanel service account"
-/>
+Once you have a Rudderstack account, you need to create a BigQuery bucket for the event data to be stored. You can follow the [directions from Rudderstack](https://www.rudderstack.com/docs/destinations/storage-platforms/google-cloud-storage/), but the short version is:
 
-Click on the add service account. This account needs at least analysis permissions.
+- From the Google Cloud console for BigQuery, create a new bucket (or you can also use an already existing bucket).
+- Create a new service account under [IAM & Admin -> Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for Rudderstack to connect to this bucket.
+- Give Storage `Object Admin` role access to the newly created service account.
+- Under the `actions` menu on the service account you just created, click on manage keys to create a new key. Choose key
+  type as JSON. This will cause a JSON key file to be downloaded to your computer.
+
+With the bucket created, we can create a Rudderstack warehouse destination.
 
 <img
-  src="/images/guides/mixpanel-3-add-service-account-details.png"
-  alt="Add Mixpanel service account specifics"
+  src="/images/guides/rudderstack-1-addwarehouse.png"
+  alt="Add a data warehouse destination for Rudderstack"
   style={{ width: 500, margin: "0 auto" }}
 />
 
-Once you crete the account, you'll get the username and secret. This is the only time you'll see this information, so
-it's best to leave this page up while you do the next step to add that connection information to GrowthBook.
-
 <img
-  src="/images/guides/mixpanel-4-service-account-results.png"
-  alt="Service account details"
+  src="/images/guides/rudderstack-2-adddestination.png"
+  alt="Select BigQuery from the list"
   style={{ width: 500, margin: "0 auto" }}
 />
 
-## 2. Connect GrowthBook to Mixpanel
-
-From the data source section of the GrowthBook Platform, you can add a data source, and then choose Mixpanel from the
-drop down.
-
 <img
-  src="/images/guides/mixpanel-1-add-data-source.png"
-  alt="GrowthBook add Mixpanel data source form"
+  src="/images/guides/rudderstack-3-addbucket.png"
+  alt="Add the BigQuery account information"
   style={{ width: 500, margin: "0 auto" }}
 />
 
-Add the mixpanel information from the previous step here. The other information you'll need is the `project ID` from
-Mixpanel. You can find this in the the project settings overview from mixpanel
+The `Project` and `bucket name` needs to match the values you set up when creating the Google cloud project and bucket.
+
+Once you've created the destination, you should see it successfully connect
 
 <img
-  src="/images/guides/mixpanel-5-get-project-id.png"
-  alt="Get the Mixpanel project ID"
-  style={{ width: 1000, margin: "0 auto" }}
-/>
-
-## 3. Experiment Tracking Information
-
-After you successfully connect to mixpanel from GrowthBook you'll be asked to enter the experiment event information.
-The values you add here can be any you choose, although if you have already implemented experiment event tracking, you
-should use the values you chose there. We suggest you use `Experiment Viewed`, `Experiment Id` and `Variation Id` as
-in the example below.
-
-<img
-  src="/images/guides/mixpanel-6-add-exp-event-names.png"
-  alt="Experiment event naming for GrowthBook"
+  src="/images/guides/rudderstack-4-connection-completed.png"
+  alt="Successfully added the BigQuery account information"
   style={{ width: 500, margin: "0 auto" }}
 />
 
-The naming here has to match the event names you pass with the SDK implementation (see step 4).
-
-When you've successfully connected GrowthBook to your Mixpanel account, you'll see the experiment tracking information
-as well as sample code.
+And it will show up as a connected destination on your Rudderstack Connect dashboard.
 
 <img
-  src="/images/guides/mixpanel-8-successful-connection.png"
-  alt="Successful connection to Mixpanel"
+  src="/images/guides/rudderstack-4.5-bigQueryDestination.png"
+  alt="BigQuery connection in rudderstack"
 />
 
-## 4. Implement GrowthBook SDK with Mixpanel
+## 2. Connect GrowthBook to BiqQuery
 
-When implementing the GrowthBook SDK there are two things that are needed that are specific to Mixpanel: tracking to
-Mixpanel when a user is placed into an experiment, and adding the Mixpanel user ID to the list of user attributes.
-You can find the implementation of the GrowthBook SDKs in many languages, the implementation is similar for each.
-Shown below is the typescript version:
+Now that event data is flowing into BigQuery, we need to make another service account for GrowthBook to connect to BigQuery.
+We have a detailed guide on how to do this here: [Setting up BigQuery as a data source](/guide/bigquery).
 
-```ts
-import mixpanel from "mixpanel-browser";
+## 3. Select Rudderstack data schema
 
-// Create a GrowthBook instance
-const growthbook = new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    mixpanel.track("Experiment Viewed", {
-      "Experiment Id": experiment.key,
-      "Variant Id": result.variationId,
-    });
-  },
-});
-
-// Add the mixpanel user id to the GrowthBook attributes when it loads:
-mixpanel.init("[YOUR PROJECT TOKEN]", {
-  debug: true,
-  loaded: function (mx) {
-    growthbook.setAttributes({
-      ...growthbook.getAttributes(),
-      id: mx.get_distinct_id(),
-    });
-  },
-});
-```
-
-The project token can be found in the Mixpanel Project Settings.
+After you successfully connect to your BigQuery database, you'll get the following modal:
 
 <img
-  src="/images/guides/mixpanel-9-project-token.png"
-  alt="Project Tokens from Mixpanel"
+  src="/images/guides/rudderstack-11-data-schema.png"
+  alt="Choose Rudderstack data schema"
+  style={{ width: 500, margin: "0 auto" }}
 />
 
-You will still need to implement the feature flagging side of GrowthBook, where the feature JSON is fetched and other user
-attributes defined. This implementation instructions can be found for each specific language.
+Click on Rudderstack from the list. This will pre-populate the experiment exposure query which is need to determine which user saw which experiment
+variation. Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
+`anonymous_id` and `user_id`, you'll need to add the `user_id` query.
 
-<div class="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
-  By default, Mixpanel stores all events as UTC time, but can be changed per
-  project. If the timezones between GrowthBook and your Mixpanel don't match, it
-  can cause results to not show data for the correct time period.
-</div>
+## 4. Add Metrics
+
+GrowthBook needs to know what metrics you want to use in your experiments, and how to query this data from BigQuery.
+This step depends on your needs as an organization. Keep in mind that metric queries will be generic, returning all
+users who do an event, but will be joined to the experiment exposure information when determining the impact of
+experiment results.
+
+Metrics are added from the Analysis -> Metrics menu.
+
+<img
+  src="/images/guides/metrics-addmetric.png"
+  alt="Choose Rudderstack data schema"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+<img
+  src="/images/guides/metrics-metricoverview.png"
+  alt="Choose Rudderstack data schema"
+/>
