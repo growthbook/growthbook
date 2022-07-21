@@ -47,7 +47,12 @@ credentials can be added to GrowthBook. Click on actions, and select `Manage Key
   alt="Create a new service account in BigQuery"
 />
 
-On the keys page, add a new key, and select JSON.
+There are two ways to provide credentials to GrowthBook:
+
+- Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
+- Upload a JSON key file for the service account
+
+We're going to show how to do the JSON key file method. On the keys page, add a new key, and select JSON.
 
 <img
   src="/images/guides/bigquery-6-getjson-key2.png"
@@ -62,7 +67,7 @@ On the keys page, add a new key, and select JSON.
 
 This will cause the JSON key to be downloaded to your computer.
 
-### 3. Connect GrowthBook to BigQuery
+## 2. Connect GrowthBook to BigQuery
 
 From the Analysis -> Data Source page, click on add new data source and select BigQuery.
 
