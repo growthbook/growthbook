@@ -1,44 +1,24 @@
 import { useEffect, useState } from "react";
-import { SettingsApiResponse } from "../pages/settings";
 import { useAuth } from "../services/auth";
-import useApi from "./useApi";
 
 export default function useStripeSubscription() {
   const { apiCall } = useAuth();
   const [subscriptionData, setSubscriptionData] = useState(null);
-  const { data } = useApi<SettingsApiResponse>(`/organization`);
   const [seatsInFreeTier, setSeatsInFreeTier] = useState(null);
   const [pricePerSeat, setPricePerSeat] = useState(null);
 
   useEffect(() => {
     const getSubscriptionData = async () => {
-      const { subscription } = await apiCall(`/subscription`);
-      setSubscriptionData(subscription);
+      const { subscriptionData } = await apiCall(`/subscription`);
+      setSubscriptionData(subscriptionData);
+
+      const { priceData } = await apiCall(`/price`);
+      setSeatsInFreeTier(priceData.tiers[0].up_to);
+      setPricePerSeat(priceData.tiers[1].unit_amount / 100);
     };
 
     getSubscriptionData();
   }, []);
-
-  useEffect(() => {
-    const getSeatsInFreeTier = async () => {
-      if (!subscriptionData && data.organization.price) {
-        const { price } = await apiCall(`/price`);
-        setSeatsInFreeTier(price.metadata.freeSeats);
-        setPricePerSeat(price.metadata.price);
-        return;
-      }
-
-      if (subscriptionData?.plan.metadata.freeSeats) {
-        setSeatsInFreeTier(subscriptionData?.plan.metadata.freeSeats);
-        setPricePerSeat(subscriptionData?.plan.metadata.price);
-      } else {
-        setSeatsInFreeTier(5);
-        setPricePerSeat(20);
-      }
-    };
-
-    getSeatsInFreeTier();
-  }, [data]);
 
   const planName = subscriptionData?.plan.nickname;
   const nextBillDate = new Date(

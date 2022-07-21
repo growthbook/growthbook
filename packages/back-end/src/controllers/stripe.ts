@@ -15,6 +15,8 @@ import { getOrgFromReq } from "../services/organizations";
 import { updateSubscription } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
+let priceData: Stripe.Price;
+
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; email: string }>,
   res: Response
@@ -53,7 +55,7 @@ export async function postNewSubscription(
       customer: stripeCustomerId,
       line_items: [
         {
-          price: org?.price || STRIPE_PRICE,
+          price: org?.priceId || STRIPE_PRICE,
           quantity: qty,
         },
       ],
@@ -88,11 +90,16 @@ export async function getSubscriptionData(req: AuthRequest, res: Response) {
       });
     }
 
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscriptionData = await stripe.subscriptions.retrieve(
+      subscriptionId,
+      {
+        expand: ["plan"],
+      }
+    );
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 200,
-      subscription,
+      subscriptionData,
     });
   } catch (e) {
     res.status(400).json({
@@ -108,7 +115,7 @@ export async function getPriceData(req: AuthRequest, res: Response) {
 
     const { org } = getOrgFromReq(req);
 
-    const priceId = org.price;
+    const priceId = org.priceId;
 
     if (!priceId) {
       return res.status(400).json({
@@ -117,11 +124,15 @@ export async function getPriceData(req: AuthRequest, res: Response) {
       });
     }
 
-    const price = await stripe.prices.retrieve(priceId);
+    if (!priceData) {
+      priceData = await stripe.prices.retrieve(priceId, {
+        expand: ["tiers"],
+      });
+    }
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 200,
-      price,
+      priceData,
     });
   } catch (e) {
     res.status(400).json({

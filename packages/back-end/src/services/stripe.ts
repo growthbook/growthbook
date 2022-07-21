@@ -8,7 +8,9 @@ export async function updateSubscription(
 ) {
   // Make sure we have the full subscription object
   if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(subscription);
+    subscription = await stripe.subscriptions.retrieve(subscription, {
+      expand: ["plan"],
+    });
   }
 
   const stripeCustomerId =
@@ -25,6 +27,7 @@ export async function updateSubscription(
         : null,
       status: subscription.status,
     },
+    priceId: subscription.items.data[0].price.id,
   });
 }
 
@@ -32,7 +35,6 @@ export async function updateStripeSubscription(
   subscriptionId: string,
   qty: number
 ) {
-  console.log("updateStripeSubscription ran");
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
   const updatedSubscription = await stripe.subscriptions.update(

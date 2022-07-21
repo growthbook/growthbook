@@ -32,7 +32,7 @@ const organizationSchema = new mongoose.Schema({
       role: String,
     },
   ],
-  price: String,
+  priceId: String,
   stripeCustomerId: String,
   subscription: {
     id: String,
