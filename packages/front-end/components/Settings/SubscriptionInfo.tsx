@@ -5,7 +5,6 @@ import Tooltip from "../Tooltip";
 import { Stripe } from "stripe";
 import useApi from "../../hooks/useApi";
 import { SettingsApiResponse } from "../../pages/settings";
-import useUser from "../../hooks/useUser";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const SubscriptionInfo: FC<{
@@ -25,7 +24,6 @@ const SubscriptionInfo: FC<{
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { data } = useApi<SettingsApiResponse>(`/organization`);
-  const { email } = useUser();
   const {
     subscriptionData,
     seatsInFreeTier,
@@ -148,8 +146,7 @@ const SubscriptionInfo: FC<{
                           method: "POST",
                           body: JSON.stringify({
                             qty: activeAndInvitedUsers,
-                            email: email,
-                            organizationId: data.organization.id,
+                            restart: true,
                           }),
                         });
 

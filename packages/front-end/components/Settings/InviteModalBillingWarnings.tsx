@@ -37,6 +37,7 @@ export const InviteModalBillingWarnings: FC<{
             subscriptionStatus === "canceled"
               ? activeAndInvitedUsers
               : activeAndInvitedUsers + 1,
+          restart: subscriptionStatus === "canceled",
         }),
       });
 

@@ -18,10 +18,10 @@ const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 let priceData: Stripe.Price;
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number; email: string }>,
+  req: AuthRequest<{ qty: number; restart: boolean }>,
   res: Response
 ) {
-  const { qty } = req.body;
+  const { qty, restart } = req.body;
 
   try {
     req.checkPermissions("organizationSettings");
@@ -34,8 +34,14 @@ export async function postNewSubscription(
 
     const qtyInDb = org.members.length + (org.invites?.length || 0);
 
-    if (qty !== qtyInDb + 1) {
-      throw new Error("Error with quantity of users");
+    if (restart) {
+      if (qty !== qtyInDb) {
+        throw new Error("Error with quantity of users");
+      }
+    } else {
+      if (qty !== qtyInDb + 1) {
+        throw new Error("Error with quantity of users");
+      }
     }
 
     let stripeCustomerId: string;
