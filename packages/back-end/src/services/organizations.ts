@@ -247,6 +247,11 @@ export async function acceptInvite(key: string, userId: string) {
     throw new Error("Invalid key");
   }
 
+  // If memeber is already in the org, skip
+  if (organization.members.find((m) => m.id === userId)) {
+    return;
+  }
+
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
 
   // Remove invite

@@ -32,10 +32,7 @@ export async function postNewSubscription(
       throw new Error("No organization found");
     }
 
-    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
-    const currentMembers = org.members?.map((m) => m.id) || [];
-    const uniqueMembers = [...new Set(currentMembers)];
-    const qtyInDb = uniqueMembers.length + (org.invites?.length || 0);
+    const qtyInDb = org.members.length + (org.invites?.length || 0);
 
     if (qty !== qtyInDb + 1) {
       throw new Error("Error with quantity of users");

@@ -591,6 +591,10 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+
+    if (!org) {
+      throw new Error("You can't accept an invite if you're already a user");
+    }
     return res.status(200).json({
       status: 200,
       orgId: org.id,
@@ -612,12 +616,7 @@ export async function postInvite(req: AuthRequest, res: Response) {
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
 
   if (org.subscription?.id) {
-    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
-    const currentMembers = org.members?.map((m) => m.id) || [];
-    const uniqueMembers = [...new Set(currentMembers)];
-    const qty = uniqueMembers.length + org.invites.length;
-    console.log("qty", qty);
-    console.log("org.subscription.qty", org.subscription?.qty);
+    const qty = org.members.length + (org.invites?.length || 0);
     await updateStripeSubscription(org.subscription.id, qty);
   }
 
@@ -653,11 +652,8 @@ export async function deleteMember(
   // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
   const updatedOrg = await getOrganizationById(org.id);
 
-  if (org.subscription?.id) {
-    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
-    const currentMembers = updatedOrg?.members?.map((m) => m.id) || [];
-    const uniqueMembers = [...new Set(currentMembers)];
-    const qty = uniqueMembers.length + (updatedOrg?.invites?.length || 0);
+  if (org.subscription?.id && updatedOrg) {
+    const qty = updatedOrg.members.length + (updatedOrg.invites?.length || 0);
     await updateStripeSubscription(org.subscription.id, qty);
   }
 
@@ -706,11 +702,8 @@ export async function deleteInvite(
   // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
   const updatedOrg = await getOrganizationById(org.id);
 
-  if (org.subscription?.id) {
-    //TODO: It's possible to have duplicate users in members. Once bug is resolved, we can just get members.length + invites.length
-    const currentMembers = updatedOrg?.members?.map((m) => m.id) || [];
-    const uniqueMembers = [...new Set(currentMembers)];
-    const qty = uniqueMembers.length + (updatedOrg?.invites.length || 0);
+  if (org.subscription?.id && updatedOrg) {
+    const qty = updatedOrg.members.length + (updatedOrg.invites?.length || 0);
     await updateStripeSubscription(org.subscription.id, qty);
   }
 
