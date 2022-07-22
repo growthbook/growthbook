@@ -6,6 +6,9 @@ import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
+import { isCloud } from "../../services/env";
+import { InviteModalSubscriptionInfo } from "./InviteModalSubscriptionInfo";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -23,6 +26,24 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
+  const {
+    seatsInFreeTier,
+    pricePerSeat,
+    discountedPricePerSeat,
+    activeAndInvitedUsers,
+    numberOfCurrentSeats,
+    hasActiveSubscription,
+    subscriptionStatus,
+  } = useStripeSubscription();
+
+  const currentPaidSeats = numberOfCurrentSeats || 0;
+
+  const canInviteUser = Boolean(
+    emailSent === null &&
+      (activeAndInvitedUsers < seatsInFreeTier ||
+        (currentPaidSeats >= seatsInFreeTier && hasActiveSubscription) ||
+        !isCloud())
+  );
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
@@ -58,6 +79,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      ctaEnabled={canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
     >
@@ -85,6 +107,15 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             setRole={(role) => {
               form.setValue("role", role);
             }}
+          />
+          <InviteModalSubscriptionInfo
+            subscriptionStatus={subscriptionStatus}
+            activeAndInvitedUsers={activeAndInvitedUsers}
+            seatsInFreeTier={seatsInFreeTier}
+            hasActiveSubscription={hasActiveSubscription}
+            pricePerSeat={pricePerSeat}
+            discountedPricePerSeat={discountedPricePerSeat}
+            currentPaidSeats={currentPaidSeats}
           />
         </>
       )}

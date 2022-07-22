@@ -471,6 +471,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     subscription,
     connections,
     settings,
+    priceId,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -501,6 +502,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
         };
       }),
       settings,
+      priceId,
     },
   });
 }
@@ -587,6 +589,7 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+
     return res.status(200).json({
       status: 200,
       orgId: org.id,
@@ -606,6 +609,7 @@ export async function postInvite(req: AuthRequest, res: Response) {
   const { email, role } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
+
   return res.status(200).json({
     status: 200,
     inviteUrl,

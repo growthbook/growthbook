@@ -125,6 +125,12 @@ export interface OrganizationInterface {
       | "past_due"
       | "canceled"
       | "unpaid";
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planNickname: string | null;
+    percent_off: number | null;
   };
   members: Member[];
   invites: Invite[];
@@ -136,6 +142,7 @@ export interface OrganizationInterface {
     };
   };
   settings?: OrganizationSettings;
+  priceId?: string;
 }
 
 export type NamespaceUsage = Record<

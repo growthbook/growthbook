@@ -32,12 +32,19 @@ const organizationSchema = new mongoose.Schema({
       role: String,
     },
   ],
+  priceId: String,
   stripeCustomerId: String,
   subscription: {
     id: String,
     qty: Number,
     trialEnd: Date,
     status: String,
+    current_period_end: Number,
+    cancel_at: Number,
+    canceled_at: Number,
+    cancel_at_period_end: Boolean,
+    planNickname: String,
+    percent_off: Number,
   },
   connections: {
     slack: {
@@ -143,6 +150,14 @@ export async function updateOrganizationByStripeId(
       $set: update,
     }
   );
+}
+
+export async function findOrganizationByStripeCustomerId(id: string) {
+  const doc = await OrganizationModel.findOne({
+    stripeCustomerId: id,
+  });
+
+  return doc ? toInterface(doc) : null;
 }
 
 export async function hasOrganization() {
