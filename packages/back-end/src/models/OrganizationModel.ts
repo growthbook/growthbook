@@ -102,6 +102,7 @@ export async function createOrganization(
           id: "production",
           description: "",
           toggleOnList: true,
+          defaultState: true,
         },
       ],
     },

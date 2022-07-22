@@ -291,7 +291,8 @@ export async function postMetrics(
 ) {
   req.checkPermissions("createMetrics");
 
-  const { org } = getOrgFromReq(req);
+  const { org, userName } = getOrgFromReq(req);
+
   const {
     name,
     description,
@@ -337,6 +338,7 @@ export async function postMetrics(
 
   const metric = await createMetric({
     organization: org.id,
+    owner: userName,
     datasource,
     name,
     description,
@@ -402,6 +404,7 @@ export async function putMetric(
   const fields: (keyof MetricInterface)[] = [
     "name",
     "description",
+    "owner",
     "segment",
     "type",
     "inverse",

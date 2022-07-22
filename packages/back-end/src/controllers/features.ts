@@ -120,6 +120,7 @@ export async function postFeatures(
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
+    owner: userName,
     description: "",
     project: "",
     environmentSettings,
@@ -464,6 +465,7 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "owner",
   ];
 
   if (

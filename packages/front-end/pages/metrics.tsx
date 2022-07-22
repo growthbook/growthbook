@@ -219,6 +219,7 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="name">Name</SortableTH>
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
+            <th>Owner</th>
             <SortableTH field="datasource" className="d-none d-lg-table-cell">
               Data Source
             </SortableTH>
@@ -261,6 +262,7 @@ const MetricsPage = (): React.ReactElement => {
               <td className="nowrap">
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
+              <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
                   ? getDatasourceById(metric.datasource)?.name || "Unknown"

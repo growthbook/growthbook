@@ -141,6 +141,30 @@ const ImportExperimentList: FC<{
           Error importing experiments. View Queries for more info
         </div>
       )}
+      {pastExpArr.length === 0 && status !== "failed" && (
+        <div>
+          <h4>No experiments found</h4>
+          <p>
+            No past experiments were returned from this data source. If you are
+            expecting past experiments, check the following:
+          </p>
+          <ul>
+            <li>
+              Too old: this query only shows experiments from the last 12 months
+              by default (you can adjust the import date limit from the
+              settings)
+            </li>
+            <li>
+              Not enough traffic: experiments are not shown if they had less
+              than 5 users per variation
+            </li>
+            <li>
+              Incorrect query: the experiment exposure query runs but is not
+              pulling the right data
+            </li>
+          </ul>
+        </div>
+      )}
       {pastExpArr.length > 0 && (
         <div>
           <h4>Experiments</h4>

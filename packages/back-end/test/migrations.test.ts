@@ -29,6 +29,7 @@ describe("backend", () => {
       inverse: false,
       name: "",
       organization: "",
+      owner: "",
       queries: [],
       runStarted: null,
       type: "binomial",
@@ -82,6 +83,7 @@ describe("backend", () => {
       inverse: false,
       name: "",
       organization: "",
+      owner: "",
       queries: [],
       runStarted: null,
       type: "binomial",
@@ -148,6 +150,7 @@ describe("backend", () => {
       inverse: false,
       name: "",
       organization: "",
+      owner: "",
       queries: [],
       runStarted: null,
       type: "binomial",
@@ -376,6 +379,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -407,6 +411,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -450,6 +455,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -498,6 +504,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -546,6 +553,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -722,6 +730,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      owner: "",
       defaultValue: "true",
       valueType: "boolean",
       id: "",
@@ -744,6 +753,12 @@ describe("backend", () => {
     };
 
     const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+
+    if (!newFeature.environmentSettings)
+      throw new Error("newFeature.environmentSettings is undefined");
+    if (!newFeature.draft) throw new Error("newFeature.draft is undefined");
+    if (!newFeature.draft.rules)
+      throw new Error("newFeature.draft.rules is undefined");
 
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);

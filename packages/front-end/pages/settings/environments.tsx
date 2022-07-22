@@ -43,6 +43,7 @@ const EnvironmentsPage: FC = () => {
             <tr>
               <th>Environment</th>
               <th>Description</th>
+              <th>Default state</th>
               <th>Show toggle on feature list</th>
               <th style={{ width: 30 }}></th>
             </tr>
@@ -53,6 +54,7 @@ const EnvironmentsPage: FC = () => {
                 <tr key={e.id}>
                   <td>{e.id}</td>
                   <td>{e.description}</td>
+                  <td>{e.defaultState === false ? "off" : "on"}</td>
                   <td>{e.toggleOnList ? "yes" : "no"}</td>
                   <td style={{ width: 30 }}>
                     <MoreMenu id={e.id + "_moremenu"}>

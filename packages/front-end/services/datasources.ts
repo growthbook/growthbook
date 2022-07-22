@@ -257,6 +257,44 @@ FROM
   },
 };
 
+const RudderstackSchema: SchemaInterface = {
+  experimentDimensions: ["device", "browser"],
+  getExperimentSQL: (tablePrefix, userId) => {
+    return `SELECT
+  ${userId},
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  (CASE
+    WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+    ELSE 'Tablet/Desktop' END
+  ) as device,
+  (CASE 
+    WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+    WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+    WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+    ELSE 'Other' END
+  ) as browser
+FROM
+  ${tablePrefix}experiment_viewed
+WHERE
+  ${userId} is not null`;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["anonymous_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  anonymous_id,
+  received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4") {
     return GA4Schema;
@@ -267,8 +305,11 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "amplitude") {
     return AmplitudeSchema;
   }
-  if (type === "segment" || type === "rudderstack") {
+  if (type === "segment") {
     return SegmentSchema;
+  }
+  if (type === "rudderstack") {
+    return RudderstackSchema;
   }
 
   return CustomSchema;

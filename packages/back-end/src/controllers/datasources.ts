@@ -50,6 +50,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     metric1 = {
       id: uniqid("met_sample_"),
       datasource: "",
+      owner: "",
       ignoreNulls: false,
       inverse: false,
       queries: [],
@@ -70,6 +71,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
     metric2 = {
       id: uniqid("met_sample_"),
       datasource: "",
+      owner: "",
       ignoreNulls: false,
       inverse: false,
       queries: [],
