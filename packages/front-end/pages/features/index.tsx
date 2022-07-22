@@ -200,7 +200,7 @@ export default function FeaturesPage() {
             )}
           </div>
 
-          <table className="table gbtable table-hover">
+          <table className="table gbtable table-hover appbox">
             <thead>
               <tr>
                 <th></th>
