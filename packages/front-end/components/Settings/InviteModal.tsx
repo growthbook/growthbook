@@ -6,8 +6,6 @@ import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
-import useApi from "../../hooks/useApi";
-import { SettingsApiResponse } from "../../pages/settings";
 import { isCloud } from "../../services/env";
 import { InviteModalSubscriptionInfo } from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
@@ -28,21 +26,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
-  const { data } = useApi<SettingsApiResponse>(`/organization`);
   const {
     seatsInFreeTier,
     pricePerSeat,
     discountedPricePerSeat,
+    activeAndInvitedUsers,
+    numberOfCurrentSeats,
+    hasActiveSubscription,
+    subscriptionStatus,
   } = useStripeSubscription();
 
-  const activeAndInvitedUsers =
-    data.organization.members.length + data.organization.invites.length;
-
-  const currentPaidSeats = data.organization.subscription.qty || 0;
-
-  const hasActiveSubscription =
-    data.organization.subscription?.status === "active" ||
-    data.organization.subscription?.status === "trialing";
+  const currentPaidSeats = numberOfCurrentSeats || 0;
 
   const canInviteUser = Boolean(
     emailSent === null &&
@@ -115,7 +109,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             }}
           />
           <InviteModalSubscriptionInfo
-            subscriptionStatus={data.organization.subscription?.status}
+            subscriptionStatus={subscriptionStatus}
             activeAndInvitedUsers={activeAndInvitedUsers}
             seatsInFreeTier={seatsInFreeTier}
             hasActiveSubscription={hasActiveSubscription}

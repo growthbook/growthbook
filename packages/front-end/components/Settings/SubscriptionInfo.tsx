@@ -3,8 +3,6 @@ import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip";
 import { Stripe } from "stripe";
-import useApi from "../../hooks/useApi";
-import { SettingsApiResponse } from "../../pages/settings";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const SubscriptionInfo: FC<{
@@ -23,9 +21,8 @@ const SubscriptionInfo: FC<{
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { data } = useApi<SettingsApiResponse>(`/organization`);
   const {
-    subscriptionData,
+    data,
     seatsInFreeTier,
     pricePerSeat,
     planName,
@@ -37,17 +34,16 @@ const SubscriptionInfo: FC<{
     discountedPricePerSeat,
     getStandardMonthlyPrice,
     getDiscountedMonthlyPrice,
+    activeAndInvitedUsers,
+    numberOfCurrentSeats,
   } = useStripeSubscription();
 
-  if (!subscriptionData) return <LoadingOverlay />;
-
-  const activeAndInvitedUsers =
-    data.organization.members.length + data.organization.invites.length;
+  if (!data) return <LoadingOverlay />;
 
   return (
     <>
       <div className="row align-items-center">
-        {!subscriptionData ? (
+        {!data ? (
           <LoadingOverlay />
         ) : (
           <>
@@ -60,7 +56,7 @@ const SubscriptionInfo: FC<{
             {discountedPricePerSeat ? (
               <div className="col-md-12 mb-3">
                 <strong>Current Monthly Price:</strong>{" "}
-                {seatsInFreeTier < subscriptionData?.quantity && (
+                {seatsInFreeTier < numberOfCurrentSeats && (
                   <span style={{ textDecoration: "line-through" }}>
                     {`Regularly $${getStandardMonthlyPrice()}/month`}
                   </span>

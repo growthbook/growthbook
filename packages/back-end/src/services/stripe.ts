@@ -26,6 +26,12 @@ export async function updateSubscription(
         ? new Date(subscription.trial_end * 1000)
         : null,
       status: subscription.status,
+      current_period_end: subscription.current_period_end,
+      cancel_at: subscription.cancel_at,
+      canceled_at: subscription.canceled_at,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      planNickname: subscription.items.data[0].plan.nickname,
+      percent_off: subscription.discount?.coupon.percent_off || 0,
     },
     priceId: subscription.items.data[0].price.id,
   });

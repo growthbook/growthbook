@@ -39,6 +39,12 @@ const organizationSchema = new mongoose.Schema({
     qty: Number,
     trialEnd: Date,
     status: String,
+    current_period_end: Number,
+    cancel_at: Number,
+    canceled_at: Number,
+    cancel_at_period_end: Boolean,
+    planNickname: String,
+    percent_off: Number,
   },
   connections: {
     slack: {

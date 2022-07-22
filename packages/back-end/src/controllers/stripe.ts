@@ -83,30 +83,6 @@ export async function postNewSubscription(
   });
 }
 
-export async function getSubscriptionData(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
-
-  const { org } = getOrgFromReq(req);
-
-  const subscriptionId = org.subscription?.id;
-
-  if (!subscriptionId) {
-    return res.status(200).json({
-      status: 200,
-      subscription: null,
-    });
-  }
-
-  const subscriptionData = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ["plan"],
-  });
-
-  return res.status(200).json({
-    status: 200,
-    subscriptionData,
-  });
-}
-
 export async function getPriceData(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 
@@ -166,8 +142,8 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   switch (event.type) {
-    case "invoice.paid":
     case "checkout.session.completed":
+    case "invoice.paid":
     case "invoice.payment_failed": {
       const { subscription } = event.data
         .object as Stripe.Response<Stripe.Invoice>;

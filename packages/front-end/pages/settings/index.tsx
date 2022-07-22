@@ -43,6 +43,12 @@ export type SettingsApiResponse = {
       id: string;
       qty: number;
       trialEnd: Date;
+      current_period_end: number;
+      cancel_at: number | null;
+      canceled_at: number | null;
+      cancel_at_period_end: boolean;
+      planNickname: string;
+      percent_off?: number;
       status:
         | "incomplete"
         | "incomplete_expired"
