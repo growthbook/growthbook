@@ -54,6 +54,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
 import useUser from "../../hooks/useUser";
+import { useCustomFields } from "../../services/experiments";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -83,6 +84,13 @@ const ExperimentPage = (): ReactElement => {
   }>(`/experiment/${eid}/watchers`);
 
   const { users } = useUser();
+  const customFields = useCustomFields();
+  const customFieldsMap = new Map();
+  if (customFields && customFields.length) {
+    customFields.map((v) => {
+      customFieldsMap.set(v.id, v);
+    });
+  }
 
   useSwitchOrg(data?.experiment?.organization);
 
@@ -533,6 +541,20 @@ const ExperimentPage = (): ReactElement => {
                   </p>
                 )}
               </div>
+              {experiment?.customFields.length && (
+                <>
+                  {experiment.customFields.map((f, i) => {
+                    if (f?.fieldId) {
+                      return (
+                        <div className="mb-4" key={i}>
+                          <h4>{customFieldsMap.get(f.fieldId)?.name}</h4>
+                          {f.fieldValue}
+                        </div>
+                      );
+                    }
+                  })}
+                </>
+              )}
               <div className="mb-4">
                 <h4>Variations</h4>
                 {experiment.implementation === "visual" && (

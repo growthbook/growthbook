@@ -596,6 +596,7 @@ export async function postExperiment(
     "data",
     "autoSnapshots",
     "project",
+    "customFields",
   ];
   const keysRequiringWebhook: (keyof ExperimentInterface)[] = [
     "trackingKey",
@@ -616,7 +617,7 @@ export async function postExperiment(
 
     // Do a deep comparison for arrays, shallow for everything else
     let hasChanges = data[key] !== existing[key];
-    if (key === "metrics" || key === "variations") {
+    if (key === "metrics" || key === "variations" || key === "customFields") {
       hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
     }
 

@@ -5,6 +5,7 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import TagsInput from "../Tags/TagsInput";
 import {
+  CustomExperimentField,
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   Variation,
@@ -22,6 +23,7 @@ import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { getExposureQuery } from "../../services/datasources";
+import { useCustomFields } from "../../services/experiments";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -83,7 +85,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
   const [showVariationIds] = useState(isImport);
-
+  const customFields = useCustomFields();
   const {
     datasources,
     getDatasourceById,
@@ -146,6 +148,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       phases: initialPhases,
       status: initialValue?.status || "running",
       ideaSource: idea || "",
+      customFields: initialValue?.customFields || [],
     },
   });
 
@@ -307,6 +310,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </>
         )}
       </Page>
+      {customFields?.length && (
+        <Page display="Custom Fields">
+          {customFields.map((v, i) => {
+            return (
+              <div key={i}>
+                <Field
+                  label={v.name}
+                  type={v.type}
+                  required={v.required}
+                  onChange={(e) => {
+                    const obj: CustomExperimentField = {
+                      fieldValue: e.target.value,
+                      fieldId: v.id,
+                    };
+                    form.setValue(`customFields.${i}`, obj);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </Page>
+      )}
       <Page display="Variations">
         <div className="mb-3">
           <div className="row equal">

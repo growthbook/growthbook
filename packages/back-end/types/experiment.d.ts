@@ -44,6 +44,11 @@ export type ExperimentPhaseStringDates = Omit<
 
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
+export interface CustomExperimentField {
+  fieldId: string;
+  fieldValue: string;
+}
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -89,6 +94,7 @@ export interface ExperimentInterface {
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
+  customFields?: CustomExperimentField[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<

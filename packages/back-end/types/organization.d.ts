@@ -83,6 +83,17 @@ export type Environment = {
   defaultState?: boolean;
 };
 
+export type CustomField = {
+  id: string;
+  name: string;
+  type: "text" | "textarea" | "markdown" | "enum";
+  values?: string[];
+  required: boolean;
+  creator?: string;
+  dateCreated: string | Date;
+  active: boolean;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -99,6 +110,7 @@ export interface OrganizationSettings {
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
   environments?: Environment[];
+  customFields?: CustomField[];
   sdkInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */

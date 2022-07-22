@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
+  CustomExperimentField,
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
@@ -12,6 +13,7 @@ import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import { MdDeleteForever } from "react-icons/md";
+import { useCustomFields } from "../../services/experiments";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -21,6 +23,7 @@ const EditInfoForm: FC<{
   const {
     settings: { visualEditorEnabled },
   } = useUser();
+  const customFields = useCustomFields();
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -28,6 +31,7 @@ const EditInfoForm: FC<{
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || experiment.observations || "",
+      customFields: experiment?.customFields || [],
       variations: experiment.variations
         ? experiment.variations.map((v) => {
             return {
@@ -126,6 +130,29 @@ const EditInfoForm: FC<{
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         textarea
       />
+      {customFields?.length && (
+        <div className="mb-3">
+          {customFields.map((v, i) => {
+            return (
+              <div key={i}>
+                <Field
+                  value={form.watch(`customFields.${i}.fieldValue`)}
+                  label={v.name}
+                  type={v.type}
+                  required={v.required}
+                  onChange={(e) => {
+                    const obj: CustomExperimentField = {
+                      fieldValue: e.target.value,
+                      fieldId: v.id,
+                    };
+                    form.setValue(`customFields.${i}`, obj);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="mb-3">
         <label>Variations</label>
         <div className="row">

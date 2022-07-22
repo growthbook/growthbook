@@ -7,6 +7,7 @@ import {
   defaultMinSampleSize,
 } from "./metrics";
 import { ExperimentReportVariation } from "back-end/types/report";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export type ExperimentTableRow = {
   label: string;
@@ -164,4 +165,9 @@ export function useDomain(
     });
   });
   return [lowerBound || 0, upperBound || 0];
+}
+
+export function useCustomFields() {
+  const { customFields } = useOrgSettings();
+  return customFields;
 }
