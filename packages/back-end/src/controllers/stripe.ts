@@ -15,7 +15,11 @@ import {
 import { updateSubscription } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
-let priceData: Stripe.Price;
+type PriceData = {
+  [key: string]: Stripe.Price;
+};
+
+const priceData: PriceData = {};
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; restart: boolean }>,
@@ -90,15 +94,15 @@ export async function getPriceData(req: AuthRequest, res: Response) {
 
   const priceId = org.priceId || STRIPE_PRICE;
 
-  if (!priceData) {
-    priceData = await stripe.prices.retrieve(priceId, {
+  if (!priceData[priceId]) {
+    priceData[priceId] = await stripe.prices.retrieve(priceId, {
       expand: ["tiers"],
     });
   }
 
   return res.status(200).json({
     status: 200,
-    priceData,
+    priceData: priceData[priceId],
   });
 }
 
