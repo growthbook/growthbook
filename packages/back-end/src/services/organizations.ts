@@ -280,9 +280,11 @@ export async function acceptInvite(key: string, userId: string) {
     throw new Error("Invalid key");
   }
 
-  // If memeber is already in the org, skip
+  // If member is already in the org, skip so they don't get added to organization.members a second time causing duplicates.
   if (organization.members.find((m) => m.id === userId)) {
-    return;
+    throw new Error(
+      "Whoops! You're already a user, you can't accept a new invitation."
+    );
   }
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];

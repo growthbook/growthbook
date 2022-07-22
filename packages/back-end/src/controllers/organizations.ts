@@ -590,9 +590,6 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
     }
     const org = await acceptInvite(key, req.userId);
 
-    if (!org) {
-      throw new Error("You can't accept an invite if you're already a user");
-    }
     return res.status(200).json({
       status: 200,
       orgId: org.id,
