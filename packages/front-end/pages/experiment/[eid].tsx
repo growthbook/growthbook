@@ -137,7 +137,7 @@ const ExperimentPage = (): ReactElement => {
         {supportsSinglePage &&
           (useSinglePage ? (
             <div className="container-fluid pagecontents">
-              <div className="bg-light border-bottom p-2 mb-2 d-flex">
+              <div className="bg-light border-bottom p-2 mb-3 d-flex">
                 <div>
                   <Link href="/experiments">
                     <a>
@@ -161,7 +161,7 @@ const ExperimentPage = (): ReactElement => {
               </div>
             </div>
           ) : (
-            <div className="bg-info text-light p-2 text-center mb-2">
+            <div className="bg-info text-light p-2 text-center mb-3">
               <span>
                 Preview the new and improved experiment view!{" "}
                 <strong>

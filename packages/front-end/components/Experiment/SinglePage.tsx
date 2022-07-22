@@ -23,7 +23,10 @@ import Link from "next/link";
 import ExperimentReportsList from "./ExperimentReportsList";
 import { useSnapshot } from "./SnapshotProvider";
 import Button from "../Button";
-import { ReportInterface } from "../../../back-end/types/report";
+import { ReportInterface } from "back-end/types/report";
+import EditExperimentNameForm from "./EditExperimentNameForm";
+import Modal from "../Modal";
+import HistoryTable from "../HistoryTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -59,6 +62,8 @@ export default function SinglePage({
   const { phase: phaseIndex, snapshot } = useSnapshot();
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -94,6 +99,24 @@ export default function SinglePage({
           phase={phaseIndex}
         />
       )}
+      {editNameOpen && (
+        <EditExperimentNameForm
+          experiment={experiment}
+          mutate={mutate}
+          cancel={() => setEditNameOpen(false)}
+        />
+      )}
+      {auditModal && (
+        <Modal
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="experiment" id={experiment.id} />
+        </Modal>
+      )}
       <div className="row align-items-center">
         <div className="col-auto">
           <h1>{experiment.name}</h1>
@@ -109,6 +132,20 @@ export default function SinglePage({
         </div>
         <div className="col-auto">
           <MoreMenu id="exp-more-menu">
+            {canEdit && (
+              <button
+                className="dropdown-item"
+                onClick={() => setEditNameOpen(true)}
+              >
+                edit name
+              </button>
+            )}
+            <button
+              className="dropdown-item"
+              onClick={() => setAuditModal(true)}
+            >
+              view audit log
+            </button>
             {duplicate && (
               <button className="dropdown-item" onClick={duplicate}>
                 duplicate
@@ -150,9 +187,8 @@ export default function SinglePage({
                 unarchive
               </button>
             )}
-            <button className="dropdown-item">audit log</button>
             <DeleteButton
-              className="dropdown-item"
+              className="dropdown-item text-danger"
               useIcon={false}
               text="delete"
               displayName="Experiment"
@@ -170,7 +206,7 @@ export default function SinglePage({
           </MoreMenu>
         </div>
       </div>
-      <div className="row align-items-center mb-3">
+      <div className="row align-items-center mb-4">
         {projects.length > 0 && (
           <div className="col-auto">
             Project:{" "}
@@ -290,14 +326,16 @@ export default function SinglePage({
               <RightRailSectionGroup title="Activation Metric" type="commaList">
                 {activationMetric?.name}
               </RightRailSectionGroup>
-              <RightRailSectionGroup title="Date Range" type="custom">
-                <>
-                  <strong>{date(phase.dateStarted)}</strong> to{" "}
-                  <strong>
-                    {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                  </strong>
-                </>
-              </RightRailSectionGroup>
+              {phase && (
+                <RightRailSectionGroup title="Date Range" type="custom">
+                  <>
+                    <strong>{date(phase.dateStarted)}</strong> to{" "}
+                    <strong>
+                      {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                    </strong>
+                  </>
+                </RightRailSectionGroup>
+              )}
             </div>
           </RightRailSection>
           <div className="mb-4"></div>
@@ -349,6 +387,7 @@ export default function SinglePage({
             mutateExperiment={mutate}
             editMetrics={editMetrics}
             editResult={editResult}
+            alwaysShowPhaseSelector={true}
           />
         </div>
       </div>

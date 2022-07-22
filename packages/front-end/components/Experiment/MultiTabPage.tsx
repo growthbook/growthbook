@@ -42,7 +42,7 @@ import useUser from "../../hooks/useUser";
 import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import ExperimentReportsList from "./ExperimentReportsList";
-import { ReportInterface } from "../../../back-end/types/report";
+import { ReportInterface } from "back-end/types/report";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {

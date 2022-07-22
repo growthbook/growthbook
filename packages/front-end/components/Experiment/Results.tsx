@@ -25,7 +25,14 @@ const Results: FC<{
   editMetrics?: () => void;
   editResult?: () => void;
   mutateExperiment: () => void;
-}> = ({ experiment, editMetrics, editResult, mutateExperiment }) => {
+  alwaysShowPhaseSelector?: boolean;
+}> = ({
+  experiment,
+  editMetrics,
+  editResult,
+  mutateExperiment,
+  alwaysShowPhaseSelector = false,
+}) => {
   const { getMetricById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -37,7 +44,6 @@ const Results: FC<{
     phase,
     setPhase,
     dimension,
-    setDimension,
     mutateSnapshot: mutate,
   } = useSnapshot();
 
@@ -121,17 +127,10 @@ const Results: FC<{
         </div>
       )}
       <AnalysisSettingsBar
-        experiment={experiment}
-        snapshot={snapshot}
-        dimension={dimension}
-        mutate={mutate}
         mutateExperiment={mutateExperiment}
-        phase={phase}
-        setDimension={setDimension}
-        setPhase={setPhase}
-        latest={latest}
         editMetrics={editMetrics}
         variations={variations}
+        alwaysShowPhaseSelector={alwaysShowPhaseSelector}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { ReactNode } from "react";
 import { useContext } from "react";
-import { ExperimentInterfaceStringDates } from "../../../back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "../../../back-end/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import useApi from "../../hooks/useApi";
 
 const snapshotContext = React.createContext<{
+  experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
   latest?: ExperimentSnapshotInterface;
   mutateSnapshot: () => void;
@@ -49,6 +50,7 @@ export default function SnapshotProvider({
   return (
     <snapshotContext.Provider
       value={{
+        experiment,
         snapshot: data?.snapshot,
         latest: data?.latest,
         mutateSnapshot: mutate,
