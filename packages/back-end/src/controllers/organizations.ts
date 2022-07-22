@@ -13,7 +13,6 @@ import {
   validateLogin,
   getPermissionsByRole,
   updateRole,
-  getOrganizationById,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -68,7 +67,6 @@ import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
-import { updateStripeSubscription } from "../services/stripe";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -615,11 +613,6 @@ export async function postInvite(req: AuthRequest, res: Response) {
 
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
 
-  if (org.subscription?.id) {
-    const qty = org.members.length + (org.invites?.length || 0);
-    await updateStripeSubscription(org.subscription.id, qty);
-  }
-
   return res.status(200).json({
     status: 200,
     inviteUrl,
@@ -648,14 +641,6 @@ export async function deleteMember(
   }
 
   await removeMember(org, id);
-
-  // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
-  const updatedOrg = await getOrganizationById(org.id);
-
-  if (org.subscription?.id && updatedOrg) {
-    const qty = updatedOrg.members.length + (updatedOrg.invites?.length || 0);
-    await updateStripeSubscription(org.subscription.id, qty);
-  }
 
   res.status(200).json({
     status: 200,
@@ -698,14 +683,6 @@ export async function deleteInvite(
   const { key } = req.body;
 
   await revokeInvite(org, key);
-
-  // The organization wasn't updating automatically, so I'm getting a fresh copy of the current organization.
-  const updatedOrg = await getOrganizationById(org.id);
-
-  if (org.subscription?.id && updatedOrg) {
-    const qty = updatedOrg.members.length + (updatedOrg.invites?.length || 0);
-    await updateStripeSubscription(org.subscription.id, qty);
-  }
 
   res.status(200).json({
     status: 200,

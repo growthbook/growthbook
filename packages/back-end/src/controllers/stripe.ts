@@ -7,11 +7,11 @@ import {
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
+import { updateOrganization } from "../models/OrganizationModel";
 import {
-  updateOrganization,
-  findOrganizationByStripeCustomerId,
-} from "../models/OrganizationModel";
-import { getOrgFromReq } from "../services/organizations";
+  getNumberOfMembersAndInvites,
+  getOrgFromReq,
+} from "../services/organizations";
 import { updateSubscription } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
@@ -23,158 +23,130 @@ export async function postNewSubscription(
 ) {
   const { qty, restart } = req.body;
 
-  try {
-    req.checkPermissions("organizationSettings");
+  req.checkPermissions("organizationSettings");
 
-    const { org } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
-    if (!org) {
-      throw new Error("No organization found");
-    }
+  if (!org) {
+    throw new Error("No organization found");
+  }
 
-    const qtyInDb = org.members.length + (org.invites?.length || 0);
+  let desiredQty = getNumberOfMembersAndInvites(org);
 
-    if (restart) {
-      if (qty !== qtyInDb) {
-        throw new Error("Error with quantity of users");
-      }
-    } else {
-      if (qty !== qtyInDb + 1) {
-        throw new Error("Error with quantity of users");
-      }
-    }
+  // Brand new subscriptions happen when trying to invite a new user. For the price to be correct,
+  // we need to include that new invite even though it hasn't been created yet.
+  if (!restart) {
+    desiredQty += 1;
+  }
 
-    let stripeCustomerId: string;
+  if (desiredQty !== qty) {
+    throw new Error(
+      "Number of users is out of date. Please refresh the page and try again."
+    );
+  }
 
-    if (org.stripeCustomerId) {
-      stripeCustomerId = org.stripeCustomerId;
-    } else {
-      const { id } = await stripe.customers.create({
-        metadata: {
-          growthBookId: org.id,
-        },
-      });
-      stripeCustomerId = id;
-    }
+  let stripeCustomerId: string;
+
+  if (org.stripeCustomerId) {
+    stripeCustomerId = org.stripeCustomerId;
+  } else {
+    const { id } = await stripe.customers.create({
+      metadata: {
+        growthBookId: org.id,
+        ownerEmail: org.ownerEmail,
+      },
+      name: org.name,
+    });
+    stripeCustomerId = id;
 
     await updateOrganization(org.id, {
       stripeCustomerId: stripeCustomerId,
     });
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      customer: stripeCustomerId,
-      line_items: [
-        {
-          price: org?.priceId || STRIPE_PRICE,
-          quantity: qty,
-        },
-      ],
-      allow_promotion_codes: true,
-      success_url: `${APP_ORIGIN}/settings/team`,
-      cancel_url: `${APP_ORIGIN}/settings/team`,
-    });
-    res.status(200).json({
-      status: 200,
-      session,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
   }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    customer: stripeCustomerId,
+    line_items: [
+      {
+        price: org?.priceId || STRIPE_PRICE,
+        quantity: qty,
+      },
+    ],
+    success_url: `${APP_ORIGIN}/settings/team`,
+    cancel_url: `${APP_ORIGIN}/settings/team`,
+  });
+  res.status(200).json({
+    status: 200,
+    session,
+  });
 }
 
 export async function getSubscriptionData(req: AuthRequest, res: Response) {
-  try {
-    req.checkPermissions("organizationSettings");
+  req.checkPermissions("organizationSettings");
 
-    const { org } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
-    const subscriptionId = org.subscription?.id;
+  const subscriptionId = org.subscription?.id;
 
-    if (!subscriptionId) {
-      return res.status(200).json({
-        status: 200,
-        subscription: null,
-      });
-    }
-
-    const subscriptionData = await stripe.subscriptions.retrieve(
-      subscriptionId,
-      {
-        expand: ["plan"],
-      }
-    );
-
+  if (!subscriptionId) {
     return res.status(200).json({
       status: 200,
-      subscriptionData,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
+      subscription: null,
     });
   }
+
+  const subscriptionData = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["plan"],
+  });
+
+  return res.status(200).json({
+    status: 200,
+    subscriptionData,
+  });
 }
 
 export async function getPriceData(req: AuthRequest, res: Response) {
-  try {
-    req.checkPermissions("organizationSettings");
+  req.checkPermissions("organizationSettings");
 
-    const { org } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
-    const priceId = org.priceId || STRIPE_PRICE;
+  const priceId = org.priceId || STRIPE_PRICE;
 
-    if (!priceData) {
-      priceData = await stripe.prices.retrieve(priceId, {
-        expand: ["tiers"],
-      });
-    }
-
-    return res.status(200).json({
-      status: 200,
-      priceData,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
+  if (!priceData) {
+    priceData = await stripe.prices.retrieve(priceId, {
+      expand: ["tiers"],
     });
   }
+
+  return res.status(200).json({
+    status: 200,
+    priceData,
+  });
 }
 
 export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
 ) {
-  try {
-    req.checkPermissions("organizationSettings");
+  req.checkPermissions("organizationSettings");
 
-    const { org } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
-    if (!org.stripeCustomerId) {
-      throw new Error("Missing customer id");
-    }
-
-    const { url } = await stripe.billingPortal.sessions.create({
-      customer: org.stripeCustomerId,
-      return_url: `${APP_ORIGIN}/settings`,
-    });
-
-    res.status(200).json({
-      status: 200,
-      url,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
+  if (!org.stripeCustomerId) {
+    throw new Error("Missing customer id");
   }
+
+  const { url } = await stripe.billingPortal.sessions.create({
+    customer: org.stripeCustomerId,
+    return_url: `${APP_ORIGIN}/settings`,
+  });
+
+  res.status(200).json({
+    status: 200,
+    url,
+  });
 }
 
 export async function postWebhook(req: Request, res: Response) {
@@ -194,23 +166,8 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   switch (event.type) {
-    case "checkout.session.completed": {
-      const { subscription } = event.data
-        .object as Stripe.Response<Stripe.Checkout.Session>;
-
-      if (subscription) {
-        updateSubscription(subscription);
-      } else {
-        console.error("Unable to find & updated existing organization"); //TODO: As this is a webhook, these errors should probably alert/bubble up somewhere
-        res.status(400).json({
-          status: 400,
-          message: "Unable to find & updated existing organization",
-        });
-      }
-      break;
-    }
-
     case "invoice.paid":
+    case "checkout.session.completed":
     case "invoice.payment_failed": {
       const { subscription } = event.data
         .object as Stripe.Response<Stripe.Invoice>;
@@ -225,33 +182,14 @@ export async function postWebhook(req: Request, res: Response) {
     case "customer.subscription.updated": {
       const subscription = event.data
         .object as Stripe.Response<Stripe.Subscription>;
+
       // Get the current subscription data instead of relying on a potentially outdated event
       const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
         subscription.id
       );
 
-      // Get stripeCustomerId
-      const stripeCustomerId =
-        typeof currentStripeSubscriptionData.customer === "string"
-          ? currentStripeSubscriptionData.customer
-          : currentStripeSubscriptionData.customer.id;
+      updateSubscription(currentStripeSubscriptionData);
 
-      // Get the organization connected to stripeCustomerId
-      const currentDbSubscription = await findOrganizationByStripeCustomerId(
-        stripeCustomerId
-      );
-
-      // If Stripe's status, trialEnd, or subscriptionId's don't match our DB, update our DB.
-      if (
-        currentStripeSubscriptionData.status !==
-          currentDbSubscription?.subscription?.status ||
-        currentStripeSubscriptionData.trial_end !==
-          currentDbSubscription?.subscription?.trialEnd ||
-        currentStripeSubscriptionData.id !==
-          currentDbSubscription.subscription.id
-      ) {
-        updateSubscription(currentStripeSubscriptionData);
-      }
       break;
     }
   }

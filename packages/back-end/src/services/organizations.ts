@@ -39,6 +39,7 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
+import { updateStripeSubscription } from "./stripe";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -171,6 +172,12 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   return permissions;
 }
 
+export function getNumberOfMembersAndInvites(
+  organization: OrganizationInterface
+) {
+  return organization.members.length + (organization.invites?.length || 0);
+}
+
 export async function userHasAccess(
   req: AuthRequest,
   organization: string
@@ -200,6 +207,19 @@ export async function removeMember(
     members,
   });
 
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(organization.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateStripeSubscription(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
+
   return organization;
 }
 
@@ -212,6 +232,19 @@ export async function revokeInvite(
   await updateOrganization(organization.id, {
     invites,
   });
+
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(organization.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateStripeSubscription(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
 
   return organization;
 }
@@ -321,6 +354,14 @@ export async function inviteUser(
 
   // append the new invites to the existin object (or refetch)
   organization.invites = invites;
+
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    await updateStripeSubscription(
+      organization.subscription.id,
+      getNumberOfMembersAndInvites(organization)
+    );
+  }
 
   let emailSent = false;
   if (isEmailEnabled()) {
