@@ -8,13 +8,13 @@ Below are the currently supported Data Sources:
 
 - Redshift
 - Snowflake
-- BigQuery
+- [BigQuery](/guide/bigquery)
 - ClickHouse
 - AWS Athena
 - Postgres
 - MySQL/MariaDB
 - PrestoDB (and Trino)
-- Mixpanel
+- [Mixpanel](/guide/mixpanel)
 - Google Analytics
 
 ## Configuration Settings
@@ -155,6 +155,8 @@ def runQuery(sql):
 
 ### Mixpanel
 
+We have a detailed guide on how to set up [Mixpanel with GrowthBook](/guide/mixpanel).
+
 We query Mixpanel using JQL. We have sensible defaults for the event and property names, but you can change them if you need to.
 
 - Experiments
@@ -172,10 +174,10 @@ Below is an example of what your Mixpanel tracking call would look like in Javas
 const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
-    mixpanel.track("$experiment_started", {
-      "Experiment name": experiment.key,
-      "Variant name":  result.variationId
-    })
+    mixpanel.track("Experiment Viewed", {
+      "Experiment Id": experiment.key,
+      "Variant Id": result.variationId,
+    });
   }
 })
 ```
@@ -213,6 +215,10 @@ We recommend creating a new IAM user with readonly permissions for GrowthBook. T
 For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
 
 ### BigQuery
+
+We have a detailed page on how to set up [BiqQuery with GrowthBook](/guide/bigquery).
+
+The quick guide:
 
 You must first create a Service Account in Google with the following roles:
 
