@@ -8,7 +8,37 @@ You will need a GrowthBook account. You can either run GrowthBook locally or usi
 [https://app.growthbook.io](https://app.growthbook.io). If you are installing it locally, you can follow the
 self-hosting quick start instructions here: [self hosting instructions](/self-host).
 
-## 2. Integrate Rudderstack into your Next.js application
+## 2. Create a JS source in Rudderstack
+
+From within your Rudderstack account, create a new JS source.
+
+<img
+  src="/images/guides/rudderstack-7-create-source.png"
+  alt="Add Rudderstack JS source"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+Name the source whatever you like, in this example I'm using `GrowthBook JS`. When the source is created, connect it to
+your BigQuery data warehouse (or whatever destination you're using for GrowthBook experiment data).
+
+<img
+  src="/images/guides/rudderstack-8-source-w-destination.png"
+  alt="Add BigQuery destination"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+Once you have it connected, copy the write key, as we'll need it for the next step.
+
+Under connections, you should now see the JS source connected to the BigQuery destination. You will also need the
+`Data plane URL` which appears near the top of the page.
+
+<img
+  src="/images/guides/rudderstack-9-connected-js.png"
+  alt="Add BigQuery destination"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+## 3. Integrate Rudderstack into your Next.js application
 
 While there is plenty of documentation on how to add Rudderstack to your Next.js application out there, none of those
 implementations are very Next.js like, and limit the ability of Rudderstack to integrate more deeply into your code-
@@ -66,6 +96,8 @@ NEXT_PUBLIC_RUDDERSTACK_KEY=<your key>
 NEXT_PUBLIC_RUDDERSTACK_HOST=https://<rudderstack host>
 ```
 
+The key is the `write key` from the JS source we made in step 2, and the HOST is the `data plane URL`.
+
 ### Integrate Rudderstack into your Next.js application
 
 In your `_app.js`, add the Rudderstack integration we just created
@@ -76,7 +108,7 @@ import rudder from "./rudder";
 
 This will allow you add `rudder.track()` in your app anywhere you import rudder.js while sharing the same Rudderstack object.
 
-## 3. Integrate the GrowthBook React SDK into our Next.js app
+## 4. Integrate the GrowthBook React SDK into our Next.js app
 
 We first need to install the GrowthBook React SDK in our Next.js app:
 
