@@ -71,13 +71,3 @@ Builds are published automatically from the [GitHub repo](https://github.com/gro
 GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
 
 If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
-
-## Updating to Latest
-
-If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
-
-```bash
-docker-compose pull growthbook
-docker-compose stop growthbook
-docker-compose up -d growthbook
-```
