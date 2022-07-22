@@ -39,7 +39,7 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
-import { updateStripeSubscription } from "./stripe";
+import { updateSubscriptionInStripe } from "./stripe";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -213,7 +213,7 @@ export async function removeMember(
     const updatedOrganization = await getOrganizationById(organization.id);
 
     if (updatedOrganization?.subscription) {
-      await updateStripeSubscription(
+      await updateSubscriptionInStripe(
         updatedOrganization.subscription.id,
         getNumberOfMembersAndInvites(updatedOrganization)
       );
@@ -239,7 +239,7 @@ export async function revokeInvite(
     const updatedOrganization = await getOrganizationById(organization.id);
 
     if (updatedOrganization?.subscription) {
-      await updateStripeSubscription(
+      await updateSubscriptionInStripe(
         updatedOrganization.subscription.id,
         getNumberOfMembersAndInvites(updatedOrganization)
       );
@@ -359,7 +359,7 @@ export async function inviteUser(
 
   // Update Stripe subscription if org has subscription
   if (organization.subscription?.id) {
-    await updateStripeSubscription(
+    await updateSubscriptionInStripe(
       organization.subscription.id,
       getNumberOfMembersAndInvites(organization)
     );

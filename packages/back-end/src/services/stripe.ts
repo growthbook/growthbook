@@ -3,7 +3,11 @@ import { Stripe } from "stripe";
 import { updateOrganizationByStripeId } from "../models/OrganizationModel";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
-export async function updateSubscription(
+/**
+ * @name updateSubscriptionInDb
+ * @description This function updates the subscription in the database. (organization.subscription)
+ */
+export async function updateSubscriptionInDb(
   subscription: string | Stripe.Subscription
 ) {
   // Make sure we have the full subscription object
@@ -37,7 +41,11 @@ export async function updateSubscription(
   });
 }
 
-export async function updateStripeSubscription(
+/**
+ * @name updateSubscriptionInStripe
+ * @description This function updates the subscription in Stripe's system via Stripe's API.
+ */
+export async function updateSubscriptionInStripe(
   subscriptionId: string,
   qty: number
 ) {
@@ -55,5 +63,5 @@ export async function updateStripeSubscription(
     }
   );
 
-  await updateSubscription(updatedSubscription);
+  await updateSubscriptionInDb(updatedSubscription);
 }

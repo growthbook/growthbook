@@ -12,7 +12,7 @@ import {
   getNumberOfMembersAndInvites,
   getOrgFromReq,
 } from "../services/organizations";
-import { updateSubscription } from "../services/stripe";
+import { updateSubscriptionInDb } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
 type PriceData = {
@@ -152,7 +152,7 @@ export async function postWebhook(req: Request, res: Response) {
       const { subscription } = event.data
         .object as Stripe.Response<Stripe.Invoice>;
       if (subscription) {
-        updateSubscription(subscription);
+        updateSubscriptionInDb(subscription);
       }
       break;
     }
@@ -168,7 +168,7 @@ export async function postWebhook(req: Request, res: Response) {
         subscription.id
       );
 
-      updateSubscription(currentStripeSubscriptionData);
+      updateSubscriptionInDb(currentStripeSubscriptionData);
 
       break;
     }
