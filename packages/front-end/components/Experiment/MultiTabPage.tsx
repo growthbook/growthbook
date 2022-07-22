@@ -1,80 +1,93 @@
 import { useRouter } from "next/router";
-import {
-  ExperimentInterfaceStringDates,
-  Screenshot,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import ScreenshotUpload from "../../components/EditExperiment/ScreenshotUpload";
-import clone from "lodash/clone";
 import React, { useState, ReactElement } from "react";
 import { useAuth } from "../../services/auth";
 import Tabs from "../../components/Tabs/Tabs";
 import Tab from "../../components/Tabs/Tab";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
-import Carousel from "../../components/Carousel";
-import { FaPalette, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  FaStop,
+  FaPlay,
+  FaPencilAlt,
+  FaPalette,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import Link from "next/link";
-import { ago, date, datetime, daysBetween } from "../../services/dates";
+import { ago, datetime } from "../../services/dates";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
-import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
 import Results from "../../components/Experiment/Results";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import ConfirmModal from "../../components/ConfirmModal";
 import WatchButton from "../../components/WatchButton";
 import HistoryTable from "../../components/HistoryTable";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
-import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
 import EditTargetingForm from "../../components/Experiment/EditTargetingForm";
-import EditInfoForm from "../../components/Experiment/EditInfoForm";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import ConfirmButton from "../../components/Modal/ConfirmButton";
-import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import VisualCode from "../../components/Experiment/VisualCode";
 import { IdeaInterface } from "back-end/types/idea";
-import EditProjectForm from "../../components/Experiment/EditProjectForm";
 import DeleteButton from "../../components/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
-import clsx from "clsx";
-import EditPhaseModal from "../../components/Experiment/EditPhaseModal";
-import EditStatusModal from "../../components/Experiment/EditStatusModal";
 import useUser from "../../hooks/useUser";
+import VariationBox from "./VariationBox";
+import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import ExperimentReportsList from "./ExperimentReportsList";
+import { ReportInterface } from "../../../back-end/types/report";
+import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   idea?: IdeaInterface;
   mutate: () => void;
+  editMetrics?: () => void;
+  editResult?: () => void;
+  editInfo?: () => void;
+  editVariations?: () => void;
+  duplicate?: () => void;
+  editTags?: () => void;
+  editProject?: () => void;
 }
 
-export default function MultiTabPage({experiment, idea, mutate}: Props) {
+const MultiTabPage = ({
+  experiment,
+  idea,
+  mutate,
+  editMetrics,
+  editResult,
+  editInfo,
+  editVariations,
+  duplicate,
+  editTags,
+  editProject,
+}: Props): ReactElement => {
   const router = useRouter();
-
-  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
-  const [stopModalOpen, setStopModalOpen] = useState(false);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
-  const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [editPhaseModalOpen, setEditPhaseModalOpen] = useState<number | null>(
-    null
-  );
+
+  const showTargeting = useFeature("show-experiment-targeting").on;
+
+  const { apiCall } = useAuth();
+
+  const watcherIds = useApi<{
+    userIds: string[];
+  }>(`/experiment/${experiment.id}/watchers`);
+
+  const { users } = useUser();
+
+  useSwitchOrg(experiment?.organization);
+
+  const { snapshot } = useSnapshot();
 
   const {
     getMetricById,
@@ -85,9 +98,44 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
   } = useDefinitions();
   const permissions = usePermissions();
 
-  const onScreenshotUpload = (variation: number, screenshot: Screenshot) => {
-    mutate();
-  };
+  let ctaButton = null;
+  if (experiment.archived) {
+    ctaButton = null;
+  } else if (experiment.status === "draft") {
+    ctaButton = (
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={(e) => {
+          e.preventDefault();
+          setPhaseModalOpen(true);
+        }}
+      >
+        <span className="h4 pr-2 m-0 d-inline-block align-top">
+          <FaPlay />
+        </span>{" "}
+        Start
+      </button>
+    );
+  } else if (experiment.status === "running" && editResult) {
+    ctaButton = (
+      <>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            editResult();
+          }}
+        >
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <FaStop />
+          </span>{" "}
+          Stop Experiment
+        </button>
+      </>
+    );
+  }
 
   const currentPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -102,69 +150,23 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
 
   const datasource = getDatasourceById(experiment.datasource);
 
-  const watcherIds = useApi<{
-    userIds: string[];
-  }>(`/experiment/${experiment.id}/watchers`);
-
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
     .filter(Boolean)
     .map((u) => u.name || u.email);
-  
 
-  const { users } = useUser();
-
-  const showTargeting = useFeature("show-experiment-targeting").on;
-
-  const { apiCall } = useAuth();
+  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
+  const canCreateReports =
+    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
 
   return (
     <div className={wrapClasses}>
-
-{duplicateModalOpen && (
-        <NewExperimentForm
-          onClose={() => setDuplicateModalOpen(false)}
-          initialValue={{
-            ...experiment,
-            name: experiment.name + " (Copy)",
-            trackingKey: "",
-          }}
-          source="duplicate"
-        />
-      )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-        />
-      )}
-      {projectModalOpen && (
-        <EditProjectForm
-          cancel={() => setProjectModalOpen(false)}
-          mutate={mutate}
-          current={experiment.project}
-          apiEndpoint={`/experiment/${experiment.id}`}
-        />
-      )}
       {dataSourceModalOpen && (
         <EditDataSourceForm
           experiment={experiment}
           cancel={() => setDataSourceModalOpen(false)}
-          mutate={mutate}
-        />
-      )}
-      {metricsModalOpen && (
-        <EditMetricsForm
-          experiment={experiment}
-          cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
         />
       )}
@@ -175,63 +177,9 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
           mutate={mutate}
         />
       )}
-      {deleteOpen && (
-        <ConfirmModal
-          modalState={deleteOpen}
-          onConfirm={async () => {
-            try {
-              await apiCall<{ status: number; message?: string }>(
-                `/experiment/${experiment.id}`,
-                {
-                  method: "DELETE",
-                  body: JSON.stringify({ id: experiment.id }),
-                }
-              );
-              router.push("/experiments");
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-          setModalState={setDeleteOpen}
-          title="Delete Experiment"
-          yesText="Delete"
-          noText="Cancel"
-          yesColor="danger"
-          subtitle="Are you sure you want to permanently delete this experiment?"
-        />
-      )}
-      {editModalOpen && (
-        <EditInfoForm
-          experiment={experiment}
-          cancel={() => setEditModalOpen(false)}
-          mutate={mutate}
-        />
-      )}
       {phaseModalOpen && (
         <NewPhaseForm
           close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-        />
-      )}
-      {stopModalOpen && (
-        <StopExperimentForm
-          close={() => setStopModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-        />
-      )}
-      {editPhaseModalOpen !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseModalOpen(null)}
-          mutate={mutate}
-          experiment={experiment}
-          i={editPhaseModalOpen}
-        />
-      )}
-      {statusModalOpen && (
-        <EditStatusModal
-          close={() => setStatusModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
         />
@@ -259,7 +207,7 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
           </a>
         </div>
       )}
-      <div className="row mb-2 align-items-center">
+      <div className="row mb-2">
         <div className="col-auto">
           <Link href="/experiments">
             <a>
@@ -268,21 +216,14 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
           </Link>
         </div>
         <div style={{ flex: 1 }} />
-
-        <div className="col-auto">
-          <WatchButton item={experiment.id} itemType="experiment" type="link" />
-        </div>
         {canEdit && (
           <div className="col-auto">
             <MoreMenu id="experiment-more-menu">
-              <button
-                className="dropdown-item"
-                onClick={() => {
-                  setDuplicateModalOpen(true);
-                }}
-              >
-                duplicate
-              </button>
+              {duplicate && (
+                <button className="dropdown-item" onClick={duplicate}>
+                  duplicate
+                </button>
+              )}
               {!experiment.archived && (
                 <button
                   className="dropdown-item"
@@ -350,31 +291,108 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
                   <button className="dropdown-item">reset to draft</button>
                 </ConfirmButton>
               )}
-              <button
+              <DeleteButton
                 className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setDeleteOpen(true);
+                useIcon={false}
+                text="delete"
+                displayName="Experiment"
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/experiment/${experiment.id}`,
+                    {
+                      method: "DELETE",
+                      body: JSON.stringify({ id: experiment.id }),
+                    }
+                  );
+                  router.push("/experiments");
                 }}
-              >
-                delete
-              </button>
+              />
             </MoreMenu>
           </div>
+        )}
+        {permissions.createAnalyses && ctaButton && (
+          <div className="experiment-actions col-auto">{ctaButton}</div>
         )}
       </div>
       <div className="row align-items-center mb-3">
         <h2 className="col-auto mb-0">
           {experiment.name}
-          {canEdit && !experiment.archived && (
-            <a
-              className="ml-2 cursor-pointer"
-              onClick={() => setEditModalOpen(true)}
-            >
+          {editInfo && !experiment.archived && (
+            <a className="ml-2 cursor-pointer" onClick={editInfo}>
               <GBEdit />
             </a>
           )}
         </h2>
+        <StatusIndicator
+          status={experiment.status}
+          archived={experiment.archived}
+          showBubble={true}
+          className="mx-3 h4 mb-0"
+        />
+        {experiment.status === "stopped" && experiment.results && (
+          <div className="col-auto">
+            <ResultsIndicator results={experiment.results} />
+          </div>
+        )}
+        <div style={{ flex: 1 }} />
+        {currentPhase && experiment.status === "running" && (
+          <div className="col-auto">
+            {permissions.createAnalyses ? (
+              <div
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPhaseModalOpen(true);
+                }}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 purple-phase">
+                  {phaseSummary(currentPhase)}
+                </span>
+                <FaPencilAlt />
+              </div>
+            ) : (
+              <span className="text-muted">{phaseSummary(currentPhase)}</span>
+            )}
+          </div>
+        )}
+
+        {experiment.status === "draft" ? (
+          <div className="col-auto">
+            <span className="statuslabel">Created: </span>{" "}
+            <span className="" title={datetime(experiment.dateCreated)}>
+              {ago(experiment.dateCreated)}
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="col-auto">
+              <span className="statuslabel">Started: </span>{" "}
+              <span className="" title={datetime(currentPhase?.dateStarted)}>
+                {ago(currentPhase?.dateStarted)}
+              </span>
+            </div>
+            {experiment.status !== "running" ? (
+              <div className="col-auto">
+                <span className="statuslabel">Ended: </span>{" "}
+                <span
+                  className=""
+                  title={
+                    currentPhase.dateEnded
+                      ? datetime(currentPhase?.dateEnded)
+                      : ""
+                  }
+                >
+                  {currentPhase?.dateEnded && ago(currentPhase?.dateEnded)}
+                </span>
+              </div>
+            ) : (
+              ""
+            )}
+          </>
+        )}
+        <div className="col-auto">
+          <WatchButton item={experiment.id} itemType="experiment" type="link" />
+        </div>
       </div>
       <Tabs newStyle={true}>
         <Tab display="Info" anchor="info">
@@ -386,10 +404,10 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
           )}
           <div className="row mb-3">
             <div className="col-md-9">
-              {canEdit && !experiment.archived && (
+              {editInfo && !experiment.archived && (
                 <button
                   className="btn btn-sm btn-outline-primary ml-2 float-right font-weight-bold"
-                  onClick={() => setEditModalOpen(true)}
+                  onClick={editInfo}
                 >
                   Edit
                 </button>
@@ -414,13 +432,13 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
                 <h4>Hypothesis</h4>
                 {experiment.hypothesis ? (
                   experiment.hypothesis
-                ) : canEdit ? (
+                ) : editInfo ? (
                   <p>
                     <a
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        setEditModalOpen(true);
+                        editInfo();
                       }}
                     >
                       <em>Add hypothesis</em>
@@ -433,7 +451,9 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
                 )}
               </div>
               <div className="mb-4">
-                <h4>Variations</h4>
+                <HeaderWithEdit h={4} edit={editVariations}>
+                  Variations
+                </HeaderWithEdit>
                 {experiment.implementation === "visual" && (
                   <div className="alert alert-info">
                     <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
@@ -446,197 +466,43 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
                 )}
                 <div className="row mb-3">
                   {experiment.variations.map((v, i) => (
-                    <div
-                      className="col-md border rounded mx-2 mb-3 p-0 text-center position-relative d-flex flex-column"
+                    <VariationBox
                       key={i}
-                      style={{ maxWidth: 600 }}
-                    >
-                      <div className="p-3">
-                        <div>
-                          <strong>{v.name}</strong>{" "}
-                        </div>
-                        <div className="mb-1">
-                          <small className="text-muted">id: {v.key || i}</small>
-                        </div>
-                        {v.description && <p>{v.description}</p>}
-                        {experiment.implementation === "visual" && (
-                          <VisualCode
-                            dom={v.dom || []}
-                            css={v.css || ""}
-                            experimentId={experiment.id}
-                            control={i === 0}
-                          />
-                        )}
-                      </div>
-                      {v.screenshots.length > 0 ? (
-                        <Carousel
-                          deleteImage={
-                            !permissions.createAnalyses || experiment.archived
-                              ? null
-                              : async (j) => {
-                                  const { status, message } = await apiCall<{
-                                    status: number;
-                                    message?: string;
-                                  }>(
-                                    `/experiment/${experiment.id}/variation/${i}/screenshot`,
-                                    {
-                                      method: "DELETE",
-                                      body: JSON.stringify({
-                                        url: v.screenshots[j].path,
-                                      }),
-                                    }
-                                  );
-
-                                  if (status >= 400) {
-                                    throw new Error(
-                                      message ||
-                                        "There was an error deleting the image"
-                                    );
-                                  }
-
-                                  mutate();
-                                }
-                          }
-                        >
-                          {v.screenshots.map((s) => (
-                            <img
-                              className="experiment-image"
-                              key={s.path}
-                              src={s.path}
-                            />
-                          ))}
-                        </Carousel>
-                      ) : (
-                        <div className="image-blank" />
-                      )}
-                      <div style={{ flex: 1 }} />
-                      {permissions.createAnalyses && !experiment.archived && (
-                        <div className="p-3">
-                          <ScreenshotUpload
-                            experiment={experiment.id}
-                            variation={i}
-                            onSuccess={onScreenshotUpload}
-                          />
-                        </div>
-                      )}
-                    </div>
+                      canEdit={canEdit && !experiment.archived}
+                      experimentId={experiment.id}
+                      i={i}
+                      mutate={mutate}
+                      v={v}
+                      isVisual={experiment.implementation === "visual"}
+                      className="col-md mx-2 p-0 mb-3"
+                    />
                   ))}
                 </div>
               </div>
             </div>
             <div className="col-md-3">
+              {projects.length > 0 && (
+                <>
+                  <RightRailSection
+                    title="Project"
+                    open={() => editProject && editProject()}
+                    canOpen={!!editProject}
+                  >
+                    <RightRailSectionGroup empty="None" type="commaList">
+                      {getProjectById(experiment.project)?.name}
+                    </RightRailSectionGroup>
+                  </RightRailSection>
+                  <hr />
+                </>
+              )}
               <RightRailSection
-                title="Status"
-                open={() => setStatusModalOpen(true)}
-                canOpen={canEdit && !experiment.archived}
+                title="Tags"
+                open={() => editTags && editTags()}
+                canOpen={!!editTags}
               >
-                <RightRailSectionGroup type="custom">
-                  <div className="d-flex">
-                    <StatusIndicator
-                      status={experiment.status}
-                      archived={experiment.archived}
-                      showBubble={true}
-                    />
-                    {experiment.status === "stopped" && experiment.results && (
-                      <div className="col-auto">
-                        <ResultsIndicator results={experiment.results} />
-                      </div>
-                    )}
-                  </div>
+                <RightRailSectionGroup type="tags">
+                  {experiment.tags}
                 </RightRailSectionGroup>
-                {experiment.phases?.length > 0 && (
-                  <RightRailSectionGroup type="custom">
-                    <ol className="list-group">
-                      {experiment.phases.map((phase, i) => (
-                        <li
-                          key={i}
-                          className={clsx("list-group-item py-2 px-2", {
-                            "list-group-item-light": phase?.dateEnded,
-                          })}
-                        >
-                          <div className="d-flex">
-                            <div className="mr-2">{i + 1}.</div>
-                            <div>
-                              {phaseSummary(phase)}
-                              <div style={{ fontSize: "0.8em" }}>
-                                started{" "}
-                                <strong
-                                  className=""
-                                  title={datetime(phase?.dateStarted)}
-                                >
-                                  {date(phase?.dateStarted)}
-                                </strong>
-                                {phase?.dateEnded ? (
-                                  <span
-                                    className=""
-                                    title={
-                                      "Ended: " + datetime(phase.dateEnded)
-                                    }
-                                  >
-                                    {" "}
-                                    , ran for{" "}
-                                    <strong>
-                                      {daysBetween(
-                                        phase.dateStarted,
-                                        phase.dateEnded
-                                      )}{" "}
-                                      days
-                                    </strong>
-                                  </span>
-                                ) : (
-                                  ", active"
-                                )}
-                              </div>
-                            </div>
-                            <div className="ml-auto">
-                              <MoreMenu id="phase-status">
-                                <a
-                                  className="dropdown-item"
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditPhaseModalOpen(i);
-                                  }}
-                                >
-                                  Edit
-                                </a>
-                                <DeleteButton
-                                  displayName="phase"
-                                  useIcon={false}
-                                  className="dropdown-item"
-                                  text="Delete"
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/experiment/${experiment.id}/phase/${i}`,
-                                      {
-                                        method: "DELETE",
-                                      }
-                                    );
-                                    mutate();
-                                  }}
-                                />
-                              </MoreMenu>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                    {experiment.phases?.length > 0 && (
-                      <div className="mt-1">
-                        <a
-                          href="#"
-                          className="text-muted"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setPhaseModalOpen(true);
-                          }}
-                        >
-                          <GBAddCircle /> add new phase
-                        </a>
-                      </div>
-                    )}
-                  </RightRailSectionGroup>
-                )}
               </RightRailSection>
               <hr />
               <RightRailSection
@@ -673,8 +539,8 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
               <hr />
               <RightRailSection
                 title="Metrics"
-                open={() => setMetricsModalOpen(true)}
-                canOpen={canEdit && !experiment.archived}
+                open={() => editMetrics && editMetrics()}
+                canOpen={editMetrics && !experiment.archived}
               >
                 <RightRailSectionGroup title="Goals" type="custom">
                   {experiment.metrics.map((m) => {
@@ -706,31 +572,6 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
                     })}
                   </RightRailSectionGroup>
                 )}
-              </RightRailSection>
-
-              {projects.length > 0 && (
-                <>
-                  <hr />
-                  <RightRailSection
-                    title="Project"
-                    open={() => setProjectModalOpen(true)}
-                    canOpen={canEdit}
-                  >
-                    <RightRailSectionGroup empty="None" type="commaList">
-                      {getProjectById(experiment.project)?.name}
-                    </RightRailSectionGroup>
-                  </RightRailSection>
-                </>
-              )}
-              <hr />
-              <RightRailSection
-                title="Tags"
-                open={() => setTagsModalOpen(true)}
-                canOpen={canEdit && !experiment.archived}
-              >
-                <RightRailSectionGroup type="tags">
-                  {experiment.tags}
-                </RightRailSectionGroup>
               </RightRailSection>
 
               {(experiment.implementation === "visual" || showTargeting) && (
@@ -798,27 +639,53 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
           display="Results"
           anchor="results"
           lazy={true}
+          visible={experiment.status !== "draft"}
           padding={false}
           key="Results"
         >
           <div className="position-relative">
             <Results
               experiment={experiment}
-              editMetrics={
-                permissions.createAnalyses
-                  ? () => setMetricsModalOpen(true)
-                  : null
-              }
-              editResult={
-                permissions.createAnalyses ? () => setStopModalOpen(true) : null
-              }
-              addPhase={
-                permissions.createAnalyses
-                  ? () => setPhaseModalOpen(true)
-                  : null
-              }
+              editMetrics={editMetrics}
+              editResult={editResult}
               mutateExperiment={mutate}
             />
+
+            <div className="p-3">
+              <div className="row mb-3">
+                <div className="col">
+                  <h3 className="mb-3">Custom Reports</h3>
+                </div>
+                {canCreateReports && (
+                  <div className="col-auto">
+                    <Button
+                      className="btn btn-primary float-right"
+                      color="outline-info"
+                      onClick={async () => {
+                        const res = await apiCall<{ report: ReportInterface }>(
+                          `/experiments/report/${snapshot.id}`,
+                          {
+                            method: "POST",
+                          }
+                        );
+
+                        if (!res.report) {
+                          throw new Error("Failed to create report");
+                        }
+
+                        await router.push(`/report/${res.report.id}`);
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      New Custom Report
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <ExperimentReportsList experiment={experiment} />
+            </div>
           </div>
         </Tab>
         <Tab display="Discussion" anchor="discussions">
@@ -924,5 +791,7 @@ export default function MultiTabPage({experiment, idea, mutate}: Props) {
         </Tab>
       </Tabs>
     </div>
-  )
-}
+  );
+};
+
+export default MultiTabPage;

@@ -1,24 +1,19 @@
 import { ReportInterface } from "back-end/types/report";
-import { GBAddCircle } from "../Icons";
 import Link from "next/link";
 import React from "react";
 import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
-import Button from "../Button";
 import DeleteButton from "../DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
 import useUser from "../../hooks/useUser";
 
 export default function ExperimentReportsList({
   experiment,
-  snapshot,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  snapshot: ExperimentSnapshotInterface;
 }): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -29,6 +24,8 @@ export default function ExperimentReportsList({
     reports: ReportInterface[];
   }>(`/experiment/${experiment.id}/reports`);
 
+  if (!experiment.datasource) return null;
+
   if (error) {
     return null;
   }
@@ -37,10 +34,6 @@ export default function ExperimentReportsList({
   }
 
   const { reports } = data;
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
 
   if (!reports.length) {
     return null;
@@ -48,39 +41,7 @@ export default function ExperimentReportsList({
 
   return (
     <div>
-      <div className="row mb-3">
-        <div className="col">
-          <h3 className="mb-3">Custom Reports</h3>
-        </div>
-        {canCreateReports && (
-          <div className="col-auto">
-            <Button
-              className="btn btn-primary float-right"
-              color="outline-info"
-              onClick={async () => {
-                const res = await apiCall<{ report: ReportInterface }>(
-                  `/experiments/report/${snapshot.id}`,
-                  {
-                    method: "POST",
-                  }
-                );
-
-                if (!res.report) {
-                  throw new Error("Failed to create report");
-                }
-
-                await router.push(`/report/${res.report.id}`);
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              New Custom Report
-            </Button>
-          </div>
-        )}
-      </div>
-      <table className="table appbox gbtable table-hover">
+      <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>
             <th>Title</th>

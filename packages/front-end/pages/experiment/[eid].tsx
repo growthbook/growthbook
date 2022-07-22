@@ -2,21 +2,43 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import React, { ReactElement } from "react";
+import React, { ReactElement, useState } from "react";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import { IdeaInterface } from "back-end/types/idea";
 import SinglePage from "../../components/Experiment/SinglePage";
 import MultiTabPage from "../../components/Experiment/MultiTabPage";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
+import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
+import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
+import usePermissions from "../../hooks/usePermissions";
+import EditVariationsForm from "../../components/Experiment/EditVariationsForm";
+import EditInfoForm from "../../components/Experiment/EditInfoForm";
+import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
+import EditTagsForm from "../../components/Tags/EditTagsForm";
+import EditProjectForm from "../../components/Experiment/EditProjectForm";
+import { useAuth } from "../../services/auth";
+import Link from "next/link";
+import { GBCircleArrowLeft } from "../../components/Icons";
+import SnapshotProvider from "../../components/Experiment/SnapshotProvider";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
   const { eid } = router.query;
 
+  const permissions = usePermissions();
+
   const [useSinglePage, setUseSinglePage] = useLocalStorage(
     "new-exp-page-layout",
     false
   );
+
+  const [stopModalOpen, setStopModalOpen] = useState(false);
+  const [metricsModalOpen, setMetricsModalOpen] = useState(false);
+  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -24,6 +46,8 @@ const ExperimentPage = (): ReactElement => {
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization);
+
+  const { apiCall } = useAuth();
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -37,49 +61,152 @@ const ExperimentPage = (): ReactElement => {
   // TODO: more cases where the new page won't work?
   const supportsSinglePage = experiment.implementation !== "visual";
 
+  const canEdit = permissions.createAnalyses && !experiment.archived;
+
+  const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
+  const editResult = canEdit ? () => setStopModalOpen(true) : null;
+  const editVariations = canEdit ? () => setVariationsModalOpen(true) : null;
+  const editInfo = canEdit ? () => setEditModalOpen(true) : null;
+  const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
+  const editTags = canEdit ? () => setTagsModalOpen(true) : null;
+  const editProject = canEdit ? () => setProjectModalOpen(true) : null;
+
   return (
     <div>
-      {supportsSinglePage &&
-        (useSinglePage ? (
-          <div className="bg-light border-bottom p-1 text-center">
-            <span>
-              You are viewing the new experiment page layout.{" "}
-              <strong>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setUseSinglePage(false);
-                  }}
-                >
-                  Switch Back
-                </a>
-              </strong>
-            </span>
-          </div>
-        ) : (
-          <div className="bg-purple text-light p-1 text-center">
-            <span>
-              Preview the new experiment page layout!{" "}
-              <strong>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setUseSinglePage(true);
-                  }}
-                >
-                  Switch Now
-                </a>
-              </strong>
-            </span>
-          </div>
-        ))}
-      {useSinglePage ? (
-        <SinglePage experiment={experiment} mutate={mutate} />
-      ) : (
-        <MultiTabPage experiment={experiment} idea={idea} mutate={mutate} />
+      {metricsModalOpen && (
+        <EditMetricsForm
+          experiment={experiment}
+          cancel={() => setMetricsModalOpen(false)}
+          mutate={mutate}
+        />
       )}
+      {stopModalOpen && (
+        <StopExperimentForm
+          close={() => setStopModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+        />
+      )}
+      {variationsModalOpen && (
+        <EditVariationsForm
+          experiment={experiment}
+          cancel={() => setVariationsModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
+      {editModalOpen && (
+        <EditInfoForm
+          experiment={experiment}
+          cancel={() => setEditModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
+      {duplicateModalOpen && (
+        <NewExperimentForm
+          onClose={() => setDuplicateModalOpen(false)}
+          initialValue={{
+            ...experiment,
+            name: experiment.name + " (Copy)",
+            trackingKey: "",
+          }}
+          source="duplicate"
+        />
+      )}
+      {tagsModalOpen && (
+        <EditTagsForm
+          tags={experiment.tags}
+          save={async (tags) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ tags }),
+            });
+          }}
+          cancel={() => setTagsModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
+      {projectModalOpen && (
+        <EditProjectForm
+          cancel={() => setProjectModalOpen(false)}
+          mutate={mutate}
+          current={experiment.project}
+          apiEndpoint={`/experiment/${experiment.id}`}
+        />
+      )}
+      <div className="container-fluid">
+        {supportsSinglePage &&
+          (useSinglePage ? (
+            <div className="container-fluid pagecontents">
+              <div className="bg-light border-bottom p-2 mb-2 d-flex">
+                <div>
+                  <Link href="/experiments">
+                    <a>
+                      <GBCircleArrowLeft /> Back to all experiments
+                    </a>
+                  </Link>
+                </div>
+                <div className="text-center ml-auto">
+                  <strong>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setUseSinglePage(false);
+                      }}
+                    >
+                      Switch back to the old page
+                    </a>
+                  </strong>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-info text-light p-2 text-center mb-2">
+              <span>
+                Preview the new and improved experiment view!{" "}
+                <strong>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUseSinglePage(true);
+                    }}
+                    className="text-white"
+                  >
+                    Switch Now
+                  </a>
+                </strong>
+              </span>
+            </div>
+          ))}
+        <SnapshotProvider experiment={experiment}>
+          {useSinglePage ? (
+            <SinglePage
+              experiment={experiment}
+              mutate={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+            />
+          ) : (
+            <MultiTabPage
+              experiment={experiment}
+              idea={idea}
+              mutate={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editInfo={editInfo}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+            />
+          )}
+        </SnapshotProvider>
+      </div>
     </div>
   );
 };

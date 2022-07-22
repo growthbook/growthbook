@@ -1,0 +1,144 @@
+import { FC } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { useAuth } from "../../services/auth";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import { MdDeleteForever } from "react-icons/md";
+
+const EditVariationsForm: FC<{
+  experiment: ExperimentInterfaceStringDates;
+  cancel: () => void;
+  mutate: () => void;
+}> = ({ experiment, cancel, mutate }) => {
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+    defaultValues: {
+      variations: experiment.variations
+        ? experiment.variations.map((v) => {
+            return {
+              name: "",
+              description: "",
+              value: "",
+              key: "",
+              ...v,
+            };
+          })
+        : [
+            {
+              name: "Control",
+              value: "",
+              description: "",
+              key: "",
+              screenshots: [],
+            },
+            {
+              name: "Variation",
+              description: "",
+              value: "",
+              key: "",
+              screenshots: [],
+            },
+          ],
+    },
+  });
+  const { apiCall } = useAuth();
+
+  const variations = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
+
+  return (
+    <Modal
+      header={"Edit Variations"}
+      open={true}
+      close={cancel}
+      size="lg"
+      submit={form.handleSubmit(async (value) => {
+        const data = { ...value };
+        data.variations = [...data.variations];
+
+        await apiCall(`/experiment/${experiment.id}`, {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        mutate();
+      })}
+      cta="Save"
+    >
+      <label>Variations</label>
+      <div className="row">
+        {variations.fields.map((v, i) => (
+          <div
+            className=" col-lg-6 col-md-6 mb-2"
+            key={i}
+            style={{ minWidth: 200 }}
+          >
+            <div className="graybox">
+              <Field
+                label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+                {...form.register(`variations.${i}.name`)}
+              />
+              <Field
+                label="Id"
+                {...form.register(`variations.${i}.key`)}
+                placeholder={i + ""}
+              />
+              <Field
+                label="Description"
+                textarea
+                {...form.register(`variations.${i}.description`)}
+              />
+              <div className="text-right">
+                {variations.fields.length > 2 ? (
+                  <a
+                    className="text-danger cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      variations.remove(i);
+                    }}
+                  >
+                    <MdDeleteForever /> Delete
+                  </a>
+                ) : (
+                  ""
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        <div
+          className="col-lg-6 col-md-6 mb-2 text-center"
+          style={{ minWidth: 200 }}
+        >
+          <div
+            className="p-3 h-100 d-flex align-items-center justify-content-center"
+            style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
+          >
+            <button
+              className="btn btn-outline-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                variations.append({
+                  name: `Variation ${variations.fields.length}`,
+                  description: "",
+                  key: "",
+                  value: "",
+                  screenshots: [],
+                });
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block">
+                <GBAddCircle />
+              </span>{" "}
+              Add Variation
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default EditVariationsForm;
