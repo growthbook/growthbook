@@ -64,7 +64,20 @@ export default function EditPhaseModal({
         label="End Time (UTC)"
         type="datetime-local"
         {...form.register("dateEnded")}
-        helpText="Leave blank if still running"
+        helpText={
+          <>
+            Leave blank if still running.{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("dateEnded", "");
+              }}
+            >
+              Clear Input
+            </a>
+          </>
+        }
       />
       {form.watch("dateEnded") && (
         <Field

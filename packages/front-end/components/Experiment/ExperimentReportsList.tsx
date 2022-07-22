@@ -9,6 +9,9 @@ import { useRouter } from "next/router";
 import DeleteButton from "../DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
 import useUser from "../../hooks/useUser";
+import { useSnapshot } from "./SnapshotProvider";
+import Button from "../Button";
+import { GBAddCircle } from "../Icons";
 
 export default function ExperimentReportsList({
   experiment,
@@ -19,6 +22,7 @@ export default function ExperimentReportsList({
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const { userId, users } = useUser();
+  const { snapshot } = useSnapshot();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -39,8 +43,45 @@ export default function ExperimentReportsList({
     return null;
   }
 
+  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
+  const canCreateReports =
+    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
+
   return (
     <div>
+      <div className="row align-items-center mb-2">
+        <div className="col">
+          <h3 className="mb-0">Custom Reports</h3>
+        </div>
+        {canCreateReports && (
+          <div className="col-auto">
+            <Button
+              className="btn btn-primary float-right"
+              color="outline-info"
+              onClick={async () => {
+                const res = await apiCall<{ report: ReportInterface }>(
+                  `/experiments/report/${snapshot.id}`,
+                  {
+                    method: "POST",
+                  }
+                );
+
+                if (!res.report) {
+                  throw new Error("Failed to create report");
+                }
+
+                await router.push(`/report/${res.report.id}`);
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              New Custom Report
+            </Button>
+          </div>
+        )}
+      </div>
       <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>

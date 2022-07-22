@@ -32,12 +32,26 @@ export default function PhaseSelector({ mutateExperiment }: Props) {
 
   const canEdit = permissions.createAnalyses && !experiment.archived;
 
-  if (canEdit && mutateExperiment) {
-    phaseOptions.push({
-      label: "Edit Phases",
-      value: "edit",
-    });
-  }
+  const selectOptions =
+    canEdit && mutateExperiment
+      ? [
+          {
+            label: "Phases",
+            value: "",
+            options: phaseOptions,
+          },
+          {
+            label: "____",
+            value: "",
+            options: [
+              {
+                label: "Edit Phases...",
+                value: "edit",
+              },
+            ],
+          },
+        ]
+      : phaseOptions;
 
   return (
     <>
@@ -135,7 +149,7 @@ export default function PhaseSelector({ mutateExperiment }: Props) {
         ""
       )}
       <SelectField
-        options={phaseOptions}
+        options={selectOptions}
         value={phase + ""}
         onChange={(value) => {
           if (mutateExperiment && canEdit && value === "edit") {
@@ -144,10 +158,13 @@ export default function PhaseSelector({ mutateExperiment }: Props) {
           }
           setPhase(parseInt(value) || 0);
         }}
+        sort={false}
         label="Phase"
         labelClassName="mr-2"
         formatOptionLabel={({ value, label }) => {
-          if (value === "edit") return label;
+          if (value === "edit") {
+            return <div className="cursor-pointer">{label}</div>;
+          }
 
           const phaseIndex = parseInt(value) || 0;
           const phase = experiment.phases[phaseIndex];

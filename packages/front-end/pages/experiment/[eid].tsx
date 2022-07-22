@@ -20,6 +20,8 @@ import { useAuth } from "../../services/auth";
 import Link from "next/link";
 import { GBCircleArrowLeft } from "../../components/Icons";
 import SnapshotProvider from "../../components/Experiment/SnapshotProvider";
+import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
+import track from "../../services/track";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -39,6 +41,7 @@ const ExperimentPage = (): ReactElement => {
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -70,6 +73,7 @@ const ExperimentPage = (): ReactElement => {
   const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
   const editTags = canEdit ? () => setTagsModalOpen(true) : null;
   const editProject = canEdit ? () => setProjectModalOpen(true) : null;
+  const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
 
   return (
     <div>
@@ -133,6 +137,13 @@ const ExperimentPage = (): ReactElement => {
           apiEndpoint={`/experiment/${experiment.id}`}
         />
       )}
+      {phaseModalOpen && (
+        <NewPhaseForm
+          close={() => setPhaseModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+        />
+      )}
       <div className="container-fluid">
         {supportsSinglePage &&
           (useSinglePage ? (
@@ -151,6 +162,7 @@ const ExperimentPage = (): ReactElement => {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
+                        track("View Old Experiment Page");
                         setUseSinglePage(false);
                       }}
                     >
@@ -163,12 +175,13 @@ const ExperimentPage = (): ReactElement => {
           ) : (
             <div className="bg-info text-light p-2 text-center mb-3">
               <span>
-                Preview the new and improved experiment view!{" "}
+                Try the new and improved experiment view!{" "}
                 <strong>
                   <a
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
+                      track("View New Experiment Page");
                       setUseSinglePage(true);
                     }}
                     className="text-white"
@@ -179,6 +192,7 @@ const ExperimentPage = (): ReactElement => {
               </span>
             </div>
           ))}
+        {!supportsSinglePage && <div className="mb-2" />}
         <SnapshotProvider experiment={experiment}>
           {useSinglePage ? (
             <SinglePage
@@ -190,6 +204,7 @@ const ExperimentPage = (): ReactElement => {
               duplicate={duplicate}
               editProject={editProject}
               editTags={editTags}
+              newPhase={newPhase}
             />
           ) : (
             <MultiTabPage
@@ -203,6 +218,7 @@ const ExperimentPage = (): ReactElement => {
               duplicate={duplicate}
               editProject={editProject}
               editTags={editTags}
+              newPhase={newPhase}
             />
           )}
         </SnapshotProvider>

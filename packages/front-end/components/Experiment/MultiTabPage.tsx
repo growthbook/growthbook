@@ -15,7 +15,6 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "../../services/dates";
-import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
 import Results from "../../components/Experiment/Results";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
@@ -33,7 +32,7 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { IdeaInterface } from "back-end/types/idea";
 import DeleteButton from "../../components/DeleteButton";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
+import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
@@ -42,8 +41,6 @@ import useUser from "../../hooks/useUser";
 import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import ExperimentReportsList from "./ExperimentReportsList";
-import { ReportInterface } from "back-end/types/report";
-import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -56,6 +53,7 @@ export interface Props {
   duplicate?: () => void;
   editTags?: () => void;
   editProject?: () => void;
+  newPhase?: () => void;
 }
 
 const MultiTabPage = ({
@@ -69,9 +67,9 @@ const MultiTabPage = ({
   duplicate,
   editTags,
   editProject,
+  newPhase,
 }: Props): ReactElement => {
   const router = useRouter();
-  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
 
@@ -86,8 +84,6 @@ const MultiTabPage = ({
   const { users } = useUser();
 
   useSwitchOrg(experiment?.organization);
-
-  const { snapshot } = useSnapshot();
 
   const {
     getMetricById,
@@ -108,7 +104,7 @@ const MultiTabPage = ({
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
-          setPhaseModalOpen(true);
+          newPhase && newPhase();
         }}
       >
         <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -156,11 +152,6 @@ const MultiTabPage = ({
     .filter(Boolean)
     .map((u) => u.name || u.email);
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
-
   return (
     <div className={wrapClasses}>
       {dataSourceModalOpen && (
@@ -175,13 +166,6 @@ const MultiTabPage = ({
           experiment={experiment}
           cancel={() => setTargetingModalOpen(false)}
           mutate={mutate}
-        />
-      )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
         />
       )}
       {project && project !== experiment.project && (
@@ -337,11 +321,11 @@ const MultiTabPage = ({
         <div style={{ flex: 1 }} />
         {currentPhase && experiment.status === "running" && (
           <div className="col-auto">
-            {permissions.createAnalyses ? (
+            {newPhase ? (
               <div
                 onClick={(e) => {
                   e.preventDefault();
-                  setPhaseModalOpen(true);
+                  newPhase();
                 }}
                 className="cursor-pointer"
               >
@@ -652,38 +636,6 @@ const MultiTabPage = ({
             />
 
             <div className="p-3">
-              <div className="row mb-3">
-                <div className="col">
-                  <h3 className="mb-3">Custom Reports</h3>
-                </div>
-                {canCreateReports && (
-                  <div className="col-auto">
-                    <Button
-                      className="btn btn-primary float-right"
-                      color="outline-info"
-                      onClick={async () => {
-                        const res = await apiCall<{ report: ReportInterface }>(
-                          `/experiments/report/${snapshot.id}`,
-                          {
-                            method: "POST",
-                          }
-                        );
-
-                        if (!res.report) {
-                          throw new Error("Failed to create report");
-                        }
-
-                        await router.push(`/report/${res.report.id}`);
-                      }}
-                    >
-                      <span className="h4 pr-2 m-0 d-inline-block align-top">
-                        <GBAddCircle />
-                      </span>
-                      New Custom Report
-                    </Button>
-                  </div>
-                )}
-              </div>
               <ExperimentReportsList experiment={experiment} />
             </div>
           </div>

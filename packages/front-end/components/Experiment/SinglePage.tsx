@@ -5,7 +5,6 @@ import WatchButton from "../WatchButton";
 import StatusIndicator from "./StatusIndicator";
 import SortedTags from "../Tags/SortedTags";
 import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
-import { date } from "../../services/dates";
 import { useState } from "react";
 import Results from "./Results";
 import DiscussionThread from "../DiscussionThread";
@@ -15,18 +14,18 @@ import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import VariationBox from "./VariationBox";
 import DeleteButton from "../DeleteButton";
 import { useRouter } from "next/router";
-import { GBAddCircle, GBEdit } from "../Icons";
+import { GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import AnalysisForm from "./AnalysisForm";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Link from "next/link";
 import ExperimentReportsList from "./ExperimentReportsList";
 import { useSnapshot } from "./SnapshotProvider";
-import Button from "../Button";
-import { ReportInterface } from "back-end/types/report";
 import EditExperimentNameForm from "./EditExperimentNameForm";
 import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
+import EditStatusModal from "./EditStatusModal";
+import { FaLink } from "react-icons/fa";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,6 +36,7 @@ export interface Props {
   duplicate?: () => void;
   editTags?: () => void;
   editProject?: () => void;
+  newPhase?: () => void;
 }
 
 export default function SinglePage({
@@ -48,6 +48,7 @@ export default function SinglePage({
   duplicate,
   editTags,
   editProject,
+  newPhase,
 }: Props) {
   const {
     getProjectById,
@@ -59,11 +60,12 @@ export default function SinglePage({
 
   const router = useRouter();
 
-  const { phase: phaseIndex, snapshot } = useSnapshot();
+  const { phase: phaseIndex } = useSnapshot();
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [statusModal, setStatusModal] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -72,8 +74,6 @@ export default function SinglePage({
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
   const activationMetric = getMetricById(experiment.activationMetric || "");
-
-  const phase = experiment.phases?.[phaseIndex];
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = exposureQueries.find(
@@ -84,11 +84,6 @@ export default function SinglePage({
 
   const variationCols = experiment.variations.length % 3 == 0 ? 4 : 6;
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
-
   return (
     <div className="container-fluid experiment-details pagecontents">
       {reportSettingsOpen && (
@@ -97,6 +92,8 @@ export default function SinglePage({
           experiment={experiment}
           mutate={mutate}
           phase={phaseIndex}
+          editDates={false}
+          editVariationIds={false}
         />
       )}
       {editNameOpen && (
@@ -117,9 +114,16 @@ export default function SinglePage({
           <HistoryTable type="experiment" id={experiment.id} />
         </Modal>
       )}
-      <div className="row align-items-center">
+      {statusModal && (
+        <EditStatusModal
+          experiment={experiment}
+          close={() => setStatusModal(false)}
+          mutate={mutate}
+        />
+      )}
+      <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <h1>{experiment.name}</h1>
+          <h1 className="mb-0">{experiment.name}</h1>
         </div>
         <div className="col-auto">
           <StatusIndicator
@@ -138,6 +142,14 @@ export default function SinglePage({
                 onClick={() => setEditNameOpen(true)}
               >
                 edit name
+              </button>
+            )}
+            {canEdit && (
+              <button
+                className="dropdown-item"
+                onClick={() => setStatusModal(true)}
+              >
+                edit status
               </button>
             )}
             <button
@@ -250,7 +262,7 @@ export default function SinglePage({
       </div>
       <div className="row">
         <div className="col-md-9">
-          <div>
+          <div className="appbox p-3 mb-4">
             <MarkdownInlineEdit
               value={experiment.description || experiment.observations}
               save={async (description) => {
@@ -264,7 +276,6 @@ export default function SinglePage({
               canEdit={canEdit}
               className="mb-4"
               header="Description"
-              appBoxWrapper={true}
             />
             <MarkdownInlineEdit
               value={experiment.hypothesis}
@@ -280,14 +291,11 @@ export default function SinglePage({
               className="mb-4"
               label="hypothesis"
               header="Hypothesis"
-              appBoxWrapper={true}
             />
-          </div>
-          <div>
             <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
-            <div className="row mb-2">
+            <div className="row">
               {experiment.variations.map((v, i) => (
-                <div key={i} className={`col-md-${variationCols} mb-3`}>
+                <div key={i} className={`col-md-${variationCols} mb-2`}>
                   <VariationBox
                     canEdit={canEdit}
                     experimentId={experiment.id}
@@ -302,7 +310,7 @@ export default function SinglePage({
         </div>
         <div className="col-md-3">
           <RightRailSection
-            title="Report Settings"
+            title="Analysis Settings"
             open={() => setReportSettingsOpen(true)}
             canOpen={canEdit}
           >
@@ -326,16 +334,6 @@ export default function SinglePage({
               <RightRailSectionGroup title="Activation Metric" type="commaList">
                 {activationMetric?.name}
               </RightRailSectionGroup>
-              {phase && (
-                <RightRailSectionGroup title="Date Range" type="custom">
-                  <>
-                    <strong>{date(phase.dateStarted)}</strong> to{" "}
-                    <strong>
-                      {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                    </strong>
-                  </>
-                </RightRailSectionGroup>
-              )}
             </div>
           </RightRailSection>
           <div className="mb-4"></div>
@@ -379,57 +377,43 @@ export default function SinglePage({
           </RightRailSection>
         </div>
       </div>
-      <div className="mb-4">
-        <h3>Results</h3>
+      <div className="mb-4 position-relative">
+        <div style={{ position: "absolute", top: -70 }} id="results"></div>
+        <h3>
+          Results{" "}
+          <a
+            href="#results"
+            className="small"
+            style={{ verticalAlign: "middle" }}
+          >
+            <FaLink />
+          </a>
+        </h3>
         <div className="appbox">
-          <Results
-            experiment={experiment}
-            mutateExperiment={mutate}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            alwaysShowPhaseSelector={true}
-          />
-        </div>
-      </div>
-      <div className="mb-4">
-        <div className="row align-items-center mb-2">
-          <div className="col">
-            <h3 className="mb-0">Custom Reports</h3>
-          </div>
-          {canCreateReports && (
-            <div className="col-auto">
-              <Button
-                className="btn btn-primary float-right"
-                color="outline-info"
-                onClick={async () => {
-                  const res = await apiCall<{ report: ReportInterface }>(
-                    `/experiments/report/${snapshot.id}`,
-                    {
-                      method: "POST",
-                    }
-                  );
-
-                  if (!res.report) {
-                    throw new Error("Failed to create report");
-                  }
-
-                  await router.push(`/report/${res.report.id}`);
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                New Custom Report
-              </Button>
+          {experiment.phases?.length > 0 ? (
+            <Results
+              experiment={experiment}
+              mutateExperiment={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              alwaysShowPhaseSelector={true}
+              reportDetailsLink={false}
+            />
+          ) : (
+            <div className="text-center my-5">
+              <p>There are no experiment phases yet.</p>
+              <button className="btn btn-primary btn-lg" onClick={newPhase}>
+                Add a Phase
+              </button>
             </div>
           )}
         </div>
-        <div>
-          <ExperimentReportsList experiment={experiment} />
-        </div>
       </div>
-      <div>
-        <h2>Discussions</h2>
+      <div className="mb-4">
+        <ExperimentReportsList experiment={experiment} />
+      </div>
+      <div className="pb-3">
+        <h2>Discussion</h2>
         <DiscussionThread
           type="experiment"
           id={experiment.id}

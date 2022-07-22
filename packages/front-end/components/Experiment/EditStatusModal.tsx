@@ -27,7 +27,7 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
       open={true}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/experiment/${experiment.id}/status`, {
-          method: "PUT",
+          method: "POST",
           body: JSON.stringify(value),
         });
         mutate();

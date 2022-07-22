@@ -1,9 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC } from "react";
-import clsx from "clsx";
-import { FaPencilAlt } from "react-icons/fa";
 import dynamic from "next/dynamic";
-import Markdown from "../Markdown/Markdown";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import GuardrailResults from "./GuardrailResult";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
@@ -16,6 +13,7 @@ import { useAuth } from "../../services/auth";
 import FilterSummary from "./FilterSummary";
 import VariationIdWarning from "./VariationIdWarning";
 import { useSnapshot } from "./SnapshotProvider";
+import StatusBanner from "./StatusBanner";
 
 const BreakDownResults = dynamic(() => import("./BreakDownResults"));
 const CompactResults = dynamic(() => import("./CompactResults"));
@@ -26,12 +24,14 @@ const Results: FC<{
   editResult?: () => void;
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
+  reportDetailsLink?: boolean;
 }> = ({
   experiment,
   editMetrics,
   editResult,
   mutateExperiment,
   alwaysShowPhaseSelector = false,
+  reportDetailsLink = true,
 }) => {
   const { getMetricById } = useDefinitions();
 
@@ -57,11 +57,6 @@ const Results: FC<{
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
 
-  const result = experiment.results;
-
-  const variationsPlural =
-    experiment.variations.length > 2 ? "variations" : "variation";
-
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
@@ -81,51 +76,10 @@ const Results: FC<{
 
   return (
     <>
-      {experiment.status === "stopped" && (
-        <div
-          className={clsx("alert mb-0", {
-            "alert-success": result === "won",
-            "alert-danger": result === "lost",
-            "alert-info": !result || result === "inconclusive",
-            "alert-warning": result === "dnf",
-          })}
-        >
-          {editResult && (
-            <a
-              href="#"
-              className="alert-link float-right ml-2"
-              onClick={(e) => {
-                e.preventDefault();
-                editResult();
-              }}
-            >
-              <FaPencilAlt />
-            </a>
-          )}
-          <strong>
-            {result === "won" &&
-              `${
-                experiment.winner > 0
-                  ? experiment.variations[experiment.winner]?.name
-                  : "A variation"
-              } beat the control and won!`}
-            {result === "lost" &&
-              `The ${variationsPlural} did not beat the control.`}
-            {result === "dnf" &&
-              `The experiment was stopped early and did not finish.`}
-            {result === "inconclusive" && `The results were inconclusive.`}
-            {!result &&
-              `The experiment was stopped, but a winner has not been selected yet.`}
-          </strong>
-          {experiment.analysis && (
-            <div className="card text-dark mt-2">
-              <div className="card-body">
-                <Markdown className="card-text">{experiment.analysis}</Markdown>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <StatusBanner
+        mutateExperiment={mutateExperiment}
+        editResult={editResult}
+      />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}
         editMetrics={editMetrics}
@@ -233,13 +187,15 @@ const Results: FC<{
         ))}
       {hasData && !snapshot.dimension && (
         <>
-          <div className="float-right pr-3">
-            <FilterSummary
-              experiment={experiment}
-              phase={phaseObj}
-              snapshot={snapshot}
-            />
-          </div>
+          {reportDetailsLink && (
+            <div className="float-right pr-3">
+              <FilterSummary
+                experiment={experiment}
+                phase={phaseObj}
+                snapshot={snapshot}
+              />
+            </div>
+          )}
           <CompactResults
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
@@ -297,7 +253,7 @@ const Results: FC<{
           )}
         </>
       )}
-      {permissions.createAnalyses && (
+      {permissions.createAnalyses && experiment.metrics?.length > 0 && (
         <div className="px-3 mb-3">
           <span className="text-muted">
             Click the 3 dots next to the Update button above to configure this

@@ -267,7 +267,7 @@ export default function VariationsInput({
                       <FeatureValueField
                         id={`value_${i}`}
                         value={val.value}
-                        placeholder={valueAsId ? i : ""}
+                        placeholder={valueAsId ? i + "" : ""}
                         setValue={(value) => {
                           const newVariations = [...variations];
                           newVariations[i] = {

@@ -14,7 +14,16 @@ const AnalysisForm: FC<{
   phase: number;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate, phase }) => {
+  editVariationIds?: boolean;
+  editDates?: boolean;
+}> = ({
+  experiment,
+  cancel,
+  mutate,
+  phase,
+  editVariationIds = true,
+  editDates = true,
+}) => {
   const { metrics, segments, getDatasourceById } = useDefinitions();
 
   const filteredMetrics = metrics.filter(
@@ -109,40 +118,10 @@ const AnalysisForm: FC<{
         disabled
         helpText="You must revert this experiment to a draft to change the data source"
       />
-      <Field
-        label="Experiment Id"
-        labelClassName="font-weight-bold"
-        {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your data source"
-      />
-      <div className="form-group">
-        <label className="font-weight-bold">Variation Ids</label>
-        <div className="row align-items-top">
-          {variations.fields.map((v, i) => (
-            <div
-              className={`col-${Math.max(
-                Math.round(12 / variations.fields.length),
-                3
-              )} mb-2`}
-              key={i}
-            >
-              <Field
-                label={v.name}
-                labelClassName="mb-0"
-                containerClassName="mb-1"
-                {...form.register(`variations.${i}.key`)}
-                placeholder={i + ""}
-              />
-            </div>
-          ))}
-        </div>
-        <small className="form-text text-muted">
-          Will match against the variation_id column in your data source
-        </small>
-      </div>
       {datasource?.properties?.exposureQueries && (
         <SelectField
           label="Experiment Assignment Table"
+          labelClassName="font-weight-bold"
           value={form.watch("exposureQueryId")}
           onChange={(v) => form.setValue("exposureQueryId", v)}
           initialOption="Choose..."
@@ -155,7 +134,40 @@ const AnalysisForm: FC<{
           })}
         />
       )}
-      {phaseObj && (
+      <Field
+        label="Experiment Id"
+        labelClassName="font-weight-bold"
+        {...form.register("trackingKey")}
+        helpText="Will match against the experiment_id column in your data source"
+      />
+      {editVariationIds && (
+        <div className="form-group">
+          <label className="font-weight-bold">Variation Ids</label>
+          <div className="row align-items-top">
+            {variations.fields.map((v, i) => (
+              <div
+                className={`col-${Math.max(
+                  Math.round(12 / variations.fields.length),
+                  3
+                )} mb-2`}
+                key={i}
+              >
+                <Field
+                  label={v.name}
+                  labelClassName="mb-0"
+                  containerClassName="mb-1"
+                  {...form.register(`variations.${i}.key`)}
+                  placeholder={i + ""}
+                />
+              </div>
+            ))}
+          </div>
+          <small className="form-text text-muted">
+            Will match against the variation_id column in your data source
+          </small>
+        </div>
+      )}
+      {phaseObj && editDates && (
         <div className="row">
           <div className="col">
             <Field
