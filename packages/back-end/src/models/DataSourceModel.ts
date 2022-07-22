@@ -115,6 +115,10 @@ export async function createDataSource(
     });
   }
 
+  settings?.queries?.exposure?.map(
+    (exposureObj) => (exposureObj.hasNameCol = false)
+  );
+
   const datasource: DataSourceInterface = {
     id,
     name,

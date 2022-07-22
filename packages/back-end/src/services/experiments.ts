@@ -720,6 +720,7 @@ export async function processPastExperiments(
         variationKeys: [e.variation_id],
         exposureQueryId: e.exposureQueryId || "",
         trackingKey: e.experiment_id,
+        experimentName: e.experiment_name,
         users: e.users,
         weights: [e.users],
       };

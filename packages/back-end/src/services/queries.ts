@@ -134,7 +134,7 @@ async function getQueryDoc<T, P>(
 
   return doc;
 }
-
+//called by postPastExperiments in experiments.ts
 export async function getPastExperiments(
   integration: SourceIntegrationInterface,
   from: Date,
@@ -218,7 +218,9 @@ export function processPastExperimentQueryResponse(
         exposureQueryId: row.exposure_query,
         users: row.users,
         experiment_id: row.experiment_id,
+        experiment_name: row.experiment_name,
         variation_id: row.variation_id,
+        variation_name: row.variation_name,
         end_date: getValidDate(row.end_date),
         start_date: getValidDate(row.start_date),
       };
