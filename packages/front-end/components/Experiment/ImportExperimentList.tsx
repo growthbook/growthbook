@@ -14,6 +14,7 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import usePermissions from "../../hooks/usePermissions";
+import { DataSourceSettings } from "back-end/types/datasource";
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -41,6 +42,12 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
+  const dataSourceData = useApi<{
+    settings: DataSourceSettings;
+  }>(`/datasource/${data?.experiments.datasource}`);
+
+  const isExperimentName =
+    dataSourceData.data?.settings?.queries?.exposure[0]?.hasNameCol;
   const status = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
@@ -165,7 +172,11 @@ const ImportExperimentList: FC<{
             <thead>
               <tr>
                 <th>Source</th>
-                <th>Experiment Id</th>
+                {isExperimentName ? (
+                  <th>Experiment Name</th>
+                ) : (
+                  <th>Experiment Id</th>
+                )}
                 <th>Date Started</th>
                 <th>Date Ended</th>
                 <th>Number of Variations</th>
@@ -186,7 +197,11 @@ const ImportExperimentList: FC<{
                           )?.name
                         : "experiments"}
                     </td>
-                    <td>{e.trackingKey}</td>
+                    {isExperimentName ? (
+                      <td>{e?.experimentName}</td>
+                    ) : (
+                      <td>{e.trackingKey}</td>
+                    )}
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>

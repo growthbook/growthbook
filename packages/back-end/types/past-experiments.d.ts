@@ -3,6 +3,7 @@ import { Queries } from "./query";
 export interface PastExperiment {
   exposureQueryId: string;
   trackingKey: string;
+  experimentName?: string;
   numVariations: number;
   variationKeys: string[];
   weights: number[];

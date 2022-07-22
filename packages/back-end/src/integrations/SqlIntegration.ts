@@ -161,6 +161,17 @@ export default abstract class SqlIntegration
     const experimentQueries = (
       this.settings.queries?.exposure || []
     ).map(({ id }) => this.getExposureQuery(id));
+    const hasNameCol = this.settings.queries?.exposure?.some(
+      (expObj) => expObj.hasNameCol
+    );
+    const experimentNameCol = hasNameCol ? "experiment_name" : "experiment_id";
+    const variationNameCol = hasNameCol ? "variation_name" : "variation_id";
+    const groupByExperimentNameCol = hasNameCol
+      ? "experiment_name"
+      : "experiment_id";
+    const groupByVariationNameCol = hasNameCol
+      ? "variation_name"
+      : "variation_id";
 
     return format(
       `-- Past Experiments
@@ -170,9 +181,11 @@ export default abstract class SqlIntegration
           return `
         __exposures${i} as (
           SELECT 
-            ${this.castToString(`'${q.id}'`)} as exposure_query, 
+            ${this.castToString(`'${q.id}'`)} as exposure_query,
             experiment_id,
+            MIN(${experimentNameCol}) as experiment_name,
             variation_id,
+            MIN(${variationNameCol}) as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
             count(distinct ${q.userIdType}) as users
           FROM
@@ -185,7 +198,9 @@ export default abstract class SqlIntegration
           )}
           GROUP BY
             experiment_id,
+            ${groupByExperimentNameCol},
             variation_id,
+            ${groupByVariationNameCol},
             ${this.dateTrunc(this.castUserDateCol("timestamp"))}
         ),`;
         })
@@ -199,7 +214,9 @@ export default abstract class SqlIntegration
         SELECT
           exposure_query,
           experiment_id,
+          MIN(${experimentNameCol}) as experiment_name,
           variation_id,
+          MIN(${variationNameCol}) as variation_name,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
@@ -209,13 +226,15 @@ export default abstract class SqlIntegration
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          exposure_query, experiment_id, variation_id
+          exposure_query, experiment_id, ${groupByExperimentNameCol}, variation_id, ${groupByVariationNameCol}
       ),
       __variations as (
         SELECT
           d.exposure_query,
           d.experiment_id,
+          MIN(d.${experimentNameCol}) as experiment_name,
           d.variation_id,
+          MIN(d.${variationNameCol}) as variation_name,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users
@@ -256,7 +275,9 @@ export default abstract class SqlIntegration
       return {
         exposure_query: row.exposure_query,
         experiment_id: row.experiment_id,
+        experiment_name: row.experiment_name,
         variation_id: row.variation_id ?? "",
+        variation_name: row.variation_name,
         users: parseInt(row.users) || 0,
         end_date: this.convertDate(row.end_date).toISOString(),
         start_date: this.convertDate(row.start_date).toISOString(),

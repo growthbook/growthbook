@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { FC, useEffect, useState } from "react";
 import { useAuth } from "../../services/auth";
 import { getInitialSettings } from "../../services/datasources";
 import track from "../../services/track";
@@ -12,6 +12,7 @@ import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import Toggle from "../../../front-end/components/Forms/Toggle";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -33,6 +34,9 @@ const EditDataSourceSettingsForm: FC<{
   }, [source]);
 
   const { apiCall } = useAuth();
+  const [addNameCols, setNameCols] = useState(
+    data.settings?.queries?.exposure[0]?.hasNameCol
+  );
 
   const handleSubmit = form.handleSubmit(async (value) => {
     // Update
@@ -73,6 +77,13 @@ const EditDataSourceSettingsForm: FC<{
       value: t.userIdType,
     };
   });
+
+  function nameColToggle() {
+    setNameCols(!addNameCols);
+    for (let i = 0; i < data.settings.queries.exposure.length; i++) {
+      form.setValue(`settings.queries.exposure.${i}.hasNameCol`, !addNameCols);
+    }
+  }
 
   return (
     <Modal
@@ -269,6 +280,20 @@ const EditDataSourceSettingsForm: FC<{
                               )
                             }
                           />
+                          <div>
+                            <label style={{ padding: 3 }}>
+                              Add Experiment & Variation Name
+                            </label>
+                            <Toggle
+                              id="nameToggle"
+                              value={addNameCols}
+                              type="environment"
+                              setValue={() => {
+                                nameColToggle();
+                              }}
+                            ></Toggle>
+                          </div>
+
                           <StringArrayField
                             label="Dimension Columns"
                             value={form.watch(
