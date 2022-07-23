@@ -54,6 +54,7 @@ export interface Props {
   editTags?: () => void;
   editProject?: () => void;
   newPhase?: () => void;
+  editPhases?: () => void;
 }
 
 const MultiTabPage = ({
@@ -68,6 +69,7 @@ const MultiTabPage = ({
   editTags,
   editProject,
   newPhase,
+  editPhases,
 }: Props): ReactElement => {
   const router = useRouter();
   const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
@@ -169,7 +171,7 @@ const MultiTabPage = ({
         />
       )}
       {project && project !== experiment.project && (
-        <div className="bg-info p-2 mb-2 text-center text-white">
+        <div className="bg-secondary p-2 mb-2 text-center text-white">
           This experiment is in a different project. Move it to{" "}
           <a
             href="#"
@@ -632,6 +634,7 @@ const MultiTabPage = ({
               experiment={experiment}
               editMetrics={editMetrics}
               editResult={editResult}
+              editPhases={editPhases}
               mutateExperiment={mutate}
             />
 

@@ -24,26 +24,22 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
 }) => {
-  const { metrics, segments, getDatasourceById } = useDefinitions();
-
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === experiment.datasource
-  );
-  const filteredSegments = segments.filter(
-    (s) => s.datasource === experiment.datasource
-  );
-
-  const datasource = getDatasourceById(experiment.datasource);
-  const datasourceProperties = datasource?.properties;
+  const {
+    metrics,
+    segments,
+    getDatasourceById,
+    datasources,
+  } = useDefinitions();
 
   const phaseObj = experiment.phases[phase];
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
+      datasource: experiment.datasource || "",
       exposureQueryId:
         getExposureQuery(
-          datasource?.settings,
+          getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
           experiment.userIdType
         )?.id || "",
@@ -62,6 +58,16 @@ const AnalysisForm: FC<{
     },
   });
   const { apiCall } = useAuth();
+
+  const datasource = getDatasourceById(form.watch("datasource"));
+  const datasourceProperties = datasource?.properties;
+
+  const filteredMetrics = metrics.filter(
+    (m) => m.datasource === datasource?.id
+  );
+  const filteredSegments = segments.filter(
+    (s) => s.datasource === datasource?.id
+  );
 
   const variations = useFieldArray({
     control: form.control,
@@ -99,6 +105,12 @@ const AnalysisForm: FC<{
           removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
+        // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
+        if (body.datasource !== experiment.datasource) {
+          body.metrics = [];
+          body.guardrails = [];
+        }
+
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
         }
@@ -111,12 +123,29 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <Field
+      <SelectField
         label="Data Source"
         labelClassName="font-weight-bold"
-        value={datasource?.name || "Manual"}
-        disabled
-        helpText="You must revert this experiment to a draft to change the data source"
+        value={datasource?.id || ""}
+        onChange={(newDatasource) => {
+          if (datasource && newDatasource !== datasource?.id) {
+            form.setValue("segment", "");
+            form.setValue("activationMetric", "");
+            form.setValue("exposureQueryId", "");
+          }
+          form.setValue("datasource", newDatasource);
+        }}
+        options={datasources.map((d) => ({
+          label: d.name,
+          value: d.id,
+        }))}
+        initialOption="Manual"
+        helpText={
+          <>
+            <strong className="text-danger">Warning:</strong> Changing this will
+            remove all metrics and segments from the experiment.
+          </>
+        }
       />
       {datasource?.properties?.exposureQueries && (
         <SelectField

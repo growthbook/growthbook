@@ -22,6 +22,7 @@ import { GBCircleArrowLeft } from "../../components/Icons";
 import SnapshotProvider from "../../components/Experiment/SnapshotProvider";
 import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
 import track from "../../services/track";
+import EditPhasesModal from "../../components/Experiment/EditPhasesModal";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -42,6 +43,7 @@ const ExperimentPage = (): ReactElement => {
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
+  const [editPhasesOpen, setEditPhasesOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -74,6 +76,7 @@ const ExperimentPage = (): ReactElement => {
   const editTags = canEdit ? () => setTagsModalOpen(true) : null;
   const editProject = canEdit ? () => setProjectModalOpen(true) : null;
   const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
+  const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
 
   return (
     <div>
@@ -144,6 +147,13 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
+      {editPhasesOpen && (
+        <EditPhasesModal
+          close={() => setEditPhasesOpen(false)}
+          mutateExperiment={mutate}
+          experiment={experiment}
+        />
+      )}
       <div className="container-fluid">
         {supportsSinglePage &&
           (useSinglePage ? (
@@ -197,6 +207,7 @@ const ExperimentPage = (): ReactElement => {
           {useSinglePage ? (
             <SinglePage
               experiment={experiment}
+              idea={idea}
               mutate={mutate}
               editMetrics={editMetrics}
               editResult={editResult}
@@ -205,6 +216,7 @@ const ExperimentPage = (): ReactElement => {
               editProject={editProject}
               editTags={editTags}
               newPhase={newPhase}
+              editPhases={editPhases}
             />
           ) : (
             <MultiTabPage
@@ -219,6 +231,7 @@ const ExperimentPage = (): ReactElement => {
               editProject={editProject}
               editTags={editTags}
               newPhase={newPhase}
+              editPhases={editPhases}
             />
           )}
         </SnapshotProvider>

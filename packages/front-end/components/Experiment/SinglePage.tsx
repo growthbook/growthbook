@@ -14,7 +14,7 @@ import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import VariationBox from "./VariationBox";
 import DeleteButton from "../DeleteButton";
 import { useRouter } from "next/router";
-import { GBEdit } from "../Icons";
+import { GBAddCircle, GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import AnalysisForm from "./AnalysisForm";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
@@ -25,10 +25,28 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import EditStatusModal from "./EditStatusModal";
-import { FaLink } from "react-icons/fa";
+import { FaExternalLinkAlt, FaLink } from "react-icons/fa";
+import useApi from "../../hooks/useApi";
+import useUser from "../../hooks/useUser";
+import ResultsIndicator from "./ResultsIndicator";
+import { phaseSummary } from "../../services/utils";
+import { date } from "../../services/dates";
+import { IdeaInterface } from "../../../back-end/types/idea";
+
+function getColWidth(v: number) {
+  // 2 across
+  if (v <= 2) return 6;
+
+  // 3 across
+  if (v === 3 || v === 6 || v === 9) return 4;
+
+  // 4 across
+  return 3;
+}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  idea?: IdeaInterface;
   mutate: () => void;
   editMetrics?: () => void;
   editResult?: () => void;
@@ -37,10 +55,12 @@ export interface Props {
   editTags?: () => void;
   editProject?: () => void;
   newPhase?: () => void;
+  editPhases?: () => void;
 }
 
 export default function SinglePage({
   experiment,
+  idea,
   mutate,
   editMetrics,
   editResult,
@@ -49,6 +69,7 @@ export default function SinglePage({
   editTags,
   editProject,
   newPhase,
+  editPhases,
 }: Props) {
   const {
     getProjectById,
@@ -56,6 +77,7 @@ export default function SinglePage({
     getSegmentById,
     getMetricById,
     projects,
+    project: currentProject,
   } = useDefinitions();
 
   const router = useRouter();
@@ -66,9 +88,15 @@ export default function SinglePage({
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
+  const [watchersModal, setWatchersModal] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
+
+  const watcherIds = useApi<{
+    userIds: string[];
+  }>(`/experiment/${experiment.id}/watchers`);
+  const { users } = useUser();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -82,7 +110,13 @@ export default function SinglePage({
 
   const canEdit = permissions.createAnalyses && !experiment.archived;
 
-  const variationCols = experiment.variations.length % 3 == 0 ? 4 : 6;
+  const variationCols = getColWidth(experiment.variations.length);
+
+  // Get name or email of all active users watching this experiment
+  const usersWatching = (watcherIds?.data?.userIds || [])
+    .map((id) => users.get(id))
+    .filter(Boolean)
+    .map((u) => u.name || u.email);
 
   return (
     <div className="container-fluid experiment-details pagecontents">
@@ -114,6 +148,20 @@ export default function SinglePage({
           <HistoryTable type="experiment" id={experiment.id} />
         </Modal>
       )}
+      {watchersModal && (
+        <Modal
+          open={true}
+          header="Experiment Watchers"
+          close={() => setWatchersModal(false)}
+          closeCta="Close"
+        >
+          <ul>
+            {usersWatching.map((u, i) => (
+              <li key={i}>{u}</li>
+            ))}
+          </ul>
+        </Modal>
+      )}
       {statusModal && (
         <EditStatusModal
           experiment={experiment}
@@ -131,6 +179,11 @@ export default function SinglePage({
             status={experiment.status}
           />
         </div>
+        {experiment.status === "stopped" && experiment.results && (
+          <div className="col-auto">
+            <ResultsIndicator results={experiment.results} />
+          </div>
+        )}
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
@@ -141,7 +194,7 @@ export default function SinglePage({
                 className="dropdown-item"
                 onClick={() => setEditNameOpen(true)}
               >
-                edit name
+                Edit name
               </button>
             )}
             {canEdit && (
@@ -149,18 +202,27 @@ export default function SinglePage({
                 className="dropdown-item"
                 onClick={() => setStatusModal(true)}
               >
-                edit status
+                Edit status
               </button>
             )}
             <button
               className="dropdown-item"
               onClick={() => setAuditModal(true)}
             >
-              view audit log
+              Audit log
+            </button>
+            <button
+              className="dropdown-item"
+              onClick={() => setWatchersModal(true)}
+            >
+              View watchers{" "}
+              <span className="badge badge-pill badge-info">
+                {usersWatching.length}
+              </span>
             </button>
             {duplicate && (
               <button className="dropdown-item" onClick={duplicate}>
-                duplicate
+                Duplicate
               </button>
             )}
             {!experiment.archived && (
@@ -178,7 +240,7 @@ export default function SinglePage({
                   }
                 }}
               >
-                archive
+                Archive
               </button>
             )}
             {experiment.archived && (
@@ -196,13 +258,13 @@ export default function SinglePage({
                   }
                 }}
               >
-                unarchive
+                Unarchive
               </button>
             )}
             <DeleteButton
               className="dropdown-item text-danger"
               useIcon={false}
-              text="delete"
+              text="Delete"
               displayName="Experiment"
               onClick={async () => {
                 await apiCall<{ status: number; message?: string }>(
@@ -240,6 +302,26 @@ export default function SinglePage({
             )}
           </div>
         )}
+        {idea && (
+          <div className="col-auto">
+            <div className="d-flex align-items-center">
+              <div className="mr-1">Idea:</div>
+              <div>
+                <Link href={`/idea/${idea.id}`}>
+                  <a>
+                    <FaExternalLinkAlt /> {idea.text}
+                  </a>
+                </Link>
+              </div>
+              {idea.impactScore && (
+                <div className="badge badge-primary ml-2" title="Impact Score">
+                  {idea.impactScore}
+                  <small>/100</small>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="col-auto">
           Tags:{" "}
           {experiment.tags?.length > 0 ? (
@@ -260,6 +342,30 @@ export default function SinglePage({
           )}
         </div>
       </div>
+      {currentProject && currentProject !== experiment.project && (
+        <div className="alert alert-warning p-2 mb-2 text-center">
+          This experiment is not in your current project.{" "}
+          <a
+            href="#"
+            className="a"
+            onClick={async (e) => {
+              e.preventDefault();
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  currentProject,
+                }),
+              });
+              mutate();
+            }}
+          >
+            Move it to{" "}
+            <strong>
+              {getProjectById(currentProject)?.name || "the current project"}
+            </strong>
+          </a>
+        </div>
+      )}
       <div className="row">
         <div className="col-md-9">
           <div className="appbox p-3 mb-4">
@@ -375,6 +481,48 @@ export default function SinglePage({
               )}
             </div>
           </RightRailSection>
+          <div className="mb-4"></div>
+          <RightRailSection
+            title="Phases"
+            open={editPhases}
+            canOpen={!!editPhases}
+          >
+            <div className="appbox p-3">
+              {experiment.phases?.length > 0 ? (
+                <div>
+                  {experiment.phases.map((phase, i) => (
+                    <div key={i} className={`${i ? "mt-2" : ""} d-flex`}>
+                      <div className="mr-2">{i + 1}:</div>
+                      <div className="small">
+                        <div>{phaseSummary(phase)}</div>
+                        <div>
+                          <strong>{date(phase.dateStarted)}</strong> to{" "}
+                          <strong>
+                            {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                          </strong>
+                        </div>
+                      </div>
+                      <div></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center">
+                  <em>No experiment phases defined.</em>
+                  {newPhase && (
+                    <div className="mt-2">
+                      <button
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={newPhase}
+                      >
+                        <GBAddCircle /> Add a Phase
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </RightRailSection>
         </div>
       </div>
       <div className="mb-4 position-relative">
@@ -396,6 +544,7 @@ export default function SinglePage({
               mutateExperiment={mutate}
               editMetrics={editMetrics}
               editResult={editResult}
+              editPhases={editPhases}
               alwaysShowPhaseSelector={true}
               reportDetailsLink={false}
             />

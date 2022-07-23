@@ -37,7 +37,9 @@ export function useSelectOptions(
     });
 
     if (initialOption) {
-      clone.unshift({ label: initialOption, value: "" });
+      const o = { label: initialOption, value: "" };
+      clone.unshift(o);
+      m.set("", o);
     }
 
     return [m, clone] as const;

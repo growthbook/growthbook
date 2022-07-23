@@ -48,11 +48,13 @@ function isOutdated(
 export default function AnalysisSettingsBar({
   mutateExperiment,
   editMetrics,
+  editPhases,
   variations,
   alwaysShowPhaseSelector = false,
 }: {
   mutateExperiment: () => void;
-  editMetrics: () => void;
+  editMetrics?: () => void;
+  editPhases?: () => void;
   variations: ExperimentReportVariation[];
   alwaysShowPhaseSelector?: boolean;
 }) {
@@ -95,7 +97,10 @@ export default function AnalysisSettingsBar({
         {experiment.phases &&
           (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
             <div className="col-auto form-inline">
-              <PhaseSelector mutateExperiment={mutateExperiment} />
+              <PhaseSelector
+                mutateExperiment={mutateExperiment}
+                editPhases={editPhases}
+              />
             </div>
           )}
         <div className="col-auto form-inline">

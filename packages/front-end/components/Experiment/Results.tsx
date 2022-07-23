@@ -22,6 +22,7 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
   editResult?: () => void;
+  editPhases?: () => void;
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
@@ -29,6 +30,7 @@ const Results: FC<{
   experiment,
   editMetrics,
   editResult,
+  editPhases,
   mutateExperiment,
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
@@ -84,6 +86,7 @@ const Results: FC<{
         mutateExperiment={mutateExperiment}
         editMetrics={editMetrics}
         variations={variations}
+        editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
       />
       {experiment.metrics.length === 0 && (
