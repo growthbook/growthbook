@@ -435,7 +435,7 @@ const MultiTabPage = ({
                 )}
               </div>
               <div className="mb-4">
-                <HeaderWithEdit h={4} edit={editVariations}>
+                <HeaderWithEdit edit={editVariations} className="h4">
                   Variations
                 </HeaderWithEdit>
                 {experiment.implementation === "visual" && (

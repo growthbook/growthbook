@@ -338,6 +338,13 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             label="Percent of users to include"
           />
           <FeatureValueField
+            label={"Value when included"}
+            id="ruleValue"
+            value={form.watch("rule.value")}
+            setValue={(v) => form.setValue("rule.value", v)}
+            valueType={valueType}
+          />
+          <FeatureValueField
             label={"Fallback value"}
             id="defaultValue"
             value={form.watch("defaultValue")}

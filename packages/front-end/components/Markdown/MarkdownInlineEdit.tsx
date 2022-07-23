@@ -13,7 +13,6 @@ const MarkdownInlineEdit: FC<{
   label?: string;
   className?: string;
   header?: string;
-  appBoxWrapper?: boolean;
 }> = ({
   value,
   save,
@@ -22,7 +21,6 @@ const MarkdownInlineEdit: FC<{
   label = "description",
   className = "",
   header = "",
-  appBoxWrapper = false,
 }) => {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -77,45 +75,43 @@ const MarkdownInlineEdit: FC<{
           {header}
         </HeaderWithEdit>
       )}
-      <div className={appBoxWrapper ? "appbox p-3" : ""}>
-        <div className="row">
-          <div className="col">
-            {value ? (
-              <Markdown className="card-text">{value}</Markdown>
-            ) : (
-              <div className="card-text">
-                {canCreate ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setVal(value || "");
-                      setEdit(true);
-                    }}
-                  >
-                    <em>Add {label}</em>
-                  </a>
-                ) : (
-                  <em>No {label}</em>
-                )}
-              </div>
-            )}
-          </div>
-          {value && canEdit && !header && (
-            <div className="col-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setVal(value || "");
-                  setEdit(true);
-                }}
-              >
-                <GBEdit />
-              </a>
+      <div className="row">
+        <div className="col">
+          {value ? (
+            <Markdown className="card-text">{value}</Markdown>
+          ) : (
+            <div className="card-text">
+              {canCreate ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setVal(value || "");
+                    setEdit(true);
+                  }}
+                >
+                  <em>Add {label}</em>
+                </a>
+              ) : (
+                <em>No {label}</em>
+              )}
             </div>
           )}
         </div>
+        {value && canEdit && !header && (
+          <div className="col-auto">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setVal(value || "");
+                setEdit(true);
+              }}
+            >
+              <GBEdit />
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

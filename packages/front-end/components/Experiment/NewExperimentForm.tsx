@@ -20,6 +20,7 @@ import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
+import VariationDataInput from "./VariationDataInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -306,7 +307,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         )}
       </Page>
       <Page display="Variations">
-        {status !== "draft" && (
+        {status !== "draft" ? (
           <VariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
@@ -351,6 +352,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
             showPreview={false}
           />
+        ) : (
+          <VariationDataInput form={form} />
         )}
       </Page>
       <Page display="Goals">

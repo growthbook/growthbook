@@ -24,11 +24,9 @@ const EditExperimentNameForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const data = { ...value };
-
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify(value),
         });
         mutate();
       })}
