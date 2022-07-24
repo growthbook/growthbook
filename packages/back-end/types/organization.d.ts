@@ -89,6 +89,7 @@ export type CustomField = {
   type: "text" | "textarea" | "markdown" | "enum";
   values?: string[];
   required: boolean;
+  index?: boolean;
   creator?: string;
   dateCreated: string | Date;
   active: boolean;

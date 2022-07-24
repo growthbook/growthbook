@@ -2,7 +2,6 @@ import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
-  CustomExperimentField,
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
@@ -141,11 +140,11 @@ const EditInfoForm: FC<{
                   type={v.type}
                   required={v.required}
                   onChange={(e) => {
-                    const obj: CustomExperimentField = {
-                      fieldValue: e.target.value,
-                      fieldId: v.id,
-                    };
-                    form.setValue(`customFields.${i}`, obj);
+                    form.setValue(
+                      `customFields.${i}.fieldValue`,
+                      e.target.value
+                    );
+                    form.setValue(`customFields.${i}.fieldId`, v.id);
                   }}
                 />
               </div>

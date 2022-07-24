@@ -27,6 +27,7 @@ export default function CustomFieldModal({
       dateCreated:
         existing.dateCreated || new Date().toISOString().substr(0, 16),
       active: true,
+      index: true,
     },
   });
   const { apiCall } = useAuth();
@@ -99,10 +100,17 @@ export default function CustomFieldModal({
             form.setValue("required", value);
           }}
         />{" "}
-        <label htmlFor="defaultToggle">
-          Field is required for new experiments
-        </label>
+        <label htmlFor="required">Field is required for new experiments</label>
       </div>
+      <Toggle
+        id={"index"}
+        label="Index"
+        value={!!form.watch("index")}
+        setValue={(value) => {
+          form.setValue("index", value);
+        }}
+      />{" "}
+      <label htmlFor="index">Make this field searchable</label>
     </Modal>
   );
 }

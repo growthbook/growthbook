@@ -5,13 +5,32 @@ import CustomFieldModal from "../../components/Settings/CustomFieldModal";
 import { CustomField } from "back-end/types/organization";
 import useUser from "../../hooks/useUser";
 import { useCustomFields } from "../../services/experiments";
+import { FaSortDown, FaSortUp } from "react-icons/fa";
+import { useAuth } from "../../services/auth";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
   const customFields = useCustomFields();
+  const { apiCall } = useAuth();
   const { update } = useUser();
 
+  const reoderFields = async (i: number, dir: -1 | 1) => {
+    [customFields[i + dir], customFields[i]] = [
+      customFields[i],
+      customFields[i + dir],
+    ];
+    await apiCall(`/organization`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          customFields: customFields,
+        },
+      }),
+    }).then(() => {
+      update();
+    });
+  };
   return (
     <>
       <div className="contents container-fluid pagecontents">
@@ -38,9 +57,10 @@ const CustomFieldsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <table className="table gbtable">
+          <table className="table gbtable appbox">
             <thead>
               <tr>
+                <th style={{ width: "30px" }}></th>
                 <th>Field Name</th>
                 <th>Field Type</th>
                 <th>Required</th>
@@ -52,6 +72,32 @@ const CustomFieldsPage = (): React.ReactElement => {
                 <>
                   {customFields.map((v, i) => (
                     <tr key={i}>
+                      <td>
+                        <div className="d-flex flex-column">
+                          <a
+                            href="#"
+                            className="inactivesort"
+                            style={{ lineHeight: "11px" }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              reoderFields(i, -1);
+                            }}
+                          >
+                            {i !== 0 && <FaSortUp />}
+                          </a>
+                          <a
+                            href="#"
+                            className="inactivesort"
+                            style={{ lineHeight: "11px" }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              reoderFields(i, 1);
+                            }}
+                          >
+                            {i !== customFields.length - 1 && <FaSortDown />}
+                          </a>
+                        </div>
+                      </td>
                       <td className="text-gray font-weight-bold">{v.name}</td>
                       <td className="text-gray">
                         {v.type}
