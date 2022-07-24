@@ -68,8 +68,8 @@ function distributeWeights(weights: number[], customSplit: boolean): number[] {
 function percentToDecimal(val: string, precision: number = 3): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
-function decimalToPercent(val: number): number {
-  return parseFloat((val * 100).toFixed(1));
+function decimalToPercent(val: number, precision: number = 3): number {
+  return parseFloat((val * 100).toFixed(precision - 2));
 }
 function floatRound(val: number, precision: number = 3): number {
   return parseFloat(val.toFixed(precision));
@@ -327,7 +327,7 @@ export default function VariationsInput({
                             className={`position-relative ${styles.percentInputWrap}`}
                           >
                             <Field
-                              value={decimalToPercent(weights[i])}
+                              value={decimalToPercent(weights[i], 4)}
                               onChange={(e) => {
                                 // the split now should add to 100% if there are two variations.
                                 rebalanceAndUpdate(
@@ -356,7 +356,7 @@ export default function VariationsInput({
                         </div>
                       ) : (
                         <div className="col d-flex flex-row">
-                          {decimalToPercent(weights[i])}%
+                          {decimalToPercent(weights[i], 4)}%
                         </div>
                       )}
                       {setVariations && (
