@@ -204,7 +204,7 @@ const ExperimentPage = (): ReactElement => {
           ))}
         {!supportsSinglePage && <div className="mb-2" />}
         <SnapshotProvider experiment={experiment}>
-          {useSinglePage ? (
+          {supportsSinglePage && useSinglePage ? (
             <SinglePage
               experiment={experiment}
               idea={idea}

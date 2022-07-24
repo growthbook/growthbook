@@ -32,6 +32,7 @@ import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "../../../back-end/types/idea";
+import Code from "../Code";
 
 function getColWidth(v: number) {
   // 2 across
@@ -307,18 +308,31 @@ export default function SinglePage({
             <div className="d-flex align-items-center">
               <div className="mr-1">Idea:</div>
               <div>
+                {idea.impactScore && (
+                  <div
+                    className="badge badge-primary mr-1"
+                    title="Impact Score"
+                  >
+                    {idea.impactScore}
+                    <small>/100</small>
+                  </div>
+                )}
                 <Link href={`/idea/${idea.id}`}>
-                  <a>
+                  <a
+                    style={{
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                      verticalAlign: "middle",
+                    }}
+                    title={idea.text}
+                  >
                     <FaExternalLinkAlt /> {idea.text}
                   </a>
                 </Link>
               </div>
-              {idea.impactScore && (
-                <div className="badge badge-primary ml-2" title="Impact Score">
-                  {idea.impactScore}
-                  <small>/100</small>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -420,26 +434,50 @@ export default function SinglePage({
             open={() => setReportSettingsOpen(true)}
             canOpen={canEdit}
           >
-            <div className="appbox p-3">
+            <div className="appbox px-3 pt-3 pb-2">
               <RightRailSectionGroup title="Data Source" type="commaList">
                 {datasource?.name}
               </RightRailSectionGroup>
-              <RightRailSectionGroup title="Assignment Query" type="commaList">
-                {exposureQuery?.name}
-              </RightRailSectionGroup>
-              <RightRailSectionGroup title="Experiment Id" type="commaList">
-                {experiment.trackingKey}
-              </RightRailSectionGroup>
-              <RightRailSectionGroup
-                title="Segment"
-                type="commaList"
-                empty="All Users"
-              >
-                {segment?.name}
-              </RightRailSectionGroup>
-              <RightRailSectionGroup title="Activation Metric" type="commaList">
-                {activationMetric?.name}
-              </RightRailSectionGroup>
+              {exposureQuery && (
+                <RightRailSectionGroup
+                  title="Assignment Query"
+                  type="commaList"
+                >
+                  {exposureQuery?.name}
+                </RightRailSectionGroup>
+              )}
+              {datasource && (
+                <RightRailSectionGroup title="Experiment Id" type="commaList">
+                  {experiment.trackingKey}
+                </RightRailSectionGroup>
+              )}
+              {datasource?.properties?.segments && (
+                <RightRailSectionGroup
+                  title="Segment"
+                  type="commaList"
+                  empty="All Users"
+                >
+                  {segment?.name}
+                </RightRailSectionGroup>
+              )}
+              {experiment.activationMetric && (
+                <RightRailSectionGroup
+                  title="Activation Metric"
+                  type="commaList"
+                >
+                  {activationMetric?.name}
+                </RightRailSectionGroup>
+              )}
+              {experiment.queryFilter && (
+                <RightRailSectionGroup title="Custom Filter" type="custom">
+                  <Code
+                    language={datasource?.properties?.queryLanguage}
+                    theme="light"
+                    code={experiment.queryFilter}
+                    expandable={true}
+                  />
+                </RightRailSectionGroup>
+              )}
             </div>
           </RightRailSection>
           <div className="mb-4"></div>
