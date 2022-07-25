@@ -25,7 +25,7 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import EditStatusModal from "./EditStatusModal";
-import { FaExternalLinkAlt, FaLink } from "react-icons/fa";
+import { FaArrowDown, FaExternalLinkAlt, FaLink } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
 import useUser from "../../hooks/useUser";
 import ResultsIndicator from "./ResultsIndicator";
@@ -185,6 +185,11 @@ export default function SinglePage({
             <ResultsIndicator results={experiment.results} />
           </div>
         )}
+        {experiment.status !== "draft" && (
+          <a href="#results">
+            <FaArrowDown /> Jump to results
+          </a>
+        )}
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
@@ -308,7 +313,7 @@ export default function SinglePage({
             <div className="d-flex align-items-center">
               <div className="mr-1">Idea:</div>
               <div>
-                {idea.impactScore && (
+                {idea.impactScore > 0 && (
                   <div
                     className="badge badge-primary mr-1"
                     title="Impact Score"
@@ -380,9 +385,9 @@ export default function SinglePage({
           </a>
         </div>
       )}
-      <div className="row">
-        <div className="col-md-9">
-          <div className="appbox p-3 mb-4">
+      <div className="row mb-4">
+        <div className="col-md-8">
+          <div className="appbox p-3 h-100">
             <MarkdownInlineEdit
               value={experiment.description || experiment.observations}
               save={async (description) => {
@@ -428,7 +433,7 @@ export default function SinglePage({
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col-md-4">
           <RightRailSection
             title="Analysis Settings"
             open={() => setReportSettingsOpen(true)}
@@ -525,7 +530,7 @@ export default function SinglePage({
             open={editPhases}
             canOpen={!!editPhases}
           >
-            <div className="appbox p-3">
+            <div className="appbox p-3 mb-0">
               {experiment.phases?.length > 0 ? (
                 <div>
                   {experiment.phases.map((phase, i) => (

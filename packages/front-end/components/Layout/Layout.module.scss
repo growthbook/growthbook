@@ -16,6 +16,7 @@ $topbarheight: 60px;
   overflow: hidden;
   overflow-y: auto;
   font-family: Poppins, sans-serif;
+  z-index: 990;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
@@ -64,13 +65,6 @@ $topbarheight: 60px;
     left: -$expandedwidth;
     padding-top: 60px;
     z-index: 900;
-  }
-  .mainmenu {
-    ul {
-      li {
-        //width: $expandedwidth;
-      }
-    }
   }
   .sidebaropen {
     left: 0;

@@ -1481,6 +1481,10 @@ li.metrics a span img {
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 .variationWrap {
   img {
     max-width: 200px;
