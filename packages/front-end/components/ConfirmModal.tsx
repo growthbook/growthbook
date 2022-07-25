@@ -69,12 +69,14 @@ const ConfirmModal = ({
               {subtitle !== "" && <div>{subtitle}</div>}
               {children}
               <div>
-                <button
-                  className="btn btn-outline-secondary no"
-                  onClick={closeModal}
-                >
-                  {noText}
-                </button>
+                {noText && (
+                  <button
+                    className="btn btn-outline-secondary no"
+                    onClick={closeModal}
+                  >
+                    {noText}
+                  </button>
+                )}
                 <button
                   className={`btn btn-${yesColor} yes`}
                   onClick={onConfirm}
