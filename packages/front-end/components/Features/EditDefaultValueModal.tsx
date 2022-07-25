@@ -42,8 +42,9 @@ export default function EditDefaultValueModal({
       </div>
       <FeatureValueField
         label="Value When Enabled"
-        form={form}
-        field="defaultValue"
+        id="defaultValue"
+        value={form.watch("defaultValue")}
+        setValue={(v) => form.setValue("defaultValue", v)}
         valueType={feature.valueType}
       />
     </Modal>

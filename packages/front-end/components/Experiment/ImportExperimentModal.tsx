@@ -85,7 +85,7 @@ const ImportExperimentModal: FC<{
             setImportModal(false);
           }}
         >
-          Create New Draft
+          Create From Scratch
         </a>
       </div>
       <h2>Import from Data source</h2>
