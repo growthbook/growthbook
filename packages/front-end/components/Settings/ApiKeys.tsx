@@ -4,20 +4,14 @@ import LoadingOverlay from "../LoadingOverlay";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
-import { FaKey, FaTrash } from "react-icons/fa";
+import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
-import { useEnvironments } from "../../services/features";
-import ConfirmModal from "../ConfirmModal";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [cantDelteModal, setCantDeleteModal] = useState(false);
-
-  const environments = useEnvironments();
-  const environmentIds = environments.map((e) => e.id);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -35,13 +29,6 @@ const ApiKeys: FC = () => {
       );
     }
   });
-
-  function canDelete(env: string) {
-    if (!env) return true;
-    if (!environmentIds.includes(env)) return true;
-    if (envCounts.get(env) > 1) return true;
-    return false;
-  }
 
   return (
     <div>
@@ -72,35 +59,29 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
-                <td>{key.environment ?? "production"}</td>
+                <td>
+                  <Link href={`/settings/environments`}>
+                    <a>{key.environment ?? "production"}</a>
+                  </Link>
+                </td>
                 <td>{key.description}</td>
                 <td>
                   <div className="tr-hover actions">
-                    {canDelete(key.environment) ? (
-                      <DeleteButton
-                        onClick={async () => {
-                          await apiCall(`/key/${key.key}`, {
-                            method: "DELETE",
-                          });
-                          mutate();
-                        }}
-                        displayName="Api Key"
-                        style={{ fontSize: "19px" }}
-                      />
-                    ) : (
-                      <a
-                        className="text-muted btn btn-outline btn-outline-light d-inline-block"
-                        style={{ opacity: 0.5, fontSize: "19px" }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCantDeleteModal(true);
-                        }}
-                      >
-                        <FaTrash
-                          title={`This API key cannot be deleted as it is the only key attached to an environment`}
-                        />
-                      </a>
-                    )}
+                    <DeleteButton
+                      onClick={async () => {
+                        await apiCall(`/key/${key.key}`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }}
+                      additionalMessage={
+                        envCounts.get(key?.environment) > 1
+                          ? ""
+                          : "This is the only key for this environment. An API key for this environment may be auto generated when viewing implementation instructions"
+                      }
+                      displayName="Api Key"
+                      style={{ fontSize: "19px" }}
+                    />
                   </div>
                 </td>
               </tr>
@@ -121,23 +102,6 @@ const ApiKeys: FC = () => {
       <Link href={`/settings/environments`}>
         <a className="btn btn-outline-primary ml-3">Manage environments</a>
       </Link>
-      <ConfirmModal
-        title="This API key cannot be removed"
-        subtitle=""
-        yesText="Ok"
-        noText=""
-        modalState={cantDelteModal}
-        setModalState={() => setCantDeleteModal(false)}
-        onConfirm={() => {
-          setCantDeleteModal(false);
-        }}
-      >
-        <div className="mb-2">
-          Each environment needs an API key, and as such this key cannot be
-          removed. You can remove the environment if you no longer want this API
-          key, or to regenerate, create a new key and delete the old one.
-        </div>
-      </ConfirmModal>
     </div>
   );
 };
