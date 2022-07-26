@@ -229,7 +229,8 @@ analytics.track("Experiment Viewed", <?=json_encode([
 ```php
 mixpanel.track("Experiment Viewed", <?=json_encode([
   'Experiment name' => $impression->experiment->key,
-  'Variant name' => $impression->result->variationId
+  'Variant name' => $impression->result->variationId,
+  '$source' => 'growthbook'
 ])?>);
 ```
 
