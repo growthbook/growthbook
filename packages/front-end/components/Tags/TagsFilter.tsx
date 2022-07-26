@@ -60,12 +60,6 @@ export default function TagsFilter({
     }
   });
 
-  tags.forEach((tag) => {
-    if (!availableTags.includes(tag)) {
-      availableTags.push(tag);
-    }
-  });
-
   availableTags.sort((a, b) => {
     return (counts[b] || 0) - (counts[a] || 0);
   });
