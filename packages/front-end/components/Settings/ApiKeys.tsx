@@ -74,11 +74,6 @@ const ApiKeys: FC = () => {
                         });
                         mutate();
                       }}
-                      additionalMessage={
-                        envCounts.get(key?.environment) > 1
-                          ? ""
-                          : "This is the only key for this environment. An API key for this environment may be auto generated when viewing implementation instructions"
-                      }
                       displayName="Api Key"
                       style={{ fontSize: "19px" }}
                     />
