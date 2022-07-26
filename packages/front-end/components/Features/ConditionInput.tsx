@@ -9,6 +9,7 @@ import {
 import Field from "../Forms/Field";
 import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
+import SelectField from "../Forms/SelectField";
 
 interface Props {
   defaultValue: string;
@@ -105,6 +106,7 @@ export default function ConditionInput(props: Props) {
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
+
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
@@ -116,6 +118,70 @@ export default function ConditionInput(props: Props) {
               newConds[i][name] = value;
               setConds(newConds);
             };
+
+            const onSelectFieldChange = (value: string, name: string) => {
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i][name] = value;
+              setConds(newConds);
+            };
+
+            const operatorOptions =
+              attribute.datatype === "boolean"
+                ? [
+                    { label: "is true", value: "$true" },
+                    { label: "is false", value: "$false" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
+                : attribute.array
+                ? [
+                    { label: "includes", value: "$includes" },
+                    { label: "does not include", value: "$notIncludes" },
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
+                : attribute.enum?.length > 0
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
+                : attribute.datatype === "string"
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "matches regex", value: "$regex" },
+                    { label: "does not match regex", value: "$notRegex" },
+                    { label: "is greater than", value: "$gt" },
+                    { label: "is greater than or equal to", value: "$gte" },
+                    { label: "is less than", value: "$lt" },
+                    { label: "is less than or equal to", value: "$lte" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
+                : attribute.datatype === "number"
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is greater than", value: "$gt" },
+                    { label: "is greater than or equal to", value: "$gte" },
+                    { label: "is less than", value: "$lt" },
+                    { label: "is less than or equal to", value: "$lte" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                  ]
+                : [];
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -125,12 +191,15 @@ export default function ConditionInput(props: Props) {
                     <span className={`${styles.and} mr-2`}>IF</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
-                    <select
+                    <SelectField
                       value={field}
+                      options={attributeSchema.map((s) => ({
+                        label: s.property,
+                        value: s.property,
+                      }))}
                       name="field"
-                      onChange={(e) => {
-                        const value: string | number = e.target.value;
-
+                      className={`${styles.firstselect} form-control`}
+                      onChange={(value) => {
                         const newConds = [...conds];
                         newConds[i] = { ...newConds[i] };
                         newConds[i]["field"] = value;
@@ -144,86 +213,20 @@ export default function ConditionInput(props: Props) {
                             newConds[i]["value"] = newConds[i]["value"] || "";
                           }
                         }
-
                         setConds(newConds);
                       }}
-                      className={`${styles.firstselect} form-control`}
-                    >
-                      {attributeSchema.map((s) => (
-                        <option key={s.property}>{s.property}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div className="col-sm-12 col-md mb-2">
-                    <select
+                    <SelectField
                       value={operator}
                       name="operator"
-                      onChange={onChange}
+                      options={operatorOptions}
+                      onChange={(v) => {
+                        onSelectFieldChange(v, "operator");
+                      }}
                       className="form-control"
-                    >
-                      {attribute.datatype === "boolean" ? (
-                        <>
-                          <option value="$true">is true</option>
-                          <option value="$false">is false</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.array ? (
-                        <>
-                          <option value="$includes">includes</option>
-                          <option value="$notIncludes">does not include</option>
-                          <option value="$empty">is empty</option>
-                          <option value="$notEmpty">is not empty</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.enum?.length > 0 ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.datatype === "string" ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$regex">matches regex</option>
-                          <option value="$notRegex">
-                            does not match regex
-                          </option>
-                          <option value="$gt">is greater than</option>
-                          <option value="$gte">
-                            is greater than or equal to
-                          </option>
-                          <option value="$lt">is less than</option>
-                          <option value="$lte">is less than or equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : attribute.datatype === "number" ? (
-                        <>
-                          <option value="$eq">is equal to</option>
-                          <option value="$ne">is not equal to</option>
-                          <option value="$gt">is greater than</option>
-                          <option value="$gte">
-                            is greater than or equal to
-                          </option>
-                          <option value="$lt">is less than</option>
-                          <option value="$lte">is less than or equal to</option>
-                          <option value="$in">is in the list</option>
-                          <option value="$nin">is not in the list</option>
-                          <option value="$exists">exists</option>
-                          <option value="$notExists">does not exist</option>
-                        </>
-                      ) : (
-                        ""
-                      )}
-                    </select>
+                    />
                   </div>
                   {[
                     "$exists",
@@ -241,14 +244,20 @@ export default function ConditionInput(props: Props) {
                       onChange={onChange}
                       name="value"
                       minRows={1}
+                      className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       helpText="separate values by comma"
                     />
                   ) : attribute.enum.length ? (
-                    <Field
-                      options={attribute.enum}
+                    <SelectField
+                      options={attribute.enum.map((v) => ({
+                        label: v,
+                        value: v,
+                      }))}
                       value={value}
-                      onChange={onChange}
+                      onChange={(v) => {
+                        onSelectFieldChange(v, "value");
+                      }}
                       name="value"
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
@@ -260,6 +269,7 @@ export default function ConditionInput(props: Props) {
                       value={value}
                       onChange={onChange}
                       name="value"
+                      className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                     />
                   ) : attribute.datatype === "string" ? (
@@ -267,6 +277,7 @@ export default function ConditionInput(props: Props) {
                       value={value}
                       onChange={onChange}
                       name="value"
+                      className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                     />
                   ) : (

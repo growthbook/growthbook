@@ -14,27 +14,32 @@ const AnalysisForm: FC<{
   phase: number;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate, phase }) => {
-  const { metrics, segments, getDatasourceById } = useDefinitions();
-
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === experiment.datasource
-  );
-  const filteredSegments = segments.filter(
-    (s) => s.datasource === experiment.datasource
-  );
-
-  const datasource = getDatasourceById(experiment.datasource);
-  const datasourceProperties = datasource?.properties;
+  editVariationIds?: boolean;
+  editDates?: boolean;
+}> = ({
+  experiment,
+  cancel,
+  mutate,
+  phase,
+  editVariationIds = true,
+  editDates = true,
+}) => {
+  const {
+    metrics,
+    segments,
+    getDatasourceById,
+    datasources,
+  } = useDefinitions();
 
   const phaseObj = experiment.phases[phase];
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
+      datasource: experiment.datasource || "",
       exposureQueryId:
         getExposureQuery(
-          datasource?.settings,
+          getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
           experiment.userIdType
         )?.id || "",
@@ -53,6 +58,16 @@ const AnalysisForm: FC<{
     },
   });
   const { apiCall } = useAuth();
+
+  const datasource = getDatasourceById(form.watch("datasource"));
+  const datasourceProperties = datasource?.properties;
+
+  const filteredMetrics = metrics.filter(
+    (m) => m.datasource === datasource?.id
+  );
+  const filteredSegments = segments.filter(
+    (s) => s.datasource === datasource?.id
+  );
 
   const variations = useFieldArray({
     control: form.control,
@@ -90,6 +105,12 @@ const AnalysisForm: FC<{
           removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
+        // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
+        if (body.datasource !== experiment.datasource) {
+          body.metrics = [];
+          body.guardrails = [];
+        }
+
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
         }
@@ -102,47 +123,34 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <Field
+      <SelectField
         label="Data Source"
         labelClassName="font-weight-bold"
-        value={datasource?.name || "Manual"}
-        disabled
-        helpText="You must revert this experiment to a draft to change the data source"
+        value={datasource?.id || ""}
+        onChange={(newDatasource) => {
+          if (datasource && newDatasource !== datasource?.id) {
+            form.setValue("segment", "");
+            form.setValue("activationMetric", "");
+            form.setValue("exposureQueryId", "");
+          }
+          form.setValue("datasource", newDatasource);
+        }}
+        options={datasources.map((d) => ({
+          label: d.name,
+          value: d.id,
+        }))}
+        initialOption="Manual"
+        helpText={
+          <>
+            <strong className="text-danger">Warning:</strong> Changing this will
+            remove all metrics and segments from the experiment.
+          </>
+        }
       />
-      <Field
-        label="Experiment Id"
-        labelClassName="font-weight-bold"
-        {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your data source"
-      />
-      <div className="form-group">
-        <label className="font-weight-bold">Variation Ids</label>
-        <div className="row align-items-top">
-          {variations.fields.map((v, i) => (
-            <div
-              className={`col-${Math.max(
-                Math.round(12 / variations.fields.length),
-                3
-              )} mb-2`}
-              key={i}
-            >
-              <Field
-                label={v.name}
-                labelClassName="mb-0"
-                containerClassName="mb-1"
-                {...form.register(`variations.${i}.key`)}
-                placeholder={i + ""}
-              />
-            </div>
-          ))}
-        </div>
-        <small className="form-text text-muted">
-          Will match against the variation_id column in your data source
-        </small>
-      </div>
       {datasource?.properties?.exposureQueries && (
         <SelectField
           label="Experiment Assignment Table"
+          labelClassName="font-weight-bold"
           value={form.watch("exposureQueryId")}
           onChange={(v) => form.setValue("exposureQueryId", v)}
           initialOption="Choose..."
@@ -155,7 +163,40 @@ const AnalysisForm: FC<{
           })}
         />
       )}
-      {phaseObj && (
+      <Field
+        label="Experiment Id"
+        labelClassName="font-weight-bold"
+        {...form.register("trackingKey")}
+        helpText="Will match against the experiment_id column in your data source"
+      />
+      {editVariationIds && (
+        <div className="form-group">
+          <label className="font-weight-bold">Variation Ids</label>
+          <div className="row align-items-top">
+            {variations.fields.map((v, i) => (
+              <div
+                className={`col-${Math.max(
+                  Math.round(12 / variations.fields.length),
+                  3
+                )} mb-2`}
+                key={i}
+              >
+                <Field
+                  label={v.name}
+                  labelClassName="mb-0"
+                  containerClassName="mb-1"
+                  {...form.register(`variations.${i}.key`)}
+                  placeholder={i + ""}
+                />
+              </div>
+            ))}
+          </div>
+          <small className="form-text text-muted">
+            Will match against the variation_id column in your data source
+          </small>
+        </div>
+      )}
+      {phaseObj && editDates && (
         <div className="row">
           <div className="col">
             <Field

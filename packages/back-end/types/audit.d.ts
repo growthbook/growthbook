@@ -14,6 +14,7 @@ export type EventType =
   | "experiment.phase"
   | "experiment.phase.delete"
   | "experiment.stop"
+  | "experiment.status"
   | "experiment.archive"
   | "experiment.unarchive"
   | "experiment.delete"

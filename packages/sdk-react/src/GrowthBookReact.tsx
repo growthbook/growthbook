@@ -22,6 +22,7 @@ export const GrowthBookContext = React.createContext<GrowthBookContextValue>(
 function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
   if (!growthbook) {
     return {
+      featureId: null,
       value: exp.variations[0],
       variationId: 0,
       inExperiment: false,

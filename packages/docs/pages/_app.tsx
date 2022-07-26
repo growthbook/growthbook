@@ -81,7 +81,7 @@ const navLinks = [
     links: [
       {
         href: "/guide/nextjs-and-growthbook",
-        name: "NextJS",
+        name: "Next.js",
       },
       {
         href: "/guide/create-react-app-and-growthbook",
@@ -94,6 +94,18 @@ const navLinks = [
       {
         href: "/guide/mixpanel",
         name: "Mixpanel",
+      },
+      {
+        href: "/guide/bigquery",
+        name: "BigQuery",
+      },
+      {
+        href: "/guide/rudderstack",
+        name: "Rudderstack",
+      },
+      {
+        href: "/guide/rudderstack-and-nextjs-with-growthbook",
+        name: "Rudderstack + Next.js",
       },
     ],
   },

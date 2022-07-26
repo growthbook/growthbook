@@ -5,8 +5,6 @@ import { useState } from "react";
 import { useAuth } from "../../services/auth";
 import { ago, datetime } from "../../services/dates";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { phaseSummaryText } from "../../services/utils";
-import Field from "../Forms/Field";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import AnalysisForm from "./AnalysisForm";
@@ -15,6 +13,8 @@ import ResultMoreMenu from "./ResultMoreMenu";
 import usePermissions from "../../hooks/usePermissions";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { ExperimentReportVariation } from "back-end/types/report";
+import PhaseSelector from "./PhaseSelector";
+import { useSnapshot } from "./SnapshotProvider";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -46,30 +46,28 @@ function isOutdated(
 }
 
 export default function AnalysisSettingsBar({
-  experiment,
-  snapshot,
-  latest,
-  dimension,
-  setDimension,
-  phase,
-  setPhase,
-  mutate,
   mutateExperiment,
   editMetrics,
+  editPhases,
   variations,
+  alwaysShowPhaseSelector = false,
 }: {
-  experiment: ExperimentInterfaceStringDates;
-  snapshot?: ExperimentSnapshotInterface;
-  latest?: ExperimentSnapshotInterface;
-  dimension: string;
-  phase: number;
-  setPhase: (phase: number) => void;
-  setDimension: (dimension: string) => void;
-  mutate: () => void;
   mutateExperiment: () => void;
-  editMetrics: () => void;
+  editMetrics?: () => void;
+  editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  alwaysShowPhaseSelector?: boolean;
 }) {
+  const {
+    experiment,
+    snapshot,
+    latest,
+    dimension,
+    mutateSnapshot: mutate,
+    phase,
+    setDimension,
+  } = useSnapshot();
+
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const outdated = isOutdated(experiment, snapshot);
@@ -96,22 +94,15 @@ export default function AnalysisSettingsBar({
         />
       )}
       <div className="row align-items-center p-3">
-        {experiment.phases && experiment.phases.length > 1 && (
-          <div className="col-auto form-inline">
-            <Field
-              label="Phase"
-              labelClassName="mr-2"
-              value={phase}
-              onChange={(e) => {
-                setPhase(parseInt(e.target.value));
-              }}
-              options={experiment.phases.map((phase, i) => ({
-                display: `${i + 1}: ${phaseSummaryText(phase)}`,
-                value: i,
-              }))}
-            />
-          </div>
-        )}
+        {experiment.phases &&
+          (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
+            <div className="col-auto form-inline">
+              <PhaseSelector
+                mutateExperiment={mutateExperiment}
+                editPhases={editPhases}
+              />
+            </div>
+          )}
         <div className="col-auto form-inline">
           <DimensionChooser
             value={dimension}

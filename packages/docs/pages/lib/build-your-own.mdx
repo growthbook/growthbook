@@ -98,7 +98,8 @@ The result of running an **Experiment** given a specific **Context**
 - **value** (`any`) - The array value of the assigned variation
 - **hashUsed** (`boolean`) - If a hash was used to assign a variation
 - **hashAttribute** (`string`) - The user attribute used to assign a variation
-- **hashValue** (`string)` - The value of that attribute
+- **hashValue** (`string`) - The value of that attribute
+- **featureId** (`string` or `null`) - The id of the feature (if any) that the experiment came from
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
 
@@ -514,13 +515,14 @@ Everything else is considered "truthy", including empty arrays and objects.
 
 If value is "truthy", then `on` should be true and `off` should be false. If the value is "falsy", then they should take opposite values.
 
-### private getExperimentResult(experiment, variationIndex, hashUsed): ExperimentResult
+### private getExperimentResult(experiment, variationIndex, hashUsed, featureId): ExperimentResult
 
 This is a helper method to create an `ExperimentResult` object. The arguments are:
 
 - `experiment` - Experiment object (required)
 - `variationIndex` - The assigned variation index (optional, default to `-1`)
 - `hashUsed` - Whether or not the hash was used to assign a variation (optional, default to `false`)
+- `featureId` - The id of the feature (if any) that the experiment came from (optional, default to `null`)
 
 The method is pretty simple:
 
@@ -542,6 +544,7 @@ The method is pretty simple:
 3. Return
    ```ts
    return {
+     featureId: featureId,
      inExperiment: inExperiment,
      hashUsed: hashUsed,
      variationId: variationIndex,
@@ -802,3 +805,10 @@ Join our [Slack community](https://slack.growthbook.io?ref=docs-buildyourown) if
 ## Attribution
 
 Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a link to your project and we'll make sure we add it to our docs and give you proper credit for your hard work.
+
+## Changelog
+
+- **v0.1** 2022-05-23
+  - Don't skip experiment rules that are forced
+- **v0.2** 2022-07-19
+  - Add `featureId` to ExperimentResult object
