@@ -31,7 +31,7 @@ const TagsInput: FC<{
   prompt = "Tags...",
   creatable = true,
 }) => {
-  const { tags } = useDefinitions();
+  const { tags, getTagById } = useDefinitions();
   if (!tagOptions) tagOptions = tags;
 
   const tagSet = new Set(tagOptions.map((t) => t.id));
@@ -41,7 +41,7 @@ const TagsInput: FC<{
       tagOptions.push({
         id: value,
         description: "",
-        color: "#029dd1",
+        color: getTagById(value)?.color || "#029dd1",
       });
     }
   });
