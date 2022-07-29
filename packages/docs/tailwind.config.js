@@ -14,6 +14,9 @@ module.exports = {
   content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
   theme: {
     extend: {
+      colors: {
+        purple: colors.violet,
+      },
       typography(theme) {
         return {
           DEFAULT: {
