@@ -82,7 +82,7 @@ export default function ProjectSelector() {
             bold={!project}
           />
         </DropdownLink>
-        {projects.map((p) => {
+        {projects.slice().sort((a, b) => a.name > b.name ? 1 : -1).map((p) => {
           return (
             <DropdownLink
               className="p-0"
