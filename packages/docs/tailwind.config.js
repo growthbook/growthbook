@@ -1,5 +1,7 @@
 // eslint-disable-next-line
 const path = require("path");
+// eslint-disable-next-line
+const colors = require("tailwindcss/colors");
 
 const round = (num) =>
   num
@@ -9,25 +11,7 @@ const round = (num) =>
 const em = (px, base) => `${round(px / base)}em`;
 
 module.exports = {
-  purge: {
-    content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
-    options: {
-      safelist: [
-        "border",
-        "justify-content",
-        "pb-4",
-        "icon-link",
-        "bg-blue-50",
-        "py-3",
-        "mb-4",
-        "bg-violet",
-        "font-semibold",
-        "text-gray-600",
-        "border-l-8",
-        "border-blue-200",
-      ],
-    },
-  },
+  content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
   theme: {
     extend: {
       typography(theme) {
@@ -148,11 +132,6 @@ module.exports = {
           },
         };
       },
-    },
-  },
-  variants: {
-    extend: {
-      typography: ["dark"],
     },
   },
   plugins: [require("@tailwindcss/typography")],
