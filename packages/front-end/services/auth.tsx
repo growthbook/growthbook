@@ -94,7 +94,9 @@ export const AuthContext = React.createContext<AuthContextValue>({
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 export interface AuthSource {
-  init: (router: NextRouter) => Promise<{
+  init: (
+    router: NextRouter
+  ) => Promise<{
     isAuthenticated: boolean;
   }>;
   login: (helpers: {
@@ -114,8 +116,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [specialOrg, setSpecialOrg] =
-    useState<Partial<OrganizationInterface> | null>(null);
+  const [
+    specialOrg,
+    setSpecialOrg,
+  ] = useState<Partial<OrganizationInterface> | null>(null);
   const [AuthComponent, setAuthComponent] = useState<FC | null>(null);
   const [error, setError] = useState("");
   const router = useRouter();

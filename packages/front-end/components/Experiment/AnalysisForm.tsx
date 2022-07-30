@@ -24,8 +24,12 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
 }) => {
-  const { metrics, segments, getDatasourceById, datasources } =
-    useDefinitions();
+  const {
+    metrics,
+    segments,
+    getDatasourceById,
+    datasources,
+  } = useDefinitions();
 
   const phaseObj = experiment.phases[phase];
 
