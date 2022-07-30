@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FC, ReactElement } from "react";
 
 const Tab: FC<{
@@ -11,6 +12,7 @@ const Tab: FC<{
   className?: string;
   padding?: boolean;
   forceRenderOnFocus?: boolean;
+  children: ReactNode;
 }> = ({ children }) => {
   return <>{children}</>;
 };

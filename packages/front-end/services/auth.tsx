@@ -16,6 +16,7 @@ import {
   isCloud,
 } from "./env";
 import { ReactElement } from "react";
+import { ReactNode } from "react";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -93,9 +94,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 export interface AuthSource {
-  init: (
-    router: NextRouter
-  ) => Promise<{
+  init: (router: NextRouter) => Promise<{
     isAuthenticated: boolean;
   }>;
   login: (helpers: {
@@ -108,15 +107,15 @@ export interface AuthSource {
   getJWT: () => Promise<string>;
 }
 
-export const AuthProvider: React.FC = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [AuthComponent, setAuthComponent] = useState<FC | null>(null);
   const [error, setError] = useState("");
   const router = useRouter();

@@ -13,10 +13,6 @@ import {
   FaSlack,
 } from "react-icons/fa";
 
-type ModAppProps = AppProps & {
-  Component: { noOrganization?: boolean; preAuth?: boolean };
-};
-
 const navLinks = [
   {
     href: "/",
@@ -171,11 +167,7 @@ navLinks.forEach((l) => {
   }
 });
 
-function App({
-  Component,
-  pageProps,
-  router,
-}: ModAppProps): React.ReactElement {
+function App({ Component, pageProps, router }: AppProps): React.ReactElement {
   const [dark, setDark] = React.useState<null | boolean>(null);
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));

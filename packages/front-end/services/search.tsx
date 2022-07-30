@@ -3,6 +3,7 @@ import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { ReactNode } from "react";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -18,7 +19,8 @@ function tokenize(s: string): string[] {
     .split(" ");
 }
 
-const stopwords = /^(a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|can|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)$/;
+const stopwords =
+  /^(a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|can|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)$/;
 function isNotStopWord(term: string): boolean {
   return !stopwords.test(term);
 }
@@ -272,6 +274,7 @@ export function useSort<T>(
     const th: FC<{
       field: string;
       className?: string;
+      children: ReactNode;
     }> = ({ children, field, className = "" }) => (
       <th className={className}>
         <span

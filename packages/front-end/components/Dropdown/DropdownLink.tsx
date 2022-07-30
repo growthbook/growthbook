@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { ReactNode } from "react";
 import { FC } from "react";
 
 const DropdownLink: FC<{
@@ -7,6 +8,7 @@ const DropdownLink: FC<{
   disabled?: boolean;
   className?: string;
   onClick: () => void | Promise<void>;
+  children: ReactNode;
 }> = ({
   active = false,
   disabled = false,

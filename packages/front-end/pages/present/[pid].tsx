@@ -40,12 +40,10 @@ const PresentPage = (): React.ReactElement => {
   }
 
   return (
-    <>
-      <DynamicPresentation
-        presentation={pdata.presentation}
-        experiments={pdata.experiments}
-      />
-    </>
+    <DynamicPresentation
+      presentation={pdata.presentation}
+      experiments={pdata.experiments}
+    />
   );
 };
 export default PresentPage;

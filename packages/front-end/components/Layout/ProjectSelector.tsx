@@ -82,24 +82,27 @@ export default function ProjectSelector() {
             bold={!project}
           />
         </DropdownLink>
-        {projects.slice().sort((a, b) => a.name > b.name ? 1 : -1).map((p) => {
-          return (
-            <DropdownLink
-              className="p-0"
-              key={p.id}
-              onClick={() => {
-                setProject(p.id);
-              }}
-            >
-              <ProjectName
-                className="text-dark"
-                avatarName={p.name}
-                display={p.name}
-                bold={p.id === project}
-              />
-            </DropdownLink>
-          );
-        })}
+        {projects
+          .slice()
+          .sort((a, b) => (a.name > b.name ? 1 : -1))
+          .map((p) => {
+            return (
+              <DropdownLink
+                className="p-0"
+                key={p.id}
+                onClick={() => {
+                  setProject(p.id);
+                }}
+              >
+                <ProjectName
+                  className="text-dark"
+                  avatarName={p.name}
+                  display={p.name}
+                  bold={p.id === project}
+                />
+              </DropdownLink>
+            );
+          })}
       </Dropdown>
     </li>
   );

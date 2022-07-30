@@ -1,6 +1,7 @@
 import React, { Children, FC } from "react";
 import styles from "./RightRailSectionGroup.module.scss";
 import SortedTags from "../Tags/SortedTags";
+import { ReactNode } from "react";
 
 const RightRailSectionGroup: FC<{
   title?: string;
@@ -16,6 +17,7 @@ const RightRailSectionGroup: FC<{
   empty?: string;
   badgeStyle?: string;
   className?: string;
+  children?: ReactNode;
 }> = ({
   children,
   title = "",

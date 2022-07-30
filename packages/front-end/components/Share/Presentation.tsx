@@ -21,7 +21,7 @@ import { presentationThemes, defaultTheme } from "./ShareModal";
 import clsx from "clsx";
 import Markdown from "../Markdown/Markdown";
 
-type props = {
+export interface Props {
   presentation?: PresentationInterface;
   theme?: string;
   title?: string;
@@ -37,7 +37,7 @@ type props = {
     snapshot?: ExperimentSnapshotInterface;
   }[];
   preview?: boolean;
-};
+}
 
 const Presentation = ({
   presentation,
@@ -47,7 +47,7 @@ const Presentation = ({
   desc,
   customTheme,
   preview = false,
-}: props): ReactElement => {
+}: Props): ReactElement => {
   // make sure experiments are in the right order - we know the order is
   // right in the presentation object. This could be done in the API
   const em = new Map<
