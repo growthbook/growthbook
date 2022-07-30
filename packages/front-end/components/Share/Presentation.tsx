@@ -217,7 +217,7 @@ const Presentation = ({
             >
               <CompactResults
                 id={experiment.id}
-                isLatestPhase={phase === experiment.phases.length - 1}
+                isLatestPhase={snapshot.phase === experiment.phases.length - 1}
                 metrics={experiment.metrics}
                 reportDate={snapshot.dateCreated}
                 results={snapshot.results?.[0]}

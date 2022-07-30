@@ -20,7 +20,7 @@ import {
   defaultMinSampleSize,
   formatConversionRate,
 } from "../../services/metrics";
-import BooleanSelect from "../Forms/BooleanSelect";
+import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
@@ -737,7 +737,7 @@ const MetricForm: FC<MetricFormProps> = ({
           What is the Goal?
           <BooleanSelect
             required
-            control={form.control}
+            control={form.control as BooleanSelectControl}
             name="inverse"
             falseLabel={`Increase the ${
               value.type === "binomial" ? "conversion rate" : value.type
@@ -816,7 +816,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 Converted Users Only
                 <BooleanSelect
                   required
-                  control={form.control}
+                  control={form.control as BooleanSelectControl}
                   name="ignoreNulls"
                   falseLabel="No"
                   trueLabel="Yes"
