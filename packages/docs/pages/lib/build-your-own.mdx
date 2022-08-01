@@ -1,5 +1,7 @@
 # Build Your Own SDK
 
+**Latest spec version: 0.2.1 [View Changelog](#changelog)**
+
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
 GrowthBook SDKs are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
@@ -812,3 +814,5 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Don't skip experiment rules that are forced
 - **v0.2** 2022-07-19
   - Add `featureId` to ExperimentResult object
+- **v0.2.1** 2022-08-01
+  - Add test case for when an experiment's hashAttribute is `null`

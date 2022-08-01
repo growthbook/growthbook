@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.2",
+  "specVersion": "0.2.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -2372,6 +2372,14 @@
     [
       "empty id",
       { "attributes": { "id": "" } },
+      { "key": "my-test", "variations": [0, 1] },
+      0,
+      false,
+      false
+    ],
+    [
+      "null id",
+      { "attributes": { "id": null } },
       { "key": "my-test", "variations": [0, 1] },
       0,
       false,
