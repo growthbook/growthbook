@@ -2,6 +2,7 @@ import { FC, useRef, useEffect, useState, ReactElement } from "react";
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
+import { ReactNode } from "react";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -22,6 +23,7 @@ type ModalProps = {
   submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
   successMessage?: string;
+  children: ReactNode;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",

@@ -3,6 +3,7 @@ import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { ReactNode } from "react";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -272,6 +273,7 @@ export function useSort<T>(
     const th: FC<{
       field: string;
       className?: string;
+      children: ReactNode;
     }> = ({ children, field, className = "" }) => (
       <th className={className}>
         <span

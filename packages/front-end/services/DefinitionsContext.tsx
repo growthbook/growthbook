@@ -7,6 +7,7 @@ import { useContext, useMemo, createContext, FC } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { TagInterface } from "back-end/types/tag";
+import { ReactNode } from "react";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -76,6 +77,7 @@ function useGetById<T extends IndexableItem>(
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
+      // eslint-disable-next-line
       return () => null;
     }
 
@@ -93,7 +95,9 @@ export function useDefinitions() {
   return useContext(DefinitionsContext);
 }
 
-export const DefinitionsProvider: FC = ({ children }) => {
+export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
     "/organization/definitions"
   );

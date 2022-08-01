@@ -19,6 +19,7 @@ import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
+import { ReactNode } from "react";
 
 type User = { id: string; email: string; name: string };
 
@@ -68,6 +69,7 @@ export const UserContext = createContext<UserContextValue>({
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   preAuth: boolean;
+  children: ReactNode;
 }> = ({ children, organizationRequired, preAuth }) => {
   const {
     loading,

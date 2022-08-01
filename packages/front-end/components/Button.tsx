@@ -1,6 +1,7 @@
 import { FC, useState, ButtonHTMLAttributes, DetailedHTMLProps } from "react";
 import clsx from "clsx";
 import LoadingSpinner from "./LoadingSpinner";
+import { ReactNode } from "react";
 
 interface Props
   extends DetailedHTMLProps<
@@ -11,6 +12,7 @@ interface Props
   onClick: () => Promise<void>;
   disabled?: boolean;
   description?: string;
+  children: ReactNode;
 }
 
 const Button: FC<Props> = ({

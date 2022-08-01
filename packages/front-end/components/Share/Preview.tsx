@@ -6,7 +6,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-const DynamicPresentation = dynamic(
+import { Props as PresentationProps } from "./Presentation";
+const DynamicPresentation = dynamic<PresentationProps>(
   () => import("../../components/Share/Presentation"),
   {
     ssr: false,

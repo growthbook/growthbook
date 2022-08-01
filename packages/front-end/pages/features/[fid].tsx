@@ -70,7 +70,7 @@ export default function FeaturePage() {
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
-  const firstFeature = "first" in router?.query;
+  const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
 

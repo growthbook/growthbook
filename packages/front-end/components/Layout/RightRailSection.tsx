@@ -1,9 +1,11 @@
+import { ReactNode } from "react";
 import { FC } from "react";
 
 const RightRailSection: FC<{
   open?: () => void;
   title: string;
   canOpen?: boolean;
+  children: ReactNode;
 }> = ({ open, title, children, canOpen = false }) => {
   return (
     <div>

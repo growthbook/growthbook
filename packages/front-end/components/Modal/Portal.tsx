@@ -1,9 +1,10 @@
+import { ReactNode } from "react";
 import { FC, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const PORTAL_CONTAINER_ID = "modal";
 
-const Portal: FC = ({ children }) => {
+const Portal: FC<{ children: ReactNode }> = ({ children }) => {
   const ref = useRef<HTMLElement>();
   const [mounted, setMounted] = useState(false);
 

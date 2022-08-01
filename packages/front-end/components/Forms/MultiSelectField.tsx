@@ -36,7 +36,8 @@ const SortableMultiValue = SortableElement(
   }
 );
 
-const SortableMultiValueLabel = SortableHandle(
+// eslint-disable-next-line
+const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
     const label = <components.MultiValueLabel {...props} />;
     if (props.data?.tooltip) {

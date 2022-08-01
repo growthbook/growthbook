@@ -69,6 +69,9 @@ const AnalysisForm: FC<{
     (s) => s.datasource === datasource?.id
   );
 
+  // Error: Type instantiation is excessively deep and possibly infinite.
+  // eslint-disable-next-line
+  // @ts-ignore
   const variations = useFieldArray({
     control: form.control,
     name: "variations",

@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FC, HTMLAttributes } from "react";
 import { MdInfoOutline } from "react-icons/md";
 
@@ -8,6 +9,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   innerClassName?: string;
+  children?: ReactNode;
 }
 const Tooltip: FC<Props> = ({
   text,

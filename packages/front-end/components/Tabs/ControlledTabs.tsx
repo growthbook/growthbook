@@ -23,6 +23,7 @@ const ControlledTabs: FC<{
   setActive: (tab: string | null) => void;
   showActiveCount?: boolean;
   buttonsClassName?: string;
+  children: ReactNode;
 }> = ({
   active,
   setActive,

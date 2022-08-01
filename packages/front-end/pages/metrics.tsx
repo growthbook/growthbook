@@ -74,7 +74,11 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
