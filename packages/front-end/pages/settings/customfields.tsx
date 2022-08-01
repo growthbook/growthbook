@@ -7,6 +7,8 @@ import useUser from "../../hooks/useUser";
 import { useCustomFields } from "../../services/experiments";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
+import DeleteButton from "../../components/DeleteButton";
+import track from "../../services/track";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
@@ -62,9 +64,10 @@ const CustomFieldsPage = (): React.ReactElement => {
               <tr>
                 <th style={{ width: "30px" }}></th>
                 <th>Field Name</th>
+                <th>Field Description</th>
                 <th>Field Type</th>
                 <th>Required</th>
-                <th style={{ width: 30 }}></th>
+                <th style={{ width: 75 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -99,14 +102,18 @@ const CustomFieldsPage = (): React.ReactElement => {
                         </div>
                       </td>
                       <td className="text-gray font-weight-bold">{v.name}</td>
+                      <td className="text-gray">{v.description}</td>
                       <td className="text-gray">
                         {v.type}
-                        {v.type === "enum" && <>: ({v.values})</>}
+                        {(v.type === "enum" || v.type === "multiselect") && (
+                          <>: ({v.values})</>
+                        )}
                       </td>
                       <td className="text-gray">{v.required && <>yes</>}</td>
-                      <td>
+                      <td className="">
                         <a
                           href="#"
+                          className="tr-hover"
                           onClick={(e) => {
                             e.preventDefault();
                             setModalOpen(v);
@@ -116,6 +123,30 @@ const CustomFieldsPage = (): React.ReactElement => {
                             <GBEdit />
                           </span>
                         </a>
+                        <DeleteButton
+                          className="tr-hover h4 pr-2 m-0 d-inline-block align-top"
+                          displayName="Custom Field"
+                          useIcon={true}
+                          link={true}
+                          onClick={async () => {
+                            const newCustomFields = [...customFields].filter(
+                              (x) => x.id !== v.id
+                            );
+                            await apiCall(`/organization`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                settings: {
+                                  customFields: newCustomFields,
+                                },
+                              }),
+                            }).then(() => {
+                              track("Delete Custom Experiment Field", {
+                                type: v.type,
+                              });
+                              update();
+                            });
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}

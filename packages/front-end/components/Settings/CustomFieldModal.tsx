@@ -2,12 +2,14 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { CustomField } from "back-end/types/organization";
+import { CustomField, CustomFieldTypes } from "back-end/types/organization";
 import { useCustomFields } from "../../services/experiments";
 import useUser from "../../hooks/useUser";
 import Toggle from "../Forms/Toggle";
 import uniqid from "uniqid";
 import SelectField from "../Forms/SelectField";
+import track from "../../services/track";
+import React from "react";
 
 export default function CustomFieldModal({
   existing,
@@ -22,6 +24,7 @@ export default function CustomFieldModal({
     defaultValues: {
       id: existing.id || uniqid("field_"),
       name: existing.name || "",
+      values: existing.values || "",
       type: existing.type || "text",
       required: existing.required ?? false,
       dateCreated:
@@ -33,6 +36,15 @@ export default function CustomFieldModal({
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const customFields = useCustomFields() ?? [];
+
+  const fieldOptions = [
+    "text",
+    "textarea",
+    "markdown",
+    "enum",
+    "multiselect",
+    "boolean",
+  ];
 
   return (
     <Modal
@@ -51,10 +63,15 @@ export default function CustomFieldModal({
           edit.name = value.name;
           edit.type = value.type;
           edit.required = value.required;
+          edit.values = value.values;
+          edit.description = value.description;
         } else {
           newCustomFields.push({
             id: value.id.toLowerCase(),
             name: value.name,
+            values: value.values,
+            description: value.description,
+            placeholder: value.placeholder,
             type: value.type,
             required: value.required,
             creator: userId,
@@ -73,24 +90,50 @@ export default function CustomFieldModal({
           }),
         });
 
+        track("Create Custom Experiment Field", {
+          type: value.type,
+        });
+
         if (onSuccess) {
           await onSuccess();
         }
       })}
     >
-      <Field label="Name" {...form.register("name")} placeholder="" />
-      <SelectField
-        value={form.watch("type")}
-        options={[
-          { label: "text", value: "text" },
-          { label: "textarea", value: "textarea" },
-        ]}
-        onChange={(v) => {
-          if (v === "text" || v === "textarea") {
-            form.setValue("type", v);
-          }
-        }}
+      <Field
+        label="Name"
+        {...form.register("name")}
+        placeholder=""
+        required={true}
       />
+      <div className="mb-3">
+        <SelectField
+          label="Type"
+          value={form.watch("type")}
+          options={fieldOptions.map((o) => ({ label: o, value: o }))}
+          onChange={(v: CustomFieldTypes) => {
+            form.setValue("type", v);
+          }}
+        />
+      </div>
+      {(form.watch("type") === "enum" ||
+        form.watch("type") === "multiselect") && (
+        <div className="mb-3">
+          <Field
+            textarea
+            label="Values"
+            value={form.watch("values")}
+            onChange={(e) => {
+              const valueStr: string = e.target.value;
+              form.setValue("values", valueStr);
+            }}
+            name="value"
+            minRows={1}
+            containerClassName=""
+            helpText="separate values by comma"
+          />
+        </div>
+      )}
+      <Field label="Description" {...form.register("description")} />
       <div className="mb-3 mt-3">
         <Toggle
           id={"required"}

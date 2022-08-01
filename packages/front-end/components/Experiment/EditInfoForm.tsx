@@ -13,6 +13,7 @@ import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import { MdDeleteForever } from "react-icons/md";
 import { useCustomFields } from "../../services/experiments";
+import CustomFieldInput from "./CustomFieldInput";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -131,25 +132,7 @@ const EditInfoForm: FC<{
       />
       {customFields?.length && (
         <div className="mb-3">
-          {customFields.map((v, i) => {
-            return (
-              <div key={i}>
-                <Field
-                  value={form.watch(`customFields.${i}.fieldValue`)}
-                  label={v.name}
-                  type={v.type}
-                  required={v.required}
-                  onChange={(e) => {
-                    form.setValue(
-                      `customFields.${i}.fieldValue`,
-                      e.target.value
-                    );
-                    form.setValue(`customFields.${i}.fieldId`, v.id);
-                  }}
-                />
-              </div>
-            );
-          })}
+          <CustomFieldInput customFields={customFields} form={form} />
         </div>
       )}
       <div className="mb-3">

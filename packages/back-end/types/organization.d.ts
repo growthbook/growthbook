@@ -83,11 +83,21 @@ export type Environment = {
   defaultState?: boolean;
 };
 
+export type CustomFieldTypes =
+  | "text"
+  | "textarea"
+  | "markdown"
+  | "enum"
+  | "multiselect"
+  | "boolean";
+
 export type CustomField = {
   id: string;
   name: string;
-  type: "text" | "textarea" | "markdown" | "enum";
-  values?: string[];
+  description: string;
+  placeholder: string;
+  type: CustomFieldTypes;
+  values?: string;
   required: boolean;
   index?: boolean;
   creator?: string;

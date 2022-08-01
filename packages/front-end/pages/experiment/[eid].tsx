@@ -543,15 +543,22 @@ const ExperimentPage = (): ReactElement => {
               </div>
               {experiment?.customFields.length && (
                 <>
-                  {experiment.customFields.map((f, i) => {
-                    if (f?.fieldId) {
-                      return (
-                        <div className="mb-4" key={i}>
-                          <h4>{customFieldsMap.get(f.fieldId)?.name}</h4>
-                          {f.fieldValue}
-                        </div>
-                      );
-                    }
+                  {Array.from(customFieldsMap.values()).map((v) => {
+                    // these two loops are used to make sure the order is correct with the stored order of custom fields.
+                    return experiment.customFields.map((f, i) => {
+                      if (f && "fieldId" in f && v.id === f.fieldId) {
+                        const displayValue =
+                          v.type === "multiselect"
+                            ? JSON.parse(f.fieldValue).join(", ")
+                            : f.fieldValue;
+                        return (
+                          <div className="mb-4" key={i}>
+                            <h4>{v.name}</h4>
+                            {displayValue}
+                          </div>
+                        );
+                      }
+                    });
                   })}
                 </>
               )}
