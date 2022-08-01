@@ -5,7 +5,6 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import TagsInput from "../Tags/TagsInput";
 import {
-  CustomExperimentField,
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   Variation,
@@ -24,6 +23,7 @@ import SelectField from "../Forms/SelectField";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { getExposureQuery } from "../../services/datasources";
 import { useCustomFields } from "../../services/experiments";
+import CustomFieldInput from "./CustomFieldInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -312,24 +312,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       </Page>
       {customFields?.length && (
         <Page display="Custom Fields">
-          {customFields.map((v, i) => {
-            return (
-              <div key={i}>
-                <Field
-                  label={v.name}
-                  type={v.type}
-                  required={v.required}
-                  onChange={(e) => {
-                    const obj: CustomExperimentField = {
-                      fieldValue: e.target.value,
-                      fieldId: v.id,
-                    };
-                    form.setValue(`customFields.${i}`, obj);
-                  }}
-                />
-              </div>
-            );
-          })}
+          <CustomFieldInput customFields={customFields} form={form} />
         </Page>
       )}
       <Page display="Variations">

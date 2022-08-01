@@ -33,7 +33,7 @@ const CustomFieldInput: FC<{
                       form.setValue(`customFields.${i}.fieldId`, v.id);
                     }}
                   />
-                  <label htmlFor="bool">{v.description}</label>
+                  <label htmlFor="bool">{v.name}</label>
                   {v.description && (
                     <div>
                       <small className="text-muted">{v.description}</small>
