@@ -6,5 +6,3 @@ RUN curl -sSL "https://www.mongodb.org/static/pgp/server-${MONGO_TOOLS_VERSION}.
         && apt-get update && export DEBIAN_FRONTEND=noninteractive \
         && apt-get install -y mongodb-database-tools mongodb-mongosh \
         && apt-get clean -y && rm -rf /var/lib/apt/lists/*;
-
-RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
