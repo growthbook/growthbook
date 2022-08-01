@@ -3,7 +3,7 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "sudo sh .devcontainer/dockerBuild.sh",
+  "postCreateCommand": "sh .devcontainer/dockerBuild.sh",
   "forwardPorts": [3000, 3100, 27017],
   "remoteUser": "node"
 }
