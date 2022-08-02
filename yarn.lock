@@ -1882,7 +1882,7 @@
   resolved "https://registry.yarnpkg.com/@opentelemetry/api/-/api-1.1.0.tgz#563539048255bbe1a5f4f586a4a10a1bb737f44a"
   integrity sha512-hf+3bwuBwtXsugA2ULBc95qxrOqP2pOekLz34BJhcAKawt94vfeNyUKpYc0lZQ/3sCP6LqRa7UAdHA7i5UODzQ==
 
-"@popperjs/core@^2.10.2", "@popperjs/core@^2.8.6":
+"@popperjs/core@^2.10.2", "@popperjs/core@^2.11.5", "@popperjs/core@^2.8.6":
   version "2.11.5"
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.5.tgz#db5a11bf66bdab39569719555b0f76e138d7bd64"
   integrity sha512-9X2obfABZuDVLCgPK9aX0a/x4jaOEweTTWE2+9sr0Qqqevj2Uv5XorvusThmc9XGYpS9yI+fhh8RTafBtGposw==
@@ -10959,15 +10959,7 @@ react-paginate@^8.0.0:
   dependencies:
     prop-types "^15.6.1"
 
-react-popper@^2.2.5:
-  version "2.3.0"
-  resolved "https://registry.yarnpkg.com/react-popper/-/react-popper-2.3.0.tgz#17891c620e1320dce318bad9fede46a5f71c70ba"
-  integrity sha512-e1hj8lL3uM+sgSR4Lxzn5h1GxBlpa4CQz0XLF8kx4MDrDRWY0Ena4c97PUeSX9i5W3UAfDP0z0FXCTQkoXUl3Q==
-  dependencies:
-    react-fast-compare "^3.0.1"
-    warning "^4.0.2"
-
-react-popper@^2.3.0:
+react-popper@^2.2.5, react-popper@^2.3.0:
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/react-popper/-/react-popper-2.3.0.tgz#17891c620e1320dce318bad9fede46a5f71c70ba"
   integrity sha512-e1hj8lL3uM+sgSR4Lxzn5h1GxBlpa4CQz0XLF8kx4MDrDRWY0Ena4c97PUeSX9i5W3UAfDP0z0FXCTQkoXUl3Q==
