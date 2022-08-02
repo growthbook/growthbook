@@ -45,18 +45,24 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
 5. To use the GrowthBook stats engine you will need to install our Python `gbstats` package:
-   a. Cloud Version:
-   - Run `pip install gbstats` (won't always be up to date)
-     b. Local Version:
-   - Install [poetry](https://python-poetry.org/docs/)
-   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
-   - Close and reopen your terminal or open a new shell
-   - Run `poetry --version` to verify a successful installation
-   - If unsuccessful add the poetry path (ex. `export PATH="$PATH:$HOME/.poetry/bin"`) to your shell's `rc` file (ex `.bashrc`)
+   - a. Cloud Version:
+     - Run `pip install gbstats` (won't always be up to date)
+   - b. Local Version:
+     - Install [poetry](https://python-poetry.org/docs/)
+     - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+     - Close and reopen your terminal or open a new shell
+     - Run `poetry --version` to verify a successful installation
+     - If unsuccessful add the poetry path (ex. `export PATH="$PATH:$HOME/.poetry/bin"`) to your shell's `rc` file (ex `.bashrc`)
 6. Run `yarn setup` to do the initial build
    - ONLY read the following if you followed step 5b. Now we will reference the Poetry Python environment created:
-     i. More complex, but sustainable - Run `poetry env info` from the `gbstats` directory, take note of the `Path` variable listed (Let's call it `Poetry Path`) - Create a python virtual environment for the GrowthBook project - Point your virtual environment to the `Poetry Path` or copy the dependencies from `Poetry Path` to your virtual environment
-     ii. Easy but hacky - Run `poetry env info` from the `gbstats` directory, copy the `Path` listed 1. To use `gbstats` for only this session run `export PATH="<Copied Path>:$PATH"` 2. \*This will interfere with your python environment for other python projects: To use `gbstats` for every session add the `<Copied Path>` to your shells `rc` file
+     - a. More complex, but sustainable
+       - Run `poetry env info` from the `gbstats` directory, take note of the `Path` variable listed (let's call it `Poetry Path`)
+       - Create a python virtual environment for the GrowthBook project
+       - Point your virtual environment to the `Poetry Path` or copy the dependencies from `Poetry Path` to your virtual environment
+     - b. Easy but hacky
+       - Run `poetry env info` from the `gbstats` directory, copy the `Path` listed
+         1. To use `gbstats` for only this session run `export PATH="<copied path>:$PATH"`
+         2. \*This will interfere with your python environment for other python projects: To use `gbstats` for every session add the `<copied path>` to your shells `rc` file
 7. If you have Docker installed, start MongoDB in Docker:
 
 ```sh
