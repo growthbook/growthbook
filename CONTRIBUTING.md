@@ -62,7 +62,7 @@ Now you have the basic Linux system set up, and can follow along with all the ot
      - b. Easy but hacky
        - Run `poetry env info` from the `gbstats` directory, copy the `Path` listed
          1. To use `gbstats` for only this session run `export PATH="<copied path>:$PATH"`
-         2. \*This will interfere with your python environment for other python projects: To use `gbstats` for every session add the `<copied path>` to your shells `rc` file
+         2. \*\*\*This will interfere with your python environment for other python projects: To use `gbstats` for every session add the `<copied path>` to your shells `rc` file
 7. If you have Docker installed, start MongoDB in Docker:
 
 ```sh
