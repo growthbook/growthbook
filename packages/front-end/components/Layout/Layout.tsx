@@ -198,7 +198,7 @@ const Layout = (): React.ReactElement => {
 
   const build = getGrowthBookBuild();
 
-  function isCommitTooOld(remoteCommitDate) {
+  function isCommitTooOld(remoteCommitDate: Date) {
     if (!remoteCommitDate || !build.date) return true;
     const msDiff = remoteCommitDate.valueOf() - new Date(build.date).valueOf();
     const minuteDiff = msDiff / 60000;
