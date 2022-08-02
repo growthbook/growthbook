@@ -168,7 +168,7 @@ export default function VariationsInput({
         <div className="p-3 pb-0 border-bottom">
           <label>
             Percent of traffic included in this experiment{" "}
-            <Tooltip body="Users not included in the experiment will skip this rule." />
+            <Tooltip body={coverageTooltip} />
           </label>
           <div className="row align-items-center pb-3">
             <div className="col">
