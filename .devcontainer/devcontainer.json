@@ -1,5 +1,5 @@
 {
-  "name": "Growthbook devcontainer",
+  "name": "GrowthBook devcontainer",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
