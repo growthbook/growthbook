@@ -198,6 +198,16 @@ const Layout = (): React.ReactElement => {
 
   const build = getGrowthBookBuild();
 
+  function isCommitTooOld(remoteCommitDate) {
+    if (!remoteCommitDate || !build.date) return true;
+    const msDiff = remoteCommitDate.valueOf() - new Date(build.date).valueOf();
+    const minuteDiff = msDiff / 60000;
+    const allowedMinuteDiff = 20;
+
+    if (minuteDiff > allowedMinuteDiff) return true;
+    return false;
+  }
+
   useEffect(() => {
     async function checkVersions() {
       const res = await fetch(
@@ -205,11 +215,12 @@ const Layout = (): React.ReactElement => {
       );
       const jsonRes = await res.json();
       const remoteSha = jsonRes.commit.sha;
-
-      if (build.sha !== remoteSha) setIsOldVersion(true);
+      const remoteCommitDate = new Date(jsonRes.commit.commit.author.date);
+      if (build.sha !== remoteSha && isCommitTooOld(remoteCommitDate))
+        setIsOldVersion(true);
     }
 
-    if (isCloud()) return;
+    if (isCloud() || !build.sha || !build.date) return;
     checkVersions().catch((e) => console.error(e));
   }, []);
 
@@ -369,7 +380,7 @@ const Layout = (): React.ReactElement => {
                 rel="noreferrer"
                 className="text-white"
               >
-                {`Updating to Latest Docs`}
+                {`View Update Instructions`}
               </a>
             </small>
           </div>
