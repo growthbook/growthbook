@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import { FaArrowRight } from "react-icons/fa";
+import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild, isCloud } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import fetch from "node-fetch";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -198,9 +197,12 @@ const Layout = (): React.ReactElement => {
 
   const build = getGrowthBookBuild();
 
-  function isCommitTooOld(remoteCommitDate: Date) {
-    if (!remoteCommitDate || !build.date) return true;
-    const msDiff = remoteCommitDate.valueOf() - new Date(build.date).valueOf();
+  function isBuildTooOld() {
+    if (!build.date) return true;
+    const currentTimeEpoch = new Date().valueOf();
+    const buildTimeEpoch = new Date(build.date).valueOf();
+
+    const msDiff = currentTimeEpoch - buildTimeEpoch;
     const minuteDiff = msDiff / 60000;
     const allowedMinuteDiff = 20;
 
@@ -215,9 +217,7 @@ const Layout = (): React.ReactElement => {
       );
       const jsonRes = await res.json();
       const remoteSha = jsonRes.commit.sha;
-      const remoteCommitDate = new Date(jsonRes.commit.commit.author.date);
-      if (build.sha !== remoteSha && isCommitTooOld(remoteCommitDate))
-        setIsOldVersion(true);
+      if (build.sha !== remoteSha && isBuildTooOld()) setIsOldVersion(true);
     }
 
     if (isCloud() || !build.sha || !build.date) return;
@@ -370,23 +370,13 @@ const Layout = (): React.ReactElement => {
             View Docs <FaArrowRight className="ml-2" />
           </a>
         </div>
-        {!isCloud() && isOldVersion && (
-          <div className="px-3 my-1 text-center">
-            <small>
-              <span className="text-muted">GrowthBook has a new version:</span>{" "}
-              <a
-                href={`https://docs.growthbook.io/self-host/updating`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white"
-              >
-                {`View Update Instructions`}
-              </a>
-            </small>
-          </div>
-        )}
         {build.sha && (
           <div className="px-3 my-1 text-center">
+            {!isCloud() && isOldVersion && (
+              <div>
+                <div className="badge badge-warning">New Version Available</div>
+              </div>
+            )}
             <small>
               <span className="text-muted">Build:</span>{" "}
               <a
@@ -401,6 +391,21 @@ const Layout = (): React.ReactElement => {
                 <span className="text-muted">({build.date.substr(0, 10)})</span>
               )}
             </small>
+          </div>
+        )}
+        {!isCloud() && isOldVersion && (
+          <div className="px-3 my-1 text-center">
+            <a
+              href={`https://docs.growthbook.io/self-host/updating`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-white"
+            >
+              <span>
+                {`View Update Instructions `}
+                <FaExternalLinkAlt />
+              </span>
+            </a>
           </div>
         )}
       </div>
