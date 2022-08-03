@@ -148,12 +148,12 @@ describe("backend", () => {
     // Regex
     expect(
       conditionToJavascript({ column: "v", operator: "~", value: "abc.*" })
-    ).toEqual(`event.properties["v"].match(/abc.*/)`);
+    ).toEqual(`event.properties["v"].match(new RegExp("abc.*"))`);
 
     // Negative regex
     expect(
       conditionToJavascript({ column: "v", operator: "!~", value: "abc.*" })
-    ).toEqual(`!event.properties["v"].match(/abc.*/)`);
+    ).toEqual(`!event.properties["v"].match(new RegExp("abc.*"))`);
   });
 
   it("expands denominator metrics", () => {
