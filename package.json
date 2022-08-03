@@ -7,10 +7,10 @@
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "test": "wsrun -m test",
-    "dev": "yarn workspace stats activate && wsrun -p '*-end' -m dev",
+    "dev": "(gb_dir=$PWD; cd packages/stats; . $(poetry env info --path)/bin/activate; cd $gb_dir; wsrun -p '*-end' -m dev)",
     "build": "wsrun -p '*-end' -m build",
     "start": "wsrun -p '*-end' -m start",
-    "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && yarn workspace stats setup",
+    "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "ci": "yarn run type-check && yarn run test"
   },
