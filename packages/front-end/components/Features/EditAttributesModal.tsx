@@ -84,7 +84,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
               <th>Data Type</th>
               <th>
                 Identifier{" "}
-                <Tooltip text="Any attribute that uniquely identifies a user, account, device, or similar.">
+                <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                   <FaQuestionCircle />
                 </Tooltip>
               </th>

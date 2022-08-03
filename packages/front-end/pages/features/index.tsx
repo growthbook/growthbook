@@ -216,7 +216,7 @@ export default function FeaturesPage() {
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
-                    <Tooltip text="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
               </tr>
@@ -296,7 +296,7 @@ export default function FeaturesPage() {
                       <td style={{ textAlign: "center" }}>
                         {version}{" "}
                         {isDraft && (
-                          <Tooltip text="This is a draft version and is not visible to users">
+                          <Tooltip body="This is a draft version and is not visible to users">
                             <FaExclamationTriangle className="text-warning" />
                           </Tooltip>
                         )}

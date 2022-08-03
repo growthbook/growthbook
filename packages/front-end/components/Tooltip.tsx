@@ -1,40 +1,74 @@
 import { ReactNode } from "react";
-import { FC, HTMLAttributes } from "react";
+import { FC, HTMLAttributes, useState } from "react";
 import { MdInfoOutline } from "react-icons/md";
-
-// todo: add support for variable positioning instead of just bottom.
+import { usePopper } from "react-popper";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
-  text: string;
+  body: string | JSX.Element;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   innerClassName?: string;
   children?: ReactNode;
+  shouldDisplay?: boolean;
 }
 const Tooltip: FC<Props> = ({
-  text,
+  body,
   children,
-  className,
+  className = "",
   tipMinWidth = "140px",
   tipPosition = "bottom",
   innerClassName = "",
+  shouldDisplay = true,
   ...otherProps
 }) => {
+  const [trigger, setTrigger] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
+  const [arrow, setArrow] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const { styles, attributes } = usePopper(trigger, tooltip, {
+    modifiers: [
+      { name: "arrow", options: { element: arrow } },
+      {
+        name: "offset",
+        options: {
+          offset: [0, 10],
+        },
+      },
+    ],
+    placement: tipPosition,
+    strategy: "fixed",
+  });
+
   if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
   return (
     <>
-      <div className={`tiptrigger ${className}`} {...otherProps}>
+      <span
+        ref={setTrigger}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className={`${className}`}
+        {...otherProps}
+      >
         {children}
-        <div className={`tooltip bs-tooltip-${tipPosition}`} role="tooltip">
-          <div className="arrow" />
-          <div
-            className={`tooltip-inner ${innerClassName}`}
-            style={tipMinWidth ? { minWidth: tipMinWidth } : {}}
-          >
-            {text}
-          </div>
+      </span>
+      {open && body && shouldDisplay && (
+        <div
+          ref={setTooltip}
+          style={{
+            ...styles.popper,
+            minWidth: tipMinWidth,
+            maxWidth: 400,
+            zIndex: 10000,
+          }}
+          {...attributes.popper}
+          className="shadow-lg gb-tooltip"
+          role="tooltip"
+        >
+          <div className={`body ${innerClassName}`}>{body}</div>
+          <div ref={setArrow} style={styles.arrow} className="arrow" />
         </div>
-      </div>
+      )}
     </>
   );
 };

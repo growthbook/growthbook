@@ -168,7 +168,7 @@ export default function VariationsInput({
         <div className="p-3 pb-0 border-bottom">
           <label>
             Percent of traffic included in this experiment{" "}
-            <Tooltip text={coverageTooltip} />
+            <Tooltip body={coverageTooltip} />
           </label>
           <div className="row align-items-center pb-3">
             <div className="col">
@@ -218,7 +218,7 @@ export default function VariationsInput({
               {!valueAsId && <th>Variation</th>}
               <th>
                 Name{" "}
-                <Tooltip text="Optional way to identify the variations within GrowthBook." />
+                <Tooltip body="Optional way to identify the variations within GrowthBook." />
               </th>
               <th>
                 Split
