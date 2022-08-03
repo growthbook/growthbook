@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect } from "react";
 import { useAuth } from "../../services/auth";
 import { getInitialSettings } from "../../services/datasources";
 import track from "../../services/track";
@@ -13,6 +13,7 @@ import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import Toggle from "../../../front-end/components/Forms/Toggle";
+import Tooltip from "../../../front-end/components/Tooltip";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -34,9 +35,6 @@ const EditDataSourceSettingsForm: FC<{
   }, [source]);
 
   const { apiCall } = useAuth();
-  const [addNameCols, setNameCols] = useState(
-    data.settings?.queries?.exposure[0]?.hasNameCol
-  );
 
   const handleSubmit = form.handleSubmit(async (value) => {
     // Update
@@ -77,13 +75,6 @@ const EditDataSourceSettingsForm: FC<{
       value: t.userIdType,
     };
   });
-
-  function nameColToggle() {
-    setNameCols(!addNameCols);
-    for (let i = 0; i < data.settings.queries.exposure.length; i++) {
-      form.setValue(`settings.queries.exposure.${i}.hasNameCol`, !addNameCols);
-    }
-  }
 
   return (
     <Modal
@@ -280,18 +271,25 @@ const EditDataSourceSettingsForm: FC<{
                               )
                             }
                           />
-                          <div>
-                            <label style={{ padding: 3 }}>
-                              Add Experiment & Variation Name
+                          <div className="form-group">
+                            <label>
+                              Use Name Columns
+                              <Tooltip text="Enable this if you store experiment/variation names as well as ids in your table" />
                             </label>
                             <Toggle
-                              id="nameToggle"
-                              value={addNameCols}
-                              type="environment"
-                              setValue={() => {
-                                nameColToggle();
+                              id={`exposureQuery${i}`}
+                              value={
+                                form.watch(
+                                  `settings.queries.exposure.${i}.hasNameCol`
+                                ) || false
+                              }
+                              setValue={(hasNameCol) => {
+                                form.setValue(
+                                  `settings.queries.exposure.${i}.hasNameCol`,
+                                  hasNameCol
+                                );
                               }}
-                            ></Toggle>
+                            />
                           </div>
 
                           <StringArrayField
@@ -328,6 +326,16 @@ const EditDataSourceSettingsForm: FC<{
                             <li>
                               <code>variation_id</code>
                             </li>
+                            {data.settings.queries.exposure[i].hasNameCol && (
+                              <>
+                                <li>
+                                  <code>experiment_name</code>
+                                </li>
+                                <li>
+                                  <code>variation_name</code>
+                                </li>
+                              </>
+                            )}
                           </ul>
                           <div>
                             Any additional columns you select can be listed as

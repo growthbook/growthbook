@@ -166,12 +166,6 @@ export default abstract class SqlIntegration
     );
     const experimentNameCol = hasNameCol ? "experiment_name" : "experiment_id";
     const variationNameCol = hasNameCol ? "variation_name" : "variation_id";
-    const groupByExperimentNameCol = hasNameCol
-      ? "experiment_name"
-      : "experiment_id";
-    const groupByVariationNameCol = hasNameCol
-      ? "variation_name"
-      : "variation_id";
 
     return format(
       `-- Past Experiments
@@ -198,9 +192,7 @@ export default abstract class SqlIntegration
           )}
           GROUP BY
             experiment_id,
-            ${groupByExperimentNameCol},
             variation_id,
-            ${groupByVariationNameCol},
             ${this.dateTrunc(this.castUserDateCol("timestamp"))}
         ),`;
         })
@@ -214,9 +206,9 @@ export default abstract class SqlIntegration
         SELECT
           exposure_query,
           experiment_id,
-          MIN(${experimentNameCol}) as experiment_name,
+          MIN(experiment_name) as experiment_name,
           variation_id,
-          MIN(${variationNameCol}) as variation_name,
+          MIN(variation_name) as variation_name,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
@@ -226,7 +218,7 @@ export default abstract class SqlIntegration
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          exposure_query, experiment_id, ${groupByExperimentNameCol}, variation_id, ${groupByVariationNameCol}
+        exposure_query, experiment_id, variation_id
       ),
       __variations as (
         SELECT

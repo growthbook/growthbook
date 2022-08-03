@@ -14,7 +14,7 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import usePermissions from "../../hooks/usePermissions";
-import { DataSourceSettings } from "back-end/types/datasource";
+
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -42,12 +42,6 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
-  const dataSourceData = useApi<{
-    settings: DataSourceSettings;
-  }>(`/datasource/${data?.experiments.datasource}`);
-
-  const isExperimentName =
-    dataSourceData.data?.settings?.queries?.exposure[0]?.hasNameCol;
   const status = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
@@ -85,6 +79,8 @@ const ImportExperimentList: FC<{
   );
 
   const datasource = getDatasourceById(data.experiments.datasource);
+  const isExperimentName =
+    datasource?.settings?.queries?.exposure?.[0]?.hasNameCol;
 
   return (
     <>
@@ -187,6 +183,10 @@ const ImportExperimentList: FC<{
             </thead>
             <tbody>
               {filteredExperiments.map((e) => {
+                const variationLength = Array.from(
+                  { length: e.variationKeys.length },
+                  (x, i) => i
+                );
                 return (
                   <tr key={e.trackingKey}>
                     <td>
@@ -197,11 +197,7 @@ const ImportExperimentList: FC<{
                           )?.name
                         : "experiments"}
                     </td>
-                    {isExperimentName ? (
-                      <td>{e?.experimentName}</td>
-                    ) : (
-                      <td>{e.trackingKey}</td>
-                    )}
+                    <td>{e.experimentName || e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>
@@ -220,24 +216,35 @@ const ImportExperimentList: FC<{
                           onClick={(ev) => {
                             ev.preventDefault();
                             const importObj: Partial<ExperimentInterfaceStringDates> = {
-                              name: e.trackingKey,
+                              name: e.experimentName || e.trackingKey,
                               trackingKey: e.trackingKey,
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
-                              variations: e.variationKeys.map((v) => {
-                                const vInt = parseInt(v);
-                                const name = !Number.isNaN(vInt)
-                                  ? vInt == 0
-                                    ? "Control"
-                                    : `Variation ${vInt}`
-                                  : v;
-                                return {
-                                  name,
-                                  screenshots: [],
-                                  description: "",
-                                  key: v,
-                                };
-                              }),
+                              variations: e.experimentName
+                                ? variationLength.map((varLength) => {
+                                    const vName = e.variationNames[varLength];
+                                    const vId = e.variationKeys[varLength];
+                                    return {
+                                      name: vName,
+                                      screenshots: [],
+                                      description: "",
+                                      key: vId,
+                                    };
+                                  })
+                                : e.variationKeys.map((v) => {
+                                    const vInt = parseInt(v);
+                                    const name = !Number.isNaN(vInt)
+                                      ? vInt == 0
+                                        ? "Control"
+                                        : `Variation ${vInt}`
+                                      : v;
+                                    return {
+                                      name,
+                                      screenshots: [],
+                                      description: "",
+                                      key: v,
+                                    };
+                                  }),
                               phases: [
                                 {
                                   coverage: 1,

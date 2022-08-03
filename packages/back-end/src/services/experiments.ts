@@ -718,6 +718,7 @@ export async function processPastExperiments(
         startDate: e.start_date,
         numVariations: 1,
         variationKeys: [e.variation_id],
+        variationNames: [e.variation_name || ""],
         exposureQueryId: e.exposureQueryId || "",
         trackingKey: e.experiment_id,
         experimentName: e.experiment_name,
@@ -737,6 +738,9 @@ export async function processPastExperiments(
         el.weights.push(e.users);
         el.users += e.users;
         el.numVariations++;
+      }
+      if (!el.variationNames?.includes(e.variation_name || "")) {
+        el.variationNames?.push(e.variation_name || "");
       }
     }
   });

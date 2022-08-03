@@ -4,6 +4,7 @@ export interface PastExperiment {
   exposureQueryId: string;
   trackingKey: string;
   experimentName?: string;
+  variationNames?: string[];
   numVariations: number;
   variationKeys: string[];
   weights: number[];
