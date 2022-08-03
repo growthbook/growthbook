@@ -74,6 +74,20 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
   const configSettings = getConfigOrganizationSettings();
   json.settings = Object.assign({}, json.settings || {}, configSettings);
 
+  // Default attribute schema
+  if (!json.settings.attributeSchema) {
+    json.settings.attributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "deviceId", datatype: "string", hashAttribute: true },
+      { property: "company", datatype: "string", hashAttribute: true },
+      { property: "loggedIn", datatype: "boolean" },
+      { property: "employee", datatype: "boolean" },
+      { property: "country", datatype: "string" },
+      { property: "browser", datatype: "string" },
+      { property: "url", datatype: "string" },
+    ];
+  }
+
   return json;
 }
 
