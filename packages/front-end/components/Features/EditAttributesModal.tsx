@@ -8,17 +8,7 @@ import Field from "../Forms/Field";
 import Tooltip from "../Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import track from "../../services/track";
-
-const INITIAL_ATTRS: SDKAttributeSchema = [
-  { property: "id", datatype: "string", hashAttribute: true },
-  { property: "deviceId", datatype: "string", hashAttribute: true },
-  { property: "company", datatype: "string", hashAttribute: true },
-  { property: "loggedIn", datatype: "boolean" },
-  { property: "employee", datatype: "boolean" },
-  { property: "country", datatype: "string" },
-  { property: "browser", datatype: "string" },
-  { property: "url", datatype: "string" },
-];
+import { useAttributeSchema } from "../../services/features";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
   const { settings, update } = useUser();
@@ -26,9 +16,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
 
   const form = useForm<{ attributeSchema: SDKAttributeSchema }>({
     defaultValues: {
-      attributeSchema: settings?.attributeSchema?.length
-        ? settings?.attributeSchema
-        : INITIAL_ATTRS,
+      attributeSchema: useAttributeSchema(),
     },
   });
 
@@ -48,9 +36,6 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         if (!settings?.attributeSchema) {
           track("Save Targeting Attributes", {
             source: "onboarding",
-            customized:
-              JSON.stringify(value.attributeSchema) !==
-              JSON.stringify(INITIAL_ATTRS),
             hashAttributes: value.attributeSchema
               .filter((s) => s.hashAttribute)
               .map((s) => s.property),
