@@ -7,7 +7,7 @@
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "test": "wsrun -m test",
-    "dev": "wsrun -p '*-end' -m dev",
+    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p '*-end' -m dev",
     "build": "wsrun -p '*-end' -m build",
     "start": "wsrun -p '*-end' -m start",
     "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
