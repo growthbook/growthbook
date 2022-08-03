@@ -23,7 +23,6 @@ import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import EditableH1 from "../../components/Forms/EditableH1";
 import InlineForm from "../../components/Forms/InlineForm";
-import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import TagsInput from "../../components/Tags/TagsInput";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
@@ -35,6 +34,7 @@ import { useEffect } from "react";
 import SelectField from "../../components/Forms/SelectField";
 import useUser from "../../hooks/useUser";
 import SortedTags from "../../components/Tags/SortedTags";
+import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -223,130 +223,140 @@ const IdeaPage = (): ReactElement => {
       )}
       <div className="mb-3 row">
         <div className="col">
-          <InlineForm
-            className="mb-4"
-            editing={edit}
-            canEdit={permissions.createIdeas}
-            onSave={form.handleSubmit(async (value) => {
-              await apiCall<{ status: number; message?: string }>(
-                `/idea/${idea.id}`,
-                {
-                  method: "POST",
-                  body: JSON.stringify(value),
-                }
-              );
-              await mutate({
-                ...data,
-                idea: {
-                  ...data.idea,
-                  ...value,
-                },
-              });
-              refreshTags(value.tags);
-              setEdit(false);
-            })}
-            onStartEdit={() => {
-              form.setValue("text", idea.text || "");
-              form.setValue("tags", idea.tags || []);
-              form.setValue("details", idea.details || "");
-              form.setValue("project", idea.project || "");
-            }}
-            setEdit={setEdit}
-          >
-            {({ save, cancel }) => (
-              <div className="bg-white p-3 border idea-wrap">
-                <div className="row">
-                  <div className="col">
-                    <EditableH1
-                      editing={edit}
-                      className="mb-0 flex-grow-1"
-                      autoFocus
-                      label="Idea Text"
-                      save={save}
-                      cancel={cancel}
-                      value={form.watch("text")}
-                      onChange={(e) => form.setValue("text", e.target.value)}
-                    />
+          <div className="bg-white p-3 border idea-wrap mb-4">
+            <InlineForm
+              editing={edit}
+              canEdit={permissions.createIdeas}
+              onSave={form.handleSubmit(async (value) => {
+                await apiCall<{ status: number; message?: string }>(
+                  `/idea/${idea.id}`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify(value),
+                  }
+                );
+                await mutate({
+                  ...data,
+                  idea: {
+                    ...data.idea,
+                    ...value,
+                  },
+                });
+                refreshTags(value.tags);
+                setEdit(false);
+              })}
+              onStartEdit={() => {
+                form.setValue("text", idea.text || "");
+                form.setValue("tags", idea.tags || []);
+                form.setValue("details", idea.details || "");
+                form.setValue("project", idea.project || "");
+              }}
+              setEdit={setEdit}
+            >
+              {({ save, cancel }) => (
+                <div>
+                  <div className="row">
+                    <div className="col">
+                      <EditableH1
+                        editing={edit}
+                        className="mb-0 flex-grow-1"
+                        autoFocus
+                        label="Idea Text"
+                        save={save}
+                        cancel={cancel}
+                        value={form.watch("text")}
+                        onChange={(e) => form.setValue("text", e.target.value)}
+                      />
+                    </div>
+                    {!edit && permissions.createIdeas && (
+                      <div className="col-auto">
+                        <button
+                          className="btn btn-outline-secondary"
+                          onClick={() => {
+                            setEdit(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!edit && permissions.createIdeas && (
-                    <div className="col-auto">
-                      <button
-                        className="btn btn-outline-secondary"
-                        onClick={() => {
-                          setEdit(true);
-                        }}
-                      >
-                        Edit
-                      </button>
+
+                  {edit && permissions.createIdeas ? (
+                    <div className="py-2">
+                      <div className="form-group">
+                        <label>Tags</label>
+                        <TagsInput
+                          value={form.watch("tags")}
+                          onChange={(tags) => form.setValue("tags", tags)}
+                        />
+                      </div>
+                      {projects.length > 0 && (
+                        <SelectField
+                          label="Project"
+                          value={form.watch("project")}
+                          onChange={(v) => form.setValue("project", v)}
+                          options={projects.map((p) => ({
+                            label: p.name,
+                            value: p.id,
+                          }))}
+                          initialOption="None"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="d-flex">
+                      <div className="text-muted mb-4 mr-3">
+                        <small>
+                          Submitted by{" "}
+                          <strong className="mr-1">
+                            {getUserDisplay(idea.userId) || idea.userName}
+                          </strong>
+                          {idea.source && idea.source !== "web" && (
+                            <span className="mr-1">via {idea.source}</span>
+                          )}
+                          on <strong>{date(idea.dateCreated)}</strong>
+                        </small>
+                      </div>
+                      <div className="idea-tags text-muted mr-3">
+                        <small>
+                          Tags: <SortedTags tags={Object.values(idea.tags)} />
+                          {!idea.tags?.length && <em>None</em>}
+                        </small>
+                      </div>
+                      <div className="text-muted mr-3">
+                        <small>
+                          Project:{" "}
+                          <span className="badge badge-secondary">
+                            {getProjectById(idea.project)?.name || "None"}
+                          </span>
+                        </small>
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {edit && permissions.createIdeas ? (
-                  <div className="py-2">
-                    <div className="form-group">
-                      <label>Tags</label>
-                      <TagsInput
-                        value={form.watch("tags")}
-                        onChange={(tags) => form.setValue("tags", tags)}
-                      />
-                    </div>
-                    {projects.length > 0 && (
-                      <SelectField
-                        label="Project"
-                        value={form.watch("project")}
-                        onChange={(v) => form.setValue("project", v)}
-                        options={projects.map((p) => ({
-                          label: p.name,
-                          value: p.id,
-                        }))}
-                        initialOption="None"
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="d-flex">
-                    <div className="text-muted mb-4 mr-3">
-                      <small>
-                        Submitted by{" "}
-                        <strong className="mr-1">
-                          {getUserDisplay(idea.userId) || idea.userName}
-                        </strong>
-                        {idea.source && idea.source !== "web" && (
-                          <span className="mr-1">via {idea.source}</span>
-                        )}
-                        on <strong>{date(idea.dateCreated)}</strong>
-                      </small>
-                    </div>
-                    <div className="idea-tags text-muted mr-3">
-                      <small>
-                        Tags: <SortedTags tags={Object.values(idea.tags)} />
-                        {!idea.tags?.length && <em>None</em>}
-                      </small>
-                    </div>
-                    <div className="text-muted mr-3">
-                      <small>
-                        Project:{" "}
-                        <span className="badge badge-secondary">
-                          {getProjectById(idea.project)?.name || "None"}
-                        </span>
-                      </small>
-                    </div>
-                  </div>
-                )}
-
-                <MarkdownEditor
-                  defaultValue={idea.details || ""}
-                  editing={permissions.createIdeas && edit}
-                  label="More Details"
-                  form={form}
-                  name="details"
-                  save={save}
-                  cancel={cancel}
-                />
-              </div>
-            )}
-          </InlineForm>
+              )}
+            </InlineForm>
+            <MarkdownInlineEdit
+              save={async (details) => {
+                await apiCall(`/idea/${idea.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ details }),
+                });
+                await mutate({
+                  ...data,
+                  idea: {
+                    ...data.idea,
+                    details,
+                  },
+                });
+              }}
+              value={idea.details}
+              canCreate={permissions.createIdeas}
+              canEdit={permissions.createIdeas}
+              label="More Details"
+            />
+          </div>
 
           <div className="mb-3">
             <h3>Comments</h3>
