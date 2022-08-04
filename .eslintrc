@@ -38,6 +38,7 @@
   },
   "rules": {
     "@next/next/no-html-link-for-pages": ["warn", "./packages/front-end/pages"],
+    "@next/next/no-img-element": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-explicit-any": 1,

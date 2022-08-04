@@ -2,11 +2,12 @@ import { FC, useState, Children, isValidElement, cloneElement } from "react";
 import clsx from "clsx";
 import Modal from "./Modal";
 import DeleteButton from "./DeleteButton";
+import { ReactNode } from "react";
 
-const Carousel: FC<{ deleteImage?: (i: number) => Promise<void> }> = ({
-  children,
-  deleteImage,
-}) => {
+const Carousel: FC<{
+  deleteImage?: (i: number) => Promise<void>;
+  children: ReactNode;
+}> = ({ children, deleteImage }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 

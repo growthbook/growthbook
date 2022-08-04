@@ -32,7 +32,6 @@ import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesBut
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import InlineForm from "../../components/Forms/InlineForm";
-import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -51,6 +50,7 @@ import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
+import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -371,6 +371,7 @@ const MetricPage: FC = () => {
                         body: JSON.stringify(value),
                       });
                       await mutate();
+                      mutateDefinitions({});
                       setEditing(false);
                     })}
                     onStartEdit={() => {
@@ -406,33 +407,25 @@ const MetricPage: FC = () => {
                             </div>
                           )}
                         </div>
-                        <MarkdownEditor
-                          editing={canEdit && editing}
-                          cancel={cancel}
-                          save={save}
-                          defaultValue={metric.description}
-                          form={form}
-                          name="description"
-                          placeholder={
-                            <>
-                              No description yet.{" "}
-                              {canEdit && (
-                                <a
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditing(true);
-                                  }}
-                                >
-                                  Add one.
-                                </a>
-                              )}
-                            </>
-                          }
-                        />
                       </div>
                     )}
                   </InlineForm>
+                  <MarkdownInlineEdit
+                    save={async (description) => {
+                      await apiCall(`/metric/${metric.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          description,
+                        }),
+                      });
+                      await mutate();
+                      mutateDefinitions({});
+                    }}
+                    value={metric.description}
+                    canCreate={canEdit}
+                    canEdit={canEdit}
+                    label="Description"
+                  />
                   <hr />
                   {!!datasource && (
                     <div>

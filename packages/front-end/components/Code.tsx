@@ -57,7 +57,7 @@ export default function Code({
   const enoughLines = code.split("\n").length > 8;
 
   light['code[class*="language-"]'].fontSize = "1em";
-  light['code[class*="language-"]'].fontWeight = "600";
+  light['code[class*="language-"]'].fontWeight = 600;
 
   return (
     <div

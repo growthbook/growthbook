@@ -104,7 +104,7 @@ export default function ExperimentSplitVisual({
                   style={additionalStyles}
                 >
                   <Tooltip
-                    text={variationLabel}
+                    body={variationLabel}
                     style={{ width: "100%", height: "100%" }}
                   >
                     <></>
@@ -135,7 +135,7 @@ export default function ExperimentSplitVisual({
                 }}
               >
                 <Tooltip
-                  text={`Not included: ${parseFloat(
+                  body={`Not included: ${parseFloat(
                     ((1 - coverageVal) * 100).toPrecision(5)
                   )}% - users will skip this rule`}
                   style={{ width: "100%", height: "100%" }}

@@ -45,7 +45,6 @@ export default function TagsFilter({
   items,
 }: Props) {
   const [open, setOpen] = useState(false);
-
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];
   const { getTagById } = useDefinitions();
@@ -60,13 +59,12 @@ export default function TagsFilter({
       });
     }
   });
+
   availableTags.sort((a, b) => {
     return (counts[b] || 0) - (counts[a] || 0);
   });
 
-  if (!tags.length && !availableTags.length) {
-    return null;
-  }
+  if (!tags.length && !availableTags.length) return null;
 
   if (!open && !tags.length) {
     return (

@@ -1,6 +1,15 @@
 import clsx from "clsx";
-import { ReactElement, ReactNode, useState, forwardRef } from "react";
-import TextareaAutosize from "react-textarea-autosize";
+import {
+  ReactElement,
+  ReactNode,
+  useState,
+  forwardRef,
+  DetailedHTMLProps,
+  SelectHTMLAttributes,
+} from "react";
+import TextareaAutosize, {
+  TextareaAutosizeProps,
+} from "react-textarea-autosize";
 
 export type SelectOptions =
   | (
@@ -114,7 +123,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...(otherProps as unknown)}
+          {...((otherProps as unknown) as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -143,7 +152,10 @@ const Field = forwardRef(
     } else if (options || optionGroups) {
       component = (
         <select
-          {...(otherProps as unknown)}
+          {...((otherProps as unknown) as DetailedHTMLProps<
+            SelectHTMLAttributes<HTMLSelectElement>,
+            HTMLSelectElement
+          >)}
           ref={ref}
           id={fieldId}
           className={cn}

@@ -74,7 +74,11 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -162,7 +166,7 @@ const MetricsPage = (): React.ReactElement => {
             Your Metrics{" "}
             <small className="text-muted">
               <Tooltip
-                text=" Metrics define success and failure for your business. Create metrics
+                body=" Metrics define success and failure for your business. Create metrics
         here to use throughout the GrowthBook app."
               />
             </small>

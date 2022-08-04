@@ -174,10 +174,11 @@ Below is an example of what your Mixpanel tracking call would look like in Javas
 const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
-    mixpanel.track("Experiment Viewed", {
-      "Experiment Id": experiment.key,
-      "Variant Id": result.variationId,
-    });
+    mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name":  result.variationId,
+      "$source": "growthbook",
+    })
   }
 })
 ```

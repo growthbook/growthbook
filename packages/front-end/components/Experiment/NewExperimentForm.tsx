@@ -1,12 +1,11 @@
 import { FC, useEffect, useState } from "react";
 import { useAuth } from "../../services/auth";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import TagsInput from "../Tags/TagsInput";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
   Variation,
 } from "back-end/types/experiment";
 import MetricsSelector from "./MetricsSelector";
@@ -18,10 +17,10 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import useUser from "../../hooks/useUser";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
-import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
-import MoreMenu from "../Dropdown/MoreMenu";
 import { getExposureQuery } from "../../services/datasources";
+import VariationsInput from "../Features/VariationsInput";
+import VariationDataInput from "./VariationDataInput";
 import { useCustomFields } from "../../services/experiments";
 import CustomFieldInput from "./CustomFieldInput";
 
@@ -84,8 +83,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [showVariationIds] = useState(isImport);
   const customFields = useCustomFields();
+
   const {
     datasources,
     getDatasourceById,
@@ -93,28 +92,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const initialPhases: ExperimentPhaseStringDates[] =
-    isImport && initialValue
-      ? [
-          {
-            coverage: initialValue.phases?.[0].coverage || 1,
-            dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
-              .toISOString()
-              .substr(0, 16),
-            dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
-              .toISOString()
-              .substr(0, 16),
-            phase: initialValue.phases?.[0].phase || "main",
-            reason: "",
-            groups: [],
-            variationWeights:
-              initialValue.phases?.[0].variationWeights ||
-              getEvenSplit(
-                initialValue.variations ? initialValue.variations.length : 2
-              ),
-          },
-        ]
-      : [];
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -145,16 +122,39 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       guardrails: initialValue?.guardrails || [],
       variations:
         initialValue?.variations || getDefaultVariations(initialNumVariations),
-      phases: initialPhases,
+      phases: [
+        initialValue
+          ? {
+              coverage: initialValue.phases?.[0].coverage || 1,
+              dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
+                .toISOString()
+                .substr(0, 16),
+              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
+                .toISOString()
+                .substr(0, 16),
+              phase: initialValue.phases?.[0].phase || "main",
+              reason: "",
+              groups: [],
+              variationWeights:
+                initialValue.phases?.[0].variationWeights ||
+                getEvenSplit(
+                  initialValue.variations ? initialValue.variations.length : 2
+                ),
+            }
+          : {
+              coverage: 1,
+              dateStarted: new Date().toISOString().substr(0, 16),
+              dateEnded: new Date().toISOString().substr(0, 16),
+              phase: "main",
+              reason: "",
+              groups: [],
+              variationWeights: [0.5, 0.5],
+            },
+      ],
       status: initialValue?.status || "running",
       ideaSource: idea || "",
       customFields: initialValue?.customFields || [],
     },
-  });
-
-  const variations = useFieldArray({
-    name: "variations",
-    control: form.control,
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
@@ -177,8 +177,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // TODO: more validation?
 
     const data = { ...value };
-    if (!isImport) {
-      data.status = "draft";
+
+    if (data.status === "draft") {
+      data.phases = [];
     }
 
     if (data.status === "running") {
@@ -212,6 +213,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const status = form.watch("status");
 
   return (
     <PagedModal
@@ -288,26 +290,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })}
           />
         )}
-        {isImport && (
-          <>
-            <Field
-              label="Status"
-              options={["running", "stopped"]}
-              {...form.register("status")}
-            />
-            <Field
-              label="Start Date (UTC)"
-              type="datetime-local"
-              {...form.register("phases.0.dateStarted")}
-            />
-            {form.watch("status") === "stopped" && (
-              <Field
-                label="End Date (UTC)"
-                type="datetime-local"
-                {...form.register("phases.0.dateEnded")}
-              />
-            )}
-          </>
+        <Field
+          label="Status"
+          options={["draft", "running", "stopped"]}
+          {...form.register("status")}
+        />
+        {status !== "draft" && (
+          <Field
+            label="Start Date (UTC)"
+            type="datetime-local"
+            {...form.register("phases.0.dateStarted")}
+          />
+        )}
+        {status === "stopped" && (
+          <Field
+            label="End Date (UTC)"
+            type="datetime-local"
+            {...form.register("phases.0.dateEnded")}
+          />
         )}
       </Page>
       {customFields?.length && (
@@ -316,147 +316,53 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
       )}
       <Page display="Variations">
-        <div className="mb-3">
-          <div className="row equal">
-            {variations.fields.map((v, i) => (
-              <div
-                className="col-lg-6 col-md-6 mb-2"
-                key={i}
-                style={{ minWidth: 200 }}
-              >
-                <div className="graybox position-relative">
-                  <Field
-                    label={i === 0 ? "Control Name" : `Variation ${i} Name`}
-                    {...form.register(`variations.${i}.name`)}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 5,
-                      right: 5,
-                    }}
-                  >
-                    <MoreMenu id={`variation${i}`}>
-                      {i > 0 && (
-                        <a
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            variations.swap(i, i - 1);
-                          }}
-                        >
-                          Swap left
-                        </a>
-                      )}
-                      {i < variations.fields.length - 1 && (
-                        <a
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            variations.swap(i, i + 1);
-                          }}
-                        >
-                          Swap right
-                        </a>
-                      )}
-                      {!isImport && variations.fields.length > 2 && (
-                        <a
-                          className=" dropdown-item text-danger"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            variations.remove(i);
-                          }}
-                        >
-                          Delete
-                        </a>
-                      )}
-                    </MoreMenu>
-                  </div>
-                  {showVariationIds && (
-                    <Field
-                      label="Id"
-                      {...form.register(`variations.${i}.key`)}
-                      placeholder={i + ""}
-                      helpText={
-                        <span>
-                          Must match the <code>variation_id</code> field in your
-                          data source
-                        </span>
-                      }
-                    />
-                  )}
-                  <Field
-                    label="Description"
-                    {...form.register(`variations.${i}.description`)}
-                  />
-                </div>
-              </div>
-            ))}
-            {!isImport && (
-              <div
-                className="col-lg-6 col-md-6 mb-2 text-center"
-                style={{ minWidth: 200 }}
-              >
-                <div
-                  className="p-3 h-100 d-flex align-items-center justify-content-center"
-                  style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
-                >
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      variations.append({
-                        name: `Variation ${variations.fields.length}`,
-                        description: "",
-                        key: "",
-                        screenshots: [],
-                      });
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block">
-                      <GBAddCircle />
-                    </span>{" "}
-                    Add Variation
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        {isImport && (
-          <div className="form-group">
-            <label>Traffic Split</label>
-            <div className="row">
-              {variations.fields.map((v, i) => (
-                <div className="col-auto mb-2" key={i}>
-                  <Field
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    {...form.register(`phases.0.variationWeights.${i}`, {
-                      valueAsNumber: true,
-                    })}
-                    prepend={v.name}
-                  />
-                </div>
-              ))}
-              <div className="col-auto">
-                <button
-                  className="btn btn-outline-secondary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue(
-                      "phases.0.variationWeights",
-                      getEvenSplit(variations.fields.length)
-                    );
-                  }}
-                >
-                  Even Split
-                </button>
-              </div>
-            </div>
-          </div>
+        {status !== "draft" ? (
+          <VariationsInput
+            valueType={"string"}
+            coverage={form.watch("phases.0.coverage")}
+            setCoverage={(coverage) =>
+              form.setValue("phases.0.coverage", coverage)
+            }
+            setWeight={(i, weight) =>
+              form.setValue(`phases.0.variationWeights.${i}`, weight)
+            }
+            valueAsId={true}
+            setVariations={(v) => {
+              const existing = form.watch("variations");
+              form.setValue(
+                "variations",
+                v.map((data, i) => {
+                  const current = existing[i] || {
+                    name: "",
+                    key: "",
+                    screenshots: [],
+                  };
+                  return {
+                    ...current,
+                    name: data.name || current?.name || "",
+                    key: data.value || current?.key || "",
+                  };
+                })
+              );
+              form.setValue(
+                "phases.0.variationWeights",
+                v.map((v) => v.weight)
+              );
+            }}
+            variations={
+              form.watch("variations").map((v, i) => {
+                return {
+                  value: v.key || "",
+                  name: v.name,
+                  weight: form.watch(`phases.0.variationWeights.${i}`),
+                };
+              }) || []
+            }
+            coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
+            showPreview={false}
+          />
+        ) : (
+          <VariationDataInput form={form} />
         )}
       </Page>
       <Page display="Goals">

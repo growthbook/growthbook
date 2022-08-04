@@ -14,7 +14,6 @@ import {
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useUser from "../hooks/useUser";
-import { useAuth } from "./auth";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
@@ -173,33 +172,7 @@ export function getVariationColor(i: number) {
 }
 
 export function useAttributeSchema() {
-  const { settings, update } = useUser();
-  const { apiCall } = useAuth();
-
-  useEffect(() => {
-    if (!settings?.attributeSchema) {
-      apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            attributeSchema: [
-              { property: "id", datatype: "string", hashAttribute: true },
-              { property: "deviceId", datatype: "string", hashAttribute: true },
-              { property: "company", datatype: "string", hashAttribute: true },
-              { property: "loggedIn", datatype: "boolean" },
-              { property: "employee", datatype: "boolean" },
-              { property: "country", datatype: "string" },
-              { property: "browser", datatype: "string" },
-              { property: "url", datatype: "string" },
-            ],
-          },
-        }),
-      }).then(() => {
-        update();
-      });
-    }
-  }, [settings?.attributeSchema]);
-
+  const { settings } = useUser();
   return settings?.attributeSchema || [];
 }
 

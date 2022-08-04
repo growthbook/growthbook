@@ -64,7 +64,7 @@ const UsersTable: FC<{
         <div className="alert alert-danger">
           One or more dimensions has a Sample Ratio Mismatch (SRM){" "}
           <Tooltip
-            text={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
+            body={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
           >
             <FaQuestionCircle />
           </Tooltip>

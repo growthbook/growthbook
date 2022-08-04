@@ -864,7 +864,7 @@ export default abstract class SqlIntegration
       userIdCol = baseIdType;
     } else if (metric.userIdTypes) {
       for (let i = 0; i < metric.userIdTypes.length; i++) {
-        const userIdType = metric.userIdTypes[i];
+        const userIdType: string = metric.userIdTypes[i];
         if (userIdType in idJoinMap) {
           userIdCol = `i.${baseIdType}`;
           join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = m.${userIdType})`;

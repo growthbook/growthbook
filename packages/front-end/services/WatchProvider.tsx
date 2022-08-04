@@ -1,5 +1,6 @@
 import useApi from "../hooks/useApi";
 import { FC, createContext, useContext } from "react";
+import { ReactNode } from "react";
 
 type WatchContextValue = {
   watchedExperiments: string[];
@@ -19,7 +20,7 @@ export const useWatching = (): WatchContextValue => {
   return useContext(WatchContext);
 };
 
-const WatchProvider: FC = ({ children }) => {
+const WatchProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const { data, mutate } = useApi<{
     experiments: string[];
     features: string[];

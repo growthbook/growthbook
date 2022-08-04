@@ -19,7 +19,8 @@ From within your Rudderstack account, create a new JS source.
 />
 
 Name the source whatever you like, in this example I'm using `GrowthBook JS`. When the source is created, connect it to
-your BigQuery data warehouse (or whatever destination you're using for GrowthBook experiment data) by clicking on `Add Destination`.
+your BigQuery data warehouse (or whatever destination you're using for GrowthBook experiment data). You can read more
+about how to connect to your data destination [here](/guide/rudderstack).
 
 <img
   src="/images/guides/rudderstack-8-source-w-destination.png"
@@ -147,7 +148,7 @@ const growthbook = new GrowthBook({
 });
 ```
 
-<div class="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
+<div className="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
   Note: the names `experiment Viewed`, `experimentId` and `variationId` will be
   mapped to `experiment_id` and `variation_id` columns in the
   `experiment_viewed` table within BigQuery
@@ -245,3 +246,5 @@ export default function MyApp({ Component, pageProps }) {
   );
 }
 ```
+
+Once you have data flowing into Rudderstack, you can set it up to work with GrowthBook by following the [Rudderstack guide](/guide/rudderstack)

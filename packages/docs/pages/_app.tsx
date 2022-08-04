@@ -13,10 +13,6 @@ import {
   FaSlack,
 } from "react-icons/fa";
 
-type ModAppProps = AppProps & {
-  Component: { noOrganization?: boolean; preAuth?: boolean };
-};
-
 const navLinks = [
   {
     href: "/",
@@ -171,11 +167,7 @@ navLinks.forEach((l) => {
   }
 });
 
-function App({
-  Component,
-  pageProps,
-  router,
-}: ModAppProps): React.ReactElement {
+function App({ Component, pageProps, router }: AppProps): React.ReactElement {
   const [dark, setDark] = React.useState<null | boolean>(null);
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));
@@ -227,19 +219,8 @@ function App({
           type="text/css"
           href="https://cdn.jsdelivr.net/npm/prism-themes@1.7.0/themes/prism-dracula.css"
         />
-        <link rel="preconnect" href="https://fonts.gstatic.com" />
-        <link
-          rel="preload"
-          href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,400;0,700;1,400&display=swap"
-          as="style"
-        />{" "}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,400;0,700;1,400&display=swap"
-          rel="stylesheet"
-        ></link>
         <style>{`
         body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
           -webkit-font-smoothing: antialiased;
           font-size: 14px;
         }
@@ -335,7 +316,7 @@ function App({
             })}
           </div>
         </div>
-        <div className="flex flex-col h-screen flex-grow w-full content-right justify-center ">
+        <div className="flex flex-col h-screen grow w-full content-right justify-center ">
           <nav className="sticky top-0 z-10 px-3 md:px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
             <div className="flex max-w-3xl justify-end">
               <div className="hidden md:block text-md text-gray-600 dark:text-gray-400">
@@ -409,7 +390,7 @@ function App({
               </button>
             </div>
           </nav>
-          <main className="p-5 flex-grow overflow-y-auto w-full">
+          <main className="p-5 grow overflow-y-auto w-full">
             {!currentIndex && (
               <div className="md:hidden border-b border-gray-100 dark:border-gray-700 mb-4 pb-4 text-gray-600 dark:text-gray-400">
                 <a
@@ -470,7 +451,7 @@ function App({
                           </span>
                         </div>
                       )}
-                      <div className="flex-grow"></div>
+                      <div className="grow"></div>
                       {currentIndex < linksInOrder.length - 1 && (
                         <div className="flex">
                           <span className="hidden md:inline opacity-60 mr-2">

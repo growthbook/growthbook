@@ -2,6 +2,7 @@ import { FC, useMemo, useRef } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
+import { ReactNode } from "react";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -36,7 +37,9 @@ export function useSelectOptions(
     });
 
     if (initialOption) {
-      clone.unshift({ label: initialOption, value: "" });
+      const o = { label: initialOption, value: "" };
+      clone.unshift(o);
+      m.set("", o);
     }
 
     return [m, clone] as const;
@@ -99,6 +102,7 @@ const SelectField: FC<
     initialOption?: string;
     onChange: (value: string) => void;
     sort?: boolean;
+    formatOptionLabel?: (value: SingleValue) => ReactNode;
   }
 > = ({
   value,
@@ -110,6 +114,7 @@ const SelectField: FC<
   disabled,
   autoFocus,
   required,
+  formatOptionLabel,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -139,6 +144,7 @@ const SelectField: FC<
               autoFocus={autoFocus}
               value={selected}
               placeholder={initialOption ?? placeholder}
+              formatOptionLabel={formatOptionLabel}
             />
             {required && (
               <input
