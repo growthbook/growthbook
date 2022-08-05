@@ -33,6 +33,7 @@ import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "../../../back-end/types/idea";
 import Code from "../Code";
+import CustomFieldDisplay from "./CustomFieldDisplay";
 
 function getColWidth(v: number) {
   // 2 across
@@ -416,6 +417,11 @@ export default function SinglePage({
               className="mb-4"
               label="hypothesis"
               header="Hypothesis"
+            />
+            <CustomFieldDisplay
+              experiment={experiment}
+              canEdit={canEdit}
+              mutate={mutate}
             />
             <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
             <div className="row">

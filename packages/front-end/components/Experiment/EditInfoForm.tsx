@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import {
+  CustomExperimentField,
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
@@ -22,6 +23,15 @@ const EditInfoForm: FC<{
     settings: { visualEditorEnabled },
   } = useUser();
   const customFields = useCustomFields();
+  const defaultFields: CustomExperimentField = {};
+  customFields.forEach((f) => {
+    defaultFields[f.id] =
+      f.type === "boolean"
+        ? JSON.stringify(false)
+        : f.type === "multiselect"
+        ? JSON.stringify([])
+        : "";
+  });
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -29,11 +39,10 @@ const EditInfoForm: FC<{
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || experiment.observations || "",
-      customFields: experiment?.customFields || [],
+      customFields: experiment?.customFields || defaultFields,
     },
   });
   const { apiCall } = useAuth();
-
   return (
     <Modal
       header={"Edit Info"}
@@ -42,7 +51,6 @@ const EditInfoForm: FC<{
       size="lg"
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
-
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),

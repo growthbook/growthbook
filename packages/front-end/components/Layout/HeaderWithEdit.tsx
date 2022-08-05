@@ -7,6 +7,7 @@ export interface Props {
   children: string | ReactElement;
   edit?: () => void;
   additionalActions?: ReactElement;
+  outerClassName?: string;
 }
 
 export default function HeaderWithEdit({
@@ -14,9 +15,10 @@ export default function HeaderWithEdit({
   edit,
   additionalActions,
   className = "h3",
+  outerClassName = "",
 }: Props) {
   return (
-    <div className="d-flex align-items-center mb-2">
+    <div className={`d-flex align-items-center mb-2 ${outerClassName}`}>
       <div className={clsx(className, "mb-0")}>{children}</div>
       {edit && (
         <div className="ml-1">

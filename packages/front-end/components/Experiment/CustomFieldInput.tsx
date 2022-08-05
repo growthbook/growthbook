@@ -22,15 +22,9 @@ const CustomFieldInput: FC<{
                 <div className="mb-3 mt-3">
                   <Toggle
                     id="bool"
-                    value={
-                      form.watch(`customFields.${i}.fieldValue`) === "true"
-                    }
+                    value={form.watch(`customFields.${v.id}`) === "true"}
                     setValue={(t) => {
-                      form.setValue(
-                        `customFields.${i}.fieldValue`,
-                        JSON.stringify(t)
-                      );
-                      form.setValue(`customFields.${i}.fieldId`, v.id);
+                      form.setValue(`customFields.${v.id}`, JSON.stringify(t));
                     }}
                   />
                   <label htmlFor="bool">{v.name}</label>
@@ -43,14 +37,13 @@ const CustomFieldInput: FC<{
               ) : v.type === "enum" ? (
                 <SelectField
                   label={v.name}
-                  value={form.watch(`customFields.${i}.fieldValue`)}
+                  value={form.watch(`customFields.${v.id}`)}
                   options={v.values
                     .split(",")
                     .map((k) => k.trim())
                     .map((j) => ({ value: j, label: j }))}
                   onChange={(s) => {
-                    form.setValue(`customFields.${i}.fieldValue`, s);
-                    form.setValue(`customFields.${i}.fieldId`, v.id);
+                    form.setValue(`customFields.${v.id}`, s);
                   }}
                   helpText={v.description}
                 />
@@ -58,8 +51,8 @@ const CustomFieldInput: FC<{
                 <MultiSelectField
                   label={v.name}
                   value={
-                    form.watch(`customFields.${i}.fieldValue`)
-                      ? JSON.parse(form.watch(`customFields.${i}.fieldValue`))
+                    form.watch(`customFields.${v.id}`)
+                      ? JSON.parse(form.watch(`customFields.${v.id}`))
                       : []
                   }
                   options={v.values
@@ -68,10 +61,9 @@ const CustomFieldInput: FC<{
                     .map((j) => ({ value: j, label: j }))}
                   onChange={(values) => {
                     form.setValue(
-                      `customFields.${i}.fieldValue`,
+                      `customFields.${v.id}`,
                       JSON.stringify(values)
                     );
-                    form.setValue(`customFields.${i}.fieldId`, v.id);
                   }}
                   helpText={v.description}
                 />
@@ -80,31 +72,23 @@ const CustomFieldInput: FC<{
                   textarea
                   minRows={2}
                   maxRows={6}
-                  value={form.watch(`customFields.${i}.fieldValue`)}
+                  value={form.watch(`customFields.${v.id}`)}
                   label={v.name}
                   type={v.type}
                   required={v.required}
                   onChange={(e) => {
-                    form.setValue(
-                      `customFields.${i}.fieldValue`,
-                      e.target.value
-                    );
-                    form.setValue(`customFields.${i}.fieldId`, v.id);
+                    form.setValue(`customFields.${v.id}`, e.target.value);
                   }}
                   helpText={v.description}
                 />
               ) : (
                 <Field
-                  value={form.watch(`customFields.${i}.fieldValue`)}
+                  value={form.watch(`customFields.${v.id}`)}
                   label={v.name}
                   type={v.type}
                   required={v.required}
                   onChange={(e) => {
-                    form.setValue(
-                      `customFields.${i}.fieldValue`,
-                      e.target.value
-                    );
-                    form.setValue(`customFields.${i}.fieldId`, v.id);
+                    form.setValue(`customFields.${v.id}`, e.target.value);
                   }}
                   helpText={v.description}
                 />

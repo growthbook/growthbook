@@ -153,7 +153,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: initialValue?.status || "running",
       ideaSource: idea || "",
-      customFields: initialValue?.customFields || [],
+      customFields: initialValue?.customFields || {},
     },
   });
 

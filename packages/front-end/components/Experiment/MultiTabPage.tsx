@@ -41,6 +41,8 @@ import useUser from "../../hooks/useUser";
 import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import ExperimentReportsList from "./ExperimentReportsList";
+import { useCustomFields } from "../../services/experiments";
+import CustomFieldDisplay from "./CustomFieldDisplay";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -84,6 +86,14 @@ const MultiTabPage = ({
   }>(`/experiment/${experiment.id}/watchers`);
 
   const { users } = useUser();
+
+  const customFields = useCustomFields();
+  const customFieldsMap = new Map();
+  if (customFields && customFields.length) {
+    customFields.map((v) => {
+      customFieldsMap.set(v.id, v);
+    });
+  }
 
   useSwitchOrg(experiment?.organization);
 
@@ -436,6 +446,9 @@ const MultiTabPage = ({
                   </p>
                 )}
               </div>
+              {experiment?.customFields && (
+                <CustomFieldDisplay experiment={experiment} canEdit={false} />
+              )}
               <div className="mb-4">
                 <HeaderWithEdit edit={editVariations} className="h4">
                   Variations
