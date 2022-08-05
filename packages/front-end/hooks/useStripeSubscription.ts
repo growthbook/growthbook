@@ -37,7 +37,9 @@ export default function useStripeSubscription() {
 
   const hasActiveSubscription =
     data.organization.subscription?.status === "active" ||
-    data.organization.subscription?.status === "trialing";
+    data.organization.subscription?.status === "trialing" ||
+    // We will treat past_due as active so as to not interrupt users
+    data.organization.subscription?.status === "past_due";
 
   const planName = data.organization.subscription.planNickname;
 
