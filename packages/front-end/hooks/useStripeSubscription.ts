@@ -5,21 +5,32 @@ import useApi from "./useApi";
 
 export default function useStripeSubscription() {
   const { apiCall } = useAuth();
-  const [seatsInFreeTier, setSeatsInFreeTier] = useState(null);
+  const [discountData, setDiscountData] = useState(null);
   const [pricePerSeat, setPricePerSeat] = useState(null);
   const { data } = useApi<SettingsApiResponse>(`/organization`);
 
   useEffect(() => {
     const getPriceData = async () => {
       const { priceData } = await apiCall(`/price`);
-      setSeatsInFreeTier(priceData.tiers[0].up_to);
-      setPricePerSeat(priceData.tiers[1].unit_amount / 100);
+
+      if (priceData) {
+        setPricePerSeat(priceData.unit_amount / 100);
+      } else {
+        setPricePerSeat(20);
+      }
+
+      const { discountCodeData } = await apiCall(`/discount-code`);
+      if (discountCodeData) {
+        setDiscountData(discountCodeData);
+      }
     };
 
     getPriceData();
   }, []);
 
-  const numberOfCurrentSeats = data.organization.subscription.qty || 0;
+  const freeSeats = data.organization.freeSeats || 2;
+
+  const numberOfCurrentSeats = data.organization.subscription?.qty || 0;
 
   const activeAndInvitedUsers =
     data.organization.members.length + data.organization.invites.length;
@@ -47,32 +58,33 @@ export default function useStripeSubscription() {
   const pendingCancelation =
     data.organization.subscription.cancel_at_period_end;
 
-  const discountedPricePerSeat =
-    pricePerSeat * (data.organization.subscription.percent_off / 100) || null;
+  const getMonthlyPrice = () => {
+    // This calculates price of grandfathered organizations
+    if (discountData?.amount_off) {
+      const price =
+        pricePerSeat * data.organization.subscription.qty -
+        discountData.amount_off / 100;
 
-  const getStandardMonthlyPrice = () => {
-    if (data.organization.subscription.qty < seatsInFreeTier) {
-      return 0;
-    } else {
+      if (price <= 0) {
+        return 0;
+      } else {
+        return price;
+      }
+      // This calculates the price is the organization has a percent off coupon
+    } else if (discountData?.percent_off) {
       return (
-        pricePerSeat * (data.organization.subscription.qty - seatsInFreeTier)
+        pricePerSeat *
+        data.organization.subscription.qty *
+        (discountData.percent_off / 100)
       );
-    }
-  };
-
-  const getDiscountedMonthlyPrice = () => {
-    if (data.organization.subscription.qty < seatsInFreeTier) {
-      return 0;
+      // This calculates the price of a standard organization
     } else {
-      return (
-        discountedPricePerSeat *
-        (data.organization.subscription.qty - seatsInFreeTier)
-      );
+      return pricePerSeat * data.organization.subscription.qty;
     }
   };
 
   return {
-    seatsInFreeTier,
+    freeSeats,
     pricePerSeat,
     planName,
     nextBillDate,
@@ -80,12 +92,9 @@ export default function useStripeSubscription() {
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
-    discountedPricePerSeat,
-    getStandardMonthlyPrice,
-    getDiscountedMonthlyPrice,
+    getMonthlyPrice,
     activeAndInvitedUsers,
     numberOfCurrentSeats,
     hasActiveSubscription,
-    data,
   };
 }

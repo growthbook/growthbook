@@ -35,7 +35,6 @@ export async function updateSubscriptionInDb(
       canceled_at: subscription.canceled_at,
       cancel_at_period_end: subscription.cancel_at_period_end,
       planNickname: subscription.items.data[0].plan.nickname,
-      percent_off: subscription.discount?.coupon.percent_off || 0,
     },
     priceId: subscription.items.data[0].price.id,
   });

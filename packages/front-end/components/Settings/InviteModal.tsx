@@ -27,9 +27,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
   const {
-    seatsInFreeTier,
+    freeSeats,
     pricePerSeat,
-    discountedPricePerSeat,
     activeAndInvitedUsers,
     numberOfCurrentSeats,
     hasActiveSubscription,
@@ -40,8 +39,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   const canInviteUser = Boolean(
     emailSent === null &&
-      (activeAndInvitedUsers < seatsInFreeTier ||
-        (currentPaidSeats >= seatsInFreeTier && hasActiveSubscription) ||
+      (activeAndInvitedUsers < freeSeats ||
+        (currentPaidSeats >= freeSeats && hasActiveSubscription) ||
         !isCloud())
   );
 
@@ -111,10 +110,9 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
           <InviteModalSubscriptionInfo
             subscriptionStatus={subscriptionStatus}
             activeAndInvitedUsers={activeAndInvitedUsers}
-            seatsInFreeTier={seatsInFreeTier}
+            freeSeats={freeSeats}
             hasActiveSubscription={hasActiveSubscription}
             pricePerSeat={pricePerSeat}
-            discountedPricePerSeat={discountedPricePerSeat}
             currentPaidSeats={currentPaidSeats}
           />
         </>

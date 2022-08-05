@@ -39,6 +39,8 @@ export type SettingsApiResponse = {
       name: string;
       role: MemberRole;
     }[];
+    freeSeats?: number;
+    discountCode?: string;
     subscription?: {
       id: string;
       qty: number;
@@ -48,7 +50,6 @@ export type SettingsApiResponse = {
       canceled_at: number | null;
       cancel_at_period_end: boolean;
       planNickname: string;
-      percent_off?: number;
       status:
         | "incomplete"
         | "incomplete_expired"

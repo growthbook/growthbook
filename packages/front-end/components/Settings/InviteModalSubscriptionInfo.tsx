@@ -7,18 +7,16 @@ import { isCloud } from "../../services/env";
 export const InviteModalSubscriptionInfo: FC<{
   subscriptionStatus: string;
   activeAndInvitedUsers: number;
-  seatsInFreeTier: number;
+  freeSeats: number;
   hasActiveSubscription: boolean;
   pricePerSeat: number;
-  discountedPricePerSeat?: number;
   currentPaidSeats: number;
 }> = ({
   subscriptionStatus,
   activeAndInvitedUsers,
-  seatsInFreeTier,
+  freeSeats,
   hasActiveSubscription,
   pricePerSeat,
-  discountedPricePerSeat,
   currentPaidSeats,
 }) => {
   const { apiCall } = useAuth();
@@ -33,11 +31,7 @@ export const InviteModalSubscriptionInfo: FC<{
       }>(`/subscription/checkout`, {
         method: "POST",
         body: JSON.stringify({
-          qty:
-            subscriptionStatus === "canceled"
-              ? activeAndInvitedUsers
-              : activeAndInvitedUsers + 1,
-          restart: subscriptionStatus === "canceled",
+          qty: activeAndInvitedUsers,
         }),
       });
 
@@ -49,7 +43,7 @@ export const InviteModalSubscriptionInfo: FC<{
     }
   };
 
-  if (!isCloud() || !seatsInFreeTier) return null;
+  if (!isCloud()) return null;
 
   if (subscriptionStatus === "past_due")
     return (
@@ -78,37 +72,37 @@ export const InviteModalSubscriptionInfo: FC<{
 
   return (
     <>
-      {activeAndInvitedUsers < seatsInFreeTier && (
+      {activeAndInvitedUsers < freeSeats && (
         <p className="mt-3 mb-0 alert alert-info">{`You have ${
-          seatsInFreeTier - activeAndInvitedUsers
+          freeSeats - activeAndInvitedUsers
         } free seat${
-          seatsInFreeTier - activeAndInvitedUsers > 1 ? "s" : ""
+          freeSeats - activeAndInvitedUsers > 1 ? "s" : ""
         } remaining.`}</p>
       )}
-      {activeAndInvitedUsers >= seatsInFreeTier &&
+      {activeAndInvitedUsers >= freeSeats &&
         currentPaidSeats <= activeAndInvitedUsers &&
         hasActiveSubscription && (
           <p className="mt-3 mb-0 alert-warning alert">
             This user will be assigned a new seat{" "}
-            <strong>
-              (${discountedPricePerSeat ? discountedPricePerSeat : pricePerSeat}
-              /month)
-            </strong>
-            .
+            {pricePerSeat && (
+              <strong>
+                (${pricePerSeat}
+                /month).
+              </strong>
+            )}
           </p>
         )}
-      {activeAndInvitedUsers >= seatsInFreeTier && !hasActiveSubscription && (
+      {activeAndInvitedUsers >= freeSeats && !hasActiveSubscription && (
         <p className="mt-3 mb-0 alert-warning alert">
           Whoops! You&apos;re currently in the <strong>Free Plan</strong> which
-          only allows {seatsInFreeTier} seats. To add a seat (${pricePerSeat}
-          /month), please{" "}
+          only allows {freeSeats} seats. To add additional seats please{" "}
           <strong>
             <button
               type="button"
               className="btn btn-link p-0 align-baseline shadow-none"
               onClick={startStripeSubscription}
             >
-              <strong>upgrade your plan</strong>
+              <strong>start a subscription</strong>
             </button>
           </strong>
           .

@@ -15,17 +15,23 @@ import {
 import { updateSubscriptionInDb } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
+type DiscountData = {
+  [key: string]: Stripe.Coupon;
+};
+
 type PriceData = {
   [key: string]: Stripe.Price;
 };
 
+const discountData: DiscountData = {};
+
 const priceData: PriceData = {};
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number; restart: boolean }>,
+  req: AuthRequest<{ qty: number }>,
   res: Response
 ) {
-  const { qty, restart } = req.body;
+  const { qty } = req.body;
 
   req.checkPermissions("organizationSettings");
 
@@ -35,13 +41,7 @@ export async function postNewSubscription(
     throw new Error("No organization found");
   }
 
-  let desiredQty = getNumberOfMembersAndInvites(org);
-
-  // Brand new subscriptions happen when trying to invite a new user. For the price to be correct,
-  // we need to include that new invite even though it hasn't been created yet.
-  if (!restart) {
-    desiredQty += 1;
-  }
+  const desiredQty = getNumberOfMembersAndInvites(org);
 
   if (desiredQty !== qty) {
     throw new Error(
@@ -72,6 +72,11 @@ export async function postNewSubscription(
     mode: "subscription",
     payment_method_types: ["card"],
     customer: stripeCustomerId,
+    discounts: [
+      {
+        coupon: org.discountCode,
+      },
+    ],
     line_items: [
       {
         price: org?.priceId || STRIPE_PRICE,
@@ -103,6 +108,27 @@ export async function getPriceData(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     priceData: priceData[priceId],
+  });
+}
+
+export async function getDiscountData(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+
+  if (!org.discountCode) {
+    return res.status(200);
+  }
+
+  if (!discountData[org.discountCode]) {
+    discountData[org.discountCode] = await stripe.coupons.retrieve(
+      org.discountCode
+    );
+  }
+
+  return res.status(200).json({
+    status: 200,
+    discountCodeData: discountData[org.discountCode],
   });
 }
 

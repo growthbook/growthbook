@@ -469,6 +469,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     name,
     url,
     subscription,
+    freeSeats,
+    discountCode,
     connections,
     settings,
     priceId,
@@ -492,6 +494,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       name,
       url,
       subscription,
+      discountCode,
+      freeSeats,
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {
         return {

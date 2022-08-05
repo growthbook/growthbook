@@ -113,6 +113,8 @@ export interface OrganizationInterface {
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  freeSeats?: number;
+  discountCode?: string;
   subscription?: {
     id: string;
     qty: number;
@@ -130,7 +132,6 @@ export interface OrganizationInterface {
     canceled_at: number | null;
     cancel_at_period_end: boolean;
     planNickname: string | null;
-    percent_off: number | null;
   };
   members: Member[];
   invites: Invite[];
