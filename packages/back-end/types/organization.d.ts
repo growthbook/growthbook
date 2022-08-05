@@ -132,6 +132,7 @@ export interface OrganizationInterface {
     canceled_at: number | null;
     cancel_at_period_end: boolean;
     planNickname: string | null;
+    priceId?: string;
   };
   members: Member[];
   invites: Invite[];
@@ -143,7 +144,6 @@ export interface OrganizationInterface {
     };
   };
   settings?: OrganizationSettings;
-  priceId?: string;
 }
 
 export type NamespaceUsage = Record<

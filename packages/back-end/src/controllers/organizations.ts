@@ -473,7 +473,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     discountCode,
     connections,
     settings,
-    priceId,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -506,7 +505,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
         };
       }),
       settings,
-      priceId,
     },
   });
 }

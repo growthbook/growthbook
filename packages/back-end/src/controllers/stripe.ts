@@ -79,7 +79,7 @@ export async function postNewSubscription(
     ],
     line_items: [
       {
-        price: org?.priceId || STRIPE_PRICE,
+        price: org.subscription?.priceId || STRIPE_PRICE,
         quantity: qty,
       },
     ],
@@ -97,7 +97,7 @@ export async function getPriceData(req: AuthRequest, res: Response) {
 
   const { org } = getOrgFromReq(req);
 
-  const priceId = org.priceId || STRIPE_PRICE;
+  const priceId = org.subscription?.priceId || STRIPE_PRICE;
 
   if (!priceData[priceId]) {
     priceData[priceId] = await stripe.prices.retrieve(priceId, {

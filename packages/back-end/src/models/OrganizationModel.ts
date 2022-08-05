@@ -32,7 +32,6 @@ const organizationSchema = new mongoose.Schema({
       role: String,
     },
   ],
-  priceId: String,
   stripeCustomerId: String,
   discountCode: String,
   freeSeats: Number,
@@ -46,6 +45,7 @@ const organizationSchema = new mongoose.Schema({
     canceled_at: Number,
     cancel_at_period_end: Boolean,
     planNickname: String,
+    priceId: String,
   },
   connections: {
     slack: {

@@ -35,8 +35,8 @@ export async function updateSubscriptionInDb(
       canceled_at: subscription.canceled_at,
       cancel_at_period_end: subscription.cancel_at_period_end,
       planNickname: subscription.items.data[0].plan.nickname,
+      priceId: subscription.items.data[0].price.id,
     },
-    priceId: subscription.items.data[0].price.id,
   });
 }
 
