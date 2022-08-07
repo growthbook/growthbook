@@ -13,6 +13,8 @@ import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   IS_CLOUD,
+  SSO_AUTHORITY,
+  SSO_CLIENT_ID,
   UPLOAD_METHOD,
 } from "./util/secrets";
 import {
@@ -265,9 +267,11 @@ app.use(
   })
 );
 
-// Pre-auth requests
-// Managed cloud deployment uses Auth0 instead
-if (!IS_CLOUD) {
+// Cloud always uses SSO and self-hosted can too if the SSO_ env variables are set
+const useSSO = IS_CLOUD || (SSO_AUTHORITY && SSO_CLIENT_ID);
+
+// Pre-auth requests when not using SSO
+if (!useSSO) {
   app.post("/auth/refresh", authController.postRefresh);
   app.post("/auth/login", authController.postLogin);
   app.post("/auth/logout", authController.postLogout);
@@ -322,8 +326,7 @@ app.use(
 );
 
 // Logged-in auth requests
-// Managed cloud deployment uses Auth0 instead
-if (!IS_CLOUD) {
+if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
 }
 

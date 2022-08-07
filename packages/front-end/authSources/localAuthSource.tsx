@@ -91,6 +91,7 @@ const localAuthSource: AuthSource = {
     await refreshToken();
     return token;
   },
+  getAuthSourceId: () => "",
 };
 
 export default localAuthSource;

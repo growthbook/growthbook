@@ -102,3 +102,7 @@ export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
+
+// Self-hosted SSO
+export const SSO_AUTHORITY = IS_CLOUD ? "" : process.env.SSO_AUTHORITY || "";
+export const SSO_CLIENT_ID = IS_CLOUD ? "" : process.env.SSO_CLIENT_ID || "";

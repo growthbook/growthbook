@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react";
+import { SSOConfig } from "../authSources/oidcAuthSource";
 
 const env: {
   telemetry: "debug" | "enable" | "disable";
@@ -13,6 +14,7 @@ const env: {
   };
   sentryDSN: string;
   apiCredentials: boolean;
+  selfHostedSSOConfig?: SSOConfig;
 } = {
   telemetry: "enable",
   cloud: false,
@@ -63,4 +65,7 @@ export function getDefaultConversionWindowHours() {
 }
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
+}
+export function getSelfHostedSSOConfig(): SSOConfig | null {
+  return env.selfHostedSSOConfig || null;
 }

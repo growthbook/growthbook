@@ -1,7 +1,13 @@
-import { IS_CLOUD, JWT_SECRET } from "../util/secrets";
+import {
+  IS_CLOUD,
+  JWT_SECRET,
+  APP_ORIGIN,
+  SSO_AUTHORITY,
+  SSO_CLIENT_ID,
+} from "../util/secrets";
 import jwt from "express-jwt";
 import jwks from "jwks-rsa";
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   markUserAsVerified,
@@ -20,6 +26,7 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
+import { Issuer, Client } from "openid-client";
 
 type JWTInfo = {
   email?: string;
@@ -47,19 +54,14 @@ async function getUserFromLocalJWT(user: {
   return getUserById(user.sub);
 }
 
-// Managed cloud deployment uses Auth0,
-function getAuth0JWTCheck() {
-  return jwt({
-    secret: jwks.expressJwtSecret({
-      cache: true,
-      rateLimit: true,
-      jwksRequestsPerMinute: 5,
-      jwksUri: "https://growthbook.auth0.com/.well-known/jwks.json",
-    }),
-    audience: "https://api.growthbook.io",
-    issuer: "https://growthbook.auth0.com/",
-    algorithms: ["RS256"],
-  });
+function getOpenIdJWTCheck() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    getOpenIdMiddleware(req)
+      .then((middleware) => {
+        middleware(req, res, next);
+      })
+      .catch(next);
+  };
 }
 
 async function getUserFromEmail(email: string): Promise<UserDocument | null> {
@@ -93,7 +95,13 @@ function getInitialDataFromJWT(user: {
 }
 
 export function getJWTCheck() {
-  return IS_CLOUD ? getAuth0JWTCheck() : getLocalJWTCheck();
+  // Cloud always uses SSO, self-hosted does too with the right env variables
+  if (IS_CLOUD || (SSO_AUTHORITY && SSO_CLIENT_ID)) {
+    return getOpenIdJWTCheck();
+  }
+
+  // For self-hosted, fall back to local authentication (no SSO)
+  return getLocalJWTCheck();
 }
 
 export async function processJWT(
@@ -234,4 +242,89 @@ export function isNewInstallation() {
 }
 export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
+}
+
+const ssoMiddlewares: Map<Client, jwt.RequestHandler> = new Map();
+async function getOpenIdMiddleware(req: Request) {
+  const { authority, clientId } = await getOpenIdSettings(req);
+  const client = await getSSOClient(authority, clientId);
+
+  const existingMiddleware = ssoMiddlewares.get(client);
+  if (existingMiddleware) {
+    return existingMiddleware;
+  }
+
+  const jwksUri = client.issuer.metadata.jwks_uri;
+  const algorithms =
+    client.issuer.metadata.token_endpoint_auth_signing_alg_values_supported;
+
+  if (!jwksUri || !algorithms) {
+    throw new Error("Missing required jwksUri and token id signing algorithms");
+  }
+
+  const middleware = jwt({
+    secret: jwks.expressJwtSecret({
+      cache: true,
+      rateLimit: true,
+      jwksRequestsPerMinute: 5,
+      jwksUri,
+    }),
+    audience: "https://api.growthbook.io",
+    issuer: client.issuer.metadata.issuer,
+    algorithms,
+  });
+  ssoMiddlewares.set(client, middleware);
+  return middleware;
+}
+
+async function getOpenIdSettings(
+  req: Request
+): Promise<{ authority: string; clientId: string }> {
+  // Self-hosted SSO
+  if (!IS_CLOUD) {
+    // TODO: lookup from env variables
+    return {
+      authority: "",
+      clientId: "",
+    };
+  }
+
+  // Cloud Enterprise SSO
+  if (req.headers["x-auth-source-id"]) {
+    // TODO: lookup in Mongo
+    const ssoConfigId = req.headers["x-auth-source-id"];
+    console.log({ ssoConfigId });
+    return {
+      authority: "",
+      clientId: "",
+    };
+  }
+
+  // Cloud Default SSO
+  return {
+    authority: "https://growthbook.auth0.com",
+    clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+  };
+}
+
+const clientCache: Map<string, Client> = new Map();
+async function getSSOClient(
+  authority: string,
+  clientId: string
+): Promise<Client> {
+  const cacheKey = authority + "____" + clientId;
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey) as Client;
+  }
+
+  const issuer = await Issuer.discover(authority);
+  const client = new issuer.Client({
+    client_id: clientId,
+    redirect_uris: [`${APP_ORIGIN}/oidc/callback`],
+    response_types: ["id_token"],
+  });
+
+  clientCache.set(cacheKey, client);
+
+  return client;
 }

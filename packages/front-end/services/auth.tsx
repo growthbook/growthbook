@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, FC } from "react";
 import { NextRouter, useRouter } from "next/router";
-import auth0AuthSource from "../authSources/auth0AuthSource";
+import oidcAuthSource from "../authSources/oidcAuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import {
   MemberRole,
@@ -12,6 +12,7 @@ import Modal from "../components/Modal";
 import {
   getApiHost,
   getAppOrigin,
+  getSelfHostedSSOConfig,
   includeApiCredentials,
   isCloud,
 } from "./env";
@@ -40,6 +41,28 @@ export type OrganizationMember = {
 export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
+
+export function getLastSSOConfigId(): string {
+  if (!isCloud()) {
+    return "";
+  }
+  const ssoConfigId = document.cookie
+    .split(/; /)
+    .find((row) => row.startsWith("GB_SSO_CONFIG_ID="))
+    ?.split("=")?.[1];
+  return ssoConfigId || "";
+}
+export function setLastSSOConfigId(ssoConfigId: string): void {
+  const expiration = new Date();
+  expiration.setDate(expiration.getDate() + 30);
+  document.cookie = `GB_SSO_CONFIG_ID=${ssoConfigId};expires=${expiration.toUTCString()};path=/`;
+}
+
+export function getAuthMethod(): "oidc" | "local" {
+  if (isCloud()) return "oidc";
+  if (getSelfHostedSSOConfig()) return "oidc";
+  return "local";
+}
 
 export function getDefaultPermissions(): Permissions {
   return {
@@ -107,6 +130,7 @@ export interface AuthSource {
   }>;
   logout: () => Promise<void>;
   getJWT: () => Promise<string>;
+  getAuthSourceId: () => string;
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -125,7 +149,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  const authSource = isCloud() ? auth0AuthSource : localAuthSource;
+  const authSource =
+    getAuthMethod() === "oidc" ? oidcAuthSource : localAuthSource;
 
   useEffect(() => {
     authSource
@@ -244,6 +269,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
           if (orgId) {
             init.headers["X-Organization"] = orgId;
+          }
+
+          const authSourceId = authSource.getAuthSourceId();
+          if (authSourceId) {
+            init.headers["X-Auth-Source-Id"] = authSourceId;
           }
 
           if (!init.credentials && includeApiCredentials()) {
