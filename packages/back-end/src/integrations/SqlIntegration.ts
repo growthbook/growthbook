@@ -161,17 +161,19 @@ export default abstract class SqlIntegration
     const experimentQueries = (
       this.settings.queries?.exposure || []
     ).map(({ id }) => this.getExposureQuery(id));
-    const hasNameCol = this.settings.queries?.exposure?.some(
-      (expObj) => expObj.hasNameCol
-    );
-    const experimentNameCol = hasNameCol ? "experiment_name" : "experiment_id";
-    const variationNameCol = hasNameCol ? "variation_name" : "variation_id";
 
     return format(
       `-- Past Experiments
     WITH
       ${experimentQueries
         .map((q, i) => {
+          const hasNameCol = q.hasNameCol || false;
+          const experimentNameCol = hasNameCol
+            ? "experiment_name"
+            : "experiment_id";
+          const variationNameCol = hasNameCol
+            ? "variation_name"
+            : "variation_id";
           return `
         __exposures${i} as (
           SELECT 
@@ -224,9 +226,9 @@ export default abstract class SqlIntegration
         SELECT
           d.exposure_query,
           d.experiment_id,
-          MIN(d.${experimentNameCol}) as experiment_name,
+          MIN(d.experiment_name) as experiment_name,
           d.variation_id,
-          MIN(d.${variationNameCol}) as variation_name,
+          MIN(d.variation_name) as variation_name,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users

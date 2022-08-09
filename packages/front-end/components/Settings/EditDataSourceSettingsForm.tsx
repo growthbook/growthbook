@@ -326,7 +326,9 @@ const EditDataSourceSettingsForm: FC<{
                             <li>
                               <code>variation_id</code>
                             </li>
-                            {data.settings.queries.exposure[i].hasNameCol && (
+                            {form.watch(
+                              `settings.queries.exposure.${i}.hasNameCol`
+                            ) && (
                               <>
                                 <li>
                                   <code>experiment_name</code>

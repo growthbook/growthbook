@@ -79,8 +79,6 @@ const ImportExperimentList: FC<{
   );
 
   const datasource = getDatasourceById(data.experiments.datasource);
-  const isExperimentName =
-    datasource?.settings?.queries?.exposure?.[0]?.hasNameCol;
 
   return (
     <>
@@ -168,11 +166,7 @@ const ImportExperimentList: FC<{
             <thead>
               <tr>
                 <th>Source</th>
-                {isExperimentName ? (
-                  <th>Experiment Name</th>
-                ) : (
-                  <th>Experiment Id</th>
-                )}
+                <th>Experiment</th>
                 <th>Date Started</th>
                 <th>Date Ended</th>
                 <th>Number of Variations</th>
@@ -183,10 +177,6 @@ const ImportExperimentList: FC<{
             </thead>
             <tbody>
               {filteredExperiments.map((e) => {
-                const variationLength = Array.from(
-                  { length: e.variationKeys.length },
-                  (x, i) => i
-                );
                 return (
                   <tr key={e.trackingKey}>
                     <td>
@@ -220,31 +210,17 @@ const ImportExperimentList: FC<{
                               trackingKey: e.trackingKey,
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
-                              variations: e.experimentName
-                                ? variationLength.map((varLength) => {
-                                    const vName = e.variationNames[varLength];
-                                    const vId = e.variationKeys[varLength];
-                                    return {
-                                      name: vName,
-                                      screenshots: [],
-                                      description: "",
-                                      key: vId,
-                                    };
-                                  })
-                                : e.variationKeys.map((v) => {
-                                    const vInt = parseInt(v);
-                                    const name = !Number.isNaN(vInt)
-                                      ? vInt == 0
-                                        ? "Control"
-                                        : `Variation ${vInt}`
-                                      : v;
-                                    return {
-                                      name,
-                                      screenshots: [],
-                                      description: "",
-                                      key: v,
-                                    };
-                                  }),
+                              variations: e.variationKeys.map((vKey, i) => {
+                                const vName =
+                                  e.variationNames[i] ||
+                                  (i == 0 ? "Control" : `Variation ${i}`);
+                                return {
+                                  name: vName,
+                                  screenshots: [],
+                                  description: "",
+                                  key: vKey,
+                                };
+                              }),
                               phases: [
                                 {
                                   coverage: 1,
