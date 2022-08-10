@@ -30,7 +30,14 @@ export type Task = {
   onClick: (value: boolean) => void;
 };
 
+export type HelpLink = {
+  title: string;
+  helpText: string;
+  url: string;
+};
+
 const GetStartedPage = (): React.ReactElement => {
+  const settings = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
@@ -38,7 +45,17 @@ const GetStartedPage = (): React.ReactElement => {
   const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [experimentsOpen, setExperimentsOpen] = useState(false);
-  const [percentComplete, setPercentComplete] = useState(undefined);
+  const [dismissedSteps, setDismissedSteps] = useState(
+    settings.dismissedGettingStartedSteps || {}
+  );
+  const [
+    initialTasksPercentComplete,
+    setInitialTasksPercentComplete,
+  ] = useState(null);
+  const [
+    advancedTasksPercentComplete,
+    setAdvancedTasksPercentComplete,
+  ] = useState(null);
   const {
     datasources,
     ready,
@@ -48,9 +65,12 @@ const GetStartedPage = (): React.ReactElement => {
   } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const settings = useOrgSettings();
-
-  const { data: experiments, mutate, error: experimentsError } = useApi<{
+  const {
+    data: experiments,
+    mutate,
+    error: experimentsError,
+    // mutate: mutateExperiments,
+  } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
@@ -109,7 +129,9 @@ const GetStartedPage = (): React.ReactElement => {
       title: "Video: Growthbook 101",
       text:
         "A very brief introduction to GrowthBook - the open-source feature flagging and A/B testing platform.",
-      completed: settings?.videoInstructionsViewed,
+      completed:
+        settings?.videoInstructionsViewed ||
+        dismissedSteps["Video: Growthbook 101"],
       cta: "Watch Video",
       onClick: setVideoModalOpen,
     },
@@ -121,7 +143,8 @@ const GetStartedPage = (): React.ReactElement => {
       learnMoreLink: "Learn more about our SDKs.",
       link: "https://docs.growthbook.io/lib",
       onClick: setCodeModalOpen,
-      completed: settings?.sdkInstructionsViewed,
+      completed:
+        settings?.sdkInstructionsViewed || dismissedSteps["Install SDK"],
     },
     {
       title: "Create a Feature Flag",
@@ -131,7 +154,7 @@ const GetStartedPage = (): React.ReactElement => {
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
       onClick: setModalOpen,
-      completed: features.length > 0,
+      completed: features.length > 0 || dismissedSteps["Create a Feature Flag"],
     },
     {
       title: "Add a Data Source",
@@ -140,7 +163,7 @@ const GetStartedPage = (): React.ReactElement => {
       cta: "Add Data Source",
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
-      completed: datasources.length > 0,
+      completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
       onClick: setDataSourceOpen,
     },
     {
@@ -150,7 +173,7 @@ const GetStartedPage = (): React.ReactElement => {
       cta: "Define a Metric",
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
-      completed: data?.metrics.length > 0,
+      completed: data?.metrics.length > 0 || dismissedSteps["Define a Metric"],
       onClick: setMetricsOpen,
     },
     {
@@ -160,22 +183,119 @@ const GetStartedPage = (): React.ReactElement => {
       cta: "Create Experiment",
       learnMoreLink: "Learn more about experiments.",
       link: "https://docs.growthbook.io/app/experiments",
-      completed: experiments?.experiments.length > 0,
+      completed:
+        experiments?.experiments.length > 0 ||
+        dismissedSteps["Create an Experiment"],
       onClick: setExperimentsOpen,
     },
   ];
 
+  const advancedTasks: Task[] = [
+    {
+      title: "Create a dimension",
+      text:
+        "A very brief introduction to GrowthBook - the open-source feature flagging and A/B testing platform.",
+      completed: dismissedSteps["Create a dimension"], //TODO: Come back and figure out why dismissedSteps[title] was giving an error
+      cta: "Watch Video",
+      onClick: setVideoModalOpen,
+    },
+    {
+      title: "Create a segment",
+      text:
+        "Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!",
+      cta: "View Instructions",
+      learnMoreLink: "Learn more about our SDKs.",
+      link: "https://docs.growthbook.io/lib",
+      onClick: setCodeModalOpen,
+      completed: dismissedSteps["Create a segment"],
+    },
+    {
+      title: "Define an attribute",
+      text:
+        "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
+      cta: "Create Feature Flag",
+      learnMoreLink: "Learn more about how to use feature flags.",
+      link: "https://docs.growthbook.io/app/features",
+      onClick: setModalOpen,
+      completed: dismissedSteps["Define an attribute"],
+    },
+    {
+      title: "Invite teammates",
+      text:
+        "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
+      cta: "Add Data Source",
+      learnMoreLink: "Learn more about how to connect to a data source.",
+      link: "https://docs.growthbook.io/app/datasources",
+      completed: dismissedSteps["Invite teammates"],
+      onClick: setDataSourceOpen,
+    },
+    {
+      title: "Install our Chrome Plugin",
+      text:
+        "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
+      cta: "Define a Metric",
+      learnMoreLink: "Learn more about how to use metrics.",
+      link: "https://docs.growthbook.io/app/metrics",
+      completed: dismissedSteps["Install our Chrome Plugin"],
+      onClick: setMetricsOpen,
+    },
+  ];
+
+  const helpLinks: HelpLink[] = [
+    {
+      title: "Read our FAQs",
+      helpText: "Checkout some of our most common questions.",
+      url: "https://docs.growthbook.io/faq",
+    },
+    {
+      title: "Checkout the Docs",
+      helpText: "Checkout some of our most common questions.",
+      url: "https://docs.growthbook.io/",
+    },
+    {
+      title: "Join our Slack Channel",
+      helpText: "Checkout some of our most common questions.",
+      url: "https://slack.growthbook.io/?ref=docs-home",
+    },
+    {
+      title: "Read our User Guide",
+      helpText: "Checkout some of our most common questions.",
+      url: "https://docs.growthbook.io/app",
+    },
+    {
+      title: "Open a GitHub Issue",
+      helpText: "Checkout some of our most common questions.",
+      url: "https://github.com/growthbook/growthbook/issues",
+    },
+    {
+      title: "Book a Meeting with GrowthBook",
+      helpText: "Book some time with us to get a demo and ask questions.",
+      url: "https://www.growthbook.io/demo",
+    },
+  ];
+
   useEffect(() => {
-    if (settings) {
-      let completedTasks = 0;
+    if (settings && features && experiments) {
+      let initialsTasksCompleted = 0;
       initialTasks.forEach((task) => {
         if (task.completed) {
-          completedTasks++;
+          initialsTasksCompleted++;
         }
       });
 
-      setPercentComplete(
-        Math.round((completedTasks / initialTasks.length) * 100)
+      setInitialTasksPercentComplete(
+        Math.round((initialsTasksCompleted / initialTasks.length) * 100)
+      );
+
+      let advancedTasksCompleted = 0;
+      advancedTasks.forEach((task) => {
+        if (task.completed) {
+          advancedTasksCompleted++;
+        }
+      });
+
+      setAdvancedTasksPercentComplete(
+        Math.round((advancedTasksCompleted / advancedTasks.length) * 100)
       );
     }
   }, [initialTasks, settings]);
@@ -191,7 +311,7 @@ const GetStartedPage = (): React.ReactElement => {
     );
   }
 
-  if (!experiments || !features || !ready || !percentComplete) {
+  if (!experiments || !features || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -288,18 +408,24 @@ const GetStartedPage = (): React.ReactElement => {
         <SetupGuide
           tasks={initialTasks}
           title="Quick Start Guide"
-          percentComplete={percentComplete}
+          percentComplete={initialTasksPercentComplete}
+          open={
+            initialTasksPercentComplete && initialTasksPercentComplete === 100
+              ? false
+              : true
+          }
+          dismissedSteps={dismissedSteps}
+          setDismissedSteps={setDismissedSteps}
         />
         <SetupGuide
-          tasks={initialTasks}
+          tasks={advancedTasks}
           title="Setup Advanced Features"
-          percentComplete={percentComplete}
+          percentComplete={advancedTasksPercentComplete}
+          open={false}
+          dismissedSteps={dismissedSteps}
+          setDismissedSteps={setDismissedSteps}
         />
-        <SetupGuide
-          tasks={initialTasks}
-          title="Need Help?"
-          percentComplete={percentComplete}
-        />
+        <SetupGuide helpLinks={helpLinks} title="Need Help?" open={false} />
       </div>
     </>
   );

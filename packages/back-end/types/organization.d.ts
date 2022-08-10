@@ -83,6 +83,10 @@ export type Environment = {
   defaultState?: boolean;
 };
 
+type DismissedSteps = {
+  [key: string]: boolean;
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -101,6 +105,7 @@ export interface OrganizationSettings {
   environments?: Environment[];
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
+  dismissedGettingStartedSteps?: DismissedSteps;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];

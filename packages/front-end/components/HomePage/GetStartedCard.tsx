@@ -1,10 +1,34 @@
 import { Task } from "../../pages/getstarted";
+import { useAuth } from "../../services/auth";
 
 type Props = {
   task: Task;
+  dismissedSteps?: {
+    [key: string]: boolean;
+  };
+  setDismissedSteps: (value: { [key: string]: boolean }) => void;
 };
 
-export default function GetStartedCard({ task }: Props) {
+export default function GetStartedCard({
+  task,
+  dismissedSteps,
+  setDismissedSteps,
+}: Props) {
+  const { apiCall } = useAuth();
+
+  const handleMarkAsComplete = async () => {
+    const updatedDismissedSteps = { ...dismissedSteps, [task.title]: true };
+    setDismissedSteps(updatedDismissedSteps);
+    await apiCall(`/organization`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          dismissedGettingStartedSteps: updatedDismissedSteps,
+        },
+      }),
+    });
+  };
+
   return (
     <div
       className="p-4"
@@ -31,11 +55,15 @@ export default function GetStartedCard({ task }: Props) {
         className="pt-4"
         style={{ display: "flex", justifyContent: "flex-end" }}
       >
-        {/* {!task.completed && ( //TODO: The idea is to give users the ability to say "no thanks" to certain feature and that mark the feature as complete.
-          <button type="button" className="btn btn-link">
+        {!task.completed && (
+          <button
+            type="button"
+            className="btn btn-link"
+            onClick={handleMarkAsComplete}
+          >
             Mark as Complete
           </button>
-        )} */}
+        )}
         <button
           type="button"
           className="btn btn-primary"

@@ -1,20 +1,33 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
-import { Task } from "../../pages/getstarted";
+import { HelpLink, Task } from "../../pages/getstarted";
 import GetStartedCard from "./GetStartedCard";
 import ToDoItem from "./ToDoItem";
 
 type Props = {
   title: string;
-  tasks: Task[];
-  percentComplete: number;
+  tasks?: Task[];
+  helpLinks?: HelpLink[];
+  percentComplete?: number;
+  open: boolean;
+  dismissedSteps?: {
+    [key: string]: boolean;
+  };
+  setDismissedSteps?: (value: { [key: string]: boolean }) => void;
 };
 
-export default function SetupGuide({ title, tasks, percentComplete }: Props) {
-  console.log("percentComplete", percentComplete);
-  const [isOpen, setIsOpen] = useState(percentComplete !== 100 ? true : false);
-  const [selectedTask, setSelectedTask] = useState(tasks[0]);
+export default function SetupGuide({
+  title,
+  tasks,
+  helpLinks,
+  percentComplete,
+  open,
+  dismissedSteps,
+  setDismissedSteps,
+}: Props) {
+  const [isOpen, setIsOpen] = useState(open);
+  const [selectedTask, setSelectedTask] = useState(tasks ? tasks[0] : null);
 
   return (
     <div
@@ -38,9 +51,11 @@ export default function SetupGuide({ title, tasks, percentComplete }: Props) {
             textAlign: "right",
           }}
         >
-          <span style={{ color: "#26A66B", fontWeight: "bold" }}>
-            {`${percentComplete}% Complete`}
-          </span>
+          {(percentComplete || percentComplete === 0) && (
+            <span style={{ color: "#26A66B", fontWeight: "bold" }}>
+              {`${percentComplete}% Complete`}
+            </span>
+          )}
         </div>
         <div
           className="col-1"
@@ -51,7 +66,7 @@ export default function SetupGuide({ title, tasks, percentComplete }: Props) {
           {isOpen ? <FaChevronDown /> : <FaChevronRight />}
         </div>
       </div>
-      {isOpen && (
+      {isOpen && tasks && (
         <>
           <div
             className="row"
@@ -90,8 +105,41 @@ export default function SetupGuide({ title, tasks, percentComplete }: Props) {
               })}
             </div>
             <div className="col p-0">
-              <GetStartedCard task={selectedTask} />
+              <GetStartedCard
+                task={selectedTask}
+                dismissedSteps={dismissedSteps}
+                setDismissedSteps={setDismissedSteps}
+              />
             </div>
+          </div>
+        </>
+      )}
+      {isOpen && helpLinks && (
+        <>
+          <div
+            className="row p-1 d-flex justify-content-space-between"
+            style={{
+              marginTop: "10px",
+              marginBottom: "10px",
+              width: "100%",
+              justifyContent: "space-between",
+            }}
+          >
+            {helpLinks.map((link) => {
+              return (
+                <a
+                  key={link.title}
+                  className="btn btn btn-outline-dark text-left p-3 m-1"
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ width: "32%" }}
+                >
+                  <h4>{link.title}</h4>
+                  <p className="m-0">{link.helpText}</p>
+                </a>
+              );
+            })}
           </div>
         </>
       )}
