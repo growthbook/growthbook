@@ -100,6 +100,7 @@ export interface OrganizationSettings {
   attributeSchema?: SDKAttributeSchema;
   environments?: Environment[];
   sdkInstructionsViewed?: boolean;
+  videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];

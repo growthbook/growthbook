@@ -8,12 +8,20 @@ import { FaArrowRight } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag, BsClipboardCheck } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
+  {
+    name: "Get Started",
+    href: "/getstarted",
+    Icon: BsLightbulb,
+    path: /^getstarted/,
+    beta: false,
+    className: styles.first,
+  },
   {
     name: "Features",
     href: "/features",
