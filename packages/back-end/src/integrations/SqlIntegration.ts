@@ -168,20 +168,18 @@ export default abstract class SqlIntegration
       ${experimentQueries
         .map((q, i) => {
           const hasNameCol = q.hasNameCol || false;
-          const experimentNameCol = hasNameCol
-            ? "experiment_name"
-            : "experiment_id";
-          const variationNameCol = hasNameCol
-            ? "variation_name"
-            : "variation_id";
           return `
         __exposures${i} as (
           SELECT 
             ${this.castToString(`'${q.id}'`)} as exposure_query,
             experiment_id,
-            MIN(${experimentNameCol}) as experiment_name,
+            ${
+              hasNameCol ? "MIN(experiment_name)" : "experiment_id"
+            } as experiment_name,
             variation_id,
-            MIN(${variationNameCol}) as variation_name,
+            ${
+              hasNameCol ? "MIN(variation_name)" : "variation_id"
+            } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
             count(distinct ${q.userIdType}) as users
           FROM

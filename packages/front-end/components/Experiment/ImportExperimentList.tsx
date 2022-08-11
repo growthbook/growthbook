@@ -211,9 +211,14 @@ const ImportExperimentList: FC<{
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
                               variations: e.variationKeys.map((vKey, i) => {
-                                const vName =
-                                  e.variationNames[i] ||
-                                  (i == 0 ? "Control" : `Variation ${i}`);
+                                let vName = e.variationNames[i] || vKey;
+                                // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
+                                if (vName.match(/^[0-9]{1,2}$/)) {
+                                  vName =
+                                    vName === "0"
+                                      ? "Control"
+                                      : `Variation ${vName}`;
+                                }
                                 return {
                                   name: vName,
                                   screenshots: [],
