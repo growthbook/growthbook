@@ -1,6 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface } from "back-end/types/metric";
-import router from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
 import CodeSnippetModal from "../components/Features/CodeSnippetModal";
 import FeatureModal from "../components/Features/FeatureModal";
@@ -19,6 +18,14 @@ import ImportExperimentModal from "../components/Experiment/ImportExperimentModa
 // import GetStarted from "../components/HomePage/GetStarted";
 import GetStartedVideoModal from "../components/Features/GetStartedVideoModal";
 import EditDataSourceSettingsForm from "../components/Settings/EditDataSourceSettingsForm";
+import DimensionForm from "../components/Dimensions/DimensionForm";
+import { DimensionInterface } from "back-end/types/dimension";
+import { useAttributeSchema } from "../services/features";
+import { SegmentInterface } from "back-end/types/segment";
+import SegmentForm from "../components/Segments/SegmentForm";
+import EditAttributesModal from "../components/Features/EditAttributesModal";
+import { useRouter } from "next/router";
+import { SettingsApiResponse } from "./settings";
 
 export type Task = {
   title: string;
@@ -27,7 +34,12 @@ export type Task = {
   learnMoreLink?: string;
   link?: string;
   completed: boolean;
-  onClick: (value: boolean) => void;
+  onClick: (
+    value: boolean | null
+  ) =>
+    | void
+    | Promise<void>
+    | ((value: null | Partial<DimensionInterface>) => void);
 };
 
 export type HelpLink = {
@@ -37,6 +49,7 @@ export type HelpLink = {
 };
 
 const GetStartedPage = (): React.ReactElement => {
+  const router = useRouter();
   const settings = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -45,6 +58,9 @@ const GetStartedPage = (): React.ReactElement => {
   const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [experimentsOpen, setExperimentsOpen] = useState(false);
+  const [attributesOpen, setAttributesOpen] = useState(false);
+  const [dimensionForm] = useState<null | Partial<DimensionInterface>>({});
+  const [dimensionFormOpen, setDimensionFormOpen] = useState(false);
   const [dismissedSteps, setDismissedSteps] = useState(
     settings.dismissedGettingStartedSteps || {}
   );
@@ -56,13 +72,20 @@ const GetStartedPage = (): React.ReactElement => {
     advancedTasksPercentComplete,
     setAdvancedTasksPercentComplete,
   ] = useState(null);
+  const [segmentForm] = useState<null | Partial<SegmentInterface>>({});
+  const [segmentFormOpen, setSegmentFormOpen] = useState(false);
   const {
+    dimensions,
+    segments,
     datasources,
     ready,
     error: definitionsError,
     mutateDefinitions,
     metrics,
   } = useDefinitions();
+
+  const attributeSchema = useAttributeSchema();
+
   const { apiCall } = useAuth();
 
   const {
@@ -92,6 +115,8 @@ const GetStartedPage = (): React.ReactElement => {
   }, [router?.query?.featureExperiment]);
 
   const { data } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
+
+  const org = useApi<SettingsApiResponse>(`/organization`);
 
   const { features, error: featuresError } = useFeaturesList();
 
@@ -192,52 +217,68 @@ const GetStartedPage = (): React.ReactElement => {
 
   const advancedTasks: Task[] = [
     {
-      title: "Create a dimension",
+      title: "Create a Dimension",
       text:
-        "A very brief introduction to GrowthBook - the open-source feature flagging and A/B testing platform.",
-      completed: dismissedSteps["Create a dimension"], //TODO: Come back and figure out why dismissedSteps[title] was giving an error
-      cta: "Watch Video",
-      onClick: setVideoModalOpen,
+        "User Dimensions are attributes of your users - for example, 'subscription plan' or 'age group'. In Growth Book, you can use these to drill down into experiment results.",
+      completed: dimensions.length > 0 || dismissedSteps["Create a dimension"], //TODO: Come back and figure out why dismissedSteps[title] was giving an error
+      cta: "Create a Dimension",
+      learnMoreLink: "Learn more about dimensions.",
+      link: "https://docs.growthbook.io/app/dimensions",
+      onClick: setDimensionFormOpen,
     },
     {
-      title: "Create a segment",
+      title: "Create a Segment",
       text:
-        "Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!",
-      cta: "View Instructions",
-      learnMoreLink: "Learn more about our SDKs.",
-      link: "https://docs.growthbook.io/lib",
-      onClick: setCodeModalOpen,
-      completed: dismissedSteps["Create a segment"],
+        "Segments define important groups of users - for example, 'annual subscribers' or 'left-handed people from France.'",
+      cta: "Create a Segment",
+      completed: segments.length > 0 || dismissedSteps["Create a segment"],
+      onClick: setSegmentFormOpen,
     },
     {
-      title: "Define an attribute",
+      title: "Define an Attribute",
       text:
-        "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
-      cta: "Create Feature Flag",
-      learnMoreLink: "Learn more about how to use feature flags.",
-      link: "https://docs.growthbook.io/app/features",
-      onClick: setModalOpen,
-      completed: dismissedSteps["Define an attribute"],
+        "Attributes can be used when targeting feature flags. Attributes set here must also be passed in through the SDK.",
+      cta: "Create an Attribute",
+      onClick: setAttributesOpen,
+      completed:
+        attributeSchema.length > 0 || dismissedSteps["Define an attribute"],
     },
     {
       title: "Invite teammates",
       text:
         "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
-      cta: "Add Data Source",
-      learnMoreLink: "Learn more about how to connect to a data source.",
-      link: "https://docs.growthbook.io/app/datasources",
-      completed: dismissedSteps["Invite teammates"],
-      onClick: setDataSourceOpen,
+      cta: "Invite a Teammate",
+      completed:
+        org.data?.organization.members.length +
+          org.data?.organization.invites.length >
+          1 || dismissedSteps["Invite teammates"],
+      onClick: () => {
+        router.push("/settings/team");
+      },
     },
     {
       title: "Install our Chrome Plugin",
       text:
-        "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
-      cta: "Define a Metric",
-      learnMoreLink: "Learn more about how to use metrics.",
-      link: "https://docs.growthbook.io/app/metrics",
-      completed: dismissedSteps["Install our Chrome Plugin"],
-      onClick: setMetricsOpen,
+        "QA and debug feature flags and experiments from GrowthBook's js/react SDKs.",
+      cta: "Get the Plugin",
+      completed:
+        settings?.pluginInstructionsViewed ||
+        dismissedSteps["Install our Chrome Plugin"],
+      onClick: async () => {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify({
+            settings: {
+              pluginInstructionsViewed: true,
+            },
+          }),
+        });
+        window.open(
+          "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia",
+          "_blank",
+          "noopener,noreferrer"
+        );
+      },
     },
   ];
 
@@ -404,6 +445,21 @@ const GetStartedPage = (): React.ReactElement => {
             source="onboarding"
           />
         )}
+      {dimensionFormOpen && (
+        <DimensionForm
+          close={() => setDimensionFormOpen(false)}
+          current={dimensionForm}
+        />
+      )}
+      {segmentFormOpen && (
+        <SegmentForm
+          close={() => setSegmentFormOpen(false)}
+          current={segmentForm}
+        />
+      )}
+      {attributesOpen && (
+        <EditAttributesModal close={() => setAttributesOpen(false)} />
+      )}
       <div className="container pagecontents position-relative">
         <SetupGuide
           tasks={initialTasks}
@@ -416,6 +472,7 @@ const GetStartedPage = (): React.ReactElement => {
           }
           dismissedSteps={dismissedSteps}
           setDismissedSteps={setDismissedSteps}
+          showSubHead
         />
         <SetupGuide
           tasks={advancedTasks}

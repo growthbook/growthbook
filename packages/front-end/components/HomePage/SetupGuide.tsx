@@ -14,6 +14,7 @@ type Props = {
   dismissedSteps?: {
     [key: string]: boolean;
   };
+  showSubHead?: boolean;
   setDismissedSteps?: (value: { [key: string]: boolean }) => void;
 };
 
@@ -25,6 +26,7 @@ export default function SetupGuide({
   open,
   dismissedSteps,
   setDismissedSteps,
+  showSubHead,
 }: Props) {
   const [isOpen, setIsOpen] = useState(open);
   const [selectedTask, setSelectedTask] = useState(tasks ? tasks[0] : null);
@@ -72,17 +74,19 @@ export default function SetupGuide({
             className="row"
             style={{ marginTop: "10px", marginBottom: "10px" }}
           >
-            <div className="col">
-              <p className="mb-0">
-                Follow the steps below to start using GrowthBook.
-                <span> </span>
-                <span>
-                  <Link href="/settings/team">
-                    Not a technical person? Invite an engineer.
-                  </Link>
-                </span>
-              </p>
-            </div>
+            {showSubHead && (
+              <div className="col">
+                <p className="mb-0">
+                  Follow the steps below to start using GrowthBook.
+                  <span> </span>
+                  <span>
+                    <Link href="/settings/team">
+                      Not a technical person? Invite an engineer.
+                    </Link>
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
           <div
             className="row m-0 pt-4 pb-0"
