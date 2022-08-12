@@ -58,7 +58,7 @@ const docsMap = new Map<DocsKeys, string>([
 ]);
 
 //for testing use "http://localhost:3200"
-const docsOrigin = "http://localhost:3200"; //"https://docs.growthbook.io"
+const docsOrigin = "https://docs.growthbook.io";
 
 export function inferDocsLink() {
   const key = window.location.pathname;
