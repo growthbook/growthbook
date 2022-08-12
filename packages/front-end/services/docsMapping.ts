@@ -10,6 +10,7 @@ type DocsKeys =
   | "/segments"
   | "/dimensions"
   | "/datasources"
+  | "/dashboard"
   | "/settings/keys"
   | "/settings/environments"
   | "/settings/webhooks"
@@ -31,6 +32,7 @@ const docsMap = new Map<DocsKeys, string>([
   ["/segments", "/app/datasources"],
   ["/dimensions", "/app/dimensions"],
   ["/datasources", "/app/datasources"],
+  ["/dashboard", "/app/experiments"],
   ["/settings/keys", "/app/api"],
   ["/settings/environments", "/app/api"],
   ["/settings/webhooks", "/app/webhooks"],
