@@ -37,10 +37,6 @@ export async function postNewSubscription(
 
   const { org } = getOrgFromReq(req);
 
-  if (!org) {
-    throw new Error("No organization found");
-  }
-
   const desiredQty = getNumberOfMembersAndInvites(org);
 
   if (desiredQty !== qty) {
@@ -66,6 +62,12 @@ export async function postNewSubscription(
     await updateOrganization(org.id, {
       stripeCustomerId: stripeCustomerId,
     });
+  }
+
+  if (org.subscription?.status === "active") {
+    throw new Error(
+      "Existing subscription found. Please go to Settings > Billing to manage your existing subscription."
+    );
   }
 
   const session = await stripe.checkout.sessions.create({
@@ -117,7 +119,9 @@ export async function getDiscountData(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
 
   if (!org.discountCode) {
-    return res.status(200);
+    return res.status(200).json({
+      status: 200,
+    });
   }
 
   if (!discountData[org.discountCode]) {

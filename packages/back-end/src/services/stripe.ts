@@ -24,18 +24,18 @@ export async function updateSubscriptionInDb(
 
   await updateOrganizationByStripeId(stripeCustomerId, {
     subscription: {
-      id: subscription.id,
-      qty: subscription.items.data[0].quantity || 1,
-      trialEnd: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
+      id: subscription?.id,
+      qty: subscription?.items?.data[0]?.quantity || 1,
+      trialEnd: subscription?.trial_end
+        ? new Date(subscription?.trial_end * 1000)
         : null,
-      status: subscription.status,
-      current_period_end: subscription.current_period_end,
-      cancel_at: subscription.cancel_at,
-      canceled_at: subscription.canceled_at,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-      planNickname: subscription.items.data[0].plan.nickname,
-      priceId: subscription.items.data[0].price.id,
+      status: subscription?.status,
+      current_period_end: subscription?.current_period_end,
+      cancel_at: subscription?.cancel_at,
+      canceled_at: subscription?.canceled_at,
+      cancel_at_period_end: subscription?.cancel_at_period_end,
+      planNickname: subscription?.items?.data[0]?.plan?.nickname,
+      priceId: subscription?.items?.data[0]?.price?.id,
     },
   });
 }
@@ -50,17 +50,20 @@ export async function updateSubscriptionInStripe(
 ) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-  const updatedSubscription = await stripe.subscriptions.update(
-    subscriptionId,
-    {
-      items: [
-        {
-          id: subscription.items.data[0].id,
-          quantity: qty,
-        },
-      ],
-    }
-  );
+  // Only update subscription if the qty is different than what Stripe currently has
+  if (qty !== subscription.items.data[0].quantity) {
+    const updatedSubscription = await stripe.subscriptions.update(
+      subscriptionId,
+      {
+        items: [
+          {
+            id: subscription.items.data[0].id,
+            quantity: qty,
+          },
+        ],
+      }
+    );
 
-  await updateSubscriptionInDb(updatedSubscription);
+    await updateSubscriptionInDb(updatedSubscription);
+  }
 }
