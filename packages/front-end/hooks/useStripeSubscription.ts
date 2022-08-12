@@ -1,32 +1,24 @@
 import { useEffect, useState } from "react";
-import { SettingsApiResponse } from "../pages/settings";
+import { SettingsApiResponse } from "../pages/settings/types";
 import { useAuth } from "../services/auth";
 import useApi from "./useApi";
 
 export default function useStripeSubscription() {
   const { apiCall } = useAuth();
-  const [discountData, setDiscountData] = useState(null);
-  const [pricePerSeat, setPricePerSeat] = useState(null);
   const { data } = useApi<SettingsApiResponse>(`/organization`);
+  const [priceData, setPriceData] = useState(null);
 
   useEffect(() => {
     const getPriceData = async () => {
-      const { priceData } = await apiCall(`/price`);
+      const { priceData } = await apiCall(`/billing`);
 
-      if (priceData) {
-        setPricePerSeat(priceData.unit_amount / 100);
-      } else {
-        setPricePerSeat(20);
-      }
-
-      const { discountCodeData } = await apiCall(`/discount-code`);
-      if (discountCodeData) {
-        setDiscountData(discountCodeData);
-      }
+      setPriceData(priceData);
     };
 
     getPriceData();
   }, []);
+
+  const pricePerSeat = priceData?.pricePerSeat || 20;
 
   const freeSeats = data.organization.freeSeats || 2;
 
@@ -60,41 +52,18 @@ export default function useStripeSubscription() {
   const pendingCancelation =
     data.organization.subscription.cancel_at_period_end;
 
-  const getMonthlyPrice = () => {
-    // This calculates price of grandfathered organizations
-    if (discountData?.amount_off) {
-      const price =
-        pricePerSeat * data.organization.subscription.qty -
-        discountData.amount_off / 100;
-
-      if (price <= 0) {
-        return 0;
-      } else {
-        return price;
-      }
-      // This calculates the price is the organization has a percent off coupon
-    } else if (discountData?.percent_off) {
-      return (
-        pricePerSeat *
-        data.organization.subscription.qty *
-        (discountData.percent_off / 100)
-      );
-      // This calculates the price of a standard organization
-    } else {
-      return pricePerSeat * data.organization.subscription.qty;
-    }
-  };
+  const monthlyPrice = priceData?.monthlyPrice;
 
   return {
     freeSeats,
     pricePerSeat,
+    monthlyPrice,
     planName,
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
-    getMonthlyPrice,
     activeAndInvitedUsers,
     numberOfCurrentSeats,
     hasActiveSubscription,

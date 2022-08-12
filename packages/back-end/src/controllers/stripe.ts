@@ -107,32 +107,38 @@ export async function getPriceData(req: AuthRequest, res: Response) {
     });
   }
 
-  return res.status(200).json({
-    status: 200,
-    priceData: priceData[priceId],
-  });
-}
+  let pricePerSeat = (priceData[priceId].unit_amount || 2000) / 100;
+  let monthlyPrice = pricePerSeat * getNumberOfMembersAndInvites(org);
 
-export async function getDiscountData(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
-
-  const { org } = getOrgFromReq(req);
-
-  if (!org.discountCode) {
-    return res.status(200).json({
-      status: 200,
-    });
-  }
-
-  if (!discountData[org.discountCode]) {
+  if (org.discountCode && !discountData[org.discountCode]) {
     discountData[org.discountCode] = await stripe.coupons.retrieve(
       org.discountCode
     );
   }
 
+  // Update the monthly price to reflect any discounts
+  if (org.discountCode && discountData[org.discountCode]) {
+    const amount_off = (discountData[org.discountCode].amount_off || 0) / 100;
+    const percent_off = discountData[org.discountCode].percent_off;
+
+    if (amount_off) {
+      monthlyPrice = monthlyPrice - amount_off;
+
+      if (monthlyPrice < 0) {
+        monthlyPrice = 0;
+      }
+    } else if (percent_off) {
+      monthlyPrice = monthlyPrice * (percent_off / 100);
+      pricePerSeat = pricePerSeat * (percent_off / 100);
+    }
+  }
+
   return res.status(200).json({
     status: 200,
-    discountCodeData: discountData[org.discountCode],
+    priceData: {
+      pricePerSeat: pricePerSeat,
+      monthlyPrice: monthlyPrice,
+    },
   });
 }
 

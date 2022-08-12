@@ -28,11 +28,12 @@ const SubscriptionInfo: FC<{
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
-    getMonthlyPrice,
+    monthlyPrice,
     activeAndInvitedUsers,
   } = useStripeSubscription();
 
-  if (!planName || !activeAndInvitedUsers) return <LoadingOverlay />;
+  if (!planName || !activeAndInvitedUsers || monthlyPrice === undefined)
+    return <LoadingOverlay />;
 
   return (
     <>
@@ -43,8 +44,7 @@ const SubscriptionInfo: FC<{
         <strong>Number Of Seats:</strong> {qty}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Current Monthly Price:</strong>{" "}
-        {`  $${getMonthlyPrice()}/month`}
+        <strong>Current Monthly Price:</strong> {`  $${monthlyPrice}/month`}
         <Tooltip
           text="Click the Manage Subscription button below to see how this is calculated."
           tipMinWidth="200px"
