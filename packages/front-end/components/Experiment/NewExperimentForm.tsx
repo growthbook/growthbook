@@ -21,6 +21,7 @@ import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
 import VariationDataInput from "./VariationDataInput";
+import { getDocsLink } from "../../services/docsMapping";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -215,6 +216,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     <PagedModal
       header={"New Experiment Analysis"}
       close={onClose}
+      docsLink={getDocsLink("/experiments")}
       submit={onSubmit}
       cta={"Save"}
       closeCta="Cancel"

@@ -3,6 +3,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
 import { ReactNode } from "react";
+import Tooltip from "./Tooltip";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -12,6 +13,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  docsLink?: string;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
@@ -35,6 +37,7 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  docsLink,
   size = "md",
   className = "",
   autoCloseOnSubmit = true,
@@ -91,6 +94,11 @@ const Modal: FC<ModalProps> = ({
               header
             )}
           </h5>
+          {docsLink && (
+            <a href={docsLink} target="_blank" rel="noreferrer">
+              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+            </a>
+          )}
           {close && (
             <button
               type="button"

@@ -13,6 +13,7 @@ import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
+import { getDocsLink, inferDocsLink } from "../../services/docsMapping";
 
 const DimensionsPage: FC = () => {
   const {
@@ -45,8 +46,16 @@ const DimensionsPage: FC = () => {
     return (
       <div className="p-3 container-fluid pagecontents">
         <div className="row mb-3">
-          <div className="col">
-            <h3>User Dimensions</h3>
+          <div className="col d-flex">
+            <h1>User Dimensions</h1>
+            <a
+              className="align-self-center ml-2 pb-1"
+              href={inferDocsLink()}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View Documentation
+            </a>
           </div>
         </div>
         <div className="alert alert-info">
@@ -193,9 +202,7 @@ const DimensionsPage: FC = () => {
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
-          <a href="https://docs.growthbook.io/self-host/config#configyml">
-            View Documentation
-          </a>
+          <a href={getDocsLink("config_yml")}>View Documentation</a>
         </div>
       )}
 

@@ -10,6 +10,7 @@ import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
+import { getDocsLink } from "../../services/docsMapping";
 
 export interface Props {
   features: FeatureInterface[];
@@ -121,11 +122,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   </a>
                 </li>
                 <li>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://docs.growthbook.io"
-                  >
+                  <a target="_blank" rel="noreferrer" href={getDocsLink("/")}>
                     Read our Docs
                   </a>
                 </li>

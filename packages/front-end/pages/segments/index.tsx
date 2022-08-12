@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
+import { inferDocsLink } from "../../services/docsMapping";
 
 const SegmentPage: FC = () => {
   const {
@@ -179,8 +180,16 @@ const SegmentPage: FC = () => {
     return (
       <div className="p-3 container-fluid pagecontents">
         <div className="row mb-3">
-          <div className="col">
-            <h3>Segments</h3>
+          <div className="col d-flex">
+            <h1>Segments</h1>
+            <a
+              className="align-self-center ml-2 pb-1"
+              href={inferDocsLink()}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View Documentation
+            </a>
           </div>
         </div>
         <div className="alert alert-info">

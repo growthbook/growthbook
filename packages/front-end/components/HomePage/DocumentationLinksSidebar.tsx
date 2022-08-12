@@ -3,6 +3,7 @@ import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
 import usePermissions from "../../hooks/usePermissions";
+import { getDocsLink } from "../../services/docsMapping";
 import track from "../../services/track";
 
 export default function DocumentationLinksSidebar({
@@ -25,7 +26,7 @@ export default function DocumentationLinksSidebar({
               <a
                 target="_blank"
                 rel="noreferrer"
-                href="https://docs.growthbook.io/app"
+                href={getDocsLink("user_guide")}
               >
                 <strong>User Guide</strong>
               </a>
@@ -51,11 +52,7 @@ export default function DocumentationLinksSidebar({
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               View docs for our{" "}
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://docs.growthbook.io/lib"
-              >
+              <a target="_blank" rel="noreferrer" href={getDocsLink("sdks")}>
                 <strong>SDKs</strong>
               </a>
             </div>

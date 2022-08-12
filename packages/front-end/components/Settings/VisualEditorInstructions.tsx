@@ -2,6 +2,7 @@ import { ApiKeyInterface } from "back-end/types/apikey";
 import { useEffect } from "react";
 import { useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
+import { getDocsLink } from "../../services/docsMapping";
 import { getApiHost, isCloud } from "../../services/env";
 import Code from "../Code";
 import ApiKeysModal from "./ApiKeysModal";
@@ -118,7 +119,7 @@ window.GROWTHBOOK_CONFIG = {
       <div>
         Check out the full docs at{" "}
         <a
-          href="https://docs.growthbook.io/app/visual"
+          href={getDocsLink("visual_editor")}
           target="_blank"
           rel="noopener noreferrer"
         >

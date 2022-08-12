@@ -17,6 +17,7 @@ import {
 } from "./env";
 import { ReactElement } from "react";
 import { ReactNode } from "react";
+import { getDocsLink } from "./docsMapping";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -160,7 +161,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
             <code className="font-weight-bold">API_HOST</code>.{" "}
             <a
-              href="https://docs.growthbook.io/self-host/config#domains-and-ports"
+              href={getDocsLink("config_domains_and_ports")}
               target="_blank"
               rel="noreferrer"
             >

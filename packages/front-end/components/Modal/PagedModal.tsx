@@ -9,6 +9,7 @@ type Props = {
   submitColor?: string;
   cta?: string;
   closeCta?: string;
+  docsLink?: string;
   size?: "md" | "lg" | "max";
   navStyle?: "pills" | "underlined" | "tabs" | "default";
   navFill?: boolean;

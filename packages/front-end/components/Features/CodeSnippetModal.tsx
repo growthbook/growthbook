@@ -15,6 +15,7 @@ import { Language } from "../Code";
 import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import usePermissions from "../../hooks/usePermissions";
+import { getDocsLink } from "../../services/docsMapping";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -228,7 +229,7 @@ export default function CodeSnippetModal({
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/js"
+              href={getDocsLink("javascript")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -286,7 +287,7 @@ if (growthbook.isOn(${JSON.stringify(featureId)})) {
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/react"
+              href={getDocsLink("tsx")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -355,7 +356,7 @@ function MyComponent() {
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/go"
+              href={getDocsLink("go")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -433,7 +434,7 @@ func main() {
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/kotlin"
+              href={getDocsLink("kotlin")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -486,7 +487,7 @@ if (gb.feature(${JSON.stringify(featureId)}).on) {
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/ruby"
+              href={getDocsLink("ruby")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -537,7 +538,7 @@ end
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/php"
+              href={getDocsLink("php")}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -578,7 +579,7 @@ if ($growthbook->isOn(${JSON.stringify(featureId)})) {
           <p>
             Read the{" "}
             <a
-              href="https://docs.growthbook.io/lib/python"
+              href={getDocsLink("python")}
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -19,6 +19,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
+import { getDocsLink, inferDocsLink } from "../services/docsMapping";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -104,7 +105,17 @@ const MetricsPage = (): React.ReactElement => {
             source="blank-state"
           />
         )}
-        <h1>Metrics</h1>
+        <div className="d-flex">
+          <h1>Metrics</h1>
+          <a
+            className="align-self-center ml-2 pb-1"
+            href={inferDocsLink()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View Documentation
+          </a>
+        </div>
         <p>
           Metrics define success and failure for your business. Every business
           is unique, but below are some common metrics to draw inspiration from:
@@ -131,9 +142,7 @@ const MetricsPage = (): React.ReactElement => {
           <div className="alert alert-info">
             It looks like you have a <code>config.yml</code> file. Metrics
             defined there will show up on this page.{" "}
-            <a href="https://docs.growthbook.io/self-host/config#configyml">
-              View Documentation
-            </a>
+            <a href={getDocsLink("config_yml")}>View Documentation</a>
           </div>
         )}
         {permissions.createMetrics && !hasFileConfig() && (

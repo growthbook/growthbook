@@ -25,6 +25,8 @@ import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
+import { getDocsLink } from "../../services/docsMapping";
+import Tooltip from "../Tooltip";
 
 const typeOptions: {
   type: DataSourceType;
@@ -372,7 +374,18 @@ const DataSourceForm: FC<{
         </div>
       )}
       <SelectField
-        label="Data Source Type"
+        label={
+          <>
+            {`Data Source Type `}
+            <a
+              href={getDocsLink(datasource.type, "/datasources")}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Tooltip body="View Documentation" tipPosition="top" />
+            </a>
+          </>
+        }
         value={datasource.type}
         onChange={(value) => {
           const option = typeOptions.filter((o) => o.type === value)[0];

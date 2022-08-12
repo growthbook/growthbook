@@ -1,10 +1,21 @@
 import { FC } from "react";
 import DataSources from "../../components/Settings/DataSources";
+import { inferDocsLink } from "../../services/docsMapping";
 
 const DataSourcesPage: FC = () => {
   return (
     <div className="container-fluid pagecontents">
-      <h1>Data Sources</h1>
+      <div className="d-flex">
+        <h1>Data Sources</h1>
+        <a
+          className="align-self-center ml-2 pb-1"
+          href={inferDocsLink()}
+          target="_blank"
+          rel="noreferrer"
+        >
+          View Documentation
+        </a>
+      </div>
       <DataSources />
     </div>
   );

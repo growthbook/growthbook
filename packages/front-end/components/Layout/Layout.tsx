@@ -4,13 +4,14 @@ import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import { FaArrowRight } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { getDocsLink } from "../../services/docsMapping";
+import { FaArrowRight } from "react-icons/fa";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -334,7 +335,7 @@ const Layout = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         <div className="p-3">
           <a
-            href="https://docs.growthbook.io"
+            href={getDocsLink("/")}
             className="btn btn-outline-light btn-block"
             target="_blank"
             rel="noreferrer"

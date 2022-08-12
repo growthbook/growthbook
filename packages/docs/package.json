@@ -10,6 +10,7 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
+    "@babel/helper-get-function-arity": "^7.16.7",
     "@mapbox/rehype-prism": "^0.8.0",
     "@mdx-js/loader": "^1.6.22",
     "@mdx-js/react": "^1.6.22",

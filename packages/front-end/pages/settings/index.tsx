@@ -18,6 +18,7 @@ import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
+import { getDocsLink } from "../../services/docsMapping";
 
 export type SettingsApiResponse = {
   status: number;
@@ -276,7 +277,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <code>config.yml</code> file and cannot be changed through the web
             UI.{" "}
             <a
-              href="https://docs.growthbook.io/self-host/config#organization-settings"
+              href={getDocsLink("config_organization_settings")}
               target="_blank"
               rel="noreferrer"
               className="font-weight-bold"
@@ -301,7 +302,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               file to more easily move between GrowthBook Cloud accounts and/or
               self-hosted environments.{" "}
               <a
-                href="https://docs.growthbook.io/self-host/config#configyml"
+                href={getDocsLink("config_yml")}
                 target="_blank"
                 rel="noreferrer"
                 className="font-weight-bold"
@@ -338,8 +339,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
             <div className="col-sm-9 pb-3">
               <p>
-                The Visual Editor allows non-technical users to create and start
-                experiments in production without writing any code.
+                {`The Visual Editor allows non-technical users to create and start
+                experiments in production without writing any code. `}
+                <a
+                  href={getDocsLink("visual_editor")}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View Documentation
+                </a>
               </p>
               <div>
                 <div className="form-check">
