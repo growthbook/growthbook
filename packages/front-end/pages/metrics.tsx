@@ -170,8 +170,8 @@ const MetricsPage = (): React.ReactElement => {
       )}
 
       <div className="filters md-form row mb-3 align-items-center">
-        <div className="col-auto">
-          <h3>
+        <div className="col-auto d-flex">
+          <h1>
             Your Metrics{" "}
             <small className="text-muted">
               <Tooltip
@@ -179,7 +179,15 @@ const MetricsPage = (): React.ReactElement => {
         here to use throughout the GrowthBook app."
               />
             </small>
-          </h3>
+          </h1>
+          <a
+            className="align-self-center ml-2 pb-1"
+            href={inferDocsLink()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View Documentation
+          </a>
         </div>
         <div style={{ flex: 1 }} />
         {permissions.createMetrics && !hasFileConfig() && (

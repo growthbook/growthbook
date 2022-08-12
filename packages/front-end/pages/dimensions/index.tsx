@@ -85,8 +85,16 @@ const DimensionsPage: FC = () => {
         />
       )}
       <div className="row mb-3">
-        <div className="col-auto">
-          <h3>User Dimensions</h3>
+        <div className="col-auto d-flex">
+          <h1>User Dimensions</h1>
+          <a
+            className="align-self-center ml-2 pb-1"
+            href={inferDocsLink()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View Documentation
+          </a>
         </div>
         <div style={{ flex: 1 }}></div>
         {!hasFileConfig() && permissions.createDimensions && (

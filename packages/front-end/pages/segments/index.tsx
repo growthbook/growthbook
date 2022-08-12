@@ -208,8 +208,16 @@ const SegmentPage: FC = () => {
         <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
       )}
       <div className="row mb-3">
-        <div className="col-auto">
-          <h3>Segments</h3>
+        <div className="col-auto d-flex">
+          <h1>Segments</h1>
+          <a
+            className="align-self-center ml-2 pb-1"
+            href={inferDocsLink()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View Documentation
+          </a>
         </div>
         <div style={{ flex: 1 }}></div>
         {permissions.createSegments && (
