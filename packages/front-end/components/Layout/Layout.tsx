@@ -10,7 +10,7 @@ import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { getDocsLink } from "../../services/docsMapping";
+import { inferDocsLink } from "../../services/docsMapping";
 import { FaArrowRight } from "react-icons/fa";
 
 // move experiments inside of 'analysis' menu
@@ -335,7 +335,7 @@ const Layout = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         <div className="p-3">
           <a
-            href={getDocsLink("/")}
+            href={inferDocsLink()}
             className="btn btn-outline-light btn-block"
             target="_blank"
             rel="noreferrer"
