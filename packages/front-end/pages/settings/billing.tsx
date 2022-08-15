@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import { SettingsApiResponse } from ".";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
 import useApi from "../../hooks/useApi";
+import { SettingsApiResponse } from "./types";
 import { isCloud } from "../../services/env";
 
 const BillingPage: FC = () => {
-  const { data, error } = useApi<SettingsApiResponse>(`/organization`);
+  const { data, error } = useApi<{
+    organization: SettingsApiResponse;
+  }>(`/organization`);
 
   if (!isCloud()) {
     return (

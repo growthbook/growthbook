@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { OrganizationInterface } from "back-end/types/organization";
+import { SettingsApiResponse } from "./settings/types";
 import clsx from "clsx";
 import { useAuth } from "../services/auth";
 import { FaPlus } from "react-icons/fa";
@@ -10,7 +10,7 @@ import Button from "../components/Button";
 
 const Admin: FC = () => {
   const { data, error, mutate } = useApi<{
-    organizations: (OrganizationInterface & { canPopulate: boolean })[];
+    organizations: (SettingsApiResponse & { canPopulate: boolean })[];
   }>("/admin/organizations");
   const [orgModalOpen, setOrgModalOpen] = useState(false);
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();

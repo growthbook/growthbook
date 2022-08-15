@@ -3,9 +3,10 @@ import { FaTrash, FaEnvelope } from "react-icons/fa";
 import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
+import { Invite } from "../../../back-end/types/organization";
 
 const InviteList: FC<{
-  invites: { key: string; email: string; role: string; dateCreated: string }[];
+  invites: Invite[];
   mutate: () => void;
 }> = ({ invites, mutate }) => {
   const [deleteInvite, setDeleteInvite] = useState<{

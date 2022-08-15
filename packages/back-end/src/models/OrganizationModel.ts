@@ -34,6 +34,7 @@ const organizationSchema = new mongoose.Schema({
   ],
   stripeCustomerId: String,
   discountCode: String,
+  priceId: String,
   freeSeats: Number,
   subscription: {
     id: String,

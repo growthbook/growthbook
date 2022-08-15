@@ -5,64 +5,20 @@ import { useAuth } from "../../services/auth";
 import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import { OrganizationSettings, MemberRole } from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
-
-export type SettingsApiResponse = {
-  status: number;
-  apiKeys: ApiKeyInterface[];
-  organization?: {
-    id: string;
-    invites: {
-      email: string;
-      key: string;
-      role: MemberRole;
-      dateCreated: string;
-    }[];
-    ownerEmail: string;
-    name: string;
-    url: string;
-    members: {
-      id: string;
-      email: string;
-      name: string;
-      role: MemberRole;
-    }[];
-    freeSeats?: number;
-    discountCode?: string;
-    subscription?: {
-      id: string;
-      qty: number;
-      trialEnd: Date;
-      current_period_end: number;
-      cancel_at: number | null;
-      canceled_at: number | null;
-      cancel_at_period_end: boolean;
-      planNickname: string;
-      status:
-        | "incomplete"
-        | "incomplete_expired"
-        | "trialing"
-        | "active"
-        | "past_due"
-        | "canceled"
-        | "unpaid";
-    };
-    slackTeam?: string;
-    settings?: OrganizationSettings;
-  };
-};
+import { SettingsApiResponse } from "./types";
+import { ApiKeyInterface } from "back-end/types/apikey";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -74,7 +30,11 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
+  const { data, error, mutate } = useApi<{
+    organization: SettingsApiResponse;
+    apiKeys: ApiKeyInterface[];
+  }>(`/organization`);
+
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});

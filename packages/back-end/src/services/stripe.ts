@@ -37,6 +37,7 @@ export async function updateSubscriptionInDb(
       planNickname: subscription?.items?.data[0]?.plan?.nickname,
       priceId: subscription?.items?.data[0]?.price?.id,
     },
+    priceId: subscription?.items?.data[0]?.price?.id,
   });
 }
 

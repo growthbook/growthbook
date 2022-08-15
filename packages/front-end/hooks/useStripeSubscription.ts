@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { SettingsApiResponse } from "../pages/settings/types";
+import { OrganizationInterface } from "../../back-end/types/organization";
 import { useAuth } from "../services/auth";
 import useApi from "./useApi";
 
 export default function useStripeSubscription() {
   const { apiCall } = useAuth();
-  const { data } = useApi<SettingsApiResponse>(`/organization`);
+  const { data } = useApi<{
+    organization: OrganizationInterface;
+  }>(`/organization`);
   const [priceData, setPriceData] = useState(null);
 
   useEffect(() => {

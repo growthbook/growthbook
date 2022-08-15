@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import { SettingsApiResponse } from ".";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import InviteList from "../../components/Settings/InviteList";
 import MemberList from "../../components/Settings/MemberList";
+import { SettingsApiResponse } from "./types";
 import useApi from "../../hooks/useApi";
 
 const TeamPage: FC = () => {
-  const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
+  const { data, error, mutate } = useApi<{
+    organization: SettingsApiResponse;
+  }>(`/organization`);
 
   if (error) {
     return (
