@@ -9,7 +9,7 @@ type Props = {
   setDismissedSteps: (value: { [key: string]: boolean }) => void;
 };
 
-export default function GetStartedCard({
+export default function SetupGuideCard({
   task,
   dismissedSteps,
   setDismissedSteps,
