@@ -10,6 +10,7 @@ import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
+import SlackModal from "../SlackModal";
 
 export interface Props {
   features: FeatureInterface[];
@@ -30,9 +31,12 @@ export default function FeaturesGetStarted({ features }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [attributeModalOpen, setAttributeModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const showSlackModal =
+    localStorage.getItem("hasSeenSlackModal") === "true" ? false : true;
 
   return (
     <div>
+      {showSlackModal && <SlackModal />}
       {modalOpen && (
         <FeatureModal
           close={() => setModalOpen(false)}
