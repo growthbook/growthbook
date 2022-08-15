@@ -4,10 +4,11 @@ import { MetricInterface } from "back-end/types/metric";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
-// import GetStarted from "../components/HomePage/GetStarted";
+import GetStarted from "../components/HomePage/GetStarted";
 import { DimensionInterface } from "back-end/types/dimension";
 import GuidedGetStarted from "../components/GuidedGetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 export type Task = {
   title: string;
@@ -31,13 +32,17 @@ export type HelpLink = {
 };
 
 const GetStartedPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook();
+  const guidedOnboarding = growthbook.feature(
+    "guided-onboarding-test-august-2022"
+  );
   const { ready, error: definitionsError } = useDefinitions();
 
   const {
     data: experiments,
     mutate,
     error: experimentsError,
-    // mutate: mutateExperiments,
+    mutate: mutateExperiments,
   } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
@@ -61,27 +66,29 @@ const GetStartedPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  // return (
-  //   <>
-  //     <div className="container pagecontents position-relative">
-  //       <GetStarted
-  //         experiments={experiments?.experiments || []}
-  //         features={features}
-  //         mutateExperiments={mutateExperiments}
-  //         onboardingType={null}
-  //       />
-  //     </div>
-  //   </>
-  // );
-
-  return (
-    <GuidedGetStarted
-      experiments={experiments}
-      features={features}
-      data={data}
-      mutate={mutate}
-    />
-  );
+  if (guidedOnboarding) {
+    return (
+      <GuidedGetStarted
+        experiments={experiments}
+        features={features}
+        data={data}
+        mutate={mutate}
+      />
+    );
+  } else {
+    return (
+      <>
+        <div className="container pagecontents position-relative">
+          <GetStarted
+            experiments={experiments?.experiments || []}
+            features={features}
+            mutateExperiments={mutateExperiments}
+            onboardingType={null}
+          />
+        </div>
+      </>
+    );
+  }
 };
 
 export default GetStartedPage;
