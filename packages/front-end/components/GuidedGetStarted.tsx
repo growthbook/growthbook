@@ -72,18 +72,18 @@ export default function GuidedGetStarted({
   const [dismissedSteps, setDismissedSteps] = useState(
     settings.dismissedGettingStartedSteps || {}
   );
-  const [modalOpen, setModalOpen] = useState(false);
+  const [featureModalOpen, setFeatureModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
-  const [dataSourceOpen, setDataSourceOpen] = useState(false);
+  const [dataSourceModalOpen, setDataSourceModalOpen] = useState(false);
   const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
-  const [experimentsOpen, setExperimentsOpen] = useState(false);
-  const [attributesOpen, setAttributesOpen] = useState(false);
+  const [experimentsModalOpen, setExperimentsModalOpen] = useState(false);
+  const [attributesModalOpen, setAttributesModalOpen] = useState(false);
   const [dimensionForm] = useState<null | Partial<DimensionInterface>>({});
-  const [dimensionFormOpen, setDimensionFormOpen] = useState(false);
+  const [dimensionFormModalOpen, setDimensionFormModalOpen] = useState(false);
   const [segmentForm] = useState<null | Partial<SegmentInterface>>({});
-  const [segmentFormOpen, setSegmentFormOpen] = useState(false);
+  const [segmentFormModalOpen, setSegmentFormModalOpen] = useState(false);
 
   const attributeSchema = useAttributeSchema();
 
@@ -172,7 +172,7 @@ export default function GuidedGetStarted({
       cta: "Create Feature Flag",
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
-      onClick: setModalOpen,
+      onClick: setFeatureModalOpen,
       completed: features.length > 0 || dismissedSteps["Create a Feature Flag"],
     },
     {
@@ -183,7 +183,7 @@ export default function GuidedGetStarted({
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
       completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
-      onClick: setDataSourceOpen,
+      onClick: setDataSourceModalOpen,
     },
     {
       title: "Define a Metric",
@@ -205,7 +205,7 @@ export default function GuidedGetStarted({
       completed:
         experiments?.experiments.length > 0 ||
         dismissedSteps["Create an Experiment"],
-      onClick: setExperimentsOpen,
+      onClick: setExperimentsModalOpen,
     },
   ];
 
@@ -218,7 +218,7 @@ export default function GuidedGetStarted({
       cta: "Create a Dimension",
       learnMoreLink: "Learn more about dimensions.",
       link: "https://docs.growthbook.io/app/dimensions",
-      onClick: setDimensionFormOpen,
+      onClick: setDimensionFormModalOpen,
     },
     {
       title: "Create a Segment",
@@ -226,14 +226,14 @@ export default function GuidedGetStarted({
         "Segments define important groups of users - for example, 'annual subscribers' or 'left-handed people from France.'",
       cta: "Create a Segment",
       completed: segments.length > 0 || dismissedSteps["Create a segment"],
-      onClick: setSegmentFormOpen,
+      onClick: setSegmentFormModalOpen,
     },
     {
       title: "Define an Attribute",
       text:
         "Attributes can be used when targeting feature flags. Attributes set here must also be passed in through the SDK.",
       cta: "Create an Attribute",
-      onClick: setAttributesOpen,
+      onClick: setAttributesModalOpen,
       completed:
         attributeSchema.length > 0 || dismissedSteps["Define an attribute"],
     },
@@ -302,9 +302,9 @@ export default function GuidedGetStarted({
       {codeModalOpen && (
         <CodeSnippetModal close={() => setCodeModalOpen(false)} />
       )}
-      {modalOpen && (
+      {featureModalOpen && (
         <FeatureModal
-          close={() => setModalOpen(false)}
+          close={() => setFeatureModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               features.length > 0 ? "" : "?first"
@@ -313,7 +313,7 @@ export default function GuidedGetStarted({
           }}
         />
       )}
-      {dataSourceOpen && (
+      {dataSourceModalOpen && (
         <DataSourceForm
           data={{
             name: "My Datasource",
@@ -321,10 +321,10 @@ export default function GuidedGetStarted({
           }}
           existing={false}
           source="get-started"
-          onCancel={() => setDataSourceOpen(false)}
+          onCancel={() => setDataSourceModalOpen(false)}
           onSuccess={async () => {
             await mutateDefinitions();
-            setDataSourceOpen(false);
+            setDataSourceModalOpen(false);
             setDataSourceQueriesOpen(true);
           }}
           importSampleData={
@@ -348,9 +348,9 @@ export default function GuidedGetStarted({
           }}
         />
       )}
-      {experimentsOpen && (
+      {experimentsModalOpen && (
         <ImportExperimentModal
-          onClose={() => setExperimentsOpen(false)}
+          onClose={() => setExperimentsModalOpen(false)}
           source={featureExperiment ? "feature-rule" : "get-started"}
           initialValue={featureExperiment}
           fromFeature={!!featureExperiment}
@@ -370,20 +370,20 @@ export default function GuidedGetStarted({
             source="onboarding"
           />
         )}
-      {dimensionFormOpen && (
+      {dimensionFormModalOpen && (
         <DimensionForm
-          close={() => setDimensionFormOpen(false)}
+          close={() => setDimensionFormModalOpen(false)}
           current={dimensionForm}
         />
       )}
-      {segmentFormOpen && (
+      {segmentFormModalOpen && (
         <SegmentForm
-          close={() => setSegmentFormOpen(false)}
+          close={() => setSegmentFormModalOpen(false)}
           current={segmentForm}
         />
       )}
-      {attributesOpen && (
-        <EditAttributesModal close={() => setAttributesOpen(false)} />
+      {attributesModalOpen && (
+        <EditAttributesModal close={() => setAttributesModalOpen(false)} />
       )}
       <ExpandableDrawer
         title="Quick Start Guide"
