@@ -279,12 +279,14 @@ export default function GuidedGetStarted({
   const calculatePercentComplete = (tasks) => {
     let tasksCompleted = 0;
     tasks.forEach((task) => {
-      if (task.completed) {
+      if (task.completed === true) {
         tasksCompleted++;
       }
     });
 
-    return Math.round(tasksCompleted / tasks.length) * 100;
+    const percentComplete = (tasksCompleted / tasks.length) * 100;
+
+    return Math.round(percentComplete);
   };
 
   useEffect(() => {
