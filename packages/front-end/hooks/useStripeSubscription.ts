@@ -35,24 +35,24 @@ export default function useStripeSubscription() {
     // We will treat past_due as active so as to not interrupt users
     data.organization.subscription?.status === "past_due";
 
-  const planName = data.organization.subscription.planNickname;
+  const planName = data.organization.subscription?.planNickname;
 
   const nextBillDate = new Date(
-    data.organization.subscription.current_period_end * 1000
+    data.organization.subscription?.current_period_end * 1000
   ).toDateString();
 
   const dateToBeCanceled = new Date(
-    data.organization.subscription.cancel_at * 1000
+    data.organization.subscription?.cancel_at * 1000
   ).toDateString();
 
   const cancelationDate = new Date(
-    data.organization.subscription.canceled_at * 1000
+    data.organization.subscription?.canceled_at * 1000
   ).toDateString();
 
-  const subscriptionStatus = data.organization.subscription.status;
+  const subscriptionStatus = data.organization.subscription?.status;
 
   const pendingCancelation =
-    data.organization.subscription.cancel_at_period_end;
+    data.organization.subscription?.cancel_at_period_end;
 
   const monthlyPrice = priceData?.monthlyPrice;
 
