@@ -9,14 +9,7 @@ import mongoInit from "./init/mongo";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
-import {
-  APP_ORIGIN,
-  CORS_ORIGIN_REGEX,
-  IS_CLOUD,
-  SSO_AUTHORITY,
-  SSO_CLIENT_ID,
-  UPLOAD_METHOD,
-} from "./util/secrets";
+import { APP_ORIGIN, CORS_ORIGIN_REGEX, UPLOAD_METHOD } from "./util/secrets";
 import {
   getExperimentConfig,
   getExperimentsScript,
@@ -24,7 +17,7 @@ import {
 import asyncHandler from "express-async-handler";
 import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
-import { getJWTCheck, processJWT } from "./services/auth";
+import { getJWTCheck, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
@@ -267,8 +260,7 @@ app.use(
   })
 );
 
-// Cloud always uses SSO and self-hosted can too if the SSO_ env variables are set
-const useSSO = IS_CLOUD || (SSO_AUTHORITY && SSO_CLIENT_ID);
+const useSSO = usingOpenId();
 
 // Pre-auth requests when not using SSO
 if (!useSSO) {
@@ -281,6 +273,12 @@ if (!useSSO) {
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+// Pre-auth requests when using SSO
+else {
+  app.get("/auth/sso/:id", authController.getSSOConnection);
+  app.post("/auth/sso", authController.getSSOConnectionFromDomain);
+}
+
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.

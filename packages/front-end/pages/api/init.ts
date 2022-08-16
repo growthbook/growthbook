@@ -1,6 +1,23 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+
+export interface EnvironmentInitValue {
+  telemetry: "debug" | "enable" | "disable";
+  cloud: boolean;
+  appOrigin: string;
+  apiHost: string;
+  config: "file" | "db";
+  defaultConversionWindowHours: number;
+  build?: {
+    sha: string;
+    date: string;
+  };
+  sentryDSN: string;
+  apiCredentials: boolean;
+  selfHostedSSO?: SSOConnectionInterface;
+}
 
 // Get env variables at runtime on the front-end while still using SSG
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -12,6 +29,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
     ENABLE_API_CREDENTIALS,
+    SSO_CLIENT_ID,
+    SSO_AUTHORITY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -34,7 +53,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
   }
-  res.status(200).json({
+
+  const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
     cloud: !!IS_CLOUD,
@@ -50,5 +70,13 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     apiCredentials: !!ENABLE_API_CREDENTIALS,
-  });
+    selfHostedSSO: !IS_CLOUD &&
+      SSO_AUTHORITY &&
+      SSO_CLIENT_ID && {
+        authority: SSO_AUTHORITY,
+        clientId: SSO_CLIENT_ID,
+      },
+  };
+
+  res.status(200).json(body);
 }

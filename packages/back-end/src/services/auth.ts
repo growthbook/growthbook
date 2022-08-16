@@ -27,6 +27,8 @@ import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
 import { Issuer, Client } from "openid-client";
+import { SSOConnectionInterface } from "../../types/sso-connection";
+import { getSSOConnectionById } from "../models/SSOConnectionModel";
 
 type JWTInfo = {
   email?: string;
@@ -96,7 +98,7 @@ function getInitialDataFromJWT(user: {
 
 export function getJWTCheck() {
   // Cloud always uses SSO, self-hosted does too with the right env variables
-  if (IS_CLOUD || (SSO_AUTHORITY && SSO_CLIENT_ID)) {
+  if (usingOpenId()) {
     return getOpenIdJWTCheck();
   }
 
@@ -246,8 +248,14 @@ export function markInstalled() {
 
 const ssoMiddlewares: Map<Client, jwt.RequestHandler> = new Map();
 async function getOpenIdMiddleware(req: Request) {
-  const { authority, clientId } = await getOpenIdSettings(req);
-  const client = await getSSOClient(authority, clientId);
+  const ssoConnection = await getOpenIdSettings(req);
+  if (!ssoConnection) {
+    throw new Error("Unknown SSO Connection");
+  }
+  const client = await getSSOClient(
+    ssoConnection.authority,
+    ssoConnection.clientId
+  );
 
   const existingMiddleware = ssoMiddlewares.get(client);
   if (existingMiddleware) {
@@ -277,27 +285,31 @@ async function getOpenIdMiddleware(req: Request) {
   return middleware;
 }
 
+export function usingOpenId() {
+  if (IS_CLOUD) return true;
+  if (SSO_AUTHORITY && SSO_CLIENT_ID) return true;
+  return false;
+}
+
 async function getOpenIdSettings(
   req: Request
-): Promise<{ authority: string; clientId: string }> {
+): Promise<null | SSOConnectionInterface> {
   // Self-hosted SSO
   if (!IS_CLOUD) {
-    // TODO: lookup from env variables
-    return {
-      authority: "",
-      clientId: "",
-    };
+    if (SSO_AUTHORITY && SSO_CLIENT_ID) {
+      return {
+        authority: SSO_AUTHORITY,
+        clientId: SSO_CLIENT_ID,
+      };
+    }
+    return null;
   }
 
   // Cloud Enterprise SSO
   if (req.headers["x-auth-source-id"]) {
-    // TODO: lookup in Mongo
-    const ssoConfigId = req.headers["x-auth-source-id"];
-    console.log({ ssoConfigId });
-    return {
-      authority: "",
-      clientId: "",
-    };
+    const ssoConnectionId = req.headers["x-auth-source-id"];
+    const ssoConnection = await getSSOConnectionById(ssoConnectionId + "");
+    return ssoConnection;
   }
 
   // Cloud Default SSO

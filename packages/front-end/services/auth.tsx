@@ -12,7 +12,7 @@ import Modal from "../components/Modal";
 import {
   getApiHost,
   getAppOrigin,
-  getSelfHostedSSOConfig,
+  getSelfHostedSSOConnection,
   includeApiCredentials,
   isCloud,
 } from "./env";
@@ -42,25 +42,25 @@ export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
 
-export function getLastSSOConfigId(): string {
+export function getLastSSOConnectionId(): string {
   if (!isCloud()) {
     return "";
   }
-  const ssoConfigId = document.cookie
+  const ssoConnId = document.cookie
     .split(/; /)
-    .find((row) => row.startsWith("GB_SSO_CONFIG_ID="))
+    .find((row) => row.startsWith("GB_SSO_CONN_ID="))
     ?.split("=")?.[1];
-  return ssoConfigId || "";
+  return ssoConnId || "";
 }
-export function setLastSSOConfigId(ssoConfigId: string): void {
+export function setLastSSOConnectionId(ssoConnId: string): void {
   const expiration = new Date();
   expiration.setDate(expiration.getDate() + 30);
-  document.cookie = `GB_SSO_CONFIG_ID=${ssoConfigId};expires=${expiration.toUTCString()};path=/`;
+  document.cookie = `GB_SSO_CONN_ID=${ssoConnId};expires=${expiration.toUTCString()};path=/`;
 }
 
 export function getAuthMethod(): "oidc" | "local" {
   if (isCloud()) return "oidc";
-  if (getSelfHostedSSOConfig()) return "oidc";
+  if (getSelfHostedSSOConnection()) return "oidc";
   return "local";
 }
 

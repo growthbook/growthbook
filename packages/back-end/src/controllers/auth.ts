@@ -30,6 +30,10 @@ import {
 } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { JWT_SECRET } from "../util/secrets";
+import {
+  getSSOConnectionByEmailDomain,
+  getSSOConnectionById,
+} from "../models/SSOConnectionModel";
 
 function generateJWT(userId: string) {
   return jwt.sign(
@@ -240,6 +244,39 @@ export async function getResetPassword(
   res.status(200).json({
     status: 200,
     email,
+  });
+}
+
+export async function getSSOConnection(
+  req: Request<{ id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+
+  const sso = await getSSOConnectionById(id);
+
+  if (!sso) {
+    throw new Error("Unknown SSO Connection Id");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    ssoConnection: sso,
+  });
+}
+
+export async function getSSOConnectionFromDomain(req: Request, res: Response) {
+  const { domain } = req.query;
+
+  const sso = await getSSOConnectionByEmailDomain(domain as string);
+
+  if (!sso) {
+    throw new Error("Unknown SSO Connection Id");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    ssoConnection: sso,
   });
 }
 

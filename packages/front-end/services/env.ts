@@ -1,21 +1,8 @@
 import * as Sentry from "@sentry/react";
-import { SSOConfig } from "../authSources/oidcAuthSource";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { EnvironmentInitValue } from "../pages/api/init";
 
-const env: {
-  telemetry: "debug" | "enable" | "disable";
-  cloud: boolean;
-  appOrigin: string;
-  apiHost: string;
-  config: "file" | "db";
-  defaultConversionWindowHours: number;
-  build?: {
-    sha: string;
-    date: string;
-  };
-  sentryDSN: string;
-  apiCredentials: boolean;
-  selfHostedSSOConfig?: SSOConfig;
-} = {
+const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
   appOrigin: "",
@@ -66,6 +53,6 @@ export function getDefaultConversionWindowHours() {
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
 }
-export function getSelfHostedSSOConfig(): SSOConfig | null {
-  return env.selfHostedSSOConfig || null;
+export function getSelfHostedSSOConnection(): SSOConnectionInterface | null {
+  return env.selfHostedSSO || null;
 }

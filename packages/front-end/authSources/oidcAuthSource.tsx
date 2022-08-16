@@ -1,50 +1,51 @@
 import {
   AuthSource,
-  getLastSSOConfigId,
-  setLastSSOConfigId,
+  getLastSSOConnectionId,
+  setLastSSOConnectionId,
 } from "../services/auth";
-import { getApiHost, getSelfHostedSSOConfig, isCloud } from "../services/env";
+import {
+  getApiHost,
+  getSelfHostedSSOConnection,
+  isCloud,
+} from "../services/env";
 import { UserManager, User } from "oidc-client-ts";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
 
-export type SSOConfig = {
-  ssoConfigId?: string;
-  authority: string;
-  clientId: string;
-};
-
-export async function getSSOConfig(): Promise<SSOConfig> {
+export async function getSSOConnection(): Promise<SSOConnectionInterface> {
   // Self-hosted SSO from env variables
   if (!isCloud()) {
-    const ssoConfig = getSelfHostedSSOConfig();
-    if (!ssoConfig) {
-      throw new Error(
-        "No self-hosted SSO configuration in environment variables"
-      );
+    const ssoConnection = getSelfHostedSSOConnection();
+    if (!ssoConnection) {
+      throw new Error("No self-hosted SSO connection in environment variables");
     }
-    return ssoConfig;
+    return ssoConnection;
   }
 
   // Cloud Enterprise SSO
-  const ssoConfigId = getLastSSOConfigId();
-  if (ssoConfigId) {
+  const ssoConnectionId = getLastSSOConnectionId();
+  if (ssoConnectionId) {
     try {
-      const res = await window.fetch(`${getApiHost()}/sso/${ssoConfigId}`);
+      const res = await window.fetch(
+        `${getApiHost()}/auth/sso/${ssoConnectionId}`
+      );
       if (!res.ok) {
-        throw new Error("Failed to fetch SSO configs");
+        throw new Error("Failed to fetch SSO connection");
       }
-      const json: { authority?: string; clientId?: string } = await res.json();
+      const json: SSOConnectionInterface = await res.json();
       if (!json) {
-        throw new Error("Invalid SSO config response");
+        throw new Error("Invalid SSO connection response");
       }
 
       const { authority, clientId } = json;
       if (!authority || !clientId) {
-        throw new Error("Invalid SSO config data");
+        throw new Error("Invalid SSO connection data");
       }
 
-      return { authority, clientId, ssoConfigId };
+      setLastSSOConnectionId(ssoConnectionId);
+
+      return { authority, clientId, id: ssoConnectionId };
     } catch (e) {
-      setLastSSOConfigId("");
+      setLastSSOConnectionId("");
       throw e;
     }
   }
@@ -56,11 +57,11 @@ export async function getSSOConfig(): Promise<SSOConfig> {
   };
 }
 
-let userManager: UserManager, ssoConfigId: string;
+let userManager: UserManager, ssoConnectionId: string;
 async function getUserManager() {
   if (!userManager) {
-    const config = await getSSOConfig();
-    ssoConfigId = config.ssoConfigId;
+    const config = await getSSOConnection();
+    ssoConnectionId = config.id;
     userManager = new UserManager({
       authority: config.authority,
       client_id: config.clientId,
@@ -78,7 +79,7 @@ const oidcAuthSource: AuthSource = {
     console.log(router);
 
     // If we were just redirected back to the app from the SSO provider
-    if (router.asPath === "/oidc/callback") {
+    if (router.asPath === "/oauth/callback") {
       const user = await userManager.signinCallback();
       if (user) {
         currentUser = user;
@@ -126,13 +127,14 @@ const oidcAuthSource: AuthSource = {
   },
   logout: async () => {
     const userManager = await getUserManager();
+    setLastSSOConnectionId("");
     await userManager.signoutRedirect();
   },
   getJWT: async () => {
     return currentUser?.access_token || "";
   },
   getAuthSourceId: () => {
-    return ssoConfigId || "";
+    return ssoConnectionId || "";
   },
 };
 
