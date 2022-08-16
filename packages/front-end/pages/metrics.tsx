@@ -19,7 +19,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
-import { getDocsLink, inferDocsLink } from "../services/docsMapping";
+import { getDocsLink } from "../services/docsMapping";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -109,7 +109,7 @@ const MetricsPage = (): React.ReactElement => {
           <h1>Metrics</h1>
           <a
             className="align-self-center ml-2 pb-1"
-            href={inferDocsLink()}
+            href={getDocsLink("/metrics")}
             target="_blank"
             rel="noreferrer"
           >
@@ -182,7 +182,7 @@ const MetricsPage = (): React.ReactElement => {
           </h1>
           <a
             className="align-self-center ml-2 pb-1"
-            href={inferDocsLink()}
+            href={getDocsLink("/metrics")}
             target="_blank"
             rel="noreferrer"
           >

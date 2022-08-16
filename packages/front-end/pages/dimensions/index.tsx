@@ -13,7 +13,7 @@ import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink, inferDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../../services/docsMapping";
 
 const DimensionsPage: FC = () => {
   const {
@@ -50,7 +50,7 @@ const DimensionsPage: FC = () => {
             <h1>User Dimensions</h1>
             <a
               className="align-self-center ml-2 pb-1"
-              href={inferDocsLink()}
+              href={getDocsLink("/dimensions")}
               target="_blank"
               rel="noreferrer"
             >
@@ -89,7 +89,7 @@ const DimensionsPage: FC = () => {
           <h1>User Dimensions</h1>
           <a
             className="align-self-center ml-2 pb-1"
-            href={inferDocsLink()}
+            href={getDocsLink("/dimensions")}
             target="_blank"
             rel="noreferrer"
           >

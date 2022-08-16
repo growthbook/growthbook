@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { inferDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../../services/docsMapping";
 
 const SegmentPage: FC = () => {
   const {
@@ -184,7 +184,7 @@ const SegmentPage: FC = () => {
             <h1>Segments</h1>
             <a
               className="align-self-center ml-2 pb-1"
-              href={inferDocsLink()}
+              href={getDocsLink("/segments")}
               target="_blank"
               rel="noreferrer"
             >
@@ -212,7 +212,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
           <a
             className="align-self-center ml-2 pb-1"
-            href={inferDocsLink()}
+            href={getDocsLink("/segments")}
             target="_blank"
             rel="noreferrer"
           >

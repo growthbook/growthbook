@@ -1,6 +1,6 @@
 import { FC } from "react";
 import DataSources from "../../components/Settings/DataSources";
-import { inferDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../../services/docsMapping";
 
 const DataSourcesPage: FC = () => {
   return (
@@ -9,7 +9,7 @@ const DataSourcesPage: FC = () => {
         <h1>Data Sources</h1>
         <a
           className="align-self-center ml-2 pb-1"
-          href={inferDocsLink()}
+          href={getDocsLink("/datasources")}
           target="_blank"
           rel="noreferrer"
         >

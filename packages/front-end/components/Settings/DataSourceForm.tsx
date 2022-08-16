@@ -25,7 +25,7 @@ import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocsKeys, getDocsLink } from "../../services/docsMapping";
 import Tooltip from "../Tooltip";
 
 const typeOptions: {
@@ -378,7 +378,7 @@ const DataSourceForm: FC<{
           <>
             {`Data Source Type `}
             <a
-              href={getDocsLink(datasource.type, "/datasources")}
+              href={getDocsLink(datasource.type as DocsKeys, "/datasources")}
               target="_blank"
               rel="noreferrer"
             >
