@@ -38,8 +38,8 @@ export interface Invite {
 export interface Member {
   id: string;
   role: MemberRole;
-  email: string;
-  name: string;
+  email?: string;
+  name?: string;
 }
 
 export interface NorthStarMetric {
