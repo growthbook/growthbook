@@ -12,8 +12,8 @@ import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
-import Toggle from "../../../front-end/components/Forms/Toggle";
-import Tooltip from "../../../front-end/components/Tooltip";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
