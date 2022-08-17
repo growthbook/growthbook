@@ -97,7 +97,7 @@ const DataSources: FC = () => {
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
               sources defined there will show up on this page.{" "}
-              <DocLink docKey="config_yml">View Documentation</DocLink>
+              <DocLink docSection="config_yml">View Documentation</DocLink>
             </div>
           )}
         </div>

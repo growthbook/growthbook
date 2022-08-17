@@ -182,7 +182,10 @@ const SegmentPage: FC = () => {
         <div className="row mb-3">
           <div className="col d-flex">
             <h1>Segments</h1>
-            <DocLink docKey="/segments" className="align-self-center ml-2 pb-1">
+            <DocLink
+              docSection="datasources"
+              className="align-self-center ml-2 pb-1"
+            >
               View Documentation
             </DocLink>
           </div>
@@ -205,7 +208,10 @@ const SegmentPage: FC = () => {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>Segments</h1>
-          <DocLink docKey="/segments" className="align-self-center ml-2 pb-1">
+          <DocLink
+            docSection="datasources"
+            className="align-self-center ml-2 pb-1"
+          >
             View Documentation
           </DocLink>
         </div>

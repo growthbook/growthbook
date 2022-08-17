@@ -118,7 +118,7 @@ window.GROWTHBOOK_CONFIG = {
       />
       <div>
         Check out the full docs at{" "}
-        <DocLink docKey="visual_editor">
+        <DocLink docSection="visual_editor">
           https://docs.growthbook.io/app/visual
         </DocLink>
       </div>

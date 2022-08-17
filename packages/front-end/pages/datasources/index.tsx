@@ -7,7 +7,10 @@ const DataSourcesPage: FC = () => {
     <div className="container-fluid pagecontents">
       <div className="d-flex">
         <h1>Data Sources</h1>
-        <DocLink docKey="/datasources" className="align-self-center ml-2 pb-1">
+        <DocLink
+          docSection="datasources"
+          className="align-self-center ml-2 pb-1"
+        >
           View Documentation
         </DocLink>
       </div>

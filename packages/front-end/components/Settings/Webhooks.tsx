@@ -38,7 +38,7 @@ const Webhooks: FC = () => {
       <p>
         Webhooks push the latest feature definitions to your server whenever
         they are modified within the GrowthBook app.{" "}
-        <DocLink docKey="/settings/webhooks">View Documentation</DocLink>
+        <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
       {data.webhooks.length > 0 && (

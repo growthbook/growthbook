@@ -49,7 +49,7 @@ const DimensionsPage: FC = () => {
           <div className="col d-flex">
             <h1>User Dimensions</h1>
             <DocLink
-              docKey="/dimensions"
+              docSection="dimensions"
               className="align-self-center ml-2 pb-1"
             >
               View Documentation
@@ -85,7 +85,10 @@ const DimensionsPage: FC = () => {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>User Dimensions</h1>
-          <DocLink docKey="/dimensions" className="align-self-center ml-2 pb-1">
+          <DocLink
+            docSection="dimensions"
+            className="align-self-center ml-2 pb-1"
+          >
             View Documentation
           </DocLink>
         </div>
@@ -203,7 +206,7 @@ const DimensionsPage: FC = () => {
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
-          <DocLink docKey="config_yml">View Documentation</DocLink>
+          <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
 

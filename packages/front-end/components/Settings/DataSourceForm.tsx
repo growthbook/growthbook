@@ -26,7 +26,7 @@ import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
 import Tooltip from "../Tooltip";
-import { DocLink, DocsKeys } from "../DocLink";
+import { DocLink, DocSection } from "../DocLink";
 
 const typeOptions: {
   type: DataSourceType;
@@ -377,7 +377,7 @@ const DataSourceForm: FC<{
         label={
           <>
             {`Data Source Type `}
-            <DocLink docKey={datasource.type as DocsKeys}>
+            <DocLink docSection={datasource.type as DocSection}>
               <Tooltip body="View Documentation" tipPosition="top" />
             </DocLink>
           </>

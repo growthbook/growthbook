@@ -11,7 +11,7 @@ import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaArrowRight } from "react-icons/fa";
-import { inferDocsLink } from "../DocLink";
+import { inferDocUrl } from "../DocLink";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -335,7 +335,7 @@ const Layout = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         <div className="p-3">
           <a
-            href={inferDocsLink()}
+            href={inferDocUrl()}
             className="btn btn-outline-light btn-block"
             target="_blank"
             rel="noreferrer"

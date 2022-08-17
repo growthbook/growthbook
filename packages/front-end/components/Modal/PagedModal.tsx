@@ -3,13 +3,14 @@ import { useState } from "react";
 import { Children, FC, isValidElement, ReactNode } from "react";
 import Modal from "../Modal";
 import { MdCheck } from "react-icons/md";
+import { DocSection } from "../DocLink";
 
 type Props = {
   header: string;
   submitColor?: string;
   cta?: string;
   closeCta?: string;
-  docsLink?: string;
+  docSection?: DocSection;
   size?: "md" | "lg" | "max";
   navStyle?: "pills" | "underlined" | "tabs" | "default";
   navFill?: boolean;

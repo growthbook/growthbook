@@ -37,7 +37,7 @@ const ApiKeys: FC = () => {
       <p>
         API keys can be used with our SDKs (Javascript, React, Go, Ruby, PHP,
         Python, Android) or the Visual Editor.{" "}
-        <DocLink docKey="/settings/keys">View Documentation</DocLink>
+        <DocLink docSection="api">View Documentation</DocLink>
       </p>
 
       {data.keys.length > 0 && (

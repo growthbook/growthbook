@@ -27,7 +27,6 @@ import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
-import { getDocsLink } from "../DocLink";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -337,7 +336,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta="Save"
       closeCta="Cancel"
-      docsLink={getDocsLink("/metrics")}
+      docSection="metrics"
       size="lg"
       step={step}
       setStep={setStep}

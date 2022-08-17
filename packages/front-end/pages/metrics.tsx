@@ -107,7 +107,7 @@ const MetricsPage = (): React.ReactElement => {
         )}
         <div className="d-flex">
           <h1>Metrics</h1>
-          <DocLink docKey="/metrics" className="align-self-center ml-2 pb-1">
+          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
             View Documentation
           </DocLink>
         </div>
@@ -137,7 +137,7 @@ const MetricsPage = (): React.ReactElement => {
           <div className="alert alert-info">
             It looks like you have a <code>config.yml</code> file. Metrics
             defined there will show up on this page.{" "}
-            <DocLink docKey="config_yml">View Documentation</DocLink>
+            <DocLink docSection="config_yml">View Documentation</DocLink>
           </div>
         )}
         {permissions.createMetrics && !hasFileConfig() && (
@@ -175,7 +175,7 @@ const MetricsPage = (): React.ReactElement => {
               />
             </small>
           </h1>
-          <DocLink docKey="/metrics" className="align-self-center ml-2 pb-1">
+          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
             View Documentation
           </DocLink>
         </div>

@@ -227,8 +227,9 @@ export default function CodeSnippetModal({
       >
         <Tab display="Javascript" id="javascript">
           <p>
-            Read the <DocLink docKey="javascript">full Javascript docs</DocLink>{" "}
-            for more details.
+            Read the{" "}
+            <DocLink docSection="javascript">full Javascript docs</DocLink> for
+            more details.
           </p>
           <Code language="sh" code="npm i --save @growthbook/growthbook" />
           <Code
@@ -278,8 +279,8 @@ if (growthbook.isOn(${JSON.stringify(featureId)})) {
         </Tab>
         <Tab display="React" id="tsx">
           <p>
-            Read the <DocLink docKey="tsx">full React docs</DocLink> for more
-            details.
+            Read the <DocLink docSection="tsx">full React docs</DocLink> for
+            more details.
           </p>
           <Code
             language="sh"
@@ -340,7 +341,7 @@ function MyComponent() {
         </Tab>
         <Tab display="Go" id="go">
           <p>
-            Read the <DocLink docKey="go">full Golang SDK docs</DocLink> for
+            Read the <DocLink docSection="go">full Golang SDK docs</DocLink> for
             more details.
           </p>
           <Code
@@ -412,7 +413,9 @@ func main() {
         <Tab display="Kotlin (Android)" id="kotlin">
           <p>
             Read the{" "}
-            <DocLink docKey="kotlin">full Kotlin (Android) SDK docs</DocLink>{" "}
+            <DocLink docSection="kotlin">
+              full Kotlin (Android) SDK docs
+            </DocLink>{" "}
             for more details.
           </p>
           <Code
@@ -458,7 +461,7 @@ if (gb.feature(${JSON.stringify(featureId)}).on) {
         </Tab>
         <Tab display="Ruby" id="ruby">
           <p>
-            Read the <DocLink docKey="ruby">full Ruby SDK docs</DocLink> for
+            Read the <DocLink docSection="ruby">full Ruby SDK docs</DocLink> for
             more details.
           </p>
           <Code language="sh" code={`gem install growthbook`} />
@@ -502,8 +505,8 @@ end
         </Tab>
         <Tab display="PHP" id="php">
           <p>
-            Read the <DocLink docKey="php">full PHP SDK docs</DocLink> for more
-            details.
+            Read the <DocLink docSection="php">full PHP SDK docs</DocLink> for
+            more details.
           </p>
           <Code language="sh" code={`composer require growthbook/growthbook`} />
           <Code
@@ -536,8 +539,8 @@ if ($growthbook->isOn(${JSON.stringify(featureId)})) {
         </Tab>
         <Tab display="Python" id="python">
           <p>
-            Read the <DocLink docKey="python">full Python SDK docs</DocLink> for
-            more details.
+            Read the <DocLink docSection="python">full Python SDK docs</DocLink>{" "}
+            for more details.
           </p>
           <Code language="sh" code={`pip install growthbook`} />
           <Code

@@ -122,7 +122,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   </a>
                 </li>
                 <li>
-                  <DocLink docKey="/">Read our Docs</DocLink>
+                  <DocLink docSection="home">Read our Docs</DocLink>
                 </li>
               </ul>
             </div>

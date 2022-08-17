@@ -277,7 +277,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <code>config.yml</code> file and cannot be changed through the web
             UI.{" "}
             <DocLink
-              docKey="config_organization_settings"
+              docSection="config_organization_settings"
               className="font-weight-bold"
             >
               View Documentation
@@ -299,7 +299,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               You can import/export these settings to a <code>config.yml</code>{" "}
               file to more easily move between GrowthBook Cloud accounts and/or
               self-hosted environments.{" "}
-              <DocLink docKey="config_yml" className="font-weight-bold">
+              <DocLink docSection="config_yml" className="font-weight-bold">
                 Learn More
               </DocLink>
             </p>
@@ -334,7 +334,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <p>
                 {`The Visual Editor allows non-technical users to create and start
                 experiments in production without writing any code. `}
-                <DocLink docKey="visual_editor">View Documentation</DocLink>
+                <DocLink docSection="visual_editor">View Documentation</DocLink>
               </p>
               <div>
                 <div className="form-check">

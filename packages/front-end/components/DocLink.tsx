@@ -1,19 +1,16 @@
 import { ReactNode } from "react";
 
-const docLinks = {
-  "/": "",
-  "/features": "/app/features",
-  "/experiment": "/app/experiments",
-  "/experiments": "/app/experiments",
-  "/metric": "/app/metrics",
-  "/metrics": "/app/metrics",
-  "/segments": "/app/datasources",
-  "/dimensions": "/app/dimensions",
-  "/datasources": "/app/datasources",
-  "/dashboard": "/app/experiments",
-  "/settings/keys": "/app/api",
-  "/settings/environments": "/app/api",
-  "/settings/webhooks": "/app/webhooks",
+const docSections = {
+  //Pages
+  home: "",
+  features: "/app/features",
+  experiments: "/app/experiments",
+  metrics: "/app/metrics",
+  dimensions: "/app/dimensions",
+  datasources: "/app/datasources",
+  dashboard: "/app/experiments",
+  api: "/app/api",
+  webhooks: "/app/webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -37,13 +34,29 @@ const docLinks = {
   visual_editor: "/app/visual",
 };
 
-export type DocsKeys = keyof typeof docLinks;
+export type DocSection = keyof typeof docSections;
+
+const urlPathMapping: Record<string, DocSection> = {
+  "/": "home",
+  "/features": "features",
+  "/experiment": "experiments",
+  "/experiments": "experiments",
+  "/metric": "metrics",
+  "/metrics": "metrics",
+  "/segments": "datasources",
+  "/dimensions": "dimensions",
+  "/datasources": "datasources",
+  "/dashboard": "experiments",
+  "/settings/keys": "api",
+  "/settings/environments": "api",
+  "/settings/webhooks": "webhooks",
+};
 
 //for testing use "http://localhost:3200"
 const docsOrigin = "https://docs.growthbook.io";
 
 /*
-Checks for key, value matches in docsLinks. Starts with full url path then
+Checks for key, value matches in docSections. Starts with full url path then
 removes a subdirectory every iteration and checks for a match again.
  
 url=http://localhost:3000/metric/a/b
@@ -51,13 +64,13 @@ url=http://localhost:3000/metric/a/b
 2./metric/a
 3./metric
 */
-export function inferDocsLink() {
+export function inferDocUrl() {
   const subDirectories = window.location.pathname.split("/").slice(1);
   const numSubDirectories = subDirectories.length;
 
   for (let i = numSubDirectories; i > 0; i--) {
-    const key = "/" + subDirectories.join("/");
-    const docsPath = docLinks[key as DocsKeys];
+    const urlPath = "/" + subDirectories.join("/");
+    const docsPath = docSections[urlPathMapping[urlPath]];
     if (docsPath) return docsOrigin + docsPath;
     subDirectories.pop();
   }
@@ -65,31 +78,29 @@ export function inferDocsLink() {
   return docsOrigin;
 }
 
-export function getDocsLink(key: DocsKeys, fallBackKey: DocsKeys = "/") {
-  const docsPath = docLinks[key]
-    ? docLinks[key]
-    : docLinks[fallBackKey]
-    ? docLinks[fallBackKey]
-    : "";
-  return docsOrigin + docsPath;
-}
-
 interface DocLinkProps {
-  docKey: DocsKeys;
-  fallBackKey?: DocsKeys;
+  docSection: DocSection;
+  fallBackSection?: DocSection;
   className?: string;
   children: ReactNode;
 }
 
 export function DocLink({
-  docKey,
-  fallBackKey = "/",
+  docSection,
+  fallBackSection = "home",
   className = "",
   children,
 }: DocLinkProps) {
+  const docsPath = docSections[docSection]
+    ? docSections[docSection]
+    : docSections[fallBackSection]
+    ? docSections[fallBackSection]
+    : "";
+  const docUrl = docsOrigin + docsPath;
+
   return (
     <a
-      href={getDocsLink(docKey, fallBackKey)}
+      href={docUrl}
       target="_blank"
       rel="noopener noreferrer"
       className={className}

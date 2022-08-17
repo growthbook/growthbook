@@ -155,7 +155,7 @@ const ExperimentsGetStarted = ({
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <DocLink docKey="config_yml">View Documentation</DocLink>
+                <DocLink docSection="config_yml">View Documentation</DocLink>
               </div>
             ) : featureExperiment ? (
               <div className="alert alert-info mb-3">
