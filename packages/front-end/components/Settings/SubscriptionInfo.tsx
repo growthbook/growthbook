@@ -46,7 +46,7 @@ const SubscriptionInfo: FC<{
       <div className="col-md-12 mb-3">
         <strong>Current Monthly Price:</strong> {`  $${monthlyPrice}/month`}
         <Tooltip
-          text="Click the Manage Subscription button below to see how this is calculated."
+          body="Click the Manage Subscription button below to see how this is calculated."
           tipMinWidth="200px"
         />
       </div>

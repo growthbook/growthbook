@@ -120,7 +120,7 @@ const InviteList: FC<{
           {invites.map(({ email, key, dateCreated, role }) => (
             <tr key={key}>
               <td>{email}</td>
-              <td>{dateCreated}</td>
+              <td>{dateCreated.toString()}</td>
               <td>{role}</td>
               <td>
                 <button
