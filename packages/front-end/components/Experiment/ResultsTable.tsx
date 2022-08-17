@@ -76,7 +76,7 @@ export default function ResultsTable({
               style={{ maxWidth: 142, minWidth: 125 }}
             >
               Risk of Choosing&nbsp;
-              <Tooltip text="How much you are likely to lose if you choose this variation and it's actually worse">
+              <Tooltip body="How much you are likely to lose if you choose this variation and it's actually worse">
                 <FaQuestionCircle />
               </Tooltip>
               <div className="mt-1">
@@ -122,7 +122,7 @@ export default function ResultsTable({
                 <th className={`variation${i} text-center`}>
                   Percent Change{" "}
                   {hasRisk && fullStats && (
-                    <Tooltip text="The true value is more likely to be in the thicker parts of the graph">
+                    <Tooltip body="The true value is more likely to be in the thicker parts of the graph">
                       <FaQuestionCircle />
                     </Tooltip>
                   )}

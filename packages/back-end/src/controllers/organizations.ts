@@ -36,6 +36,7 @@ import {
   getWatchedAudits,
   findByEntity,
   findByEntityParent,
+  auditDetailsUpdate,
 } from "../services/audit";
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -741,17 +742,30 @@ export async function putOrganization(
   try {
     const updates: Partial<OrganizationInterface> = {};
 
+    const orig: Partial<OrganizationInterface> = {};
+
     if (name) {
       updates.name = name;
+      orig.name = org.name;
     }
     if (settings) {
       updates.settings = {
         ...org.settings,
         ...settings,
       };
+      orig.settings = org.settings;
     }
 
     await updateOrganization(org.id, updates);
+
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(orig, updates),
+    });
 
     res.status(200).json({
       status: 200,

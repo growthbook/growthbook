@@ -1,6 +1,6 @@
-# GrowthBook and NextJS
+# GrowthBook and Next.js
 
-This document is a guide on how to add GrowthBook feature flags to your NextJS application. It assumes you are starting from scratch, so if you already have a NextJS application, you can skip to step 2.
+This document is a guide on how to add GrowthBook feature flags to your Next.js application. It assumes you are starting from scratch, so if you already have a NextJS application, you can skip to step 2.
 
 Here is a video version similar to the steps below:
 
@@ -184,7 +184,7 @@ We can do that with another rule in GrowthBook:
 
 In the targeting attributes in pages/\_app.js, make sure employee is set to false. That will ensure you skip the first rule we made and fall into the second rollout rule.
 
-<div class="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
+<div className="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
   The GrowthBook SDK uses deterministic hashing to figure out whether or not
   someone is included in a rollout (or A/B test). The SDKs hash together the
   selected targeting attribute (id) and the feature key (welcome-message) and

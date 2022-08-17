@@ -1,33 +1,34 @@
 import { ReportInterface } from "back-end/types/report";
-import { GBAddCircle } from "../Icons";
 import Link from "next/link";
 import React from "react";
 import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
-import Button from "../Button";
 import DeleteButton from "../DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
 import useUser from "../../hooks/useUser";
+import { useSnapshot } from "./SnapshotProvider";
+import Button from "../Button";
+import { GBAddCircle } from "../Icons";
 
 export default function ExperimentReportsList({
   experiment,
-  snapshot,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  snapshot: ExperimentSnapshotInterface;
 }): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const { userId, users } = useUser();
+  const { snapshot } = useSnapshot();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
   }>(`/experiment/${experiment.id}/reports`);
+
+  if (!experiment.datasource) return null;
 
   if (error) {
     return null;
@@ -37,20 +38,21 @@ export default function ExperimentReportsList({
   }
 
   const { reports } = data;
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
 
   if (!reports.length) {
     return null;
   }
 
+  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
+  const canCreateReports =
+    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
+
   return (
     <div>
-      <div className="row mb-3">
+      <div className="row align-items-center mb-2">
         <div className="col">
-          <h3 className="mb-3">Custom Reports</h3>
+          <h3 className="mb-0">Custom Reports</h3>
         </div>
         {canCreateReports && (
           <div className="col-auto">
@@ -80,7 +82,7 @@ export default function ExperimentReportsList({
           </div>
         )}
       </div>
-      <table className="table appbox gbtable table-hover">
+      <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>
             <th>Title</th>

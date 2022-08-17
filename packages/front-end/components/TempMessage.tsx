@@ -1,9 +1,11 @@
+import { ReactNode } from "react";
 import { FC, useEffect, useState } from "react";
 
 const SHOW_TIME = 3000;
 
 type TempMessageProps = {
   close: () => void;
+  children: ReactNode;
 };
 const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
   const [closing, setClosing] = useState(false);

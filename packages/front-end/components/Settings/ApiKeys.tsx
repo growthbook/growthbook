@@ -7,15 +7,11 @@ import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
-import { useEnvironments } from "../../services/features";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-
-  const environments = useEnvironments();
-  const environmentIds = environments.map((e) => e.id);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -33,13 +29,6 @@ const ApiKeys: FC = () => {
       );
     }
   });
-
-  function canDelete(env: string) {
-    if (!env) return true;
-    if (!environmentIds.includes(env)) return true;
-    if (envCounts[env] > 1) return true;
-    return false;
-  }
 
   return (
     <div>
@@ -70,10 +59,14 @@ const ApiKeys: FC = () => {
             {data.keys.map((key) => (
               <tr key={key.key}>
                 <td>{key.key}</td>
-                <td>{key.environment ?? "production"}</td>
+                <td>
+                  <Link href={`/settings/environments`}>
+                    <a>{key.environment ?? "production"}</a>
+                  </Link>
+                </td>
                 <td>{key.description}</td>
                 <td>
-                  {canDelete(key.environment) && (
+                  <div className="tr-hover actions">
                     <DeleteButton
                       onClick={async () => {
                         await apiCall(`/key/${key.key}`, {
@@ -82,10 +75,9 @@ const ApiKeys: FC = () => {
                         mutate();
                       }}
                       displayName="Api Key"
-                      className="tr-hover"
                       style={{ fontSize: "19px" }}
                     />
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}

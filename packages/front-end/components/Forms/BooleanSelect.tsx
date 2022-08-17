@@ -1,9 +1,16 @@
 import clsx from "clsx";
 import { Controller, Control } from "react-hook-form";
 
+// eslint-disable-next-line
+export type BooleanSelectControl = Control<any>;
+
 export default function BooleanSelect(
-  // eslint-disable-next-line
-  props: { name: string, control: Control<any>, falseLabel: string, trueLabel: string } & React.DetailedHTMLProps<
+  props: {
+    name: string;
+    control: BooleanSelectControl;
+    falseLabel: string;
+    trueLabel: string;
+  } & React.DetailedHTMLProps<
     React.SelectHTMLAttributes<HTMLSelectElement>,
     HTMLSelectElement
   >

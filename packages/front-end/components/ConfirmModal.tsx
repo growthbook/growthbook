@@ -1,7 +1,7 @@
 import styles from "./ConfirmModal.module.scss";
 import clsx from "clsx";
 
-type props = {
+type Props = {
   title: string;
   subtitle?: string;
   yesText?: string;
@@ -23,7 +23,7 @@ const ConfirmModal = ({
   setModalState,
   onConfirm,
   children,
-}: props): React.ReactElement => {
+}: Props): React.ReactElement => {
   const closeModal = () => {
     setModalState(false);
   };
@@ -69,12 +69,14 @@ const ConfirmModal = ({
               {subtitle !== "" && <div>{subtitle}</div>}
               {children}
               <div>
-                <button
-                  className="btn btn-outline-secondary no"
-                  onClick={closeModal}
-                >
-                  {noText}
-                </button>
+                {noText && (
+                  <button
+                    className="btn btn-outline-secondary no"
+                    onClick={closeModal}
+                  >
+                    {noText}
+                  </button>
+                )}
                 <button
                   className={`btn btn-${yesColor} yes`}
                   onClick={onConfirm}

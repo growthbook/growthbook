@@ -43,9 +43,10 @@ export function getTrackingCallback(
 })`;
   }
   if (t === "mixpanel") {
-    return `mixpanel.track("Experiment Viewed", {
-  experimentId: ${experimentId}, 
-  variationId: ${variationId}
+    return `mixpanel.track("$experiment_started", {
+  "Experiment name": ${experimentId},
+  "Variant name": ${variationId},
+  "$source": "growthbook"
 })`;
   }
   if (t === "ga") {

@@ -16,6 +16,7 @@ import {
   isCloud,
 } from "./env";
 import { ReactElement } from "react";
+import { ReactNode } from "react";
 
 export type SubscriptionStatus =
   | "incomplete"
@@ -108,7 +109,9 @@ export interface AuthSource {
   getJWT: () => Promise<string>;
 }
 
-export const AuthProvider: React.FC = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orgId, setOrgId] = useState<string>(null);

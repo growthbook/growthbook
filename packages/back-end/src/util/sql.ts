@@ -118,9 +118,9 @@ export function conditionToJavascript({ operator, value, column }: Condition) {
 
   // Some operators map to special javascript syntax
   if (operator === "~") {
-    return `${col}.match(/${value}/)`;
+    return `${col}.match(new RegExp(${encoded}))`;
   } else if (operator === "!~") {
-    return `!${col}.match(/${value}/)`;
+    return `!${col}.match(new RegExp(${encoded}))`;
   } else if (operator === "=") {
     return `${col}+'' == ${encoded}`;
   } else {

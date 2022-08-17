@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FC, useState, ReactElement } from "react";
 import ControlledTabs from "./ControlledTabs";
 
@@ -9,6 +10,7 @@ const Tabs: FC<{
   defaultTab?: string;
   newStyle?: boolean;
   navExtra?: ReactElement;
+  children?: ReactNode;
 }> = ({ children, defaultTab, ...props }) => {
   const [active, setActive] = useState<string | null>(defaultTab || null);
 

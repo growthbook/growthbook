@@ -21,7 +21,7 @@ import { presentationThemes, defaultTheme } from "./ShareModal";
 import clsx from "clsx";
 import Markdown from "../Markdown/Markdown";
 
-type props = {
+export interface Props {
   presentation?: PresentationInterface;
   theme?: string;
   title?: string;
@@ -37,7 +37,7 @@ type props = {
     snapshot?: ExperimentSnapshotInterface;
   }[];
   preview?: boolean;
-};
+}
 
 const Presentation = ({
   presentation,
@@ -47,7 +47,7 @@ const Presentation = ({
   desc,
   customTheme,
   preview = false,
-}: props): ReactElement => {
+}: Props): ReactElement => {
   // make sure experiments are in the right order - we know the order is
   // right in the presentation object. This could be done in the API
   const em = new Map<
@@ -178,14 +178,14 @@ const Presentation = ({
       // const numMetrics = e.experiment.metrics.length;
       const result = e.experiment.results;
 
-      if (result) {
-        const experiment = e.experiment;
-        const snapshot = e.snapshot;
-        const phase = experiment.phases[snapshot.phase];
+      const experiment = e.experiment;
+      const snapshot = e.snapshot;
+      const phase = experiment.phases[snapshot.phase];
 
-        expSlides.push(
-          <Slide key={`s-${expSlides.length}`}>
-            <Heading className="m-0 p-0">Results</Heading>
+      expSlides.push(
+        <Slide key={`s-${expSlides.length}`}>
+          <Heading className="m-0 p-0">Results</Heading>
+          {result && (
             <div
               className={clsx("alert", {
                 "alert-success": result === "won",
@@ -205,37 +205,38 @@ const Presentation = ({
                 </div>
               )}
             </div>
-            <div
-              style={{
-                overflowY: "auto",
-                background: "#fff",
-                maxHeight: "100%",
-                padding: "0 0",
-                color: "#444",
-                fontSize: "95%",
-              }}
-            >
-              <CompactResults
-                id={experiment.id}
-                isLatestPhase={phase === experiment.phases.length - 1}
-                metrics={experiment.metrics}
-                reportDate={snapshot.dateCreated}
-                results={snapshot.results?.[0]}
-                status={experiment.status}
-                startDate={phase?.dateStarted}
-                multipleExposures={snapshot.multipleExposures || 0}
-                variations={experiment.variations.map((v, i) => {
-                  return {
-                    id: v.key || i + "",
-                    name: v.name,
-                    weight: phase?.variationWeights?.[i] || 0,
-                  };
-                })}
-              />
-            </div>
-          </Slide>
-        );
-      }
+          )}
+
+          <div
+            style={{
+              overflowY: "auto",
+              background: "#fff",
+              maxHeight: "100%",
+              padding: "0 0",
+              color: "#444",
+              fontSize: "95%",
+            }}
+          >
+            <CompactResults
+              id={experiment.id}
+              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              metrics={experiment.metrics}
+              reportDate={snapshot.dateCreated}
+              results={snapshot.results?.[0]}
+              status={experiment.status}
+              startDate={phase?.dateStarted}
+              multipleExposures={snapshot.multipleExposures || 0}
+              variations={experiment.variations.map((v, i) => {
+                return {
+                  id: v.key || i + "",
+                  name: v.name,
+                  weight: phase?.variationWeights?.[i] || 0,
+                };
+              })}
+            />
+          </div>
+        </Slide>
+      );
     }
   });
 
