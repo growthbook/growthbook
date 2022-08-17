@@ -1,16 +1,27 @@
 import Link from "next/link";
 import styles from "./Layout.module.scss";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import { FaArrowRight } from "react-icons/fa";
+import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
-import { getGrowthBookBuild } from "../../services/env";
+import { getGrowthBookBuild, isCloud } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
+
+type GitHubApiResponse = {
+  commit?: {
+    sha: string;
+    commit: {
+      author: {
+        date: string;
+      };
+    };
+  };
+};
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -190,9 +201,53 @@ const backgroundShade = (color: string) => {
   }
 };
 
+function isNewBuildAvailable(
+  currentBuild: { sha?: string; date?: string },
+  latestBuild: GitHubApiResponse
+) {
+  // We don't have the required info to determine this
+  if (!latestBuild?.commit || !currentBuild?.date || !currentBuild?.sha)
+    return false;
+
+  // Already on latest build
+  if (latestBuild.commit.sha === currentBuild.sha) return false;
+
+  // Parse the dates
+  const latestDate = new Date(latestBuild.commit.commit.author.date).valueOf();
+  const buildDate = new Date(currentBuild.date).valueOf();
+  if (!latestDate || !buildDate) return false;
+
+  // Latest build is older than current build (should never happen)
+  if (latestDate <= buildDate) return false;
+
+  // The latest commit to `main` is not available immediately since
+  // it needs to go through the CI/CD pipeline first.
+  // As a hacky way to check that it's ready,
+  // we just wait until the commit is at least 30 minutes old
+  if (latestDate > Date.now() - 30 * 60 * 1000) return false;
+
+  return true;
+}
+
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
+  const [isOldVersion, setIsOldVersion] = useState(false);
   const settings = useOrgSettings();
+
+  const build = getGrowthBookBuild();
+
+  useEffect(() => {
+    // Cloud is always up-to-date
+    if (isCloud()) return;
+
+    // Otherwise, check if GitHub has a newer build
+    fetch("https://api.github.com/repos/growthbook/growthbook/branches/main")
+      .then((res) => res.json())
+      .then((json: GitHubApiResponse) => {
+        setIsOldVersion(isNewBuildAvailable(build, json));
+      })
+      .catch((e) => console.error(e));
+  }, []);
 
   // hacky:
   const router = useRouter();
@@ -239,8 +294,6 @@ const Layout = (): React.ReactElement => {
       .sidebarlink a, .sublink a {color: ${textColor}}
       `;
   }
-
-  const build = getGrowthBookBuild();
 
   return (
     <>
@@ -344,6 +397,11 @@ const Layout = (): React.ReactElement => {
         </div>
         {build.sha && (
           <div className="px-3 my-1 text-center">
+            {!isCloud() && isOldVersion && (
+              <div>
+                <div className="badge badge-warning">New Version Available</div>
+              </div>
+            )}
             <small>
               <span className="text-muted">Build:</span>{" "}
               <a
@@ -358,6 +416,21 @@ const Layout = (): React.ReactElement => {
                 <span className="text-muted">({build.date.substr(0, 10)})</span>
               )}
             </small>
+          </div>
+        )}
+        {!isCloud() && isOldVersion && (
+          <div className="px-3 my-1 text-center">
+            <a
+              href={`https://docs.growthbook.io/self-host/updating`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-white"
+            >
+              <span>
+                {`View Update Instructions `}
+                <FaExternalLinkAlt />
+              </span>
+            </a>
           </div>
         )}
       </div>
