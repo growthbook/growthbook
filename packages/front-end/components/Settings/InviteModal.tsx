@@ -9,11 +9,14 @@ import { MemberRole } from "back-end/types/organization";
 import { isCloud } from "../../services/env";
 import { InviteModalSubscriptionInfo } from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
+  const growthbook = useGrowthBook();
+  const selfServePricing = growthbook.feature("self-serve-billing");
   const form = useForm<{
     email: string;
     role: MemberRole;
@@ -107,14 +110,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          <InviteModalSubscriptionInfo
-            subscriptionStatus={subscriptionStatus}
-            activeAndInvitedUsers={activeAndInvitedUsers}
-            freeSeats={freeSeats}
-            hasActiveSubscription={hasActiveSubscription}
-            pricePerSeat={pricePerSeat}
-            currentPaidSeats={currentPaidSeats}
-          />
+          {selfServePricing.on && (
+            <InviteModalSubscriptionInfo
+              subscriptionStatus={subscriptionStatus}
+              activeAndInvitedUsers={activeAndInvitedUsers}
+              freeSeats={freeSeats}
+              hasActiveSubscription={hasActiveSubscription}
+              pricePerSeat={pricePerSeat}
+              currentPaidSeats={currentPaidSeats}
+            />
+          )}
         </>
       )}
     </Modal>
