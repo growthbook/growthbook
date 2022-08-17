@@ -272,24 +272,26 @@ const EditDataSourceSettingsForm: FC<{
                             }
                           />
                           <div className="form-group">
-                            <label>
-                              Use Name Columns
-                              <Tooltip text="Enable this if you store experiment/variation names as well as ids in your table" />
-                            </label>
-                            <Toggle
-                              id={`exposureQuery${i}`}
-                              value={
-                                form.watch(
-                                  `settings.queries.exposure.${i}.hasNameCol`
-                                ) || false
-                              }
-                              setValue={(hasNameCol) => {
-                                form.setValue(
-                                  `settings.queries.exposure.${i}.hasNameCol`,
-                                  hasNameCol
-                                );
-                              }}
-                            />
+                            <div className="row">
+                              <label className="mr-2">
+                                Use Name Columns
+                                <Tooltip text="Enable this if you store experiment/variation names as well as ids in your table" />
+                              </label>
+                              <Toggle
+                                id={`exposureQuery${i}`}
+                                value={
+                                  form.watch(
+                                    `settings.queries.exposure.${i}.hasNameCol`
+                                  ) || false
+                                }
+                                setValue={(hasNameCol) => {
+                                  form.setValue(
+                                    `settings.queries.exposure.${i}.hasNameCol`,
+                                    hasNameCol
+                                  );
+                                }}
+                              />
+                            </div>
                           </div>
 
                           <StringArrayField

@@ -176,9 +176,11 @@ export default abstract class SqlIntegration
             ${
               hasNameCol ? "MIN(experiment_name)" : "experiment_id"
             } as experiment_name,
-            variation_id,
+            ${this.castToString("variation_id")} as variation_id,
             ${
-              hasNameCol ? "MIN(variation_name)" : "variation_id"
+              hasNameCol
+                ? "MIN(variation_name)"
+                : this.castToString("variation_id")
             } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
             count(distinct ${q.userIdType}) as users
