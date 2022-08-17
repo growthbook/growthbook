@@ -275,7 +275,7 @@ const EditDataSourceSettingsForm: FC<{
                             <div className="row">
                               <label className="mr-2">
                                 Use Name Columns
-                                <Tooltip text="Enable this if you store experiment/variation names as well as ids in your table" />
+                                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                               </label>
                               <Toggle
                                 id={`exposureQuery${i}`}
