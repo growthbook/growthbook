@@ -474,11 +474,12 @@ export default abstract class SqlIntegration
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
   ) {
+    // Note: the conversion_start/end alias below is needed for clickhouse
     return `
       SELECT
         initial.${baseIdType},
-        t${metrics.length - 1}.conversion_start,
-        t${metrics.length - 1}.conversion_end
+        t${metrics.length - 1}.conversion_start as conversion_start,
+        t${metrics.length - 1}.conversion_end as conversion_end
       FROM
         ${initialTable} initial
         ${metrics
@@ -878,7 +879,7 @@ export default abstract class SqlIntegration
       userIdCol = baseIdType;
     } else if (metric.userIdTypes) {
       for (let i = 0; i < metric.userIdTypes.length; i++) {
-        const userIdType = metric.userIdTypes[i];
+        const userIdType: string = metric.userIdTypes[i];
         if (userIdType in idJoinMap) {
           userIdCol = `i.${baseIdType}`;
           join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = m.${userIdType})`;

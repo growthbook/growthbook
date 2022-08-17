@@ -32,7 +32,6 @@ import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesBut
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import InlineForm from "../../components/Forms/InlineForm";
-import MarkdownEditor from "../../components/Forms/MarkdownEditor";
 import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -50,6 +49,8 @@ import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
+import EditOwnerModal from "../../components/Owner/EditOwnerModal";
+import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -67,6 +68,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
   const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
@@ -258,6 +260,19 @@ const MetricPage: FC = () => {
           }}
         />
       )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={metric.owner}
+          save={async (owner) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+            mutate();
+          }}
+        />
+      )}
       {segmentOpen && (
         <PickSegmentModal
           close={() => setSegmentOpen(false)}
@@ -356,6 +371,7 @@ const MetricPage: FC = () => {
                         body: JSON.stringify(value),
                       });
                       await mutate();
+                      mutateDefinitions({});
                       setEditing(false);
                     })}
                     onStartEdit={() => {
@@ -391,33 +407,25 @@ const MetricPage: FC = () => {
                             </div>
                           )}
                         </div>
-                        <MarkdownEditor
-                          editing={canEdit && editing}
-                          cancel={cancel}
-                          save={save}
-                          defaultValue={metric.description}
-                          form={form}
-                          name="description"
-                          placeholder={
-                            <>
-                              No description yet.{" "}
-                              {canEdit && (
-                                <a
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditing(true);
-                                  }}
-                                >
-                                  Add one.
-                                </a>
-                              )}
-                            </>
-                          }
-                        />
                       </div>
                     )}
                   </InlineForm>
+                  <MarkdownInlineEdit
+                    save={async (description) => {
+                      await apiCall(`/metric/${metric.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          description,
+                        }),
+                      });
+                      await mutate();
+                      mutateDefinitions({});
+                    }}
+                    value={metric.description}
+                    canCreate={canEdit}
+                    canEdit={canEdit}
+                    label="Description"
+                  />
                   <hr />
                   {!!datasource && (
                     <div>
@@ -640,6 +648,17 @@ const MetricPage: FC = () => {
         </div>
         <div className="col-12 col-md-4 mt-md-5">
           <div className="appbox p-3" style={{ marginTop: "7px" }}>
+            <RightRailSection
+              title="Owner"
+              open={() => setEditOwnerModal(true)}
+              canOpen={canEdit}
+            >
+              <RightRailSectionGroup type="custom">
+                {metric.owner}
+              </RightRailSectionGroup>
+            </RightRailSection>
+
+            <hr />
             <RightRailSection
               title="Basic Info"
               open={() => setEditModalOpen(0)}

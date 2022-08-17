@@ -10,6 +10,7 @@ import {
 import useGlobalMenu from "../../services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
 import styles from "./Dropdown.module.scss";
+import { ReactNode } from "react";
 
 const Dropdown: FC<{
   uuid: string;
@@ -21,6 +22,7 @@ const Dropdown: FC<{
   className?: string;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  children: ReactNode;
 }> = ({
   uuid,
   toggle,

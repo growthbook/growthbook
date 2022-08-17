@@ -134,8 +134,12 @@ export class GrowthBook {
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
-    const result = this._run(experiment);
+    const result = this._run(experiment, null);
+    this.fireSubscriptions(experiment, result);
+    return result;
+  }
 
+  private fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
     const key = experiment.key;
 
     // If assigned variation has changed, fire subscriptions
@@ -155,8 +159,6 @@ export class GrowthBook {
         }
       });
     }
-
-    return result;
   }
 
   private trackFeatureUsage(key: string, res: FeatureResult): void {
@@ -349,7 +351,8 @@ export class GrowthBook {
         if (rule.namespace) exp.namespace = rule.namespace;
 
         // Only return a value if the user is part of the experiment
-        const res = this.run(exp);
+        const res = this._run(exp, id);
+        this.fireSubscriptions(exp, res);
         if (res.inExperiment) {
           return this.getFeatureResult(
             id,
@@ -381,7 +384,10 @@ export class GrowthBook {
     return evalCondition(this.getAttributes(), condition);
   }
 
-  private _run<T>(experiment: Experiment<T>): Result<T> {
+  private _run<T>(
+    experiment: Experiment<T>,
+    featureId: string | null
+  ): Result<T> {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
 
@@ -389,14 +395,14 @@ export class GrowthBook {
     if (numVariations < 2) {
       process.env.NODE_ENV !== "production" &&
         this.log("Invalid experiment", { id: key });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 2. If the context is disabled, return immediately
     if (this.context.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 2.5. Merge in experiment overrides from the context
@@ -414,7 +420,7 @@ export class GrowthBook {
           id: key,
           variation: qsOverride,
         });
-      return this.getResult(experiment, qsOverride);
+      return this.getResult(experiment, qsOverride, false, featureId);
     }
 
     // 4. If a variation is forced in the context, return the forced variation
@@ -425,7 +431,7 @@ export class GrowthBook {
           id: key,
           variation,
         });
-      return this.getResult(experiment, variation);
+      return this.getResult(experiment, variation, false, featureId);
     }
 
     // 5. Exclude if a draft experiment or not active
@@ -434,7 +440,7 @@ export class GrowthBook {
         this.log("Skip because inactive", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 6. Get the hash attribute and return if empty
@@ -444,7 +450,7 @@ export class GrowthBook {
         this.log("Skip because missing hashAttribute", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 7. Exclude if user not in experiment.namespace
@@ -453,7 +459,7 @@ export class GrowthBook {
         this.log("Skip because of namespace", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 7.5. Exclude if experiment.include returns false or throws
@@ -462,7 +468,7 @@ export class GrowthBook {
         this.log("Skip because of include function", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 8. Exclude if condition is false
@@ -471,7 +477,7 @@ export class GrowthBook {
         this.log("Skip because of condition", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 8.1. Exclude if user is not in a required group
@@ -483,7 +489,7 @@ export class GrowthBook {
         this.log("Skip because of groups", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 8.2. Exclude if not on a targeted url
@@ -492,7 +498,7 @@ export class GrowthBook {
         this.log("Skip because of url", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 9. Get bucket ranges and choose variation
@@ -510,7 +516,7 @@ export class GrowthBook {
         this.log("Skip because of coverage", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 11. Experiment has a forced variation
@@ -520,7 +526,12 @@ export class GrowthBook {
           id: key,
           variation: experiment.force,
         });
-      return this.getResult(experiment, experiment.force);
+      return this.getResult(
+        experiment,
+        experiment.force ?? -1,
+        false,
+        featureId
+      );
     }
 
     // 12. Exclude if in QA mode
@@ -529,7 +540,7 @@ export class GrowthBook {
         this.log("Skip because QA mode", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 12.5. Exclude if experiment is stopped
@@ -538,11 +549,11 @@ export class GrowthBook {
         this.log("Skip because stopped", {
           id: key,
         });
-      return this.getResult(experiment);
+      return this.getResult(experiment, -1, false, featureId);
     }
 
     // 13. Build the result object
-    const result = this.getResult(experiment, assigned, true);
+    const result = this.getResult(experiment, assigned, true, featureId);
 
     // 14. Fire the tracking callback
     this.track(experiment, result);
@@ -614,8 +625,9 @@ export class GrowthBook {
 
   private getResult<T>(
     experiment: Experiment<T>,
-    variationIndex: number = -1,
-    hashUsed: boolean = false
+    variationIndex: number,
+    hashUsed: boolean,
+    featureId: string | null
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -629,6 +641,7 @@ export class GrowthBook {
     );
 
     return {
+      featureId,
       inExperiment,
       hashUsed,
       variationId: variationIndex,

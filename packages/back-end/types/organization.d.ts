@@ -80,6 +80,7 @@ export type Environment = {
   id: string;
   description?: string;
   toggleOnList?: boolean;
+  defaultState?: boolean;
 };
 
 export interface OrganizationSettings {

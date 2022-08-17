@@ -1,4 +1,3 @@
-import { UseFormReturn } from "react-hook-form";
 import { FeatureValueType } from "back-end/types/feature";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
@@ -6,19 +5,22 @@ import Toggle from "../Forms/Toggle";
 export interface Props {
   valueType: FeatureValueType;
   label: string;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
-  field: string;
+  value: string;
+  setValue: (v: string) => void;
+  id: string;
   helpText?: string;
   type?: string;
+  placeholder?: string;
 }
 
 export default function FeatureValueField({
   valueType,
   label,
-  form,
-  field,
+  value,
+  setValue,
+  id,
   helpText,
+  placeholder,
 }: Props) {
   if (valueType === "boolean") {
     return (
@@ -26,15 +28,15 @@ export default function FeatureValueField({
         <label>{label}</label>
         <div>
           <Toggle
-            id={field + "__toggle"}
-            value={form.watch(field) === "true"}
+            id={id + "__toggle"}
+            value={value === "true"}
             setValue={(v) => {
-              form.setValue(field, v ? "true" : "false");
+              setValue(v ? "true" : "false");
             }}
             type="featureValue"
           />
           <span className="text-muted pl-2">
-            <strong>{form.watch(field) === "true" ? "on" : "off"}</strong>
+            <strong>{value === "true" ? "on" : "off"}</strong>
           </span>
         </div>
       </div>
@@ -44,7 +46,11 @@ export default function FeatureValueField({
   return (
     <Field
       label={label}
-      {...form.register(field)}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
       {...(valueType === "number"
         ? {
             type: "number",

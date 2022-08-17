@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { ReactNode } from "react";
 import { FC, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useGlobalMenu from "../../services/useGlobalMenu";
@@ -7,6 +8,7 @@ const MoreMenu: FC<{
   id: string;
   autoCloseOnClick?: boolean;
   className?: string;
+  children: ReactNode;
 }> = ({ children, id, autoCloseOnClick = true, className = "" }) => {
   const [open, setOpen] = useState(false);
   useGlobalMenu(`#${id}`, () => setOpen(false));

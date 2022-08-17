@@ -126,7 +126,7 @@ export default function ReportPage() {
             }}
           />
           <Tooltip
-            text={
+            body={
               "A published report will be visible to other users of your team"
             }
           />
@@ -272,6 +272,10 @@ export default function ReportPage() {
                   notebookFilename={report.title}
                   queries={report.queries}
                   queryError={report.error}
+                  results={report.results.dimensions}
+                  variations={variations}
+                  metrics={report.args.metrics}
+                  trackingKey={report.title}
                 />
               </div>
             </div>

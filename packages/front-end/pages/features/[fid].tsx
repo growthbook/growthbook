@@ -39,6 +39,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
 import DiscussionThread from "../../components/DiscussionThread";
+import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -58,6 +59,7 @@ export default function FeaturePage() {
   } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -68,7 +70,7 @@ export default function FeaturePage() {
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
-  const firstFeature = "first" in router?.query;
+  const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
 
@@ -95,6 +97,19 @@ export default function FeaturePage() {
           close={() => setEdit(false)}
           feature={data.feature}
           mutate={mutate}
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={data.feature.owner}
+          save={async (owner) => {
+            await apiCall(`/feature/${data.feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+            mutate();
+          }}
         />
       )}
       {ruleModal !== null && (
@@ -303,6 +318,18 @@ export default function FeaturePage() {
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+
+        <div className="col-auto">
+          Owner: {data.feature.owner ? data.feature.owner : "None"}
+          {permissions.createFeatures && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />
             </a>

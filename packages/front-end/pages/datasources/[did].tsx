@@ -182,7 +182,8 @@ const growthbook = new GrowthBook({
       )}: experiment.key,
       ${quotePropertyName(
         d.settings.events.variationIdProperty
-      )}:  result.variationId
+      )}:  result.variationId,
+      $source: 'growthbook'
     })
   }
 })

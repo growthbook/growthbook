@@ -83,6 +83,7 @@ export interface Result<T> {
   hashUsed?: boolean;
   hashAttribute: string;
   hashValue: string;
+  featureId: string | null;
 }
 
 export type Attributes = Record<string, any>;

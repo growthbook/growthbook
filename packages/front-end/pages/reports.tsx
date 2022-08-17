@@ -65,7 +65,11 @@ const ReportsPage = (): React.ReactElement => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -130,7 +134,7 @@ const ReportsPage = (): React.ReactElement => {
           <h3>
             Custom Reports{" "}
             <small className="text-muted">
-              <Tooltip text="Reports are used by data teams to explore experiment results" />
+              <Tooltip body="Reports are used by data teams to explore experiment results" />
             </small>
           </h3>
         </div>

@@ -153,8 +153,9 @@ export default function RuleModal({
       {type === "force" && (
         <FeatureValueField
           label="Value to Force"
-          form={form}
-          field="value"
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
           valueType={feature.valueType}
         />
       )}
@@ -162,8 +163,9 @@ export default function RuleModal({
         <div>
           <FeatureValueField
             label="Value to Rollout"
-            form={form}
-            field="value"
+            id="value"
+            value={form.watch("value")}
+            setValue={(v) => form.setValue("value", v)}
             valueType={feature.valueType}
           />
           <RolloutPercentInput
@@ -199,10 +201,15 @@ export default function RuleModal({
             helpText="Will be hashed together with the Tracking Key to pick a value"
           />
           <VariationsInput
-            form={form}
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
-            formPrefix=""
+            coverage={form.watch("coverage")}
+            setCoverage={(coverage) => form.setValue("coverage", coverage)}
+            setWeight={(i, weight) =>
+              form.setValue(`values.${i}.weight`, weight)
+            }
+            variations={form.watch("values") || []}
+            setVariations={(variations) => form.setValue("values", variations)}
           />
           {namespaces?.length > 0 && (
             <NamespaceSelector

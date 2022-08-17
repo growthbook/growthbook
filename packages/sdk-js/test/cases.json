@@ -1,4 +1,5 @@
 {
+  "specVersion": "0.2.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -1704,6 +1705,7 @@
           "variations": ["a", "b", "c"]
         },
         "experimentResult": {
+          "featureId": "feature",
           "value": "c",
           "variationId": 2,
           "inExperiment": true,
@@ -1740,6 +1742,7 @@
           "variations": ["a", "b", "c"]
         },
         "experimentResult": {
+          "featureId": "feature",
           "value": "a",
           "variationId": 0,
           "inExperiment": true,
@@ -1776,6 +1779,7 @@
           "variations": ["a", "b", "c"]
         },
         "experimentResult": {
+          "featureId": "feature",
           "value": "b",
           "variationId": 1,
           "inExperiment": true,
@@ -1824,6 +1828,7 @@
           "weights": [0.1, 0.9]
         },
         "experimentResult": {
+          "featureId": "feature",
           "value": false,
           "variationId": 1,
           "inExperiment": true,
@@ -2048,6 +2053,7 @@
           "variations": [0, 1, 2, 3]
         },
         "experimentResult": {
+          "featureId": "feature",
           "value": 1,
           "variationId": 1,
           "inExperiment": true,
@@ -2366,6 +2372,14 @@
     [
       "empty id",
       { "attributes": { "id": "" } },
+      { "key": "my-test", "variations": [0, 1] },
+      0,
+      false,
+      false
+    ],
+    [
+      "null id",
+      { "attributes": { "id": null } },
       { "key": "my-test", "variations": [0, 1] },
       0,
       false,

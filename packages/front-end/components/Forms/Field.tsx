@@ -1,6 +1,15 @@
 import clsx from "clsx";
-import { ReactElement, ReactNode, useState, forwardRef } from "react";
-import TextareaAutosize from "react-textarea-autosize";
+import {
+  ReactElement,
+  ReactNode,
+  useState,
+  forwardRef,
+  DetailedHTMLProps,
+  SelectHTMLAttributes,
+} from "react";
+import TextareaAutosize, {
+  TextareaAutosizeProps,
+} from "react-textarea-autosize";
 
 export type SelectOptions =
   | (
@@ -30,6 +39,7 @@ export type BaseFieldProps = {
   textarea?: boolean;
   prepend?: string;
   append?: string;
+  comboBox?: boolean;
 };
 
 export type FieldProps = BaseFieldProps &
@@ -95,6 +105,7 @@ const Field = forwardRef(
       optionGroups,
       type = "text",
       initialOption,
+      comboBox,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -112,7 +123,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...(otherProps as unknown)}
+          {...((otherProps as unknown) as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -120,10 +131,31 @@ const Field = forwardRef(
           maxRows={maxRows || 6}
         />
       );
+    } else if (comboBox && options) {
+      const listId = `${fieldId}_datalist`;
+      component = (
+        <>
+          <input
+            {...otherProps}
+            ref={ref}
+            id={fieldId}
+            type={type}
+            className={cn}
+            list={listId}
+            autoComplete="off"
+          />
+          <datalist id={listId}>
+            {options && <Options options={options} />}
+          </datalist>
+        </>
+      );
     } else if (options || optionGroups) {
       component = (
         <select
-          {...(otherProps as unknown)}
+          {...((otherProps as unknown) as DetailedHTMLProps<
+            SelectHTMLAttributes<HTMLSelectElement>,
+            HTMLSelectElement
+          >)}
           ref={ref}
           id={fieldId}
           className={cn}

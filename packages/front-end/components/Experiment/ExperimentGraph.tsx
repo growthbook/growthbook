@@ -35,7 +35,7 @@ export default function ExperimentGraph({
     tooltipData,
     tooltipLeft = 0,
     tooltipTop = 0,
-  } = useTooltip();
+  } = useTooltip<number>();
 
   const { data, error } = useApi<{
     data: {

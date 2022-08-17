@@ -74,7 +74,11 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -162,7 +166,7 @@ const MetricsPage = (): React.ReactElement => {
             Your Metrics{" "}
             <small className="text-muted">
               <Tooltip
-                text=" Metrics define success and failure for your business. Create metrics
+                body=" Metrics define success and failure for your business. Create metrics
         here to use throughout the GrowthBook app."
               />
             </small>
@@ -219,6 +223,7 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="name">Name</SortableTH>
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
+            <th>Owner</th>
             <SortableTH field="datasource" className="d-none d-lg-table-cell">
               Data Source
             </SortableTH>
@@ -261,6 +266,7 @@ const MetricsPage = (): React.ReactElement => {
               <td className="nowrap">
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
+              <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasource
                   ? getDatasourceById(metric.datasource)?.name || "Unknown"

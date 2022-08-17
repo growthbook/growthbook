@@ -15,7 +15,7 @@ type Props = {
   inline?: boolean;
   close: () => void;
   submit: () => Promise<void>;
-
+  children: ReactNode;
   step: number;
   setStep: (step: number) => void;
 };
