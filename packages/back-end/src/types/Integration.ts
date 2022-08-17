@@ -95,7 +95,9 @@ export type PastExperimentResult = {
   experiments: {
     exposureQueryId: string;
     experiment_id: string;
+    experiment_name?: string;
     variation_id: string;
+    variation_name?: string;
     start_date: Date;
     end_date: Date;
     users: number;
@@ -112,7 +114,9 @@ export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {
   exposure_query: string;
   experiment_id: string;
+  experiment_name?: string;
   variation_id: string;
+  variation_name?: string;
   start_date: string;
   end_date: string;
   users: number;
