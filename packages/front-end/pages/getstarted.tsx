@@ -1,14 +1,15 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { MetricInterface } from "back-end/types/metric";
+// import { MetricInterface } from "back-end/types/metric";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { DimensionInterface } from "back-end/types/dimension";
-import GuidedGetStarted from "../components/GuidedGetStarted";
+// import GuidedGetStarted from "../components/GuidedGetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+// import GuidedGetStarted2 from "../components/GuidedGetStarted2";
 
 export type Task = {
   title: string;
@@ -40,14 +41,14 @@ const GetStartedPage = (): React.ReactElement => {
 
   const {
     data: experiments,
-    mutate,
+    // mutate,
     error: experimentsError,
     mutate: mutateExperiments,
   } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
 
-  const { data } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
+  // const { data } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
 
   const { features, error: featuresError } = useFeaturesList();
 
@@ -68,12 +69,13 @@ const GetStartedPage = (): React.ReactElement => {
 
   if (guidedOnboarding) {
     return (
-      <GuidedGetStarted
-        experiments={experiments}
-        features={features}
-        data={data}
-        mutate={mutate}
-      />
+      // <GuidedGetStarted2
+      //   experiments={experiments}
+      //   features={features}
+      //   data={data}
+      //   mutate={mutate}
+      // />
+      <div>Hi</div>
     );
   } else {
     return (

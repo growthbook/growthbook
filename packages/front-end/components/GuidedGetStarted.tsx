@@ -20,6 +20,7 @@ import EditAttributesModal from "./Features/EditAttributesModal";
 import FeatureModal from "./Features/FeatureModal";
 import GetStartedVideoModal from "./Features/GetStartedVideoModal";
 import { GetHelpDiv } from "./GetHelpDiv";
+import GetStartedSteps from "./GetStartedSteps";
 import SetupGuide from "./HomePage/SetupGuide";
 import { ExpandableDrawer } from "./Layout/ExpandableDrawer";
 import MetricForm from "./Metrics/MetricForm";
@@ -298,6 +299,7 @@ export default function GuidedGetStarted({
 
   return (
     <>
+      <GetStartedSteps />
       {videoModalOpen && (
         <GetStartedVideoModal close={() => setVideoModalOpen(false)} />
       )}
