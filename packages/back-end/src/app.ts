@@ -360,6 +360,7 @@ app.post("/organization/namespaces", organizationsController.postNamespaces);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
+app.put("/invite/:key/role", organizationsController.putInviteRole);
 app.delete("/invite", organizationsController.deleteInvite);
 app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);

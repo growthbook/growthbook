@@ -28,6 +28,7 @@ import {
 } from "../services/apiKey";
 import { UserModel } from "../models/UserModel";
 import {
+  Invite,
   MemberRole,
   NamespaceUsage,
   OrganizationInterface,
@@ -69,6 +70,7 @@ import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
+import { cloneDeep } from "lodash";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -442,6 +444,59 @@ export async function putMemberRole(
   try {
     await updateOrganization(org.id, {
       members: org.members,
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to change role",
+    });
+  }
+}
+
+export async function putInviteRole(
+  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { role } = req.body;
+  const { key } = req.params;
+  const originalInvites: Invite[] = cloneDeep(org.invites);
+
+  let found = false;
+
+  org.invites.forEach((m) => {
+    if (m.key === key) {
+      m.role = role;
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+
+  try {
+    await updateOrganization(org.id, {
+      invites: org.invites,
+    });
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { invites: originalInvites },
+        { invites: org.invites }
+      ),
     });
     return res.status(200).json({
       status: 200,
