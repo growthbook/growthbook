@@ -15,7 +15,7 @@ import { Language } from "../Code";
 import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../DocLink";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -227,14 +227,7 @@ export default function CodeSnippetModal({
       >
         <Tab display="Javascript" id="javascript">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("javascript")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full Javascript docs
-            </a>{" "}
+            Read the <DocLink docKey="javascript">full Javascript docs</DocLink>{" "}
             for more details.
           </p>
           <Code language="sh" code="npm i --save @growthbook/growthbook" />
@@ -285,15 +278,8 @@ if (growthbook.isOn(${JSON.stringify(featureId)})) {
         </Tab>
         <Tab display="React" id="tsx">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("tsx")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full React docs
-            </a>{" "}
-            for more details.
+            Read the <DocLink docKey="tsx">full React docs</DocLink> for more
+            details.
           </p>
           <Code
             language="sh"
@@ -354,15 +340,8 @@ function MyComponent() {
         </Tab>
         <Tab display="Go" id="go">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("go")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full Golang SDK docs
-            </a>{" "}
-            for more details.
+            Read the <DocLink docKey="go">full Golang SDK docs</DocLink> for
+            more details.
           </p>
           <Code
             language="sh"
@@ -433,13 +412,7 @@ func main() {
         <Tab display="Kotlin (Android)" id="kotlin">
           <p>
             Read the{" "}
-            <a
-              href={getDocsLink("kotlin")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full Kotlin (Android) SDK docs
-            </a>{" "}
+            <DocLink docKey="kotlin">full Kotlin (Android) SDK docs</DocLink>{" "}
             for more details.
           </p>
           <Code
@@ -485,15 +458,8 @@ if (gb.feature(${JSON.stringify(featureId)}).on) {
         </Tab>
         <Tab display="Ruby" id="ruby">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("ruby")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full Ruby SDK docs
-            </a>{" "}
-            for more details.
+            Read the <DocLink docKey="ruby">full Ruby SDK docs</DocLink> for
+            more details.
           </p>
           <Code language="sh" code={`gem install growthbook`} />
           <Code
@@ -536,15 +502,8 @@ end
         </Tab>
         <Tab display="PHP" id="php">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("php")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full PHP SDK docs
-            </a>{" "}
-            for more details.
+            Read the <DocLink docKey="php">full PHP SDK docs</DocLink> for more
+            details.
           </p>
           <Code language="sh" code={`composer require growthbook/growthbook`} />
           <Code
@@ -577,15 +536,8 @@ if ($growthbook->isOn(${JSON.stringify(featureId)})) {
         </Tab>
         <Tab display="Python" id="python">
           <p>
-            Read the{" "}
-            <a
-              href={getDocsLink("python")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              full Python SDK docs
-            </a>{" "}
-            for more details.
+            Read the <DocLink docKey="python">full Python SDK docs</DocLink> for
+            more details.
           </p>
           <Code language="sh" code={`pip install growthbook`} />
           <Code

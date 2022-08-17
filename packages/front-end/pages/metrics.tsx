@@ -19,7 +19,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
-import { getDocsLink } from "../services/docsMapping";
+import { DocLink } from "../components/DocLink";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -107,14 +107,9 @@ const MetricsPage = (): React.ReactElement => {
         )}
         <div className="d-flex">
           <h1>Metrics</h1>
-          <a
-            className="align-self-center ml-2 pb-1"
-            href={getDocsLink("/metrics")}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <DocLink docKey="/metrics" className="align-self-center ml-2 pb-1">
             View Documentation
-          </a>
+          </DocLink>
         </div>
         <p>
           Metrics define success and failure for your business. Every business
@@ -142,7 +137,7 @@ const MetricsPage = (): React.ReactElement => {
           <div className="alert alert-info">
             It looks like you have a <code>config.yml</code> file. Metrics
             defined there will show up on this page.{" "}
-            <a href={getDocsLink("config_yml")}>View Documentation</a>
+            <DocLink docKey="config_yml">View Documentation</DocLink>
           </div>
         )}
         {permissions.createMetrics && !hasFileConfig() && (
@@ -180,14 +175,9 @@ const MetricsPage = (): React.ReactElement => {
               />
             </small>
           </h1>
-          <a
-            className="align-self-center ml-2 pb-1"
-            href={getDocsLink("/metrics")}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <DocLink docKey="/metrics" className="align-self-center ml-2 pb-1">
             View Documentation
-          </a>
+          </DocLink>
         </div>
         <div style={{ flex: 1 }} />
         {permissions.createMetrics && !hasFileConfig() && (

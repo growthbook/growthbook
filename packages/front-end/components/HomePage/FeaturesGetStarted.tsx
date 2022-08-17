@@ -10,7 +10,7 @@ import GetStartedStep from "./GetStartedStep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   features: FeatureInterface[];
@@ -122,9 +122,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   </a>
                 </li>
                 <li>
-                  <a target="_blank" rel="noreferrer" href={getDocsLink("/")}>
-                    Read our Docs
-                  </a>
+                  <DocLink docKey="/">Read our Docs</DocLink>
                 </li>
               </ul>
             </div>

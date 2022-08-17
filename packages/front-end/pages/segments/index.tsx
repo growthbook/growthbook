@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../../components/DocLink";
 
 const SegmentPage: FC = () => {
   const {
@@ -182,14 +182,9 @@ const SegmentPage: FC = () => {
         <div className="row mb-3">
           <div className="col d-flex">
             <h1>Segments</h1>
-            <a
-              className="align-self-center ml-2 pb-1"
-              href={getDocsLink("/segments")}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <DocLink docKey="/segments" className="align-self-center ml-2 pb-1">
               View Documentation
-            </a>
+            </DocLink>
           </div>
         </div>
         <div className="alert alert-info">
@@ -210,14 +205,9 @@ const SegmentPage: FC = () => {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>Segments</h1>
-          <a
-            className="align-self-center ml-2 pb-1"
-            href={getDocsLink("/segments")}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <DocLink docKey="/segments" className="align-self-center ml-2 pb-1">
             View Documentation
-          </a>
+          </DocLink>
         </div>
         <div style={{ flex: 1 }}></div>
         {permissions.createSegments && (

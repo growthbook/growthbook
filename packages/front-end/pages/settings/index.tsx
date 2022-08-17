@@ -18,7 +18,7 @@ import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../../components/DocLink";
 
 export type SettingsApiResponse = {
   status: number;
@@ -276,14 +276,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
             The below settings are controlled through your{" "}
             <code>config.yml</code> file and cannot be changed through the web
             UI.{" "}
-            <a
-              href={getDocsLink("config_organization_settings")}
-              target="_blank"
-              rel="noreferrer"
+            <DocLink
+              docKey="config_organization_settings"
               className="font-weight-bold"
             >
               View Documentation
-            </a>
+            </DocLink>
             .
           </div>
         )}
@@ -301,14 +299,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               You can import/export these settings to a <code>config.yml</code>{" "}
               file to more easily move between GrowthBook Cloud accounts and/or
               self-hosted environments.{" "}
-              <a
-                href={getDocsLink("config_yml")}
-                target="_blank"
-                rel="noreferrer"
-                className="font-weight-bold"
-              >
+              <DocLink docKey="config_yml" className="font-weight-bold">
                 Learn More
-              </a>
+              </DocLink>
             </p>
             <div className="row mb-3">
               <div className="col-auto">
@@ -341,13 +334,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <p>
                 {`The Visual Editor allows non-technical users to create and start
                 experiments in production without writing any code. `}
-                <a
-                  href={getDocsLink("visual_editor")}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View Documentation
-                </a>
+                <DocLink docKey="visual_editor">View Documentation</DocLink>
               </p>
               <div>
                 <div className="form-check">

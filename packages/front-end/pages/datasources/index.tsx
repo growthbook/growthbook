@@ -1,20 +1,15 @@
 import { FC } from "react";
+import { DocLink } from "../../components/DocLink";
 import DataSources from "../../components/Settings/DataSources";
-import { getDocsLink } from "../../services/docsMapping";
 
 const DataSourcesPage: FC = () => {
   return (
     <div className="container-fluid pagecontents">
       <div className="d-flex">
         <h1>Data Sources</h1>
-        <a
-          className="align-self-center ml-2 pb-1"
-          href={getDocsLink("/datasources")}
-          target="_blank"
-          rel="noreferrer"
-        >
+        <DocLink docKey="/datasources" className="align-self-center ml-2 pb-1">
           View Documentation
-        </a>
+        </DocLink>
       </div>
       <DataSources />
     </div>

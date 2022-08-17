@@ -13,7 +13,7 @@ import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../../components/DocLink";
 
 const DimensionsPage: FC = () => {
   const {
@@ -48,14 +48,12 @@ const DimensionsPage: FC = () => {
         <div className="row mb-3">
           <div className="col d-flex">
             <h1>User Dimensions</h1>
-            <a
+            <DocLink
+              docKey="/dimensions"
               className="align-self-center ml-2 pb-1"
-              href={getDocsLink("/dimensions")}
-              target="_blank"
-              rel="noreferrer"
             >
               View Documentation
-            </a>
+            </DocLink>
           </div>
         </div>
         <div className="alert alert-info">
@@ -87,14 +85,9 @@ const DimensionsPage: FC = () => {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>User Dimensions</h1>
-          <a
-            className="align-self-center ml-2 pb-1"
-            href={getDocsLink("/dimensions")}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <DocLink docKey="/dimensions" className="align-self-center ml-2 pb-1">
             View Documentation
-          </a>
+          </DocLink>
         </div>
         <div style={{ flex: 1 }}></div>
         {!hasFileConfig() && permissions.createDimensions && (
@@ -210,7 +203,7 @@ const DimensionsPage: FC = () => {
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
-          <a href={getDocsLink("config_yml")}>View Documentation</a>
+          <DocLink docKey="config_yml">View Documentation</DocLink>
         </div>
       )}
 

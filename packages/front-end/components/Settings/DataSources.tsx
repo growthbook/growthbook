@@ -10,7 +10,7 @@ import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../DocLink";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   name: "My Datasource",
@@ -97,7 +97,7 @@ const DataSources: FC = () => {
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
               sources defined there will show up on this page.{" "}
-              <a href={getDocsLink("config_yml")}>View Documentation</a>
+              <DocLink docKey="config_yml">View Documentation</DocLink>
             </div>
           )}
         </div>

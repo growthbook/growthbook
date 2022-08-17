@@ -3,8 +3,8 @@ import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
 import track from "../../services/track";
+import { DocLink } from "../DocLink";
 
 export default function DocumentationLinksSidebar({
   showVisualEditor = false,
@@ -23,13 +23,9 @@ export default function DocumentationLinksSidebar({
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Read our{" "}
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href={getDocsLink("user_guide")}
-              >
-                <strong>User Guide</strong>
-              </a>
+              <DocLink docKey="user_guide" className="font-weight-bold">
+                User Guide
+              </DocLink>
             </div>
           </div>
           <div className="d-flex flex-row">
@@ -52,9 +48,9 @@ export default function DocumentationLinksSidebar({
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               View docs for our{" "}
-              <a target="_blank" rel="noreferrer" href={getDocsLink("sdks")}>
-                <strong>SDKs</strong>
-              </a>
+              <DocLink docKey="sdks" className="font-weight-bold">
+                SDKs
+              </DocLink>
             </div>
           </div>
           <div className="d-flex flex-row">

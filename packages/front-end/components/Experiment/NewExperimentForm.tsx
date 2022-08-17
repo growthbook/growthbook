@@ -21,7 +21,7 @@ import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
 import VariationDataInput from "./VariationDataInput";
-import { getDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../DocLink";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

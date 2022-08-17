@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 const docLinks = {
   "/": "",
   "/features": "/app/features",
@@ -43,7 +45,7 @@ const docsOrigin = "https://docs.growthbook.io";
 /*
 Checks for key, value matches in docsLinks. Starts with full url path then
 removes a subdirectory every iteration and checks for a match again.
-
+ 
 url=http://localhost:3000/metric/a/b
 1./metric/a/b
 2./metric/a
@@ -70,4 +72,29 @@ export function getDocsLink(key: DocsKeys, fallBackKey: DocsKeys = "/") {
     ? docLinks[fallBackKey]
     : "";
   return docsOrigin + docsPath;
+}
+
+interface DocLinkProps {
+  docKey: DocsKeys;
+  fallBackKey?: DocsKeys;
+  className?: string;
+  children: ReactNode;
+}
+
+export function DocLink({
+  docKey,
+  fallBackKey = "/",
+  className = "",
+  children,
+}: DocLinkProps) {
+  return (
+    <a
+      href={getDocsLink(docKey, fallBackKey)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+    >
+      {children}
+    </a>
+  );
 }

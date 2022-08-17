@@ -27,7 +27,7 @@ import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
-import { getDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../DocLink";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

@@ -6,7 +6,7 @@ import Code from "../Code";
 import { useState } from "react";
 import { Language } from "../Code";
 import CodeSnippetModal from "./CodeSnippetModal";
-import { getDocsLink } from "../../services/docsMapping";
+import { getDocsLink } from "../DocLink";
 
 export interface Props {
   feature: FeatureInterface;

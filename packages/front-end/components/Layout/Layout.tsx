@@ -10,8 +10,8 @@ import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { inferDocsLink } from "../../services/docsMapping";
 import { FaArrowRight } from "react-icons/fa";
+import { inferDocsLink } from "../DocLink";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [

@@ -19,7 +19,7 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
-import { getDocsLink } from "../../services/docsMapping";
+import { DocLink } from "../DocLink";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -155,7 +155,7 @@ const ExperimentsGetStarted = ({
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <a href={getDocsLink("config_yml")}>View Documentation</a>
+                <DocLink docKey="config_yml">View Documentation</DocLink>
               </div>
             ) : featureExperiment ? (
               <div className="alert alert-info mb-3">
