@@ -367,7 +367,6 @@ app.put("/member/:id/role", organizationsController.putMemberRole);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post("/subscription/checkout", stripeController.postNewSubscription);
 app.get("/subscription-data", stripeController.getPriceData);
-app.get("/upcoming-invoice", stripeController.getUpcomingInvoice);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/organization/sample-data", datasourcesController.postSampleData);

@@ -88,25 +88,6 @@ export async function postNewSubscription(
   });
 }
 
-export async function getUpcomingInvoice(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
-
-  const { org } = getOrgFromReq(req);
-
-  if (!org.stripeCustomerId || !org.subscription) {
-    return res.status(404);
-  }
-
-  const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-    customer: org.stripeCustomerId,
-  });
-
-  res.status(200).json({
-    status: 200,
-    upcomingInvoice,
-  });
-}
-
 export async function getPriceData(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 

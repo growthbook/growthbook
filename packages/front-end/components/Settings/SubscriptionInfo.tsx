@@ -32,8 +32,7 @@ const SubscriptionInfo: FC<{
     activeAndInvitedUsers,
   } = useStripeSubscription();
 
-  if (!planName || !activeAndInvitedUsers || monthlyPrice === undefined)
-    return <LoadingOverlay />;
+  if (!planName || !activeAndInvitedUsers) return <LoadingOverlay />;
 
   return (
     <>
@@ -44,7 +43,7 @@ const SubscriptionInfo: FC<{
         <strong>Number Of Seats:</strong> {qty}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Next Bill Amount:</strong> {`  $${monthlyPrice / 100}/month`}
+        <strong>Current Monthly Price:</strong> {`  $${monthlyPrice}/month`}
         <Tooltip
           body="Click the Manage Subscription button below to see how this is calculated."
           tipMinWidth="200px"
