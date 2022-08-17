@@ -8,19 +8,21 @@ export default function useStripeSubscription() {
   const { data } = useApi<{
     organization: OrganizationInterface;
   }>(`/organization`);
-  const [priceData, setPriceData] = useState(null);
+  const [upcomingInvoice, setUpcomingInvoice] = useState(null);
+  const [pricePerSeat, setPricePerSeat] = useState(null);
 
   useEffect(() => {
     const getPriceData = async () => {
-      const { priceData } = await apiCall(`/billing`);
-
-      setPriceData(priceData);
+      const { upcomingInvoice } = await apiCall(`/upcoming-invoice`);
+      if (upcomingInvoice) {
+        setUpcomingInvoice(upcomingInvoice);
+      }
+      const { priceData } = await apiCall(`/subscription-data`);
+      setPricePerSeat(priceData.pricePerSeat);
     };
 
     getPriceData();
   }, []);
-
-  const pricePerSeat = priceData?.pricePerSeat || 20;
 
   const freeSeats = data.organization.freeSeats || 2;
 
@@ -54,7 +56,7 @@ export default function useStripeSubscription() {
   const pendingCancelation =
     data.organization.subscription?.cancel_at_period_end;
 
-  const monthlyPrice = priceData?.monthlyPrice;
+  const monthlyPrice = upcomingInvoice?.total;
 
   return {
     freeSeats,

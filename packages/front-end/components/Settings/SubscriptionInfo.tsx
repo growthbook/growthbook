@@ -44,7 +44,7 @@ const SubscriptionInfo: FC<{
         <strong>Number Of Seats:</strong> {qty}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Current Monthly Price:</strong> {`  $${monthlyPrice}/month`}
+        <strong>Next Bill Amount:</strong> {`  $${monthlyPrice / 100}/month`}
         <Tooltip
           body="Click the Manage Subscription button below to see how this is calculated."
           tipMinWidth="200px"

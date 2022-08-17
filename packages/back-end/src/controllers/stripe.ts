@@ -15,15 +15,9 @@ import {
 import { updateSubscriptionInDb } from "../services/stripe";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
-type DiscountData = {
-  [key: string]: Stripe.Coupon;
-};
-
 type PriceData = {
   [key: string]: Stripe.Price;
 };
-
-const discountData: DiscountData = {};
 
 const priceData: PriceData = {};
 
@@ -94,6 +88,25 @@ export async function postNewSubscription(
   });
 }
 
+export async function getUpcomingInvoice(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+
+  if (!org.stripeCustomerId || !org.subscription) {
+    return res.status(404);
+  }
+
+  const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+    customer: org.stripeCustomerId,
+  });
+
+  res.status(200).json({
+    status: 200,
+    upcomingInvoice,
+  });
+}
+
 export async function getPriceData(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 
@@ -107,37 +120,12 @@ export async function getPriceData(req: AuthRequest, res: Response) {
     });
   }
 
-  let pricePerSeat = (priceData[priceId].unit_amount || 2000) / 100;
-  let monthlyPrice = pricePerSeat * getNumberOfMembersAndInvites(org);
-
-  if (org.discountCode && !discountData[org.discountCode]) {
-    discountData[org.discountCode] = await stripe.coupons.retrieve(
-      org.discountCode
-    );
-  }
-
-  // Update the monthly price to reflect any discounts
-  if (org.discountCode && discountData[org.discountCode]) {
-    const amount_off = (discountData[org.discountCode].amount_off || 0) / 100;
-    const percent_off = discountData[org.discountCode].percent_off;
-
-    if (amount_off) {
-      monthlyPrice = monthlyPrice - amount_off;
-
-      if (monthlyPrice < 0) {
-        monthlyPrice = 0;
-      }
-    } else if (percent_off) {
-      monthlyPrice = monthlyPrice * (percent_off / 100);
-      pricePerSeat = pricePerSeat * (percent_off / 100);
-    }
-  }
+  const pricePerSeat = (priceData[priceId].unit_amount || 2000) / 100;
 
   return res.status(200).json({
     status: 200,
     priceData: {
       pricePerSeat: pricePerSeat,
-      monthlyPrice: monthlyPrice,
     },
   });
 }
@@ -156,7 +144,7 @@ export async function postCreateBillingSession(
 
   const { url } = await stripe.billingPortal.sessions.create({
     customer: org.stripeCustomerId,
-    return_url: `${APP_ORIGIN}/settings`,
+    return_url: `${APP_ORIGIN}/settings/billing`,
   });
 
   res.status(200).json({
