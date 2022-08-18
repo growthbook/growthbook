@@ -295,6 +295,60 @@ FROM
   },
 };
 
+const MatomoSchema: SchemaInterface = {
+  experimentDimensions: ["device", "OS", "country"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const tPrefix = options?.tablePrefix || tablePrefix;
+    const actionPrefix = "" + options?.actionPrefix || "v";
+    const variationPrefixLength = actionPrefix.length;
+    const siteId = options?.siteId || "1";
+    const userStr =
+      userId === "user_id"
+        ? `visit.user_id`
+        : `conv(hex(events.idvisitor), 16, 16)`;
+    return `SELECT 
+  ${userStr} as ${userId},
+  events.server_time as timestamp, 
+  experiment.name as experiment_id, 
+  SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
+  visit.config_device_model as device,
+  visit.config_os as OS,
+  visit.location_country as country
+FROM ${tPrefix}_log_link_visit_action events 
+INNER JOIN ${tPrefix}_log_action experiment 
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
+INNER JOIN ${tPrefix}_log_action variation 
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
+INNER JOIN ${tPrefix}_log_visit visit 
+  ON (events.idvisit = visit.idvisit)
+WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "ExperimentViewed" AND mla1.type = 10)
+   AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
+   AND ${userStr} is not null
+   AND events.idsite = ${siteId}`;
+  },
+  getIdentitySQL: (tablePrefix, options) => {
+    const tPrefix = options?.tablePrefix || tablePrefix;
+    return [
+      {
+        ids: ["user_id", "anonymous_id"],
+        query: `SELECT
+  user_id,
+  conv(hex(idvisitor), 16, 16) as anonymous_id
+FROM
+  ${tPrefix}_log_visit`,
+      },
+    ];
+  },
+  userIdTypes: ["anonymous_id", "user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  conv(hex(events.idvisitor), 16, 16) as anonymous_id,
+  server_time as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}_log_link_visit_action`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4") {
     return GA4Schema;
@@ -307,6 +361,9 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "segment") {
     return SegmentSchema;
+  }
+  if (type === "matomo") {
+    return MatomoSchema;
   }
   if (type === "rudderstack") {
     return RudderstackSchema;
@@ -348,7 +405,8 @@ function getTablePrefix(params: DataSourceParams) {
 
 export function getInitialSettings(
   type: SchemaFormat,
-  params: DataSourceParams
+  params: DataSourceParams,
+  options?: Record<string, string | number>
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
@@ -376,9 +434,9 @@ export function getInitialSettings(
             ? "Anonymous Visitors"
             : id,
         description: "",
-        query: schema.getExperimentSQL(getTablePrefix(params), id),
+        query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),
-      identityJoins: schema.getIdentitySQL(getTablePrefix(params)),
+      identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
   };
 }
