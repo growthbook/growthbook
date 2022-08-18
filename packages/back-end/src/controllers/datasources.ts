@@ -419,6 +419,7 @@ export async function putDataSource(
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
     }
+
     await updateDataSource(id, org.id, updates);
 
     res.status(200).json({
