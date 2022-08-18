@@ -19,7 +19,7 @@ export default function useStripeSubscription() {
     getPriceData();
   }, []);
 
-  const freeSeats = data.organization.freeSeats || 2;
+  const freeSeats = data.organization.freeSeats || 3;
 
   const numberOfCurrentSeats = data.organization.subscription?.qty || 0;
 
