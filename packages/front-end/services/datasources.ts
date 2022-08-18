@@ -302,6 +302,7 @@ const MatomoSchema: SchemaInterface = {
     const actionPrefix = "" + options?.actionPrefix || "v";
     const variationPrefixLength = actionPrefix.length;
     const siteId = options?.siteId || "1";
+    const categoryName = options?.categoryName || "ExperimentViewed";
     const userStr =
       userId === "user_id"
         ? `visit.user_id`
@@ -321,7 +322,7 @@ INNER JOIN ${tPrefix}_log_action variation
   ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
 INNER JOIN ${tPrefix}_log_visit visit 
   ON (events.idvisit = visit.idvisit)
-WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "ExperimentViewed" AND mla1.type = 10)
+WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
    AND ${userStr} is not null
    AND events.idsite = ${siteId}`;

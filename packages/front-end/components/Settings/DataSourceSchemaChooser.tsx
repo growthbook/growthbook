@@ -58,6 +58,13 @@ const options: {
         type: "text",
         helpText: "The prefix to use when setting the event action",
       },
+      {
+        name: "categoryName",
+        label: "Category Name",
+        defaultValue: "ExperimentViewed",
+        type: "text",
+        helpText: "The category name set when the experiment is viewed",
+      },
     ],
   },
   {
