@@ -22,6 +22,9 @@ import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
+import useApi from "../../hooks/useApi";
+import { OrganizationInterface } from "back-end/types/organization";
+import { Stripe } from "stripe";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -46,6 +49,10 @@ const TopNav: FC<{
     permissions,
     role,
   } = useUser();
+
+  const { data } = useApi<{
+    organization: OrganizationInterface;
+  }>(`/organization`);
 
   const { datasources } = useDefinitions();
 
@@ -157,6 +164,39 @@ const TopNav: FC<{
                   }}
                 >
                   <FaExclamationTriangle /> payment past due
+                </button>
+              )}
+            {isCloud() &&
+              data?.organization?.disableSelfServeBilling !== true &&
+              data?.organization?.invites?.length +
+                data?.organization?.members?.length >
+                data?.organization?.freeSeats && (
+                <button
+                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      const resp = await apiCall<{
+                        status: number;
+                        session: Stripe.Checkout.Session;
+                      }>(`/subscription/checkout`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          qty:
+                            data.organization.members.length +
+                            data.organization.invites.length,
+                        }),
+                      });
+                      if (resp.session.url) {
+                        router.push(resp.session.url);
+                      }
+                    } catch (e) {
+                      console.error(e.message);
+                    }
+                  }}
+                >
+                  <FaExclamationTriangle />
+                  {` You're over the ${data.organization.freeSeats} free seat limit, switch to GrowthBook Pro`}
                 </button>
               )}
 
