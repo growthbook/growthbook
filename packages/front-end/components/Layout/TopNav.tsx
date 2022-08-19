@@ -25,6 +25,7 @@ import Head from "next/head";
 import useApi from "../../hooks/useApi";
 import { OrganizationInterface } from "back-end/types/organization";
 import { Stripe } from "stripe";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -39,6 +40,11 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
+
+  const growthbook = useGrowthBook();
+  const selfServeOverageBanner = growthbook.feature(
+    "self-serve-billing-overage-warning-banner"
+  );
 
   const {
     name,
@@ -167,6 +173,8 @@ const TopNav: FC<{
                 </button>
               )}
             {isCloud() &&
+              selfServeOverageBanner.on &&
+              !data?.organization.subscription?.id &&
               data?.organization?.disableSelfServeBilling !== true &&
               data?.organization?.invites?.length +
                 data?.organization?.members?.length >
