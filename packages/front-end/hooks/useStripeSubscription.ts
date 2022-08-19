@@ -67,5 +67,6 @@ export default function useStripeSubscription() {
     activeAndInvitedUsers,
     numberOfCurrentSeats,
     hasActiveSubscription,
+    data,
   };
 }

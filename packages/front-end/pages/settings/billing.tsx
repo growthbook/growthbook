@@ -31,6 +31,16 @@ const BillingPage: FC = () => {
     return <LoadingOverlay />;
   }
 
+  if (data.organization.disableSelfServeBilling) {
+    return (
+      <div className="alert alert-info">
+        Self-serve billing is not enabled for your account. Please contact
+        sales@growthbook.io for questions or to make changes to your
+        subscription.
+      </div>
+    );
+  }
+
   return (
     <div className="container-fluid pagecontents">
       <div className="mb-2">

@@ -118,6 +118,7 @@ export interface OrganizationInterface {
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
+  disableSelfServeBilling?: boolean;
   subscription?: {
     id: string;
     qty: number;

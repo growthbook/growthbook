@@ -474,6 +474,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     discountCode,
     connections,
     settings,
+    disableSelfServeBilling,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -496,6 +497,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       subscription,
       discountCode,
       freeSeats,
+      disableSelfServeBilling,
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {
         return {
