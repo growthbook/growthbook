@@ -107,35 +107,42 @@ export default function DataSourceSchemaChooser({
           // Some schemas only work with specific data sources
           .filter((o) => !o.types || o.types.includes(datasource))
           .map(({ value, label, options, logo }, i) => (
-            <a
-              href="#"
+            <div
               key={value}
-              onClick={(e) => {
-                e.preventDefault();
-                setSelectedOptions(options ?? null);
-                if (options) {
-                  options.map((o) => {
-                    setOptionalValues(o.name, o.defaultValue);
-                  });
-                } else {
-                  setOptionalValues(null, null);
-                }
-                setValue(value);
+              style={{
+                minWidth: "50%",
+                paddingRight: `${i % 2 === 0 ? "20px" : "0px"}`,
               }}
-              className={clsx("btn btn-outline-primary mb-3", {
-                selected: format === value,
-                "ml-auto": i % 2 === 1,
-              })}
             >
-              <div className="row align-items-center">
-                <img
-                  src={logo}
-                  alt={label}
-                  style={{ width: "210px" }}
-                  className="px-3 py-2"
-                />
-              </div>
-            </a>
+              <a
+                href="#"
+                title={label}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedOptions(options ?? null);
+                  if (options) {
+                    options.map((o) => {
+                      setOptionalValues(o.name, o.defaultValue);
+                    });
+                  } else {
+                    setOptionalValues(null, null);
+                  }
+                  setValue(value);
+                }}
+                className={clsx("btn btn-outline-primary mb-3", {
+                  selected: format === value,
+                  "ml-auto": i % 2 === 1,
+                })}
+                style={{
+                  minHeight: "80px",
+                  minWidth: "100%",
+                  backgroundImage: `url(${logo})`,
+                  backgroundSize: "85%",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center center",
+                }}
+              />
+            </div>
           ))}
       </div>
       {selectedOptions && (

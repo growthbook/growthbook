@@ -11,7 +11,8 @@ Matomo lets you track custom events, and you can adjust the `Event Category`, `E
 `Event Value`. You can read more about the custom tracking call at [Matomo's documentation site](https://matomo.org/faq/reports/implement-event-tracking-with-matomo/).
 
 <div className="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
-  There are a few Caveats that it is important to be aware of.
+  There are a few caveats with Matomo's event schema that it is important to be
+  aware of.
   <ul>
     <li>
       <strong>Event Category</strong> cannot contain any spaces.
@@ -47,7 +48,6 @@ const growthbook = new GrowthBook({
 });
 ```
 
-{" "}
 <div className="bg-blue-50 py-3 mb-5 px-4 text-gray-600 border-l-8 border-blue-200 dark:bg-blue-800 dark:text-gray-50">
   We use the string prefix on the Event Name so that it is saved correctly, as 0
   saves as null, but v0 works correctly. This prefix is stripped with the SQL
