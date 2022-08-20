@@ -79,7 +79,7 @@ export async function postNewSubscription(
         quantity: qty,
       },
     ],
-    success_url: `${APP_ORIGIN}/settings/team`,
+    success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_ORIGIN}/settings/team`,
   });
   res.status(200).json({
@@ -125,12 +125,35 @@ export async function postCreateBillingSession(
 
   const { url } = await stripe.billingPortal.sessions.create({
     customer: org.stripeCustomerId,
-    return_url: `${APP_ORIGIN}/settings/billing`,
+    return_url: `${APP_ORIGIN}/settings/billing?org=${org.id}`,
   });
 
   res.status(200).json({
     status: 200,
     url,
+  });
+}
+
+export async function postSubscriptionSuccess(
+  req: AuthRequest<{ checkoutSessionId: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const session = await stripe.checkout.sessions.retrieve(
+    req.body.checkoutSessionId
+  );
+
+  const subscription = session.subscription;
+
+  if (!subscription) {
+    throw new Error("No subscription associated with that checkout session");
+  }
+
+  await updateSubscriptionInDb(subscription);
+
+  res.status(200).json({
+    status: 200,
   });
 }
 
@@ -141,42 +164,45 @@ export async function postWebhook(req: Request, res: Response) {
     return res.status(400).send("Missing signature");
   }
 
-  let event;
   try {
-    event = stripe.webhooks.constructEvent(payload, sig, STRIPE_WEBHOOK_SECRET);
+    const event = stripe.webhooks.constructEvent(
+      payload,
+      sig,
+      STRIPE_WEBHOOK_SECRET
+    );
+
+    switch (event.type) {
+      case "checkout.session.completed":
+      case "invoice.paid":
+      case "invoice.payment_failed": {
+        const { subscription } = event.data
+          .object as Stripe.Response<Stripe.Invoice>;
+        if (subscription) {
+          await updateSubscriptionInDb(subscription);
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted":
+      case "subscription_scheduled.canceled":
+      case "customer.subscription.updated": {
+        const subscription = event.data
+          .object as Stripe.Response<Stripe.Subscription>;
+
+        // Get the current subscription data instead of relying on a potentially outdated event
+        const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
+          subscription.id
+        );
+
+        await updateSubscriptionInDb(currentStripeSubscriptionData);
+
+        break;
+      }
+    }
   } catch (err) {
     console.error(payload, sig);
     console.error(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  switch (event.type) {
-    case "checkout.session.completed":
-    case "invoice.paid":
-    case "invoice.payment_failed": {
-      const { subscription } = event.data
-        .object as Stripe.Response<Stripe.Invoice>;
-      if (subscription) {
-        updateSubscriptionInDb(subscription);
-      }
-      break;
-    }
-
-    case "customer.subscription.deleted":
-    case "subscription_scheduled.canceled":
-    case "customer.subscription.updated": {
-      const subscription = event.data
-        .object as Stripe.Response<Stripe.Subscription>;
-
-      // Get the current subscription data instead of relying on a potentially outdated event
-      const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
-        subscription.id
-      );
-
-      updateSubscriptionInDb(currentStripeSubscriptionData);
-
-      break;
-    }
   }
 
   res.status(200).send("Ok");

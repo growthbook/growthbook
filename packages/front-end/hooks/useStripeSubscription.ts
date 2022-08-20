@@ -54,6 +54,9 @@ export default function useStripeSubscription() {
   const monthlyPrice =
     pricePerSeat * (numberOfCurrentSeats - (data.organization.freeSeats || 0));
 
+  const disableSelfServeBilling =
+    data.organization.disableSelfServeBilling || false;
+
   return {
     freeSeats,
     pricePerSeat,
@@ -67,6 +70,6 @@ export default function useStripeSubscription() {
     activeAndInvitedUsers,
     numberOfCurrentSeats,
     hasActiveSubscription,
-    data,
+    disableSelfServeBilling,
   };
 }

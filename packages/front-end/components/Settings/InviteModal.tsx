@@ -36,7 +36,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     numberOfCurrentSeats,
     hasActiveSubscription,
     subscriptionStatus,
-    data,
+    disableSelfServeBilling,
   } = useStripeSubscription();
 
   const currentPaidSeats = numberOfCurrentSeats || 0;
@@ -45,7 +45,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     emailSent === null &&
       (activeAndInvitedUsers < freeSeats ||
         (currentPaidSeats >= freeSeats && hasActiveSubscription) ||
-        data.organization.disableSelfServeBilling ||
+        disableSelfServeBilling ||
         selfServePricing.off ||
         !isCloud())
   );
@@ -113,17 +113,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          {selfServePricing.on &&
-            data.organization.disableSelfServeBilling !== true && (
-              <InviteModalSubscriptionInfo
-                subscriptionStatus={subscriptionStatus}
-                activeAndInvitedUsers={activeAndInvitedUsers}
-                freeSeats={freeSeats}
-                hasActiveSubscription={hasActiveSubscription}
-                pricePerSeat={pricePerSeat}
-                currentPaidSeats={currentPaidSeats}
-              />
-            )}
+          {selfServePricing.on && disableSelfServeBilling !== true && (
+            <InviteModalSubscriptionInfo
+              subscriptionStatus={subscriptionStatus}
+              activeAndInvitedUsers={activeAndInvitedUsers}
+              freeSeats={freeSeats}
+              hasActiveSubscription={hasActiveSubscription}
+              pricePerSeat={pricePerSeat}
+              currentPaidSeats={currentPaidSeats}
+            />
+          )}
         </>
       )}
     </Modal>
