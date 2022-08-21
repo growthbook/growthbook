@@ -1,0 +1,197 @@
+import { useEffect, useState } from "react";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
+import { useAuth } from "../../services/auth";
+import track from "../../services/track";
+import Modal from "../Modal";
+import Tooltip from "../Tooltip";
+import Button from "../Button";
+import LoadingOverlay from "../LoadingOverlay";
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+});
+
+export interface Props {
+  close: () => void;
+  source: string;
+  reason: string;
+}
+
+export default function UpgradeModal({ close, source, reason }: Props) {
+  const {
+    freeSeats,
+    pricePerSeat,
+    activeAndInvitedUsers,
+    freeSeatDiscount,
+    loading,
+  } = useStripeSubscription();
+
+  useEffect(() => {
+    track("View Upgrade Modal", {
+      source,
+      users: activeAndInvitedUsers,
+      pricePerSeat,
+      freeSeats,
+    });
+  }, []);
+
+  const { apiCall } = useAuth();
+  const [error, setError] = useState(null);
+
+  const startStripeSubscription = async () => {
+    setError(null);
+    try {
+      const resp = await apiCall<{
+        status: number;
+        session?: { url?: string };
+      }>(`/subscription/checkout`, {
+        method: "POST",
+        body: JSON.stringify({
+          qty: activeAndInvitedUsers,
+        }),
+      });
+
+      if (resp.session?.url) {
+        track("Start Checkout", {
+          source,
+          users: activeAndInvitedUsers,
+          pricePerSeat,
+          freeSeats,
+        });
+        window.location.href = resp.session.url;
+        // Stay in a "loading" state to give the redirect time to finish
+        // If it's not done within 5 seconds, let them try to click again
+        await new Promise((resolve) => {
+          setTimeout(resolve, 5000);
+        });
+      } else {
+        setError("Failed to start checkout");
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  return (
+    <Modal open={true} close={close} closeCta="cancel" size="lg">
+      {loading && <LoadingOverlay />}
+      <p className="text-center mb-4" style={{ fontSize: "1.3em" }}>
+        {reason} Upgrade to a <strong>Pro Plan</strong>
+      </p>
+      <p className="text-center mb-4">
+        After upgrading, you will be able to add additional users for{" "}
+        <strong>{currencyFormatter.format(pricePerSeat)}</strong>/month.
+      </p>
+      <div className="row align-items-center justify-content-center">
+        <div className="col-auto mb-4 mr-lg-5 pr-lg-5">
+          <h3>Pro Plan includes:</h3>
+          <ul className="mb-3 pl-3">
+            <li>Up to 100 team members</li>
+            <li>
+              Advanced permissioning*{" "}
+              <Tooltip
+                body={
+                  "Per-environment and per-project permissions. Allow someone full access on dev, but readonly on production. Coming soon."
+                }
+              />
+            </li>
+            <li>
+              Custom fields*{" "}
+              <Tooltip
+                body={
+                  "Add custom fields to experiments and features for structured documentation and easy searching. Coming soon."
+                }
+              />
+            </li>
+            <li>
+              Premium support{" "}
+              <Tooltip
+                body={
+                  "Shared Slack channel with our engineering team to quickly help with any issues."
+                }
+              />
+            </li>
+            <li>Early access to new features</li>
+          </ul>
+          <small>* coming soon</small>
+        </div>
+        <div className="col-auto mb-4">
+          <div className="bg-light border rounded p-3 p-lg-4">
+            <div className="d-flex">
+              <div>Current team size</div>
+              <div className="ml-auto">
+                <strong>{activeAndInvitedUsers}</strong> users
+              </div>
+            </div>
+            <div className="d-flex border-bottom py-2 mb-2">
+              <div>Price per user</div>
+              <div className="ml-auto">
+                <strong>{currencyFormatter.format(pricePerSeat)}</strong>
+                <small className="text-muted"> / month</small>
+              </div>
+            </div>
+            {freeSeatDiscount < 0 && (
+              <div className="d-flex border-bottom py-2 mb-2">
+                <div>First {freeSeats} users free</div>
+                <div className="ml-auto">
+                  <strong className="text-danger">
+                    {currencyFormatter.format(freeSeatDiscount)}
+                  </strong>
+                  <small className="text-muted"> / month</small>
+                </div>
+              </div>
+            )}
+            <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
+              <div>Total</div>
+              <div className="ml-auto">
+                <strong>
+                  {currencyFormatter.format(
+                    Math.max(
+                      0,
+                      pricePerSeat * activeAndInvitedUsers + freeSeatDiscount
+                    )
+                  )}
+                </strong>
+                <small className="text-muted"> / month</small>
+              </div>
+            </div>
+            <div className="text-center px-4 mb-2">
+              <Button
+                color="primary"
+                className="btn-block btn-lg"
+                onClick={startStripeSubscription}
+              >
+                Upgrade to Pro
+              </Button>
+            </div>
+            {error && <div className="alert alert-danger">{error}</div>}
+            <div
+              className="text-center text-muted"
+              style={{ fontSize: "0.8em" }}
+            >
+              Cancel or modify your subscription anytime.
+            </div>
+          </div>
+        </div>
+      </div>
+      <p className="text-center">
+        Interested in an Enterprise plan instead? Contact us at{" "}
+        <a
+          href="mailto:sales@growthbook.io"
+          onClick={() => {
+            track("Click Enterprise Upgrade Link", {
+              source,
+              users: activeAndInvitedUsers,
+              pricePerSeat,
+              freeSeats,
+            });
+          }}
+        >
+          sales@growthbook.io
+        </a>{" "}
+        for a custom quote.
+      </p>
+    </Modal>
+  );
+}

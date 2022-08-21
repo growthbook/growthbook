@@ -116,6 +116,7 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   freeSeats?: number;
+  freeSeatsExcluded?: boolean;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;

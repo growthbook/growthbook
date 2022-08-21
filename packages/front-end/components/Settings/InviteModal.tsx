@@ -6,17 +6,14 @@ import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
-import { isCloud } from "../../services/env";
-import { InviteModalSubscriptionInfo } from "./InviteModalSubscriptionInfo";
+import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import UpgradeModal from "./UpgradeModal";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const growthbook = useGrowthBook();
-  const selfServePricing = growthbook.feature("self-serve-billing");
   const form = useForm<{
     email: string;
     role: MemberRole;
@@ -31,24 +28,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const { apiCall } = useAuth();
   const {
     freeSeats,
-    pricePerSeat,
     activeAndInvitedUsers,
-    numberOfCurrentSeats,
-    hasActiveSubscription,
-    subscriptionStatus,
-    disableSelfServeBilling,
+    canSubscribe,
   } = useStripeSubscription();
 
-  const currentPaidSeats = numberOfCurrentSeats || 0;
-
-  const canInviteUser = Boolean(
-    emailSent === null &&
-      (activeAndInvitedUsers < freeSeats ||
-        (currentPaidSeats >= freeSeats && hasActiveSubscription) ||
-        disableSelfServeBilling ||
-        selfServePricing.off ||
-        !isCloud())
-  );
+  // Hit their free limit and needs to upgrade to invite more team members
+  if (canSubscribe && activeAndInvitedUsers >= freeSeats) {
+    return (
+      <UpgradeModal
+        close={close}
+        source="invite team"
+        reason="Whoops! You reached your free seat limit."
+      />
+    );
+  }
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
@@ -84,7 +77,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
-      ctaEnabled={canInviteUser}
       autoCloseOnSubmit={false}
       submit={emailSent === null ? onSubmit : null}
     >
@@ -113,16 +105,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
-          {selfServePricing.on && disableSelfServeBilling !== true && (
-            <InviteModalSubscriptionInfo
-              subscriptionStatus={subscriptionStatus}
-              activeAndInvitedUsers={activeAndInvitedUsers}
-              freeSeats={freeSeats}
-              hasActiveSubscription={hasActiveSubscription}
-              pricePerSeat={pricePerSeat}
-              currentPaidSeats={currentPaidSeats}
-            />
-          )}
+          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>

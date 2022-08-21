@@ -22,10 +22,8 @@ import { isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
-import useApi from "../../hooks/useApi";
-import { OrganizationInterface } from "back-end/types/organization";
-import { Stripe } from "stripe";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
+import UpgradeModal from "../Settings/UpgradeModal";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -38,27 +36,21 @@ const TopNav: FC<{
   const { watchedExperiments, watchedFeatures } = useWatching();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
-  const growthbook = useGrowthBook();
-  const selfServeOverageBanner = growthbook.feature(
-    "self-serve-billing-overage-warning-banner"
-  );
-
   const {
-    name,
-    email,
-    update,
+    showSeatOverageBanner,
+    canSubscribe,
+    activeAndInvitedUsers,
+    freeSeats,
     trialEnd,
     subscriptionStatus,
-    permissions,
-    role,
-  } = useUser();
+    hasActiveSubscription,
+  } = useStripeSubscription();
 
-  const { data } = useApi<{
-    organization: OrganizationInterface;
-  }>(`/organization`);
+  const { name, email, update, permissions, role } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -104,6 +96,13 @@ const TopNav: FC<{
           <Field label="Name" {...form.register("name")} />
         </Modal>
       )}
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          source="top-nav-freeseat-overage"
+          reason="Whoops! You are over your free seat limit."
+        />
+      )}
       {changePasswordOpen && (
         <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
       )}
@@ -143,8 +142,7 @@ const TopNav: FC<{
 
         {showNotices && (
           <>
-            {isCloud() &&
-              permissions.organizationSettings &&
+            {permissions.organizationSettings &&
               subscriptionStatus === "trialing" &&
               trialRemaining >= 0 && (
                 <button
@@ -159,8 +157,7 @@ const TopNav: FC<{
                   {trialRemaining === 1 ? "" : "s"} left in trial
                 </button>
               )}
-            {isCloud() &&
-              permissions.organizationSettings &&
+            {permissions.organizationSettings &&
               subscriptionStatus === "past_due" && (
                 <button
                   className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
@@ -172,39 +169,18 @@ const TopNav: FC<{
                   <FaExclamationTriangle /> payment past due
                 </button>
               )}
-            {isCloud() &&
-              selfServeOverageBanner.on &&
-              !data?.organization.subscription?.id &&
-              data?.organization?.disableSelfServeBilling !== true &&
-              data?.organization?.invites?.length +
-                data?.organization?.members?.length >
-                data?.organization?.freeSeats && (
+            {showSeatOverageBanner &&
+              canSubscribe &&
+              permissions.organizationSettings &&
+              activeAndInvitedUsers > freeSeats && (
                 <button
                   className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
                   onClick={async (e) => {
                     e.preventDefault();
-                    try {
-                      const resp = await apiCall<{
-                        status: number;
-                        session: Stripe.Checkout.Session;
-                      }>(`/subscription/checkout`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          qty:
-                            data.organization.members.length +
-                            data.organization.invites.length,
-                        }),
-                      });
-                      if (resp.session.url) {
-                        router.push(resp.session.url);
-                      }
-                    } catch (e) {
-                      console.error(e.message);
-                    }
+                    setUpgradeModal(true);
                   }}
                 >
-                  <FaExclamationTriangle />
-                  {` You're over the ${data.organization.freeSeats} free seat limit, switch to GrowthBook Pro`}
+                  <FaExclamationTriangle /> free tier exceded
                 </button>
               )}
 
@@ -216,6 +192,12 @@ const TopNav: FC<{
               </Link>
             )}
           </>
+        )}
+
+        {hasActiveSubscription && (
+          <div>
+            <span className="badge badge-pill badge-dark">PRO</span>
+          </div>
         )}
 
         {organizations && organizations.length === 1 && (

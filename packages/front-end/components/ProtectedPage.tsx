@@ -2,7 +2,6 @@ import { useEffect, useState, createContext } from "react";
 import {
   useAuth,
   UserOrganizations,
-  SubscriptionStatus,
   getDefaultPermissions,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
@@ -58,8 +57,6 @@ export type UserContextValue = {
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
   permissions: Permissions;
-  subscriptionStatus?: SubscriptionStatus;
-  trialEnd?: Date;
   settings: OrganizationSettings;
 };
 
@@ -237,8 +234,6 @@ const ProtectedPage: React.FC<{
     refreshUsers,
     role,
     permissions,
-    subscriptionStatus: currentOrg?.subscriptionStatus || "active",
-    trialEnd: currentOrg?.trialEnd,
     settings: currentOrg?.settings || {},
   };
 

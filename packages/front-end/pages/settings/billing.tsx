@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
-import useApi from "../../hooks/useApi";
-import { SettingsApiResponse } from "./types";
 import { isCloud } from "../../services/env";
+import UpgradeModal from "../../components/Settings/UpgradeModal";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
 
 const BillingPage: FC = () => {
-  const { data, error } = useApi<{
-    organization: SettingsApiResponse;
-  }>(`/organization`);
+  const [upgradeModal, setUpgradeModal] = useState(false);
+
+  const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
 
   if (!isCloud()) {
     return (
@@ -20,29 +20,20 @@ const BillingPage: FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
-  if (!data) {
+  if (loading) {
     return <LoadingOverlay />;
-  }
-
-  if (data.organization.disableSelfServeBilling) {
-    return (
-      <div className="alert alert-info">
-        Self-serve billing is not enabled for your account. Please contact
-        sales@growthbook.io for questions or to make changes to your
-        subscription.
-      </div>
-    );
   }
 
   return (
     <div className="container-fluid pagecontents">
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="billing-free"
+        />
+      )}
+
       <div className="mb-2">
         <Link href="/settings">
           <a>
@@ -51,14 +42,31 @@ const BillingPage: FC = () => {
         </Link>
       </div>
       <h1>Billing Settings</h1>
-
       <div className=" bg-white p-3 border">
-        {data.organization.subscription?.status ? (
-          <SubscriptionInfo {...data.organization.subscription} />
-        ) : (
-          <div className="alert alert-warning">
-            No subscription info found for your organization.
+        {subscriptionStatus ? (
+          <SubscriptionInfo />
+        ) : canSubscribe ? (
+          <div className="alert alert-warning mb-0">
+            <div className="d-flex align-items-center">
+              <div>
+                You are currently on the <strong>Free Plan</strong>.
+              </div>
+              <button
+                className="btn btn-primary ml-auto"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setUpgradeModal(true);
+                }}
+              >
+                Upgrade Now
+              </button>
+            </div>
           </div>
+        ) : (
+          <p>
+            Contact <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
+            to make changes to your subscription plan.
+          </p>
         )}
       </div>
     </div>
