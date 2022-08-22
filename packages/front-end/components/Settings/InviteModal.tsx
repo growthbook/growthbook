@@ -28,8 +28,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const { apiCall } = useAuth();
   const {
     freeSeats,
-    activeAndInvitedUsers,
     canSubscribe,
+    activeAndInvitedUsers,
   } = useStripeSubscription();
 
   // Hit their free limit and needs to upgrade to invite more team members

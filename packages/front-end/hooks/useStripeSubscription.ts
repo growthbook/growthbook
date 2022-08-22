@@ -1,38 +1,29 @@
 import { useFeature } from "@growthbook/growthbook-react";
-import { useEffect, useState } from "react";
-import { OrganizationInterface } from "../../back-end/types/organization";
-import { useAuth } from "../services/auth";
+import {
+  OrganizationInterface,
+  SubscriptionQuote,
+} from "../../back-end/types/organization";
 import { getValidDate } from "../services/dates";
 import { isCloud } from "../services/env";
 import useApi from "./useApi";
 
 export default function useStripeSubscription() {
-  const { apiCall } = useAuth();
   const { data } = useApi<{
     organization: OrganizationInterface;
   }>(`/organization`);
+
+  const { data: quoteData } = useApi<{
+    quote: SubscriptionQuote;
+  }>(`/subscription/quote`);
+
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
   const showSeatOverageBanner = useFeature(
     "self-serve-billing-overage-warning-banner"
   ).on;
-  const [pricePerSeat, setPricePerSeat] = useState(null);
-
-  useEffect(() => {
-    const getPriceData = async () => {
-      const { priceData } = await apiCall(`/subscription-data`);
-      setPricePerSeat(priceData.pricePerSeat);
-    };
-
-    getPriceData();
-  }, []);
 
   const freeSeats = data?.organization?.freeSeats || 3;
 
-  const numberOfCurrentSeats = data?.organization?.subscription?.qty || 0;
-
-  const activeAndInvitedUsers =
-    (data?.organization?.members?.length || 0) +
-    (data?.organization?.invites?.length || 0);
+  const activeAndInvitedUsers = quoteData?.quote?.qty || 0;
 
   const hasActiveSubscription =
     data?.organization?.subscription?.status === "active" ||
@@ -59,17 +50,8 @@ export default function useStripeSubscription() {
   const pendingCancelation =
     data?.organization?.subscription?.cancel_at_period_end;
 
-  const monthlyPrice =
-    pricePerSeat *
-    (numberOfCurrentSeats - (data?.organization?.freeSeats || 0));
-
   const disableSelfServeBilling =
     data?.organization?.disableSelfServeBilling || false;
-
-  const freeSeatsExcluded =
-    (data?.organization?.freeSeatsExcluded &&
-      data?.organization?.discountCode) ||
-    false;
 
   // eslint-disable-next-line
   let trialEnd = (data?.organization?.subscription?.trialEnd || null) as any;
@@ -79,8 +61,7 @@ export default function useStripeSubscription() {
 
   return {
     freeSeats,
-    pricePerSeat,
-    monthlyPrice,
+    quote: quoteData?.quote,
     planName,
     nextBillDate,
     dateToBeCanceled,
@@ -88,12 +69,10 @@ export default function useStripeSubscription() {
     subscriptionStatus,
     pendingCancelation,
     activeAndInvitedUsers,
-    numberOfCurrentSeats,
     hasActiveSubscription,
     trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
-    loading: pricePerSeat === null || !data,
-    freeSeatDiscount: freeSeatsExcluded ? -1 * freeSeats * pricePerSeat : 0,
+    loading: !quoteData || !data,
     canSubscribe:
       isCloud() &&
       !disableSelfServeBilling &&

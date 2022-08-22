@@ -1,14 +1,21 @@
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+});
+
 export default function InviteModalSubscriptionInfo() {
   const {
-    activeAndInvitedUsers,
     freeSeats,
     hasActiveSubscription,
-    pricePerSeat,
-    numberOfCurrentSeats,
+    activeAndInvitedUsers,
+    quote,
     canSubscribe,
+    loading,
   } = useStripeSubscription();
+  if (loading) return null;
+
   return (
     <>
       {activeAndInvitedUsers < freeSeats && canSubscribe && (
@@ -18,19 +25,17 @@ export default function InviteModalSubscriptionInfo() {
           freeSeats - activeAndInvitedUsers > 1 ? "s" : ""
         } remaining.`}</p>
       )}
-      {activeAndInvitedUsers >= freeSeats &&
-        numberOfCurrentSeats <= activeAndInvitedUsers &&
-        hasActiveSubscription && (
-          <p className="mt-3 mb-0 alert-warning alert">
-            This user will be assigned a new seat{" "}
-            {pricePerSeat && (
-              <strong>
-                (${pricePerSeat}
-                /month).
-              </strong>
-            )}
-          </p>
-        )}
+      {activeAndInvitedUsers >= freeSeats && hasActiveSubscription && (
+        <p className="mt-3 mb-0 alert-warning alert">
+          This user will be assigned a new seat{" "}
+          {quote?.additionalSeatPrice && (
+            <strong>
+              ({currencyFormatter.format(quote.additionalSeatPrice || 0)}
+              /month).
+            </strong>
+          )}
+        </p>
+      )}
     </>
   );
 }

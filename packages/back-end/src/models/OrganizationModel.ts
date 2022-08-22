@@ -36,7 +36,6 @@ const organizationSchema = new mongoose.Schema({
   discountCode: String,
   priceId: String,
   freeSeats: Number,
-  freeSeatsExcluded: Boolean,
   disableSelfServeBilling: Boolean,
   subscription: {
     id: String,

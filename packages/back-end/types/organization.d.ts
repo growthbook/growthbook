@@ -107,6 +107,16 @@ export interface OrganizationSettings {
   implementationTypes?: ImplementationType[];
 }
 
+export interface SubscriptionQuote {
+  qty: number;
+  unitPrice: number;
+  discountAmount: number;
+  discountMessage: string;
+  subtotal: number;
+  total: number;
+  additionalSeatPrice: number;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -116,7 +126,6 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   freeSeats?: number;
-  freeSeatsExcluded?: boolean;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;

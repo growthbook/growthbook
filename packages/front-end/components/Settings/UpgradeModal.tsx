@@ -19,20 +19,17 @@ export interface Props {
 }
 
 export default function UpgradeModal({ close, source, reason }: Props) {
-  const {
-    freeSeats,
-    pricePerSeat,
-    activeAndInvitedUsers,
-    freeSeatDiscount,
-    loading,
-  } = useStripeSubscription();
+  const { quote, loading } = useStripeSubscription();
 
   useEffect(() => {
     track("View Upgrade Modal", {
       source,
-      users: activeAndInvitedUsers,
-      pricePerSeat,
-      freeSeats,
+      qty: quote?.qty || 0,
+      unitPrice: quote?.unitPrice || 0,
+      discountAmount: quote?.discountAmount || 0,
+      discountMessage: quote?.discountMessage || "",
+      subtotal: quote?.subtotal,
+      total: quote?.total,
     });
   }, []);
 
@@ -48,16 +45,19 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       }>(`/subscription/checkout`, {
         method: "POST",
         body: JSON.stringify({
-          qty: activeAndInvitedUsers,
+          qty: quote?.qty || 0,
         }),
       });
 
       if (resp.session?.url) {
         track("Start Checkout", {
           source,
-          users: activeAndInvitedUsers,
-          pricePerSeat,
-          freeSeats,
+          qty: quote?.qty || 0,
+          unitPrice: quote?.unitPrice || 0,
+          discountAmount: quote?.discountAmount || 0,
+          discountMessage: quote?.discountMessage || "",
+          subtotal: quote?.subtotal,
+          total: quote?.total,
         });
         window.location.href = resp.session.url;
         // Stay in a "loading" state to give the redirect time to finish
@@ -81,7 +81,10 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       </p>
       <p className="text-center mb-4">
         After upgrading, you will be able to add additional users for{" "}
-        <strong>{currencyFormatter.format(pricePerSeat)}</strong>/month.
+        <strong>
+          {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
+        </strong>
+        /month.
       </p>
       <div className="row align-items-center justify-content-center">
         <div className="col-auto mb-4 mr-lg-5 pr-lg-5">
@@ -121,22 +124,24 @@ export default function UpgradeModal({ close, source, reason }: Props) {
             <div className="d-flex">
               <div>Current team size</div>
               <div className="ml-auto">
-                <strong>{activeAndInvitedUsers}</strong> users
+                <strong>{quote?.qty || 0}</strong> users
               </div>
             </div>
             <div className="d-flex border-bottom py-2 mb-2">
               <div>Price per user</div>
               <div className="ml-auto">
-                <strong>{currencyFormatter.format(pricePerSeat)}</strong>
+                <strong>
+                  {currencyFormatter.format(quote?.unitPrice || 0)}
+                </strong>
                 <small className="text-muted"> / month</small>
               </div>
             </div>
-            {freeSeatDiscount < 0 && (
+            {quote?.discountAmount < 0 && quote?.discountMessage && (
               <div className="d-flex border-bottom py-2 mb-2">
-                <div>First {freeSeats} users free</div>
+                <div>{quote.discountMessage}</div>
                 <div className="ml-auto">
                   <strong className="text-danger">
-                    {currencyFormatter.format(freeSeatDiscount)}
+                    {currencyFormatter.format(quote.discountAmount)}
                   </strong>
                   <small className="text-muted"> / month</small>
                 </div>
@@ -145,14 +150,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
             <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
               <div>Total</div>
               <div className="ml-auto">
-                <strong>
-                  {currencyFormatter.format(
-                    Math.max(
-                      0,
-                      pricePerSeat * activeAndInvitedUsers + freeSeatDiscount
-                    )
-                  )}
-                </strong>
+                <strong>{currencyFormatter.format(quote?.total || 0)}</strong>
                 <small className="text-muted"> / month</small>
               </div>
             </div>
@@ -182,9 +180,12 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           onClick={() => {
             track("Click Enterprise Upgrade Link", {
               source,
-              users: activeAndInvitedUsers,
-              pricePerSeat,
-              freeSeats,
+              qty: quote?.qty || 0,
+              unitPrice: quote?.unitPrice || 0,
+              discountAmount: quote?.discountAmount || 0,
+              discountMessage: quote?.discountMessage || "",
+              subtotal: quote?.subtotal,
+              total: quote?.total,
             });
           }}
         >

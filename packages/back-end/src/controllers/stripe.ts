@@ -4,6 +4,7 @@ import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
+  IS_CLOUD,
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
@@ -13,13 +14,18 @@ import {
   getOrgFromReq,
 } from "../services/organizations";
 import { updateSubscriptionInDb } from "../services/stripe";
+import { SubscriptionQuote } from "../../types/organization";
 const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
 
 type PriceData = {
   [key: string]: Stripe.Price;
 };
+type DiscountData = {
+  [key: string]: Stripe.Coupon;
+};
 
 const priceData: PriceData = {};
+const discountData: DiscountData = {};
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number }>,
@@ -88,26 +94,71 @@ export async function postNewSubscription(
   });
 }
 
-export async function getPriceData(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+async function getPrice(priceId: string): Promise<Stripe.Price | null> {
+  if (priceData[priceId]) return priceData[priceId];
 
-  const { org } = getOrgFromReq(req);
-
-  const priceId = org.priceId || STRIPE_PRICE;
-
-  if (!priceData[priceId]) {
+  try {
     priceData[priceId] = await stripe.prices.retrieve(priceId, {
       expand: ["tiers"],
     });
+    return priceData[priceId];
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+async function getCoupon(discountCode?: string): Promise<Stripe.Coupon | null> {
+  if (!discountCode) return null;
+  if (discountData[discountCode]) return discountData[discountCode];
+
+  try {
+    discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
+    return discountData[discountCode];
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+
+  if (!IS_CLOUD) {
+    return res.status(200).json({
+      status: 200,
+      quote: null,
+    });
   }
 
-  const pricePerSeat = (priceData[priceId].unit_amount || 2000) / 100;
+  const { org } = getOrgFromReq(req);
+
+  const price = await getPrice(org.priceId || STRIPE_PRICE);
+  const unitPrice = (price?.unit_amount || 2000) / 100;
+
+  const coupon = await getCoupon(org.discountCode);
+  const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
+  const discountMessage = coupon?.name || "";
+
+  // TODO: handle pricing tiers
+  const additionalSeatPrice = unitPrice;
+  const qty = (org.members?.length || 0) + (org.invites?.length || 0);
+  const subtotal = qty * unitPrice;
+  const total = Math.max(0, subtotal + discountAmount);
+
+  const quote: SubscriptionQuote = {
+    qty,
+    unitPrice,
+    discountAmount,
+    discountMessage,
+    subtotal,
+    total,
+    additionalSeatPrice,
+  };
 
   return res.status(200).json({
     status: 200,
-    priceData: {
-      pricePerSeat: pricePerSeat,
-    },
+    quote,
   });
 }
 

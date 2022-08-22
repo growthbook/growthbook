@@ -6,6 +6,11 @@ import Button from "../Button";
 import { useState } from "react";
 import UpgradeModal from "./UpgradeModal";
 
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+});
+
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
@@ -15,15 +20,14 @@ export default function SubscriptionInfo() {
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
-    monthlyPrice,
-    activeAndInvitedUsers,
+    quote,
+    loading,
     canSubscribe,
-    numberOfCurrentSeats,
   } = useStripeSubscription();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  if (!planName || !activeAndInvitedUsers) return <LoadingOverlay />;
+  if (loading) return <LoadingOverlay />;
 
   return (
     <>
@@ -38,15 +42,18 @@ export default function SubscriptionInfo() {
         <strong>Current Plan:</strong> {planName}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {numberOfCurrentSeats}
+        <strong>Number Of Seats:</strong> {quote?.qty || 0}
       </div>
-      <div className="col-md-12 mb-3">
-        <strong>Current Monthly Price:</strong> {`  $${monthlyPrice}/month`}{" "}
-        <Tooltip
-          body="Click the Manage Subscription button below to see how this is calculated."
-          tipMinWidth="200px"
-        />
-      </div>
+      {quote?.total && (
+        <div className="col-md-12 mb-3">
+          <strong>Current Monthly Price:</strong>{" "}
+          {` ${currencyFormatter.format(quote.total)}/month`}{" "}
+          <Tooltip
+            body="Click the Manage Subscription button below to see how this is calculated."
+            tipMinWidth="200px"
+          />
+        </div>
+      )}
       {subscriptionStatus !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
           <strong>Next Bill Date: </strong>
