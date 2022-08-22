@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import {
-  STRIPE_SECRET,
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
@@ -13,19 +12,13 @@ import {
   getNumberOfMembersAndInvites,
   getOrgFromReq,
 } from "../services/organizations";
-import { updateSubscriptionInDb } from "../services/stripe";
+import {
+  updateSubscriptionInDb,
+  stripe,
+  getCoupon,
+  getPrice,
+} from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
-const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
-
-type PriceData = {
-  [key: string]: Stripe.Price;
-};
-type DiscountData = {
-  [key: string]: Stripe.Coupon;
-};
-
-const priceData: PriceData = {};
-const discountData: DiscountData = {};
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number }>,
@@ -92,33 +85,6 @@ export async function postNewSubscription(
     status: 200,
     session,
   });
-}
-
-async function getPrice(priceId: string): Promise<Stripe.Price | null> {
-  if (priceData[priceId]) return priceData[priceId];
-
-  try {
-    priceData[priceId] = await stripe.prices.retrieve(priceId, {
-      expand: ["tiers"],
-    });
-    return priceData[priceId];
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
-}
-
-async function getCoupon(discountCode?: string): Promise<Stripe.Coupon | null> {
-  if (!discountCode) return null;
-  if (discountData[discountCode]) return discountData[discountCode];
-
-  try {
-    discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
-    return discountData[discountCode];
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
 }
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {

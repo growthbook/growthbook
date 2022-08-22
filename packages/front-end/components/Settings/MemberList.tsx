@@ -10,17 +10,25 @@ import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { isCloud } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import { Member } from "../../../back-end/types/organization";
+
+export type MemberInfo = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+};
 
 const MemberList: FC<{
-  members: Member[];
+  members: MemberInfo[];
   mutate: () => void;
 }> = ({ members, mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
-  const [roleModal, setRoleModal] = useState<Member>(null);
-  const [passwordResetModal, setPasswordResetModal] = useState<Member>(null);
+  const [roleModal, setRoleModal] = useState<MemberInfo>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
+    null
+  );
   const [role, setRole] = useState<MemberRole>("admin");
 
   const onInvite = () => {

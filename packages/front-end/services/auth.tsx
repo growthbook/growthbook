@@ -24,6 +24,9 @@ export type OrganizationMember = {
   role: MemberRole;
   permissions?: Permissions;
   settings?: OrganizationSettings;
+  freeSeats?: number;
+  discountCode?: string;
+  hasActiveSubscription?: boolean;
 };
 
 export type UserOrganizations = OrganizationMember[];

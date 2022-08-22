@@ -3,15 +3,15 @@ import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import InviteList from "../../components/Settings/InviteList";
-import MemberList from "../../components/Settings/MemberList";
-import { SettingsApiResponse } from "./types";
+import MemberList, { MemberInfo } from "../../components/Settings/MemberList";
 import useApi from "../../hooks/useApi";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
+import { OrganizationInterface } from "back-end/types/organization";
 
 const TeamPage: FC = () => {
   const { data, error, mutate } = useApi<{
-    organization: SettingsApiResponse;
+    organization: OrganizationInterface & { members: MemberInfo[] };
   }>(`/organization`);
 
   const router = useRouter();

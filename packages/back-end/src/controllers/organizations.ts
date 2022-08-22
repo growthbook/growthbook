@@ -134,12 +134,18 @@ export async function getUser(req: AuthRequest, res: Response) {
     admin: !!req.admin,
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
+      const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
+        org.subscription?.status || ""
+      );
       return {
         id: org.id,
         name: org.name,
         role,
         permissions: getPermissionsByRole(role),
         settings: org.settings || {},
+        freeSeats: org.freeSeats || 3,
+        discountCode: org.discountCode || "",
+        hasActiveSubscription,
       };
     }),
   });
@@ -469,7 +475,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     url,
     subscription,
     freeSeats,
-    discountCode,
     connections,
     settings,
     disableSelfServeBilling,
@@ -493,7 +498,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       name,
       url,
       subscription,
-      discountCode,
       freeSeats,
       disableSelfServeBilling,
       slackTeam: connections?.slack?.team,

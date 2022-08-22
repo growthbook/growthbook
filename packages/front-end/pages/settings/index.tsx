@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useAuth } from "../../services/auth";
-import { FaCheck, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
@@ -10,14 +10,16 @@ import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
-import { SettingsApiResponse } from "./types";
 import { ApiKeyInterface } from "back-end/types/apikey";
 
 function hasChanges(
@@ -31,7 +33,7 @@ function hasChanges(
 
 const GeneralSettingsPage = (): React.ReactElement => {
   const { data, error, mutate } = useApi<{
-    organization: SettingsApiResponse;
+    organization: OrganizationInterface;
     apiKeys: ApiKeyInterface[];
   }>(`/organization`);
 
@@ -197,16 +199,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <strong>Owner:</strong> {data.organization.ownerEmail}
                 </div>
               </div>
-              {data.organization.slackTeam && (
-                <div className="form-group row">
-                  <div
-                    className="col-sm-12"
-                    title={"Team: " + data.organization.slackTeam}
-                  >
-                    <FaCheck /> Connected to Slack
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

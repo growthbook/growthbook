@@ -2,7 +2,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import {
   OrganizationInterface,
   SubscriptionQuote,
-} from "../../back-end/types/organization";
+} from "back-end/types/organization";
 import { getValidDate } from "../services/dates";
 import { isCloud } from "../services/env";
 import useApi from "./useApi";

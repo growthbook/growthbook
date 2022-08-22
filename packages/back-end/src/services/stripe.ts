@@ -1,7 +1,10 @@
 import { STRIPE_SECRET } from "../util/secrets";
 import { Stripe } from "stripe";
 import { updateOrganizationByStripeId } from "../models/OrganizationModel";
-const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
+
+export const stripe = new Stripe(STRIPE_SECRET || "", {
+  apiVersion: "2020-08-27",
+});
 
 /**
  * @name updateSubscriptionInDb
@@ -66,5 +69,40 @@ export async function updateSubscriptionInStripe(
     );
 
     await updateSubscriptionInDb(updatedSubscription);
+  }
+}
+
+const priceData: {
+  [key: string]: Stripe.Price;
+} = {};
+export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
+  if (priceData[priceId]) return priceData[priceId];
+
+  try {
+    priceData[priceId] = await stripe.prices.retrieve(priceId, {
+      expand: ["tiers"],
+    });
+    return priceData[priceId];
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+const discountData: {
+  [key: string]: Stripe.Coupon;
+} = {};
+export async function getCoupon(
+  discountCode?: string
+): Promise<Stripe.Coupon | null> {
+  if (!discountCode) return null;
+  if (discountData[discountCode]) return discountData[discountCode];
+
+  try {
+    discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
+    return discountData[discountCode];
+  } catch (e) {
+    console.error(e);
+    return null;
   }
 }

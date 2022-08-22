@@ -12,7 +12,6 @@ import {
   OrganizationSettings,
   Permissions,
   MemberRole,
-  OrganizationInterface,
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
@@ -20,7 +19,6 @@ import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
 import { ReactNode } from "react";
-import useApi from "../hooks/useApi";
 
 type User = { id: string; email: string; name: string };
 
@@ -82,9 +80,6 @@ const ProtectedPage: React.FC<{
   } = useAuth();
 
   const [data, setData] = useState<UserResponse>(null);
-  const orgData = useApi<{
-    organization: OrganizationInterface;
-  }>(`/organization`);
   const [error, setError] = useState("");
   const [users, setUsers] = useState<Map<string, User>>(new Map());
   const router = useRouter();
@@ -172,8 +167,9 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
-      freeSeats: orgData?.data?.organization?.freeSeats || "",
-      priceId: orgData?.data?.organization?.priceId || "",
+      freeSeats: currentOrg?.freeSeats || 3,
+      discountCode: currentOrg?.discountCode || "",
+      hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
 

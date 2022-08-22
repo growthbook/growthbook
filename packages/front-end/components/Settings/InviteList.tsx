@@ -3,7 +3,7 @@ import { FaTrash, FaEnvelope } from "react-icons/fa";
 import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
-import { Invite } from "../../../back-end/types/organization";
+import { Invite } from "back-end/types/organization";
 
 const InviteList: FC<{
   invites: Invite[];
