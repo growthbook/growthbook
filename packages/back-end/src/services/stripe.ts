@@ -1,6 +1,10 @@
 import { STRIPE_SECRET } from "../util/secrets";
 import { Stripe } from "stripe";
-import { updateOrganizationByStripeId } from "../models/OrganizationModel";
+import {
+  updateOrganization,
+  updateOrganizationByStripeId,
+} from "../models/OrganizationModel";
+import { OrganizationInterface } from "../../types/organization";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2020-08-27",
@@ -13,34 +17,35 @@ export const stripe = new Stripe(STRIPE_SECRET || "", {
 export async function updateSubscriptionInDb(
   subscription: string | Stripe.Subscription
 ) {
-  // Make sure we have the full subscription object
-  if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(subscription, {
-      expand: ["plan"],
-    });
-  }
+  // Always get the latest subscription data from the API
+  subscription = await stripe.subscriptions.retrieve(
+    typeof subscription === "string" ? subscription : subscription.id,
+    { expand: ["plan"] }
+  );
 
   const stripeCustomerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer.id;
 
+  const item = subscription.items?.data?.[0];
+
   await updateOrganizationByStripeId(stripeCustomerId, {
     subscription: {
-      id: subscription?.id,
-      qty: subscription?.items?.data[0]?.quantity || 1,
-      trialEnd: subscription?.trial_end
-        ? new Date(subscription?.trial_end * 1000)
+      id: subscription.id,
+      qty: item?.quantity || 1,
+      trialEnd: subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
         : null,
-      status: subscription?.status,
-      current_period_end: subscription?.current_period_end,
-      cancel_at: subscription?.cancel_at,
-      canceled_at: subscription?.canceled_at,
-      cancel_at_period_end: subscription?.cancel_at_period_end,
-      planNickname: subscription?.items?.data[0]?.plan?.nickname,
-      priceId: subscription?.items?.data[0]?.price?.id,
+      status: subscription.status,
+      current_period_end: subscription.current_period_end,
+      cancel_at: subscription.cancel_at,
+      canceled_at: subscription.canceled_at,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      planNickname: item?.plan?.nickname,
+      priceId: item?.price?.id,
     },
-    priceId: subscription?.items?.data[0]?.price?.id,
+    priceId: item?.price?.id,
   });
 }
 
@@ -105,4 +110,29 @@ export async function getCoupon(
     console.error(e);
     return null;
   }
+}
+
+export function hasActiveSubscription(org: OrganizationInterface) {
+  return ["active", "trialing", "past_due"].includes(
+    org.subscription?.status || ""
+  );
+}
+
+export async function getStripeCustomerId(org: OrganizationInterface) {
+  if (org.stripeCustomerId) return org.stripeCustomerId;
+
+  // Create a new Stripe customer and save it in the organization object
+  const { id } = await stripe.customers.create({
+    metadata: {
+      growthBookId: org.id,
+      ownerEmail: org.ownerEmail,
+    },
+    name: org.name,
+  });
+
+  await updateOrganization(org.id, {
+    stripeCustomerId: id,
+  });
+
+  return id;
 }

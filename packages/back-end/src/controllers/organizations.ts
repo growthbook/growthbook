@@ -68,6 +68,7 @@ import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
+import { hasActiveSubscription } from "../services/stripe";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -134,9 +135,6 @@ export async function getUser(req: AuthRequest, res: Response) {
     admin: !!req.admin,
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
-      const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
-        org.subscription?.status || ""
-      );
       return {
         id: org.id,
         name: org.name,
@@ -145,7 +143,7 @@ export async function getUser(req: AuthRequest, res: Response) {
         settings: org.settings || {},
         freeSeats: org.freeSeats || 3,
         discountCode: org.discountCode || "",
-        hasActiveSubscription,
+        hasActiveSubscription: hasActiveSubscription(org),
       };
     }),
   });

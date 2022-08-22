@@ -25,11 +25,12 @@ export default function useStripeSubscription() {
 
   const activeAndInvitedUsers = quoteData?.quote?.qty || 0;
 
-  const hasActiveSubscription =
-    data?.organization?.subscription?.status === "active" ||
-    data?.organization?.subscription?.status === "trialing" ||
-    // We will treat past_due as active so as to not interrupt users
-    data?.organization?.subscription?.status === "past_due";
+  const subscriptionStatus = data?.organization?.subscription?.status;
+
+  // We will treat past_due as active so as to not interrupt users
+  const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
+    subscriptionStatus || ""
+  );
 
   const planName = data?.organization?.subscription?.planNickname || "";
 
@@ -44,8 +45,6 @@ export default function useStripeSubscription() {
   const cancelationDate = new Date(
     (data?.organization?.subscription?.canceled_at || 0) * 1000
   ).toDateString();
-
-  const subscriptionStatus = data?.organization?.subscription?.status;
 
   const pendingCancelation =
     data?.organization?.subscription?.cancel_at_period_end;

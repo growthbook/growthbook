@@ -7,7 +7,6 @@ import {
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
-import { updateOrganization } from "../models/OrganizationModel";
 import {
   getNumberOfMembersAndInvites,
   getOrgFromReq,
@@ -17,6 +16,8 @@ import {
   stripe,
   getCoupon,
   getPrice,
+  getStripeCustomerId,
+  hasActiveSubscription,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 
@@ -38,26 +39,9 @@ export async function postNewSubscription(
     );
   }
 
-  let stripeCustomerId: string;
+  const stripeCustomerId = await getStripeCustomerId(org);
 
-  if (org.stripeCustomerId) {
-    stripeCustomerId = org.stripeCustomerId;
-  } else {
-    const { id } = await stripe.customers.create({
-      metadata: {
-        growthBookId: org.id,
-        ownerEmail: org.ownerEmail,
-      },
-      name: org.name,
-    });
-    stripeCustomerId = id;
-
-    await updateOrganization(org.id, {
-      stripeCustomerId: stripeCustomerId,
-    });
-  }
-
-  if (org.subscription?.status === "active") {
+  if (hasActiveSubscription(org)) {
     throw new Error(
       "Existing subscription found. Please go to Settings > Billing to manage your existing subscription."
     );
@@ -79,7 +63,7 @@ export async function postNewSubscription(
       },
     ],
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${APP_ORIGIN}/settings/team`,
+    cancel_url: `${APP_ORIGIN}/settings/team?org=${org.id}`,
   });
   res.status(200).json({
     status: 200,
@@ -189,7 +173,15 @@ export async function postWebhook(req: Request, res: Response) {
     );
 
     switch (event.type) {
-      case "checkout.session.completed":
+      case "checkout.session.completed": {
+        const { subscription } = event.data
+          .object as Stripe.Response<Stripe.Checkout.Session>;
+        if (subscription) {
+          await updateSubscriptionInDb(subscription);
+        }
+        break;
+      }
+
       case "invoice.paid":
       case "invoice.payment_failed": {
         const { subscription } = event.data
@@ -200,19 +192,13 @@ export async function postWebhook(req: Request, res: Response) {
         break;
       }
 
+      case "customer.subscription.created":
       case "customer.subscription.deleted":
-      case "subscription_scheduled.canceled":
       case "customer.subscription.updated": {
         const subscription = event.data
           .object as Stripe.Response<Stripe.Subscription>;
 
-        // Get the current subscription data instead of relying on a potentially outdated event
-        const currentStripeSubscriptionData = await stripe.subscriptions.retrieve(
-          subscription.id
-        );
-
-        await updateSubscriptionInDb(currentStripeSubscriptionData);
-
+        await updateSubscriptionInDb(subscription);
         break;
       }
     }

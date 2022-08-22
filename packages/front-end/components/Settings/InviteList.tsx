@@ -4,6 +4,7 @@ import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import { Invite } from "back-end/types/organization";
+import { datetime } from "../../services/dates";
 
 const InviteList: FC<{
   invites: Invite[];
@@ -120,7 +121,7 @@ const InviteList: FC<{
           {invites.map(({ email, key, dateCreated, role }) => (
             <tr key={key}>
               <td>{email}</td>
-              <td>{dateCreated.toString()}</td>
+              <td>{datetime(dateCreated)}</td>
               <td>{role}</td>
               <td>
                 <button

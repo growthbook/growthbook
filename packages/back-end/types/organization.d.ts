@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { ImplementationType } from "./experiment";
 
 export type Permissions = {
@@ -131,14 +132,7 @@ export interface OrganizationInterface {
     id: string;
     qty: number;
     trialEnd: Date | null;
-    status:
-      | "incomplete"
-      | "incomplete_expired"
-      | "trialing"
-      | "active"
-      | "past_due"
-      | "canceled"
-      | "unpaid";
+    status: Stripe.Subscription.Status;
     current_period_end: number;
     cancel_at: number | null;
     canceled_at: number | null;
