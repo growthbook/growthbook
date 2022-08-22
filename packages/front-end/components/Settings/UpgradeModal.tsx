@@ -163,7 +163,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
                 Upgrade to Pro
               </Button>
             </div>
-            {error && <div className="alert alert-danger">{error}</div>}
             <div
               className="text-center text-muted"
               style={{ fontSize: "0.8em" }}
@@ -193,6 +192,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
         </a>{" "}
         for a custom quote.
       </p>
+      {error && <div className="alert alert-danger">{error}</div>}
     </Modal>
   );
 }

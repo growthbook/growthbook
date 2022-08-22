@@ -17,7 +17,6 @@ import {
   getCoupon,
   getPrice,
   getStripeCustomerId,
-  hasActiveSubscription,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 
@@ -41,11 +40,19 @@ export async function postNewSubscription(
 
   const stripeCustomerId = await getStripeCustomerId(org);
 
-  if (hasActiveSubscription(org)) {
-    throw new Error(
-      "Existing subscription found. Please go to Settings > Billing to manage your existing subscription."
-    );
-  }
+  const existingSubscriptions = await stripe.subscriptions.list({
+    customer: stripeCustomerId,
+  });
+
+  existingSubscriptions.data.forEach((subscription) => {
+    if (subscription.status === ("active" || "past_due" || "trialing")) {
+      updateSubscriptionInDb(subscription);
+
+      throw new Error(
+        "Existing subscription found. Please refresh the page or go to Settings > Billing to manage your existing subscription."
+      );
+    }
+  });
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
