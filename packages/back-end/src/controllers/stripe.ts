@@ -3,7 +3,7 @@ import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
-  // IS_CLOUD,
+  IS_CLOUD,
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
@@ -90,12 +90,12 @@ export async function postNewSubscription(
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 
-  // if (!IS_CLOUD) {
-  //   return res.status(200).json({
-  //     status: 200,
-  //     quote: null,
-  //   });
-  // }
+  if (!IS_CLOUD) {
+    return res.status(200).json({
+      status: 200,
+      quote: null,
+    });
+  }
 
   const { org } = getOrgFromReq(req);
 
