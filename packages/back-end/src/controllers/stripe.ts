@@ -29,7 +29,7 @@ export async function postNewSubscription(
 
   let { returnUrl } = req.body;
 
-  if (returnUrl[0] !== "/") {
+  if (returnUrl?.[0] !== "/") {
     returnUrl = "/settings/billing";
   }
 
