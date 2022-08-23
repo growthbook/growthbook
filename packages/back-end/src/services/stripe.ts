@@ -112,10 +112,14 @@ export async function getCoupon(
   }
 }
 
+export function isActiveSubscriptionStatus(
+  status?: Stripe.Subscription.Status
+) {
+  return ["active", "trialing", "past_due"].includes(status || "");
+}
+
 export function hasActiveSubscription(org: OrganizationInterface) {
-  return ["active", "trialing", "past_due"].includes(
-    org.subscription?.status || ""
-  );
+  return isActiveSubscriptionStatus(org.subscription?.status);
 }
 
 export async function getStripeCustomerId(org: OrganizationInterface) {

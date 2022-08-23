@@ -184,6 +184,12 @@ const TopNav: FC<{
                 </button>
               )}
 
+            {hasActiveSubscription && (
+              <div className="ml-2">
+                <span className="badge badge-pill badge-dark">PRO</span>
+              </div>
+            )}
+
             {(watchedExperiments.length > 0 || watchedFeatures.length > 0) && (
               <Link href="/activity">
                 <a className="nav-link mr-1 text-secondary">
@@ -192,12 +198,6 @@ const TopNav: FC<{
               </Link>
             )}
           </>
-        )}
-
-        {hasActiveSubscription && (
-          <div>
-            <span className="badge badge-pill badge-dark">PRO</span>
-          </div>
         )}
 
         {organizations && organizations.length === 1 && (
