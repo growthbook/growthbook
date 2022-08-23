@@ -3,7 +3,7 @@ import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
-  IS_CLOUD,
+  // IS_CLOUD,
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
@@ -22,10 +22,16 @@ import {
 import { SubscriptionQuote } from "../../types/organization";
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number }>,
+  req: AuthRequest<{ qty: number; returnUrl: string }>,
   res: Response
 ) {
   const { qty } = req.body;
+
+  let { returnUrl } = req.body;
+
+  if (returnUrl[0] !== "/") {
+    returnUrl = "/settings/billing";
+  }
 
   req.checkPermissions("organizationSettings");
 
@@ -73,7 +79,7 @@ export async function postNewSubscription(
       },
     ],
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${APP_ORIGIN}/settings/team?org=${org.id}`,
+    cancel_url: `${APP_ORIGIN}${returnUrl}?org=${org.id}`,
   });
   res.status(200).json({
     status: 200,
@@ -84,12 +90,12 @@ export async function postNewSubscription(
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
 
-  if (!IS_CLOUD) {
-    return res.status(200).json({
-      status: 200,
-      quote: null,
-    });
-  }
+  // if (!IS_CLOUD) {
+  //   return res.status(200).json({
+  //     status: 200,
+  //     quote: null,
+  //   });
+  // }
 
   const { org } = getOrgFromReq(req);
 
