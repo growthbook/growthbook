@@ -1,144 +1,171 @@
 import { Request, Response } from "express";
 import {
-  STRIPE_SECRET,
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
-  STRIPE_DEFAULT_COUPON,
+  IS_CLOUD,
 } from "../util/secrets";
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
-  updateOrganization,
-  updateOrganizationByStripeId,
-} from "../models/OrganizationModel";
-import { createOrganization } from "../models/OrganizationModel";
-import { getOrgFromReq } from "../services/organizations";
-const stripe = new Stripe(STRIPE_SECRET || "", { apiVersion: "2020-08-27" });
+  getNumberOfMembersAndInvites,
+  getOrgFromReq,
+} from "../services/organizations";
+import {
+  updateSubscriptionInDb,
+  stripe,
+  getCoupon,
+  getPrice,
+  getStripeCustomerId,
+  isActiveSubscriptionStatus,
+} from "../services/stripe";
+import { SubscriptionQuote } from "../../types/organization";
 
-async function updateSubscription(subscription: string | Stripe.Subscription) {
-  // Make sure we have the full subscription object
-  if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(subscription);
-  }
-
-  const stripeCustomerId =
-    typeof subscription.customer === "string"
-      ? subscription.customer
-      : subscription.customer.id;
-
-  await updateOrganizationByStripeId(stripeCustomerId, {
-    subscription: {
-      id: subscription.id,
-      qty: subscription.items.data[0].quantity || 1,
-      trialEnd: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
-        : null,
-      status: subscription.status,
-    },
-  });
-}
-export async function postStartTrial(
-  req: AuthRequest<{ qty: number; name: string }>,
+export async function postNewSubscription(
+  req: AuthRequest<{ qty: number }>,
   res: Response
 ) {
-  const { qty, name } = req.body;
+  const { qty } = req.body;
 
-  // If user already has a subscription, return immediately
-  if (req.organization?.subscription?.id) {
-    return res.status(200).json({
-      status: 200,
-    });
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+
+  const desiredQty = getNumberOfMembersAndInvites(org);
+
+  if (desiredQty !== qty) {
+    throw new Error(
+      "Number of users is out of date. Please refresh the page and try again."
+    );
   }
 
-  try {
-    // Create organization first if needed
-    if (!req.organization) {
-      if (name.length < 3) {
-        throw new Error("Company name must be at least 3 characters long");
-      }
-      req.organization = await createOrganization(
-        req.email || "",
-        req.userId || "",
-        name,
-        ""
+  const stripeCustomerId = await getStripeCustomerId(org);
+
+  const existingSubscriptions = await stripe.subscriptions.list({
+    customer: stripeCustomerId,
+  });
+
+  const promises = existingSubscriptions.data.map(async (subscription) => {
+    if (isActiveSubscriptionStatus(subscription.status)) {
+      await updateSubscriptionInDb(subscription);
+
+      throw new Error(
+        "Existing subscription found. Please refresh the page or go to Settings > Billing to manage your existing subscription."
       );
     }
+  });
 
-    // Create customer in Stripe if not exists
-    if (!req.organization.stripeCustomerId) {
-      const resp = await stripe.customers.create({
-        email: req.email || "",
-        name: req.name || "",
-        metadata: {
-          user: req.userId || "",
-          organization: req.organization.id,
-        },
-      });
-      req.organization.stripeCustomerId = resp.id;
+  await Promise.all(promises);
 
-      await updateOrganization(req.organization.id, {
-        stripeCustomerId: resp.id,
-      });
-    }
-
-    // Start subscription trial without payment method
-    const subscription = await stripe.subscriptions.create({
-      customer: req.organization.stripeCustomerId,
-      coupon: STRIPE_DEFAULT_COUPON,
-      collection_method: "charge_automatically",
-      trial_from_plan: true,
-      metadata: {
-        user: req.userId || "",
-        organization: req.organization.id,
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    customer: stripeCustomerId,
+    discounts: [
+      {
+        coupon: org.discountCode,
       },
-      items: [
-        {
-          price: STRIPE_PRICE,
-          quantity: qty,
-        },
-      ],
-    });
+    ],
+    line_items: [
+      {
+        price: org.priceId || STRIPE_PRICE,
+        quantity: qty,
+      },
+    ],
+    success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${APP_ORIGIN}/settings/team?org=${org.id}`,
+  });
+  res.status(200).json({
+    status: 200,
+    session,
+  });
+}
 
-    // Save in Mongo
-    await updateSubscription(subscription);
+export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
 
-    res.status(200).json({ status: 200 });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
+  if (!IS_CLOUD) {
+    return res.status(200).json({
+      status: 200,
+      quote: null,
     });
   }
+
+  const { org } = getOrgFromReq(req);
+
+  const price = await getPrice(org.priceId || STRIPE_PRICE);
+  const unitPrice = (price?.unit_amount || 2000) / 100;
+
+  const coupon = await getCoupon(org.discountCode);
+  const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
+  const discountMessage = coupon?.name || "";
+
+  // TODO: handle pricing tiers
+  const additionalSeatPrice = unitPrice;
+  const qty = (org.members?.length || 0) + (org.invites?.length || 0);
+  const subtotal = qty * unitPrice;
+  const total = Math.max(0, subtotal + discountAmount);
+
+  const quote: SubscriptionQuote = {
+    qty,
+    unitPrice,
+    discountAmount,
+    discountMessage,
+    subtotal,
+    total,
+    additionalSeatPrice,
+  };
+
+  return res.status(200).json({
+    status: 200,
+    quote,
+  });
 }
 
 export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
 ) {
-  try {
-    req.checkPermissions("organizationSettings");
+  req.checkPermissions("organizationSettings");
 
-    const { org } = getOrgFromReq(req);
-    if (!org.stripeCustomerId) {
-      throw new Error("Missing customer id");
-    }
+  const { org } = getOrgFromReq(req);
 
-    const { url } = await stripe.billingPortal.sessions.create({
-      customer: org.stripeCustomerId,
-      return_url: `${APP_ORIGIN}/settings`,
-    });
-
-    res.status(200).json({
-      status: 200,
-      url,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
+  if (!org.stripeCustomerId) {
+    throw new Error("Missing customer id");
   }
+
+  const { url } = await stripe.billingPortal.sessions.create({
+    customer: org.stripeCustomerId,
+    return_url: `${APP_ORIGIN}/settings/billing?org=${org.id}`,
+  });
+
+  res.status(200).json({
+    status: 200,
+    url,
+  });
+}
+
+export async function postSubscriptionSuccess(
+  req: AuthRequest<{ checkoutSessionId: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const session = await stripe.checkout.sessions.retrieve(
+    req.body.checkoutSessionId
+  );
+
+  const subscription = session.subscription;
+
+  if (!subscription) {
+    throw new Error("No subscription associated with that checkout session");
+  }
+
+  await updateSubscriptionInDb(subscription);
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postWebhook(req: Request, res: Response) {
@@ -148,44 +175,47 @@ export async function postWebhook(req: Request, res: Response) {
     return res.status(400).send("Missing signature");
   }
 
-  let event;
   try {
-    event = stripe.webhooks.constructEvent(payload, sig, STRIPE_WEBHOOK_SECRET);
+    const event = stripe.webhooks.constructEvent(
+      payload,
+      sig,
+      STRIPE_WEBHOOK_SECRET
+    );
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const { subscription } = event.data
+          .object as Stripe.Response<Stripe.Checkout.Session>;
+        if (subscription) {
+          await updateSubscriptionInDb(subscription);
+        }
+        break;
+      }
+
+      case "invoice.paid":
+      case "invoice.payment_failed": {
+        const { subscription } = event.data
+          .object as Stripe.Response<Stripe.Invoice>;
+        if (subscription) {
+          await updateSubscriptionInDb(subscription);
+        }
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.deleted":
+      case "customer.subscription.updated": {
+        const subscription = event.data
+          .object as Stripe.Response<Stripe.Subscription>;
+
+        await updateSubscriptionInDb(subscription);
+        break;
+      }
+    }
   } catch (err) {
     console.error(payload, sig);
     console.error(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const { subscription } = event.data
-        .object as Stripe.Response<Stripe.Checkout.Session>;
-      if (subscription) {
-        updateSubscription(subscription);
-      }
-      break;
-    }
-
-    case "invoice.paid":
-    case "invoice.payment_failed": {
-      const { subscription } = event.data
-        .object as Stripe.Response<Stripe.Invoice>;
-      if (subscription) {
-        updateSubscription(subscription);
-      }
-      break;
-    }
-
-    case "customer.subscription.deleted":
-    case "customer.subscription.updated": {
-      const subscription = event.data
-        .object as Stripe.Response<Stripe.Subscription>;
-      if (subscription) {
-        updateSubscription(subscription);
-      }
-      break;
-    }
   }
 
   res.status(200).send("Ok");

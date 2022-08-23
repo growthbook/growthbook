@@ -39,6 +39,7 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
+import { updateSubscriptionInStripe } from "./stripe";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -171,6 +172,12 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
   return permissions;
 }
 
+export function getNumberOfMembersAndInvites(
+  organization: OrganizationInterface
+) {
+  return organization.members.length + (organization.invites?.length || 0);
+}
+
 export async function userHasAccess(
   req: AuthRequest,
   organization: string
@@ -200,6 +207,19 @@ export async function removeMember(
     members,
   });
 
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(organization.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateSubscriptionInStripe(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
+
   return organization;
 }
 
@@ -212,6 +232,19 @@ export async function revokeInvite(
   await updateOrganization(organization.id, {
     invites,
   });
+
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(organization.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateSubscriptionInStripe(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
 
   return organization;
 }
@@ -245,6 +278,13 @@ export async function acceptInvite(key: string, userId: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
+  }
+
+  // If member is already in the org, skip so they don't get added to organization.members a second time causing duplicates.
+  if (organization.members.find((m) => m.id === userId)) {
+    throw new Error(
+      "Whoops! You're already a user, you can't accept a new invitation."
+    );
   }
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
@@ -316,6 +356,14 @@ export async function inviteUser(
 
   // append the new invites to the existin object (or refetch)
   organization.invites = invites;
+
+  // Update Stripe subscription if org has subscription
+  if (organization.subscription?.id) {
+    await updateSubscriptionInStripe(
+      organization.subscription.id,
+      getNumberOfMembersAndInvites(organization)
+    );
+  }
 
   let emailSent = false;
   if (isEmailEnabled()) {
