@@ -55,6 +55,7 @@ export function reportArgsFromSnapshot(
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
     removeMultipleExposures: !!experiment.removeMultipleExposures,
+    conversionWindowEndBase: experiment.conversionWindowEndBase,
   };
 }
 
@@ -127,6 +128,7 @@ export async function startExperimentAnalysis(
     metrics: args.metrics,
     guardrails: args.guardrails,
     removeMultipleExposures: !!args.removeMultipleExposures,
+    conversionWindowEndBase: args.conversionWindowEndBase,
     id: "",
     name: "",
     dateCreated: new Date(),

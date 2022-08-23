@@ -74,6 +74,7 @@ export interface ExperimentInterface {
   queryFilter?: string;
   skipPartialData?: boolean;
   removeMultipleExposures?: boolean;
+  conversionWindowEndBase?: "firstExposure" | "lastExposure";
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;

@@ -50,6 +50,8 @@ const AnalysisForm: FC<{
       removeMultipleExposures: experiment.removeMultipleExposures
         ? "remove"
         : "keep",
+      conversionWindowEndBase:
+        experiment.conversionWindowEndBase || "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
@@ -287,6 +289,24 @@ const AnalysisForm: FC<{
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Metric conversion window base"
+          labelClassName="font-weight-bold"
+          {...form.register("conversionWindowEndBase")}
+          options={[
+            {
+              display: "First exposure event",
+              value: "firstExposure",
+            },
+            {
+              display: "Last exposure event",
+              value: "lastExposure",
+            },
+          ]}
+          helpText="The date used to determine the end of metric conversion windows"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

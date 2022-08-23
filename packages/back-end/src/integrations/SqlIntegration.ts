@@ -608,6 +608,9 @@ export default abstract class SqlIntegration
       exposureQuery.userIdType
     );
 
+    const conversionEndAggregation =
+      experiment.conversionWindowEndBase === "lastExposure" ? "MAX" : "MIN";
+
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
@@ -743,11 +746,11 @@ export default abstract class SqlIntegration
             denominatorMetrics.length > 0,
             activationMetrics.length > 0 && dimension?.type !== "activation"
           )}) as conversion_start,
-          MIN(${this.getMetricConversionBase(
-            "conversion_end",
-            denominatorMetrics.length > 0,
-            activationMetrics.length > 0 && dimension?.type !== "activation"
-          )}) as conversion_end
+          ${conversionEndAggregation}(${this.getMetricConversionBase(
+        "conversion_end",
+        denominatorMetrics.length > 0,
+        activationMetrics.length > 0 && dimension?.type !== "activation"
+      )}) as conversion_end
         FROM
           __experiment e
           ${
