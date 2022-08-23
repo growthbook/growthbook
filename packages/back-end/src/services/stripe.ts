@@ -23,6 +23,10 @@ export async function updateSubscriptionInDb(
     { expand: ["plan"] }
   );
 
+  if ("ignore_webhooks" in subscription.metadata) {
+    return;
+  }
+
   const stripeCustomerId =
     typeof subscription.customer === "string"
       ? subscription.customer
