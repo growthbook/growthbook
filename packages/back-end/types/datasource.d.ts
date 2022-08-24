@@ -60,11 +60,6 @@ export type SchemaOption = {
   helpText?: string;
 };
 
-export type SchemaOptionValues = {
-  name: string;
-  value: string | number;
-};
-
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
