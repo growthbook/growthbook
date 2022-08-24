@@ -2,60 +2,26 @@ import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useAuth } from "../../services/auth";
-import { FaCheck, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import { OrganizationSettings, MemberRole } from "back-end/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import { DocLink } from "../../components/DocLink";
-
-export type SettingsApiResponse = {
-  status: number;
-  apiKeys: ApiKeyInterface[];
-  organization?: {
-    invites: {
-      email: string;
-      key: string;
-      role: MemberRole;
-      dateCreated: string;
-    }[];
-    ownerEmail: string;
-    name: string;
-    url: string;
-    members: {
-      id: string;
-      email: string;
-      name: string;
-      role: MemberRole;
-    }[];
-    subscription?: {
-      id: string;
-      qty: number;
-      trialEnd: Date;
-      status:
-        | "incomplete"
-        | "incomplete_expired"
-        | "trialing"
-        | "active"
-        | "past_due"
-        | "canceled"
-        | "unpaid";
-    };
-    slackTeam?: string;
-    settings?: OrganizationSettings;
-  };
-};
 
 function hasChanges(
   value: OrganizationSettings,
@@ -67,7 +33,11 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
+  const { data, error, mutate } = useApi<{
+    organization: OrganizationInterface;
+    apiKeys: ApiKeyInterface[];
+  }>(`/organization`);
+
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
@@ -230,16 +200,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <strong>Owner:</strong> {data.organization.ownerEmail}
                 </div>
               </div>
-              {data.organization.slackTeam && (
-                <div className="form-group row">
-                  <div
-                    className="col-sm-12"
-                    title={"Team: " + data.organization.slackTeam}
-                  >
-                    <FaCheck /> Connected to Slack
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

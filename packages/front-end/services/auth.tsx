@@ -19,23 +19,15 @@ import { ReactElement } from "react";
 import { ReactNode } from "react";
 import { DocLink } from "../components/DocLink";
 
-export type SubscriptionStatus =
-  | "incomplete"
-  | "incomplete_expired"
-  | "trialing"
-  | "active"
-  | "past_due"
-  | "canceled"
-  | "unpaid";
-
 export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
   permissions?: Permissions;
-  subscriptionStatus?: SubscriptionStatus;
-  trialEnd?: Date;
   settings?: OrganizationSettings;
+  freeSeats?: number;
+  discountCode?: string;
+  hasActiveSubscription?: boolean;
 };
 
 export type UserOrganizations = OrganizationMember[];

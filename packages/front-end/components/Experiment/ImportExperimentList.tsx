@@ -14,6 +14,7 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import usePermissions from "../../hooks/usePermissions";
+
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
@@ -189,7 +190,7 @@ const ImportExperimentList: FC<{
             <thead>
               <tr>
                 <th>Source</th>
-                <th>Experiment Id</th>
+                <th>Experiment</th>
                 <th>Date Started</th>
                 <th>Date Ended</th>
                 <th>Number of Variations</th>
@@ -210,7 +211,7 @@ const ImportExperimentList: FC<{
                           )?.name
                         : "experiments"}
                     </td>
-                    <td>{e.trackingKey}</td>
+                    <td>{e.experimentName || e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>
@@ -229,22 +230,24 @@ const ImportExperimentList: FC<{
                           onClick={(ev) => {
                             ev.preventDefault();
                             const importObj: Partial<ExperimentInterfaceStringDates> = {
-                              name: e.trackingKey,
+                              name: e.experimentName || e.trackingKey,
                               trackingKey: e.trackingKey,
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
-                              variations: e.variationKeys.map((v) => {
-                                const vInt = parseInt(v);
-                                const name = !Number.isNaN(vInt)
-                                  ? vInt == 0
-                                    ? "Control"
-                                    : `Variation ${vInt}`
-                                  : v;
+                              variations: e.variationKeys.map((vKey, i) => {
+                                let vName = e.variationNames[i] || vKey;
+                                // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
+                                if (vName.match(/^[0-9]{1,2}$/)) {
+                                  vName =
+                                    vName === "0"
+                                      ? "Control"
+                                      : `Variation ${vName}`;
+                                }
                                 return {
-                                  name,
+                                  name: vName,
                                   screenshots: [],
                                   description: "",
-                                  key: v,
+                                  key: vKey,
                                 };
                               }),
                               phases: [

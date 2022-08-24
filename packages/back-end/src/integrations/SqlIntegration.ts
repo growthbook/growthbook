@@ -167,12 +167,21 @@ export default abstract class SqlIntegration
     WITH
       ${experimentQueries
         .map((q, i) => {
+          const hasNameCol = q.hasNameCol || false;
           return `
         __exposures${i} as (
           SELECT 
-            ${this.castToString(`'${q.id}'`)} as exposure_query, 
+            ${this.castToString(`'${q.id}'`)} as exposure_query,
             experiment_id,
-            variation_id,
+            ${
+              hasNameCol ? "MIN(experiment_name)" : "experiment_id"
+            } as experiment_name,
+            ${this.castToString("variation_id")} as variation_id,
+            ${
+              hasNameCol
+                ? "MIN(variation_name)"
+                : this.castToString("variation_id")
+            } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
             count(distinct ${q.userIdType}) as users
           FROM
@@ -199,7 +208,9 @@ export default abstract class SqlIntegration
         SELECT
           exposure_query,
           experiment_id,
+          MIN(experiment_name) as experiment_name,
           variation_id,
+          MIN(variation_name) as variation_name,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
@@ -209,13 +220,15 @@ export default abstract class SqlIntegration
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          exposure_query, experiment_id, variation_id
+        exposure_query, experiment_id, variation_id
       ),
       __variations as (
         SELECT
           d.exposure_query,
           d.experiment_id,
+          MIN(d.experiment_name) as experiment_name,
           d.variation_id,
+          MIN(d.variation_name) as variation_name,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users
@@ -256,7 +269,9 @@ export default abstract class SqlIntegration
       return {
         exposure_query: row.exposure_query,
         experiment_id: row.experiment_id,
+        experiment_name: row.experiment_name,
         variation_id: row.variation_id ?? "",
+        variation_name: row.variation_name,
         users: parseInt(row.users) || 0,
         end_date: this.convertDate(row.end_date).toISOString(),
         start_date: this.convertDate(row.start_date).toISOString(),

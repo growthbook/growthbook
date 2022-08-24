@@ -31,7 +31,7 @@ import useUser from "../../hooks/useUser";
 import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
-import { IdeaInterface } from "../../../back-end/types/idea";
+import { IdeaInterface } from "back-end/types/idea";
 import Code from "../Code";
 
 function getColWidth(v: number) {
