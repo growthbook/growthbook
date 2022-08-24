@@ -64,7 +64,6 @@ const PagedModal: FC<Props> = (props) => {
     for (let i = 0; i < before; i++) {
       if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
-      //console.log("Validating step", i);
       try {
         await steps[i].validate();
       } catch (e) {

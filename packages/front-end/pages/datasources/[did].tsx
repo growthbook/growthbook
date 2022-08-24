@@ -62,7 +62,7 @@ const DataSourcePage: FC = () => {
   const joinTables = (d.settings?.queries?.identityJoins || []).filter(
     (j) => j.query.length > 1
   );
-  console.log(d);
+
   return (
     <div className="container mt-3 pagecontents">
       <div className="mb-2">
