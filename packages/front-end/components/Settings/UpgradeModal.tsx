@@ -46,6 +46,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
         method: "POST",
         body: JSON.stringify({
           qty: quote?.qty || 0,
+          returnUrl: window.location.pathname,
         }),
       });
 
