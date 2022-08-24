@@ -13,7 +13,6 @@ import Link from "next/link";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../../components/DocLink";
 
 const SegmentPage: FC = () => {
   const {
@@ -182,12 +181,6 @@ const SegmentPage: FC = () => {
         <div className="row mb-3">
           <div className="col d-flex">
             <h1>Segments</h1>
-            <DocLink
-              docSection="datasources"
-              className="align-self-center ml-2 pb-1"
-            >
-              View Documentation
-            </DocLink>
           </div>
         </div>
         <div className="alert alert-info">
@@ -208,12 +201,6 @@ const SegmentPage: FC = () => {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>Segments</h1>
-          <DocLink
-            docSection="datasources"
-            className="align-self-center ml-2 pb-1"
-          >
-            View Documentation
-          </DocLink>
         </div>
         <div style={{ flex: 1 }}></div>
         {permissions.createSegments && (

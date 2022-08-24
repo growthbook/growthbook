@@ -25,7 +25,6 @@ import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
-import Tooltip from "../Tooltip";
 import { DocLink, DocSection } from "../DocLink";
 
 const typeOptions: {
@@ -374,14 +373,7 @@ const DataSourceForm: FC<{
         </div>
       )}
       <SelectField
-        label={
-          <>
-            {`Data Source Type `}
-            <DocLink docSection={datasource.type as DocSection}>
-              <Tooltip body="View Documentation" tipPosition="top" />
-            </DocLink>
-          </>
-        }
+        label="Data Source Type"
         value={datasource.type}
         onChange={(value) => {
           const option = typeOptions.filter((o) => o.type === value)[0];
@@ -408,6 +400,14 @@ const DataSourceForm: FC<{
             label: o.display,
           };
         })}
+        helpText={
+          <DocLink
+            docSection={datasource.type as DocSection}
+            fallBackSection="datasources"
+          >
+            View documentation
+          </DocLink>
+        }
       />
       <div className="form-group">
         <label>Display Name</label>
