@@ -19,6 +19,7 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import { DocLink } from "../DocLink";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -154,9 +155,7 @@ const ExperimentsGetStarted = ({
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <a href="https://docs.growthbook.io/self-host/config#configyml">
-                  View Documentation
-                </a>
+                <DocLink docSection="config_yml">View Documentation</DocLink>
               </div>
             ) : featureExperiment ? (
               <div className="alert alert-info mb-3">

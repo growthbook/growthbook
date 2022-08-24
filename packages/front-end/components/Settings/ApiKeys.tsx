@@ -7,6 +7,7 @@ import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
+import { DocLink } from "../DocLink";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -36,13 +37,7 @@ const ApiKeys: FC = () => {
       <p>
         API keys can be used with our SDKs (Javascript, React, Go, Ruby, PHP,
         Python, Android) or the Visual Editor.{" "}
-        <a
-          href="https://docs.growthbook.io/app/api"
-          target="_blank"
-          rel="noreferrer"
-        >
-          View Documentation
-        </a>
+        <DocLink docSection="api">View Documentation</DocLink>
       </p>
 
       {data.keys.length > 0 && (

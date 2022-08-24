@@ -17,6 +17,7 @@ import {
 } from "./env";
 import { ReactElement } from "react";
 import { ReactNode } from "react";
+import { DocLink } from "../components/DocLink";
 
 export type OrganizationMember = {
   id: string;
@@ -151,13 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             environment variables{" "}
             <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
             <code className="font-weight-bold">API_HOST</code>.{" "}
-            <a
-              href="https://docs.growthbook.io/self-host/config#domains-and-ports"
-              target="_blank"
-              rel="noreferrer"
-            >
-              View docs
-            </a>
+            <DocLink docSection="config_domains_and_ports">View docs</DocLink>
           </div>
         );
       }

@@ -12,7 +12,7 @@
     "start": "wsrun -p '*-end' -m start",
     "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
-    "ci": "yarn run type-check && yarn run test"
+    "ci": "yarn lint && yarn run type-check && yarn run test"
   },
   "workspaces": [
     "packages/*"
