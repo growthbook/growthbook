@@ -1,6 +1,5 @@
 import React, { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
-import DataSourceForm from "./DataSourceForm";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -10,6 +9,7 @@ import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 import usePermissions from "../../hooks/usePermissions";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
   name: "My Datasource",
@@ -120,14 +120,14 @@ const DataSources: FC = () => {
       )}
 
       {newModalOpen && (
-        <DataSourceForm
+        <NewDataSourceForm
           existing={false}
           data={DEFAULT_DATA_SOURCE}
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
             setNewModalOpen(false);
-            setQueriesModalOpen(id);
+            await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setNewModalOpen(false);

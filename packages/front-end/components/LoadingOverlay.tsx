@@ -2,11 +2,15 @@ import React from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import styles from "./LoadingOverlay.module.scss";
 
-export default function LoadingOverlay(): React.ReactElement {
+export default function LoadingOverlay({
+  text = "Loading...",
+}: {
+  text?: string;
+}): React.ReactElement {
   return (
     <div className={styles.overlay}>
       <div className={styles.text}>
-        <LoadingSpinner /> Loading...
+        <LoadingSpinner /> {text}
       </div>
     </div>
   );

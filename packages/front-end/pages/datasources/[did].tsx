@@ -62,7 +62,7 @@ const DataSourcePage: FC = () => {
   const joinTables = (d.settings?.queries?.identityJoins || []).filter(
     (j) => j.query.length > 1
   );
-
+  console.log(d);
   return (
     <div className="container mt-3 pagecontents">
       <div className="mb-2">
@@ -226,7 +226,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   Returns a record of which experiment variation was assigned to
                   each user.
                 </p>
-                {d.settings.queries?.exposure?.map((e) => (
+                {d.settings?.queries?.exposure?.map((e) => (
                   <div className="bg-white border mb-3 ml-3" key={e.id}>
                     <div className="px-3 pt-3">
                       <h4>{e.name}</h4>

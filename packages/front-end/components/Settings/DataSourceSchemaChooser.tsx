@@ -1,83 +1,10 @@
-import {
-  DataSourceType,
-  SchemaFormat,
-  SchemaOption,
-} from "back-end/types/datasource";
+import { DataSourceType, SchemaFormat } from "back-end/types/datasource";
 import clsx from "clsx";
 import { FaArrowRight } from "react-icons/fa";
 import { useState } from "react";
 import Field from "../Forms/Field";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
-
-const options: {
-  value: SchemaFormat;
-  label: string;
-  types?: DataSourceType[];
-  options?: SchemaOption[];
-  logo?: string;
-}[] = [
-  {
-    value: "segment",
-    label: "Segment",
-    logo: "/images/3rd-party-logos/segment.png",
-  },
-  {
-    value: "ga4",
-    label: "Google Analytics v4",
-    types: ["bigquery"],
-    logo: "/images/3rd-party-logos/ga4.png",
-  },
-  {
-    value: "amplitude",
-    label: "Amplitude",
-    types: ["snowflake"],
-    logo: "/images/3rd-party-logos/amplitude.png",
-  },
-  {
-    value: "matomo",
-    label: "Matomo",
-    types: ["mysql"],
-    logo: "/images/3rd-party-logos/matomo.png",
-    options: [
-      {
-        name: "tablePrefix",
-        label: "Table prefix",
-        defaultValue: "matomo",
-        type: "text",
-      },
-      {
-        name: "siteId",
-        label: "Site ID",
-        defaultValue: 1,
-        type: "number",
-      },
-      {
-        name: "actionPrefix",
-        label: "Action Value Prefix",
-        defaultValue: "v",
-        type: "text",
-        helpText: "The prefix to use when setting the event action",
-      },
-      {
-        name: "categoryName",
-        label: "Category Name",
-        defaultValue: "ExperimentViewed",
-        type: "text",
-        helpText: "The category name set when the experiment is viewed",
-      },
-    ],
-  },
-  {
-    value: "snowplow",
-    label: "Snowplow",
-    logo: "/images/3rd-party-logos/snowplow.png",
-  },
-  {
-    value: "rudderstack",
-    label: "RudderStack",
-    logo: "/images/3rd-party-logos/rudderstack.png",
-  },
-];
+import { eventSchemas } from "../../services/eventSchema";
 
 export default function DataSourceSchemaChooser({
   format,
@@ -103,7 +30,7 @@ export default function DataSourceSchemaChooser({
         Choose one below.
       </p>
       <div className="d-flex flex-wrap mb-3 align-items-stretch align-middle">
-        {options
+        {eventSchemas
           // Some schemas only work with specific data sources
           .filter((o) => !o.types || o.types.includes(datasource))
           .map(({ value, label, options, logo }, i) => (
@@ -134,7 +61,7 @@ export default function DataSourceSchemaChooser({
                   "ml-auto": i % 2 === 1,
                 })}
                 style={{
-                  minHeight: "80px",
+                  minHeight: "75px",
                   minWidth: "100%",
                   backgroundImage: `url(${logo})`,
                   backgroundSize: "85%",

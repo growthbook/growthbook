@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useState } from "react";
-import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
@@ -19,6 +18,7 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import NewDataSourceForm from "../Settings/NewDataSourceForm";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -106,7 +106,7 @@ const ExperimentsGetStarted = ({
             />
           )}
         {dataSourceOpen && (
-          <DataSourceForm
+          <NewDataSourceForm
             data={{
               name: "My Datasource",
               settings: {},
@@ -119,12 +119,12 @@ const ExperimentsGetStarted = ({
               setDataSourceOpen(false);
               setDataSourceQueriesOpen(true);
             }}
-            importSampleData={
-              !hasDataSource &&
-              allowImport &&
-              !hasSampleExperiment &&
-              importSampleData("datasource-form")
-            }
+            // importSampleData={
+            //   !hasDataSource &&
+            //   allowImport &&
+            //   !hasSampleExperiment &&
+            //   importSampleData("datasource-form")
+            // }
           />
         )}
         {metricsOpen && (

@@ -37,10 +37,19 @@ export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 export type SchemaFormat =
   | "segment"
   | "snowplow"
+  | "jitsu"
+  | "freshpaint"
   | "ga4"
+  | "gaua"
   | "matomo"
+  | "heap"
   | "rudderstack"
   | "amplitude"
+  | "mparticle"
+  | "mixpanel"
+  | "firebase"
+  | "keen"
+  | "clevertap"
   | "custom";
 
 export type SchemaOption = {

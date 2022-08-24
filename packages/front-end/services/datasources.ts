@@ -89,7 +89,8 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const actionName = options.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
     return `SELECT
@@ -106,7 +107,7 @@ const SnowplowSchema: SchemaInterface = {
 FROM
   ${tablePrefix}events
 WHERE
-  se_action = 'Experiment Viewed'
+  se_action = '${actionName}'
   AND ${userCol} is not null
   `;
   },
@@ -165,8 +166,9 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    const eventType = options.eventType || "Experiment Viewed";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -180,7 +182,7 @@ const AmplitudeSchema: SchemaInterface = {
 FROM
   ${tablePrefix}$events
 WHERE
-  event_type = 'Experiment Viewed'
+  event_type = '${eventType}'
   AND ${userCol} is not null
   `;
   },
@@ -209,7 +211,8 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName = options?.exposureTableName || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -230,7 +233,7 @@ const SegmentSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed
+  ${tablePrefix}${exposureTableName}
 WHERE
   ${userId} is not null`;
   },
@@ -259,7 +262,8 @@ FROM
 
 const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName = options?.exposureTableName || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -278,7 +282,7 @@ const RudderstackSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed
+  ${tablePrefix}${exposureTableName}
 WHERE
   ${userId} is not null`;
   },

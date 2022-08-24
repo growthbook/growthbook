@@ -145,6 +145,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
+          {secondaryCTA}
           {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
@@ -156,7 +157,6 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {secondaryCTA}
           {close && (
             <button
               className="btn btn-link"
