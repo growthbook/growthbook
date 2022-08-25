@@ -162,9 +162,19 @@ export default function GuidedGetStarted2({
               {steps[currentStep].titleTwo}
             </span>
           </h1>
-          <p className="m-0" style={{ width: "85%", textAlign: "center" }}>
+          <h5
+            className="m-0"
+            style={{ textAlign: "center", maxWidth: "800px" }}
+          >
             {steps[currentStep].text}
-          </p>
+            {steps[currentStep].learnMoreLink && steps[currentStep].link && (
+              <span>
+                <Link href={steps[currentStep].link}>
+                  <a>{` ${steps[currentStep].learnMoreLink}`}</a>
+                </Link>
+              </span>
+            )}
+          </h5>
           {steps[currentStep].titleOne === "Welcome to " && (
             <Link href="/settings/team">
               <a>Not an engineer? Invite a developer to get started.</a>
@@ -178,7 +188,10 @@ export default function GuidedGetStarted2({
                 <ReactPlayer
                   className="m-2"
                   url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+                  light={true}
+                  playing={true}
                   controls={true}
+                  style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
                 />
                 <button
                   onClick={() => setCurrentStep(currentStep + 1)}
