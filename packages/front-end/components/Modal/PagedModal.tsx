@@ -9,11 +9,11 @@ type Props = {
   submitColor?: string;
   cta?: string;
   closeCta?: string;
-  size?: "md" | "lg" | "max";
+  size?: "md" | "lg" | "max" | "fill";
   navStyle?: "pills" | "underlined" | "tabs" | "default";
   navFill?: boolean;
   inline?: boolean;
-  close: () => void;
+  close?: () => void;
   submit: () => Promise<void>;
   children: ReactNode;
   step: number;
@@ -77,13 +77,16 @@ const PagedModal: FC<Props> = (props) => {
   return (
     <Modal
       inline={inline}
+      size={inline ? "fill" : "lg"}
       open={true}
       {...passThrough}
       submit={async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
-          props.close();
+          if (props.close) {
+            props.close();
+          }
         } else {
           setStep(nextStep);
         }

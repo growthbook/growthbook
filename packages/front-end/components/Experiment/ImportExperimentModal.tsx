@@ -79,7 +79,7 @@ const ImportExperimentModal: FC<{
       inline={inline}
       header="Add Experiment"
       open={true}
-      size="lg"
+      size={inline ? "fill" : "lg"}
       close={showClose && (() => onClose())}
     >
       <div className="alert alert-info">

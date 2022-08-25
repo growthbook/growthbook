@@ -343,11 +343,11 @@ const MetricForm: FC<MetricFormProps> = ({
     <PagedModal
       inline={inline}
       header={edit ? "Edit Metric" : "New Metric"}
-      close={onSuccess ? () => onSuccess() : () => onClose(false)}
+      close={!inline && (onSuccess ? () => onSuccess() : () => onClose(false))}
       submit={onSubmit}
       cta={cta ? cta : "Save"}
-      closeCta="Cancel"
-      size="lg"
+      closeCta={!inline && "Cancel"}
+      size={inline ? "fill" : "lg"}
       step={step}
       setStep={setStep}
     >

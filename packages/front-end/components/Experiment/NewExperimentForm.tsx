@@ -217,11 +217,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     <PagedModal
       inline={inline}
       header={"New Experiment Analysis"}
-      close={onClose}
+      close={!inline && onClose}
       submit={onSubmit}
       cta={"Save"}
-      closeCta="Cancel"
-      size="lg"
+      closeCta={!inline && "Cancel"}
+      size={inline ? "fill" : "lg"}
       step={step}
       setStep={setStep}
     >

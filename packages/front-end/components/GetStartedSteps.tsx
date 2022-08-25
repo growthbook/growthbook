@@ -1,6 +1,6 @@
 import React from "react";
 import { FaCheck } from "react-icons/fa";
-import { Task } from "./GuidedGetStarted2";
+import { Task } from "./GuidedGetStarted";
 
 type Props = {
   currentStep: number | null;

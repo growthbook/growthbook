@@ -359,6 +359,7 @@ const DataSourceForm: FC<{
       close={onCancel}
       header={existing ? "Edit Data Source" : "Add Data Source"}
       cta={cta ? cta : "Save"}
+      size={inline ? "fill" : "lg"}
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">

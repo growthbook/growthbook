@@ -23,6 +23,13 @@ export type Task = {
   learnMoreLink?: string;
   link?: string;
   completed: boolean;
+  feature:
+    | "video"
+    | "sdk"
+    | "feature-flag"
+    | "data-source"
+    | "metric"
+    | "experiment";
 };
 
 type Props = {
@@ -75,6 +82,7 @@ export default function GuidedGetStarted2({
         settings?.videoInstructionsViewed ||
         dismissedSteps["Video: Growthbook 101"],
       cta: "Watch Video",
+      feature: "video",
     },
     {
       titleOne: "Install an ",
@@ -86,6 +94,7 @@ export default function GuidedGetStarted2({
       link: "https://docs.growthbook.io/lib",
       completed:
         settings?.sdkInstructionsViewed || dismissedSteps["Install SDK"],
+      feature: "sdk",
     },
     {
       titleOne: "Create a ",
@@ -96,6 +105,7 @@ export default function GuidedGetStarted2({
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
       completed: features.length > 0 || dismissedSteps["Create a Feature Flag"],
+      feature: "feature-flag",
     },
     {
       titleOne: "Add a ",
@@ -106,6 +116,7 @@ export default function GuidedGetStarted2({
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
       completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
+      feature: "data-source",
     },
     {
       titleOne: "Define a ",
@@ -116,6 +127,7 @@ export default function GuidedGetStarted2({
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
       completed: data?.metrics.length > 0 || dismissedSteps["Define a Metric"],
+      feature: "metric",
     },
     {
       titleOne: "Create an ",
@@ -128,6 +140,7 @@ export default function GuidedGetStarted2({
       completed:
         experiments?.experiments.length > 0 ||
         dismissedSteps["Create an Experiment"],
+      feature: "experiment",
     },
   ];
 
@@ -154,7 +167,7 @@ export default function GuidedGetStarted2({
         currentStep={currentStep}
         steps={steps}
       />
-      <div className="d-flex flex-column">
+      <div className="d-flex flex-column pl-5 pr-5">
         <div className="d-flex flex-column align-items-center p-2">
           <h1>
             <span>{steps[currentStep].titleOne}</span>
@@ -181,31 +194,29 @@ export default function GuidedGetStarted2({
             </Link>
           )}
         </div>
-        <div>
-          {steps[currentStep].titleOne === "Welcome to " && (
+        <div className="d-flex flex-column align-items-center p-4">
+          {steps[currentStep].feature === "video" && (
             <>
-              <div className="d-flex flex-column align-items-center m-2">
-                <ReactPlayer
-                  className="m-2"
-                  url="https://www.youtube.com/watch?v=1ASe3K46BEw"
-                  light={true}
-                  playing={true}
-                  controls={true}
-                  style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
-                />
-                <button
-                  onClick={() => setCurrentStep(currentStep + 1)}
-                  className="btn btn-primary w-25 m-2"
-                >
-                  Next: Install SDK
-                </button>
-                <button className="btn btn-outline-primary w-25 m-2">
-                  Skip Onboarding
-                </button>
-              </div>
+              <ReactPlayer
+                className="mb-4"
+                url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+                light={true}
+                playing={true}
+                controls={true}
+                style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
+              />
+              <button
+                onClick={() => setCurrentStep(currentStep + 1)}
+                className="btn btn-primary w-25 m-2"
+              >
+                Next: Install SDK
+              </button>
+              <button className="btn btn-outline-primary w-25 m-2">
+                Skip Onboarding
+              </button>
             </>
           )}
-          {steps[currentStep].titleOne === "Install an " && (
+          {steps[currentStep].feature === "sdk" && (
             <CodeSnippetModal
               inline={true}
               cta={"Next: Create Feature Flag"}
@@ -214,7 +225,7 @@ export default function GuidedGetStarted2({
               }}
             />
           )}
-          {steps[currentStep].titleOne === "Create a " && (
+          {steps[currentStep].feature === "feature-flag" && (
             <FeatureModal
               inline={true}
               cta={"Next: Add a Data Source"}
@@ -223,7 +234,7 @@ export default function GuidedGetStarted2({
               }}
             />
           )}
-          {steps[currentStep].titleOne === "Add a " && (
+          {steps[currentStep].feature === "data-source" && (
             <DataSourceForm
               data={{
                 name: "My Datasource",
@@ -238,7 +249,7 @@ export default function GuidedGetStarted2({
               }}
             />
           )}
-          {steps[currentStep].titleOne === "Define a " && (
+          {steps[currentStep].feature === "metric" && (
             <MetricForm
               inline={true}
               cta={"Next: Create Experiment"}
@@ -250,7 +261,7 @@ export default function GuidedGetStarted2({
               }}
             />
           )}
-          {steps[currentStep].titleOne === "Create an " && (
+          {steps[currentStep].feature === "experiment" && (
             <ImportExperimentModal
               inline={true}
               source={featureExperiment ? "feature-rule" : "get-started"}

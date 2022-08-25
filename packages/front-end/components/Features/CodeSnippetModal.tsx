@@ -189,7 +189,7 @@ export default function CodeSnippetModal({
       close={!inline && close}
       open={true}
       inline={inline}
-      size="lg"
+      size={inline ? "fill" : "lg"}
       header="Implementation Instructions"
       submit={
         submit
