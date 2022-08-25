@@ -49,9 +49,6 @@ export default function GuidedGetStarted2({
 }: Props) {
   const [currentStep, setCurrentStep] = useState(null);
   const settings = useOrgSettings();
-  const [dismissedSteps] = useState(
-    settings.dismissedGettingStartedSteps || {}
-  );
 
   const { datasources } = useDefinitions();
 
@@ -78,9 +75,7 @@ export default function GuidedGetStarted2({
       titleTwo: "GrowthBook!",
       text:
         "This quick start guide is designed to get you up and running with GrowthBook in ~15 minutes!",
-      completed:
-        settings?.videoInstructionsViewed ||
-        dismissedSteps["Video: Growthbook 101"],
+      completed: settings?.videoInstructionsViewed,
       cta: "Watch Video",
       feature: "video",
     },
@@ -92,8 +87,7 @@ export default function GuidedGetStarted2({
       cta: "View Instructions",
       learnMoreLink: "Learn more about our SDKs.",
       link: "https://docs.growthbook.io/lib",
-      completed:
-        settings?.sdkInstructionsViewed || dismissedSteps["Install SDK"],
+      completed: settings?.sdkInstructionsViewed,
       feature: "sdk",
     },
     {
@@ -104,7 +98,7 @@ export default function GuidedGetStarted2({
       cta: "Create Feature Flag",
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
-      completed: features.length > 0 || dismissedSteps["Create a Feature Flag"],
+      completed: features.length > 0,
       feature: "feature-flag",
     },
     {
@@ -115,7 +109,7 @@ export default function GuidedGetStarted2({
       cta: "Add Data Source",
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
-      completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
+      completed: datasources.length > 0,
       feature: "data-source",
     },
     {
@@ -126,7 +120,7 @@ export default function GuidedGetStarted2({
       cta: "Define a Metric",
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
-      completed: data?.metrics.length > 0 || dismissedSteps["Define a Metric"],
+      completed: data?.metrics.length > 0,
       feature: "metric",
     },
     {
@@ -137,9 +131,7 @@ export default function GuidedGetStarted2({
       cta: "Create Experiment",
       learnMoreLink: "Learn more about experiments.",
       link: "https://docs.growthbook.io/app/experiments",
-      completed:
-        experiments?.experiments.length > 0 ||
-        dismissedSteps["Create an Experiment"],
+      completed: experiments?.experiments.length > 0,
       feature: "experiment",
     },
   ];
