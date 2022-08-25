@@ -19,7 +19,6 @@ const navlinks: SidebarLinkProps[] = [
     href: "/getstarted",
     Icon: BsLightbulb,
     path: /^getstarted/,
-    beta: false,
     className: styles.first,
   },
   {

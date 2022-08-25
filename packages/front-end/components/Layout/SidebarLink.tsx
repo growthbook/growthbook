@@ -8,7 +8,7 @@ import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
 import { Permissions } from "back-end/types/organization";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeature } from "@growthbook/growthbook-react";
 
 export type SidebarLinkProps = {
   name: string;
@@ -29,10 +29,8 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const growthbook = useGrowthBook();
-  const guidedOnboarding = growthbook.feature(
-    "guided-onboarding-test-august-2022"
-  );
+  const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
+  console.log("guidedOnboarding", guidedOnboarding);
   const { permissions, admin } = useUser();
   const router = useRouter();
 
@@ -41,6 +39,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const showSubMenuIcons = true;
 
   const [open, setOpen] = useState(selected);
+
+  console.log("props", props);
 
   if (props.name === "Get Started" && !guidedOnboarding) {
     return null;

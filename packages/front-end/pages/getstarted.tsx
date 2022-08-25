@@ -4,38 +4,14 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
-import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../services/DefinitionsContext";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import GuidedGetStarted from "../components/GuidedGetStarted";
 import { MetricInterface } from "back-end/types/metric";
-
-export type Task = {
-  title: string;
-  text: string;
-  cta: string;
-  learnMoreLink?: string;
-  link?: string;
-  completed: boolean;
-  onClick: (
-    value: boolean | null
-  ) =>
-    | void
-    | Promise<void>
-    | ((value: null | Partial<DimensionInterface>) => void);
-};
-
-export type HelpLink = {
-  title: string;
-  helpText: string;
-  url: string;
-};
+import { useFeature } from "@growthbook/growthbook-react";
 
 const GetStartedPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook();
-  const guidedOnboarding = growthbook.feature(
-    "guided-onboarding-test-august-2022"
-  );
+  const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
+
   const { ready, error: definitionsError } = useDefinitions();
 
   const {
