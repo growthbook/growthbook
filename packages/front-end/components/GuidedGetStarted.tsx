@@ -14,6 +14,8 @@ import ReactPlayer from "react-player";
 import Link from "next/link";
 import LoadingOverlay from "./LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
+import useUser from "../hooks/useUser";
+import { useAuth } from "../services/auth";
 
 export type Task = {
   titleOne: string;
@@ -49,8 +51,9 @@ export default function GuidedGetStarted2({
 }: Props) {
   const [currentStep, setCurrentStep] = useState(null);
   const settings = useOrgSettings();
-
+  const { apiCall } = useAuth();
   const { datasources } = useDefinitions();
+  const { update } = useUser();
 
   // If this is coming from a feature experiment rule
   const featureExperiment = useMemo(() => {
@@ -69,13 +72,25 @@ export default function GuidedGetStarted2({
     }
   }, [router?.query?.featureExperiment]);
 
+  async function updateSettings(stepViewed: string) {
+    await apiCall(`/organization`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          [stepViewed]: true,
+        },
+      }),
+    });
+    await update();
+  }
+
   const steps: Task[] = [
     {
       titleOne: "Welcome to ",
       titleTwo: "GrowthBook!",
       text:
         "This quick start guide is designed to get you up and running with GrowthBook in ~15 minutes!",
-      completed: settings?.videoInstructionsViewed,
+      completed: settings?.videoInstructionsViewed || false,
       cta: "Watch Video",
       feature: "video",
     },
@@ -87,7 +102,7 @@ export default function GuidedGetStarted2({
       cta: "View Instructions",
       learnMoreLink: "Learn more about our SDKs.",
       link: "https://docs.growthbook.io/lib",
-      completed: settings?.sdkInstructionsViewed,
+      completed: settings?.sdkInstructionsViewed || false,
       feature: "sdk",
     },
     {
@@ -198,6 +213,7 @@ export default function GuidedGetStarted2({
                 playing={true}
                 controls={true}
                 style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
+                onClick={() => updateSettings("videoInstructionsViewed")}
               />
               <p style={{ fontWeight: "bold", color: "#1C63EA" }}>
                 Watch a 2-min demo
@@ -217,7 +233,7 @@ export default function GuidedGetStarted2({
             <CodeSnippetModal
               inline={true}
               cta={"Next: Create Feature Flag"}
-              submit={() => {
+              submit={async () => {
                 setCurrentStep(currentStep + 1);
               }}
             />
