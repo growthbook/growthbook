@@ -190,7 +190,9 @@ export default function GuidedGetStarted2({
           </h5>
           {steps[currentStep].titleOne === "Welcome to " && (
             <Link href="/settings/team">
-              <a>Not an engineer? Invite a developer to get started.</a>
+              <a style={{ fontWeight: "bold" }}>
+                Not an engineer? Invite a developer to get started.
+              </a>
             </Link>
           )}
         </div>
@@ -205,6 +207,9 @@ export default function GuidedGetStarted2({
                 controls={true}
                 style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
               />
+              <p style={{ fontWeight: "bold", color: "#1C63EA" }}>
+                Watch a 2-min demo
+              </p>
               <button
                 onClick={() => setCurrentStep(currentStep + 1)}
                 className="btn btn-primary w-25 m-2"
