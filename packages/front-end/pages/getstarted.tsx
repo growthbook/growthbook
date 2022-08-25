@@ -1,15 +1,13 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-// import { MetricInterface } from "back-end/types/metric";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { DimensionInterface } from "back-end/types/dimension";
-// import GuidedGetStarted from "../components/GuidedGetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import GuidedGetStarted2 from "../components/GuidedGetStarted2";
+import GuidedGetStarted from "../components/GuidedGetStarted";
 import { MetricInterface } from "back-end/types/metric";
 
 export type Task = {
@@ -42,7 +40,6 @@ const GetStartedPage = (): React.ReactElement => {
 
   const {
     data: experiments,
-    // mutate,
     error: experimentsError,
     mutate: mutateExperiments,
   } = useApi<{
@@ -70,7 +67,7 @@ const GetStartedPage = (): React.ReactElement => {
 
   if (guidedOnboarding) {
     return (
-      <GuidedGetStarted2
+      <GuidedGetStarted
         experiments={experiments}
         features={features}
         data={data}
