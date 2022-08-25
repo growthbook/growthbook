@@ -13,6 +13,7 @@ import DataSourceForm from "./Settings/DataSourceForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import LoadingOverlay from "./LoadingOverlay";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 export type Task = {
   titleOne: string;
@@ -32,7 +33,6 @@ type Props = {
   data?: {
     metrics: MetricInterface[];
   };
-  mutate?: () => void;
 };
 
 export default function GuidedGetStarted2({
@@ -45,6 +45,8 @@ export default function GuidedGetStarted2({
   const [dismissedSteps] = useState(
     settings.dismissedGettingStartedSteps || {}
   );
+
+  const { datasources } = useDefinitions();
 
   // If this is coming from a feature experiment rule
   const featureExperiment = useMemo(() => {
@@ -103,8 +105,7 @@ export default function GuidedGetStarted2({
       cta: "Add Data Source",
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
-      completed: false,
-      // completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
+      completed: datasources.length > 0 || dismissedSteps["Add a Data Source"],
     },
     {
       titleOne: "Define a ",
@@ -132,13 +133,13 @@ export default function GuidedGetStarted2({
 
   useEffect(() => {
     function setInitialStep() {
-      steps.map((step, index) => {
-        if (!step.completed) {
-          setCurrentStep(index);
-        } else {
-          setCurrentStep(0);
-        }
-      });
+      const initialStep = steps.findIndex((step) => step.completed === false);
+
+      if (initialStep >= 0) {
+        setCurrentStep(initialStep);
+      } else {
+        setCurrentStep(0);
+      }
     }
 
     setInitialStep();
@@ -173,20 +174,19 @@ export default function GuidedGetStarted2({
         <div>
           {steps[currentStep].titleOne === "Welcome to " && (
             <>
-              <div className="d-flex justify-content-center m-2">
+              <div className="d-flex flex-column align-items-center m-2">
                 <ReactPlayer
+                  className="m-2"
                   url="https://www.youtube.com/watch?v=1ASe3K46BEw"
                   controls={true}
                 />
-              </div>
-              <div className="d-flex flex-column align-items-center">
                 <button
                   onClick={() => setCurrentStep(currentStep + 1)}
-                  className="btn btn-primary w-50 m-2"
+                  className="btn btn-primary w-25 m-2"
                 >
                   Next: Install SDK
                 </button>
-                <button className="btn btn-outline-primary w-50 m-2">
+                <button className="btn btn-outline-primary w-25 m-2">
                   Skip Onboarding
                 </button>
               </div>

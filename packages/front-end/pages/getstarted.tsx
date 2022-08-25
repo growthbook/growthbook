@@ -74,9 +74,7 @@ const GetStartedPage = (): React.ReactElement => {
         experiments={experiments}
         features={features}
         data={data}
-        // mutate={mutate}
       />
-      // <div>Hi</div>
     );
   } else {
     return (
