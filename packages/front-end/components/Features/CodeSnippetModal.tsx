@@ -83,10 +83,16 @@ export default function CodeSnippetModal({
   close,
   featureId = "my-feature",
   defaultLanguage = "javascript",
+  inline,
+  cta,
+  submit,
 }: {
-  close: () => void;
+  close?: () => void;
   featureId?: string;
   defaultLanguage?: Language;
+  inline?: boolean;
+  cta?: string;
+  submit?: () => void;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const permissions = usePermissions();
@@ -180,14 +186,19 @@ export default function CodeSnippetModal({
 
   return (
     <Modal
-      close={close}
+      close={!inline && close}
       open={true}
+      inline={inline}
       size="lg"
       header="Implementation Instructions"
-      submit={async () => {
-        return;
-      }}
-      cta={"Finish"}
+      submit={
+        submit
+          ? submit
+          : () => {
+              return;
+            }
+      }
+      cta={cta ? cta : "Finish"}
     >
       {apiKey && (
         <>

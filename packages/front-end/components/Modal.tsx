@@ -20,7 +20,7 @@ type ModalProps = {
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
-  submit?: () => Promise<void>;
+  submit?: () => void; //TODO: Make sure removing the Promise here doesn't introduce regressions.
   secondaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;

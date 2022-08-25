@@ -29,6 +29,7 @@ const PagedModal: FC<Props> = (props) => {
     navStyle,
     navFill,
     cta,
+    inline,
     ...passThrough
   } = props;
 
@@ -75,6 +76,7 @@ const PagedModal: FC<Props> = (props) => {
 
   return (
     <Modal
+      inline={inline}
       open={true}
       {...passThrough}
       submit={async () => {

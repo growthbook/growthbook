@@ -31,8 +31,10 @@ import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
 
 export type Props = {
-  close: () => void;
-  onSuccess: (feature: FeatureInterface) => Promise<void>;
+  close?: () => void;
+  onSuccess: (feature?: FeatureInterface) => Promise<void>;
+  inline?: boolean;
+  cta?: string;
 };
 
 function parseDefaultValue(
@@ -55,7 +57,7 @@ function parseDefaultValue(
   }
 }
 
-export default function FeatureModal({ close, onSuccess }: Props) {
+export default function FeatureModal({ close, onSuccess, inline, cta }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
 
@@ -98,10 +100,11 @@ export default function FeatureModal({ close, onSuccess }: Props) {
 
   return (
     <Modal
+      inline={inline}
       open={true}
       size="lg"
       header="Create Feature"
-      cta="Create"
+      cta={cta || "Create"}
       close={close}
       submit={form.handleSubmit(async (values) => {
         const { rule, defaultValue, ...feature } = values;
@@ -150,7 +153,11 @@ export default function FeatureModal({ close, onSuccess }: Props) {
         refreshTags(values.tags);
         refreshWatching();
 
-        await onSuccess(res.feature);
+        if (cta === "Next: Add a Data Source") {
+          await onSuccess();
+        } else {
+          await onSuccess(res.feature);
+        }
       })}
     >
       <Field

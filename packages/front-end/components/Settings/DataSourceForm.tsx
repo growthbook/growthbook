@@ -142,10 +142,21 @@ const DataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
   source: string;
-  onCancel: () => void;
-  onSuccess: (id: string) => Promise<void>;
+  onCancel?: () => void;
+  onSuccess: (id?: string) => Promise<void>;
   importSampleData?: () => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
+  inline?: boolean;
+  cta?: string;
+}> = ({
+  data,
+  onSuccess,
+  onCancel,
+  source,
+  existing,
+  importSampleData,
+  inline,
+  cta,
+}) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -342,11 +353,12 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      inline={inline}
       open={true}
       submit={handleSubmit}
       close={onCancel}
       header={existing ? "Edit Data Source" : "Add Data Source"}
-      cta="Save"
+      cta={cta ? cta : "Save"}
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">

@@ -36,8 +36,11 @@ export type MetricFormProps = {
   current: Partial<MetricInterface>;
   edit: boolean;
   source: string;
-  onClose: (refresh?: boolean) => void;
+  onClose?: (refresh?: boolean) => void;
   advanced?: boolean;
+  inline?: boolean;
+  cta?: string;
+  onSuccess?: () => void;
 };
 
 function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
@@ -142,6 +145,9 @@ const MetricForm: FC<MetricFormProps> = ({
   source,
   initialStep = 0,
   advanced = false,
+  inline,
+  cta,
+  onSuccess,
 }) => {
   const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
@@ -321,7 +327,11 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: value.userIdTypes.join(", "),
     });
 
-    onClose(true);
+    if (cta === "Next: Create Experiment") {
+      onSuccess();
+    } else {
+      onClose(true);
+    }
   });
 
   const riskError =
@@ -331,10 +341,11 @@ const MetricForm: FC<MetricFormProps> = ({
 
   return (
     <PagedModal
+      inline={inline}
       header={edit ? "Edit Metric" : "New Metric"}
-      close={() => onClose(false)}
+      close={onSuccess ? () => onSuccess() : () => onClose(false)}
       submit={onSubmit}
-      cta="Save"
+      cta={cta ? cta : "Save"}
       closeCta="Cancel"
       size="lg"
       step={step}

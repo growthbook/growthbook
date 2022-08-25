@@ -7,17 +7,22 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useAuth } from "../../services/auth";
 
 const ImportExperimentModal: FC<{
-  onClose: () => void;
+  onClose?: () => void;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   importMode?: boolean;
   source?: string;
   fromFeature?: boolean;
+  inline?: boolean;
+  cta?: string;
+  showClose?: boolean;
 }> = ({
   onClose,
   initialValue,
   importMode = true,
   source,
   fromFeature = false,
+  inline,
+  showClose,
 }) => {
   const { datasources } = useDefinitions();
   const [
@@ -59,6 +64,7 @@ const ImportExperimentModal: FC<{
   if (selected || !importModal || !datasourceId) {
     return (
       <NewExperimentForm
+        inline={inline}
         initialValue={selected}
         onClose={() => onClose()}
         source={source}
@@ -70,10 +76,11 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
+      inline={inline}
       header="Add Experiment"
       open={true}
       size="lg"
-      close={() => onClose()}
+      close={showClose && (() => onClose())}
     >
       <div className="alert alert-info">
         Prefer to start with a blank experiment instead?{" "}
