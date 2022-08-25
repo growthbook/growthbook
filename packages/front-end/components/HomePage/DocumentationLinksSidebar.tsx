@@ -4,6 +4,7 @@ import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
 import usePermissions from "../../hooks/usePermissions";
 import track from "../../services/track";
+import { DocLink } from "../DocLink";
 
 export default function DocumentationLinksSidebar({
   showVisualEditor = false,
@@ -22,13 +23,9 @@ export default function DocumentationLinksSidebar({
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Read our{" "}
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://docs.growthbook.io/app"
-              >
-                <strong>User Guide</strong>
-              </a>
+              <DocLink docSection="user_guide" className="font-weight-bold">
+                User Guide
+              </DocLink>
             </div>
           </div>
           <div className="d-flex flex-row">
@@ -51,13 +48,9 @@ export default function DocumentationLinksSidebar({
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               View docs for our{" "}
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://docs.growthbook.io/lib"
-              >
-                <strong>SDKs</strong>
-              </a>
+              <DocLink docSection="sdks" className="font-weight-bold">
+                SDKs
+              </DocLink>
             </div>
           </div>
           <div className="d-flex flex-row">

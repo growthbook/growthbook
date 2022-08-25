@@ -81,6 +81,7 @@ export interface ExposureQuery {
   description?: string;
   userIdType: string;
   query: string;
+  hasNameCol?: boolean;
   dimensions: string[];
 }
 
