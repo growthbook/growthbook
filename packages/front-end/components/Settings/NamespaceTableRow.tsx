@@ -1,6 +1,6 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
-import React, { useState } from "react";
+import { useState } from "react";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 import DeleteButton from "../DeleteButton";
