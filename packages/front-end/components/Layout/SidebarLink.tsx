@@ -40,8 +40,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const [open, setOpen] = useState(selected);
 
-  console.log("props", props);
-
   if (props.name === "Get Started" && !guidedOnboarding) {
     return null;
   }

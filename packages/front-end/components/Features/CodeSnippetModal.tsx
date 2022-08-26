@@ -186,7 +186,7 @@ export default function CodeSnippetModal({
 
   return (
     <Modal
-      close={!inline && close}
+      close={!inline && close && (() => close())}
       open={true}
       inline={inline}
       size={inline ? "fill" : "lg"}

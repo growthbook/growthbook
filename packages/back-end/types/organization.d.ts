@@ -101,7 +101,6 @@ export interface OrganizationSettings {
   environments?: Environment[];
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
-  pluginInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];

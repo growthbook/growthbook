@@ -18,8 +18,8 @@ import useUser from "../hooks/useUser";
 import { useAuth } from "../services/auth";
 
 export type Task = {
-  titleOne: string;
-  titleTwo: string;
+  blackTitle: string;
+  purpleTitle: string;
   text: string;
   cta: string;
   learnMoreLink?: string;
@@ -86,8 +86,8 @@ export default function GuidedGetStarted2({
 
   const steps: Task[] = [
     {
-      titleOne: "Welcome to ",
-      titleTwo: "GrowthBook!",
+      blackTitle: "Welcome to ",
+      purpleTitle: "GrowthBook!",
       text:
         "This quick start guide is designed to get you up and running with GrowthBook in ~15 minutes!",
       completed: settings?.videoInstructionsViewed || false,
@@ -95,8 +95,8 @@ export default function GuidedGetStarted2({
       feature: "video",
     },
     {
-      titleOne: "Install an ",
-      titleTwo: "SDK",
+      blackTitle: "Install an ",
+      purpleTitle: "SDK",
       text:
         "Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!",
       cta: "View Instructions",
@@ -106,8 +106,8 @@ export default function GuidedGetStarted2({
       feature: "sdk",
     },
     {
-      titleOne: "Create a ",
-      titleTwo: "Feature Flag",
+      blackTitle: "Create a ",
+      purpleTitle: "Feature Flag",
       text:
         "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
       cta: "Create Feature Flag",
@@ -117,8 +117,8 @@ export default function GuidedGetStarted2({
       feature: "feature-flag",
     },
     {
-      titleOne: "Add a ",
-      titleTwo: "Data Source",
+      blackTitle: "Add a ",
+      purpleTitle: "Data Source",
       text:
         "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
       cta: "Add Data Source",
@@ -128,8 +128,8 @@ export default function GuidedGetStarted2({
       feature: "data-source",
     },
     {
-      titleOne: "Define a ",
-      titleTwo: "Metric",
+      blackTitle: "Define a ",
+      purpleTitle: "Metric",
       text:
         "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
       cta: "Define a Metric",
@@ -139,8 +139,8 @@ export default function GuidedGetStarted2({
       feature: "metric",
     },
     {
-      titleOne: "Create an ",
-      titleTwo: "Experiment",
+      blackTitle: "Create an ",
+      purpleTitle: "Experiment",
       text:
         "Import an existing experiment from your data source or create a new draft from scratch.",
       cta: "Create Experiment",
@@ -177,9 +177,9 @@ export default function GuidedGetStarted2({
       <div className="d-flex flex-column pl-5 pr-5">
         <div className="d-flex flex-column align-items-center p-2">
           <h1>
-            <span>{steps[currentStep].titleOne}</span>
+            <span>{steps[currentStep].blackTitle}</span>
             <span style={{ color: "#7C45E9", fontWeight: "bold" }}>
-              {steps[currentStep].titleTwo}
+              {steps[currentStep].purpleTitle}
             </span>
           </h1>
           <h5
@@ -195,7 +195,7 @@ export default function GuidedGetStarted2({
               </span>
             )}
           </h5>
-          {steps[currentStep].titleOne === "Welcome to " && (
+          {steps[currentStep].blackTitle === "Welcome to " && (
             <Link href="/settings/team">
               <a style={{ fontWeight: "bold" }}>
                 Not an engineer? Invite a developer to get started.
@@ -280,7 +280,6 @@ export default function GuidedGetStarted2({
               source={featureExperiment ? "feature-rule" : "get-started"}
               initialValue={featureExperiment}
               fromFeature={!!featureExperiment}
-              showClose={false}
             />
           )}
         </div>

@@ -14,7 +14,6 @@ const ImportExperimentModal: FC<{
   fromFeature?: boolean;
   inline?: boolean;
   cta?: string;
-  showClose?: boolean;
 }> = ({
   onClose,
   initialValue,
@@ -22,7 +21,6 @@ const ImportExperimentModal: FC<{
   source,
   fromFeature = false,
   inline,
-  showClose,
 }) => {
   const { datasources } = useDefinitions();
   const [
@@ -80,7 +78,7 @@ const ImportExperimentModal: FC<{
       header="Add Experiment"
       open={true}
       size={inline ? "fill" : "lg"}
-      close={showClose && (() => onClose())}
+      close={!inline && onClose && (() => onClose())}
     >
       <div className="alert alert-info">
         Prefer to start with a blank experiment instead?{" "}
