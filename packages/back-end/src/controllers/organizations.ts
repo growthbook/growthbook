@@ -585,32 +585,48 @@ export async function postNamespaces(
     },
   });
 
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(namespaces, [
+      ...namespaces,
+      { name, description, status },
+    ]),
+  });
+
   res.status(200).json({
     status: 200,
   });
 }
 
 export async function putNamespaces(
-  req: AuthRequest<{
-    name: string;
-    description: string;
-    status: "active" | "inactive";
-  }>,
+  req: AuthRequest<
+    {
+      name: string;
+      description: string;
+      status: "active" | "inactive";
+    },
+    { name: string }
+  >,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
 
   const { name, description, status } = req.body;
+  const originalName = req.params.name;
   const { org } = getOrgFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
 
   // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === name).length === 0) {
+  if (namespaces.filter((n) => n.name === originalName).length === 0) {
     throw new Error("Namespace not found.");
   }
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === name) {
+    if (n.name === originalName) {
       return { name, description, status };
     }
     return n;
@@ -621,6 +637,15 @@ export async function putNamespaces(
       ...org.settings,
       namespaces: updatedNamespaces,
     },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(namespaces, updatedNamespaces),
   });
 
   res.status(200).json({
@@ -652,6 +677,15 @@ export async function deleteNamespace(
       ...org.settings,
       namespaces: updatedNamespaces,
     },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(namespaces, updatedNamespaces),
   });
 
   res.status(200).json({

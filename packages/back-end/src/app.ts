@@ -357,7 +357,10 @@ app.post(
 );
 app.get("/organization/namespaces", organizationsController.getNamespaces);
 app.post("/organization/namespaces", organizationsController.postNamespaces);
-app.put("/organization/namespaces", organizationsController.putNamespaces);
+app.put(
+  "/organization/namespaces/:name",
+  organizationsController.putNamespaces
+);
 app.delete(
   "/organization/namespaces/:name",
   organizationsController.deleteNamespace
