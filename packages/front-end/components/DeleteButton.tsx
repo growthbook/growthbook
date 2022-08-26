@@ -74,7 +74,8 @@ const DeleteButton: FC<{
           setConfirming(true);
         }}
       >
-        {useIcon && <FaTrash />} {text}
+        {useIcon && <FaTrash />}
+        {text && ` ${text}`}
       </a>
     </>
   );

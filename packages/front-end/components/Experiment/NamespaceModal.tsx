@@ -15,6 +15,7 @@ export default function NamespaceModal({
     defaultValues: {
       name: "",
       description: "",
+      status: "active",
     },
   });
   const { apiCall } = useAuth();

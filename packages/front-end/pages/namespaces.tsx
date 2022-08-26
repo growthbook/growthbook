@@ -8,6 +8,7 @@ import { NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useUser from "../hooks/useUser";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
+import { useAuth } from "../services/auth";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -20,9 +21,8 @@ const NamespacesPage: FC = () => {
 
   const { update } = useUser();
   const { namespaces } = useOrgSettings();
-
-  //const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
+  const { apiCall } = useAuth();
 
   if (error) {
     return (
@@ -59,6 +59,7 @@ const NamespacesPage: FC = () => {
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -68,6 +69,24 @@ const NamespacesPage: FC = () => {
                   key={ns.name}
                   usage={data.namespaces}
                   namespace={ns}
+                  onDelete={async () => {
+                    await apiCall(`/organization/namespaces/${ns.name}`, {
+                      method: "DELETE",
+                    });
+                    await update();
+                  }}
+                  onArchive={async () => {
+                    const newNamespace = {
+                      name: ns.name,
+                      description: ns.description,
+                      status: ns?.status === "inactive" ? "active" : "inactive",
+                    };
+                    await apiCall(`/organization/namespaces`, {
+                      method: "PUT",
+                      body: JSON.stringify(newNamespace),
+                    });
+                    await update();
+                  }}
                 />
               );
             })}
