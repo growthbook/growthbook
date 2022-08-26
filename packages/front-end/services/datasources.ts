@@ -15,6 +15,15 @@ function safeTableName(name: string) {
     .replace(/[^-a-zA-Z0-9_]+/g, "");
 }
 
+function camelToUnderscore(orig) {
+  return orig
+    .replace(/\s+/g, "_")
+    .replace(/([A-Z]+)([A-Z][a-z])/, "$1_$2")
+    .replace(/([a-z\d])([A-Z])/, "$1_$2")
+    .replace("-", "_")
+    .toLowerCase();
+}
+
 const GA4Schema: SchemaInterface = {
   experimentDimensions: [
     "country",
@@ -212,7 +221,8 @@ WHERE
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const exposureTableName = options?.exposureTableName || "experiment_viewed";
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -263,7 +273,8 @@ FROM
 const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const exposureTableName = options?.exposureTableName || "experiment_viewed";
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
