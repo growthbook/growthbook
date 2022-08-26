@@ -26,9 +26,9 @@ const EnvironmentsPage: FC = () => {
   data?.keys.forEach((k) => {
     if (k.environment) {
       apiKeysPerEnv.set(
-        k.environment,
-        apiKeysPerEnv.has(k.environment)
-          ? apiKeysPerEnv.get(k.environment) + 1
+        k.environment.toLowerCase(),
+        apiKeysPerEnv.has(k.environment.toLowerCase())
+          ? apiKeysPerEnv.get(k.environment.toLowerCase()) + 1
           : 1
       );
     }
