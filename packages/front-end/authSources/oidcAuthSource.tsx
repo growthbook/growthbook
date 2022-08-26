@@ -9,9 +9,37 @@ import {
   isCloud,
 } from "../services/env";
 import { UserManager, User } from "oidc-client-ts";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionParams } from "back-end/types/sso-connection";
 
-export async function getSSOConnection(): Promise<SSOConnectionInterface> {
+export async function lookupByEmail(email: string) {
+  if (!isCloud()) {
+    throw new Error("Only available on GrowthBook Cloud");
+  }
+
+  const domain = email.split("@")[1];
+  if (!domain) {
+    throw new Error("Please enter a valid email address");
+  }
+  const res = await window.fetch(`${getApiHost()}/auth/sso`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      domain,
+    }),
+  });
+  const json: { message?: string; ssoConnectionId?: string } = await res.json();
+  if (!json?.ssoConnectionId) {
+    throw new Error(
+      json?.message || "No SSO Connection found for that email address."
+    );
+  }
+
+  setLastSSOConnectionId(json.ssoConnectionId);
+}
+
+export async function getSSOConnection(): Promise<SSOConnectionParams> {
   // Self-hosted SSO from env variables
   if (!isCloud()) {
     const ssoConnection = getSelfHostedSSOConnection();
@@ -28,22 +56,17 @@ export async function getSSOConnection(): Promise<SSOConnectionInterface> {
       const res = await window.fetch(
         `${getApiHost()}/auth/sso/${ssoConnectionId}`
       );
-      if (!res.ok) {
-        throw new Error("Failed to fetch SSO connection");
-      }
-      const json: SSOConnectionInterface = await res.json();
-      if (!json) {
-        throw new Error("Invalid SSO connection response");
-      }
 
-      const { authority, clientId } = json;
-      if (!authority || !clientId) {
-        throw new Error("Invalid SSO connection data");
+      const json: {
+        message?: string;
+        params?: SSOConnectionParams;
+      } = await res.json();
+      if (!json?.params) {
+        throw new Error(json?.message || "Failed to fetch SSO connection");
       }
-
-      setLastSSOConnectionId(ssoConnectionId);
-
-      return { authority, clientId, id: ssoConnectionId };
+      const params = json.params;
+      setLastSSOConnectionId(params.id);
+      return params;
     } catch (e) {
       setLastSSOConnectionId("");
       throw e;
@@ -52,6 +75,7 @@ export async function getSSOConnection(): Promise<SSOConnectionInterface> {
 
   // Default Cloud SSO
   return {
+    id: "gbcloud",
     authority: "https://growthbook.auth0.com",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
   };

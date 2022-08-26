@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+import {
+  SSOConnectionInterface,
+  SSOConnectionParams,
+} from "../../types/sso-connection";
 
 const ssoConnectionSchema = new mongoose.Schema({
   id: {
@@ -43,4 +46,14 @@ export async function getSSOConnectionByEmailDomain(
   const doc = await SSOConnectionModel.findOne({ emailDomain });
 
   return doc ? doc.toJSON() : null;
+}
+
+export function getSSOConnectionParams(
+  connection: SSOConnectionInterface
+): SSOConnectionParams {
+  return {
+    id: connection.id || "",
+    authority: connection.authority,
+    clientId: connection.clientId,
+  };
 }

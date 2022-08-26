@@ -65,9 +65,8 @@ export const UserContext = createContext<UserContextValue>({
 
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
-  preAuth: boolean;
   children: ReactNode;
-}> = ({ children, organizationRequired, preAuth }) => {
+}> = ({ children, organizationRequired }) => {
   const {
     loading,
     isAuthenticated,
@@ -140,14 +139,14 @@ const ProtectedPage: React.FC<{
 
   // Initial authentication
   useEffect(() => {
-    if (loading || isAuthenticated || preAuth) {
+    if (loading || isAuthenticated) {
       return;
     }
     const fn = async () => {
       await login();
     };
     fn();
-  }, [loading, isAuthenticated, preAuth, login]);
+  }, [loading, isAuthenticated, login]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {
@@ -172,11 +171,6 @@ const ProtectedPage: React.FC<{
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
-
-  // This page is before the user is authenticated (e.g. reset password)
-  if (preAuth) {
-    return <>{children}</>;
-  }
 
   if (error) {
     return (

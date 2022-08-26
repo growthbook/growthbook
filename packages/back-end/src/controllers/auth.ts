@@ -33,6 +33,7 @@ import { JWT_SECRET } from "../util/secrets";
 import {
   getSSOConnectionByEmailDomain,
   getSSOConnectionById,
+  getSSOConnectionParams,
 } from "../models/SSOConnectionModel";
 
 function generateJWT(userId: string) {
@@ -261,7 +262,7 @@ export async function getSSOConnection(
 
   return res.status(200).json({
     status: 200,
-    ssoConnection: sso,
+    params: getSSOConnectionParams(sso),
   });
 }
 
@@ -276,7 +277,7 @@ export async function getSSOConnectionFromDomain(req: Request, res: Response) {
 
   return res.status(200).json({
     status: 200,
-    ssoConnection: sso,
+    ssoConnectionId: sso.id || "",
   });
 }
 

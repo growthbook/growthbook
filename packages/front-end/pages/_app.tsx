@@ -77,21 +77,22 @@ function App({
       {ready ? (
         <AuthProvider>
           <GrowthBookProvider growthbook={growthbook}>
-            <ProtectedPage
-              organizationRequired={organizationRequired}
-              preAuth={preAuth}
-            >
-              {organizationRequired && !preAuth ? (
-                <DefinitionsProvider>
-                  <Layout />
-                  <main className={`main ${parts[0]}`}>
-                    <Component {...pageProps} />
-                  </main>
-                </DefinitionsProvider>
-              ) : (
-                <Component {...pageProps} />
-              )}
-            </ProtectedPage>
+            {preAuth ? (
+              <Component {...pageProps} />
+            ) : (
+              <ProtectedPage organizationRequired={organizationRequired}>
+                {organizationRequired ? (
+                  <DefinitionsProvider>
+                    <Layout />
+                    <main className={`main ${parts[0]}`}>
+                      <Component {...pageProps} />
+                    </main>
+                  </DefinitionsProvider>
+                ) : (
+                  <Component {...pageProps} />
+                )}
+              </ProtectedPage>
+            )}
           </GrowthBookProvider>
         </AuthProvider>
       ) : error ? (

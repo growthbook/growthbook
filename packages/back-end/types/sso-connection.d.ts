@@ -7,3 +7,9 @@ export interface SSOConnectionInterface {
   authority: string;
   clientId: string;
 }
+
+export interface SSOConnectionParams {
+  id: string;
+  authority: string;
+  clientId: string;
+}
