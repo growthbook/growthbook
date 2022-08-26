@@ -30,7 +30,6 @@ export type SidebarLinkProps = {
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
-  console.log("guidedOnboarding", guidedOnboarding);
   const { permissions, admin } = useUser();
   const router = useRouter();
 
