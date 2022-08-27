@@ -9,11 +9,7 @@ import jwt from "express-jwt";
 import jwks from "jwks-rsa";
 import { NextFunction, Request, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import {
-  markUserAsVerified,
-  UserDocument,
-  UserModel,
-} from "../models/UserModel";
+import { markUserAsVerified, UserModel } from "../models/UserModel";
 import {
   getDefaultPermissions,
   getOrganizationById,
@@ -22,9 +18,10 @@ import {
   validateLogin,
 } from "./organizations";
 import { MemberRole } from "../../types/organization";
+import { UserInterface } from "../../types/user";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
-import { getUserByEmail, getUserById } from "./users";
+import { getUserByEmail } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
 import { Issuer, Client } from "openid-client";
 import { SSOConnectionInterface } from "../../types/sso-connection";
@@ -35,6 +32,13 @@ type JWTInfo = {
   verified?: boolean;
   name?: string;
   method?: string;
+};
+
+type IdToken = {
+  email?: string;
+  email_verified?: boolean;
+  given_name?: string;
+  sub?: string;
 };
 
 // Self-hosted deployments use local auth
@@ -50,10 +54,14 @@ function getLocalJWTCheck() {
     algorithms: ["HS256"],
   });
 }
-async function getUserFromLocalJWT(user: {
-  sub: string;
-}): Promise<UserDocument | null> {
-  return getUserById(user.sub);
+
+async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
+  if (!token.email) {
+    throw new Error("Id token does not contain email address");
+  }
+  const user = await getUserByEmail(String(token.email));
+  if (!user) return null;
+  return user.toJSON();
 }
 
 function getOpenIdJWTCheck() {
@@ -66,33 +74,14 @@ function getOpenIdJWTCheck() {
   };
 }
 
-async function getUserFromEmail(email: string): Promise<UserDocument | null> {
-  if (!email) {
-    throw new Error("Missing email address in authentication token");
-  }
-  return getUserByEmail(email);
-}
+function getInitialDataFromJWT(user: IdToken): JWTInfo {
+  const method = IS_CLOUD ? user.sub?.split("|")[0] || "" : "local";
 
-function getInitialDataFromJWT(user: {
-  ["https://growthbook.io/email"]?: string;
-  ["https://growthbook.io/fname"]?: string;
-  ["https://growthbook.io/verified"]?: boolean;
-  sub?: string;
-}): JWTInfo {
-  if (!IS_CLOUD) {
-    return {
-      verified: false,
-      method: "local",
-    };
-  }
-
-  const sub = user["sub"] || "";
-  const method = sub.split("|")[0] || "";
   return {
-    email: user["https://growthbook.io/email"] || "",
-    name: user["https://growthbook.io/fname"] || "",
-    verified: user["https://growthbook.io/verified"] || false,
+    verified: user.email_verified || false,
     method,
+    email: user.email || "",
+    name: user.given_name || "",
   };
 }
 
@@ -129,9 +118,7 @@ export async function processJWT(
     }
   };
 
-  const user = await (IS_CLOUD
-    ? getUserFromEmail(req.email)
-    : getUserFromLocalJWT(req.user));
+  const user = await getUserFromJWT(req.user);
 
   if (user) {
     req.email = user.email;
@@ -264,7 +251,7 @@ async function getOpenIdMiddleware(req: Request) {
 
   const jwksUri = client.issuer.metadata.jwks_uri;
   const algorithms =
-    client.issuer.metadata.token_endpoint_auth_signing_alg_values_supported;
+    client.issuer.metadata.id_token_signing_alg_values_supported;
 
   if (!jwksUri || !algorithms) {
     throw new Error("Missing required jwksUri and token id signing algorithms");
@@ -277,7 +264,7 @@ async function getOpenIdMiddleware(req: Request) {
       jwksRequestsPerMinute: 5,
       jwksUri,
     }),
-    audience: "https://api.growthbook.io",
+    audience: ssoConnection.clientId,
     issuer: client.issuer.metadata.issuer,
     algorithms,
   });

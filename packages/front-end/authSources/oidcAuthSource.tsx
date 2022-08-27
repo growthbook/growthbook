@@ -84,12 +84,27 @@ export async function getSSOConnection(): Promise<SSOConnectionParams> {
 let userManager: UserManager, ssoConnectionId: string;
 async function getUserManager() {
   if (!userManager) {
+    let screen = "login";
+    try {
+      if (window.localStorage.getItem("gb_current_project") === null) {
+        screen = "signup";
+      }
+    } catch (e) {
+      // ignore
+    }
+
     const config = await getSSOConnection();
     ssoConnectionId = config.id;
     userManager = new UserManager({
       authority: config.authority,
       client_id: config.clientId,
       redirect_uri: window.location.origin,
+      silentRequestTimeoutInSeconds: 3,
+      scope: "openid profile email",
+      extraQueryParams: {
+        screen_hint: screen,
+        audience: "https://api.growthbook.io",
+      },
     });
   }
   return userManager;
@@ -100,27 +115,28 @@ const oidcAuthSource: AuthSource = {
   init: async (router) => {
     const userManager = await getUserManager();
 
-    console.log(router);
-
     // If we were just redirected back to the app from the SSO provider
-    if (router.asPath === "/oauth/callback") {
-      const user = await userManager.signinCallback();
-      if (user) {
-        currentUser = user;
-        const state: { as?: string } = user.state;
-        console.log(state);
-        if (state.as) {
-          router.replace(state.as, state.as, { shallow: true });
+    if (router.query["code"]) {
+      try {
+        const user = await userManager.signinCallback();
+        if (user) {
+          currentUser = user;
+          const state: { as?: string } = user.state;
+          if (state.as) {
+            router.replace(state.as, state.as, { shallow: true });
+          }
         }
+      } catch (e) {
+        console.error("signinCallback error", e);
       }
     } else {
-      const user = await userManager.signinSilent({
-        extraTokenParams: {
-          scope: "openid email profile",
-        },
-      });
-      if (user) {
-        currentUser = user;
+      try {
+        const user = await userManager.signinSilent({});
+        if (user) {
+          currentUser = user;
+        }
+      } catch (e) {
+        console.error("signinSilent error", e);
       }
     }
 
@@ -129,20 +145,8 @@ const oidcAuthSource: AuthSource = {
     };
   },
   login: async ({ router }) => {
-    let screen = "login";
-    try {
-      if (window.localStorage.getItem("gb_current_project") === null) {
-        screen = "signup";
-      }
-    } catch (e) {
-      // ignore
-    }
-
     const userManager = await getUserManager();
     await userManager.signinRedirect({
-      extraQueryParams: {
-        screen_hint: screen,
-      },
       state: {
         as: router.asPath,
       },
@@ -155,7 +159,7 @@ const oidcAuthSource: AuthSource = {
     await userManager.signoutRedirect();
   },
   getJWT: async () => {
-    return currentUser?.access_token || "";
+    return currentUser?.id_token || "";
   },
   getAuthSourceId: () => {
     return ssoConnectionId || "";

@@ -35,29 +35,38 @@ import {
   getSSOConnectionById,
   getSSOConnectionParams,
 } from "../models/SSOConnectionModel";
+import { UserInterface } from "../../types/user";
 
-function generateJWT(userId: string) {
+function generateJWT(user: UserInterface) {
   return jwt.sign(
     {
       scope: "profile openid email",
+      sub: user.id,
+      email: user.email,
+      given_name: user.name,
+      email_verified: false,
     },
     JWT_SECRET,
     {
       algorithm: "HS256",
       audience: "https://api.growthbook.io",
       issuer: "https://api.growthbook.io",
-      subject: userId,
+      subject: user.id,
       // 30 minutes
       expiresIn: 1800,
     }
   );
 }
 
-async function successResponse(req: Request, res: Response, userId: string) {
-  const token = generateJWT(userId);
+async function successResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface
+) {
+  const token = generateJWT(user);
 
   // Create a refresh token
-  await createRefreshToken(req, res, userId);
+  await createRefreshToken(req, res, user);
 
   return res.status(200).json({
     status: 200,
@@ -96,12 +105,19 @@ export async function postRefresh(req: Request, res: Response) {
 
   const user = await getUserById(userId);
 
-  const token = generateJWT(userId);
+  if (!user) {
+    return res.json({
+      status: 200,
+      authenticated: false,
+    });
+  }
+
+  const token = generateJWT(user);
   return res.json({
     status: 200,
     authenticated: true,
     token,
-    email: user?.email || "",
+    email: user.email || "",
   });
 }
 
@@ -132,7 +148,7 @@ export async function postLogin(
     });
   }
 
-  return successResponse(req as Request, res, user.id);
+  return successResponse(req as Request, res, user);
 }
 
 export async function postLogout(req: Request, res: Response) {
@@ -159,7 +175,7 @@ export async function postRegister(
     // Try to login to existing account
     const valid = await verifyPassword(existingUser, password);
     if (valid) {
-      return successResponse(req as Request, res, existingUser.id);
+      return successResponse(req as Request, res, existingUser);
     }
 
     return res.status(400).json({
@@ -170,7 +186,7 @@ export async function postRegister(
 
   // Create new account
   const user = await createUser(name, email, password);
-  return successResponse(req as Request, res, user.id);
+  return successResponse(req as Request, res, user);
 }
 
 export async function postFirstTimeRegister(
@@ -206,7 +222,7 @@ export async function postFirstTimeRegister(
   const user = await createUser(name, email, password);
   await createOrganization(email, user.id, companyname, "");
   markInstalled();
-  return successResponse(req, res, user.id);
+  return successResponse(req, res, user);
 }
 
 export async function postForgotPassword(

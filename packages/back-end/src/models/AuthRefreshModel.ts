@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { UserInterface } from "../../types/user";
 
 export interface AuthRefreshInterface {
   token: string;
@@ -37,14 +38,14 @@ export const AuthRefreshModel = mongoose.model<AuthRefreshDocument>(
 export async function createRefreshToken(
   req: Request,
   res: Response,
-  userId: string
+  user: UserInterface
 ) {
   const token = crypto.randomBytes(32).toString("base64");
 
   const authRefreshDoc: AuthRefreshInterface = {
     createdAt: new Date(),
     lastLogin: new Date(),
-    userId,
+    userId: user.id,
     ip: req.ip,
     userAgent: req.headers["user-agent"] || "",
     token,
