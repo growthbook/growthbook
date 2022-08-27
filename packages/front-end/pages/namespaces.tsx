@@ -4,7 +4,7 @@ import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
-import { NamespaceUsage } from "back-end/types/organization";
+import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useUser from "../hooks/useUser";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
@@ -22,6 +22,10 @@ const NamespacesPage: FC = () => {
   const { update } = useUser();
   const { namespaces } = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editNamespace, setEditNamespace] = useState<{
+    namespace: Namespaces;
+    experiments: number;
+  } | null>(null);
   const { apiCall } = useAuth();
 
   if (error) {
@@ -39,9 +43,14 @@ const NamespacesPage: FC = () => {
     <div className="container-fluid pagecontents">
       {modalOpen && (
         <NamespaceModal
-          close={() => setModalOpen(false)}
+          existing={editNamespace}
+          close={() => {
+            setModalOpen(false);
+            setEditNamespace(null);
+          }}
           onSuccess={() => {
             update();
+            setEditNamespace(null);
           }}
         />
       )}
@@ -64,11 +73,19 @@ const NamespacesPage: FC = () => {
           </thead>
           <tbody>
             {namespaces.map((ns) => {
+              const experiments = data?.namespaces[ns.name] ?? [];
               return (
                 <NamespaceTableRow
                   key={ns.name}
                   usage={data.namespaces}
                   namespace={ns}
+                  onEdit={async () => {
+                    setEditNamespace({
+                      namespace: ns,
+                      experiments: experiments.length,
+                    });
+                    setModalOpen(true);
+                  }}
                   onDelete={async () => {
                     await apiCall(`/organization/namespaces/${ns.name}`, {
                       method: "DELETE",

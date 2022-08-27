@@ -4,13 +4,14 @@ import { useState } from "react";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 import DeleteButton from "../DeleteButton";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
 
 export interface Props {
   usage: NamespaceUsage;
   namespace: Namespaces;
   onDelete: () => Promise<void>;
   onArchive: () => Promise<void>;
+  onEdit: () => Promise<void>;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -23,6 +24,7 @@ export default function NamespaceTableRow({
   namespace,
   onDelete,
   onArchive,
+  onEdit,
 }: Props) {
   const experiments = usage[namespace.name] ?? [];
 
@@ -64,8 +66,19 @@ export default function NamespaceTableRow({
             )
           )}
         </td>
-        <td style={{ width: 80 }}>
+        <td style={{ width: "120px" }}>
           <div className="tr-hover actions">
+            <a
+              href="#"
+              className="fade-hover mr-3"
+              style={{ fontSize: "17px" }}
+              onClick={async (e) => {
+                e.preventDefault();
+                await onEdit();
+              }}
+            >
+              <FaPencilAlt />
+            </a>
             {experiments.length === 0 && (
               <DeleteButton
                 displayName="Namespace"
