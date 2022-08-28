@@ -129,6 +129,14 @@ export default function EnvironmentModal({
         }}
       />{" "}
       <label htmlFor="toggle">Show toggle on feature list </label>
+      {!existing.id && (
+        <div>
+          <small className="d-inline-block text-muted mt-3 mb-0">
+            Each new environment key will have an API key automatically
+            generated for it
+          </small>
+        </div>
+      )}
     </Modal>
   );
 }
