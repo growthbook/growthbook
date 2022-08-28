@@ -1,10 +1,4 @@
-import {
-  IS_CLOUD,
-  JWT_SECRET,
-  APP_ORIGIN,
-  SSO_AUTHORITY,
-  SSO_CLIENT_ID,
-} from "../util/secrets";
+import { IS_CLOUD, JWT_SECRET, SSO_CONFIG } from "../util/secrets";
 import jwt from "express-jwt";
 import jwks from "jwks-rsa";
 import { NextFunction, Request, Response } from "express";
@@ -23,8 +17,8 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
-import { Issuer, Client } from "openid-client";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+import { Issuer, IssuerMetadata } from "openid-client";
+import { SSOConnectionParams } from "../../types/sso-connection";
 import { getSSOConnectionById } from "../models/SSOConnectionModel";
 
 type JWTInfo = {
@@ -233,28 +227,26 @@ export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
 }
 
-const ssoMiddlewares: Map<Client, jwt.RequestHandler> = new Map();
+const ssoMiddlewares: Map<string, jwt.RequestHandler> = new Map();
 async function getOpenIdMiddleware(req: Request) {
   const ssoConnection = await getOpenIdSettings(req);
   if (!ssoConnection) {
     throw new Error("Unknown SSO Connection");
   }
-  const client = await getSSOClient(
-    ssoConnection.authority,
-    ssoConnection.clientId
-  );
+  const cacheKey = JSON.stringify(ssoConnection);
+  const existing = ssoMiddlewares.get(cacheKey);
+  if (existing) return existing;
 
-  const existingMiddleware = ssoMiddlewares.get(client);
-  if (existingMiddleware) {
-    return existingMiddleware;
-  }
+  const metadata = await getMetadata(ssoConnection);
 
-  const jwksUri = client.issuer.metadata.jwks_uri;
-  const algorithms =
-    client.issuer.metadata.id_token_signing_alg_values_supported;
+  const jwksUri = metadata.jwks_uri;
+  const algorithms = metadata.id_token_signing_alg_values_supported;
+  const issuer = metadata.issuer;
 
-  if (!jwksUri || !algorithms) {
-    throw new Error("Missing required jwksUri and token id signing algorithms");
+  if (!jwksUri || !algorithms || !issuer) {
+    throw new Error(
+      "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
+    );
   }
 
   const middleware = jwt({
@@ -265,29 +257,26 @@ async function getOpenIdMiddleware(req: Request) {
       jwksUri,
     }),
     audience: ssoConnection.clientId,
-    issuer: client.issuer.metadata.issuer,
+    issuer,
     algorithms,
   });
-  ssoMiddlewares.set(client, middleware);
+  ssoMiddlewares.set(cacheKey, middleware);
   return middleware;
 }
 
 export function usingOpenId() {
   if (IS_CLOUD) return true;
-  if (SSO_AUTHORITY && SSO_CLIENT_ID) return true;
+  if (SSO_CONFIG) return true;
   return false;
 }
 
 async function getOpenIdSettings(
   req: Request
-): Promise<null | SSOConnectionInterface> {
+): Promise<null | SSOConnectionParams> {
   // Self-hosted SSO
   if (!IS_CLOUD) {
-    if (SSO_AUTHORITY && SSO_CLIENT_ID) {
-      return {
-        authority: SSO_AUTHORITY,
-        clientId: SSO_CLIENT_ID,
-      };
+    if (SSO_CONFIG) {
+      return SSO_CONFIG;
     }
     return null;
   }
@@ -296,34 +285,42 @@ async function getOpenIdSettings(
   if (req.headers["x-auth-source-id"]) {
     const ssoConnectionId = req.headers["x-auth-source-id"];
     const ssoConnection = await getSSOConnectionById(ssoConnectionId + "");
+    if (!ssoConnection) {
+      console.error("Could not find SSO connection - ", ssoConnectionId);
+      return null;
+    }
     return ssoConnection;
   }
 
   // Cloud Default SSO
   return {
+    id: "gbcloud",
     authority: "https://growthbook.auth0.com",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
   };
 }
 
-const clientCache: Map<string, Client> = new Map();
-async function getSSOClient(
-  authority: string,
-  clientId: string
-): Promise<Client> {
-  const cacheKey = authority + "____" + clientId;
-  if (clientCache.has(cacheKey)) {
-    return clientCache.get(cacheKey) as Client;
+const metadataCache: Map<string, IssuerMetadata> = new Map();
+async function getMetadata(
+  params: SSOConnectionParams
+): Promise<IssuerMetadata> {
+  // Metadata included in SSO config
+  if (params.metadata) {
+    return params.metadata;
   }
 
+  const authority = params.authority;
+  if (!authority) {
+    throw new Error("Must have either metadata OR authority for SSO config");
+  }
+
+  // Otherwise, need to discover them from the authority
+  const existing = metadataCache.get(authority);
+  if (existing) return existing;
+
   const issuer = await Issuer.discover(authority);
-  const client = new issuer.Client({
-    client_id: clientId,
-    redirect_uris: [`${APP_ORIGIN}/oidc/callback`],
-    response_types: ["id_token"],
-  });
+  const metadata = issuer.metadata;
+  metadataCache.set(authority, metadata);
 
-  clientCache.set(cacheKey, client);
-
-  return client;
+  return metadata;
 }

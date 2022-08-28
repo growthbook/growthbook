@@ -8,6 +8,7 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  dateCreated: Date,
   url: String,
   name: String,
   ownerEmail: String,
@@ -120,6 +121,7 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    dateCreated: new Date(),
     settings: {
       environments: [
         {

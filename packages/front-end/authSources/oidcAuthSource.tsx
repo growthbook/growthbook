@@ -97,13 +97,15 @@ async function getUserManager() {
     ssoConnectionId = config.id;
     userManager = new UserManager({
       authority: config.authority,
+      metadata: config.metadata,
       client_id: config.clientId,
-      redirect_uri: window.location.origin,
+      redirect_uri: window.location.origin + "/oauth/callback",
       silentRequestTimeoutInSeconds: 3,
       scope: "openid profile email",
       extraQueryParams: {
         screen_hint: screen,
         audience: "https://api.growthbook.io",
+        ...(config.extraQueryParams || {}),
       },
     });
   }
@@ -116,7 +118,7 @@ const oidcAuthSource: AuthSource = {
     const userManager = await getUserManager();
 
     // If we were just redirected back to the app from the SSO provider
-    if (router.query["code"]) {
+    if (router.pathname === "/oauth/callback") {
       try {
         const user = await userManager.signinCallback();
         if (user) {
@@ -151,7 +153,10 @@ const oidcAuthSource: AuthSource = {
         as: router.asPath,
       },
     });
-    return null;
+    // User will be redirected above to the SSO login page
+    return {
+      isAuthenticated: false,
+    };
   },
   logout: async () => {
     const userManager = await getUserManager();

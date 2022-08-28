@@ -33,7 +33,6 @@ import { JWT_SECRET } from "../util/secrets";
 import {
   getSSOConnectionByEmailDomain,
   getSSOConnectionById,
-  getSSOConnectionParams,
 } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
 
@@ -278,7 +277,7 @@ export async function getSSOConnection(
 
   return res.status(200).json({
     status: 200,
-    params: getSSOConnectionParams(sso),
+    params: sso,
   });
 }
 

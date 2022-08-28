@@ -29,8 +29,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
     ENABLE_API_CREDENTIALS,
-    SSO_CLIENT_ID,
-    SSO_AUTHORITY,
+    SSO_CONFIG,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -54,6 +53,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .toString();
   }
 
+  const ssoConfig = SSO_CONFIG ? JSON.parse(SSO_CONFIG) : null;
+
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
@@ -71,11 +72,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     apiCredentials: !!ENABLE_API_CREDENTIALS,
     selfHostedSSO: !IS_CLOUD &&
-      SSO_AUTHORITY &&
-      SSO_CLIENT_ID && {
+      ssoConfig && {
         id: "sso",
-        authority: SSO_AUTHORITY,
-        clientId: SSO_CLIENT_ID,
+        ...ssoConfig,
       },
   };
 

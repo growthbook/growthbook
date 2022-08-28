@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import fs from "fs";
+import { SSOConnectionParams } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -103,5 +104,13 @@ export const IMPORT_LIMIT_DAYS =
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
 // Self-hosted SSO
-export const SSO_AUTHORITY = IS_CLOUD ? "" : process.env.SSO_AUTHORITY || "";
-export const SSO_CLIENT_ID = IS_CLOUD ? "" : process.env.SSO_CLIENT_ID || "";
+function getSSOConfig() {
+  if (!process.env.SSO_CONFIG) return null;
+  const config: SSOConnectionParams = JSON.parse(process.env.SSO_CONFIG);
+  if (!SSO_CONFIG?.authority || !SSO_CONFIG?.clientId) {
+    throw new Error("SSO_CONFIG must contain 'authority' and 'clientId'");
+  }
+  config.id = "sso";
+  return config;
+}
+export const SSO_CONFIG = getSSOConfig();

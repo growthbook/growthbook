@@ -119,6 +119,7 @@ export interface SubscriptionQuote {
 export interface OrganizationInterface {
   id: string;
   url: string;
+  dateCreated: Date;
   claimedDomain?: string;
   name: string;
   ownerEmail: string;
