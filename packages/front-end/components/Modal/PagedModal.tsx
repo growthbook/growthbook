@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 import { Children, FC, isValidElement, ReactNode } from "react";
 import Modal from "../Modal";
 import { MdCheck } from "react-icons/md";
@@ -18,6 +18,7 @@ type Props = {
   children: ReactNode;
   step: number;
   setStep: (step: number) => void;
+  secondaryCTA?: ReactElement;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -30,6 +31,7 @@ const PagedModal: FC<Props> = (props) => {
     navFill,
     cta,
     inline,
+    secondaryCTA,
     ...passThrough
   } = props;
 
@@ -79,6 +81,7 @@ const PagedModal: FC<Props> = (props) => {
       inline={inline}
       size={inline ? "fill" : "lg"}
       open={true}
+      secondaryCTA={secondaryCTA}
       {...passThrough}
       submit={async () => {
         await validateSteps(nextStep);

@@ -147,6 +147,7 @@ const DataSourceForm: FC<{
   importSampleData?: () => Promise<void>;
   inline?: boolean;
   cta?: string;
+  secondaryCTA?: ReactElement;
 }> = ({
   data,
   onSuccess,
@@ -156,6 +157,7 @@ const DataSourceForm: FC<{
   importSampleData,
   inline,
   cta,
+  secondaryCTA,
 }) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
@@ -360,6 +362,7 @@ const DataSourceForm: FC<{
       header={existing ? "Edit Data Source" : "Add Data Source"}
       cta={cta ? cta : "Save"}
       size="lg"
+      secondaryCTA={secondaryCTA}
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">

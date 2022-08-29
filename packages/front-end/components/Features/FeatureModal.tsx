@@ -29,12 +29,14 @@ import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
+import { ReactElement } from "react";
 
 export type Props = {
   close?: () => void;
   onSuccess: (feature?: FeatureInterface) => Promise<void>;
   inline?: boolean;
   cta?: string;
+  secondaryCTA?: ReactElement;
 };
 
 function parseDefaultValue(
@@ -57,7 +59,13 @@ function parseDefaultValue(
   }
 }
 
-export default function FeatureModal({ close, onSuccess, inline, cta }: Props) {
+export default function FeatureModal({
+  close,
+  onSuccess,
+  inline,
+  cta,
+  secondaryCTA,
+}: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
 
@@ -105,6 +113,7 @@ export default function FeatureModal({ close, onSuccess, inline, cta }: Props) {
       header="Create Feature"
       cta={cta || "Create"}
       close={close}
+      secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { rule, defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;

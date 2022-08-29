@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactElement, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -41,6 +41,7 @@ export type MetricFormProps = {
   inline?: boolean;
   cta?: string;
   onSuccess?: () => void;
+  secondaryCTA?: ReactElement;
 };
 
 function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
@@ -148,6 +149,7 @@ const MetricForm: FC<MetricFormProps> = ({
   inline,
   cta,
   onSuccess,
+  secondaryCTA,
 }) => {
   const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
@@ -346,6 +348,7 @@ const MetricForm: FC<MetricFormProps> = ({
       size={inline ? "fill" : "lg"}
       step={step}
       setStep={setStep}
+      secondaryCTA={secondaryCTA}
     >
       <Page
         display="Basic Info"

@@ -1,7 +1,7 @@
 import stringify from "json-stringify-pretty-compact";
 import { getTrackingCallback, TrackingType } from "../../services/codegen";
 import { getApiHost, isCloud } from "../../services/env";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactElement } from "react";
 import useUser from "../../hooks/useUser";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { SDKAttributeSchema } from "back-end/types/organization";
@@ -86,6 +86,7 @@ export default function CodeSnippetModal({
   inline,
   cta,
   submit,
+  secondaryCTA,
 }: {
   close?: () => void;
   featureId?: string;
@@ -93,6 +94,7 @@ export default function CodeSnippetModal({
   inline?: boolean;
   cta?: string;
   submit?: () => Promise<void>;
+  secondaryCTA?: ReactElement;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const permissions = usePermissions();
@@ -187,6 +189,7 @@ export default function CodeSnippetModal({
   return (
     <Modal
       close={!inline && close && (() => close())}
+      secondaryCTA={secondaryCTA}
       open={true}
       inline={inline}
       header="Implementation Instructions"

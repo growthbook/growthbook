@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import useUser from "../hooks/useUser";
 import { useAuth } from "../services/auth";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 export type Task = {
   blackTitle: string;
@@ -29,6 +30,10 @@ export default function GuidedGetStarted({
 }: {
   features: FeatureInterface[];
 }) {
+  const [skippedSteps, setSkippedSteps] = useLocalStorage<{
+    [key: string]: boolean;
+  }>("onboarding-steps-skipped", {});
+
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
   const { datasources } = useDefinitions();
@@ -77,7 +82,8 @@ export default function GuidedGetStarted({
       cta: "View Instructions",
       learnMoreLink: "Learn more about our SDKs.",
       link: "https://docs.growthbook.io/lib",
-      completed: settings?.sdkInstructionsViewed || false,
+      completed:
+        settings?.sdkInstructionsViewed || skippedSteps["install-sdk"] || false,
       render: (
         <CodeSnippetModal
           inline={true}
@@ -85,6 +91,16 @@ export default function GuidedGetStarted({
           submit={async () => {
             setCurrentStep(currentStep + 1);
           }}
+          secondaryCTA={
+            <button
+              onClick={() => {
+                setSkippedSteps({ ...skippedSteps, "install-sdk": true });
+              }}
+              className="btn btn-link"
+            >
+              Skip Step
+            </button>
+          }
         />
       ),
     },
@@ -96,7 +112,7 @@ export default function GuidedGetStarted({
       cta: "Create Feature Flag",
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
-      completed: features.length > 0,
+      completed: features.length > 0 || skippedSteps["feature-flag"],
       render: (
         <FeatureModal
           inline={true}
@@ -104,6 +120,17 @@ export default function GuidedGetStarted({
           onSuccess={async () => {
             setCurrentStep(currentStep + 1);
           }}
+          secondaryCTA={
+            <button
+              onClick={() => {
+                setSkippedSteps({ ...skippedSteps, "feature-flag": true });
+                setCurrentStep(currentStep + 1);
+              }}
+              className="btn btn-link"
+            >
+              Skip Step
+            </button>
+          }
         />
       ),
     },
@@ -115,7 +142,7 @@ export default function GuidedGetStarted({
       cta: "Add Data Source",
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
-      completed: datasources.length > 0,
+      completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
         <DataSourceForm
           data={{
@@ -129,6 +156,17 @@ export default function GuidedGetStarted({
           onSuccess={async () => {
             setCurrentStep(currentStep + 1);
           }}
+          secondaryCTA={
+            <button
+              onClick={() => {
+                setSkippedSteps({ ...skippedSteps, "data-source": true });
+                setCurrentStep(currentStep + 1);
+              }}
+              className="btn btn-link"
+            >
+              Skip Step
+            </button>
+          }
         />
       ),
     },
@@ -140,7 +178,7 @@ export default function GuidedGetStarted({
       cta: "Define a Metric",
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
-      completed: metrics.length > 0,
+      completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
         <MetricForm
           inline={true}
@@ -151,43 +189,81 @@ export default function GuidedGetStarted({
           onSuccess={() => {
             setCurrentStep(currentStep + 1);
           }}
+          secondaryCTA={
+            <button
+              onClick={() => {
+                setSkippedSteps({ ...skippedSteps, "metric-definition": true });
+                setCurrentStep(currentStep + 1);
+              }}
+              className="btn btn-link"
+            >
+              Skip Step
+            </button>
+          }
         />
       ),
     },
     {
       blackTitle: "Great ",
       purpleTitle: "Work!",
+      completed: false,
       text:
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="d-flex justify-content-space-between">
-          <div>
+          <Link
+            href="/settings/team"
+            style={{ textDecoration: "none", color: "#050549" }}
+          >
             <h1
               role="button"
               className="text-center p-4 m-1"
-              style={{ border: "1px solid black", borderRadius: "5px" }}
+              style={{
+                border: "2px solid #050549",
+                borderRadius: "5px",
+                color: "#050549",
+                backgroundColor: "white",
+              }}
             >
               Invite your Teammates
             </h1>
-          </div>
-          <div>
+          </Link>
+          <Link
+            href="/experiments"
+            style={{ textDecoration: "none", color: "#050549" }}
+          >
             <h1
               role="button"
               className="text-center p-4 m-1"
-              style={{ border: "1px solid black", borderRadius: "5px" }}
+              style={{
+                border: "2px solid #050549",
+                borderRadius: "5px",
+                color: "#050549",
+                backgroundColor: "white",
+              }}
             >
-              Analyze a Previous Experiement
+              Analyze a Previous Experiment
             </h1>
-          </div>
-          <div>
+          </Link>
+          <a
+            role="button"
+            target="_blank"
+            rel="noreferrer"
+            href="https://slack.growthbook.io?ref=app-getstarted"
+            style={{ textDecoration: "none", color: "#050549" }}
+          >
             <h1
-              role="button"
               className="text-center p-4 m-1"
-              style={{ border: "1px solid black", borderRadius: "5px" }}
+              style={{
+                border: "2px solid #050549",
+                borderRadius: "5px",
+                color: "#050549",
+                backgroundColor: "white",
+              }}
             >
               Join our Slack Community
             </h1>
-          </div>
+          </a>
         </div>
       ),
     },
@@ -204,12 +280,12 @@ export default function GuidedGetStarted({
   const { apiCall } = useAuth();
   const { update } = useUser();
 
-  async function updateSettings(stepViewed: string) {
+  async function updateSettings() {
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
         settings: {
-          [stepViewed]: true,
+          videoInstructionsViewed: true,
         },
       }),
     });
