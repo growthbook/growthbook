@@ -9,7 +9,6 @@ import {
   getOrganizationById,
   getPermissionsByRole,
   getRole,
-  validateLogin,
 } from "./organizations";
 import { MemberRole } from "../../types/organization";
 import { UserInterface } from "../../types/user";
@@ -18,14 +17,19 @@ import { insertAudit } from "./audit";
 import { getUserByEmail } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
 import { Issuer, IssuerMetadata } from "openid-client";
-import { SSOConnectionParams } from "../../types/sso-connection";
-import { getSSOConnectionById } from "../models/SSOConnectionModel";
+import {
+  SSOConnectionInterface,
+  SSOConnectionParams,
+} from "../../types/sso-connection";
+import {
+  getSSOConnectionById,
+  toSSOConfigParams,
+} from "../models/SSOConnectionModel";
 
 type JWTInfo = {
   email?: string;
   verified?: boolean;
   name?: string;
-  method?: string;
 };
 
 type IdToken = {
@@ -59,7 +63,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
 }
 
 function getOpenIdJWTCheck() {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
     getOpenIdMiddleware(req)
       .then((middleware) => {
         middleware(req, res, next);
@@ -69,11 +73,8 @@ function getOpenIdJWTCheck() {
 }
 
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
-  const method = IS_CLOUD ? user.sub?.split("|")[0] || "" : "local";
-
   return {
     verified: user.email_verified || false,
-    method,
     email: user.email || "",
     name: user.given_name || "",
   };
@@ -95,12 +96,11 @@ export async function processJWT(
   res: Response,
   next: NextFunction
 ) {
-  const { email, name, verified, method } = getInitialDataFromJWT(req.user);
+  const { email, name, verified } = getInitialDataFromJWT(req.user);
 
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.loginMethod = method || "";
   req.permissions = getDefaultPermissions();
 
   // Throw error if permissions don't pass
@@ -149,13 +149,13 @@ export async function processJWT(
         }
 
         // Make sure this is a valid login method for the organization
-        try {
-          validateLogin(req, req.organization);
-        } catch (e) {
-          return res.status(403).json({
-            status: 403,
-            message: e.message,
-          });
+        if (req.organization.restrictLoginMethod) {
+          if (req.loginMethod?.id !== req.organization.restrictLoginMethod) {
+            return res.status(403).json({
+              status: 403,
+              message: "Must login with Enterprise SSO.",
+            });
+          }
         }
 
         const role: MemberRole = req.admin
@@ -228,16 +228,21 @@ export function markInstalled() {
 }
 
 const ssoMiddlewares: Map<string, jwt.RequestHandler> = new Map();
-async function getOpenIdMiddleware(req: Request) {
+async function getOpenIdMiddleware(req: AuthRequest) {
   const ssoConnection = await getOpenIdSettings(req);
   if (!ssoConnection) {
     throw new Error("Unknown SSO Connection");
   }
-  const cacheKey = JSON.stringify(ssoConnection);
+
+  // Store the ssoConnectionId in the request
+  req.loginMethod = ssoConnection;
+
+  const params = toSSOConfigParams(ssoConnection);
+  const cacheKey = JSON.stringify(params);
   const existing = ssoMiddlewares.get(cacheKey);
   if (existing) return existing;
 
-  const metadata = await getMetadata(ssoConnection);
+  const metadata = await getMetadata(params);
 
   const jwksUri = metadata.jwks_uri;
   const algorithms = metadata.id_token_signing_alg_values_supported;
@@ -256,7 +261,7 @@ async function getOpenIdMiddleware(req: Request) {
       jwksRequestsPerMinute: 5,
       jwksUri,
     }),
-    audience: ssoConnection.clientId,
+    audience: params.clientId,
     issuer,
     algorithms,
   });
@@ -272,7 +277,7 @@ export function usingOpenId() {
 
 async function getOpenIdSettings(
   req: Request
-): Promise<null | SSOConnectionParams> {
+): Promise<null | SSOConnectionInterface> {
   // Self-hosted SSO
   if (!IS_CLOUD) {
     if (SSO_CONFIG) {

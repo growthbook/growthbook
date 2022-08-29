@@ -32,30 +32,32 @@ const SSOConnectionModel = mongoose.model<SSOConnectionDocument>(
   ssoConnectionSchema
 );
 
-function toParams(doc: SSOConnectionDocument): SSOConnectionParams {
+export function toSSOConfigParams(
+  conn: SSOConnectionInterface
+): SSOConnectionParams {
   return {
-    id: doc.id || "",
-    authority: doc.authority,
-    clientId: doc.clientId,
-    extraQueryParams: doc.extraQueryParams,
-    metadata: doc.metadata,
+    id: conn.id || "",
+    authority: conn.authority,
+    clientId: conn.clientId,
+    extraQueryParams: conn.extraQueryParams,
+    metadata: conn.metadata,
   };
 }
 
 export async function getSSOConnectionById(
   id: string
-): Promise<null | SSOConnectionParams> {
+): Promise<null | SSOConnectionInterface> {
   if (!id) return null;
   const doc = await SSOConnectionModel.findOne({ id });
 
-  return doc ? toParams(doc) : null;
+  return doc ? doc.toJSON() : null;
 }
 
 export async function getSSOConnectionByEmailDomain(
   emailDomain: string
-): Promise<null | SSOConnectionParams> {
+): Promise<null | SSOConnectionInterface> {
   if (!emailDomain) return null;
   const doc = await SSOConnectionModel.findOne({ emailDomain });
 
-  return doc ? toParams(doc) : null;
+  return doc ? doc.toJSON() : null;
 }

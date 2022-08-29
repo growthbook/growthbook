@@ -10,9 +10,9 @@ import {
   importConfig,
   getOrgFromReq,
   addMemberToOrg,
-  validateLogin,
   getPermissionsByRole,
   updateRole,
+  getOrganizationById,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -58,7 +58,6 @@ import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
-  findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
@@ -69,6 +68,41 @@ import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
+
+async function addMemberFromSSOConnection(
+  req: AuthRequest
+): Promise<OrganizationInterface | null> {
+  const ssoConnection = req.loginMethod;
+  if (
+    !ssoConnection ||
+    !ssoConnection.organization ||
+    !ssoConnection.emailDomain
+  ) {
+    return null;
+  }
+
+  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+  if (emailDomain !== ssoConnection.emailDomain) {
+    return null;
+  }
+
+  const organization = await getOrganizationById(ssoConnection.organization);
+  if (!organization || !req.userId) return null;
+
+  await addMemberToOrg(organization, req.userId);
+  try {
+    await sendNewMemberEmail(
+      req.name || "",
+      req.email || "",
+      organization.name,
+      organization.ownerEmail
+    );
+  } catch (e) {
+    console.error("Failed to send new member email", e.message);
+  }
+
+  return organization;
+}
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -86,45 +120,22 @@ export async function getUser(req: AuthRequest, res: Response) {
   // List of all organizations the user belongs to
   const orgs = await findOrganizationsByMemberId(userId);
 
-  // If the user is not in an organization yet and they are using GrowthBook Cloud
+  // If the user is not in an organization yet and is using SSO
   // Check to see if they should be auto-added to one based on their email domain
-  if (!orgs.length && IS_CLOUD) {
-    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-
-    const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
+  if (!orgs.length) {
+    const autoOrg = await addMemberFromSSOConnection(req);
     if (autoOrg) {
-      // Throw error is the login method is invalid
-      validateLogin(req, autoOrg);
-
-      await addMemberToOrg(autoOrg, userId);
       orgs.push(autoOrg);
-      try {
-        await sendNewMemberEmail(
-          req.name || "",
-          req.email || "",
-          autoOrg.name,
-          autoOrg.ownerEmail
-        );
-      } catch (e) {
-        console.error("Failed to send new member email", e.message);
-      }
     }
   }
 
   // Filter out orgs that the user can't log in to
-  let lastError: Error | null = null;
   const validOrgs = orgs.filter((org) => {
-    try {
-      validateLogin(req, org);
-      return true;
-    } catch (e) {
-      lastError = e;
-      return false;
-    }
+    !org.restrictLoginMethod || req.loginMethod?.id === org.restrictLoginMethod;
   });
   // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length && lastError) {
-    throw lastError;
+  if (orgs.length && !validOrgs.length) {
+    throw new Error("Must login with Enterprise SSO");
   }
 
   return res.status(200).json({
