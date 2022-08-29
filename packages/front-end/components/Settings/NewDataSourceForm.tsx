@@ -74,8 +74,9 @@ const NewDataSourceForm: FC<{
     label: "Custom",
   };
   useEffect(() => {
-    track("View New Datasource Form", {
+    track("View Datasource Form", {
       source,
+      newDatasourceForm: true,
     });
   }, [source]);
 
@@ -111,10 +112,11 @@ const NewDataSourceForm: FC<{
             body: JSON.stringify(datasource),
           }
         );
-        track("Updating New Datasource Form", {
+        track("Updating Datasource Form", {
           source,
           type: datasource.type,
           schema: schema,
+          newDatasourceForm: true,
         });
         if (res.status > 200) {
           throw new Error(res.message);
@@ -137,19 +139,21 @@ const NewDataSourceForm: FC<{
           }),
         });
         data.id = res.id;
-        track("Saving New Datasource Form", {
+        track("Submit Datasource Form", {
           source,
           type: datasource.type,
-          schema: schema,
+          schema,
+          newDatasourceForm: true,
         });
       }
 
       setDirty(false);
     } catch (e) {
-      track("Saving New Datasource Form Error", {
+      track("Data Source Form Error", {
         source,
         type: datasource.type,
         error: e.message.substr(0, 32) + "...",
+        newDatasourceForm: true,
       });
       setHasError(true);
       throw e;
@@ -181,10 +185,11 @@ const NewDataSourceForm: FC<{
       setLoading(false);
       throw new Error(res.message);
     }
-    track("Saving New Datasource Query Settings", {
+    track("Saving Datasource Query Settings", {
       source,
       type: datasource.type,
       schema: schema,
+      newDatasourceForm: true,
     });
   };
 
@@ -215,6 +220,7 @@ const NewDataSourceForm: FC<{
     track("Selected Event Schema", {
       schema: s.value,
       source,
+      newDatasourceForm: true,
     });
     if (s.types.length === 1) {
       const data = dataSourcesMap.get(s.types[0]);
@@ -471,6 +477,7 @@ const NewDataSourceForm: FC<{
 
             track("Data Source Type Selected", {
               type: value,
+              newDatasourceForm: true,
             });
 
             setDatasource({
