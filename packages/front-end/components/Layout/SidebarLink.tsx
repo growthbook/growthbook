@@ -26,10 +26,11 @@ export type SidebarLinkProps = {
   permissions?: (keyof Permissions)[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
+  feature?: string;
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
+  const showSidebarLink = useFeature(props.feature).on;
   const { permissions, admin } = useUser();
   const router = useRouter();
 
@@ -39,7 +40,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const [open, setOpen] = useState(selected);
 
-  if (props.name === "Get Started" && !guidedOnboarding) {
+  if (props.feature && !showSidebarLink) {
     return null;
   }
 

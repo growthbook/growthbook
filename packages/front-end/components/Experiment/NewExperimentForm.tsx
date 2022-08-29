@@ -220,7 +220,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       close={!inline && onClose && (() => onClose())}
       submit={onSubmit}
       cta={"Save"}
-      closeCta={!inline && "Cancel"}
       size={inline ? "fill" : "lg"}
       step={step}
       setStep={setStep}

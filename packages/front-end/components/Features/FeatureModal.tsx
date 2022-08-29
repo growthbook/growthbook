@@ -102,7 +102,6 @@ export default function FeatureModal({ close, onSuccess, inline, cta }: Props) {
     <Modal
       inline={inline}
       open={true}
-      size={inline ? "fill" : "lg"}
       header="Create Feature"
       cta={cta || "Create"}
       close={close}

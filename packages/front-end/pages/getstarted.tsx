@@ -6,7 +6,6 @@ import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
 import GuidedGetStarted from "../components/GuidedGetStarted";
-import { MetricInterface } from "back-end/types/metric";
 import { useFeature } from "@growthbook/growthbook-react";
 
 const GetStartedPage = (): React.ReactElement => {
@@ -21,8 +20,6 @@ const GetStartedPage = (): React.ReactElement => {
   } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments`);
-
-  const { data } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
 
   const { features, error: featuresError } = useFeaturesList();
 
@@ -42,13 +39,7 @@ const GetStartedPage = (): React.ReactElement => {
   }
 
   if (guidedOnboarding) {
-    return (
-      <GuidedGetStarted
-        experiments={experiments}
-        features={features}
-        data={data}
-      />
-    );
+    return <GuidedGetStarted experiments={experiments} features={features} />;
   } else {
     return (
       <>

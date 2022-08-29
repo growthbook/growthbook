@@ -92,7 +92,7 @@ export default function CodeSnippetModal({
   defaultLanguage?: Language;
   inline?: boolean;
   cta?: string;
-  submit?: () => void;
+  submit?: () => Promise<void>;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const permissions = usePermissions();
@@ -189,12 +189,11 @@ export default function CodeSnippetModal({
       close={!inline && close && (() => close())}
       open={true}
       inline={inline}
-      size={inline ? "fill" : "lg"}
       header="Implementation Instructions"
       submit={
         submit
           ? submit
-          : () => {
+          : async () => {
               return;
             }
       }

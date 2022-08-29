@@ -13,7 +13,6 @@ const ImportExperimentModal: FC<{
   source?: string;
   fromFeature?: boolean;
   inline?: boolean;
-  cta?: string;
 }> = ({
   onClose,
   initialValue,
@@ -73,13 +72,7 @@ const ImportExperimentModal: FC<{
   }
 
   return (
-    <Modal
-      inline={inline}
-      header="Add Experiment"
-      open={true}
-      size={inline ? "fill" : "lg"}
-      close={!inline && onClose && (() => onClose())}
-    >
+    <Modal inline={inline} header="Add Experiment" open={true} close={onClose}>
       <div className="alert alert-info">
         Prefer to start with a blank experiment instead?{" "}
         <a

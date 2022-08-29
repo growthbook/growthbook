@@ -36,7 +36,7 @@ export type MetricFormProps = {
   current: Partial<MetricInterface>;
   edit: boolean;
   source: string;
-  onClose?: (refresh?: boolean) => void;
+  onClose?: () => void;
   advanced?: boolean;
   inline?: boolean;
   cta?: string;
@@ -327,11 +327,7 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: value.userIdTypes.join(", "),
     });
 
-    if (cta === "Next: Create Experiment") {
-      onSuccess();
-    } else {
-      onClose(true);
-    }
+    onSuccess && onSuccess();
   });
 
   const riskError =
@@ -343,7 +339,7 @@ const MetricForm: FC<MetricFormProps> = ({
     <PagedModal
       inline={inline}
       header={edit ? "Edit Metric" : "New Metric"}
-      close={!inline && (onSuccess ? () => onSuccess() : () => onClose(false))}
+      close={!inline && (onSuccess ? () => onSuccess() : () => onClose())}
       submit={onSubmit}
       cta={cta ? cta : "Save"}
       closeCta={!inline && "Cancel"}

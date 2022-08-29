@@ -143,7 +143,7 @@ const DataSourceForm: FC<{
   existing: boolean;
   source: string;
   onCancel?: () => void;
-  onSuccess: (id?: string) => Promise<void>;
+  onSuccess: (id: string) => Promise<void>;
   importSampleData?: () => Promise<void>;
   inline?: boolean;
   cta?: string;

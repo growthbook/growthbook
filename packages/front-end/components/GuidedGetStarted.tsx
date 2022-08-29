@@ -1,8 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
 import router from "next/router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import useOrgSettings from "../hooks/useOrgSettings";
 import ImportExperimentModal from "./Experiment/ImportExperimentModal";
 import CodeSnippetModal from "./Features/CodeSnippetModal";
@@ -12,7 +11,6 @@ import MetricForm from "./Metrics/MetricForm";
 import DataSourceForm from "./Settings/DataSourceForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
-import LoadingOverlay from "./LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import useUser from "../hooks/useUser";
 import { useAuth } from "../services/auth";
@@ -39,51 +37,12 @@ type Props = {
     experiments: ExperimentInterfaceStringDates[];
   };
   features: FeatureInterface[];
-  data?: {
-    metrics: MetricInterface[];
-  };
 };
 
-export default function GuidedGetStarted2({
-  experiments,
-  features,
-  data,
-}: Props) {
-  const [currentStep, setCurrentStep] = useState(null);
+export default function GuidedGetStarted({ experiments, features }: Props) {
+  const { metrics } = useDefinitions();
   const settings = useOrgSettings();
-  const { apiCall } = useAuth();
   const { datasources } = useDefinitions();
-  const { update } = useUser();
-
-  // If this is coming from a feature experiment rule
-  const featureExperiment = useMemo(() => {
-    if (!router?.query?.featureExperiment) {
-      return null;
-    }
-    try {
-      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
-        router?.query?.featureExperiment as string
-      );
-      window.history.replaceState(null, null, window.location.pathname);
-      return initialExperiment;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }, [router?.query?.featureExperiment]);
-
-  async function updateSettings(stepViewed: string) {
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: {
-          [stepViewed]: true,
-        },
-      }),
-    });
-    await update();
-  }
-
   const steps: Task[] = [
     {
       blackTitle: "Welcome to ",
@@ -135,7 +94,7 @@ export default function GuidedGetStarted2({
       cta: "Define a Metric",
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
-      completed: data?.metrics.length > 0,
+      completed: metrics.length > 0,
       feature: "metric",
     },
     {
@@ -150,22 +109,46 @@ export default function GuidedGetStarted2({
       feature: "experiment",
     },
   ];
+  const [currentStep, setCurrentStep] = useState(() => {
+    const initialStep = steps.findIndex((step) => step.completed === false);
 
-  useEffect(() => {
-    function setInitialStep() {
-      const initialStep = steps.findIndex((step) => step.completed === false);
-
-      if (initialStep >= 0) {
-        setCurrentStep(initialStep);
-      } else {
-        setCurrentStep(0);
-      }
+    if (initialStep >= 0) {
+      return initialStep;
+    } else {
+      return 0;
     }
+  });
+  const { apiCall } = useAuth();
+  const { update } = useUser();
 
-    setInitialStep();
-  }, []);
+  // If this is coming from a feature experiment rule
+  const featureExperiment = useMemo(() => {
+    if (!router?.query?.featureExperiment) {
+      return null;
+    }
+    try {
+      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
+        router?.query?.featureExperiment as string
+      );
+      window.history.replaceState(null, null, window.location.pathname);
+      return initialExperiment;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [router?.query?.featureExperiment]);
 
-  if (currentStep === null) return <LoadingOverlay />;
+  async function updateSettings(stepViewed: string) {
+    await apiCall(`/organization`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: {
+          [stepViewed]: true,
+        },
+      }),
+    });
+    await update();
+  }
 
   return (
     <>

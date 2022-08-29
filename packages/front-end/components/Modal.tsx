@@ -20,7 +20,7 @@ type ModalProps = {
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
-  submit?: () => void;
+  submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;
@@ -35,10 +35,10 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
-  size = "md",
+  inline = false,
+  size = inline ? "fill" : "md",
   className = "",
   autoCloseOnSubmit = true,
-  inline = false,
   overflowAuto = true,
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
