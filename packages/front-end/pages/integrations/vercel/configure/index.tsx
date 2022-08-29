@@ -13,18 +13,14 @@ export default function VercelPage() {
 
   useEffect(() => {
     async function getConfig() {
-      try {
-        const res = await apiCall<ConfigResponse>("/vercel/config", {
-          method: "GET",
-        });
-        setApiKeyRowList(
-          res.apiKeyRowList.sort((a, b) =>
-            a.projectName.localeCompare(b.projectName)
-          )
-        );
-      } catch (err) {
-        console.error(err);
-      }
+      const res = await apiCall<ConfigResponse>("/vercel/config", {
+        method: "GET",
+      });
+      setApiKeyRowList(
+        res.apiKeyRowList.sort((a, b) =>
+          a.projectName.localeCompare(b.projectName)
+        )
+      );
     }
     getConfig();
   }, []);

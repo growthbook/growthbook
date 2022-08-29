@@ -96,7 +96,7 @@ export async function postEnvVars(req: AuthRequest, res: Response) {
 
 export async function getConfig(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const gbKeys = await getAllApiKeysByOrganization(org.id);
+  const liveGbKeys = await getAllApiKeysByOrganization(org.id);
 
   if (!org.connections?.vercel)
     throw new Error("Vercel integration does not exist");
@@ -120,7 +120,9 @@ export async function getConfig(req: AuthRequest, res: Response) {
     );
     vercelEnvVars.forEach((vercelEnvVar) => {
       //gb API keys don't have a 'value' prop, so the gb key 'key' prop is used to compared to the vercel key 'value' prop
-      const gbKey = gbKeys.find((gbKey) => gbKey.key === vercelEnvVar.value);
+      const gbKey = liveGbKeys.find(
+        (liveGbKey) => liveGbKey.key === vercelEnvVar.value
+      );
       if (gbKey) {
         apiKeyRowList.push({
           projectId: project.id,

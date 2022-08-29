@@ -32,6 +32,7 @@ export default function VercelIntegration() {
     setIsLiteLayout(true);
   });
 
+  //If environment is added, copy over gbVercelKeyMap values and add new entry for the new environment
   useEffect(() => {
     const tmpEnvMappings = [];
     for (let i = 0; i < environments.length; i++) {
