@@ -2,7 +2,6 @@ import { AppProps } from "next/app";
 import "../styles/global.scss";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
-import Layout from "../components/Layout/Layout";
 import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
 import { useEffect } from "react";
@@ -12,6 +11,7 @@ import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { LayoutProvider } from "../services/layout";
 
 type ModAppProps = AppProps & {
   Component: { noOrganization?: boolean; preAuth?: boolean };
@@ -83,10 +83,11 @@ function App({
             >
               {organizationRequired && !preAuth ? (
                 <DefinitionsProvider>
-                  <Layout />
-                  <main className={`main ${parts[0]}`}>
-                    <Component {...pageProps} />
-                  </main>
+                  <LayoutProvider>
+                    <main className={`main ${parts[0]}`}>
+                      <Component {...pageProps} />
+                    </main>
+                  </LayoutProvider>
                 </DefinitionsProvider>
               ) : (
                 <Component {...pageProps} />

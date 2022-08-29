@@ -1,0 +1,83 @@
+# Configuring GrowthBook with Vercel
+
+_This guide assumes that you already have a Vercel account and have at least one Vercel project_
+
+This integration creates GrowthBook API keys and creates matching keys as Environment Variables in Vercel (for use with any of [our SDKs](/lib)).
+
+## Keys created
+
+`GROWTHBOOK_KEY`: This key will be used with the SDK of your choice.
+
+`GROWTHBOOK_WEBHOOK_SECRET`: This key can later be used to get feature data from your GrowthBook account.
+
+## 1. Navigate to the GrowthBook Vercel integration
+
+<a href="https://vercel.com/integrations/growthbook" target="_blank">
+  https://vercel.com/integrations/growthbook
+</a>
+
+## 2. Click on the "Add Integration" button
+
+Located in the upper right corner of the page, click on the "Add Integration" button.
+
+<img
+  src="/images/integrations/vercel-add-integration.png"
+  alt="Add Mixpanel service account specifics"
+  style={{ width: 700, margin: "0 auto" }}
+/>
+
+## 3. Choose which account you want to use for the integration
+
+The account selected will determine which projects are shown in the next step.
+
+<img
+  src="/images/integrations/vercel-choose-account.png"
+  alt="Add Mixpanel service account specifics"
+  style={{ width: 400, margin: "0 auto" }}
+/>
+
+## 4. Choose which projects you want GrowthBook to be enabled for
+
+<img
+  src="/images/integrations/vercel-choose-project.png"
+  alt="Add Mixpanel service account specifics"
+  style={{ width: 400, margin: "0 auto" }}
+/>
+
+## 5. Setup your environments
+
+Both `GROWTHBOOK_KEY` and `GROWTHBOOK_WEBHOOK_SECRET` will be added as environment variables to your project.
+Configure your GrowthBook environment to map correctly to your Vercel environment. For example, if you
+using "test" for your GrowthBook environment you will most likely want to set your Vercel Environment to
+"preview".
+
+_Note: If you leave the Vercel environment as None, neither GrowthBook nor Vercel keys will be created for that environment._
+
+<img
+  src="/images/integrations/vercel-environments.png"
+  alt="Add Mixpanel service account specifics"
+  style={{ width: 400, margin: "0 auto" }}
+/>
+
+By clicking "Submit" both sets of keys will be created for all of your environments.
+
+## 6. Integration configuration
+
+You will then be taken to the integration page. From here you can click on "Configure" in the top right corner to
+view the created keys.
+
+<img
+  src="/images/integrations/vercel-configure.png"
+  alt="Add Mixpanel service account specifics"
+  style={{ width: 400, margin: "0 auto" }}
+/>
+
+You can also look at your keys from GrowthBook & Vercel:
+
+GrowthBook Keys are located <a href="https://app.growthbook.io/settings/keys" target="_blank">here</a><br/>
+Vercel Keys are located in the "Environment Variables" section of your project settings.
+
+## 7. Next steps
+
+Configure an SDK with your project using the keys you just created. [Click here to view our SDKs](/lib).
+Configure your GrowthBook webhook. [Click here to view the webhook docs](/app/webhooks).

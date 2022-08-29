@@ -134,6 +134,11 @@ export interface OrganizationInterface {
       team: string;
       token: string;
     };
+    vercel?: {
+      token: string;
+      configurationId: string;
+      teamId: string | null;
+    };
   };
   settings?: OrganizationSettings;
 }

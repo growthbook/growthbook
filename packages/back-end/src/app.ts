@@ -39,6 +39,7 @@ import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
 import * as adminController from "./controllers/admin";
 import * as stripeController from "./controllers/stripe";
+import * as vercelController from "./controllers/vercel";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
@@ -373,6 +374,9 @@ app.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
+app.post("/vercel/token", vercelController.postToken);
+app.post("/vercel/env-vars", vercelController.postEnvVars);
+app.get("/vercel/config", vercelController.getConfig);
 
 // tags
 app.post("/tag", tagsController.postTag);

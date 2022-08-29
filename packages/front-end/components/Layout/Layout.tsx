@@ -166,6 +166,14 @@ const otherPageTitles = [
     title: "Visual Experiment Designer",
   },
   {
+    path: /^integrations\/vercel/,
+    title: "Vercel Integration",
+  },
+  {
+    path: /^integrations\/vercel\/configure/,
+    title: "Vercel Integration Configuration",
+  },
+  {
     path: /^getstarted/,
     title: "Get Started",
   },

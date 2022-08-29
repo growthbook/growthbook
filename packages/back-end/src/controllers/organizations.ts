@@ -731,7 +731,7 @@ export async function putOrganization(
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { name, settings } = req.body;
+  const { name, settings, connections } = req.body;
 
   try {
     const updates: Partial<OrganizationInterface> = {};
@@ -748,6 +748,16 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
+    }
+    if (connections?.vercel) {
+      const { token, configurationId, teamId } = connections.vercel;
+      if (token && configurationId) {
+        updates.connections = {
+          ...updates.connections,
+          vercel: { token, configurationId, teamId },
+        };
+        orig.connections = org.connections;
+      }
     }
 
     await updateOrganization(org.id, updates);
