@@ -39,7 +39,7 @@ const GetStartedPage = (): React.ReactElement => {
   }
 
   if (guidedOnboarding) {
-    return <GuidedGetStarted experiments={experiments} features={features} />;
+    return <GuidedGetStarted features={features} />;
   } else {
     return (
       <>

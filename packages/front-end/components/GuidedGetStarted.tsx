@@ -1,9 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
-import React, { ReactNode, useMemo, useState } from "react";
+import React, { ReactNode, useState } from "react";
 import useOrgSettings from "../hooks/useOrgSettings";
-import ImportExperimentModal from "./Experiment/ImportExperimentModal";
 import CodeSnippetModal from "./Features/CodeSnippetModal";
 import FeatureModal from "./Features/FeatureModal";
 import GetStartedSteps from "./GetStartedSteps";
@@ -19,58 +17,29 @@ export type Task = {
   blackTitle: string;
   purpleTitle: string;
   text: string;
-  cta: string;
+  cta?: string;
   learnMoreLink?: string;
   link?: string;
-  completed: boolean;
-  feature:
-    | "video"
-    | "sdk"
-    | "feature-flag"
-    | "data-source"
-    | "metric"
-    | "experiment";
+  completed?: boolean;
   render: ReactNode;
 };
 
-type Props = {
-  experiments: {
-    experiments: ExperimentInterfaceStringDates[];
-  };
+export default function GuidedGetStarted({
+  features,
+}: {
   features: FeatureInterface[];
-};
-
-export default function GuidedGetStarted({ experiments, features }: Props) {
+}) {
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
   const { datasources } = useDefinitions();
-
-  // If this is coming from a feature experiment rule
-  const featureExperiment = useMemo(() => {
-    if (!router?.query?.featureExperiment) {
-      return null;
-    }
-    try {
-      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
-        router?.query?.featureExperiment as string
-      );
-      window.history.replaceState(null, null, window.location.pathname);
-      return initialExperiment;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }, [router?.query?.featureExperiment]);
 
   const steps: Task[] = [
     {
       blackTitle: "Welcome to ",
       purpleTitle: "GrowthBook!",
       text:
-        "This quick start guide is designed to get you up and running with GrowthBook in ~15 minutes!",
+        "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
       completed: settings?.videoInstructionsViewed || false,
-      cta: "Watch Video",
-      feature: "video",
       render: (
         <>
           <ReactPlayer
@@ -82,16 +51,19 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
             style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
             onClick={() => updateSettings("videoInstructionsViewed")}
           />
-          <p style={{ fontWeight: "bold", color: "#1C63EA" }}>
-            Watch a 2-min demo
-          </p>
           <button
             onClick={() => setCurrentStep(currentStep + 1)}
             className="btn btn-primary w-25 m-2"
           >
-            Next: Install SDK
+            Set up your SDK
           </button>
-          <button className="btn btn-outline-primary w-25 m-2">
+          <button
+            className="btn btn-outline-secondary btn-sm m-4"
+            onClick={(e) => {
+              e.preventDefault();
+              router.push("/features");
+            }}
+          >
             Skip Onboarding
           </button>
         </>
@@ -106,7 +78,6 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
       learnMoreLink: "Learn more about our SDKs.",
       link: "https://docs.growthbook.io/lib",
       completed: settings?.sdkInstructionsViewed || false,
-      feature: "sdk",
       render: (
         <CodeSnippetModal
           inline={true}
@@ -126,7 +97,6 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
       learnMoreLink: "Learn more about how to use feature flags.",
       link: "https://docs.growthbook.io/app/features",
       completed: features.length > 0,
-      feature: "feature-flag",
       render: (
         <FeatureModal
           inline={true}
@@ -146,7 +116,6 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
       learnMoreLink: "Learn more about how to connect to a data source.",
       link: "https://docs.growthbook.io/app/datasources",
       completed: datasources.length > 0,
-      feature: "data-source",
       render: (
         <DataSourceForm
           data={{
@@ -172,7 +141,6 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
       learnMoreLink: "Learn more about how to use metrics.",
       link: "https://docs.growthbook.io/app/metrics",
       completed: metrics.length > 0,
-      feature: "metric",
       render: (
         <MetricForm
           inline={true}
@@ -187,22 +155,40 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
       ),
     },
     {
-      blackTitle: "Create an ",
-      purpleTitle: "Experiment",
+      blackTitle: "Great ",
+      purpleTitle: "Work!",
       text:
-        "Import an existing experiment from your data source or create a new draft from scratch.",
-      cta: "Create Experiment",
-      learnMoreLink: "Learn more about experiments.",
-      link: "https://docs.growthbook.io/app/experiments",
-      completed: experiments?.experiments.length > 0,
-      feature: "experiment",
+        "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
-        <ImportExperimentModal
-          inline={true}
-          source={featureExperiment ? "feature-rule" : "get-started"}
-          initialValue={featureExperiment}
-          fromFeature={!!featureExperiment}
-        />
+        <div className="d-flex justify-content-space-between">
+          <div>
+            <h1
+              role="button"
+              className="text-center p-4 m-1"
+              style={{ border: "1px solid black", borderRadius: "5px" }}
+            >
+              Invite your Teammates
+            </h1>
+          </div>
+          <div>
+            <h1
+              role="button"
+              className="text-center p-4 m-1"
+              style={{ border: "1px solid black", borderRadius: "5px" }}
+            >
+              Analyze a Previous Experiement
+            </h1>
+          </div>
+          <div>
+            <h1
+              role="button"
+              className="text-center p-4 m-1"
+              style={{ border: "1px solid black", borderRadius: "5px" }}
+            >
+              Join our Slack Community
+            </h1>
+          </div>
+        </div>
       ),
     },
   ];
@@ -245,10 +231,7 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          <h5
-            className="m-0"
-            style={{ textAlign: "center", maxWidth: "800px" }}
-          >
+          <p style={{ textAlign: "center", maxWidth: "800px" }}>
             {steps[currentStep].text}
             {steps[currentStep].learnMoreLink && steps[currentStep].link && (
               <span>
@@ -257,7 +240,7 @@ export default function GuidedGetStarted({ experiments, features }: Props) {
                 </Link>
               </span>
             )}
-          </h5>
+          </p>
           {steps[currentStep].blackTitle === "Welcome to " && (
             <Link href="/settings/team">
               <a style={{ fontWeight: "bold" }}>
