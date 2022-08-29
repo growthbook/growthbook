@@ -36,7 +36,7 @@ export type MetricFormProps = {
   current: Partial<MetricInterface>;
   edit: boolean;
   source: string;
-  onClose?: () => void;
+  onClose?: (refresh?: boolean) => void;
   advanced?: boolean;
   inline?: boolean;
   cta?: string;
