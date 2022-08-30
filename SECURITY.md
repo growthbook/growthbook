@@ -5,7 +5,7 @@ GrowthBook Open Source projects as found on https://github.com/growthbook.
 
   * [Reporting a Vulnerability](#reporting-a-vulnerability)
   * [Patching and Releasing](#patching-and-releasing)
-  * [Disclosure Policy](#disclosure-policy)
+  * [Disclosure Process](#disclosure-process)
 
 ## Reporting a Vulnerability
 
