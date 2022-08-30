@@ -27,7 +27,7 @@ The GrowthBook team will respond to vulnerability reports as follows:
  
 1.  The security team will investigate the vulnerability and determine its effects, criticality and scope.
 2.  If the issue is found to be valid, the code will be patched and released as quickly as possible. 
-3.  We will attempt to identify and notify the effected users directly as soon as possible, as well as following steps mentioned in our [Disclosure Policy](#disclosure-policy). A public disclosure date may be negotiated by the GrowthBook Security Team, and the bug submitter if required.
+3.  We will attempt to identify and notify the effected users directly as soon as possible, as well as following steps mentioned in our [Disclosure Process](#disclosure-process). A public disclosure date may be negotiated by the GrowthBook Security Team, and the bug submitter if required.
 
 ## Disclosure Process
 The security team publishes a public [security advisory](https://github.com/growthbook/growthbook/security/advisories) via GitHub. Depending on the scope of the issue, additional details may be communicated via Slack, Email, Twitter, blog and/or other channels to assist in educating GrowthBook users in rolling out a patched version. 
