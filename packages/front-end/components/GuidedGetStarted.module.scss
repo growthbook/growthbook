@@ -1,0 +1,34 @@
+@import "../styles/colors.scss";
+
+.pageWrapper {
+  max-width: 1000px;
+}
+
+.reactPlayer {
+  box-shadow: #9d9d9d 4px 4px 12px 0px;
+}
+
+.blackTitle {
+  color: $gray-900;
+  font-weight: bold;
+}
+
+.purpleTitle {
+  color: $highlight-purple;
+  font-weight: bold;
+}
+
+.nextStepWrapper {
+  color: $dark-blue;
+}
+
+.nextStepLink {
+  border: 2px solid $dark-blue;
+  border-radius: 5px;
+  color: $dark-blue;
+  background-color: white;
+}
+
+.nextStepWrapper:hover {
+  text-decoration: none;
+}

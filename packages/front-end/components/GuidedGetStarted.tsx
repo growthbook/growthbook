@@ -13,6 +13,8 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import useUser from "../hooks/useUser";
 import { useAuth } from "../services/auth";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import styles from "./GuidedGetStarted.module.scss";
+import clsx from "clsx";
 
 export type Task = {
   blackTitle: string;
@@ -48,13 +50,12 @@ export default function GuidedGetStarted({
       render: (
         <>
           <ReactPlayer
-            className="mb-4"
+            className={clsx("mb-4", styles.reactPlayer)}
             url="https://www.youtube.com/watch?v=1ASe3K46BEw"
             light={true}
             playing={true}
             controls={true}
-            style={{ boxShadow: "#9D9D9D 4px 4px 12px 0px" }}
-            onClick={() => updateSettings("videoInstructionsViewed")}
+            onClick={() => updateSettings()}
           />
           <button
             onClick={() => setCurrentStep(currentStep + 1)}
@@ -211,36 +212,18 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="d-flex justify-content-space-between">
-          <Link
-            href="/settings/team"
-            style={{ textDecoration: "none", color: "#050549" }}
-          >
+          <Link href="/settings/team" className={styles.nextStepWrapper}>
             <h1
               role="button"
-              className="text-center p-4 m-1"
-              style={{
-                border: "2px solid #050549",
-                borderRadius: "5px",
-                color: "#050549",
-                backgroundColor: "white",
-              }}
+              className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
               Invite your Teammates
             </h1>
           </Link>
-          <Link
-            href="/experiments"
-            style={{ textDecoration: "none", color: "#050549" }}
-          >
+          <Link href="/experiments" className={styles.nextStepWrapper}>
             <h1
               role="button"
-              className="text-center p-4 m-1"
-              style={{
-                border: "2px solid #050549",
-                borderRadius: "5px",
-                color: "#050549",
-                backgroundColor: "white",
-              }}
+              className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
               Analyze a Previous Experiment
             </h1>
@@ -250,17 +233,9 @@ export default function GuidedGetStarted({
             target="_blank"
             rel="noreferrer"
             href="https://slack.growthbook.io?ref=app-getstarted"
-            style={{ textDecoration: "none", color: "#050549" }}
+            className={styles.nextStepWrapper}
           >
-            <h1
-              className="text-center p-4 m-1"
-              style={{
-                border: "2px solid #050549",
-                borderRadius: "5px",
-                color: "#050549",
-                backgroundColor: "white",
-              }}
-            >
+            <h1 className={clsx("text-center p-4 m-1", styles.nextStepLink)}>
               Join our Slack Community
             </h1>
           </a>
@@ -293,21 +268,25 @@ export default function GuidedGetStarted({
   }
 
   return (
-    <>
+    <div
+      className={clsx("contents container pagecontents", styles.pageWrapper)}
+    >
       <GetStartedSteps
         setCurrentStep={setCurrentStep}
         currentStep={currentStep}
         steps={steps}
       />
-      <div className="d-flex flex-column pl-5 pr-5">
-        <div className="d-flex flex-column align-items-center p-2">
+      <div className="d-flex flex-column">
+        <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
           <h1>
-            <span>{steps[currentStep].blackTitle}</span>
-            <span style={{ color: "#7C45E9", fontWeight: "bold" }}>
+            <span className={styles.blackTitle}>
+              {steps[currentStep].blackTitle}
+            </span>
+            <span className={styles.purpleTitle}>
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          <p style={{ textAlign: "center", maxWidth: "800px" }}>
+          <p className="text-center">
             {steps[currentStep].text}
             {steps[currentStep].learnMoreLink && steps[currentStep].link && (
               <span>
@@ -319,16 +298,16 @@ export default function GuidedGetStarted({
           </p>
           {steps[currentStep].blackTitle === "Welcome to " && (
             <Link href="/settings/team">
-              <a style={{ fontWeight: "bold" }}>
+              <a className="font-weight-bold">
                 Not an engineer? Invite a developer to get started.
               </a>
             </Link>
           )}
         </div>
-        <div className="d-flex flex-column align-items-center p-4">
+        <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
         </div>
       </div>
-    </>
+    </div>
   );
 }

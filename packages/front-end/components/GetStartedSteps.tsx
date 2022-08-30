@@ -1,6 +1,8 @@
 import React from "react";
 import { FaCheck } from "react-icons/fa";
 import { Task } from "./GuidedGetStarted";
+import styles from "./GetStartedSteps.module.scss";
+import clsx from "clsx";
 
 type Props = {
   currentStep: number | null;
@@ -15,19 +17,12 @@ export default function GetStartedSteps({
 }: Props) {
   return (
     <div className="d-flex justify-content-center flex-column align-items-center p-4">
+      <div className={styles.statusBar}></div>
       <div
-        style={{
-          height: "4px",
-          width: "55%",
-          backgroundColor: "#7C45E9",
-          position: "relative",
-          top: "34px",
-          zIndex: 1,
-        }}
-      ></div>
-      <div
-        className="d-flex flex-row justify-content-between p-2"
-        style={{ width: "60%" }}
+        className={clsx(
+          "d-flex flex-row justify-content-between p-2",
+          styles.bubbleWrapper
+        )}
       >
         {steps.map((step, index) => (
           <div
@@ -36,25 +31,12 @@ export default function GetStartedSteps({
               setCurrentStep(index);
             }}
             key={index}
-            className="p-3 d-flex justify-content-center align-items-center"
-            style={{
-              color:
-                currentStep === index || !step.completed ? "#7C45E9" : "white",
-              backgroundColor:
-                currentStep === index
-                  ? "#E2DDF9"
-                  : step.completed
-                  ? "#7C45E9"
-                  : "white",
-              fontWeight: "bold",
-              borderRadius: "50%",
-              outline: "4px solid #7C45E9",
-              width: "43px",
-              height: "43px",
-              boxShadow: "#9D9D9D 4px 4px 12px 0px",
-              zIndex: 3,
-              boxSizing: "border-box",
-            }}
+            className={clsx(
+              styles.stepBubble,
+              step.completed && styles.completed,
+              currentStep == index && styles.selected,
+              "p-3 d-flex justify-content-center align-items-center"
+            )}
           >
             {step.completed ? <FaCheck /> : index + 1}
           </div>
