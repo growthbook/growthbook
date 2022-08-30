@@ -49,17 +49,20 @@ export default function GuidedGetStarted({
       completed: settings?.videoInstructionsViewed || false,
       render: (
         <>
-          <ReactPlayer
-            className={clsx("mb-4", styles.reactPlayer)}
-            url="https://www.youtube.com/watch?v=1ASe3K46BEw"
-            light={true}
-            playing={true}
-            controls={true}
-            onClick={() => updateSettings()}
-          />
+          <div className={clsx(styles.playerWrapper, "col-lg-6")}>
+            <ReactPlayer
+              className={clsx("mb-4")}
+              url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+              light={true}
+              playing={true}
+              controls={true}
+              onClick={() => updateSettings()}
+              width="100%"
+            />
+          </div>
           <button
             onClick={() => setCurrentStep(currentStep + 1)}
-            className="btn btn-primary w-25 m-2"
+            className="btn btn-primary m-2"
           >
             Set up your SDK
           </button>
@@ -211,22 +214,22 @@ export default function GuidedGetStarted({
       text:
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
-        <div className="d-flex justify-content-space-between">
+        <div className="col-12 col-sm-8 col-lg-6">
           <Link href="/settings/team" className={styles.nextStepWrapper}>
-            <h1
+            <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
               Invite your Teammates
-            </h1>
+            </h2>
           </Link>
           <Link href="/experiments" className={styles.nextStepWrapper}>
-            <h1
+            <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
               Analyze a Previous Experiment
-            </h1>
+            </h2>
           </Link>
           <a
             role="button"
@@ -235,9 +238,9 @@ export default function GuidedGetStarted({
             href="https://slack.growthbook.io?ref=app-getstarted"
             className={styles.nextStepWrapper}
           >
-            <h1 className={clsx("text-center p-4 m-1", styles.nextStepLink)}>
+            <h2 className={clsx("text-center p-4 m-1", styles.nextStepLink)}>
               Join our Slack Community
-            </h1>
+            </h2>
           </a>
         </div>
       ),
@@ -268,17 +271,15 @@ export default function GuidedGetStarted({
   }
 
   return (
-    <div
-      className={clsx("contents container pagecontents", styles.pageWrapper)}
-    >
+    <>
       <GetStartedSteps
         setCurrentStep={setCurrentStep}
         currentStep={currentStep}
         steps={steps}
       />
-      <div className="d-flex flex-column">
+      <div className="d-flex flex-column text-center">
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
-          <h1>
+          <h1 className="text-center">
             <span className={styles.blackTitle}>
               {steps[currentStep].blackTitle}
             </span>
@@ -286,7 +287,7 @@ export default function GuidedGetStarted({
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          <p className="text-center">
+          <p>
             {steps[currentStep].text}
             {steps[currentStep].learnMoreLink && steps[currentStep].link && (
               <span>
@@ -308,6 +309,6 @@ export default function GuidedGetStarted({
           {steps[currentStep].render}
         </div>
       </div>
-    </div>
+    </>
   );
 }

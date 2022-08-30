@@ -39,7 +39,13 @@ const GetStartedPage = (): React.ReactElement => {
   }
 
   if (guidedOnboarding) {
-    return <GuidedGetStarted features={features} />;
+    return (
+      <>
+        <div className="container pagecontents position-relative">
+          <GuidedGetStarted features={features} />
+        </div>
+      </>
+    );
   } else {
     return (
       <>

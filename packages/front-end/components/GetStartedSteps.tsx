@@ -16,11 +16,11 @@ export default function GetStartedSteps({
   steps,
 }: Props) {
   return (
-    <div className="d-flex justify-content-center flex-column align-items-center p-4">
-      <div className={styles.statusBar}></div>
+    <div className="d-flex flex-column justify-content-center align-items-center pt-4 pb-4">
+      <div className={clsx(styles.statusBar)}></div>
       <div
         className={clsx(
-          "d-flex flex-row justify-content-between p-2",
+          "d-flex flex-row justify-content-between col-10 p-2",
           styles.bubbleWrapper
         )}
       >
