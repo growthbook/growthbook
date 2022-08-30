@@ -11,7 +11,6 @@ import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
 import { ExperimentStatus } from "back-end/types/experiment";
 import Tooltip from "../Tooltip";
-import { FaQuestionCircle } from "react-icons/fa";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -77,18 +76,17 @@ export default function ChanceToWinColumn({
         className
       )}
     >
-      {suspiciousChange && (
+      {enoughData && suspiciousChange && (
         <div>
-          <div className="mb-1 d-flex">
-            <span className="badge badge-pill badge-warning">
-              Suspicious Result
-            </span>
+          <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
                 metric.maxPercentChange * 100
               }%).`}
             >
-              <FaQuestionCircle />
+              <span className="badge badge-pill badge-warning">
+                Suspicious Result
+              </span>
             </Tooltip>
           </div>
         </div>
