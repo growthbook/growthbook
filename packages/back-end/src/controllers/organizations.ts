@@ -142,6 +142,7 @@ export async function getUser(req: AuthRequest, res: Response) {
         role,
         permissions: getPermissionsByRole(role),
         settings: org.settings || {},
+        connections: org.connections,
       };
     }),
   });

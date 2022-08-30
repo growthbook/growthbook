@@ -47,11 +47,11 @@ The account selected will determine which projects are shown in the next step.
 ## 5. Setup your environments
 
 Both `GROWTHBOOK_KEY` and `GROWTHBOOK_WEBHOOK_SECRET` will be added as environment variables to your project.
-Configure your GrowthBook environment to map correctly to your Vercel environment. For example, if you
-using "test" for your GrowthBook environment you will most likely want to set your Vercel Environment to
-"preview".
+Configure each Vercel environment to map to its correct GrowthBook environment. For example, if you
+using "production" for your Vercel environment you will most likely want to set your GrowthBook Environment to
+"production".
 
-_Note: If you leave the Vercel environment as None, neither GrowthBook nor Vercel keys will be created for that environment._
+_Note: If you leave a GrowthBook environment as None, neither GrowthBook nor Vercel keys will be created for that environment._
 
 <img
   src="/images/integrations/vercel-environments.png"

@@ -1,29 +1,13 @@
 import { ApiKeyRow } from "back-end/types/vercel";
-import { useEffect, useState } from "react";
-import { useAuth } from "../../../../services/auth";
+import useApi from "../../../../hooks/useApi";
 
-interface ConfigResponse {
+type ConfigResponse = {
   status: number;
   apiKeyRowList: ApiKeyRow[];
-}
+};
 
 export default function VercelPage() {
-  const { apiCall } = useAuth();
-  const [apiKeyRowList, setApiKeyRowList] = useState<ApiKeyRow[]>([]);
-
-  useEffect(() => {
-    async function getConfig() {
-      const res = await apiCall<ConfigResponse>("/vercel/config", {
-        method: "GET",
-      });
-      setApiKeyRowList(
-        res.apiKeyRowList.sort((a, b) =>
-          a.projectName.localeCompare(b.projectName)
-        )
-      );
-    }
-    getConfig();
-  }, []);
+  const { data } = useApi<ConfigResponse>("/vercel/config");
 
   return (
     <div className="overflow-auto">
@@ -33,23 +17,29 @@ export default function VercelPage() {
             <th>Vercel Project</th>
             <th>Name In Vercel</th>
             <th>Key</th>
-            <th>Environment</th>
-            <th>Vercel Environment</th>
+            <th>GB Environment</th>
+            <th>Vercel Environments</th>
             <th>Description</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {apiKeyRowList.map((keyRow, i) => (
-            <tr key={`apiKeyRow${i}`}>
-              <td>{keyRow.projectName}</td>
-              <td>{keyRow.key}</td>
-              <td>{keyRow.value}</td>
-              <td>{keyRow.gbEnvironment}</td>
-              <td>{keyRow.vercelEnvironment}</td>
-              <td>{keyRow.description}</td>
-            </tr>
-          ))}
+          {data?.apiKeyRowList
+            .sort((a, b) => a.projectName.localeCompare(b.projectName))
+            .map((keyRow, i) => (
+              <tr key={`apiKeyRow${i}`}>
+                <td>{keyRow.projectName}</td>
+                <td>{keyRow.key}</td>
+                <td>{keyRow.value}</td>
+                <td>{keyRow.gbEnvironment}</td>
+                <td>
+                  {JSON.stringify(keyRow.vercelEnvironment)
+                    .replaceAll('"', "")
+                    .replaceAll(",", ", ")}
+                </td>
+                <td>{keyRow.description}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
     </div>

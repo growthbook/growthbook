@@ -105,6 +105,22 @@ export interface OrganizationSettings {
   implementationTypes?: ImplementationType[];
 }
 
+export interface OrganizationConnections {
+  slack?: Slack;
+  vercel?: Vercel;
+}
+
+export interface Slack {
+  team: string;
+  token: string;
+}
+
+export interface Vercel {
+  token: string;
+  configurationId: string;
+  teamId: string | null;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -129,17 +145,7 @@ export interface OrganizationInterface {
   members: Member[];
   invites: Invite[];
 
-  connections?: {
-    slack?: {
-      team: string;
-      token: string;
-    };
-    vercel?: {
-      token: string;
-      configurationId: string;
-      teamId: string | null;
-    };
-  };
+  connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
 

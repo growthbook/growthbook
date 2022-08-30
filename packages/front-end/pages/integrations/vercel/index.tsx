@@ -2,145 +2,149 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../../services/auth";
 import { Environment } from "back-end/types/organization";
-import { useLayout } from "../../../services/layout";
-import { GbVercelKeyMap } from "back-end/types/vercel";
+import { GbVercelEnvMap } from "back-end/types/vercel";
 import EnvironmentModal from "../../../components/Settings/EnvironmentModal";
 import SelectField from "../../../components/Forms/SelectField";
 import useOrgSettings from "../../../hooks/useOrgSettings";
 import useUser from "../../../hooks/useUser";
 import Modal from "../../../components/Modal";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import Button from "../../../components/Button";
 
-export default function VercelIntegration() {
+export default function VercelIntegrationPage() {
   const router = useRouter();
   const { code, configurationId, teamId, next } = router.query;
 
   const { apiCall } = useAuth();
-  const { update } = useUser();
+  const { update, connections } = useUser();
   const { environments } = useOrgSettings();
-  const [, setIsLiteLayout] = useLayout();
 
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
+    false
+  );
   const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
     null
   );
-  const [gbVercelKeyMap, setGbVercelKeyMap] = useState<GbVercelKeyMap>([]);
-
-  //Wait until after render. React cannot render 2 comps at once
-  useEffect(() => {
-    setIsLiteLayout(true);
-  });
-
-  //If environment is added, copy over gbVercelKeyMap values and add new entry for the new environment
-  useEffect(() => {
-    const tmpEnvMappings = [];
-    for (let i = 0; i < environments.length; i++) {
-      tmpEnvMappings.push({
-        gb: gbVercelKeyMap[i]?.gb ? gbVercelKeyMap[i].gb : environments[i].id,
-        vercel: gbVercelKeyMap[i]?.vercel ? gbVercelKeyMap[i].vercel : null,
-      });
-    }
-    setGbVercelKeyMap(tmpEnvMappings);
-  }, [environments]);
+  const [gbVercelEnvMap, setGbVercelEnvMap] = useState<GbVercelEnvMap>([
+    { vercel: "production", gb: "" },
+    { vercel: "preview", gb: "" },
+    { vercel: "development", gb: "" },
+  ]);
 
   useEffect(() => {
-    async function setVercelToken() {
-      try {
-        await apiCall("/vercel/token", {
-          method: "POST",
-          body: JSON.stringify({ code, configurationId, teamId }),
-        });
-      } catch (err) {
-        console.error(err);
-        setError(true);
-      }
+    if (connections.vercel?.token) {
+      setIntegrationAlreadyExists(true);
+    } else {
+      postToken();
     }
-    setVercelToken();
-  }, []);
+  }, [connections.vercel?.token]);
 
-  async function handleSubmission() {
-    try {
-      setLoading(true);
-      await apiCall("/vercel/env-vars", {
-        method: "POST",
-        body: JSON.stringify({ gbVercelKeyMap }),
-      });
-      setLoading(false);
-      window.location.href = next as string;
-    } catch (err) {
-      console.error(err);
-      setError(true);
-      setLoading(false);
-    }
+  async function postToken() {
+    const options = {
+      method: "POST",
+      body: JSON.stringify({
+        code,
+        configurationId,
+        teamId: teamId ? teamId : null,
+      }),
+    };
+    apiCall("/vercel/token", options).catch(() => {
+      //do nothing
+    });
   }
 
   return (
-    <Modal open>
-      {envModalOpen && (
-        <EnvironmentModal
-          existing={envModalOpen}
-          close={() => setEnvModalOpen(null)}
-          onSuccess={update}
-        />
-      )}
-      <div>
-        <h4>Generate Environment Variables</h4>
-        <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-          Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be created
-          in GrowthBook and Vercel in the following environments.
-        </div>
-        {gbVercelKeyMap.map((elem, i) => (
-          <div key={`keyMap${i}`} className="d-flex mt-3">
-            <div>
-              <div>
-                <strong>GrowthBook environment:</strong>
+    <>
+      {integrationAlreadyExists ? (
+        <Modal
+          open
+          close={() => close()}
+          cta="Continue"
+          submit={async () => {
+            setIntegrationAlreadyExists(false);
+            postToken();
+          }}
+          autoCloseOnSubmit={false}
+        >
+          <div className="alert alert-warning">
+            <strong>Notice:</strong> A Vercel integration already exists for
+            your organization. By clicking <strong>{`"Continue"`}</strong> you
+            will overwrite the existing integration. Click{" "}
+            <strong>{`"Cancel"`}</strong> to avoid your Vercel integration being
+            overwritten.
+          </div>
+        </Modal>
+      ) : (
+        <Modal open>
+          {envModalOpen && (
+            <EnvironmentModal
+              existing={envModalOpen}
+              close={() => setEnvModalOpen(null)}
+              onSuccess={() => {
+                update;
+                setIntegrationAlreadyExists(false);
+              }}
+            />
+          )}
+          <div>
+            <h4>Generate Environment Variables</h4>
+            <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+              Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
+              created in GrowthBook and Vercel in the following environments.
+            </div>
+            {gbVercelEnvMap.map((elem, i) => (
+              <div key={`keyMap${i}`} className="d-flex mt-3">
+                <div>
+                  <div>
+                    <strong>Vercel environment:</strong>
+                  </div>
+                  <div>{elem.vercel}</div>
+                </div>
+                <div className="ml-5">
+                  <SelectField
+                    label="GrowthBook environment:"
+                    labelClassName="font-weight-bold"
+                    options={environments.map((env) => ({
+                      label: env.id,
+                      value: env.id,
+                    }))}
+                    initialOption="None"
+                    value={elem.gb}
+                    onChange={(selected) => {
+                      const newMap = [...gbVercelEnvMap];
+                      newMap[i].gb = selected;
+                      setGbVercelEnvMap(newMap);
+                    }}
+                  />
+                </div>
               </div>
-              <div>{elem.gb}</div>
-            </div>
-            <div className="ml-5">
-              <SelectField
-                label="Vercel environment:"
-                labelClassName="font-weight-bold"
-                options={[
-                  { label: "production", value: "production" },
-                  { label: "preview", value: "preview" },
-                  { label: "development", value: "development" },
-                ]}
-                initialOption="None"
-                value={elem.vercel}
-                onChange={(selected) => {
-                  const tmpGbVercelKeyMap = [...gbVercelKeyMap];
-                  tmpGbVercelKeyMap[i].vercel = selected;
-                  setGbVercelKeyMap([...tmpGbVercelKeyMap]);
+            ))}
+          </div>
+          <div>
+            <div className="row px-2 justify-content-between">
+              <button
+                onClick={() => setEnvModalOpen({})}
+                className="btn btn-link btn-sm mt-3 col-sm-5"
+              >
+                Create new environment
+              </button>
+              <Button
+                className="mt-3 btn-sm col-sm-5"
+                onClick={async () => {
+                  await apiCall("/vercel/env-vars", {
+                    method: "POST",
+                    body: JSON.stringify({ gbVercelEnvMap }),
+                  });
+                  window.location.href = next as string;
                 }}
-              />
+              >
+                Submit
+              </Button>
             </div>
           </div>
-        ))}
-      </div>
-      <div>
-        <div className="row px-2 justify-content-between">
-          <button
-            onClick={() => setEnvModalOpen({})}
-            className="btn btn-primary btn-block btn-sm mt-3 col-sm-5"
-          >
-            Create new environment
-          </button>
-          <button
-            onClick={() => handleSubmission()}
-            disabled={loading}
-            className="btn btn-primary btn-block btn-sm mt-3 col-sm-5"
-          >
-            {loading ? <LoadingSpinner /> : "Submit"}
-          </button>
-        </div>
-        {error && (
-          <div className="alert alert-warning mt-3">
-            Something went wrong, please contact support@growthbook.io
-          </div>
-        )}
-      </div>
-    </Modal>
+        </Modal>
+      )}
+    </>
   );
 }
+
+VercelIntegrationPage.liteLayout = true;

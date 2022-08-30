@@ -69,6 +69,7 @@ wrapController(presentationController);
 wrapController(discussionsController);
 wrapController(adminController);
 wrapController(stripeController);
+wrapController(vercelController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);

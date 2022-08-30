@@ -3,21 +3,23 @@ import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { updateOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
-import { createApiKey, getAllApiKeysByOrganization } from "../services/apiKey";
-import { GbVercelKeyMap, ApiKeyRow, VercelEnvVar } from "../../types/vercel";
+import { getAllApiKeysByOrganization } from "../services/apiKey";
+import { GbVercelEnvMap, ApiKeyRow, VercelEnvVar } from "../../types/vercel";
 import {
-  gbKeys,
+  createOrgGbKeys,
   getEnvVars,
   getGbRelatedVercelProjects,
   postEnvVar,
-  vercelApi,
+  reduceGbVercelEnvMap,
 } from "../services/vercel";
+import { VERCEL_CLIENT_ID, VERCEL_CLIENT_SECRET } from "../util/secrets";
+import { auditDetailsUpdate } from "../services/audit";
 
 export async function postToken(req: AuthRequest, res: Response) {
   const { code, configurationId, teamId } = req.body;
   const { org } = getOrgFromReq(req);
 
-  const url = vercelApi.postToken;
+  const url = "https://api.vercel.com/v2/oauth/access_token";
   const options = {
     method: "POST",
     headers: {
@@ -25,8 +27,8 @@ export async function postToken(req: AuthRequest, res: Response) {
     },
     body: new URLSearchParams({
       code: code,
-      client_id: process.env.VERCEL_CLIENT_ID as string,
-      client_secret: process.env.VERCEL_CLIENT_SECRET as string,
+      client_id: VERCEL_CLIENT_ID as string,
+      client_secret: VERCEL_CLIENT_SECRET as string,
       redirect_uri: "https://app.growthbook.io/integrations/vercel",
     }),
   };
@@ -36,62 +38,52 @@ export async function postToken(req: AuthRequest, res: Response) {
   if (json.error) throw new Error(json.error);
 
   const updatePayload = { token: json.access_token, configurationId, teamId };
+  const orig = org.connections?.vercel;
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(orig, updatePayload),
+  });
+
   await updateOrganization(org.id, { connections: { vercel: updatePayload } });
   return res.status(200).json({ status: 200 });
 }
 
 export async function postEnvVars(req: AuthRequest, res: Response) {
-  try {
-    const { gbVercelKeyMap }: { gbVercelKeyMap: GbVercelKeyMap } = req.body;
-    const { org } = getOrgFromReq(req);
+  const { gbVercelEnvMap }: { gbVercelEnvMap: GbVercelEnvMap } = req.body;
+  const { org } = getOrgFromReq(req);
 
-    if (!org.connections?.vercel)
-      throw new Error("Vercel integration does not exist");
-    const { token, configurationId, teamId } = org.connections.vercel;
+  if (!org.connections?.vercel)
+    throw new Error("Vercel integration does not exist");
+  const { token, teamId } = org.connections.vercel;
 
-    const projects = await getGbRelatedVercelProjects(
-      token,
-      configurationId,
-      teamId
-    );
-    if (!projects || projects.length < 1)
-      throw new Error("No project Id's found");
+  const projects = await getGbRelatedVercelProjects(token, teamId);
+  if (!projects || projects.length < 1)
+    throw new Error("No project Id's found");
 
-    for (const elem of gbVercelKeyMap) {
-      //If dropdown for "Vercel Environment" is "None", we don't want to create an env var for that
-      if (elem.vercel) {
-        //Create keys in GrowthBook
-        for (let i = 0; i < gbKeys.length; i++) {
-          const createdKeyVal = await createApiKey(
-            org.id,
-            elem.gb,
-            gbKeys[i].description
-          );
-          gbKeys[i].value = createdKeyVal;
-        }
+  const newEnvMap = reduceGbVercelEnvMap(gbVercelEnvMap);
+  const orgGbKeys = await createOrgGbKeys(org.id, newEnvMap);
 
-        //Create keys in Vercel for all relavent projects
-        for (const project of projects) {
-          for (const gbKey of gbKeys) {
-            await postEnvVar(
-              token,
-              project.id,
-              gbKey.key,
-              elem.vercel as string,
-              "plain",
-              gbKey.value,
-              teamId
-            );
-          }
-        }
-      }
+  //Create keys in Vercel for all GB related projects
+  for (const project of projects) {
+    for (const orgGbKey of orgGbKeys) {
+      await postEnvVar(
+        token,
+        project.id,
+        orgGbKey.key,
+        orgGbKey.vercelEnvArr,
+        "plain",
+        orgGbKey.value,
+        teamId
+      );
     }
-
-    return res.status(200).json({ status: 200 });
-  } catch (err) {
-    console.error(err);
-    return res.status(400).json({ status: 400 });
   }
+
+  return res.status(200).json({ status: 200 });
 }
 
 export async function getConfig(req: AuthRequest, res: Response) {
@@ -100,13 +92,9 @@ export async function getConfig(req: AuthRequest, res: Response) {
 
   if (!org.connections?.vercel)
     throw new Error("Vercel integration does not exist");
-  const { token, configurationId, teamId } = org.connections.vercel;
+  const { token, teamId } = org.connections.vercel;
 
-  const projects = await getGbRelatedVercelProjects(
-    token,
-    configurationId,
-    teamId
-  );
+  const projects = await getGbRelatedVercelProjects(token, teamId);
   if (!projects || projects.length < 1)
     throw new Error("No project Id's found");
 
@@ -130,7 +118,7 @@ export async function getConfig(req: AuthRequest, res: Response) {
           key: vercelEnvVar.key,
           value: vercelEnvVar.value,
           gbEnvironment: gbKey.environment as string,
-          vercelEnvironment: vercelEnvVar.target[0] as string,
+          vercelEnvironment: vercelEnvVar.target,
           description: gbKey.description as string,
         });
       }

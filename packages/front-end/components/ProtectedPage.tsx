@@ -13,6 +13,7 @@ import {
   OrganizationSettings,
   Permissions,
   MemberRole,
+  OrganizationConnections,
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
@@ -59,11 +60,13 @@ export type UserContextValue = {
   subscriptionStatus?: SubscriptionStatus;
   trialEnd?: Date;
   settings: OrganizationSettings;
+  connections?: OrganizationConnections;
 };
 
 export const UserContext = createContext<UserContextValue>({
   permissions: getDefaultPermissions(),
   settings: {},
+  connections: {},
 });
 
 const ProtectedPage: React.FC<{
@@ -233,6 +236,7 @@ const ProtectedPage: React.FC<{
     subscriptionStatus: currentOrg?.subscriptionStatus || "active",
     trialEnd: currentOrg?.trialEnd,
     settings: currentOrg?.settings || {},
+    connections: currentOrg?.connections || {},
   };
 
   return (

@@ -1,6 +1,6 @@
-export type GbVercelKeyMap = Array<{
-  gb: string;
-  vercel: string | null;
+export type GbVercelEnvMap = Array<{
+  vercel: VercelTarget;
+  gb: string | null;
 }>;
 
 export type ApiKeyRow = {
@@ -9,7 +9,7 @@ export type ApiKeyRow = {
   key: string;
   value: string;
   gbEnvironment: string;
-  vercelEnvironment: string;
+  vercelEnvironment: VercelTarget[];
   description: string;
 };
 
@@ -23,5 +23,21 @@ export type VercelProject = {
 export type VercelEnvVar = {
   key: string;
   value: string;
-  target: string[];
+  target: VercelTarget[];
 };
+
+export type VercelTarget = "production" | "preview" | "development";
+
+export enum VercelType {
+  plain = "plain",
+  secret = "secret",
+  system = "system",
+  encrypted = "encrypted",
+}
+
+export interface PostEnvVarBody {
+  key: string;
+  value: string;
+  type: string;
+  target: VercelTarget[];
+}

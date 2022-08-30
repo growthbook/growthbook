@@ -11,10 +11,14 @@ import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
-import { LayoutProvider } from "../services/layout";
+import Layout from "../components/Layout/Layout";
 
 type ModAppProps = AppProps & {
-  Component: { noOrganization?: boolean; preAuth?: boolean };
+  Component: {
+    noOrganization?: boolean;
+    preAuth?: boolean;
+    liteLayout?: boolean;
+  };
 };
 
 const growthbook = new GrowthBook({
@@ -40,6 +44,8 @@ function App({
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
+
+  const liteLayout = Component.liteLayout || false;
 
   useEffect(() => {
     initEnv()
@@ -83,11 +89,10 @@ function App({
             >
               {organizationRequired && !preAuth ? (
                 <DefinitionsProvider>
-                  <LayoutProvider>
-                    <main className={`main ${parts[0]}`}>
-                      <Component {...pageProps} />
-                    </main>
-                  </LayoutProvider>
+                  {!liteLayout && <Layout />}
+                  <main className={`main ${parts[0]}`}>
+                    <Component {...pageProps} />
+                  </main>
                 </DefinitionsProvider>
               ) : (
                 <Component {...pageProps} />
