@@ -119,12 +119,12 @@ const ExperimentsGetStarted = ({
               setDataSourceOpen(false);
               setDataSourceQueriesOpen(true);
             }}
-            // importSampleData={
-            //   !hasDataSource &&
-            //   allowImport &&
-            //   !hasSampleExperiment &&
-            //   importSampleData("datasource-form")
-            // }
+            importSampleData={
+              !hasDataSource &&
+              allowImport &&
+              !hasSampleExperiment &&
+              importSampleData("datasource-form")
+            }
           />
         )}
         {metricsOpen && (

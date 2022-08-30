@@ -38,7 +38,8 @@ const NewDataSourceForm: FC<{
   source: string;
   onCancel: () => void;
   onSuccess: (id: string) => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing }) => {
+  importSampleData?: (source: string) => Promise<void>;
+}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
   const [dirty, setDirty] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -411,8 +412,10 @@ const NewDataSourceForm: FC<{
           )}
         </div>
         <div className={`row mt-3`}>
-          <div className={`col-12`}>
-            <h4>Or choose a custom tracking</h4>
+          <div className="col-12 mb-2">
+            <strong style={{ fontSize: "1.2em" }}>Or choose</strong>
+          </div>
+          <div className={`col-${importSampleData ? "6" : "12"}`}>
             <a
               className={`btn btn-light-hover btn-outline-${
                 "custom" === schema ? "selected" : "primary"
@@ -433,17 +436,40 @@ const NewDataSourceForm: FC<{
                 setStep(1);
               }}
               style={{
-                height: "90px",
+                minHeight: "90px",
                 minWidth: "100%",
               }}
             >
-              <h4>Custom Tracking or Unknown</h4>
-              <p>
+              <h4>Custom Tracking</h4>
+              <p className="mb-0">
                 Connect to your existing data warehouse and define your own
                 experiment exposure queries
               </p>
             </a>
           </div>
+          {importSampleData && (
+            <div className={`col-6`}>
+              <a
+                className={`btn btn-light-hover btn-outline-${
+                  "custom" === schema ? "selected" : "primary"
+                } mb-3 py-3`}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await importSampleData("new data source form");
+                }}
+                style={{
+                  minHeight: "90px",
+                  minWidth: "100%",
+                }}
+              >
+                <h4>Load sample data</h4>
+                <p className="mb-0">
+                  Not ready to connect to your data source? Load our example
+                  data set so you can explore the features of GrowthBook.
+                </p>
+              </a>
+            </div>
+          )}
         </div>
       </Page>
       <Page
