@@ -1,13 +1,15 @@
 import {
+  createOrganization,
+  findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { randomBytes } from "crypto";
-import { APP_ORIGIN } from "../util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import { isEmailEnabled, sendInviteEmail } from "./email";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import {
   MemberRole,
   OrganizationInterface,
@@ -40,6 +42,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { updateSubscriptionInStripe } from "./stripe";
+import { markInstalled } from "./auth";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -272,6 +275,19 @@ export async function addMemberToOrg(
   ];
 
   await updateOrganization(org.id, { members });
+
+  // Update Stripe subscription if org has subscription
+  if (org.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(org.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateSubscriptionInStripe(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -664,4 +680,68 @@ export async function getExperimentOverrides(
   });
 
   return { overrides, expIdMapping };
+}
+
+// Auto-add user to an organization if using Enterprise SSO
+export async function addMemberFromSSOConnection(
+  req: AuthRequest
+): Promise<OrganizationInterface | null> {
+  if (!req.userId) return null;
+
+  const ssoConnection = req.loginMethod;
+  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+
+  // Check if the user's email domain is allowed by the SSO connection
+  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+  if (emailDomain !== ssoConnection.emailDomain) {
+    return null;
+  }
+
+  let organization: null | OrganizationInterface = null;
+  // On Cloud, we need to get the organization from the SSO connection
+  if (IS_CLOUD) {
+    if (!ssoConnection.organization) {
+      return null;
+    }
+    organization = await getOrganizationById(ssoConnection.organization);
+  }
+  // When self-hosting, there should be only one organization in Mongo
+  else {
+    const orgs = await findAllOrganizations();
+    // Sanity check in case there are multiple orgs for whatever reason
+    if (orgs.length > 1) {
+      console.error(
+        "Expected a single organization for self-hosted GrowthBook"
+      );
+      return null;
+    }
+    // If this is a brand-new installation, create an organization first
+    else if (!orgs.length) {
+      organization = await createOrganization(
+        req.email,
+        req.userId,
+        "My Organization",
+        ""
+      );
+      markInstalled();
+      return organization;
+    }
+
+    organization = orgs[0];
+  }
+  if (!organization) return null;
+
+  await addMemberToOrg(organization, req.userId);
+  try {
+    await sendNewMemberEmail(
+      req.name || "",
+      req.email || "",
+      organization.name,
+      organization.ownerEmail
+    );
+  } catch (e) {
+    console.error("Failed to send new member email", e.message);
+  }
+
+  return organization;
 }

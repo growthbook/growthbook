@@ -76,8 +76,16 @@ export async function getSSOConnection(): Promise<SSOConnectionParams> {
   // Default Cloud SSO
   return {
     id: "gbcloud",
-    authority: "https://growthbook.auth0.com",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+    metadata: {
+      issuer: "https://growthbook.auth0.com/",
+      authorization_endpoint: "https://growthbook.auth0.com/authorize",
+      end_session_endpoint:
+        "https://growthbook.auth0.com/v2/logout?client_id=5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+      id_token_signing_alg_values_supported: ["HS256", "RS256"],
+      jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
+      token_endpoint: "https://growthbook.auth0.com/oauth/token",
+    },
   };
 }
 
@@ -96,7 +104,7 @@ async function getUserManager() {
     const config = await getSSOConnection();
     ssoConnectionId = config.id;
     userManager = new UserManager({
-      authority: config.authority,
+      authority: config.metadata.issuer,
       metadata: config.metadata,
       client_id: config.clientId,
       redirect_uri: window.location.origin + "/oauth/callback",
@@ -118,6 +126,7 @@ const oidcAuthSource: AuthSource = {
     const userManager = await getUserManager();
 
     // If we were just redirected back to the app from the SSO provider
+    console.log(router.pathname);
     if (router.pathname === "/oauth/callback") {
       try {
         const user = await userManager.signinCallback();
@@ -125,7 +134,11 @@ const oidcAuthSource: AuthSource = {
           currentUser = user;
           const state: { as?: string } = user.state;
           if (state.as) {
-            router.replace(state.as, state.as, { shallow: true });
+            if (state.as.match(/^\/oauth\/callback/)) {
+              router.replace("/", "/", { shallow: true });
+            } else {
+              router.replace(state.as, state.as, { shallow: true });
+            }
           }
         }
       } catch (e) {

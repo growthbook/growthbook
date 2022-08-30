@@ -19,7 +19,6 @@ const ssoConnectionSchema = new mongoose.Schema({
   },
   dateCreated: Date,
   idpType: String,
-  authority: String,
   clientId: String,
   extraQueryParameters: {},
   metadata: {},
@@ -37,7 +36,6 @@ export function toSSOConfigParams(
 ): SSOConnectionParams {
   return {
     id: conn.id || "",
-    authority: conn.authority,
     clientId: conn.clientId,
     extraQueryParams: conn.extraQueryParams,
     metadata: conn.metadata,

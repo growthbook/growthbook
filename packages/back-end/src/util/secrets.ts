@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
 import fs from "fs";
-import { SSOConnectionParams } from "../../types/sso-connection";
+import {
+  IssuerMetadata,
+  SSOConnectionInterface,
+} from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -106,10 +109,30 @@ export const CRON_ENABLED = !process.env.CRON_DISABLED;
 // Self-hosted SSO
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
-  const config: SSOConnectionParams = JSON.parse(process.env.SSO_CONFIG);
-  if (!SSO_CONFIG?.authority || !SSO_CONFIG?.clientId) {
-    throw new Error("SSO_CONFIG must contain 'authority' and 'clientId'");
+  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
+  // Must include clientId and specific metadata
+  const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
+    "authorization_endpoint",
+    "end_session_endpoint",
+    "issuer",
+    "jwks_uri",
+    "id_token_signing_alg_values_supported",
+    "token_endpoint",
+  ];
+  if (!config?.clientId || !config?.metadata) {
+    throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");
   }
+
+  const missingMetadata = requiredMetadataKeys.filter(
+    (k) => !(k in config.metadata)
+  );
+  if (missingMetadata.length > 0) {
+    throw new Error(
+      "SSO_CONFIG missing required metadata fields: " +
+        missingMetadata.join(", ")
+    );
+  }
+
   config.id = "sso";
   return config;
 }

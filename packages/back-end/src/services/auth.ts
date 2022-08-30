@@ -16,11 +16,7 @@ import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
-import { Issuer, IssuerMetadata } from "openid-client";
-import {
-  SSOConnectionInterface,
-  SSOConnectionParams,
-} from "../../types/sso-connection";
+import { SSOConnectionInterface } from "../../types/sso-connection";
 import {
   getSSOConnectionById,
   toSSOConfigParams,
@@ -242,7 +238,7 @@ async function getOpenIdMiddleware(req: AuthRequest) {
   const existing = ssoMiddlewares.get(cacheKey);
   if (existing) return existing;
 
-  const metadata = await getMetadata(params);
+  const metadata = params.metadata;
 
   const jwksUri = metadata.jwks_uri;
   const algorithms = metadata.id_token_signing_alg_values_supported;
@@ -300,32 +296,15 @@ async function getOpenIdSettings(
   // Cloud Default SSO
   return {
     id: "gbcloud",
-    authority: "https://growthbook.auth0.com",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+    metadata: {
+      issuer: "https://growthbook.auth0.com/",
+      authorization_endpoint: "https://growthbook.auth0.com/authorize",
+      end_session_endpoint:
+        "https://growthbook.auth0.com/v2/logout?client_id=5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+      id_token_signing_alg_values_supported: ["HS256", "RS256"],
+      jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
+      token_endpoint: "https://growthbook.auth0.com/oauth/token",
+    },
   };
-}
-
-const metadataCache: Map<string, IssuerMetadata> = new Map();
-async function getMetadata(
-  params: SSOConnectionParams
-): Promise<IssuerMetadata> {
-  // Metadata included in SSO config
-  if (params.metadata) {
-    return params.metadata;
-  }
-
-  const authority = params.authority;
-  if (!authority) {
-    throw new Error("Must have either metadata OR authority for SSO config");
-  }
-
-  // Otherwise, need to discover them from the authority
-  const existing = metadataCache.get(authority);
-  if (existing) return existing;
-
-  const issuer = await Issuer.discover(authority);
-  const metadata = issuer.metadata;
-  metadataCache.set(authority, metadata);
-
-  return metadata;
 }

@@ -9,10 +9,9 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
-  addMemberToOrg,
   getPermissionsByRole,
   updateRole,
-  getOrganizationById,
+  addMemberFromSSOConnection,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -45,11 +44,7 @@ import { getFeature } from "../models/FeatureModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import {
-  sendInviteEmail,
-  sendNewMemberEmail,
-  sendNewOrgEmail,
-} from "../services/email";
+import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
 import { uploadFile } from "../services/files";
@@ -68,45 +63,11 @@ import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
-
-async function addMemberFromSSOConnection(
-  req: AuthRequest
-): Promise<OrganizationInterface | null> {
-  const ssoConnection = req.loginMethod;
-  if (
-    !ssoConnection ||
-    !ssoConnection.organization ||
-    !ssoConnection.emailDomain
-  ) {
-    return null;
-  }
-
-  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (emailDomain !== ssoConnection.emailDomain) {
-    return null;
-  }
-
-  const organization = await getOrganizationById(ssoConnection.organization);
-  if (!organization || !req.userId) return null;
-
-  await addMemberToOrg(organization, req.userId);
-  try {
-    await sendNewMemberEmail(
-      req.name || "",
-      req.email || "",
-      organization.name,
-      organization.ownerEmail
-    );
-  } catch (e) {
-    console.error("Failed to send new member email", e.message);
-  }
-
-  return organization;
-}
+import { usingOpenId } from "../services/auth";
 
 export async function getUser(req: AuthRequest, res: Response) {
-  // Ensure user exists in database
-  if (!req.userId && IS_CLOUD) {
+  // If using SSO, auto-create users in Mongo who we don't recognize yet
+  if (!req.userId && usingOpenId()) {
     const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
   }
@@ -129,10 +90,14 @@ export async function getUser(req: AuthRequest, res: Response) {
     }
   }
 
+  console.log(orgs);
+
   // Filter out orgs that the user can't log in to
-  const validOrgs = orgs.filter((org) => {
-    !org.restrictLoginMethod || req.loginMethod?.id === org.restrictLoginMethod;
-  });
+  const validOrgs = orgs.filter(
+    (org) =>
+      !org.restrictLoginMethod ||
+      req.loginMethod?.id === org.restrictLoginMethod
+  );
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
     throw new Error("Must login with Enterprise SSO");
