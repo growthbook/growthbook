@@ -2,7 +2,6 @@ import { useEffect, useState, createContext } from "react";
 import {
   useAuth,
   UserOrganizations,
-  SubscriptionStatus,
   getDefaultPermissions,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
@@ -57,8 +56,6 @@ export type UserContextValue = {
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
   permissions: Permissions;
-  subscriptionStatus?: SubscriptionStatus;
-  trialEnd?: Date;
   settings: OrganizationSettings;
   connections?: OrganizationConnections;
 };
@@ -173,6 +170,9 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      freeSeats: currentOrg?.freeSeats || 3,
+      discountCode: currentOrg?.discountCode || "",
+      hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
 
@@ -233,8 +233,6 @@ const ProtectedPage: React.FC<{
     refreshUsers,
     role,
     permissions,
-    subscriptionStatus: currentOrg?.subscriptionStatus || "active",
-    trialEnd: currentOrg?.trialEnd,
     settings: currentOrg?.settings || {},
     connections: currentOrg?.connections || {},
   };

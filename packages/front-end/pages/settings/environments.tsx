@@ -11,21 +11,38 @@ import { useEnvironments } from "../../services/features";
 import useUser from "../../hooks/useUser";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
+import useApi from "../../hooks/useApi";
+import { ApiKeyInterface } from "back-end/types/apikey";
 
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
+  const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { update } = useUser();
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
 
+  const apiKeysPerEnv = new Map();
+  data?.keys.forEach((k) => {
+    if (k.environment) {
+      apiKeysPerEnv.set(
+        k.environment.toLowerCase(),
+        apiKeysPerEnv.has(k.environment.toLowerCase())
+          ? apiKeysPerEnv.get(k.environment.toLowerCase()) + 1
+          : 1
+      );
+    }
+  });
   return (
     <div className="container-fluid pagecontents">
       {modalOpen && (
         <EnvironmentModal
           existing={modalOpen}
           close={() => setModalOpen(null)}
-          onSuccess={update}
+          onSuccess={() => {
+            update();
+            mutate();
+          }}
         />
       )}
       <div className="mb-2">
@@ -36,7 +53,13 @@ const EnvironmentsPage: FC = () => {
         </Link>
       </div>
       <h1>Environments</h1>
-      <p>Create and edit environments for feature flags and their rules.</p>
+      <p>
+        Create and edit environments for feature flags and their rules. Each
+        environment can have API keys to access the features in the environment.{" "}
+        <Link href="/settings/keys">
+          <a>See API keys</a>
+        </Link>
+      </p>
       {environments.length > 0 ? (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
@@ -45,17 +68,26 @@ const EnvironmentsPage: FC = () => {
               <th>Description</th>
               <th>Default state</th>
               <th>Show toggle on feature list</th>
+              <th>API keys</th>
               <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
             {environments.map((e, i) => {
+              const numApiKeys = apiKeysPerEnv.get(e.id) ?? 0;
               return (
                 <tr key={e.id}>
                   <td>{e.id}</td>
                   <td>{e.description}</td>
                   <td>{e.defaultState === false ? "off" : "on"}</td>
                   <td>{e.toggleOnList ? "yes" : "no"}</td>
+                  <td>
+                    <Link href="/settings/keys">
+                      <a>
+                        {numApiKeys} {numApiKeys === 1 ? "key" : "keys"}
+                      </a>
+                    </Link>
+                  </td>
                   <td style={{ width: 30 }}>
                     <MoreMenu id={e.id + "_moremenu"}>
                       <button

@@ -2,59 +2,26 @@ import React, { useEffect, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useAuth } from "../../services/auth";
-import { FaCheck, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import { ApiKeyInterface } from "back-end/types/apikey";
 import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
 import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import { OrganizationSettings, MemberRole } from "back-end/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
-
-export type SettingsApiResponse = {
-  status: number;
-  apiKeys: ApiKeyInterface[];
-  organization?: {
-    invites: {
-      email: string;
-      key: string;
-      role: MemberRole;
-      dateCreated: string;
-    }[];
-    ownerEmail: string;
-    name: string;
-    url: string;
-    members: {
-      id: string;
-      email: string;
-      name: string;
-      role: MemberRole;
-    }[];
-    subscription?: {
-      id: string;
-      qty: number;
-      trialEnd: Date;
-      status:
-        | "incomplete"
-        | "incomplete_expired"
-        | "trialing"
-        | "active"
-        | "past_due"
-        | "canceled"
-        | "unpaid";
-    };
-    slackTeam?: string;
-    settings?: OrganizationSettings;
-  };
-};
+import { ApiKeyInterface } from "back-end/types/apikey";
+import { DocLink } from "../../components/DocLink";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -66,7 +33,11 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { data, error, mutate } = useApi<SettingsApiResponse>(`/organization`);
+  const { data, error, mutate } = useApi<{
+    organization: OrganizationInterface;
+    apiKeys: ApiKeyInterface[];
+  }>(`/organization`);
+
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
@@ -229,16 +200,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <strong>Owner:</strong> {data.organization.ownerEmail}
                 </div>
               </div>
-              {data.organization.slackTeam && (
-                <div className="form-group row">
-                  <div
-                    className="col-sm-12"
-                    title={"Team: " + data.organization.slackTeam}
-                  >
-                    <FaCheck /> Connected to Slack
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -275,14 +236,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
             The below settings are controlled through your{" "}
             <code>config.yml</code> file and cannot be changed through the web
             UI.{" "}
-            <a
-              href="https://docs.growthbook.io/self-host/config#organization-settings"
-              target="_blank"
-              rel="noreferrer"
+            <DocLink
+              docSection="config_organization_settings"
               className="font-weight-bold"
             >
               View Documentation
-            </a>
+            </DocLink>
             .
           </div>
         )}
@@ -300,14 +259,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               You can import/export these settings to a <code>config.yml</code>{" "}
               file to more easily move between GrowthBook Cloud accounts and/or
               self-hosted environments.{" "}
-              <a
-                href="https://docs.growthbook.io/self-host/config#configyml"
-                target="_blank"
-                rel="noreferrer"
-                className="font-weight-bold"
-              >
+              <DocLink docSection="config_yml" className="font-weight-bold">
                 Learn More
-              </a>
+              </DocLink>
             </p>
             <div className="row mb-3">
               <div className="col-auto">
@@ -338,8 +292,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
             <div className="col-sm-9 pb-3">
               <p>
-                The Visual Editor allows non-technical users to create and start
-                experiments in production without writing any code.
+                {`The Visual Editor allows non-technical users to create and start
+                experiments in production without writing any code. `}
+                <DocLink docSection="visual_editor">View Documentation</DocLink>
               </p>
               <div>
                 <div className="form-check">

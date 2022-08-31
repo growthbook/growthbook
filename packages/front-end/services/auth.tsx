@@ -18,24 +18,17 @@ import {
 } from "./env";
 import { ReactElement } from "react";
 import { ReactNode } from "react";
-
-export type SubscriptionStatus =
-  | "incomplete"
-  | "incomplete_expired"
-  | "trialing"
-  | "active"
-  | "past_due"
-  | "canceled"
-  | "unpaid";
+import { DocLink } from "../components/DocLink";
 
 export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
   permissions?: Permissions;
-  subscriptionStatus?: SubscriptionStatus;
-  trialEnd?: Date;
   settings?: OrganizationSettings;
+  freeSeats?: number;
+  discountCode?: string;
+  hasActiveSubscription?: boolean;
   connections?: OrganizationConnections;
 };
 
@@ -161,13 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             environment variables{" "}
             <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
             <code className="font-weight-bold">API_HOST</code>.{" "}
-            <a
-              href="https://docs.growthbook.io/self-host/config#domains-and-ports"
-              target="_blank"
-              rel="noreferrer"
-            >
-              View docs
-            </a>
+            <DocLink docSection="config_domains_and_ports">View docs</DocLink>
           </div>
         );
       }

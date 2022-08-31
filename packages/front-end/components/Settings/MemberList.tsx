@@ -3,13 +3,12 @@ import InviteModal from "./InviteModal";
 import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
 import DeleteButton from "../DeleteButton";
-import Modal from "../Modal";
-import RoleSelector from "./RoleSelector";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { isCloud } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
+import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
 
 export type MemberInfo = {
   id: string;
@@ -25,24 +24,13 @@ const MemberList: FC<{
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
-  const [roleModal, setRoleModal] = useState<MemberInfo>(null);
+  const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
     null
   );
-  const [role, setRole] = useState<MemberRole>("admin");
 
   const onInvite = () => {
     setInviting(true);
-  };
-
-  const onSubmitChangeRole = async () => {
-    await apiCall(`/member/${roleModal.id}/role`, {
-      method: "PUT",
-      body: JSON.stringify({
-        role,
-      }),
-    });
-    mutate();
   };
 
   return (
@@ -52,17 +40,19 @@ const MemberList: FC<{
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
       {roleModal && (
-        <Modal
+        <ChangeRoleModal
+          roleInfo={roleModal}
           close={() => setRoleModal(null)}
-          header="Change Role"
-          open={true}
-          submit={onSubmitChangeRole}
-        >
-          <p>
-            Change role for <strong>{roleModal.name}</strong>:
-          </p>
-          <RoleSelector role={role} setRole={setRole} />
-        </Modal>
+          onConfirm={async (role) => {
+            await apiCall(`/member/${roleModal.uniqueKey}/role`, {
+              method: "PUT",
+              body: JSON.stringify({
+                role,
+              }),
+            });
+            mutate();
+          }}
+        />
       )}
       {passwordResetModal && (
         <AdminSetPasswordModal
@@ -93,8 +83,11 @@ const MemberList: FC<{
                         className="dropdown-item"
                         onClick={(e) => {
                           e.preventDefault();
-                          setRoleModal(member);
-                          setRole(member.role);
+                          setRoleModal({
+                            uniqueKey: member.id,
+                            displayInfo: member.name,
+                            role: member.role,
+                          });
                         }}
                       >
                         Edit Role

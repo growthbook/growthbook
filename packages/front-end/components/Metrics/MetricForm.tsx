@@ -336,6 +336,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta="Save"
       closeCta="Cancel"
+      docSection="metrics"
       size="lg"
       step={step}
       setStep={setStep}
