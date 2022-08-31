@@ -28,6 +28,7 @@ import {
 } from "../services/apiKey";
 import { UserModel } from "../models/UserModel";
 import {
+  Invite,
   MemberRole,
   NamespaceUsage,
   OrganizationInterface,
@@ -68,6 +69,8 @@ import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
+import { hasActiveSubscription } from "../services/stripe";
+import { cloneDeep } from "lodash";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -137,11 +140,12 @@ export async function getUser(req: AuthRequest, res: Response) {
       return {
         id: org.id,
         name: org.name,
-        subscriptionStatus: org.subscription?.status,
-        trialEnd: org.subscription?.trialEnd,
         role,
         permissions: getPermissionsByRole(role),
         settings: org.settings || {},
+        freeSeats: org.freeSeats || 3,
+        discountCode: org.discountCode || "",
+        hasActiveSubscription: hasActiveSubscription(org),
       };
     }),
   });
@@ -452,6 +456,59 @@ export async function putMemberRole(
   }
 }
 
+export async function putInviteRole(
+  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { role } = req.body;
+  const { key } = req.params;
+  const originalInvites: Invite[] = cloneDeep(org.invites);
+
+  let found = false;
+
+  org.invites.forEach((m) => {
+    if (m.key === key) {
+      m.role = role;
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+
+  try {
+    await updateOrganization(org.id, {
+      invites: org.invites,
+    });
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { invites: originalInvites },
+        { invites: org.invites }
+      ),
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to change role",
+    });
+  }
+}
+
 export async function getOrganization(req: AuthRequest, res: Response) {
   if (!req.organization) {
     return res.status(200).json({
@@ -470,8 +527,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     name,
     url,
     subscription,
+    freeSeats,
     connections,
     settings,
+    disableSelfServeBilling,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -492,6 +551,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       name,
       url,
       subscription,
+      freeSeats,
+      disableSelfServeBilling,
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {
         return {
@@ -588,6 +649,7 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+
     return res.status(200).json({
       status: 200,
       orgId: org.id,
@@ -607,6 +669,7 @@ export async function postInvite(req: AuthRequest, res: Response) {
   const { email, role } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser(org, email, role);
+
   return res.status(200).json({
     status: 200,
     inviteUrl,

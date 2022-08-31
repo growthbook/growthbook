@@ -179,8 +179,8 @@ const SegmentPage: FC = () => {
     return (
       <div className="p-3 container-fluid pagecontents">
         <div className="row mb-3">
-          <div className="col">
-            <h3>Segments</h3>
+          <div className="col d-flex">
+            <h1>Segments</h1>
           </div>
         </div>
         <div className="alert alert-info">
@@ -199,8 +199,8 @@ const SegmentPage: FC = () => {
         <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
       )}
       <div className="row mb-3">
-        <div className="col-auto">
-          <h3>Segments</h3>
+        <div className="col-auto d-flex">
+          <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
         {permissions.createSegments && (

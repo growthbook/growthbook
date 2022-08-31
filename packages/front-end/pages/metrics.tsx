@@ -19,6 +19,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
+import { DocLink } from "../components/DocLink";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -104,7 +105,12 @@ const MetricsPage = (): React.ReactElement => {
             source="blank-state"
           />
         )}
-        <h1>Metrics</h1>
+        <div className="d-flex">
+          <h1>Metrics</h1>
+          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
+            View Documentation
+          </DocLink>
+        </div>
         <p>
           Metrics define success and failure for your business. Every business
           is unique, but below are some common metrics to draw inspiration from:
@@ -131,9 +137,7 @@ const MetricsPage = (): React.ReactElement => {
           <div className="alert alert-info">
             It looks like you have a <code>config.yml</code> file. Metrics
             defined there will show up on this page.{" "}
-            <a href="https://docs.growthbook.io/self-host/config#configyml">
-              View Documentation
-            </a>
+            <DocLink docSection="config_yml">View Documentation</DocLink>
           </div>
         )}
         {permissions.createMetrics && !hasFileConfig() && (
@@ -161,8 +165,8 @@ const MetricsPage = (): React.ReactElement => {
       )}
 
       <div className="filters md-form row mb-3 align-items-center">
-        <div className="col-auto">
-          <h3>
+        <div className="col-auto d-flex">
+          <h1>
             Your Metrics{" "}
             <small className="text-muted">
               <Tooltip
@@ -170,7 +174,10 @@ const MetricsPage = (): React.ReactElement => {
         here to use throughout the GrowthBook app."
               />
             </small>
-          </h3>
+          </h1>
+          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
+            View Documentation
+          </DocLink>
         </div>
         <div style={{ flex: 1 }} />
         {permissions.createMetrics && !hasFileConfig() && (

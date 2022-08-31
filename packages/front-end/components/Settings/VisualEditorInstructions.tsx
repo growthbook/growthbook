@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
 import { getApiHost, isCloud } from "../../services/env";
 import Code from "../Code";
+import { DocLink } from "../DocLink";
 import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({
@@ -117,13 +118,9 @@ window.GROWTHBOOK_CONFIG = {
       />
       <div>
         Check out the full docs at{" "}
-        <a
-          href="https://docs.growthbook.io/app/visual"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <DocLink docSection="visual_editor">
           https://docs.growthbook.io/app/visual
-        </a>
+        </DocLink>
       </div>
     </div>
   );

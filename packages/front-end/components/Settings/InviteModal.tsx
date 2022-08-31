@@ -6,6 +6,9 @@ import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { MemberRole } from "back-end/types/organization";
+import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
+import useStripeSubscription from "../../hooks/useStripeSubscription";
+import UpgradeModal from "./UpgradeModal";
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
@@ -23,6 +26,22 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
   const { apiCall } = useAuth();
+  const {
+    freeSeats,
+    canSubscribe,
+    activeAndInvitedUsers,
+  } = useStripeSubscription();
+
+  // Hit their free limit and needs to upgrade to invite more team members
+  if (canSubscribe && activeAndInvitedUsers >= freeSeats) {
+    return (
+      <UpgradeModal
+        close={close}
+        source="invite team"
+        reason="Whoops! You reached your free seat limit."
+      />
+    );
+  }
 
   const onSubmit = form.handleSubmit(async (value) => {
     const resp = await apiCall<{
@@ -86,6 +105,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               form.setValue("role", role);
             }}
           />
+          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>

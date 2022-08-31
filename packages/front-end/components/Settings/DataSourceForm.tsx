@@ -25,6 +25,7 @@ import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
+import { DocLink, DocSection } from "../DocLink";
 
 const typeOptions: {
   type: DataSourceType;
@@ -399,6 +400,14 @@ const DataSourceForm: FC<{
             label: o.display,
           };
         })}
+        helpText={
+          <DocLink
+            docSection={datasource.type as DocSection}
+            fallBackSection="datasources"
+          >
+            View documentation
+          </DocLink>
+        }
       />
       <div className="form-group">
         <label>Display Name</label>

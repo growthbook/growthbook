@@ -42,7 +42,21 @@ export async function uploadFile(
     throw new Error("Invalid upload signature");
   }
 
-  const fullPath = getUploadsDir() + "/" + filePath;
+  // Watch out for poison null bytes
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
+  const rootDirectory = getUploadsDir();
+  const fullPath = path.join(rootDirectory, filePath);
+
+  // Prevent directory traversal
+  if (fullPath.indexOf(rootDirectory) !== 0) {
+    throw new Error(
+      "Error: Path must not escape out of the 'uploads' directory."
+    );
+  }
+
   const dir = path.dirname(fullPath);
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(fullPath, contents);
