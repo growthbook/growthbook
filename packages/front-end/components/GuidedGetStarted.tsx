@@ -25,6 +25,8 @@ export type Task = {
   link?: string;
   completed?: boolean;
   render: ReactNode;
+  inviteTeammates?: boolean;
+  additionalCta?: ReactNode;
 };
 
 export default function GuidedGetStarted({
@@ -39,6 +41,8 @@ export default function GuidedGetStarted({
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
   const { datasources } = useDefinitions();
+  const { apiCall } = useAuth();
+  const { update } = useUser();
 
   const steps: Task[] = [
     {
@@ -47,6 +51,13 @@ export default function GuidedGetStarted({
       text:
         "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
       completed: settings?.videoInstructionsViewed || false,
+      additionalCta: (
+        <Link href="/settings/team">
+          <a className="font-weight-bold">
+            Not an engineer? Invite a developer to get started.
+          </a>
+        </Link>
+      ),
       render: (
         <>
           <div className={clsx(styles.playerWrapper, "col-lg-6")}>
@@ -56,7 +67,17 @@ export default function GuidedGetStarted({
               light={true}
               playing={true}
               controls={true}
-              onClick={() => updateSettings()}
+              onClick={async () => {
+                await apiCall(`/organization`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    settings: {
+                      videoInstructionsViewed: true,
+                    },
+                  }),
+                });
+                await update();
+              }}
               width="100%"
             />
           </div>
@@ -246,6 +267,7 @@ export default function GuidedGetStarted({
       ),
     },
   ];
+
   const [currentStep, setCurrentStep] = useState(() => {
     const initialStep = steps.findIndex((step) => step.completed === false);
 
@@ -255,20 +277,6 @@ export default function GuidedGetStarted({
       return 0;
     }
   });
-  const { apiCall } = useAuth();
-  const { update } = useUser();
-
-  async function updateSettings() {
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: {
-          videoInstructionsViewed: true,
-        },
-      }),
-    });
-    await update();
-  }
 
   return (
     <>
@@ -297,13 +305,7 @@ export default function GuidedGetStarted({
               </span>
             )}
           </p>
-          {steps[currentStep].blackTitle === "Welcome to " && (
-            <Link href="/settings/team">
-              <a className="font-weight-bold">
-                Not an engineer? Invite a developer to get started.
-              </a>
-            </Link>
-          )}
+          {steps[currentStep].additionalCta}
         </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
