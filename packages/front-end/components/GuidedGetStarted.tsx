@@ -40,6 +40,7 @@ export default function GuidedGetStarted({
   const [skippedSteps, setSkippedSteps] = useLocalStorage<{
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
+  const [showVideo, setShowVideo] = useState(false);
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
@@ -64,25 +65,34 @@ export default function GuidedGetStarted({
       render: (
         <>
           <div className={clsx(styles.playerWrapper, "col-lg-6")}>
-            <ReactPlayer
-              className={clsx("mb-4")}
-              url="https://www.youtube.com/watch?v=1ASe3K46BEw"
-              light={true}
-              playing={true}
-              controls={true}
-              onClick={async () => {
-                await apiCall(`/organization`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    settings: {
-                      videoInstructionsViewed: true,
-                    },
-                  }),
-                });
-                await update();
-              }}
-              width="100%"
-            />
+            {showVideo ? (
+              <ReactPlayer
+                className={clsx("mb-4")}
+                url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+                playing={true}
+                controls={true}
+                width="100%"
+              />
+            ) : (
+              <img
+                role="button"
+                className={styles.videoPreview}
+                src="/images/intro-video-cover.png"
+                width={"100%"}
+                onClick={async () => {
+                  setShowVideo(true);
+                  await apiCall(`/organization`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      settings: {
+                        videoInstructionsViewed: true,
+                      },
+                    }),
+                  });
+                  await update();
+                }}
+              />
+            )}
           </div>
           <button
             onClick={() => setCurrentStep(currentStep + 1)}
