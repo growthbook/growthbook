@@ -220,7 +220,7 @@ export default function GuidedGetStarted({
       render: (
         <MetricForm
           inline={true}
-          cta={"Next: Create Experiment"}
+          cta={"Finish"}
           current={{}}
           edit={false}
           source="get-started"
