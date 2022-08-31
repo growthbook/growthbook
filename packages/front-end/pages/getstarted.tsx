@@ -42,7 +42,10 @@ const GetStartedPage = (): React.ReactElement => {
     return (
       <>
         <div className="container pagecontents position-relative">
-          <GuidedGetStarted features={features} />
+          <GuidedGetStarted
+            experiments={experiments?.experiments || []}
+            features={features}
+          />
         </div>
       </>
     );
