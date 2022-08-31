@@ -133,7 +133,7 @@ const oidcAuthSource: AuthSource = {
         if (user) {
           currentUser = user;
           const state: { as?: string } = user.state;
-          if (state.as) {
+          if (state.as && state.as.match(/^\//)) {
             if (state.as.match(/^\/oauth\/callback/)) {
               router.replace("/", "/", { shallow: true });
             } else {
