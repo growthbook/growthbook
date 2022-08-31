@@ -204,6 +204,14 @@ export async function postFirstTimeRegister(
   >,
   res: Response
 ) {
+  // Only allow this API endpoint when it's a brand-new installation with no users yet
+  const newInstallation = await isNewInstallation();
+  if (!newInstallation) {
+    throw new Error(
+      "An organization is already configured. Please refresh the page and try again."
+    );
+  }
+
   const { email, name, password, companyname } = req.body;
 
   validatePasswordFormat(password);
