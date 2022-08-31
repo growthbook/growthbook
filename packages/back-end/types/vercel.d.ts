@@ -34,10 +34,3 @@ export enum VercelType {
   system = "system",
   encrypted = "encrypted",
 }
-
-export interface PostEnvVarBody {
-  key: string;
-  value: string;
-  type: string;
-  target: VercelTarget[];
-}

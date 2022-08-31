@@ -1,7 +1,6 @@
 import fetch from "node-fetch";
 import {
   GbVercelEnvMap,
-  PostEnvVarBody,
   VercelEnvVar,
   VercelProject,
   VercelTarget,
@@ -32,7 +31,7 @@ interface VercelApiCallProps {
   teamId: string | null;
   url: string;
   method: "POST" | "GET";
-  body?: PostEnvVarBody;
+  body?: string;
   hasResult: boolean;
 }
 
