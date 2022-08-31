@@ -15,6 +15,7 @@ import { useAuth } from "../services/auth";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import styles from "./GuidedGetStarted.module.scss";
 import clsx from "clsx";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export type Task = {
   blackTitle: string;
@@ -31,8 +32,10 @@ export type Task = {
 
 export default function GuidedGetStarted({
   features,
+  experiments,
 }: {
   features: FeatureInterface[];
+  experiments: ExperimentInterfaceStringDates[];
 }) {
   const [skippedSteps, setSkippedSteps] = useLocalStorage<{
     [key: string]: boolean;
@@ -231,7 +234,7 @@ export default function GuidedGetStarted({
     {
       blackTitle: "Great ",
       purpleTitle: "Work!",
-      completed: false,
+      completed: experiments.length > 0,
       text:
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
