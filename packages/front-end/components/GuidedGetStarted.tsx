@@ -277,7 +277,7 @@ export default function GuidedGetStarted({
         currentStep={currentStep}
         steps={steps}
       />
-      <div className="d-flex flex-column text-center">
+      <div className="d-flex flex-column">
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
           <h1 className="text-center">
             <span className={styles.blackTitle}>
@@ -287,7 +287,7 @@ export default function GuidedGetStarted({
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          <p>
+          <p className="text-center col-10">
             {steps[currentStep].text}
             {steps[currentStep].learnMoreLink && steps[currentStep].link && (
               <span>

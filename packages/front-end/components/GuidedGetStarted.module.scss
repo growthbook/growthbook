@@ -26,6 +26,12 @@
   background-color: white;
 }
 
+.nextStepLink:hover {
+  background-color: $highlight-purple;
+  color: $white;
+  border-color: $highlight-purple;
+}
+
 .nextStepWrapper:hover {
   text-decoration: none;
 }
