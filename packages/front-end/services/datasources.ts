@@ -365,8 +365,94 @@ FROM
   },
 };
 
+const FreshpaintSchema: SchemaInterface = {
+  experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    return `SELECT
+  ${userId},
+  time as timestamp,
+  experiment_id,
+  variation_id,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  operating_system as os,
+  browser
+FROM
+  ${tablePrefix}${exposureTableName}
+WHERE
+  ${userId} is not null`;
+  },
+  getIdentitySQL: (tablePrefix) => {
+    return [
+      {
+        ids: ["user_id", "device_id"],
+        query: `SELECT
+  user_id,
+  anonymous_id as device_id
+FROM
+  ${tablePrefix}identifies`,
+      },
+    ];
+  },
+  userIdTypes: ["device_id", "user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  device_id,
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
+const HeapSchema: SchemaInterface = {
+  experimentDimensions: [
+    "source",
+    "medium",
+    "campaign",
+    "platform",
+    "os",
+    "country",
+    "browser",
+  ],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    return `SELECT
+  ${userId},
+  time as timestamp,
+  experiment_id,
+  variation_id,
+  platform as os,
+  device_type as platform,
+  country
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  browser
+FROM
+  ${tablePrefix}${exposureTableName}
+WHERE
+  ${userId} is not null`;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
-  if (type === "ga4") {
+  if (type === "ga4" || type === "firebase") {
     return GA4Schema;
   }
   if (type === "snowplow") {
@@ -375,11 +461,17 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "amplitude") {
     return AmplitudeSchema;
   }
-  if (type === "segment") {
+  if (type === "segment" || type === "jitsu") {
     return SegmentSchema;
   }
   if (type === "matomo") {
     return MatomoSchema;
+  }
+  if (type === "freshpaint") {
+    return FreshpaintSchema;
+  }
+  if (type === "heap") {
+    return HeapSchema;
   }
   if (type === "rudderstack") {
     return RudderstackSchema;

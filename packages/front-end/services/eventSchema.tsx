@@ -353,7 +353,7 @@ export const eventSchemas: eventSchema[] = [
         >
           warehouse destination here
         </a>
-        .
+        . Please contact us for help setting up the initial queries.
       </>
     ),
   },
@@ -372,7 +372,8 @@ export const eventSchemas: eventSchema[] = [
           href="https://keen.io/docs/streams/extended-functionality/amazon-s3/"
           rel="noreferrer"
         >
-          warehouse destination here
+          warehouse destination here. Please contact us for help setting up the
+          initial queries.
         </a>
         .
       </>
@@ -396,7 +397,7 @@ export const eventSchemas: eventSchema[] = [
         >
           read about this here
         </a>
-        .
+        . Please contact us for help setting up the initial queries.
       </>
     ),
   },
