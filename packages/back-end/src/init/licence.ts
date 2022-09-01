@@ -1,14 +1,8 @@
 import crypto from "crypto";
+import fetch from "node-fetch";
+import { LicenceData } from "../../types/organization";
 
 import { LICENCE_KEY } from "../util/secrets";
-
-export type LicenceData = {
-  ref: string;
-  sub: string;
-  qty: string;
-  iat: string;
-  eat: string;
-};
 
 let licenceData: LicenceData | null = null;
 export default async () => {
@@ -70,9 +64,10 @@ async function getVerifiedLicenceData(key: string) {
 
   // Licence key signature is invalid, don't use it
   if (!isVerified) {
-    console.error("Licence key signature invalid", decodedLicence);
-    return null;
+    throw new Error("Invalid licence key signature");
   }
+
+  console.log("Using verified licence key", decodedLicence);
 
   return decodedLicence;
 }

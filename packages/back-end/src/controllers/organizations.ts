@@ -66,6 +66,7 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
+import { getLicence } from "../init/licence";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -111,6 +112,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
+    licence: !IS_CLOUD && getLicence(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
       return {
@@ -1000,7 +1002,7 @@ export async function putAdminResetUserPassword(
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;
 
-  if (IS_CLOUD) {
+  if (usingOpenId()) {
     throw new Error(
       "This functionality is not available with GrowthBook Cloud"
     );

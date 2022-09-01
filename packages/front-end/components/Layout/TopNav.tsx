@@ -18,12 +18,13 @@ import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import { isCloud } from "../../services/env";
+import { getSelfHostedSSOConnection, isCloud } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "../Settings/UpgradeModal";
+import Tooltip from "../Tooltip";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -50,7 +51,7 @@ const TopNav: FC<{
     hasActiveSubscription,
   } = useStripeSubscription();
 
-  const { name, email, update, permissions, role } = useUser();
+  const { name, email, update, permissions, role, licence } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -184,9 +185,52 @@ const TopNav: FC<{
                 </button>
               )}
 
+            {licence &&
+              permissions.organizationSettings &&
+              licence.eat < new Date().toISOString().substring(0, 10) && (
+                <Tooltip
+                  body={
+                    <>
+                      Your licence expired on
+                      <strong>{licence.eat}</strong>. Contact
+                      sales@growthbook.io to renew.
+                    </>
+                  }
+                >
+                  <div className="alert alert-danger py-1 px-2 d-none d-md-block">
+                    <FaExclamationTriangle /> licence expired
+                  </div>
+                </Tooltip>
+              )}
+
+            {licence &&
+              permissions.organizationSettings &&
+              activeAndInvitedUsers > licence.qty && (
+                <Tooltip
+                  body={
+                    <>
+                      Your licence is valid for{" "}
+                      <strong>{licence.qty} seats</strong>, but you are
+                      currently using <strong>{activeAndInvitedUsers}</strong>.
+                      Contact sales@growthbook.io to extend your quota.
+                    </>
+                  }
+                >
+                  <div className="alert alert-danger py-1 px-2 d-none d-md-block">
+                    <FaExclamationTriangle /> licence quota exceded
+                  </div>
+                </Tooltip>
+              )}
+
             {hasActiveSubscription && (
               <div className="ml-2">
                 <span className="badge badge-pill badge-dark">PRO</span>
+              </div>
+            )}
+
+            {licence && (
+              <div className="ml-2">
+                <span className="badge badge-pill badge-dark">ENTERPRISE</span>
               </div>
             )}
 
@@ -294,7 +338,7 @@ const TopNav: FC<{
               Edit Profile
             </button>
             <div className="dropdown-divider"></div>
-            {!isCloud() && (
+            {!isCloud() && !getSelfHostedSSOConnection() && (
               <>
                 <button
                   className="dropdown-item"

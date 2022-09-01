@@ -41,7 +41,6 @@ function generateJWT(user: UserInterface) {
   return jwt.sign(
     {
       scope: "profile openid email",
-      sub: user.id,
       email: user.email,
       given_name: user.name,
       email_verified: false,

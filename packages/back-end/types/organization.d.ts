@@ -162,3 +162,11 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type LicenceData = {
+  ref: string;
+  sub: string;
+  qty: number;
+  iat: string;
+  eat: string;
+};

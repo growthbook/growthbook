@@ -1,5 +1,4 @@
 import * as Sentry from "@sentry/react";
-import { SSOConnectionParams } from "back-end/types/sso-connection";
 import { EnvironmentInitValue } from "../pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -11,6 +10,7 @@ const env: EnvironmentInitValue = {
   defaultConversionWindowHours: 72,
   sentryDSN: "",
   apiCredentials: false,
+  selfHostedSSO: null,
 };
 
 export async function initEnv() {
@@ -53,6 +53,6 @@ export function getDefaultConversionWindowHours() {
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
 }
-export function getSelfHostedSSOConnection(): SSOConnectionParams | null {
+export function getSelfHostedSSOConnection() {
   return env.selfHostedSSO || null;
 }

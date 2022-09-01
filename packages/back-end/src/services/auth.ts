@@ -21,7 +21,6 @@ import {
   getSSOConnectionById,
   toSSOConfigParams,
 } from "../models/SSOConnectionModel";
-import { getLicence } from "../init/licence";
 
 type JWTInfo = {
   email?: string;
@@ -268,16 +267,8 @@ async function getOpenIdMiddleware(req: AuthRequest) {
 
 export function usingOpenId() {
   if (IS_CLOUD) return true;
-  if (!SSO_CONFIG) return false;
-
-  // When self-hosting, you need a valid Enterprise licence to use SSO
-  const licence = getLicence();
-  if (!licence) {
-    console.error("Trying to use SSO without enterprise licence");
-    return false;
-  }
-
-  return true;
+  if (SSO_CONFIG) return true;
+  return false;
 }
 
 export function getDefaultSSOConnection(): SSOConnectionInterface | null {

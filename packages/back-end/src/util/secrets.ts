@@ -113,6 +113,13 @@ export const LICENCE_KEY = process.env.LICENCE_KEY || "";
 // Self-hosted SSO
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
+
+  if (!LICENCE_KEY) {
+    throw new Error(
+      "Must have an Enterprise Licence Key to use self-hosted SSO"
+    );
+  }
+
   const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
   // Must include clientId and specific metadata
   const requiredMetadataKeys: (keyof IssuerMetadata)[] = [

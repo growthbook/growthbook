@@ -99,6 +99,22 @@ Store uploads in a Google Cloud Storage bucket.
 - **GCS_DOMAIN** (defaults to `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`)
 - **GOOGLE_APPLICATION_CREDENTIALS** (not required when deployed to GCP with an instance service account)
 
+### Enterprise Settings
+
+Some features in self-hosted GrowthBook are only available with an Enterprise licence key. Reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more.
+
+- **LICENCE_KEY** - Your signed licence key provided by the GrowthBook team
+- **SSO_CONFIG** - A JSON-encoded string that configures SSO (using OpenID Connect). It should be an object with the following keys:
+  - `clientId` (string)
+  - `metadata` (object)
+    - `authorization_endpoint` (string)
+    - `end_session_endpoint` (string)
+    - `issuer` (string)
+    - `jwks_uri` (string)
+    - `id_token_signing_alg_values_supported` (array of strings)
+    - `token_endpoint` (string)
+  - `emailDomain` (string, optional) - Allow auto-joining from a specified email domain
+
 ### Other Settings
 
 - **EXPERIMENT_REFRESH_FREQUENCY** - Default update schedule for experiment results. Update when stale for X hours (default `6`).

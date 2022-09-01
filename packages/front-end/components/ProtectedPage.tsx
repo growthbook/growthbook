@@ -12,6 +12,7 @@ import {
   OrganizationSettings,
   Permissions,
   MemberRole,
+  LicenceData,
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
@@ -29,6 +30,7 @@ interface UserResponse {
   email: string;
   admin: boolean;
   organizations?: UserOrganizations;
+  licence?: LicenceData;
 }
 
 interface MembersResponse {
@@ -50,6 +52,7 @@ export type UserContextValue = {
   email?: string;
   admin?: boolean;
   role?: string;
+  licence?: LicenceData;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
@@ -166,6 +169,7 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      hasLicenceKey: !!data?.licence,
       freeSeats: currentOrg?.freeSeats || 3,
       discountCode: currentOrg?.discountCode || "",
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
@@ -225,6 +229,7 @@ const ProtectedPage: React.FC<{
     role,
     permissions,
     settings: currentOrg?.settings || {},
+    licence: data?.licence,
   };
 
   return (

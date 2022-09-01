@@ -9,7 +9,10 @@ import {
   isCloud,
 } from "../services/env";
 import { UserManager, User } from "oidc-client-ts";
-import { SSOConnectionParams } from "back-end/types/sso-connection";
+import {
+  SSOConnectionInterface,
+  SSOConnectionParams,
+} from "back-end/types/sso-connection";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
@@ -39,7 +42,7 @@ export async function lookupByEmail(email: string) {
   setLastSSOConnectionId(json.ssoConnectionId);
 }
 
-export async function getSSOConnection(): Promise<SSOConnectionParams> {
+export async function getSSOConnection(): Promise<SSOConnectionInterface> {
   // Self-hosted SSO from env variables
   if (!isCloud()) {
     const ssoConnection = getSelfHostedSSOConnection();

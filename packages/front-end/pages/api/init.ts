@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs";
-import { SSOConnectionParams } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
@@ -16,7 +16,7 @@ export interface EnvironmentInitValue {
   };
   sentryDSN: string;
   apiCredentials: boolean;
-  selfHostedSSO?: SSOConnectionParams;
+  selfHostedSSO: SSOConnectionInterface | null;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -53,7 +53,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .toString();
   }
 
-  const ssoConfig = SSO_CONFIG ? JSON.parse(SSO_CONFIG) : null;
+  const ssoConfig: SSOConnectionInterface | null = SSO_CONFIG
+    ? JSON.parse(SSO_CONFIG)
+    : null;
 
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
@@ -71,11 +73,13 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     apiCredentials: !!ENABLE_API_CREDENTIALS,
-    selfHostedSSO: !IS_CLOUD &&
-      ssoConfig && {
-        id: "sso",
-        ...ssoConfig,
-      },
+    selfHostedSSO:
+      (!IS_CLOUD &&
+        ssoConfig && {
+          id: "sso",
+          ...ssoConfig,
+        }) ||
+      null,
   };
 
   res.status(200).json(body);
