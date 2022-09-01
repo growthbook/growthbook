@@ -142,28 +142,6 @@ export const eventSchemas: eventSchema[] = [
     ],
   },
   {
-    value: "heap",
-    label: "Heap",
-    types: ["bigquery", "redshift", "snowflake", "athena"],
-    logo: "/images/3rd-party-logos/heap.png",
-    popular: false,
-    intro: (
-      <>
-        GrowthBook cannot directly query data stored in Heap Analytics, but
-        fortunately Heap Analytics allows you to easily export data to a number
-        of data warehouses, which you can use with GrowthBook. You can{" "}
-        <a
-          target="_blank"
-          href="https://help.heap.io/category/integrations/data-warehouses/"
-          rel="noreferrer"
-        >
-          read about their data export here
-        </a>
-        .
-      </>
-    ),
-  },
-  {
     value: "ga4",
     label: "Google Analytics v4",
     types: ["bigquery"],
@@ -181,6 +159,35 @@ export const eventSchemas: eventSchema[] = [
           rel="noreferrer"
         >
           read more about it here
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    value: "firebase",
+    label: "Firebase",
+    types: ["bigquery"],
+    logo: "/images/3rd-party-logos/firebase.png",
+    popular: false,
+    intro: (
+      <>
+        You can export Firebase data to BigQuery, and then use that with
+        GrowthBook. You can read about how to export{" "}
+        <a
+          target="_blank"
+          href="https://firebase.google.com/docs/projects/bigquery-export"
+          rel="noreferrer"
+        >
+          your data to BigQuery here
+        </a>
+        , or read about how to set up{" "}
+        <a
+          target="_blank"
+          href="https://docs.growthbook.io/guide/bigquery"
+          rel="noreferrer"
+        >
+          BigQuery to work with GrowthBook
         </a>
         .
       </>
@@ -280,6 +287,28 @@ export const eventSchemas: eventSchema[] = [
     ],
   },
   {
+    value: "heap",
+    label: "Heap",
+    types: ["bigquery", "redshift", "snowflake", "athena"],
+    logo: "/images/3rd-party-logos/heap.png",
+    popular: false,
+    intro: (
+      <>
+        GrowthBook cannot directly query data stored in Heap Analytics, but
+        fortunately Heap Analytics allows you to easily export data to a number
+        of data warehouses, which you can use with GrowthBook. You can{" "}
+        <a
+          target="_blank"
+          href="https://help.heap.io/category/integrations/data-warehouses/"
+          rel="noreferrer"
+        >
+          read about their data export here
+        </a>
+        .
+      </>
+    ),
+  },
+  {
     value: "jitsu",
     label: "Jitsu",
     types: [
@@ -302,35 +331,6 @@ export const eventSchemas: eventSchema[] = [
           rel="noreferrer"
         >
           warehouse destination here
-        </a>
-        .
-      </>
-    ),
-  },
-  {
-    value: "firebase",
-    label: "Firebase",
-    types: ["bigquery"],
-    logo: "/images/3rd-party-logos/firebase.png",
-    popular: false,
-    intro: (
-      <>
-        You can export Firebase data to BigQuery, and then use that with
-        GrowthBook. You can read about how to export{" "}
-        <a
-          target="_blank"
-          href="https://firebase.google.com/docs/projects/bigquery-export"
-          rel="noreferrer"
-        >
-          your data to BigQuery here
-        </a>
-        , or read about how to set up{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/bigquery"
-          rel="noreferrer"
-        >
-          BigQuery to work with GrowthBook
         </a>
         .
       </>
@@ -372,10 +372,9 @@ export const eventSchemas: eventSchema[] = [
           href="https://keen.io/docs/streams/extended-functionality/amazon-s3/"
           rel="noreferrer"
         >
-          warehouse destination here. Please contact us for help setting up the
-          initial queries.
+          warehouse destination here
         </a>
-        .
+        . Please contact us for help setting up the initial queries.
       </>
     ),
   },
