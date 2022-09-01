@@ -7,21 +7,9 @@ import {
 } from "react";
 import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import AthenaForm from "./AthenaForm";
-import PostgresForm from "./PostgresForm";
-import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
-import SnowflakeForm from "./SnowflakeForm";
-import BigQueryForm from "./BigQueryForm";
-import ClickHouseForm from "./ClickHouseForm";
-import MixpanelForm from "./MixpanelForm";
 import track from "../../services/track";
-import PrestoForm from "./PrestoForm";
-import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import { getInitialSettings } from "../../services/datasources";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import { MdKeyboardArrowDown } from "react-icons/md";
 import {
   eventSchemas,
   dataSourceConnections,
@@ -29,8 +17,10 @@ import {
 } from "../../services/eventSchema";
 import Field from "../Forms/Field";
 import { useForm } from "react-hook-form";
-import LoadingOverlay from "../LoadingOverlay";
-import styles from "./NewDataSourceForm.module.scss";
+import Modal from "../Modal";
+import { GBCircleArrowLeft } from "../Icons";
+import EventSourceList from "./EventSourceList";
+import ConnectionSettings from "./ConnectionSettings";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -40,11 +30,8 @@ const NewDataSourceForm: FC<{
   onSuccess: (id: string) => Promise<void>;
   importSampleData?: (source: string) => Promise<void>;
 }> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
-  const [dirty, setDirty] = useState(false);
   const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [schema, setSchema] = useState("");
-  const [showFullList, setShowFullList] = useState(false);
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
@@ -52,7 +39,7 @@ const NewDataSourceForm: FC<{
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
   >(null);
-  const [hasError, setHasError] = useState(false);
+  const [lastError, setLastError] = useState("");
   const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     name: "My Datasource",
     settings: {},
@@ -83,7 +70,7 @@ const NewDataSourceForm: FC<{
 
   const { apiCall } = useAuth();
   useEffect(() => {
-    if (data && !dirty) {
+    if (data) {
       const newValue: Partial<DataSourceInterfaceWithParams> = {
         ...data,
       };
@@ -96,8 +83,7 @@ const NewDataSourceForm: FC<{
   }
 
   const saveDataConnection = async () => {
-    if (!dirty && data.id) return;
-    setHasError(false);
+    setLastError("");
 
     try {
       if (!datasource.type) {
@@ -147,8 +133,6 @@ const NewDataSourceForm: FC<{
           newDatasourceForm: true,
         });
       }
-
-      setDirty(false);
     } catch (e) {
       track("Data Source Form Error", {
         source,
@@ -156,7 +140,7 @@ const NewDataSourceForm: FC<{
         error: e.message.substr(0, 32) + "...",
         newDatasourceForm: true,
       });
-      setHasError(true);
+      setLastError(e.message);
       throw e;
     }
   };
@@ -175,17 +159,13 @@ const NewDataSourceForm: FC<{
       settings,
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
-    const res = await apiCall<{ status: number; message: string }>(
+    await apiCall<{ status: number; message: string }>(
       `/datasource/${data.id}`,
       {
         method: "PUT",
         body: JSON.stringify(newVal),
       }
     );
-    if (res.status > 200) {
-      setLoading(false);
-      throw new Error(res.message);
-    }
     track("Saving Datasource Query Settings", {
       source,
       type: datasource.type,
@@ -199,22 +179,6 @@ const NewDataSourceForm: FC<{
       ...datasource,
       [e.target.name]: e.target.value,
     });
-    setDirty(true);
-  };
-  const setParams = (params: { [key: string]: string }) => {
-    const newVal = {
-      ...datasource,
-      params: {
-        ...datasource.params,
-        ...params,
-      },
-    };
-
-    setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
-    setDirty(true);
-  };
-  const onParamChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setParams({ [e.target.name]: e.target.value });
   };
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
@@ -247,175 +211,45 @@ const NewDataSourceForm: FC<{
     }
   };
 
-  const getSchemaCard = (s: eventSchema, i) => (
-    <div className={`col-4`} key={i + s.value}>
-      <a
-        href="#"
-        title={s.label}
-        onClick={(e) => {
-          e.preventDefault();
-          setSchemaSettings(s);
-          // jump to next step
-          setStep(1);
-        }}
-        className={`${styles.eventCard} btn btn-light-hover btn-outline-${
-          s.value === schema ? "selected" : "primary"
-        } mb-3`}
-        style={{
-          backgroundImage: `url(${s.logo})`,
-        }}
-      />
-    </div>
-  );
+  const hasStep2 = !!selectedSchema?.options;
+  const isFinalStep = step === 2 || (!hasStep2 && step === 1);
 
-  let connSettings: ReactElement | null = null;
-  if (datasource.type === "athena") {
-    connSettings = (
-      <AthenaForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "presto") {
-    connSettings = (
-      <PrestoForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "redshift") {
-    connSettings = (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "postgres") {
-    connSettings = (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "mysql") {
-    connSettings = (
-      <MysqlForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "google_analytics") {
-    connSettings = (
-      <GoogleAnalyticsForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-        error={hasError}
-      />
-    );
-  } else if (datasource.type === "snowflake") {
-    connSettings = (
-      <SnowflakeForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "clickhouse") {
-    connSettings = (
-      <ClickHouseForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "bigquery") {
-    connSettings = (
-      <BigQueryForm
-        setParams={setParams}
-        params={datasource.params}
-        onParamChange={onParamChange}
-      />
-    );
-  } else if (datasource.type === "mixpanel") {
-    connSettings = (
-      <MixpanelForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  }
+  const submit =
+    step === 0
+      ? null
+      : async () => {
+          if (step === 1) {
+            await saveDataConnection();
+          }
+          if (isFinalStep) {
+            await updateSettings();
+            await onSuccess(data.id);
+            onCancel();
+          }
+        };
 
-  return (
-    <PagedModal
-      header={existing ? "Edit Data Source" : "Add Data Source"}
-      close={onCancel}
-      submit={async () => {
-        await onSuccess(data.id);
-      }}
-      cta="Save"
-      closeCta="Cancel"
-      size="lg"
-      step={step}
-      setStep={setStep}
-      backButton={true}
-    >
-      <Page display="Select Tracking">
-        <h4>Common Event Trackers</h4>
+  let stepContents: ReactElement;
+  if (step === 0) {
+    stepContents = (
+      <div>
+        <h4>Popular Event Sources</h4>
         <p>
-          GrowthBook does not process experiment data directly, and instead
-          connects to your event tracking and data store. GrowthBook has
-          out-of-the-box support for a number of database schemas. Choose one
-          below, or if you don&apos;t know which, select custom.
+          GrowthBook does not store a copy of your data, and instead queries
+          your existing analytics infrastructure. GrowthBook has built-in
+          support for a number of popular event sources.
         </p>
-        <div className="d-flex flex-wrap align-items-stretch align-middle row">
-          {eventSchemas
-            .filter((s) => s.popular)
-            .map((s, i) => {
-              return getSchemaCard(s, i);
-            })}
+        <EventSourceList
+          onSelect={(s) => {
+            setSchemaSettings(s);
+            // jump to next step
+            setStep(1);
+          }}
+        />
+        <div className="my-2">
+          <strong style={{ fontSize: "1.2em" }}>Don&apos;t see yours?</strong>
         </div>
-        <div>
-          {showFullList ? (
-            <div className="d-flex flex-wrap align-items-stretch align-middle row">
-              {eventSchemas
-                .filter((s) => !s.popular)
-                .map((s, i) => {
-                  return getSchemaCard(s, i);
-                })}
-            </div>
-          ) : (
-            <div>
-              <a
-                href="#"
-                className="d-block text-center"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowFullList(true);
-                }}
-              >
-                Show all supported trackers <MdKeyboardArrowDown />
-              </a>
-            </div>
-          )}
-        </div>
-        <div className={`row mt-3`}>
-          <div className="col-12 mb-2">
-            <strong style={{ fontSize: "1.2em" }}>Or choose</strong>
-          </div>
-          <div className={`col-${importSampleData ? "6" : "12"}`}>
+        <div className={`row`}>
+          <div className="col-4">
             <a
               className={`btn btn-light-hover btn-outline-${
                 "custom" === schema ? "selected" : "primary"
@@ -435,59 +269,49 @@ const NewDataSourceForm: FC<{
                 // jump to next step
                 setStep(1);
               }}
-              style={{
-                minHeight: "90px",
-                minWidth: "100%",
-              }}
             >
-              <h4>Custom Tracking</h4>
-              <p className="mb-0">
-                Connect to your existing data warehouse and define your own
-                experiment exposure queries
+              <h4>Use Custom Source</h4>
+              <p className="mb-0 text-dark">
+                Manually configure your data schema and analytics queries.
               </p>
             </a>
           </div>
           {importSampleData && (
-            <div className={`col-6`}>
+            <div className="col-4">
               <a
                 className={`btn btn-light-hover btn-outline-${
                   "custom" === schema ? "selected" : "primary"
-                } mb-3 py-3`}
+                } mb-3 py-3 ml-auto`}
                 onClick={async (e) => {
                   e.preventDefault();
                   await importSampleData("new data source form");
                 }}
-                style={{
-                  minHeight: "90px",
-                  minWidth: "100%",
-                }}
               >
-                <h4>Load sample data</h4>
-                <p className="mb-0">
-                  Not ready to connect to your data source? Load our example
-                  data set so you can explore the features of GrowthBook.
+                <h4>Use Sample Dataset</h4>
+                <p className="mb-0 text-dark">
+                  Explore GrowthBook with a pre-loaded sample dataset.
                 </p>
               </a>
             </div>
           )}
         </div>
-      </Page>
-      <Page
-        display={`Database connection`}
-        validate={async () => {
-          if (dirty) {
-            setLoading(true);
-            try {
-              await saveDataConnection();
-              setLoading(false);
-            } catch (e) {
-              setLoading(false);
-              throw new Error(e.message);
-            }
-          }
-        }}
-      >
-        {loading && <LoadingOverlay text="Saving..." />}
+      </div>
+    );
+  } else if (step === 1) {
+    stepContents = (
+      <div>
+        <div className="mb-2">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setLastError("");
+              setStep(0);
+            }}
+          >
+            <GBCircleArrowLeft /> Back
+          </a>
+        </div>
         <h3>{selectedSchema.label}</h3>
         {selectedSchema && selectedSchema.intro && (
           <div className="mb-4">{selectedSchema.intro}</div>
@@ -501,6 +325,8 @@ const NewDataSourceForm: FC<{
             )[0];
             if (!option) return;
 
+            setLastError("");
+
             track("Data Source Type Selected", {
               type: value,
               newDatasourceForm: true,
@@ -511,7 +337,6 @@ const NewDataSourceForm: FC<{
               type: option.type,
               params: option.default,
             } as Partial<DataSourceInterfaceWithParams>);
-            setDirty(true);
           }}
           disabled={existing || possibleTypes.length === 1}
           required
@@ -539,52 +364,72 @@ const NewDataSourceForm: FC<{
             value={datasource.name}
           />
         </div>
-        {connSettings}
-      </Page>
-      <Page
-        display={`Query Options`}
-        validate={async () => {
-          setLoading(true);
-          await updateSettings();
-          setLoading(false);
-        }}
-      >
-        {loading && <LoadingOverlay text="Saving..." />}
-        <h4>{schemasMap.get(schema)?.label || ""} Query Options</h4>
+        <ConnectionSettings
+          datasource={datasource}
+          existing={existing}
+          hasError={!!lastError}
+          setDatasource={setDatasource}
+        />
+      </div>
+    );
+  } else {
+    stepContents = (
+      <div>
+        <div className="mb-2">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setStep(1);
+            }}
+          >
+            <GBCircleArrowLeft /> Back
+          </a>
+        </div>
+        <h3>{schemasMap.get(schema)?.label || ""} Query Options</h3>
         <div className="my-4">
           <div className="d-inline-block">
-            We will create default queries for this data source. The queries can
-            be adjusted and changed at any time.
-            {selectedSchema?.options
-              ? ` Below are are the typical defaults for ${
-                  schemasMap.get(schema)?.label
-                }.`
-              : ""}
+            Below are are the typical defaults for{" "}
+            {schemasMap.get(schema)?.label || "this data source"}.
           </div>
         </div>
-        {selectedSchema?.options && (
-          <div>
-            {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
-              <div key={name} className="form-group">
-                <Field
-                  label={label}
-                  name={name}
-                  value={form.watch(`settings.schemaOptions.${name}`)}
-                  type={type}
-                  onChange={(e) => {
-                    form.setValue(
-                      `settings.schemaOptions.${name}`,
-                      e.target.value
-                    );
-                  }}
-                  helpText={helpText}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </Page>
-    </PagedModal>
+        <div>
+          {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
+            <div key={name} className="form-group">
+              <Field
+                label={label}
+                name={name}
+                value={form.watch(`settings.schemaOptions.${name}`)}
+                type={type}
+                onChange={(e) => {
+                  form.setValue(
+                    `settings.schemaOptions.${name}`,
+                    e.target.value
+                  );
+                }}
+                helpText={helpText}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Modal
+      open={true}
+      header={existing ? "Edit Data Source" : "Add Data Source"}
+      close={onCancel}
+      submit={submit}
+      autoCloseOnSubmit={false}
+      cta={isFinalStep ? "Save" : "Next"}
+      closeCta="Cancel"
+      size="lg"
+      error={lastError}
+    >
+      {stepContents}
+    </Modal>
   );
 };
 
