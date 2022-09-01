@@ -21,6 +21,7 @@ import {
   getSSOConnectionById,
   toSSOConfigParams,
 } from "../models/SSOConnectionModel";
+import { getLicence } from "../init/licence";
 
 type JWTInfo = {
   email?: string;
@@ -267,33 +268,26 @@ async function getOpenIdMiddleware(req: AuthRequest) {
 
 export function usingOpenId() {
   if (IS_CLOUD) return true;
-  if (SSO_CONFIG) return true;
-  return false;
+  if (!SSO_CONFIG) return false;
+
+  // When self-hosting, you need a valid Enterprise licence to use SSO
+  const licence = getLicence();
+  if (!licence) {
+    console.error("Trying to use SSO without enterprise licence");
+    return false;
+  }
+
+  return true;
 }
 
-async function getOpenIdSettings(
-  req: Request
-): Promise<null | SSOConnectionInterface> {
-  // Self-hosted SSO
+export function getDefaultSSOConnection(): SSOConnectionInterface | null {
   if (!IS_CLOUD) {
-    if (SSO_CONFIG) {
+    if (usingOpenId() && SSO_CONFIG) {
       return SSO_CONFIG;
     }
     return null;
   }
 
-  // Cloud Enterprise SSO
-  if (req.headers["x-auth-source-id"]) {
-    const ssoConnectionId = req.headers["x-auth-source-id"];
-    const ssoConnection = await getSSOConnectionById(ssoConnectionId + "");
-    if (!ssoConnection) {
-      console.error("Could not find SSO connection - ", ssoConnectionId);
-      return null;
-    }
-    return ssoConnection;
-  }
-
-  // Cloud Default SSO
   return {
     id: "gbcloud",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
@@ -307,4 +301,22 @@ async function getOpenIdSettings(
       token_endpoint: "https://growthbook.auth0.com/oauth/token",
     },
   };
+}
+
+async function getOpenIdSettings(
+  req: Request
+): Promise<null | SSOConnectionInterface> {
+  // Cloud Enterprise SSO
+  if (IS_CLOUD && req.headers["x-auth-source-id"]) {
+    const ssoConnectionId = req.headers["x-auth-source-id"];
+    const ssoConnection = await getSSOConnectionById(ssoConnectionId + "");
+    if (ssoConnection) {
+      return ssoConnection;
+    } else {
+      console.error("Could not find SSO connection - ", ssoConnectionId);
+    }
+  }
+
+  // Otherwise, use default
+  return getDefaultSSOConnection();
 }

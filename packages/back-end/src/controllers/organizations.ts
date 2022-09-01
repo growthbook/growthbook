@@ -521,6 +521,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     apiKeys,
+    ssoConnection: req.loginMethod,
     organization: {
       invites,
       ownerEmail,

@@ -8,10 +8,12 @@ import useApi from "../../hooks/useApi";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import { OrganizationInterface } from "back-end/types/organization";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
 
 const TeamPage: FC = () => {
   const { data, error, mutate } = useApi<{
     organization: OrganizationInterface & { members: MemberInfo[] };
+    ssoConnection: SSOConnectionInterface | null;
   }>(`/organization`);
 
   const router = useRouter();
@@ -70,6 +72,22 @@ const TeamPage: FC = () => {
         </div>
       )}
       <h1>Team Members</h1>
+      {data.ssoConnection && (
+        <div className="alert alert-info">
+          <h3>Enterprise SSO Enabled</h3>
+          {data.ssoConnection.emailDomain && (
+            <div>
+              Users can auto-join your account when signing in through your
+              Identity Provider with an email matching{" "}
+              <strong>*@{data.ssoConnection.emailDomain}</strong>
+            </div>
+          )}
+          <div className="mt-2">
+            Contact <a href="mailto:hello@growthbook.io">hello@growthbook.io</a>{" "}
+            to make changes to your SSO configuration.
+          </div>
+        </div>
+      )}
       <MemberList members={data.organization.members} mutate={mutate} />
       {data.organization.invites.length > 0 ? (
         <InviteList invites={data.organization.invites} mutate={mutate} />
