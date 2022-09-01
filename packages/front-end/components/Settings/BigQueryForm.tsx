@@ -36,7 +36,7 @@ const BigQueryForm: FC<{
         </div>
       )}
       {(isCloud() || params.authType !== "auto") && (
-        <div>
+        <>
           <div className="form-group col-md-12">
             <div className="custom-file">
               <input
@@ -107,7 +107,7 @@ const BigQueryForm: FC<{
               </div>
             )}
           </div>
-        </div>
+        </>
       )}
       <div className="form-group col-md-12">
         <label>Default Project Name</label>
