@@ -236,6 +236,14 @@ export const eventSchemas: eventSchema[] = [
         analytics.
       </>
     ),
+    options: [
+      {
+        name: "exposureTableName",
+        label: "Experiment exposure event name",
+        defaultValue: "experiment_viewed",
+        type: "text",
+      },
+    ],
   },
   {
     value: "matomo",
@@ -307,6 +315,14 @@ export const eventSchemas: eventSchema[] = [
         .
       </>
     ),
+    options: [
+      {
+        name: "exposureTableName",
+        label: "Experiment exposure event name",
+        defaultValue: "experiment_viewed",
+        type: "text",
+      },
+    ],
   },
   {
     value: "jitsu",
@@ -335,6 +351,14 @@ export const eventSchemas: eventSchema[] = [
         .
       </>
     ),
+    options: [
+      {
+        name: "exposureTableName",
+        label: "Experiment event name",
+        defaultValue: "experiment_viewed",
+        type: "text",
+      },
+    ],
   },
   {
     value: "mparticle",
