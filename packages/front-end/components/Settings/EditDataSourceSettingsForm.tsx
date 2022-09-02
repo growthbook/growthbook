@@ -76,6 +76,19 @@ const EditDataSourceSettingsForm: FC<{
     };
   });
 
+  const setSchemaSettings = (format) => {
+    const settings = getInitialSettings(
+      format,
+      params,
+      form.watch("settings.schemaOptions")
+    );
+    form.setValue("settings.schemaFormat", format);
+    form.setValue("settings.userIdTypes", settings.userIdTypes);
+
+    exposure.replace(settings.queries.exposure);
+    identityJoins.replace(settings.queries.identityJoins);
+  };
+
   return (
     <Modal
       open={true}
@@ -111,13 +124,16 @@ const EditDataSourceSettingsForm: FC<{
             <DataSourceSchemaChooser
               format={schemaFormat}
               datasource={type}
+              setOptionalValues={(name, value) => {
+                if (!name) {
+                  form.setValue(`settings.schemaOptions`, null);
+                } else {
+                  form.setValue(`settings.schemaOptions.${name}`, value);
+                }
+                setSchemaSettings(schemaFormat);
+              }}
               setValue={(format) => {
-                const settings = getInitialSettings(format, params);
-                form.setValue("settings.schemaFormat", format);
-                form.setValue("settings.userIdTypes", settings.userIdTypes);
-
-                exposure.replace(settings.queries.exposure);
-                identityJoins.replace(settings.queries.identityJoins);
+                setSchemaSettings(format);
               }}
             />
           ) : (

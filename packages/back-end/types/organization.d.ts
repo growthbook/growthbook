@@ -54,6 +54,7 @@ export interface NorthStarMetric {
 export interface Namespaces {
   name: string;
   description: string;
+  status: "active" | "inactive";
 }
 
 export type SDKAttributeType =

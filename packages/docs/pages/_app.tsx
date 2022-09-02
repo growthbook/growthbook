@@ -92,6 +92,10 @@ const navLinks = [
         name: "Mixpanel",
       },
       {
+        href: "/guide/matomo",
+        name: "Matomo",
+      },
+      {
         href: "/guide/bigquery",
         name: "BigQuery",
       },

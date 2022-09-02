@@ -78,7 +78,11 @@ export default function NamespaceSelector({
               );
             }}
             placeholder="Choose a namespace..."
-            options={namespaces.map((n) => ({ value: n.name, label: n.name }))}
+            options={namespaces
+              .filter((n) => {
+                return n?.status !== "inactive";
+              })
+              .map((n) => ({ value: n.name, label: n.name }))}
           />
           {namespace &&
             namespaces.filter((n) => n.name === namespace).length > 0 && (
