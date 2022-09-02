@@ -1,17 +1,18 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
-import { useState } from "react";
+import { MouseEventHandler, useState } from "react";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 import DeleteButton from "../DeleteButton";
-import { FaEye, FaEyeSlash, FaPencilAlt } from "react-icons/fa";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {
+  i: number;
   usage: NamespaceUsage;
   namespace: Namespaces;
   onDelete: () => Promise<void>;
   onArchive: () => Promise<void>;
-  onEdit: () => Promise<void>;
+  onEdit: () => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -20,6 +21,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function NamespaceTableRow({
+  i,
   usage,
   namespace,
   onDelete,
@@ -33,7 +35,7 @@ export default function NamespaceTableRow({
 
   const status = namespace?.status || "active";
 
-  const expandRow = (e) => {
+  const expandRow: MouseEventHandler = (e) => {
     e.preventDefault();
     setOpen(!open);
   };
@@ -52,7 +54,7 @@ export default function NamespaceTableRow({
               style={{ fontSize: "0.9em" }}
               title="This namespace is hidden and cannot be used for new experiments"
             >
-              Inactive
+              Disabled
             </div>
           )}
         </td>
@@ -66,48 +68,39 @@ export default function NamespaceTableRow({
             )
           )}
         </td>
-        <td style={{ width: "120px" }}>
-          <div className="tr-hover actions">
+        <td>
+          <MoreMenu id={"namespace" + i + "_actions"}>
             <a
               href="#"
-              className="fade-hover mr-3"
-              style={{ fontSize: "17px" }}
-              onClick={async (e) => {
+              className="dropdown-item"
+              onClick={(e) => {
                 e.preventDefault();
-                await onEdit();
+                onEdit();
               }}
             >
-              <FaPencilAlt />
+              edit
             </a>
-            {experiments.length === 0 && (
-              <DeleteButton
-                displayName="Namespace"
-                link={true}
-                className="fade-hover text-primary mr-3"
-                useIcon={true}
-                text=""
-                title="Delete Namespace"
-                onClick={onDelete}
-                style={{ fontSize: "19px" }}
-              />
-            )}
             <a
               href="#"
-              className="fade-hover actions"
+              className="dropdown-item"
               onClick={async (e) => {
                 e.preventDefault();
                 await onArchive();
               }}
-              style={{ fontSize: "19px" }}
-              title={
-                namespace?.status === "inactive"
-                  ? "Reactivate this namespace"
-                  : "Deactivate this namespace"
-              }
             >
-              {namespace?.status === "inactive" ? <FaEye /> : <FaEyeSlash />}
+              {namespace?.status === "inactive" ? "enable" : "disable"}
             </a>
-          </div>
+            {experiments.length === 0 && (
+              <DeleteButton
+                displayName="Namespace"
+                className="dropdown-item text-danger"
+                useIcon={false}
+                text="delete"
+                title="Delete Namespace"
+                onClick={onDelete}
+              />
+            )}
+          </MoreMenu>
         </td>
       </tr>
       <tr

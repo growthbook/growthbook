@@ -68,18 +68,19 @@ const NamespacesPage: FC = () => {
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
-              <th></th>
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
-            {namespaces.map((ns) => {
+            {namespaces.map((ns, i) => {
               const experiments = data?.namespaces[ns.name] ?? [];
               return (
                 <NamespaceTableRow
+                  i={i}
                   key={ns.name}
                   usage={data.namespaces}
                   namespace={ns}
-                  onEdit={async () => {
+                  onEdit={() => {
                     setEditNamespace({
                       namespace: ns,
                       experiments: experiments.length,
@@ -98,7 +99,7 @@ const NamespacesPage: FC = () => {
                       description: ns.description,
                       status: ns?.status === "inactive" ? "active" : "inactive",
                     };
-                    await apiCall(`/organization/namespaces`, {
+                    await apiCall(`/organization/namespaces/${ns.name}`, {
                       method: "PUT",
                       body: JSON.stringify(newNamespace),
                     });

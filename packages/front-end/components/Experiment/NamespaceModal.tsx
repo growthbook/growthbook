@@ -51,7 +51,7 @@ export default function NamespaceModal({
         name="Name"
         label="Name"
         maxLength={60}
-        disabled={!!existing.experiments}
+        disabled={!!existing?.experiments}
         required
         {...form.register("name")}
       />

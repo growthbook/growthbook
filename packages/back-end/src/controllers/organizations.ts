@@ -591,10 +591,14 @@ export async function postNamespaces(
       object: "organization",
       id: org.id,
     },
-    details: auditDetailsUpdate(namespaces, [
-      ...namespaces,
-      { name, description, status },
-    ]),
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      {
+        settings: {
+          namespaces: [...namespaces, { name, description, status }],
+        },
+      }
+    ),
   });
 
   res.status(200).json({
@@ -645,7 +649,10 @@ export async function putNamespaces(
       object: "organization",
       id: org.id,
     },
-    details: auditDetailsUpdate(namespaces, updatedNamespaces),
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      { settings: { namespaces: updatedNamespaces } }
+    ),
   });
 
   res.status(200).json({
@@ -685,7 +692,10 @@ export async function deleteNamespace(
       object: "organization",
       id: org.id,
     },
-    details: auditDetailsUpdate(namespaces, updatedNamespaces),
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      { settings: { namespaces: updatedNamespaces } }
+    ),
   });
 
   res.status(200).json({
