@@ -76,7 +76,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     selfHostedSSO:
       (!IS_CLOUD &&
         ssoConfig && {
-          id: "sso",
+          id: "",
           ...ssoConfig,
         }) ||
       null,

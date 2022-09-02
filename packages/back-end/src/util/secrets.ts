@@ -144,7 +144,7 @@ function getSSOConfig() {
     );
   }
 
-  config.id = "sso";
+  config.id = "";
   return config;
 }
 export const SSO_CONFIG = getSSOConfig();

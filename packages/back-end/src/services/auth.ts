@@ -280,7 +280,7 @@ export function getDefaultSSOConnection(): SSOConnectionInterface | null {
   }
 
   return {
-    id: "gbcloud",
+    id: "",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
     metadata: {
       issuer: "https://growthbook.auth0.com/",

@@ -78,7 +78,7 @@ export async function getSSOConnection(): Promise<SSOConnectionInterface> {
 
   // Default Cloud SSO
   return {
-    id: "gbcloud",
+    id: "",
     clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
     metadata: {
       issuer: "https://growthbook.auth0.com/",
@@ -92,17 +92,22 @@ export async function getSSOConnection(): Promise<SSOConnectionInterface> {
   };
 }
 
+function isReturnVisitor() {
+  try {
+    if (window.localStorage.getItem("gb_current_project") !== null) {
+      return true;
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+
+  return false;
+}
+
 let userManager: UserManager, ssoConnectionId: string;
 async function getUserManager() {
   if (!userManager) {
-    let screen = "login";
-    try {
-      if (window.localStorage.getItem("gb_current_project") === null) {
-        screen = "signup";
-      }
-    } catch (e) {
-      // ignore
-    }
+    const screen = isReturnVisitor() ? "login" : "signup";
 
     const config = await getSSOConnection();
     ssoConnectionId = config.id;
@@ -111,7 +116,7 @@ async function getUserManager() {
       metadata: config.metadata,
       client_id: config.clientId,
       redirect_uri: window.location.origin + "/oauth/callback",
-      silentRequestTimeoutInSeconds: 3,
+      silentRequestTimeoutInSeconds: 5,
       scope: "openid profile email",
       extraQueryParams: {
         screen_hint: screen,
@@ -128,9 +133,12 @@ const oidcAuthSource: AuthSource = {
   init: async (router) => {
     const userManager = await getUserManager();
 
+    // If the silent signin just finished
+    if (router.pathname === "/oauth/silent") {
+      await userManager.signinSilentCallback();
+    }
     // If we were just redirected back to the app from the SSO provider
-    console.log(router.pathname);
-    if (router.pathname === "/oauth/callback") {
+    else if (router.pathname === "/oauth/callback") {
       try {
         const user = await userManager.signinCallback();
         if (user) {
@@ -147,9 +155,13 @@ const oidcAuthSource: AuthSource = {
       } catch (e) {
         console.error("signinCallback error", e);
       }
-    } else {
+    }
+    // Normal page view, if return visitor, try silently authenticating
+    else if (isReturnVisitor()) {
       try {
-        const user = await userManager.signinSilent({});
+        const user = await userManager.signinSilent({
+          redirect_uri: window.location.origin + "/oauth/silent",
+        });
         if (user) {
           currentUser = user;
         }

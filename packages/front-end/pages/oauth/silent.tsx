@@ -1,10 +1,10 @@
 import LoadingOverlay from "../../components/LoadingOverlay";
 
-export default function OAuthCallbackPage() {
+export default function OAuthSilentCallbackPage() {
   return (
     <div className="container">
       <LoadingOverlay />
     </div>
   );
 }
-OAuthCallbackPage.preAuth = true;
+OAuthSilentCallbackPage.preAuth = true;
