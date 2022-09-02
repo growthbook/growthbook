@@ -4,10 +4,11 @@ import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
-import { NamespaceUsage } from "back-end/types/organization";
+import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useUser from "../hooks/useUser";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
+import { useAuth } from "../services/auth";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -20,9 +21,12 @@ const NamespacesPage: FC = () => {
 
   const { update } = useUser();
   const { namespaces } = useOrgSettings();
-
-  //const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editNamespace, setEditNamespace] = useState<{
+    namespace: Namespaces;
+    experiments: number;
+  } | null>(null);
+  const { apiCall } = useAuth();
 
   if (error) {
     return (
@@ -39,9 +43,14 @@ const NamespacesPage: FC = () => {
     <div className="container-fluid pagecontents">
       {modalOpen && (
         <NamespaceModal
-          close={() => setModalOpen(false)}
+          existing={editNamespace}
+          close={() => {
+            setModalOpen(false);
+            setEditNamespace(null);
+          }}
           onSuccess={() => {
             update();
+            setEditNamespace(null);
           }}
         />
       )}
@@ -59,15 +68,43 @@ const NamespacesPage: FC = () => {
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
-            {namespaces.map((ns) => {
+            {namespaces.map((ns, i) => {
+              const experiments = data?.namespaces[ns.name] ?? [];
               return (
                 <NamespaceTableRow
+                  i={i}
                   key={ns.name}
                   usage={data.namespaces}
                   namespace={ns}
+                  onEdit={() => {
+                    setEditNamespace({
+                      namespace: ns,
+                      experiments: experiments.length,
+                    });
+                    setModalOpen(true);
+                  }}
+                  onDelete={async () => {
+                    await apiCall(`/organization/namespaces/${ns.name}`, {
+                      method: "DELETE",
+                    });
+                    await update();
+                  }}
+                  onArchive={async () => {
+                    const newNamespace = {
+                      name: ns.name,
+                      description: ns.description,
+                      status: ns?.status === "inactive" ? "active" : "inactive",
+                    };
+                    await apiCall(`/organization/namespaces/${ns.name}`, {
+                      method: "PUT",
+                      body: JSON.stringify(newNamespace),
+                    });
+                    await update();
+                  }}
                 />
               );
             })}
