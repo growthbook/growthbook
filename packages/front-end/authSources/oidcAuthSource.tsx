@@ -13,6 +13,7 @@ import {
   SSOConnectionInterface,
   SSOConnectionParams,
 } from "back-end/types/sso-connection";
+import { NextRouter } from "next/router";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
@@ -89,6 +90,9 @@ export async function getSSOConnection(): Promise<SSOConnectionInterface> {
       jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
       token_endpoint: "https://growthbook.auth0.com/oauth/token",
     },
+    extraQueryParams: {
+      audience: "https://api.growthbook.io",
+    },
   };
 }
 
@@ -115,12 +119,12 @@ async function getUserManager() {
       authority: config.metadata.issuer,
       metadata: config.metadata,
       client_id: config.clientId,
+      client_secret: config.clientSecret,
       redirect_uri: window.location.origin + "/oauth/callback",
       silentRequestTimeoutInSeconds: 5,
       scope: "openid profile email",
       extraQueryParams: {
         screen_hint: screen,
-        audience: "https://api.growthbook.io",
         ...(config.extraQueryParams || {}),
       },
     });
@@ -129,35 +133,34 @@ async function getUserManager() {
 }
 
 let currentUser: User;
-const oidcAuthSource: AuthSource = {
-  init: async (router) => {
-    const userManager = await getUserManager();
 
-    // If the silent signin just finished
-    if (router.pathname === "/oauth/silent") {
-      await userManager.signinSilentCallback();
-    }
-    // If we were just redirected back to the app from the SSO provider
-    else if (router.pathname === "/oauth/callback") {
-      try {
-        const user = await userManager.signinCallback();
-        if (user) {
-          currentUser = user;
-          const state: { as?: string } = user.state;
-          if (state.as && state.as.match(/^\//)) {
-            if (state.as.match(/^\/oauth\/callback/)) {
-              router.replace("/", "/", { shallow: true });
-            } else {
-              router.replace(state.as, state.as, { shallow: true });
-            }
-          }
-        }
-      } catch (e) {
-        console.error("signinCallback error", e);
+export async function signinCallback(router: NextRouter) {
+  const userManager = await getUserManager();
+  const user = await userManager.signinCallback();
+
+  if (user) {
+    currentUser = user;
+    const state: { as?: string } = user.state;
+    if (state.as && state.as.match(/^\//)) {
+      if (state.as.match(/^\/oauth\/callback/)) {
+        router.replace("/", "/", { shallow: true });
+      } else {
+        router.replace(state.as, state.as, { shallow: true });
       }
     }
-    // Normal page view, if return visitor, try silently authenticating
-    else if (isReturnVisitor()) {
+  }
+}
+export async function signinSilentCallback() {
+  const userManager = await getUserManager();
+  await userManager.signinSilentCallback();
+}
+
+const oidcAuthSource: AuthSource = {
+  init: async () => {
+    const userManager = await getUserManager();
+
+    // If this is a return visit, try to silently authenticate first
+    if (isReturnVisitor()) {
       try {
         const user = await userManager.signinSilent({
           redirect_uri: window.location.origin + "/oauth/silent",
@@ -187,9 +190,24 @@ const oidcAuthSource: AuthSource = {
     };
   },
   logout: async () => {
-    const userManager = await getUserManager();
-    setLastSSOConnectionId("");
-    await userManager.signoutRedirect();
+    // Cloud enterprise SSO, just switch to default auth to "logout"
+    if (getLastSSOConnectionId()) {
+      setLastSSOConnectionId("");
+      currentUser = undefined;
+      userManager = undefined;
+      ssoConnectionId = "";
+      return;
+    }
+
+    try {
+      // Try using the end_session_endpoint
+      const userManager = await getUserManager();
+      await userManager.signoutRedirect();
+      return;
+    } catch (e) {
+      // Ignore errors
+      console.error(e);
+    }
   },
   getJWT: async () => {
     return currentUser?.id_token || "";

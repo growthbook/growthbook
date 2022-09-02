@@ -37,6 +37,7 @@ export function toSSOConfigParams(
   return {
     id: conn.id || "",
     clientId: conn.clientId,
+    clientSecret: conn.clientSecret,
     extraQueryParams: conn.extraQueryParams,
     metadata: conn.metadata,
   };

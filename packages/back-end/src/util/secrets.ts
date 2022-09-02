@@ -124,11 +124,11 @@ function getSSOConfig() {
   // Must include clientId and specific metadata
   const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
     "authorization_endpoint",
-    "end_session_endpoint",
     "issuer",
     "jwks_uri",
     "id_token_signing_alg_values_supported",
     "token_endpoint",
+    "end_session_endpoint",
   ];
   if (!config?.clientId || !config?.metadata) {
     throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");

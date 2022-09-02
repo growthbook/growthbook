@@ -14,6 +14,7 @@ export interface SSOConnectionInterface {
   emailDomain?: string;
   idpType?: string;
   clientId: string;
+  clientSecret?: string;
   extraQueryParams?: Record<string, string>;
   metadata: IssuerMetadata;
 }
@@ -21,6 +22,7 @@ export interface SSOConnectionInterface {
 export interface SSOConnectionParams {
   id: string;
   clientId: string;
+  clientSecret?: string;
   extraQueryParams?: Record<string, string>;
   metadata: IssuerMetadata;
 }

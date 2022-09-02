@@ -290,12 +290,12 @@ export async function getSSOConnection(
 }
 
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
-  const { domain } = req.query;
+  const { domain } = req.body;
 
   const sso = await getSSOConnectionByEmailDomain(domain as string);
 
   if (!sso) {
-    throw new Error("Unknown SSO Connection Id");
+    throw new Error(`Unknown SSO Connection for *@${domain}`);
   }
 
   return res.status(200).json({

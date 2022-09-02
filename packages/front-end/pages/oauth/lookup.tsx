@@ -1,12 +1,9 @@
-import { useRouter } from "next/router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import oidcAuthSource, {
-  lookupByEmail,
-} from "../../authSources/oidcAuthSource";
+import { lookupByEmail } from "../../authSources/oidcAuthSource";
 import Field from "../../components/Forms/Field";
-import { GBCircleArrowLeft } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import Modal from "../../components/Modal";
 import { setLastSSOConnectionId } from "../../services/auth";
 
 export default function OAuthLookup() {
@@ -16,72 +13,38 @@ export default function OAuthLookup() {
     },
   });
 
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [open, setOpen] = useState(true);
+
+  if (!open) {
+    return <LoadingOverlay />;
+  }
 
   return (
-    <div className="container">
-      <h1>Enterprise SSO Login</h1>
+    <Modal
+      open={true}
+      autoCloseOnSubmit={false}
+      submit={form.handleSubmit(async ({ email }) => {
+        // This will lookup the SSO config id and store it in a cookie
+        await lookupByEmail(email);
+        window.location.href = window.location.origin;
+        // Wait for 5 seconds for the page to redirect
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      })}
+      close={() => {
+        setLastSSOConnectionId("");
+        window.location.href = window.location.origin;
+        setOpen(false);
+      }}
+      closeCta="Cancel"
+      cta="Continue"
+    >
+      <h3>Enterprise SSO Login</h3>
       <p>
         Enter your email address and you will be redirected to your
         company&apos;s SSO portal, if configured.
       </p>
-      <form
-        className="form"
-        onSubmit={form.handleSubmit(async ({ email }) => {
-          setLoading(true);
-          setError("");
-          try {
-            // This will lookup the SSO config id and store it in a cookie
-            await lookupByEmail(email);
-            // This will redirect to the IdP
-            await oidcAuthSource.login({
-              router,
-              setAuthComponent: () => {
-                /*Do nothing*/
-              },
-            });
-          } catch (e) {
-            setError(
-              e.message ||
-                "Could not find an SSO connection for that email address."
-            );
-          }
-          setLoading(false);
-        })}
-      >
-        {loading && <LoadingOverlay />}
-        {error && <div className="alert alert-danger">{error}</div>}
-        <Field label="Email Address" {...form.register("email")} type="email" />
-        <button type="submit" className="btn btn-primary">
-          Submit
-        </button>
-        <div>
-          <a
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
-              setLoading(true);
-              setLastSSOConnectionId("");
-              try {
-                await oidcAuthSource.login({
-                  router,
-                  setAuthComponent: () => {
-                    /* Do nothing */
-                  },
-                });
-              } catch (e) {
-                console.error(e);
-              }
-              setLoading(false);
-            }}
-          >
-            <GBCircleArrowLeft /> back to regular login page
-          </a>
-        </div>
-      </form>
-    </div>
+      <Field label="Email Address" {...form.register("email")} type="email" />
+    </Modal>
   );
 }
 

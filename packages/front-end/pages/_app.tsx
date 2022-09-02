@@ -75,11 +75,11 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        <AuthProvider>
-          <GrowthBookProvider growthbook={growthbook}>
-            {preAuth ? (
-              <Component {...pageProps} />
-            ) : (
+        preAuth ? (
+          <Component {...pageProps} />
+        ) : (
+          <AuthProvider>
+            <GrowthBookProvider growthbook={growthbook}>
               <ProtectedPage organizationRequired={organizationRequired}>
                 {organizationRequired ? (
                   <DefinitionsProvider>
@@ -92,9 +92,9 @@ function App({
                   <Component {...pageProps} />
                 )}
               </ProtectedPage>
-            )}
-          </GrowthBookProvider>
-        </AuthProvider>
+            </GrowthBookProvider>
+          </AuthProvider>
+        )
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">
