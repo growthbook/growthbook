@@ -65,6 +65,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
         <div className="text-center mb-3">
           <a
             href="#"
+            className="display-block"
             onClick={(e) => {
               e.preventDefault();
               setExpand(true);

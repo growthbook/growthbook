@@ -225,6 +225,8 @@ const NewDataSourceForm: FC<{
             await updateSettings();
             await onSuccess(data.id);
             onCancel();
+          } else {
+            setStep(step + 1);
           }
         };
 
@@ -386,11 +388,19 @@ const NewDataSourceForm: FC<{
             <GBCircleArrowLeft /> Back
           </a>
         </div>
+        <div className="alert alert-success mb-3">
+          <strong>Connection successful!</strong>
+        </div>
         <h3>{schemasMap.get(schema)?.label || ""} Query Options</h3>
         <div className="my-4">
           <div className="d-inline-block">
             Below are are the typical defaults for{" "}
-            {schemasMap.get(schema)?.label || "this data source"}.
+            {schemasMap.get(schema)?.label || "this data source"}.{" "}
+            {selectedSchema?.options?.length === 1
+              ? "The value "
+              : "These values "}
+            are used to generate the queries, which you can adjust as needed at
+            any time.
           </div>
         </div>
         <div>
@@ -423,7 +433,7 @@ const NewDataSourceForm: FC<{
       close={onCancel}
       submit={submit}
       autoCloseOnSubmit={false}
-      cta={isFinalStep ? "Save" : "Next"}
+      cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
       closeCta="Cancel"
       size="lg"
       error={lastError}
