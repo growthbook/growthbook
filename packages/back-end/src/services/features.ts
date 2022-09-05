@@ -99,6 +99,7 @@ export async function getFeatureDefinitions(
             }
             return rule;
           }) ?? [],
+      dateUpdated: feature.dateUpdated,
     };
     if (defs[feature.id].rules && !defs[feature.id].rules?.length) {
       delete defs[feature.id].rules;
