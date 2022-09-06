@@ -37,7 +37,6 @@ export type NewExperimentFormProps = {
   msg?: string;
   onClose: () => void;
   onCreate?: (id: string) => void;
-  inline?: boolean;
 };
 
 function getEvenSplit(n: number) {
@@ -79,7 +78,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   source,
   idea,
   msg,
-  inline,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -215,13 +213,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      inline={inline}
       header={"New Experiment Analysis"}
-      close={!inline && onClose && (() => onClose())}
+      close={onClose}
       docSection="experiments"
       submit={onSubmit}
       cta={"Save"}
-      size={inline ? "fill" : "lg"}
+      size="lg"
       step={step}
       setStep={setStep}
     >
