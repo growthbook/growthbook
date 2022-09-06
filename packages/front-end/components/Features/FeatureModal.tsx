@@ -63,7 +63,7 @@ export default function FeatureModal({
   close,
   onSuccess,
   inline,
-  cta,
+  cta = "Create",
   secondaryCTA,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
@@ -111,7 +111,7 @@ export default function FeatureModal({
       inline={inline}
       open={true}
       header="Create Feature"
-      cta={cta || "Create"}
+      cta={cta}
       close={close}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {

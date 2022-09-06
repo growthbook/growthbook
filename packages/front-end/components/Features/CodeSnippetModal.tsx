@@ -189,7 +189,7 @@ export default function CodeSnippetModal({
 
   return (
     <Modal
-      close={!inline && close && (() => close())}
+      close={close}
       secondaryCTA={secondaryCTA}
       open={true}
       inline={inline}

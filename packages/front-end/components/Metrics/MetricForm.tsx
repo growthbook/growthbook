@@ -147,7 +147,7 @@ const MetricForm: FC<MetricFormProps> = ({
   initialStep = 0,
   advanced = false,
   inline,
-  cta,
+  cta = "Save",
   onSuccess,
   secondaryCTA,
 }) => {
@@ -343,7 +343,7 @@ const MetricForm: FC<MetricFormProps> = ({
       header={edit ? "Edit Metric" : "New Metric"}
       close={!inline && (onSuccess ? () => onSuccess() : () => onClose())}
       submit={onSubmit}
-      cta={cta ? cta : "Save"}
+      cta={cta}
       closeCta={!inline && "Cancel"}
       size={inline ? "fill" : "lg"}
       docSection="metrics"
