@@ -44,10 +44,10 @@ export default function SubscriptionInfo() {
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {quote?.qty || 0}
       </div>
-      {quote?.total && (
+      {quote && (
         <div className="col-md-12 mb-3">
           <strong>Current Monthly Price:</strong>{" "}
-          {` ${currencyFormatter.format(quote.total)}/month`}{" "}
+          {` ${currencyFormatter.format(quote.total || 0)}/month`}{" "}
           <Tooltip
             body="Click the Manage Subscription button below to see how this is calculated."
             tipMinWidth="200px"

@@ -29,6 +29,7 @@ if (!MONGODB_URI) {
 }
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const isLocalhost = APP_ORIGIN.includes("localhost");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
 export const CORS_ORIGIN_REGEX = corsOriginRegex
@@ -56,7 +57,7 @@ export const GCS_DOMAIN =
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
-if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
+if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
     "Cannot use JWT_SECRET=dev in production. Please set to a long random string."
   );

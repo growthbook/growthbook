@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useState } from "react";
-import DataSourceForm from "../Settings/DataSourceForm";
 import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
@@ -19,6 +18,8 @@ import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import { DocLink } from "../DocLink";
+import NewDataSourceForm from "../Settings/NewDataSourceForm";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -106,7 +107,7 @@ const ExperimentsGetStarted = ({
             />
           )}
         {dataSourceOpen && (
-          <DataSourceForm
+          <NewDataSourceForm
             data={{
               name: "My Datasource",
               settings: {},
@@ -154,9 +155,7 @@ const ExperimentsGetStarted = ({
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <a href="https://docs.growthbook.io/self-host/config#configyml">
-                  View Documentation
-                </a>
+                <DocLink docSection="config_yml">View Documentation</DocLink>
               </div>
             ) : featureExperiment ? (
               <div className="alert alert-info mb-3">

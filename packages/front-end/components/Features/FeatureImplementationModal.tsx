@@ -6,6 +6,7 @@ import Code from "../Code";
 import { useState } from "react";
 import { Language } from "../Code";
 import CodeSnippetModal from "./CodeSnippetModal";
+import { DocLink, DocSection } from "../DocLink";
 
 export interface Props {
   feature: FeatureInterface;
@@ -30,7 +31,7 @@ export default function FeatureImplementationModal({
     language: Language;
     boolean: string;
     value: string;
-    docs: string;
+    docSection: DocSection;
   }[] = [
     {
       id: "react",
@@ -53,7 +54,7 @@ if (myFeature) { ...
 console.log(growthbook.getFeatureValue(${JSON.stringify(
         feature.id
       )}), "fallback value");`,
-      docs: "https://docs.growthbook.io/lib/react",
+      docSection: "tsx",
     },
 
     {
@@ -69,7 +70,7 @@ console.log(growthbook.getFeatureValue(${JSON.stringify(
 console.log(growthbook.getFeatureValue(${JSON.stringify(
         feature.id
       )}), "fallback value");`,
-      docs: "https://docs.growthbook.io/lib/js",
+      docSection: "javascript",
     },
 
     {
@@ -85,7 +86,7 @@ console.log(growthbook.getFeatureValue(${JSON.stringify(
 console.log(growthbook.getFeatureValue(${JSON.stringify(
         feature.id
       )}), "fallback value");`,
-      docs: "https://docs.growthbook.io/lib/js",
+      docSection: "javascript",
     },
 
     {
@@ -99,7 +100,7 @@ console.log(growthbook.getFeatureValue(${JSON.stringify(
         feature.id
       )}).GetValueWithDefault("default value")
 fmt.Println(value)`,
-      docs: "https://docs.growthbook.io/lib/go",
+      docSection: "go",
     },
     {
       id: "ruby",
@@ -112,7 +113,7 @@ end`,
         feature.id
       )}, 'default value')
 puts(value)`,
-      docs: "https://docs.growthbook.io/lib/ruby",
+      docSection: "ruby",
     },
     {
       id: "kotlin",
@@ -124,7 +125,7 @@ puts(value)`,
       value: `val feature = gb.feature(${JSON.stringify(feature.id)})
 println(feature.value)
 `,
-      docs: "https://docs.growthbook.io/lib/kotlin",
+      docSection: "kotlin",
     },
     {
       id: "php",
@@ -140,7 +141,7 @@ println(feature.value)
       )}, "default value");
 
 echo $value;`,
-      docs: "https://docs.growthbook.io/lib/php",
+      docSection: "php",
     },
 
     {
@@ -152,14 +153,14 @@ echo $value;`,
       value: `color = gb.getFeatureValue(${JSON.stringify(
         feature.id
       )}, "blue")`,
-      docs: "https://docs.growthbook.io/lib/python",
+      docSection: "python",
     },
 
     // ruby: {
     //   python: ``,
     //   boolean: ``,
     //   value: ``,
-    //   docs: "https://docs.growthbook.io/lib/ruby",
+    //   docSection: "ruby",
     // },
   ];
 
@@ -197,9 +198,9 @@ echo $value;`,
               <Tab key={i} display={o.display} id={o.id}>
                 <p>
                   Read the{" "}
-                  <a href={o.docs} target="_blank" rel="noopener noreferrer">
+                  <DocLink docSection={o.docSection}>
                     {o.display} SDK docs
-                  </a>{" "}
+                  </DocLink>{" "}
                   or view the{" "}
                   <a
                     href="#"

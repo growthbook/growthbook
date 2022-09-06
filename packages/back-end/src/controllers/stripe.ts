@@ -22,10 +22,16 @@ import {
 import { SubscriptionQuote } from "../../types/organization";
 
 export async function postNewSubscription(
-  req: AuthRequest<{ qty: number }>,
+  req: AuthRequest<{ qty: number; returnUrl: string }>,
   res: Response
 ) {
   const { qty } = req.body;
+
+  let { returnUrl } = req.body;
+
+  if (returnUrl?.[0] !== "/") {
+    returnUrl = "/settings/billing";
+  }
 
   req.checkPermissions("organizationSettings");
 
@@ -73,7 +79,7 @@ export async function postNewSubscription(
       },
     ],
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${APP_ORIGIN}/settings/team?org=${org.id}`,
+    cancel_url: `${APP_ORIGIN}${returnUrl}?org=${org.id}`,
   });
   res.status(200).json({
     status: 200,

@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useState } from "react";
-import { FaAngleLeft, FaCloudDownloadAlt, FaCode, FaKey } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaCloudDownloadAlt,
+  FaCode,
+  FaExternalLinkAlt,
+  FaKey,
+} from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
@@ -12,6 +18,7 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
+import { DocLink, DocSection } from "../../components/DocLink";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -129,6 +136,14 @@ const DataSourcePage: FC = () => {
                   </a>
                 </div>
               )}
+            <div className="col-auto ml-auto">
+              <DocLink
+                docSection={d.type as DocSection}
+                fallBackSection="datasources"
+              >
+                <FaExternalLinkAlt /> View documentation
+              </DocLink>
+            </div>
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
@@ -226,7 +241,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   Returns a record of which experiment variation was assigned to
                   each user.
                 </p>
-                {d.settings.queries?.exposure?.map((e) => (
+                {d.settings?.queries?.exposure?.map((e) => (
                   <div className="bg-white border mb-3 ml-3" key={e.id}>
                     <div className="px-3 pt-3">
                       <h4>{e.name}</h4>

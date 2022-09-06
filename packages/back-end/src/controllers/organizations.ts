@@ -28,6 +28,7 @@ import {
 } from "../services/apiKey";
 import { UserModel } from "../models/UserModel";
 import {
+  Invite,
   MemberRole,
   NamespaceUsage,
   OrganizationInterface,
@@ -69,6 +70,7 @@ import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
+import { cloneDeep } from "lodash";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -454,6 +456,59 @@ export async function putMemberRole(
   }
 }
 
+export async function putInviteRole(
+  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { role } = req.body;
+  const { key } = req.params;
+  const originalInvites: Invite[] = cloneDeep(org.invites);
+
+  let found = false;
+
+  org.invites.forEach((m) => {
+    if (m.key === key) {
+      m.role = role;
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+
+  try {
+    await updateOrganization(org.id, {
+      invites: org.invites,
+    });
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(
+        { invites: originalInvites },
+        { invites: org.invites }
+      ),
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to change role",
+    });
+  }
+}
+
 export async function getOrganization(req: AuthRequest, res: Response) {
   if (!req.organization) {
     return res.status(200).json({
@@ -559,12 +614,16 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 }
 
 export async function postNamespaces(
-  req: AuthRequest<{ name: string; description: string }>,
+  req: AuthRequest<{
+    name: string;
+    description: string;
+    status: "active" | "inactive";
+  }>,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { name, description } = req.body;
+  const { name, description, status } = req.body;
   const { org } = getOrgFromReq(req);
 
   const namespaces = org.settings?.namespaces || [];
@@ -577,8 +636,121 @@ export async function postNamespaces(
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, description }],
+      namespaces: [...namespaces, { name, description, status }],
     },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      {
+        settings: {
+          namespaces: [...namespaces, { name, description, status }],
+        },
+      }
+    ),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putNamespaces(
+  req: AuthRequest<
+    {
+      name: string;
+      description: string;
+      status: "active" | "inactive";
+    },
+    { name: string }
+  >,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { name, description, status } = req.body;
+  const originalName = req.params.name;
+  const { org } = getOrgFromReq(req);
+
+  const namespaces = org.settings?.namespaces || [];
+
+  // Namespace with the same name already exists
+  if (namespaces.filter((n) => n.name === originalName).length === 0) {
+    throw new Error("Namespace not found.");
+  }
+  const updatedNamespaces = namespaces.map((n) => {
+    if (n.name === originalName) {
+      return { name, description, status };
+    }
+    return n;
+  });
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      namespaces: updatedNamespaces,
+    },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      { settings: { namespaces: updatedNamespaces } }
+    ),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteNamespace(
+  req: AuthRequest<null, { name: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { name } = req.params;
+
+  const namespaces = org.settings?.namespaces || [];
+
+  const updatedNamespaces = namespaces.filter((n) => {
+    return n.name !== name;
+  });
+
+  if (namespaces.length === updatedNamespaces.length) {
+    throw new Error("Namespace not found.");
+  }
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      namespaces: updatedNamespaces,
+    },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      { settings: { namespaces: updatedNamespaces } }
+    ),
   });
 
   res.status(200).json({

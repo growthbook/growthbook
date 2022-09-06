@@ -4,6 +4,14 @@ Interested in making GrowthBook better? So are we! This guide should help get yo
 
 If you just want to contribute a client library in a new language and not make changes to the app itself, you can skip the instructions here and view https://docs.growthbook.io/lib/build-your-own instead.
 
+## Quickstart
+
+The fastest way to start contributing to GrowthBook is by using our pre configured devcontainer. A dev container is a Docker container that is specifically configured to provide a full-featured development environment.
+
+1. Install the vscode extension [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). Launch VS code Quick Open `Ctrl + P` then paste the following command `ext install ms-vscode-remote.remote-containers` and press enter.
+2. If you do not have Docker installed follow these instructions [Docker](https://docs.docker.com/engine/install/)
+3. Open the Command Palette `Ctrl + Shift + P` then paste the following command `Remote-Containers: Reopen in Container` and press enter.
+
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
@@ -36,11 +44,11 @@ Now you have the basic Linux system set up, and can follow along with all the ot
    - Can also use `git clone` and list the HTTPS URL of the repo afterwards
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
-5. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
-   - Run `curl -sSL https://install.python-poetry.org | python3 -`
-   - Install the lastest version of the python virutal environment `sudo apt install python<version #>-venv`
-   - Add poetry's path to your shell config file (~/.bashrc, ~/.zshrc, etc) `export PATH="<the path>:$PATH"` for [help](https://linuxize.com/post/how-to-add-directory-to-path-in-linux/)
-   - Run `poetry -v` to confirm a successful install
+5. Install [poetry](https://python-poetry.org/docs/)
+   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+   - Close and reopen your terminal
+   - Run `poetry --v` to confirm a successful install
+   - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
 6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:
 
