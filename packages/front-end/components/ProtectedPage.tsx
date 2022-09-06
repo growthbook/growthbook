@@ -71,9 +71,7 @@ const ProtectedPage: React.FC<{
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
   const {
-    loading,
     isAuthenticated,
-    login,
     logout,
     apiCall,
     orgId,
@@ -139,17 +137,6 @@ const ProtectedPage: React.FC<{
       track("Organization Loaded");
     }
   }, [orgId]);
-
-  // Initial authentication
-  useEffect(() => {
-    if (loading || isAuthenticated) {
-      return;
-    }
-    const fn = async () => {
-      await login();
-    };
-    fn();
-  }, [loading, isAuthenticated, login]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {

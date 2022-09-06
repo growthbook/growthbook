@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useContext, FC } from "react";
-import { NextRouter, useRouter } from "next/router";
-import oidcAuthSource from "../authSources/oidcAuthSource";
-import localAuthSource from "../authSources/localAuthSource";
+import { useRouter } from "next/router";
 import {
   MemberRole,
   OrganizationInterface,
@@ -9,16 +7,15 @@ import {
   Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import {
-  getApiHost,
-  getAppOrigin,
-  getSelfHostedSSOConnection,
-  includeApiCredentials,
-  isCloud,
-} from "./env";
+import { getApiHost, getAppOrigin, isCloud } from "./env";
 import { ReactElement } from "react";
 import { ReactNode } from "react";
 import { DocLink } from "../components/DocLink";
+import {
+  IdTokenResponse,
+  UnauthenticatedResponse,
+} from "back-end/types/sso-connection";
+import Welcome from "../components/Auth/Welcome";
 
 export type OrganizationMember = {
   id: string;
@@ -34,28 +31,6 @@ export type OrganizationMember = {
 export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
-
-export function getLastSSOConnectionId(): string {
-  if (!isCloud()) {
-    return "";
-  }
-  const ssoConnId = document.cookie
-    .split(/; /)
-    .find((row) => row.startsWith("GB_SSO_CONN_ID="))
-    ?.split("=")?.[1];
-  return ssoConnId || "";
-}
-export function setLastSSOConnectionId(ssoConnId: string): void {
-  const expiration = new Date();
-  expiration.setDate(expiration.getDate() + 30);
-  document.cookie = `GB_SSO_CONN_ID=${ssoConnId};expires=${expiration.toUTCString()};path=/`;
-}
-
-export function getAuthMethod(): "oidc" | "local" {
-  if (isCloud()) return "oidc";
-  if (getSelfHostedSSOConnection()) return "oidc";
-  return "local";
-}
 
 export function getDefaultPermissions(): Permissions {
   return {
@@ -80,7 +55,6 @@ export function getDefaultPermissions(): Permissions {
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
-  login: () => Promise<void>;
   logout: () => Promise<void>;
   apiCall: <T>(url: string, options?: RequestInit) => Promise<T>;
   orgId?: string;
@@ -95,9 +69,6 @@ export interface AuthContextValue {
 export const AuthContext = React.createContext<AuthContextValue>({
   isAuthenticated: false,
   loading: true,
-  login: async () => {
-    /* do nothing */
-  },
   logout: async () => {
     /* do nothing  */
   },
@@ -109,28 +80,32 @@ export const AuthContext = React.createContext<AuthContextValue>({
 });
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
-export interface AuthSource {
-  init: (
-    router: NextRouter
-  ) => Promise<{
-    isAuthenticated: boolean;
-  }>;
-  login: (helpers: {
-    router: NextRouter;
-    setAuthComponent: (c: FC) => void;
-  }) => Promise<null | {
-    isAuthenticated: boolean;
-  }>;
-  logout: () => Promise<void>;
-  getJWT: () => Promise<string>;
-  getAuthSourceId: () => string;
+async function refreshToken() {
+  const res = await fetch(getApiHost() + "/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    // try parsing json to get an error message
+    return res
+      .json()
+      .then(async (data) => {
+        console.log(data);
+        throw new Error(data?.message || "Error connecting to the API");
+      })
+      .catch((e) => {
+        throw new Error(e.message);
+      });
+  }
+  const data: UnauthenticatedResponse | IdTokenResponse = await res.json();
+  return data;
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
@@ -142,20 +117,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  const authSource =
-    getAuthMethod() === "oidc" ? oidcAuthSource : localAuthSource;
-
-  useEffect(() => {
-    authSource
-      .init(router)
-      .then(({ isAuthenticated }) => {
-        setIsAuthenticated(isAuthenticated);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        console.error(e);
+  async function init() {
+    const resp = await refreshToken();
+    if ("token" in resp) {
+      setError("");
+      setToken(resp.token);
+      setLoading(false);
+    } else if ("redirectURI" in resp) {
+      window.location.href = resp.redirectURI;
+    } else if ("showLogin" in resp) {
+      setLoading(false);
+      setAuthComponent(() => {
+        return (
+          <Welcome
+            firstTime={resp.newInstallation}
+            onSuccess={(t) => {
+              setToken(t);
+              setAuthComponent(null);
+            }}
+          />
+        );
       });
+    } else {
+      console.log(resp);
+      throw new Error("Unknown refresh response");
+    }
+  }
+
+  // Start auth flow to get an id token
+  useEffect(() => {
+    init().catch((e) => {
+      setError(e.message);
+      console.error(e);
+    });
   }, []);
 
   const isLocal = (url: string) => url.includes("localhost");
@@ -194,7 +188,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     });
   }
 
-  if (error && authSource === localAuthSource) {
+  if (error && !isCloud()) {
     return (
       <Modal
         header="logo"
@@ -202,10 +196,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         cta="Try Again"
         submit={async () => {
           try {
-            const { isAuthenticated } = await authSource.init(router);
-            setError("");
-            setIsAuthenticated(isAuthenticated);
-            setLoading(false);
+            await init();
           } catch (e) {
             setError(e.message);
             console.error(e);
@@ -222,60 +213,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     );
   }
 
+  const apiCall = async (url: string, options: RequestInit = {}) => {
+    const init = { ...options };
+    init.headers = init.headers || {};
+    init.headers["Authorization"] = `Bearer ${token}`;
+    init.credentials = "include";
+
+    if (init.body) {
+      init.headers["Content-Type"] = "application/json";
+    }
+
+    if (orgId) {
+      init.headers["X-Organization"] = orgId;
+    }
+
+    const response = await fetch(getApiHost() + url, init);
+
+    const responseData = await response.json();
+
+    if (responseData.status && responseData.status >= 400) {
+      throw new Error(responseData.message || "There was an error");
+    }
+
+    return responseData;
+  };
+
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated,
+        isAuthenticated: !!token,
         loading,
-        login: async () => {
-          const res = await authSource.login({
-            router,
-            setAuthComponent: (c) => setAuthComponent(() => c),
-          });
-          if (res) {
-            setIsAuthenticated(res.isAuthenticated);
-          }
-        },
         logout: async () => {
-          await authSource.logout();
+          // TODO: redirectURI
+          const res: { redirectURI: string } = await apiCall(`/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+          });
           setOrgId(null);
           setOrganizations([]);
           setSpecialOrg(null);
-          setIsAuthenticated(false);
+          setToken("");
+          if (res.redirectURI) {
+            window.location.href = res.redirectURI;
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
         },
-        apiCall: async (url, options: RequestInit = {}) => {
-          const token = await authSource.getJWT();
-
-          const init = { ...options };
-          init.headers = init.headers || {};
-          init.headers["Authorization"] = `Bearer ${token}`;
-
-          if (init.body) {
-            init.headers["Content-Type"] = "application/json";
-          }
-
-          if (orgId) {
-            init.headers["X-Organization"] = orgId;
-          }
-
-          const authSourceId = authSource.getAuthSourceId();
-          if (authSourceId) {
-            init.headers["X-Auth-Source-Id"] = authSourceId;
-          }
-
-          if (!init.credentials && includeApiCredentials()) {
-            init.credentials = "include";
-          }
-          const response = await fetch(getApiHost() + url, init);
-
-          const responseData = await response.json();
-
-          if (responseData.status && responseData.status >= 400) {
-            throw new Error(responseData.message || "There was an error");
-          }
-
-          return responseData;
-        },
+        apiCall,
         orgId,
         setOrgId,
         organizations: orgList,

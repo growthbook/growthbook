@@ -1,10 +1,4 @@
 import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import {
-  createRefreshToken,
-  deleteRefreshToken,
-  getUserIdFromAuthRefreshToken,
-} from "../models/AuthRefreshModel";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -16,8 +10,12 @@ import {
 } from "../models/OrganizationModel";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  getAuthConnection,
+  IdTokenCookie,
   isNewInstallation,
   markInstalled,
+  RefreshTokenCookie,
+  SSOConnectionIdCookie,
   validatePasswordFormat,
 } from "../services/auth";
 import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
@@ -29,49 +27,8 @@ import {
   verifyPassword,
 } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
-import { JWT_SECRET } from "../util/secrets";
-import {
-  getSSOConnectionByEmailDomain,
-  getSSOConnectionById,
-  toSSOConfigParams,
-} from "../models/SSOConnectionModel";
+import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
-
-function generateJWT(user: UserInterface) {
-  return jwt.sign(
-    {
-      scope: "profile openid email",
-      email: user.email,
-      given_name: user.name,
-      email_verified: false,
-    },
-    JWT_SECRET,
-    {
-      algorithm: "HS256",
-      audience: "https://api.growthbook.io",
-      issuer: "https://api.growthbook.io",
-      subject: user.id,
-      // 30 minutes
-      expiresIn: 1800,
-    }
-  );
-}
-
-async function successResponse(
-  req: Request,
-  res: Response,
-  user: UserInterface
-) {
-  const token = generateJWT(user);
-
-  // Create a refresh token
-  await createRefreshToken(req, res, user);
-
-  return res.status(200).json({
-    status: 200,
-    token,
-  });
-}
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();
@@ -81,42 +38,91 @@ export async function getHasOrganizations(req: Request, res: Response) {
   });
 }
 
-export async function postRefresh(req: Request, res: Response) {
-  // Look for refresh token header
-  const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
-  if (!refreshToken) {
-    const newInstallation = await isNewInstallation();
-
-    return res.json({
-      status: 200,
-      authenticated: false,
-      newInstallation,
+const auth = getAuthConnection();
+async function successResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface
+) {
+  const { idToken, refreshToken } = await auth.processCallback(req, res, user);
+  if (!idToken) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unable to create id token for user",
     });
   }
 
-  const userId = await getUserIdFromAuthRefreshToken(refreshToken);
-  if (!userId) {
-    return res.json({
-      status: 200,
-      authenticated: false,
-    });
-  }
+  IdTokenCookie.setValue(idToken, req, res);
+  RefreshTokenCookie.setValue(refreshToken, req, res);
 
-  const user = await getUserById(userId);
-
-  if (!user) {
-    return res.json({
-      status: 200,
-      authenticated: false,
-    });
-  }
-
-  const token = generateJWT(user);
-  return res.json({
+  res.status(200).json({
     status: 200,
-    authenticated: true,
-    token,
-    email: user.email || "",
+    token: idToken,
+  });
+}
+
+export async function postRefresh(req: Request, res: Response) {
+  // First try getting the idToken from cookies
+  const idToken = IdTokenCookie.getValue(req);
+  if (idToken) {
+    return res.json({
+      status: 200,
+      token: idToken,
+    });
+  }
+
+  // Then, try using a refreshToken
+  try {
+    const refreshToken = RefreshTokenCookie.getValue(req);
+    if (!refreshToken) {
+      throw new Error("Missing refresh token");
+    }
+    const { idToken, refreshToken: newRefreshToken } = await auth.refresh(
+      req,
+      res,
+      refreshToken
+    );
+    IdTokenCookie.setValue(idToken, req, res);
+    RefreshTokenCookie.setValue(newRefreshToken, req, res);
+    return res.json({
+      status: 200,
+      token: idToken,
+    });
+  } catch (e) {
+    // Could not refresh
+    const data = await auth.getUnauthenticatedResponse(req, res);
+    return res.json({
+      status: 200,
+      ...data,
+    });
+  }
+}
+
+export async function postOAuthCallback(req: Request, res: Response) {
+  const { idToken, refreshToken } = await auth.processCallback(req, res, null);
+
+  if (!idToken) {
+    throw new Error("Could not authenticate");
+  }
+
+  RefreshTokenCookie.setValue(refreshToken, req, res);
+  IdTokenCookie.setValue(idToken, req, res);
+
+  // TODO: better redirect location?
+  return res.status(200).json({
+    status: 200,
+    redirectURI: "/",
+  });
+}
+
+export async function postLogout(req: AuthRequest, res: Response) {
+  const redirectURI = await auth.logout(req, res);
+  RefreshTokenCookie.setValue("", req, res);
+  IdTokenCookie.setValue("", req, res);
+
+  return res.status(200).json({
+    status: 200,
+    redirectURI,
   });
 }
 
@@ -147,15 +153,7 @@ export async function postLogin(
     });
   }
 
-  return successResponse(req as Request, res, user);
-}
-
-export async function postLogout(req: Request, res: Response) {
-  await deleteRefreshToken(req, res);
-
-  res.status(200).json({
-    status: 200,
-  });
+  successResponse(req, res, user);
 }
 
 export async function postRegister(
@@ -173,19 +171,19 @@ export async function postRegister(
   if (existingUser) {
     // Try to login to existing account
     const valid = await verifyPassword(existingUser, password);
-    if (valid) {
-      return successResponse(req as Request, res, existingUser);
+    if (!valid) {
+      return res.status(400).json({
+        status: 400,
+        message: "That email address is already registered.",
+      });
     }
 
-    return res.status(400).json({
-      status: 400,
-      message: "That email address is already registered.",
-    });
+    return successResponse(req, res, existingUser);
   }
 
   // Create new account
   const user = await createUser(name, email, password);
-  return successResponse(req as Request, res, user);
+  successResponse(req, res, user);
 }
 
 export async function postFirstTimeRegister(
@@ -229,7 +227,8 @@ export async function postFirstTimeRegister(
   const user = await createUser(name, email, password);
   await createOrganization(email, user.id, companyname, "");
   markInstalled();
-  return successResponse(req, res, user);
+
+  successResponse(req, res, user);
 }
 
 export async function postForgotPassword(
@@ -271,36 +270,19 @@ export async function getResetPassword(
   });
 }
 
-export async function getSSOConnection(
-  req: Request<{ id: string }>,
-  res: Response
-) {
-  const { id } = req.params;
-
-  const sso = await getSSOConnectionById(id);
-
-  if (!sso) {
-    throw new Error("Unknown SSO Connection Id");
-  }
-
-  return res.status(200).json({
-    status: 200,
-    params: toSSOConfigParams(sso),
-  });
-}
-
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
   const { domain } = req.body;
 
   const sso = await getSSOConnectionByEmailDomain(domain as string);
 
-  if (!sso) {
+  if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);
   }
 
+  SSOConnectionIdCookie.setValue(sso.id, req, res);
+
   return res.status(200).json({
     status: 200,
-    ssoConnectionId: sso.id || "",
   });
 }
 

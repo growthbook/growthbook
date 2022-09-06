@@ -35,11 +35,7 @@ export const AuthRefreshModel = mongoose.model<AuthRefreshDocument>(
   authRefreshSchema
 );
 
-export async function createRefreshToken(
-  req: Request,
-  res: Response,
-  user: UserInterface
-) {
+export async function createRefreshToken(req: Request, user: UserInterface) {
   const token = crypto.randomBytes(32).toString("base64");
 
   const authRefreshDoc: AuthRefreshInterface = {
@@ -52,11 +48,7 @@ export async function createRefreshToken(
   };
   await AuthRefreshModel.create(authRefreshDoc);
 
-  res.cookie("AUTH_REFRESH_TOKEN", token, {
-    httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: req.secure,
-  });
+  return token;
 }
 
 export async function deleteRefreshToken(req: Request, res: Response) {

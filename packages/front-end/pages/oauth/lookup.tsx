@@ -1,10 +1,36 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { lookupByEmail } from "../../authSources/oidcAuthSource";
 import Field from "../../components/Forms/Field";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Modal from "../../components/Modal";
-import { setLastSSOConnectionId } from "../../services/auth";
+import { getApiHost, isCloud } from "../../services/env";
+
+export async function lookupByEmail(email: string) {
+  if (!isCloud()) {
+    throw new Error("Only available on GrowthBook Cloud");
+  }
+
+  const domain = email.split("@")[1];
+  if (!domain) {
+    throw new Error("Please enter a valid email address");
+  }
+  const res = await window.fetch(`${getApiHost()}/auth/sso`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      domain,
+    }),
+  });
+  const json: { message?: string; status: number } = await res.json();
+  if (json.message || json.status !== 200) {
+    throw new Error(
+      json?.message || "No SSO Connection found for that email address."
+    );
+  }
+}
 
 export default function OAuthLookup() {
   const form = useForm({
@@ -31,7 +57,6 @@ export default function OAuthLookup() {
         await new Promise((resolve) => setTimeout(resolve, 5000));
       })}
       close={() => {
-        setLastSSOConnectionId("");
         window.location.href = window.location.origin;
         setOpen(false);
       }}

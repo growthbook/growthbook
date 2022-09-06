@@ -1,5 +1,6 @@
-import { IS_CLOUD, JWT_SECRET, SSO_CONFIG } from "../util/secrets";
-import jwt from "express-jwt";
+import { APP_ORIGIN, IS_CLOUD, JWT_SECRET, SSO_CONFIG } from "../util/secrets";
+import jwtExpress from "express-jwt";
+import jwt from "jsonwebtoken";
 import jwks from "jwks-rsa";
 import { NextFunction, Request, Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
@@ -14,13 +15,19 @@ import { MemberRole } from "../../types/organization";
 import { UserInterface } from "../../types/user";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
-import { getUserByEmail } from "./users";
+import { getUserByEmail, getUserById } from "./users";
 import { hasOrganization } from "../models/OrganizationModel";
-import { SSOConnectionInterface } from "../../types/sso-connection";
 import {
-  getSSOConnectionById,
-  toSSOConfigParams,
-} from "../models/SSOConnectionModel";
+  SSOConnectionInterface,
+  UnauthenticatedResponse,
+} from "../../types/sso-connection";
+import { getSSOConnectionById } from "../models/SSOConnectionModel";
+import { Issuer, IssuerMetadata, generators, Client } from "openid-client";
+import {
+  AuthRefreshModel,
+  createRefreshToken,
+  getUserIdFromAuthRefreshToken,
+} from "../models/AuthRefreshModel";
 
 type JWTInfo = {
   email?: string;
@@ -35,18 +42,358 @@ type IdToken = {
   sub?: string;
 };
 
-// Self-hosted deployments use local auth
-function getLocalJWTCheck() {
-  if (!JWT_SECRET) {
-    throw new Error("Must specify JWT_SECRET environment variable");
+function days(n: number) {
+  return n * 24 * 60 * 60 * 1000;
+}
+function minutes(n: number) {
+  return n * 60 * 1000;
+}
+
+class Cookie {
+  private key: string;
+  private expires: number;
+  constructor(key: string, expires: number) {
+    this.key = key;
+    this.expires = expires;
   }
 
-  return jwt({
-    secret: JWT_SECRET,
-    audience: "https://api.growthbook.io",
-    issuer: "https://api.growthbook.io",
-    algorithms: ["HS256"],
-  });
+  setValue(value: string, req: Request, res: Response) {
+    if (!value) {
+      res.clearCookie(this.key, {
+        httpOnly: true,
+        maxAge: this.expires,
+        secure: req.secure,
+      });
+    } else {
+      res.cookie(this.key, value, {
+        httpOnly: true,
+        maxAge: this.expires,
+        secure: req.secure,
+      });
+    }
+  }
+
+  getValue(req: Request) {
+    return req.cookies[this.key] || "";
+  }
+}
+
+export const SSOConnectionIdCookie = new Cookie("SSO_CONNECTION_ID", days(30));
+export const RefreshTokenCookie = new Cookie("AUTH_REFRESH_TOKEN", days(30));
+export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
+export const CodeVerifierCookie = new Cookie("CODE_VERIFIER", minutes(10));
+
+type TokensResponse = {
+  idToken: string;
+  refreshToken: string;
+};
+
+export interface AuthConnection {
+  refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse>;
+  getUnauthenticatedResponse(
+    req: Request,
+    res: Response
+  ): Promise<UnauthenticatedResponse>;
+  middleware(req: AuthRequest, res: Response, next: NextFunction): void;
+  processCallback(
+    req: Request,
+    res: Response,
+    data: unknown
+  ): Promise<TokensResponse>;
+  logout(req: Request, res: Response): Promise<string>;
+}
+
+export function getAuthConnection(): AuthConnection {
+  return usingOpenId() ? new OpenIdAuth() : new LocalAuth();
+}
+
+export class LocalAuth implements AuthConnection {
+  middleware(req: Request, res: Response, next: NextFunction): void {
+    if (!JWT_SECRET) {
+      throw new Error("Must specify JWT_SECRET environment variable");
+    }
+    const jwtCheck = jwtExpress({
+      secret: JWT_SECRET,
+      audience: "https://api.growthbook.io",
+      issuer: "https://api.growthbook.io",
+      algorithms: ["HS256"],
+    });
+    jwtCheck(req, res, next);
+  }
+  async processCallback(
+    req: Request,
+    res: Response,
+    user: UserInterface
+  ): Promise<TokensResponse> {
+    const idToken = this.generateJWT(user);
+    const refreshToken = await createRefreshToken(req, user);
+    return { idToken, refreshToken };
+  }
+  async logout(req: Request): Promise<string> {
+    const refreshToken = RefreshTokenCookie.getValue(req);
+    if (refreshToken) {
+      await AuthRefreshModel.deleteOne({
+        token: refreshToken,
+      });
+    }
+    return "";
+  }
+  async getUnauthenticatedResponse(): Promise<UnauthenticatedResponse> {
+    const newInstallation = await isNewInstallation();
+    return {
+      showLogin: true,
+      newInstallation,
+    };
+  }
+  async refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse> {
+    const userId = await getUserIdFromAuthRefreshToken(refreshToken);
+    if (!userId) {
+      throw new Error("No user found with that refresh token");
+    }
+
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error("Invalid user id - " + userId);
+    }
+
+    return {
+      idToken: this.generateJWT(user),
+      refreshToken,
+    };
+  }
+  private generateJWT(user: UserInterface) {
+    return jwt.sign(
+      {
+        scope: "profile openid email",
+        email: user.email,
+        given_name: user.name,
+        email_verified: false,
+      },
+      JWT_SECRET,
+      {
+        algorithm: "HS256",
+        audience: "https://api.growthbook.io",
+        issuer: "https://api.growthbook.io",
+        subject: user.id,
+        // 30 minutes
+        expiresIn: 1800,
+      }
+    );
+  }
+}
+
+const ssoConnectionCache: Map<string, SSOConnectionInterface> = new Map();
+const ssoClientCache: Map<string, Client> = new Map();
+export class OpenIdAuth implements AuthConnection {
+  async getUnauthenticatedResponse(
+    req: Request,
+    res: Response
+  ): Promise<UnauthenticatedResponse> {
+    const ssoConnection = await getConnectionFromRequest(req);
+    if (!ssoConnection) {
+      throw new Error("Could not find SSO connection for this request");
+    }
+    const redirectURI = this.getRedirectURI(ssoConnection, req, res);
+    return {
+      redirectURI,
+    };
+  }
+  async refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse> {
+    const ssoConnection = await getConnectionFromRequest(req);
+    if (!ssoConnection) {
+      throw new Error("Could not find SSO connection for this request");
+    }
+    const client = this.getOpenIdClient(ssoConnection);
+
+    const tokenSet = await client.refresh(refreshToken);
+
+    if (!tokenSet.id_token) {
+      throw new Error("id_token not returned in refresh request");
+    }
+
+    return {
+      idToken: tokenSet.id_token,
+      refreshToken: tokenSet.refresh_token || "",
+    };
+  }
+  async middleware(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const ssoConnection = await getConnectionFromRequest(req);
+      if (!ssoConnection) {
+        throw new Error("Could not find SSO connection for this request");
+      }
+
+      // Store the ssoConnectionId in the request
+      req.loginMethod = ssoConnection;
+
+      const metadata = ssoConnection.metadata;
+
+      const jwksUri = metadata.jwks_uri;
+      const algorithms = metadata.id_token_signing_alg_values_supported;
+      const issuer = metadata.issuer;
+
+      if (!jwksUri || !algorithms || !issuer) {
+        throw new Error(
+          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
+        );
+      }
+
+      const middleware = jwtExpress({
+        secret: jwks.expressJwtSecret({
+          cache: true,
+          rateLimit: true,
+          jwksRequestsPerMinute: 5,
+          jwksUri,
+        }),
+        audience: ssoConnection.clientId,
+        issuer,
+        algorithms,
+      });
+      middleware(req, res, next);
+    } catch (e) {
+      next(e);
+    }
+  }
+  async processCallback(req: Request, res: Response): Promise<TokensResponse> {
+    const ssoConnection = await getConnectionFromRequest(req);
+    if (!ssoConnection) {
+      throw new Error("Could not find SSO connection for this request");
+    }
+    const client = this.getOpenIdClient(ssoConnection);
+
+    // Get rid of temporary codeVerifier cookie
+    const codeVerifier = CodeVerifierCookie.getValue(req);
+    CodeVerifierCookie.setValue("", req, res);
+
+    const params = client.callbackParams(req.originalUrl);
+    const tokenSet = await client.callback(
+      `${APP_ORIGIN}/oauth/callback`,
+      params,
+      {
+        code_verifier: codeVerifier,
+      }
+    );
+
+    return {
+      idToken: tokenSet?.id_token || "",
+      refreshToken: tokenSet?.refresh_token || "",
+    };
+  }
+  async logout(req: Request, res: Response): Promise<string> {
+    const ssoConnection = await getConnectionFromRequest(req);
+    SSOConnectionIdCookie.setValue("", req, res);
+
+    if (ssoConnection?.metadata?.end_session_endpoint) {
+      const client = this.getOpenIdClient(ssoConnection);
+      return client.endSessionUrl();
+    }
+
+    return "";
+  }
+
+  private getRedirectURI(
+    ssoConnection: SSOConnectionInterface,
+    req: Request,
+    res: Response
+  ) {
+    const client = this.getOpenIdClient(ssoConnection);
+
+    const code_verifier = generators.codeVerifier();
+    const code_challenge = generators.codeChallenge(code_verifier);
+
+    CodeVerifierCookie.setValue(code_verifier, req, res);
+
+    return client.authorizationUrl({
+      scope: "openid email profile",
+      code_challenge,
+      code_challenge_method: "S256",
+      audience: (ssoConnection.metadata?.audience ||
+        ssoConnection.clientId) as string,
+    });
+  }
+
+  private getOpenIdClient(connection: SSOConnectionInterface) {
+    const cacheKey = JSON.stringify(connection);
+    const existing = ssoClientCache.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    const issuer = new Issuer(connection.metadata as IssuerMetadata);
+    const client = new issuer.Client({
+      client_id: connection.clientId,
+      client_secret: connection.clientSecret,
+      redirect_uris: [`${APP_ORIGIN}/oauth/callback`],
+      response_types: [`code`],
+      token_endpoint_auth_method: connection.clientSecret
+        ? "client_secret_basic"
+        : "none",
+    });
+    ssoClientCache.set(cacheKey, client);
+    return client;
+  }
+}
+function getDefaultSSOConnection(): SSOConnectionInterface {
+  if (!IS_CLOUD) {
+    if (usingOpenId() && SSO_CONFIG) {
+      return SSO_CONFIG;
+    }
+    throw new Error("No SSO connection configured");
+  }
+
+  return {
+    id: "",
+    clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+    metadata: {
+      issuer: "https://growthbook.auth0.com/",
+      authorization_endpoint: "https://growthbook.auth0.com/authorize",
+      end_session_endpoint:
+        "https://growthbook.auth0.com/v2/logout?client_id=5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
+      id_token_signing_alg_values_supported: ["HS256", "RS256"],
+      jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
+      token_endpoint: "https://growthbook.auth0.com/oauth/token",
+      code_challenge_methods_supported: ["S256", "plain"],
+      audience: "https://api.growthbook.io",
+    },
+  };
+}
+async function getConnectionFromRequest(
+  req: Request
+): Promise<SSOConnectionInterface> {
+  const ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  if (IS_CLOUD && ssoConnectionId) {
+    const existing = ssoConnectionCache.get(ssoConnectionId);
+    if (existing) {
+      return existing;
+    }
+
+    const ssoConnection = await getSSOConnectionById(ssoConnectionId);
+    if (ssoConnection) {
+      ssoConnectionCache.set(ssoConnectionId, ssoConnection);
+      return ssoConnection;
+    } else {
+      throw new Error("Could not find SSO connection - " + ssoConnectionId);
+    }
+  }
+
+  // Otherwise, use default
+  return getDefaultSSOConnection();
 }
 
 async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
@@ -57,33 +404,12 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   if (!user) return null;
   return user.toJSON();
 }
-
-function getOpenIdJWTCheck() {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    getOpenIdMiddleware(req)
-      .then((middleware) => {
-        middleware(req, res, next);
-      })
-      .catch(next);
-  };
-}
-
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
     verified: user.email_verified || false,
     email: user.email || "",
     name: user.given_name || "",
   };
-}
-
-export function getJWTCheck() {
-  // Cloud always uses SSO, self-hosted does too with the right env variables
-  if (usingOpenId()) {
-    return getOpenIdJWTCheck();
-  }
-
-  // For self-hosted, fall back to local authentication (no SSO)
-  return getLocalJWTCheck();
 }
 
 export async function processJWT(
@@ -223,91 +549,8 @@ export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
 }
 
-const ssoMiddlewares: Map<string, jwt.RequestHandler> = new Map();
-async function getOpenIdMiddleware(req: AuthRequest) {
-  const ssoConnection = await getOpenIdSettings(req);
-  if (!ssoConnection) {
-    throw new Error("Unknown SSO Connection");
-  }
-
-  // Store the ssoConnectionId in the request
-  req.loginMethod = ssoConnection;
-
-  const params = toSSOConfigParams(ssoConnection);
-  const cacheKey = JSON.stringify(params);
-  const existing = ssoMiddlewares.get(cacheKey);
-  if (existing) return existing;
-
-  const metadata = params.metadata;
-
-  const jwksUri = metadata.jwks_uri;
-  const algorithms = metadata.id_token_signing_alg_values_supported;
-  const issuer = metadata.issuer;
-
-  if (!jwksUri || !algorithms || !issuer) {
-    throw new Error(
-      "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
-    );
-  }
-
-  const middleware = jwt({
-    secret: jwks.expressJwtSecret({
-      cache: true,
-      rateLimit: true,
-      jwksRequestsPerMinute: 5,
-      jwksUri,
-    }),
-    audience: params.clientId,
-    issuer,
-    algorithms,
-  });
-  ssoMiddlewares.set(cacheKey, middleware);
-  return middleware;
-}
-
 export function usingOpenId() {
   if (IS_CLOUD) return true;
   if (SSO_CONFIG) return true;
   return false;
-}
-
-export function getDefaultSSOConnection(): SSOConnectionInterface | null {
-  if (!IS_CLOUD) {
-    if (usingOpenId() && SSO_CONFIG) {
-      return SSO_CONFIG;
-    }
-    return null;
-  }
-
-  return {
-    id: "",
-    clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
-    metadata: {
-      issuer: "https://growthbook.auth0.com/",
-      authorization_endpoint: "https://growthbook.auth0.com/authorize",
-      end_session_endpoint:
-        "https://growthbook.auth0.com/v2/logout?client_id=5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
-      id_token_signing_alg_values_supported: ["HS256", "RS256"],
-      jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
-      token_endpoint: "https://growthbook.auth0.com/oauth/token",
-    },
-  };
-}
-
-async function getOpenIdSettings(
-  req: Request
-): Promise<null | SSOConnectionInterface> {
-  // Cloud Enterprise SSO
-  if (IS_CLOUD && req.headers["x-auth-source-id"]) {
-    const ssoConnectionId = req.headers["x-auth-source-id"];
-    const ssoConnection = await getSSOConnectionById(ssoConnectionId + "");
-    if (ssoConnection) {
-      return ssoConnection;
-    } else {
-      console.error("Could not find SSO connection - ", ssoConnectionId);
-    }
-  }
-
-  // Otherwise, use default
-  return getDefaultSSOConnection();
 }

@@ -18,7 +18,7 @@ import {
 import asyncHandler from "express-async-handler";
 import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
-import { getJWTCheck, processJWT, usingOpenId } from "./services/auth";
+import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
@@ -266,9 +266,7 @@ const useSSO = usingOpenId();
 
 // Pre-auth requests when not using SSO
 if (!useSSO) {
-  app.post("/auth/refresh", authController.postRefresh);
   app.post("/auth/login", authController.postLogin);
-  app.post("/auth/logout", authController.postLogout);
   app.post("/auth/register", authController.postRegister);
   app.post("/auth/firsttime", authController.postFirstTimeRegister);
   app.post("/auth/forgot", authController.postForgotPassword);
@@ -277,10 +275,12 @@ if (!useSSO) {
 }
 // Pre-auth requests when using SSO
 else {
-  app.get("/auth/sso/:id", authController.getSSOConnection);
   app.post("/auth/sso", authController.getSSOConnectionFromDomain);
+  app.post("/auth/callback", authController.postOAuthCallback);
 }
 
+//  Pre-auth requests that are always available
+app.post("/auth/refresh", authController.postRefresh);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
@@ -309,7 +309,8 @@ if (UPLOAD_METHOD === "local") {
 }
 
 // All other routes require a valid JWT
-app.use(getJWTCheck());
+const auth = getAuthConnection();
+app.use(auth.middleware);
 
 // Add logged in user props to the request
 app.use(processJWT);
@@ -329,6 +330,7 @@ app.use(
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
 }
+app.post("/auth/logout", authController.postLogout);
 
 // Organizations
 app.get("/user", organizationsController.getUser);

@@ -1,11 +1,4 @@
-export interface IssuerMetadata {
-  issuer: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  end_session_endpoint: string;
-  jwks_uri: string;
-  id_token_signing_alg_values_supported: string[];
-}
+import { IssuerMetadata } from "openid-client";
 
 export interface SSOConnectionInterface {
   id?: string;
@@ -17,12 +10,10 @@ export interface SSOConnectionInterface {
   clientSecret?: string;
   extraQueryParams?: Record<string, string>;
   metadata: IssuerMetadata;
+  implicitGrant?: boolean;
 }
 
-export interface SSOConnectionParams {
-  id: string;
-  clientId: string;
-  clientSecret?: string;
-  extraQueryParams?: Record<string, string>;
-  metadata: IssuerMetadata;
-}
+export type RedirectResponse = { redirectURI: string };
+export type ShowLoginResponse = { showLogin: true; newInstallation: boolean };
+export type UnauthenticatedResponse = RedirectResponse | ShowLoginResponse;
+export type IdTokenResponse = { token: string };

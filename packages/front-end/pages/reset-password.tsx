@@ -27,7 +27,7 @@ export default function ResetPasswordPage(): ReactElement {
     }
 
     // Check if token is valid
-    fetch(getApiHost() + "/auth/reset/" + token)
+    fetch(getApiHost() + "/auth/reset/" + token, { credentials: "include" })
       .then((res) => res.json())
       .then((json: { status: number; message?: string; email?: string }) => {
         if (json.status > 200) {
@@ -60,6 +60,7 @@ export default function ResetPasswordPage(): ReactElement {
           ? undefined
           : async () => {
               const res = await fetch(getApiHost() + "/auth/reset/" + token, {
+                credentials: "include",
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",

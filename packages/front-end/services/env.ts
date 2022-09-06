@@ -9,8 +9,6 @@ const env: EnvironmentInitValue = {
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
-  apiCredentials: false,
-  selfHostedSSO: null,
 };
 
 export async function initEnv() {
@@ -41,9 +39,6 @@ export function isTelemetryEnabled() {
 export function inTelemetryDebugMode(): boolean {
   return env.telemetry === "debug";
 }
-export function includeApiCredentials() {
-  return env.apiCredentials;
-}
 export function hasFileConfig() {
   return env.config === "file";
 }
@@ -52,7 +47,4 @@ export function getDefaultConversionWindowHours() {
 }
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
-}
-export function getSelfHostedSSOConnection() {
-  return env.selfHostedSSO || null;
 }

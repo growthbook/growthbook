@@ -14,6 +14,7 @@ export async function uploadFile(
     uploadURL.match(/^\//) ? getApiHost() + uploadURL : uploadURL,
     {
       method: "PUT",
+      credentials: "include",
       headers: {
         "Content-Type": file.type,
       },
