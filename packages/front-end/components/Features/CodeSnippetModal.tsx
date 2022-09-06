@@ -85,7 +85,7 @@ export default function CodeSnippetModal({
   featureId = "my-feature",
   defaultLanguage = "javascript",
   inline,
-  cta,
+  cta = "Finish",
   submit,
   secondaryCTA,
 }: {
@@ -194,14 +194,10 @@ export default function CodeSnippetModal({
       open={true}
       inline={inline}
       header="Implementation Instructions"
-      submit={
-        submit
-          ? submit
-          : async () => {
-              return;
-            }
-      }
-      cta={cta ? cta : "Finish"}
+      submit={async () => {
+        if (submit) await submit();
+      }}
+      cta={cta}
     >
       {apiKey && (
         <>

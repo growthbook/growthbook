@@ -33,7 +33,7 @@ import { ReactElement } from "react";
 
 export type Props = {
   close?: () => void;
-  onSuccess: (feature?: FeatureInterface) => Promise<void>;
+  onSuccess: (feature: FeatureInterface) => Promise<void>;
   inline?: boolean;
   cta?: string;
   secondaryCTA?: ReactElement;
@@ -161,11 +161,7 @@ export default function FeatureModal({
         refreshTags(values.tags);
         refreshWatching();
 
-        if (cta === "Next: Add a Data Source") {
-          await onSuccess();
-        } else {
-          await onSuccess(res.feature);
-        }
+        await onSuccess(res.feature);
       })}
     >
       <Field
