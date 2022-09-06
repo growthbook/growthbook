@@ -218,6 +218,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       docSection="experiments"
       submit={onSubmit}
       cta={"Save"}
+      closeCta="Cancel"
       size="lg"
       step={step}
       setStep={setStep}
