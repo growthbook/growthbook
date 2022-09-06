@@ -3,6 +3,8 @@ import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
 import { ReactNode } from "react";
+import Tooltip from "./Tooltip";
+import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -12,6 +14,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
@@ -37,6 +40,7 @@ const Modal: FC<ModalProps> = ({
   closeCta = "Cancel",
   inline = false,
   size = inline ? "fill" : "md",
+  docSection,
   className = "",
   autoCloseOnSubmit = true,
   overflowAuto = true,
@@ -91,6 +95,11 @@ const Modal: FC<ModalProps> = ({
               header
             )}
           </h5>
+          {docSection && (
+            <DocLink docSection={docSection}>
+              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+            </DocLink>
+          )}
           {close && (
             <button
               type="button"
@@ -145,6 +154,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
+          {secondaryCTA}
           {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
@@ -156,7 +166,6 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {secondaryCTA}
           {close && (
             <button
               className="btn btn-link"

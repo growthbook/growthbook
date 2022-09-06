@@ -45,6 +45,7 @@ const GetStartedPage = (): React.ReactElement => {
           <GuidedGetStarted
             experiments={experiments?.experiments || []}
             features={features}
+            mutate={mutateExperiments}
           />
         </div>
       </>

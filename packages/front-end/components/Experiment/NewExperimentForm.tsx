@@ -218,6 +218,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       inline={inline}
       header={"New Experiment Analysis"}
       close={!inline && onClose && (() => onClose())}
+      docSection="experiments"
       submit={onSubmit}
       cta={"Save"}
       size={inline ? "fill" : "lg"}

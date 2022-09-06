@@ -15,6 +15,15 @@ function safeTableName(name: string) {
     .replace(/[^-a-zA-Z0-9_]+/g, "");
 }
 
+function camelToUnderscore(orig) {
+  return orig
+    .replace(/\s+/g, "_")
+    .replace(/([A-Z]+)([A-Z][a-z])/, "$1_$2")
+    .replace(/([a-z\d])([A-Z])/, "$1_$2")
+    .replace("-", "_")
+    .toLowerCase();
+}
+
 const GA4Schema: SchemaInterface = {
   experimentDimensions: [
     "country",
@@ -89,7 +98,8 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const actionName = options.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
     return `SELECT
@@ -106,7 +116,7 @@ const SnowplowSchema: SchemaInterface = {
 FROM
   ${tablePrefix}events
 WHERE
-  se_action = 'Experiment Viewed'
+  se_action = '${actionName}'
   AND ${userCol} is not null
   `;
   },
@@ -165,8 +175,9 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    const eventType = options.eventType || "Experiment Viewed";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -180,7 +191,7 @@ const AmplitudeSchema: SchemaInterface = {
 FROM
   ${tablePrefix}$events
 WHERE
-  event_type = 'Experiment Viewed'
+  event_type = '${eventType}'
   AND ${userCol} is not null
   `;
   },
@@ -209,7 +220,9 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -230,7 +243,7 @@ const SegmentSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed
+  ${tablePrefix}${exposureTableName}
 WHERE
   ${userId} is not null`;
   },
@@ -259,7 +272,9 @@ FROM
 
 const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -278,7 +293,7 @@ const RudderstackSchema: SchemaInterface = {
     ELSE 'Other' END
   ) as browser
 FROM
-  ${tablePrefix}experiment_viewed
+  ${tablePrefix}${exposureTableName}
 WHERE
   ${userId} is not null`;
   },
@@ -295,8 +310,149 @@ FROM
   },
 };
 
+const MatomoSchema: SchemaInterface = {
+  experimentDimensions: ["device", "OS", "country"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const tPrefix = options?.tablePrefix || tablePrefix;
+    const actionPrefix = "" + options?.actionPrefix || "v";
+    const variationPrefixLength = actionPrefix.length;
+    const siteId = options?.siteId || "1";
+    const categoryName = options?.categoryName || "ExperimentViewed";
+    const userStr =
+      userId === "user_id"
+        ? `visit.user_id`
+        : `conv(hex(events.idvisitor), 16, 16)`;
+    return `SELECT 
+  ${userStr} as ${userId},
+  events.server_time as timestamp, 
+  experiment.name as experiment_id, 
+  SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
+  visit.config_device_model as device,
+  visit.config_os as OS,
+  visit.location_country as country
+FROM ${tPrefix}_log_link_visit_action events 
+INNER JOIN ${tPrefix}_log_action experiment 
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
+INNER JOIN ${tPrefix}_log_action variation 
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
+INNER JOIN ${tPrefix}_log_visit visit 
+  ON (events.idvisit = visit.idvisit)
+WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
+   AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
+   AND ${userStr} is not null
+   AND events.idsite = ${siteId}`;
+  },
+  getIdentitySQL: (tablePrefix, options) => {
+    const tPrefix = options?.tablePrefix || tablePrefix;
+    return [
+      {
+        ids: ["user_id", "anonymous_id"],
+        query: `SELECT
+  user_id,
+  conv(hex(idvisitor), 16, 16) as anonymous_id
+FROM
+  ${tPrefix}_log_visit`,
+      },
+    ];
+  },
+  userIdTypes: ["anonymous_id", "user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  conv(hex(events.idvisitor), 16, 16) as anonymous_id,
+  server_time as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}_log_link_visit_action`;
+  },
+};
+
+const FreshpaintSchema: SchemaInterface = {
+  experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    return `SELECT
+  ${userId},
+  time as timestamp,
+  experiment_id,
+  variation_id,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  operating_system as os,
+  browser
+FROM
+  ${tablePrefix}${exposureTableName}
+WHERE
+  ${userId} is not null`;
+  },
+  getIdentitySQL: (tablePrefix) => {
+    return [
+      {
+        ids: ["user_id", "device_id"],
+        query: `SELECT
+  user_id,
+  anonymous_id as device_id
+FROM
+  ${tablePrefix}identifies`,
+      },
+    ];
+  },
+  userIdTypes: ["device_id", "user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  device_id,
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
+const HeapSchema: SchemaInterface = {
+  experimentDimensions: [
+    "source",
+    "medium",
+    "campaign",
+    "platform",
+    "os",
+    "country",
+    "browser",
+  ],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const exposureTableName =
+      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    return `SELECT
+  ${userId},
+  time as timestamp,
+  experiment_id,
+  variation_id,
+  platform as os,
+  device_type as platform,
+  country
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  browser
+FROM
+  ${tablePrefix}${exposureTableName}
+WHERE
+  ${userId} is not null`;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["user_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  user_id,
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+FROM
+  ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
-  if (type === "ga4") {
+  if (type === "ga4" || type === "firebase") {
     return GA4Schema;
   }
   if (type === "snowplow") {
@@ -305,8 +461,17 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "amplitude") {
     return AmplitudeSchema;
   }
-  if (type === "segment") {
+  if (type === "segment" || type === "jitsu") {
     return SegmentSchema;
+  }
+  if (type === "matomo") {
+    return MatomoSchema;
+  }
+  if (type === "freshpaint") {
+    return FreshpaintSchema;
+  }
+  if (type === "heap") {
+    return HeapSchema;
   }
   if (type === "rudderstack") {
     return RudderstackSchema;
@@ -348,7 +513,8 @@ function getTablePrefix(params: DataSourceParams) {
 
 export function getInitialSettings(
   type: SchemaFormat,
-  params: DataSourceParams
+  params: DataSourceParams,
+  options?: Record<string, string | number>
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
@@ -376,9 +542,9 @@ export function getInitialSettings(
             ? "Anonymous Visitors"
             : id,
         description: "",
-        query: schema.getExperimentSQL(getTablePrefix(params), id),
+        query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),
-      identityJoins: schema.getIdentitySQL(getTablePrefix(params)),
+      identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
   };
 }

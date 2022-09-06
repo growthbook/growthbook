@@ -346,6 +346,7 @@ const MetricForm: FC<MetricFormProps> = ({
       cta={cta ? cta : "Save"}
       closeCta={!inline && "Cancel"}
       size={inline ? "fill" : "lg"}
+      docSection="metrics"
       step={step}
       setStep={setStep}
       secondaryCTA={secondaryCTA}

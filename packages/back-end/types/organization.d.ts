@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { ImplementationType } from "./experiment";
 
 export type Permissions = {
@@ -53,6 +54,7 @@ export interface NorthStarMetric {
 export interface Namespaces {
   name: string;
   description: string;
+  status: "active" | "inactive";
 }
 
 export type SDKAttributeType =
@@ -106,6 +108,16 @@ export interface OrganizationSettings {
   implementationTypes?: ImplementationType[];
 }
 
+export interface SubscriptionQuote {
+  qty: number;
+  unitPrice: number;
+  discountAmount: number;
+  discountMessage: string;
+  subtotal: number;
+  total: number;
+  additionalSeatPrice: number;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -114,18 +126,21 @@ export interface OrganizationInterface {
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  freeSeats?: number;
+  discountCode?: string;
+  priceId?: string;
+  disableSelfServeBilling?: boolean;
   subscription?: {
     id: string;
     qty: number;
     trialEnd: Date | null;
-    status:
-      | "incomplete"
-      | "incomplete_expired"
-      | "trialing"
-      | "active"
-      | "past_due"
-      | "canceled"
-      | "unpaid";
+    status: Stripe.Subscription.Status;
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planNickname: string | null;
+    priceId?: string;
   };
   members: Member[];
   invites: Invite[];

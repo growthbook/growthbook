@@ -357,16 +357,27 @@ app.post(
 );
 app.get("/organization/namespaces", organizationsController.getNamespaces);
 app.post("/organization/namespaces", organizationsController.postNamespaces);
+app.put(
+  "/organization/namespaces/:name",
+  organizationsController.putNamespaces
+);
+app.delete(
+  "/organization/namespaces/:name",
+  organizationsController.deleteNamespace
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);
+app.put("/invite/:key/role", organizationsController.putInviteRole);
 app.delete("/invite", organizationsController.deleteInvite);
 app.get("/members", organizationsController.getUsers);
 app.delete("/member/:id", organizationsController.deleteMember);
 app.put("/member/:id/role", organizationsController.putMemberRole);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post("/subscription/start", stripeController.postStartTrial);
+app.post("/subscription/checkout", stripeController.postNewSubscription);
+app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
+app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 app.put(

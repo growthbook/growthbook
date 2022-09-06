@@ -12,6 +12,8 @@ import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip";
 
 const EditDataSourceSettingsForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -74,6 +76,19 @@ const EditDataSourceSettingsForm: FC<{
     };
   });
 
+  const setSchemaSettings = (format) => {
+    const settings = getInitialSettings(
+      format,
+      params,
+      form.watch("settings.schemaOptions")
+    );
+    form.setValue("settings.schemaFormat", format);
+    form.setValue("settings.userIdTypes", settings.userIdTypes);
+
+    exposure.replace(settings.queries.exposure);
+    identityJoins.replace(settings.queries.identityJoins);
+  };
+
   return (
     <Modal
       open={true}
@@ -109,13 +124,16 @@ const EditDataSourceSettingsForm: FC<{
             <DataSourceSchemaChooser
               format={schemaFormat}
               datasource={type}
+              setOptionalValues={(name, value) => {
+                if (!name) {
+                  form.setValue(`settings.schemaOptions`, null);
+                } else {
+                  form.setValue(`settings.schemaOptions.${name}`, value);
+                }
+                setSchemaSettings(schemaFormat);
+              }}
               setValue={(format) => {
-                const settings = getInitialSettings(format, params);
-                form.setValue("settings.schemaFormat", format);
-                form.setValue("settings.userIdTypes", settings.userIdTypes);
-
-                exposure.replace(settings.queries.exposure);
-                identityJoins.replace(settings.queries.identityJoins);
+                setSchemaSettings(format);
               }}
             />
           ) : (
@@ -269,6 +287,29 @@ const EditDataSourceSettingsForm: FC<{
                               )
                             }
                           />
+                          <div className="form-group">
+                            <div className="row">
+                              <label className="mr-2">
+                                Use Name Columns
+                                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                              </label>
+                              <Toggle
+                                id={`exposureQuery${i}`}
+                                value={
+                                  form.watch(
+                                    `settings.queries.exposure.${i}.hasNameCol`
+                                  ) || false
+                                }
+                                setValue={(hasNameCol) => {
+                                  form.setValue(
+                                    `settings.queries.exposure.${i}.hasNameCol`,
+                                    hasNameCol
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+
                           <StringArrayField
                             label="Dimension Columns"
                             value={form.watch(
@@ -303,6 +344,18 @@ const EditDataSourceSettingsForm: FC<{
                             <li>
                               <code>variation_id</code>
                             </li>
+                            {form.watch(
+                              `settings.queries.exposure.${i}.hasNameCol`
+                            ) && (
+                              <>
+                                <li>
+                                  <code>experiment_name</code>
+                                </li>
+                                <li>
+                                  <code>variation_name</code>
+                                </li>
+                              </>
+                            )}
                           </ul>
                           <div>
                             Any additional columns you select can be listed as

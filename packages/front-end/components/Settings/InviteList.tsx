@@ -1,11 +1,15 @@
-import { FC, useState, ReactElement } from "react";
-import { FaTrash, FaEnvelope } from "react-icons/fa";
+import React, { FC, useState, ReactElement } from "react";
 import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
+import { Invite } from "back-end/types/organization";
+import { datetime } from "../../services/dates";
+import { MemberRole } from "back-end/types/organization";
+import MoreMenu from "../Dropdown/MoreMenu";
+import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
 
 const InviteList: FC<{
-  invites: { key: string; email: string; role: string; dateCreated: string }[];
+  invites: Invite[];
   mutate: () => void;
 }> = ({ invites, mutate }) => {
   const [deleteInvite, setDeleteInvite] = useState<{
@@ -13,6 +17,7 @@ const InviteList: FC<{
     email: string;
   } | null>(null);
   const { apiCall } = useAuth();
+  const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
 
@@ -85,6 +90,21 @@ const InviteList: FC<{
   return (
     <div>
       <h5>Pending Invites</h5>
+      {roleModal && (
+        <ChangeRoleModal
+          roleInfo={roleModal}
+          close={() => setRoleModal(null)}
+          onConfirm={async (role) => {
+            await apiCall(`/invite/${roleModal.uniqueKey}/role`, {
+              method: "PUT",
+              body: JSON.stringify({
+                role,
+              }),
+            });
+            mutate();
+          }}
+        />
+      )}
       <ConfirmModal
         title={deleteInvite ? `Remove ${deleteInvite.email}?` : "Remove invite"}
         subtitle=""
@@ -119,28 +139,43 @@ const InviteList: FC<{
           {invites.map(({ email, key, dateCreated, role }) => (
             <tr key={key}>
               <td>{email}</td>
-              <td>{dateCreated}</td>
+              <td>{datetime(dateCreated)}</td>
               <td>{role}</td>
               <td>
-                <button
-                  className="btn btn-outline-primary mr-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onResend(key, email);
-                  }}
-                >
-                  <FaEnvelope /> Resend Invite
-                </button>
-                <button
-                  className="btn btn-outline-danger"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDeleteInvite({ email, key });
-                    setResendMessage(null);
-                  }}
-                >
-                  <FaTrash /> Remove
-                </button>
+                <MoreMenu id="invite-actions">
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setRoleModal({
+                        uniqueKey: key,
+                        displayInfo: email,
+                        role: role as MemberRole,
+                      });
+                    }}
+                  >
+                    Edit Role
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onResend(key, email);
+                    }}
+                  >
+                    Resend Invite
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDeleteInvite({ email, key });
+                      setResendMessage(null);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </MoreMenu>
               </td>
             </tr>
           ))}

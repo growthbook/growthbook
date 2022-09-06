@@ -6,7 +6,6 @@ import CodeSnippetModal from "./Features/CodeSnippetModal";
 import FeatureModal from "./Features/FeatureModal";
 import GetStartedSteps from "./GetStartedSteps";
 import MetricForm from "./Metrics/MetricForm";
-import DataSourceForm from "./Settings/DataSourceForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -16,6 +15,9 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import styles from "./GuidedGetStarted.module.scss";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import NewDataSourceForm from "./Settings/NewDataSourceForm";
+import { hasFileConfig } from "../services/env";
+import track from "../services/track";
 
 export type Task = {
   blackTitle: string;
@@ -33,9 +35,11 @@ export type Task = {
 export default function GuidedGetStarted({
   features,
   experiments,
+  mutate,
 }: {
   features: FeatureInterface[];
   experiments: ExperimentInterfaceStringDates[];
+  mutate: () => void;
 }) {
   const [skippedSteps, setSkippedSteps] = useLocalStorage<{
     [key: string]: boolean;
@@ -44,9 +48,33 @@ export default function GuidedGetStarted({
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
-  const { datasources } = useDefinitions();
+  const { datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const { update } = useUser();
+  const hasDataSource = datasources.length > 0;
+  const hasMetrics =
+    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
+  const hasExperiments =
+    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+  const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
+
+  const hasSampleExperiment = experiments.filter((m) =>
+    m.id.match(/^exp_sample/)
+  )[0];
+
+  const importSampleData = (source: string) => async () => {
+    const res = await apiCall<{
+      experiment: string;
+    }>(`/organization/sample-data`, {
+      method: "POST",
+    });
+    await mutateDefinitions();
+    await mutate();
+    track("Add Sample Data", {
+      source,
+    });
+    await router.push("/experiment/" + res.experiment);
+  };
 
   const steps: Task[] = [
     {
@@ -182,15 +210,14 @@ export default function GuidedGetStarted({
       link: "https://docs.growthbook.io/app/datasources",
       completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
-        <DataSourceForm
+        <NewDataSourceForm
           data={{
             name: "My Datasource",
             settings: {},
           }}
           existing={false}
-          source="get-started"
           inline={true}
-          cta={"Next: Add a Data Source"}
+          source="get-started"
           onSuccess={async () => {
             setCurrentStep(currentStep + 1);
           }}
@@ -204,6 +231,12 @@ export default function GuidedGetStarted({
             >
               Skip Step
             </button>
+          }
+          importSampleData={
+            !hasDataSource &&
+            allowImport &&
+            !hasSampleExperiment &&
+            importSampleData("datasource-form")
           }
         />
       ),
