@@ -27,7 +27,6 @@ export interface FeatureDefinition {
   // eslint-disable-next-line
   defaultValue: any;
   rules?: FeatureDefinitionRule[];
-  dateUpdated?: Date;
 }
 
 export interface ExperimentOverridesResponse {

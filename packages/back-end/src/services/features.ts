@@ -36,12 +36,17 @@ export async function getFeatureDefinitions(
   const features = await getAllFeatures(organization, project);
 
   const defs: Record<string, FeatureDefinition> = {};
+  let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
     const settings = feature.environmentSettings?.[environment];
 
     // Don't include features which are disabled for this environment
     if (!settings || !settings.enabled || feature.archived) {
       return;
+    }
+
+    if (!mostRecentUpdate || mostRecentUpdate < feature.dateUpdated) {
+      mostRecentUpdate = feature.dateUpdated;
     }
 
     defs[feature.id] = {
@@ -99,14 +104,13 @@ export async function getFeatureDefinitions(
             }
             return rule;
           }) ?? [],
-      dateUpdated: feature.dateUpdated,
     };
     if (defs[feature.id].rules && !defs[feature.id].rules?.length) {
       delete defs[feature.id].rules;
     }
   });
 
-  return defs;
+  return { features: defs, dateUpdated: mostRecentUpdate };
 }
 
 export function getEnabledEnvironments(feature: FeatureInterface) {
