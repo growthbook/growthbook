@@ -223,6 +223,19 @@ export async function removeTagInFeature(organization: string, tag: string) {
   return;
 }
 
+export async function updateTagInFeature(
+  organization: string,
+  originalTag: string,
+  newTag: string
+) {
+  const query = { organization, tags: originalTag };
+  await FeatureModel.updateMany(query, {
+    $set: { "tags.$": newTag },
+    arrayFilters: [{ tags: originalTag }],
+  });
+  return;
+}
+
 export async function setDefaultValue(
   feature: FeatureInterface,
   defaultValue: string

@@ -387,6 +387,7 @@ app.put(
 
 // tags
 app.post("/tag", tagsController.postTag);
+app.put("/tag/:id", tagsController.putTag);
 app.delete("/tag/:id", tagsController.deleteTag);
 
 // Ideas
