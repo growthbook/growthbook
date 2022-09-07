@@ -609,6 +609,7 @@ export default abstract class SqlIntegration
     );
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
+    const useAllExposures = experiment.attributionModel === "allExposures";
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
 
@@ -722,7 +723,9 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
-      , __distinctConversions as (
+      ${
+        useAllExposures
+          ? `, __distinctConversions as (
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
@@ -742,7 +745,9 @@ export default abstract class SqlIntegration
           AND m.conversion_start <= u.conversion_end
         GROUP BY
           m.${baseIdType}, m.conversion_start, m.value
-      )
+      )`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -758,7 +763,17 @@ export default abstract class SqlIntegration
                   "max(e.variation)"
                 )
               : "e.variation"
-          } as variation
+          } as variation,
+          MIN(${this.getMetricConversionBase(
+            "conversion_start",
+            denominatorMetrics.length > 0,
+            activationMetrics.length > 0 && dimension?.type !== "activation"
+          )}) as conversion_start,
+          MIN(${this.getMetricConversionBase(
+            "conversion_end",
+            denominatorMetrics.length > 0,
+            activationMetrics.length > 0 && dimension?.type !== "activation"
+          )}) as conversion_end
         FROM
           __experiment e
           ${
@@ -800,9 +815,16 @@ export default abstract class SqlIntegration
           ${aggregate} as value
         FROM
           __distinctUsers d
-          JOIN __distinctConversions m ON (
+          JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
             m.${baseIdType} = d.${baseIdType}
           )
+        ${
+          useAllExposures
+            ? ""
+            : `WHERE
+          m.conversion_start >= d.conversion_start
+          AND m.conversion_start <= d.conversion_end`
+        }
         GROUP BY
           variation, dimension, d.${baseIdType}
       )

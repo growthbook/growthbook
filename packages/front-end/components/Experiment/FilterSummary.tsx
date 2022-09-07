@@ -139,6 +139,18 @@ const FilterSummary: FC<{
                 : "Included in analysis"}
             </div>
           </div>
+          <div className="row mb-3">
+            <div className="col-5">
+              <strong className="text-gray">
+                Users with Multiple Assignment Events:
+              </strong>
+            </div>
+            <div className="col">
+              {experiment.attributionModel === "allExposures"
+                ? "Consider all events"
+                : "Only use first event"}
+            </div>
+          </div>
           {datasource?.properties?.queryLanguage === "sql" && (
             <div className="row mb-3">
               <div className="col-5">

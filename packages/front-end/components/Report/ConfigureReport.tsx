@@ -33,6 +33,7 @@ export default function ConfigureReport({
           report.args.userIdType
         )?.id || "",
       removeMultipleExposures: !!report.args.removeMultipleExposures,
+      attributionModel: report.args.attributionModel || "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
@@ -281,6 +282,24 @@ export default function ConfigureReport({
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label="Users with Multiple Assignment Events"
+          labelClassName="font-weight-bold"
+          {...form.register("attributionModel")}
+          options={[
+            {
+              display: "First Event Only",
+              value: "firstExposure",
+            },
+            {
+              display: "All Events",
+              value: "allExposures",
+            },
+          ]}
+          helpText="Which experiment assignment events to include in the analysis"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
