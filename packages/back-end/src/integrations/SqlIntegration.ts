@@ -608,9 +608,6 @@ export default abstract class SqlIntegration
       exposureQuery.userIdType
     );
 
-    const conversionEndAggregation =
-      experiment.conversionWindowEndBase === "lastExposure" ? "MAX" : "MIN";
-
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
@@ -725,6 +722,27 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
+      , __distinctConversions as (
+        -- One row per included metric conversion
+        SELECT
+          m.${baseIdType},  
+          m.conversion_start as ts,
+          m.value
+        FROM
+          __metric m
+          JOIN ${
+            denominatorMetrics.length > 0
+              ? "__denominatorUsers"
+              : dimension?.type !== "activation" && activationMetrics.length > 0
+              ? "__activatedUsers"
+              : "__experiment"
+          } u ON (u.${baseIdType} = u.${baseIdType})
+        WHERE
+          m.conversion_start >= u.conversion_start
+          AND m.conversion_start <= u.conversion_end
+        GROUP BY
+          m.${baseIdType}, m.conversion_start, m.value
+      )
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -740,17 +758,7 @@ export default abstract class SqlIntegration
                   "max(e.variation)"
                 )
               : "e.variation"
-          } as variation,
-          MIN(${this.getMetricConversionBase(
-            "conversion_start",
-            denominatorMetrics.length > 0,
-            activationMetrics.length > 0 && dimension?.type !== "activation"
-          )}) as conversion_start,
-          ${conversionEndAggregation}(${this.getMetricConversionBase(
-        "conversion_end",
-        denominatorMetrics.length > 0,
-        activationMetrics.length > 0 && dimension?.type !== "activation"
-      )}) as conversion_end
+          } as variation
         FROM
           __experiment e
           ${
@@ -792,12 +800,9 @@ export default abstract class SqlIntegration
           ${aggregate} as value
         FROM
           __distinctUsers d
-          JOIN __metric m ON (
+          JOIN __distinctConversions m ON (
             m.${baseIdType} = d.${baseIdType}
           )
-          WHERE
-            m.conversion_start >= d.conversion_start
-            AND m.conversion_start <= d.conversion_end
         GROUP BY
           variation, dimension, d.${baseIdType}
       )

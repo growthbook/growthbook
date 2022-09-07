@@ -40,7 +40,6 @@ export interface ExperimentReportArgs {
   queryFilter?: string;
   skipPartialData?: boolean;
   removeMultipleExposures?: boolean;
-  conversionWindowEndBase?: "firstExposure" | "lastExposure";
 }
 export interface ExperimentReportResultDimension {
   name: string;

@@ -130,16 +130,6 @@ const FilterSummary: FC<{
           <div className="row mb-3">
             <div className="col-5">
               <strong className="text-gray">
-                Metric Conversion Window Base:
-              </strong>
-            </div>
-            <div className="col">
-              {experiment.conversionWindowEndBase || "firstExposure"}
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-5">
-              <strong className="text-gray">
                 Users in Multiple Variations:
               </strong>
             </div>

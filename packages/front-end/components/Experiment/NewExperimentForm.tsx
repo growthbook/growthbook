@@ -112,8 +112,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
-      conversionWindowEndBase:
-        initialValue?.conversionWindowEndBase || "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
