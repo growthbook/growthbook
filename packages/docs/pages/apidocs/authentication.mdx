@@ -5,12 +5,8 @@ import ParamsRow from "../../components/ParamsRow";
 <div>
   Some requests require authentication. You can authenticate requests using your{" "}
   <code>access_token</code>. You can create an <code>access_token</code> in your
-  account settings{" "}
-  <a href="https://app.growthbook.io/settings/keys" target="_blank">
-    here
-  </a>
-  . Click on 'Create Access Token' to create a new token. You can also delete existing
-  tokens from this page.
+  account settings <strong>Settings -> API Keys</strong>. Click on 'Create Access
+  Token' to create a new token. You can also delete existing tokens from this page.
 </div>
 
 <img
@@ -20,7 +16,7 @@ import ParamsRow from "../../components/ParamsRow";
   style={{ width: "100%" }}
 />
 
-Not all GrowthBook API's require authentication. The ones that do require authentication will be marked as such in the documentation.`
+Not all GrowthBook API's require authentication. The ones that do require authentication will be marked as such in the documentation.
 
 The following section will be displayed for all APIs that require authentication:
 
@@ -30,5 +26,6 @@ The following section will be displayed for all APIs that require authentication
     name="Authorization"
     type="Bearer <access_token>"
     description="access_token for API authentication"
+    hr={false}
   />
 </section>

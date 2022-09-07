@@ -33,15 +33,10 @@ Creates a feature with the given properties.
     <div>Default Value</div>
   </div>
   <ParamsRow
-    name="id"
-    type="string"
-    description="The unique identifier of the feature"
-    hr={false}
-  />
-  <ParamsRow
     name="owner"
     type="string"
     description="The owner of the feature"
+    hr={false}
   />
   <ParamsRow
     name="valueType"
@@ -155,7 +150,12 @@ Creates a feature with the given properties.
           type="string"
           description="The default value of the feature"
         />
-        <ParamsRow name="comment" required={false} type="string" />
+        <ParamsRow
+          name="comment"
+          required={false}
+          type="string"
+          description="A place for taking notes"
+        />
         <>
           <ParamsRow
             name="rules"

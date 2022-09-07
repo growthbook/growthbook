@@ -21,7 +21,7 @@ export default function ParamsRow({
 }: ParamsRowProps) {
   return (
     <div className="w-full">
-      {hr && <hr style={{ margin: "1rem 0 1rem" }} />}
+      {hr && <hr className="my-3" />}
       <div className="flex justify-between">
         <div>
           {name} <strong>{required ? "required" : "(optional)"}</strong>
@@ -40,7 +40,7 @@ export default function ParamsRow({
         </div>
         {defaultValueHTML && (
           <div>
-            <pre className="my-0 py-1" style={{ margin: "0" }}>
+            <pre className="my-0 py-1">
               <code dangerouslySetInnerHTML={{ __html: defaultValueHTML }} />
             </pre>
           </div>

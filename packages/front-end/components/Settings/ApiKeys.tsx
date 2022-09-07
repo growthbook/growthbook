@@ -49,7 +49,7 @@ const ApiKeys: FC = () => {
         description: "access_token for APIs that require authentication",
       }),
     });
-    track("Create Public API Key", {});
+    track("Create access_token", {});
     mutate();
   }
 
@@ -112,10 +112,9 @@ const ApiKeys: FC = () => {
       </button>
 
       <Tooltip body="Access Tokens are limited to one per organization and are used for API requests that require authentication">
-        {/* buttons do not work when wrapped in a span so this is a div */}
+        {/* buttons do not work when wrapped in a span so this must be a div */}
         <div
           className={`btn btn-primary ml-3 ${hasPublicKey ? "disabled" : ""}`}
-          // disabled={hasPublicKey}
           onClick={(e) => {
             if (hasPublicKey) return;
             e.preventDefault();

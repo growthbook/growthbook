@@ -12,6 +12,7 @@ import {
   FaGithub,
   FaSlack,
 } from "react-icons/fa";
+import DocsLink from "../components/DocsLink";
 
 const navLinks = [
   {
@@ -315,85 +316,38 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                 <img src="/growth-book-logo.png" className="w-48 mb-6" />
               </a>
             </Link>
-
-            {navLinks.map((link, i) => {
-              const active = router.pathname === link.href;
-              return (
-                <div key={i} className="mb-2">
-                  <div
-                    className={`rounded py-1 px-2 ${
-                      active
-                        ? "bg-gray-200 dark:bg-gray-600 font-bold"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    <Link href={link.href}>
-                      <a className="block whitespace-nowrap">{link.name}</a>
-                    </Link>
-                  </div>
-
-                  {link.links &&
-                    link.links.map((sublink, j) => {
-                      const active = router.pathname === sublink.href;
-                      return (
-                        <>
-                          <Link href={sublink.href} key={`sublink${j}`}>
-                            <div
-                              className={`flex cursor-pointer justify-between rounded py-1 mb-1 px-2 ml-4 ${
-                                active
-                                  ? "bg-gray-200 dark:bg-gray-600 font-bold"
-                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                              }`}
-                            >
-                              <a className="block whitespace-nowrap">
-                                {sublink.name}
-                                {sublink.beta ? (
-                                  <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
-                                    beta
-                                  </span>
-                                ) : (
-                                  ""
-                                )}
-                              </a>
-                            </div>
-                          </Link>
-                          {sublink.links &&
-                            sublink.links.map((subsublink, k) => {
-                              const active =
-                                router.pathname === subsublink.href;
-                              return (
-                                <Link
-                                  href={subsublink.href}
-                                  key={`subsublink${k}`}
-                                >
-                                  <div
-                                    className={`flex cursor-pointer justify-between rounded py-1 mb-1 px-2 ml-8 ${
-                                      active
-                                        ? "bg-gray-200 dark:bg-gray-600 font-bold"
-                                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    }`}
-                                    key={k}
-                                  >
-                                    <a className="block whitespace-nowrap">
-                                      {subsublink.name}
-                                      {subsublink.beta ? (
-                                        <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
-                                          beta
-                                        </span>
-                                      ) : (
-                                        ""
-                                      )}
-                                    </a>
-                                  </div>
-                                </Link>
-                              );
-                            })}
-                        </>
-                      );
-                    })}
-                </div>
-              );
-            })}
+            {navLinks.map((link, i) => (
+              <div key={`link${i}`}>
+                <DocsLink
+                  href={link.href}
+                  name={link.name}
+                  beta={false}
+                  active={router.pathname === link.href}
+                />
+                {link.links &&
+                  link.links.map((sublink, j) => (
+                    <div className="ml-3" key={`sublink${j}`}>
+                      <DocsLink
+                        href={sublink.href}
+                        name={sublink.name}
+                        beta={sublink.beta}
+                        active={router.pathname === sublink.href}
+                      />
+                      {sublink.links &&
+                        sublink.links.map((subsublink, k) => (
+                          <div className="ml-3" key={`subsublink${k}`}>
+                            <DocsLink
+                              href={subsublink.href}
+                              name={subsublink.name}
+                              beta={subsublink.beta}
+                              active={router.pathname === subsublink.href}
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  ))}
+              </div>
+            ))}
           </div>
         </div>
         <div className="flex flex-col h-screen grow w-full content-right justify-center ">

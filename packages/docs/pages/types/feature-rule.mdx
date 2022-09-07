@@ -20,7 +20,12 @@ import ParamsRow from "../../components/ParamsRow";
   />
   <ParamsRow name="type" type="'force'" />
   <ParamsRow name="value" type="string" description="Force rule value" />
-  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow
+    name="condition"
+    required={false}
+    type="string"
+    description="JSON string of conditions"
+  />
   <ParamsRow
     name="enabled"
     required={false}
@@ -44,10 +49,19 @@ import ParamsRow from "../../components/ParamsRow";
     description="A description of the rule"
   />
   <ParamsRow name="type" type="'rollout'" />
-  <ParamsRow name="value" type="string" />
-  <ParamsRow name="coverage" type="number" />
-  <ParamsRow name="hasAttribute" type="string" />
-  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow name="value" type="string" description="Rollout rule value" />
+  <ParamsRow
+    name="coverage"
+    type="number"
+    description="A value between 0 and 1"
+  />
+  <ParamsRow name="hashAttribute" type="string" />
+  <ParamsRow
+    name="condition"
+    required={false}
+    type="string"
+    description="JSON string of conditions"
+  />
   <ParamsRow
     name="enabled"
     required={false}
@@ -70,37 +84,73 @@ import ParamsRow from "../../components/ParamsRow";
     type="string"
     description="A description of the rule"
   />
-  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow name="type" type="'experiment'" />
+  <ParamsRow name="trackingKey" type="string" />
+  <ParamsRow name="hashAttribute" type="string" />
+  <>
+    <ParamsRow name="values" type="Array<object>" />
+    <details>
+      <summary>child parameters</summary>
+      <div className="ml-3 p-3 text-md">
+        <ParamsRow
+          name="value"
+          type="string"
+          description="Experiment rule value"
+        />
+        <ParamsRow
+          name="weight"
+          type="number"
+          description="A value between 0 and 1"
+        />
+        <ParamsRow
+          name="name"
+          required={false}
+          type="string"
+          description="Name of the value"
+        />
+      </div>
+    </details>
+  </>
+  <>
+    <ParamsRow
+      name="namespace"
+      required={false}
+      type="object"
+      description="Namespaces allow you to run mutually exclusive experiments"
+    />
+    <details>
+      <summary>child parameters</summary>
+      <div className="ml-3 p-3 text-md">
+        <ParamsRow
+          name="enabled"
+          type="boolean"
+          description="If the namespace is enabled"
+        />
+        <ParamsRow
+          name="name"
+          type="string"
+          description="Name of the namespace"
+        />
+        <ParamsRow name="range" type="[number, number]" />
+      </div>
+    </details>
+  </>
+  <ParamsRow
+    name="condition"
+    required={false}
+    type="string"
+    description="JSON string of conditions"
+  />
   <ParamsRow
     name="enabled"
     required={false}
     type="boolean"
     description="Whether the rule is enabled or not"
   />
-  <ParamsRow name="type" type="'experiment'" />
-  <ParamsRow name="trackingKey" type="string" />
-  <ParamsRow name="hasAttribute" type="string" />
-  <>
-    <ParamsRow name="values" type="Array<object>" />
-    <details>
-      <summary>child parameters</summary>
-      <div className="ml-3 p-3 text-md">
-        <ParamsRow name="value" type="string" />
-        <ParamsRow name="weight" type="number" />
-        <ParamsRow name="name" required={false} type="string" />
-      </div>
-    </details>
-  </>
-  <>
-    <ParamsRow name="namespace" required={false} type="object" />
-    <details>
-      <summary>child parameters</summary>
-      <div className="ml-3 p-3 text-md">
-        <ParamsRow name="enabled" type="boolean" />
-        <ParamsRow name="name" type="string" />
-        <ParamsRow name="range" type="[number, number]" />
-      </div>
-    </details>
-  </>
-  <ParamsRow name="coverage" type="number" />
+  <ParamsRow
+    name="coverage"
+    required={false}
+    type="number"
+    description="A value between 0 and 1"
+  />
 </div>

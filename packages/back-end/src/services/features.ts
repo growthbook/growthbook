@@ -206,23 +206,16 @@ export async function createFeatureService(feature: Partial<FeatureInterface>) {
     revision,
   } = feature;
 
-  if (!id) {
-    throw new Error("Must specify feature key");
-  }
-
+  if (!id) throw new Error("Must specify feature key");
   if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
     throw new Error(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
 
-  if (!organization) {
-    throw new Error("Organization could not be found");
-  }
+  if (!organization) throw new Error("Organization could not be found");
 
-  if (!owner) {
-    throw new Error("Owner must be specified");
-  }
+  if (!owner) throw new Error("Owner must be specified");
 
   const resultFeature: FeatureInterface = {
     id: id.toLowerCase(),
@@ -261,12 +254,13 @@ export async function updateFeatureService(
     "owner",
   ];
 
-  if (
-    Object.keys(updates).filter(
-      (key: keyof FeatureInterface) => !allowedKeys.includes(key)
-    ).length > 0
-  ) {
-    throw new Error("Invalid update fields for feature");
+  const invalidKeys = Object.keys(updates).filter(
+    (k: keyof FeatureInterface) => !allowedKeys.includes(k)
+  );
+  if (invalidKeys.length) {
+    throw new Error(
+      `Invalid update fields for feature: [${invalidKeys.join(", ")}]`
+    );
   }
 
   let requiresWebhook = false;

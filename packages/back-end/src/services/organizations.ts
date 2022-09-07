@@ -45,8 +45,9 @@ import { findOrgIdByAccessToken } from "../models/ApiKeyModel";
 
 export async function getOrgByAccessTokenReq(req: Request) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.includes("Bearer"))
-    throw new Error("Invalid authorization header");
+  if (!authHeader) throw new Error("'Authorization' header is required");
+  if (!authHeader.includes("Bearer"))
+    throw new Error("Add 'Bearer' to the 'Authorization' header");
 
   const accessToken = authHeader.toString().split(" ")[1];
   if (!accessToken) throw new Error("No access token found");

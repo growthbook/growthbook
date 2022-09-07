@@ -11,7 +11,10 @@ const round = (num) =>
 const em = (px, base) => `${round(px / base)}em`;
 
 module.exports = {
-  content: [path.join(__dirname, "pages", "**", "*.{tsx,mdx}")],
+  content: [
+    path.join(__dirname, "pages", "**", "*.{tsx,mdx}"),
+    path.join(__dirname, "components", "**", "*.{tsx,mdx}"),
+  ],
   theme: {
     extend: {
       colors: {

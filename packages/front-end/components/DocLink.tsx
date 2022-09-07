@@ -53,8 +53,8 @@ const urlPathMapping: Record<string, DocSection> = {
 };
 
 //for testing use
-const docsOrigin = "http://localhost:3200";
-// const docsOrigin = "https://docs.growthbook.io";
+// const docsOrigin = "http://localhost:3200";
+const docsOrigin = "https://docs.growthbook.io";
 
 /*
 Checks for key, value matches in docSections. Starts with full url path then

@@ -54,6 +54,7 @@ import {
   validatePutFeatureReq,
 } from "./middleware/features";
 import validateAccessTokenApiReq from "./middleware/validateAccessTokenApiReq";
+
 // Wrap every controller function in asyncHandler to catch errors properly
 // eslint-disable-next-line
 function wrapController(controller: Record<string, RequestHandler<any>>): void {
@@ -259,7 +260,7 @@ app.options(
   }
 );
 
-//Public API routes that require an access token
+//API routes that require an access token
 app.get(
   "/api/healthcheck",
   validateAccessTokenApiReq(),

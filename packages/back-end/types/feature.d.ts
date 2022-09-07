@@ -84,9 +84,9 @@ export interface ExperimentRule extends BaseRule {
   type: "experiment";
   trackingKey: string;
   hashAttribute: string;
+  values: ExperimentValue[];
   namespace?: NamespaceValue;
   coverage?: number;
-  values: ExperimentValue[];
 }
 
 export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;

@@ -18,9 +18,12 @@ export const validatePostFeatureReq = () => async (
     ]);
 
     const BaseRule = z.object({
-      description: z.string(),
-      condition: z.string().optional(),
       id: z.string(),
+      description: z.string(),
+      condition: z
+        .string()
+        .optional()
+        .and(z.custom((v) => JSON.parse(v as string))),
       enabled: z.boolean().optional(),
     });
 
@@ -32,7 +35,7 @@ export const validatePostFeatureReq = () => async (
     const RolloutRule = BaseRule.extend({
       type: z.literal("rollout"),
       value: z.string(),
-      coverage: z.number(),
+      coverage: z.number().min(0).max(1),
       hashAttribute: z.string(),
     });
 
@@ -40,6 +43,13 @@ export const validatePostFeatureReq = () => async (
       type: z.literal("experiment"),
       trackingKey: z.string(),
       hashAttribute: z.string(),
+      values: z.array(
+        z.object({
+          value: z.string(),
+          weight: z.number().min(0).max(1),
+          name: z.string().optional(),
+        })
+      ),
       namespace: z
         .object({
           enabled: z.boolean(),
@@ -47,14 +57,7 @@ export const validatePostFeatureReq = () => async (
           range: z.array(z.number()).length(2),
         })
         .optional(),
-      coverage: z.number().optional(),
-      values: z.array(
-        z.object({
-          value: z.string(),
-          weight: z.number(),
-          name: z.string().optional(),
-        })
-      ),
+      coverage: z.number().min(0).max(1).optional(),
     });
 
     const FeatureRule = z.union([ForceRule, RolloutRule, ExperimentRule]);
@@ -81,6 +84,8 @@ export const validatePostFeatureReq = () => async (
       publishedBy: UserRef,
     });
 
+    //prop 'id' is passed as a url param, not in the body
+    //props 'dateCreated' and 'dateUpdated' are set upon creation
     const featureSchema = z.object({
       archived: z.boolean().optional(),
       description: z.string().optional(),

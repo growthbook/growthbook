@@ -1,17 +1,17 @@
 import { Request, Response } from "express";
 import { FeatureInterface } from "../../types/feature";
 import { deleteFeature, getFeature } from "../models/FeatureModel";
+import { accessTokenAudit } from "../services/auth";
+import { getOrgByAccessTokenReq } from "../services/organizations";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { accessTokenAudit } from "../services/auth";
 import {
   createFeatureService,
   updateFeatureService,
 } from "../services/features";
-import { getOrgByAccessTokenReq } from "../services/organizations";
 
 export function getHealthCheck(req: Request, res: Response) {
   return res.status(200).json({
@@ -85,8 +85,9 @@ export async function deleteFeatureApi(req: Request, res: Response) {
   const org = await getOrgByAccessTokenReq(req);
 
   const feature = await getFeature(org.id, featureId);
+
   const deleteRes = await deleteFeature(org.id, featureId);
-  if (deleteRes.deletedCount === 0) throw new Error("Feature not found");
+  if (!deleteRes.deletedCount) throw new Error("Feature not found");
 
   await accessTokenAudit(
     {
