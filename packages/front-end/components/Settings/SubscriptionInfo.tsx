@@ -23,6 +23,8 @@ export default function SubscriptionInfo() {
     quote,
     loading,
     canSubscribe,
+    organization,
+    activeAndInvitedUsers,
   } = useStripeSubscription();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -111,6 +113,12 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
+      {activeAndInvitedUsers !==
+        (organization.members.length + organization.invites.length || 0) && (
+        <div className="col-md-12 mb-3 alert alert-warning">
+          Your subscription has pending changes that will be applied soon.
+        </div>
+      )}
     </>
   );
 }
