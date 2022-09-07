@@ -136,6 +136,9 @@ const ExperimentsGetStarted = ({
             onClose={() => {
               setMetricsOpen(false);
             }}
+            onSuccess={() => {
+              mutateDefinitions();
+            }}
           />
         )}
         {experimentsOpen && (

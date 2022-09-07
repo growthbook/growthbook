@@ -239,6 +239,10 @@ const MetricPage: FC = () => {
           onClose={() => {
             setEditModalOpen(false);
           }}
+          onSuccess={() => {
+            mutateDefinitions();
+            mutate();
+          }}
         />
       )}
       {editTags && (

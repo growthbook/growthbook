@@ -27,10 +27,12 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
-  const { data, error } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
+  const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
+    `/metrics`
+  );
 
   const permissions = usePermissions();
 
@@ -96,6 +98,10 @@ const MetricsPage = (): React.ReactElement => {
           <MetricForm
             {...modalData}
             onClose={closeModal}
+            onSuccess={() => {
+              mutateDefinitions();
+              mutate();
+            }}
             source="blank-state"
           />
         )}
