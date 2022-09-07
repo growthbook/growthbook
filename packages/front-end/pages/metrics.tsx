@@ -90,6 +90,10 @@ const MetricsPage = (): React.ReactElement => {
   const closeModal = () => {
     setModalData(null);
   };
+  const onSuccess = () => {
+    mutateDefinitions();
+    mutate();
+  };
 
   if (!metrics.length) {
     return (
@@ -98,10 +102,7 @@ const MetricsPage = (): React.ReactElement => {
           <MetricForm
             {...modalData}
             onClose={closeModal}
-            onSuccess={() => {
-              mutateDefinitions();
-              mutate();
-            }}
+            onSuccess={onSuccess}
             source="blank-state"
           />
         )}
@@ -161,7 +162,12 @@ const MetricsPage = (): React.ReactElement => {
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
-        <MetricForm {...modalData} onClose={closeModal} source="metrics-list" />
+        <MetricForm
+          {...modalData}
+          onClose={closeModal}
+          onSuccess={onSuccess}
+          source="metrics-list"
+        />
       )}
 
       <div className="filters md-form row mb-3 align-items-center">

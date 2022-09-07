@@ -235,9 +235,7 @@ const NewDataSourceForm: FC<{
           if (isFinalStep) {
             await updateSettings();
             await onSuccess(data.id);
-            {
-              onCancel && onCancel();
-            }
+            onCancel && onCancel();
           } else {
             setStep(step + 1);
           }
