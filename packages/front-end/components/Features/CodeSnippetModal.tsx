@@ -319,7 +319,7 @@ export default function MyApp() {
       .then((json) => {
         growthbook.setFeatures(json.features);
       });
-    
+
     // TODO: replace with real targeting attributes
     growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
   }, [])
@@ -357,7 +357,7 @@ import (
 	"encoding/json"
 	"fmt"
 	growthbook "github.com/growthbook/growthbook-golang"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 )
@@ -376,7 +376,7 @@ func GetFeatureMap() []byte {
 		log.Println(err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	// Just return the features map from the API response
 	apiResp := &GrowthBookApiResp{}
 	_ = json.Unmarshal(body, apiResp)
@@ -398,7 +398,7 @@ func main() {
       .replace(/\n(\t+)\}/, ",\n$1}")}).
 		// TODO: Track in your analytics system
 		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-			log.Println(fmt.Sprintf("Experiment: %s, Variation: %d", experiment.Key, result.VariationID))
+			log.Println("Experiment:", experiment.Key, "Variation:", result.VariationID)
 		})
 	gb := growthbook.New(context)
 
