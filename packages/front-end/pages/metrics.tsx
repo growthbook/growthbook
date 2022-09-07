@@ -27,12 +27,10 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { mutateDefinitions, getDatasourceById } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const router = useRouter();
 
-  const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
-    `/metrics`
-  );
+  const { data, error } = useApi<{ metrics: MetricInterface[] }>(`/metrics`);
 
   const permissions = usePermissions();
 
@@ -87,11 +85,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const metrics = data.metrics;
 
-  const closeModal = (refresh: boolean) => {
-    if (refresh) {
-      mutateDefinitions({});
-      mutate();
-    }
+  const closeModal = () => {
     setModalData(null);
   };
 
