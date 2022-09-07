@@ -36,7 +36,7 @@ const DataSourceForm: FC<{
   existing,
   importSampleData,
   inline,
-  cta,
+  cta = "Save",
   secondaryCTA,
 }) => {
   const [dirty, setDirty] = useState(false);
@@ -136,7 +136,7 @@ const DataSourceForm: FC<{
       submit={handleSubmit}
       close={onCancel}
       header={existing ? "Edit Data Source" : "Add Data Source"}
-      cta={cta ? cta : "Save"}
+      cta={cta}
       size="lg"
       secondaryCTA={secondaryCTA}
     >

@@ -193,6 +193,7 @@ export default function CodeSnippetModal({
       secondaryCTA={secondaryCTA}
       open={true}
       inline={inline}
+      size={"lg"}
       header="Implementation Instructions"
       submit={async () => {
         if (submit) await submit();

@@ -7,8 +7,10 @@ import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
 import GuidedGetStarted from "../components/GuidedGetStarted";
 import { useFeature } from "@growthbook/growthbook-react";
+import usePermissions from "../hooks/usePermissions";
 
 const GetStartedPage = (): React.ReactElement => {
+  const permissions = usePermissions();
   const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
 
   const { ready, error: definitionsError } = useDefinitions();
@@ -38,7 +40,7 @@ const GetStartedPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  if (guidedOnboarding) {
+  if (permissions.organizationSettings && guidedOnboarding) {
     return (
       <>
         <div className="container pagecontents position-relative">

@@ -235,7 +235,9 @@ const NewDataSourceForm: FC<{
           if (isFinalStep) {
             await updateSettings();
             await onSuccess(data.id);
-            onCancel();
+            {
+              onCancel && (() => onCancel());
+            }
           } else {
             setStep(step + 1);
           }
@@ -308,7 +310,9 @@ const NewDataSourceForm: FC<{
             </div>
           )}
         </div>
-        <div className="col-12 text-center">{secondaryCTA}</div>
+        {secondaryCTA && (
+          <div className="col-12 text-center">{secondaryCTA}</div>
+        )}
       </div>
     );
   } else if (step === 1) {

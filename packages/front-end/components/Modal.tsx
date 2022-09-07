@@ -39,7 +39,7 @@ const Modal: FC<ModalProps> = ({
   ctaEnabled = true,
   closeCta = "Cancel",
   inline = false,
-  size = inline ? "fill" : "md",
+  size = "md",
   docSection,
   className = "",
   autoCloseOnSubmit = true,
@@ -53,6 +53,10 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  if (inline) {
+    size = "fill";
+  }
 
   useEffect(() => {
     setError(externalError);

@@ -7,7 +7,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useAuth } from "../../services/auth";
 
 const ImportExperimentModal: FC<{
-  onClose?: () => void;
+  onClose: () => void;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   importMode?: boolean;
   source?: string;

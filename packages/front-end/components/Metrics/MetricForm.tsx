@@ -36,7 +36,7 @@ export type MetricFormProps = {
   current: Partial<MetricInterface>;
   edit: boolean;
   source: string;
-  onClose?: (refresh?: boolean) => void;
+  onClose?: () => void;
   advanced?: boolean;
   inline?: boolean;
   cta?: string;
@@ -341,11 +341,11 @@ const MetricForm: FC<MetricFormProps> = ({
     <PagedModal
       inline={inline}
       header={edit ? "Edit Metric" : "New Metric"}
-      close={!inline && (onSuccess ? () => onSuccess() : () => onClose())}
+      close={onClose}
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
-      size={inline ? "fill" : "lg"}
+      size="lg"
       docSection="metrics"
       step={step}
       setStep={setStep}

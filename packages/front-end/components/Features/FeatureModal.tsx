@@ -109,6 +109,7 @@ export default function FeatureModal({
   return (
     <Modal
       inline={inline}
+      size="lg"
       open={true}
       header="Create Feature"
       cta={cta}

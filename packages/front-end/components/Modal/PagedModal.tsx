@@ -36,6 +36,8 @@ const PagedModal: FC<Props> = (props) => {
     cta,
     inline,
     secondaryCTA,
+    size,
+    // size = "md",
     ...passThrough
   } = props;
 
@@ -86,7 +88,7 @@ const PagedModal: FC<Props> = (props) => {
   return (
     <Modal
       inline={inline}
-      size={inline ? "fill" : "lg"}
+      size={size}
       open={true}
       {...passThrough}
       submit={async () => {

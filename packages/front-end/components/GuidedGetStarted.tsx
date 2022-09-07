@@ -18,14 +18,14 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import NewDataSourceForm from "./Settings/NewDataSourceForm";
 import { hasFileConfig } from "../services/env";
 import track from "../services/track";
+import { DocLink, DocSection } from "./DocLink";
 
 export type Task = {
   blackTitle: string;
   purpleTitle: string;
   text: string;
-  cta?: string;
   learnMoreLink?: string;
-  link?: string;
+  docSection?: DocSection;
   completed?: boolean;
   render: ReactNode;
   inviteTeammates?: boolean;
@@ -124,12 +124,12 @@ export default function GuidedGetStarted({
           </div>
           <button
             onClick={() => setCurrentStep(currentStep + 1)}
-            className="btn btn-primary m-2"
+            className="btn btn-primary m-4"
           >
-            Set up your SDK
+            Step 1: Set Up Your SDK
           </button>
           <button
-            className="btn btn-outline-secondary btn-sm m-4"
+            className="btn btn-outline-secondary btn-sm"
             onClick={(e) => {
               e.preventDefault();
               router.push("/features");
@@ -145,9 +145,8 @@ export default function GuidedGetStarted({
       purpleTitle: "SDK",
       text:
         "Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!",
-      cta: "View Instructions",
       learnMoreLink: "Learn more about our SDKs.",
-      link: "https://docs.growthbook.io/lib",
+      docSection: "sdks",
       completed:
         settings?.sdkInstructionsViewed || skippedSteps["install-sdk"] || false,
       render: (
@@ -161,6 +160,7 @@ export default function GuidedGetStarted({
             <button
               onClick={() => {
                 setSkippedSteps({ ...skippedSteps, "install-sdk": true });
+                setCurrentStep(currentStep + 1);
               }}
               className="btn btn-link"
             >
@@ -175,9 +175,8 @@ export default function GuidedGetStarted({
       purpleTitle: "Feature Flag",
       text:
         "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
-      cta: "Create Feature Flag",
       learnMoreLink: "Learn more about how to use feature flags.",
-      link: "https://docs.growthbook.io/app/features",
+      docSection: "features",
       completed: features.length > 0 || skippedSteps["feature-flag"],
       render: (
         <FeatureModal
@@ -205,9 +204,8 @@ export default function GuidedGetStarted({
       purpleTitle: "Data Source",
       text:
         "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
-      cta: "Add Data Source",
       learnMoreLink: "Learn more about how to connect to a data source.",
-      link: "https://docs.growthbook.io/app/datasources",
+      docSection: "datasources",
       completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
         <NewDataSourceForm
@@ -246,9 +244,8 @@ export default function GuidedGetStarted({
       purpleTitle: "Metric",
       text:
         "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
-      cta: "Define a Metric",
       learnMoreLink: "Learn more about how to use metrics.",
-      link: "https://docs.growthbook.io/app/metrics",
+      docSection: "metrics",
       completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
         <MetricForm
@@ -342,12 +339,12 @@ export default function GuidedGetStarted({
             </span>
           </h1>
           <p className="text-center col-10">
-            {steps[currentStep].text}
-            {steps[currentStep].learnMoreLink && steps[currentStep].link && (
+            {`${steps[currentStep].text} `}
+            {steps[currentStep].learnMoreLink && steps[currentStep].docSection && (
               <span>
-                <Link href={steps[currentStep].link}>
-                  <a>{` ${steps[currentStep].learnMoreLink}`}</a>
-                </Link>
+                <DocLink docSection={steps[currentStep].docSection}>
+                  {steps[currentStep].learnMoreLink}
+                </DocLink>
               </span>
             )}
           </p>

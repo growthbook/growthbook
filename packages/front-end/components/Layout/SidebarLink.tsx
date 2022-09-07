@@ -8,7 +8,7 @@ import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
 import { Permissions } from "back-end/types/organization";
-import { useFeature } from "@growthbook/growthbook-react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 export type SidebarLinkProps = {
   name: string;
@@ -30,7 +30,8 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const showSidebarLink = useFeature(props.feature).on;
+  const growthbook = useGrowthBook();
+
   const { permissions, admin } = useUser();
   const router = useRouter();
 
@@ -40,7 +41,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const [open, setOpen] = useState(selected);
 
-  if (props.feature && !showSidebarLink) {
+  if (props.feature && !growthbook.isOn(props.feature)) {
     return null;
   }
 
