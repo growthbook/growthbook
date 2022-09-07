@@ -39,7 +39,11 @@ import {
 } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
-import { auditDetailsUpdate, auditDetailsDelete } from "../services/audit";
+import {
+  auditDetailsUpdate,
+  auditDetailsDelete,
+  auditDetailsCreate,
+} from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
@@ -119,6 +123,15 @@ export async function postFeatures(
   const resultFeature = await createFeatureService(feature);
 
   await ensureWatching(userId, org.id, resultFeature.id, "features");
+
+  await req.audit({
+    event: "feature.create",
+    entity: {
+      object: "feature",
+      id: feature.id as string,
+    },
+    details: auditDetailsCreate(feature),
+  });
 
   res.status(200).json({
     status: 200,

@@ -13,6 +13,7 @@ import {
 } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { findProjectById } from "../models/ProjectModel";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -268,10 +269,16 @@ export async function updateFeatureService(
     throw new Error("Invalid update fields for feature");
   }
 
-  // See if anything important changed that requires firing a webhook
   let requiresWebhook = false;
-  if ("project" in updates && updates.project !== feature.project) {
-    requiresWebhook = true;
+  if (updates.project) {
+    if (!(await findProjectById(updates.project, feature.organization))) {
+      throw new Error("Project not found");
+    }
+
+    // See if anything important changed that requires firing a webhook
+    if ("project" in updates && updates.project !== feature.project) {
+      requiresWebhook = true;
+    }
   }
 
   await updateFeature(feature.organization, featureId, {

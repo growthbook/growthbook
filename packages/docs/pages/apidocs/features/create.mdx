@@ -1,5 +1,7 @@
 import ParamsRow from "../../../components/ParamsRow";
 import CollapsibleParams from "../../../components/CollapsibleParams";
+import FeatureObject from "../../../components/features/FeatureObject.mdx";
+import FeatureAttributes from "../../../components/features/FeatureAttributes.mdx";
 
 # Create
 
@@ -9,81 +11,14 @@ Creates a feature with the given properties.
 
 `POST /api/feature/{featureId}`
 
-## The feature object
+<FeatureObject />
 
-```json
-{
-  "id": "test-feature",
-  "archived": false,
-  "description": "This is a test feature",
-  "owner": "Team A",
-  "project": "Project 1",
-  "valueType": "string",
-  "defaultValue": "success",
-  "tags": ["onboarding", "CTA"],
-  "environmentSettings": {
-    "production": {
-      "enabled": true,
-      "rules": [
-        {
-          "description": "rule 1",
-          "id": "rule-1",
-          "enabled": true
-        }
-      ]
-    }
-  },
-  "draft": {
-    "active": true,
-    "dateCreated": "2020-01-01T00:00:00.000Z",
-    "dateUpdated": "2020-01-01T00:00:00.000Z",
-    "defaultValue": "success",
-    "rules": {
-      "rule-1": [
-        {
-          "description": "rule 1",
-          "id": "rule-1",
-          "enabled": true
-        }
-      ]
-    }
-  },
-  "revision": {
-    "version": "1.0.0",
-    "comment": "Initial version",
-    "date": "2020-01-01T00:00:00.000Z",
-    "publishedBy": {
-      "id": "user-1",
-      "name": "John Doe",
-      "email": "johndoe@******.com"
-    }
-  }
-}
-```
-
-## Attributes
-
-| Attribute           | Type    | Description                            |
-| ------------------- | ------- | -------------------------------------- |
-| id                  | string  | The unique identifier of the feature   |
-| archived            | boolean | Whether the feature is archived or not |
-| description         | string  | A description of the feature           |
-| organization        | string  | The unique organization identifier     |
-| owner               | string  | The owner of the feature               |
-| project             | string  | The project the feature belongs to     |
-| dateCreated         | string  | The date the feature was created       |
-| dateUpdated         | string  | The date the feature was last updated  |
-| valueType           | string  | The type of the feature value          |
-| defaultValue        | string  | The default value of the feature       |
-| tags                | array   | An array of tags                       |
-| environmentSettings | object  | The environment settings               |
-| draft               | object  | The draft settings                     |
-| revision            | object  | The revision settings                  |
+<FeatureAttributes />
 
 ## Create feature request
 
 <section className="text-sm">
-  <div class="text-lg font-bold">Headers</div>
+  <div className="text-lg font-bold">Headers</div>
   <ParamsRow
     name="Authorization"
     type="Bearer <access_token>"
@@ -93,7 +28,7 @@ Creates a feature with the given properties.
 </section>
 
 <section className="text-sm mt-5">
-  <div class="flex justify-between text-lg font-bold mb-3">
+  <div className="flex justify-between text-lg font-bold mb-3">
     <div>Parameters</div>
     <div>Default Value</div>
   </div>
@@ -118,7 +53,7 @@ Creates a feature with the given properties.
     type="string"
     description="The default value of the feature"
   />
-  <div class="flex justify-between">
+  <div className="flex justify-between">
     <ParamsRow
       name="archived"
       required={false}

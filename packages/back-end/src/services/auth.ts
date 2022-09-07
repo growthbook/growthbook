@@ -235,3 +235,14 @@ export function isNewInstallation() {
 export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
 }
+
+export async function accessTokenAudit(
+  data: Partial<AuditInterface>,
+  orgId: string
+) {
+  await insertAudit({
+    ...data,
+    organization: orgId,
+    dateCreated: new Date(),
+  });
+}
