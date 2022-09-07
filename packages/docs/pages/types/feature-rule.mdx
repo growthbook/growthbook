@@ -1,0 +1,106 @@
+import ParamsRow from "../../components/ParamsRow";
+
+# FeatureRule
+
+`FeatureRule = ForceRule | RolloutRule | ExperimentRule`
+
+## ForceRule
+
+<div>
+  <ParamsRow
+    name="id"
+    type="string"
+    description="The unique identifier of the rule"
+    hr={false}
+  />
+  <ParamsRow
+    name="description"
+    type="string"
+    description="A description of the rule"
+  />
+  <ParamsRow name="type" type="'force'" />
+  <ParamsRow name="value" type="string" description="Force rule value" />
+  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow
+    name="enabled"
+    required={false}
+    type="boolean"
+    description="Whether the rule is enabled or not"
+  />
+</div>
+
+## RolloutRule
+
+<div>
+  <ParamsRow
+    name="id"
+    type="string"
+    description="The unique identifier of the rule"
+    hr={false}
+  />
+  <ParamsRow
+    name="description"
+    type="string"
+    description="A description of the rule"
+  />
+  <ParamsRow name="type" type="'rollout'" />
+  <ParamsRow name="value" type="string" />
+  <ParamsRow name="coverage" type="number" />
+  <ParamsRow name="hasAttribute" type="string" />
+  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow
+    name="enabled"
+    required={false}
+    type="boolean"
+    description="Whether the rule is enabled or not"
+  />
+</div>
+
+## ExperimentRule
+
+<div className="mb-3">
+  <ParamsRow
+    name="id"
+    type="string"
+    description="The unique identifier of the rule"
+    hr={false}
+  />
+  <ParamsRow
+    name="description"
+    type="string"
+    description="A description of the rule"
+  />
+  <ParamsRow name="condition" required={false} type="string" />
+  <ParamsRow
+    name="enabled"
+    required={false}
+    type="boolean"
+    description="Whether the rule is enabled or not"
+  />
+  <ParamsRow name="type" type="'experiment'" />
+  <ParamsRow name="trackingKey" type="string" />
+  <ParamsRow name="hasAttribute" type="string" />
+  <>
+    <ParamsRow name="values" type="Array<object>" />
+    <details>
+      <summary>child parameters</summary>
+      <div className="ml-3 p-3 text-md">
+        <ParamsRow name="value" type="string" />
+        <ParamsRow name="weight" type="number" />
+        <ParamsRow name="name" required={false} type="string" />
+      </div>
+    </details>
+  </>
+  <>
+    <ParamsRow name="namespace" required={false} type="object" />
+    <details>
+      <summary>child parameters</summary>
+      <div className="ml-3 p-3 text-md">
+        <ParamsRow name="enabled" type="boolean" />
+        <ParamsRow name="name" type="string" />
+        <ParamsRow name="range" type="[number, number]" />
+      </div>
+    </details>
+  </>
+  <ParamsRow name="coverage" type="number" />
+</div>

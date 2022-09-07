@@ -45,10 +45,15 @@ import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import * as tagsController from "./controllers/tags";
+import * as publicApiController from "./controllers/publicApi";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
-
+import {
+  validatePostFeatureReq,
+  validatePutFeatureReq,
+} from "./middleware/features";
+import validateAccessTokenApiReq from "./middleware/validateAccessTokenApiReq";
 // Wrap every controller function in asyncHandler to catch errors properly
 // eslint-disable-next-line
 function wrapController(controller: Record<string, RequestHandler<any>>): void {
@@ -75,6 +80,7 @@ wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
 wrapController(tagsController);
+wrapController(publicApiController);
 
 const app = express();
 
@@ -251,6 +257,28 @@ app.options(
   function (req, res) {
     res.send(200);
   }
+);
+
+//Public API routes that require an access token
+app.get(
+  "/api/healthcheck",
+  validateAccessTokenApiReq(),
+  publicApiController.getHealthCheck
+);
+app.post(
+  "/api/features/:featureId",
+  [validateAccessTokenApiReq(), validatePostFeatureReq()],
+  publicApiController.postFeatureApi
+);
+app.put(
+  "/api/features/:featureId",
+  [validateAccessTokenApiReq(), validatePutFeatureReq()],
+  publicApiController.putFeatureApi
+);
+app.delete(
+  "/api/features/:featureId",
+  [validateAccessTokenApiReq()],
+  publicApiController.deleteFeatureApi
 );
 
 // Accept cross-origin requests from the frontend app

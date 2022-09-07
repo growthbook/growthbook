@@ -25,6 +25,13 @@ export interface FeatureDraftChanges {
   comment?: string;
 }
 
+export interface FeatureRevisionInterface {
+  version: number;
+  comment: string;
+  date: Date;
+  publishedBy: UserRef;
+}
+
 export interface FeatureInterface {
   id: string;
   archived?: boolean;
@@ -39,18 +46,13 @@ export interface FeatureInterface {
   tags?: string[];
   environmentSettings?: Record<string, FeatureEnvironment>;
   draft?: FeatureDraftChanges;
-  revision?: {
-    version: number;
-    comment: string;
-    date: Date;
-    publishedBy: UserRef;
-  };
+  revision?: FeatureRevisionInterface;
 }
 
 export interface BaseRule {
+  id: string;
   description: string;
   condition?: string;
-  id: string;
   enabled?: boolean;
 }
 

@@ -178,7 +178,7 @@ There are few ways to integrate GrowthBook features into your application.
 
 At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file for each environment (e.g. dev and production). The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
 
-There is a public GrowthBook [API endpoint](/app/api) for the feature definitions JSON:
+There is a public GrowthBook [API endpoint](/apidocs) for the feature definitions JSON:
 
 - https://cdn.growthbook.io/api/features/{MY_API_KEY} (GrowthBook Cloud)
 - http://localhost:3100/api/features/{MY_API_KEY} (Self-hosted)

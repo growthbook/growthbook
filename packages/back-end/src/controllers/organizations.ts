@@ -798,8 +798,10 @@ export async function putOrganization(
 
   try {
     const updates: Partial<OrganizationInterface> = {};
-
     const orig: Partial<OrganizationInterface> = {};
+
+    if (settings?.environments?.find((env) => env.id === "access"))
+      throw new Error("Reserved environment name: 'access'");
 
     if (name) {
       updates.name = name;

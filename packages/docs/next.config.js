@@ -22,7 +22,7 @@ module.exports = withMDX({
     return [
       {
         source: '/api-docs',
-        destination: '/app/api',
+        destination: '/apidocs',
         permanent: true,
       },
     ]

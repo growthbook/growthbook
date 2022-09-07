@@ -88,7 +88,7 @@ export async function createFeature(data: FeatureInterface) {
 }
 
 export async function deleteFeature(organization: string, id: string) {
-  await FeatureModel.deleteOne({ organization, id });
+  return await FeatureModel.deleteOne({ organization, id });
 }
 
 export async function updateFeature(

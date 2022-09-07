@@ -6,7 +6,11 @@ import {
   FeatureValueType,
 } from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
-import { getAllFeatures } from "../models/FeatureModel";
+import {
+  createFeature,
+  getAllFeatures,
+  updateFeature,
+} from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 
@@ -183,4 +187,107 @@ export function verifyDraftsAreEqual(
       "New changes have been made to this feature. Please review and try again."
     );
   }
+}
+
+export async function createFeatureService(feature: Partial<FeatureInterface>) {
+  const {
+    id,
+    archived,
+    description,
+    organization,
+    owner,
+    project,
+    valueType,
+    defaultValue,
+    tags,
+    environmentSettings,
+    draft,
+    revision,
+  } = feature;
+
+  if (!id) {
+    throw new Error("Must specify feature key");
+  }
+
+  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+    throw new Error(
+      "Feature keys can only include letters, numbers, hyphens, and underscores."
+    );
+  }
+
+  if (!organization) {
+    throw new Error("Organization could not be found");
+  }
+
+  if (!owner) {
+    throw new Error("Owner must be specified");
+  }
+
+  const resultFeature: FeatureInterface = {
+    id: id.toLowerCase(),
+    archived: archived ?? false,
+    description: description ?? "",
+    organization,
+    owner,
+    project: project ?? "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    valueType: valueType ?? "boolean",
+    defaultValue: defaultValue ?? "",
+    tags: tags ?? [],
+    environmentSettings: environmentSettings ?? {},
+    draft: draft ?? undefined,
+    revision: revision ?? undefined,
+  };
+
+  addIdsToRules(resultFeature.environmentSettings, resultFeature.id);
+
+  await createFeature(resultFeature);
+  featureUpdated(resultFeature);
+
+  return resultFeature;
+}
+
+export async function updateFeatureService(
+  updates: Partial<FeatureInterface>,
+  feature: FeatureInterface,
+  featureId: string
+) {
+  const allowedKeys: (keyof FeatureInterface)[] = [
+    "tags",
+    "description",
+    "project",
+    "owner",
+  ];
+
+  if (
+    Object.keys(updates).filter(
+      (key: keyof FeatureInterface) => !allowedKeys.includes(key)
+    ).length > 0
+  ) {
+    throw new Error("Invalid update fields for feature");
+  }
+
+  // See if anything important changed that requires firing a webhook
+  let requiresWebhook = false;
+  if ("project" in updates && updates.project !== feature.project) {
+    requiresWebhook = true;
+  }
+
+  await updateFeature(feature.organization, featureId, {
+    ...updates,
+    dateUpdated: new Date(),
+  });
+
+  const newFeature = { ...feature, ...updates };
+
+  if (requiresWebhook) {
+    featureUpdated(
+      newFeature,
+      getEnabledEnvironments(feature),
+      feature.project || ""
+    );
+  }
+
+  return newFeature;
 }

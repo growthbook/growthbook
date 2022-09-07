@@ -9,7 +9,7 @@ const docSections = {
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiments",
-  api: "/app/api",
+  api: "/apidocs",
   webhooks: "/app/webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
@@ -52,8 +52,9 @@ const urlPathMapping: Record<string, DocSection> = {
   "/settings/webhooks": "webhooks",
 };
 
-//for testing use "http://localhost:3200"
-const docsOrigin = "https://docs.growthbook.io";
+//for testing use
+const docsOrigin = "http://localhost:3200";
+// const docsOrigin = "https://docs.growthbook.io";
 
 /*
 Checks for key, value matches in docSections. Starts with full url path then

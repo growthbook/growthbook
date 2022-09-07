@@ -1,17 +1,19 @@
-import uniqid from "uniqid";
 import { ApiKeyModel } from "../models/ApiKeyModel";
-import md5 from "md5";
+import crypto from "crypto";
 
 export async function createApiKey(
-  organization: string,
+  orgId: string,
   environment: string,
   description?: string
 ): Promise<string> {
   const key =
-    "key_" + environment.substr(0, 4) + "_" + md5(uniqid()).substr(0, 16);
+    "key_" +
+    environment.substr(0, 4) +
+    "_" +
+    crypto.randomBytes(24).toString("hex").substr(0, 24);
 
   await ApiKeyModel.create({
-    organization,
+    organization: orgId,
     key,
     description,
     environment,

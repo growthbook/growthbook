@@ -4,12 +4,12 @@ import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeatureRevisionInterface,
   FeatureRule,
 } from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
-  createFeature,
   deleteFeature,
   setFeatureDraftRules,
   editFeatureRule,
@@ -18,7 +18,6 @@ import {
   publishDraft,
   setDefaultValue,
   toggleFeatureEnvironment,
-  updateFeature,
   archiveFeature,
   getDraftRules,
   discardDraft,
@@ -27,24 +26,20 @@ import {
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import {
-  addIdsToRules,
   arrayMove,
+  createFeatureService,
   featureUpdated,
-  getEnabledEnvironments,
   getFeatureDefinitions,
+  updateFeatureService,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
-  getExperimentByTrackingKey,
   ensureWatching,
+  getExperimentByTrackingKey,
 } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
-import {
-  auditDetailsCreate,
-  auditDetailsUpdate,
-  auditDetailsDelete,
-} from "../services/audit";
+import { auditDetailsUpdate, auditDetailsDelete } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
@@ -96,18 +91,8 @@ export async function postFeatures(
 ) {
   req.checkPermissions("createFeatures");
 
-  const { id, ...otherProps } = req.body;
+  const feature = req.body;
   const { org, environments, userId, email, userName } = getOrgFromReq(req);
-
-  if (!id) {
-    throw new Error("Must specify feature key");
-  }
-
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores."
-    );
-  }
 
   const environmentSettings: Record<string, FeatureEnvironment> = {};
   environments.forEach((env) => {
@@ -117,49 +102,27 @@ export async function postFeatures(
     };
   });
 
-  const feature: FeatureInterface = {
-    defaultValue: "",
-    valueType: "boolean",
-    owner: userName,
-    description: "",
-    project: "",
-    environmentSettings,
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id: id.toLowerCase(),
-    archived: false,
-    revision: {
-      version: 1,
-      comment: "New feature",
-      date: new Date(),
-      publishedBy: {
-        id: userId,
-        email,
-        name: userName,
-      },
+  const revision: FeatureRevisionInterface = {
+    version: 1,
+    comment: "New feature",
+    date: new Date(),
+    publishedBy: {
+      id: userId,
+      email,
+      name: userName,
     },
   };
 
-  addIdsToRules(feature.environmentSettings, feature.id);
+  feature.environmentSettings = environmentSettings;
+  feature.revision = revision;
 
-  await createFeature(feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  const resultFeature = await createFeatureService(feature);
 
-  await req.audit({
-    event: "feature.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(feature),
-  });
+  await ensureWatching(userId, org.id, resultFeature.id, "features");
 
-  featureUpdated(feature);
   res.status(200).json({
     status: 200,
-    feature,
+    resultFeature,
   });
 }
 
@@ -447,12 +410,10 @@ export async function putFeature(
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const feature = await getFeature(org.id, id);
+  const { id: featureId } = req.params;
+  const feature = await getFeature(org.id, featureId);
 
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
+  if (!feature) throw new Error("Could not find feature");
 
   const updates = req.body;
 
@@ -461,33 +422,7 @@ export async function putFeature(
     req.checkPermissions("createFeatures", "publishFeatures");
   }
 
-  const allowedKeys: (keyof FeatureInterface)[] = [
-    "tags",
-    "description",
-    "project",
-    "owner",
-  ];
-
-  if (
-    Object.keys(updates).filter(
-      (key: keyof FeatureInterface) => !allowedKeys.includes(key)
-    ).length > 0
-  ) {
-    throw new Error("Invalid update fields for feature");
-  }
-
-  // See if anything important changed that requires firing a webhook
-  let requiresWebhook = false;
-  if ("project" in updates && updates.project !== feature.project) {
-    requiresWebhook = true;
-  }
-
-  await updateFeature(feature.organization, id, {
-    ...updates,
-    dateUpdated: new Date(),
-  });
-
-  const newFeature = { ...feature, ...updates };
+  const newFeature = await updateFeatureService(updates, feature, feature.id);
 
   await req.audit({
     event: "feature.update",
@@ -497,14 +432,6 @@ export async function putFeature(
     },
     details: auditDetailsUpdate(feature, newFeature),
   });
-
-  if (requiresWebhook) {
-    featureUpdated(
-      newFeature,
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
-  }
 
   res.status(200).json({
     feature: {

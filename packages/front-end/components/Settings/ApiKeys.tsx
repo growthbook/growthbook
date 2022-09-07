@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { ApiKeyInterface } from "back-end/types/apikey";
@@ -8,14 +8,24 @@ import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import Link from "next/link";
 import { DocLink } from "../DocLink";
+import track from "../../services/track";
+import Tooltip from "../Tooltip";
+
+export const apiAuthEnv = "access";
 
 const ApiKeys: FC = () => {
-  const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
+  const { data, error: keyError, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
+    "/keys"
+  );
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+  const hasPublicKey = useMemo(() => {
+    return !!data?.keys.find((k) => k.environment === apiAuthEnv);
+  }, [data]);
+
+  if (keyError) {
+    return <div className="alert alert-danger">{keyError.message}</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -30,6 +40,18 @@ const ApiKeys: FC = () => {
       );
     }
   });
+
+  async function handleCreatePublicApiKey() {
+    await apiCall("/keys", {
+      method: "POST",
+      body: JSON.stringify({
+        environment: apiAuthEnv,
+        description: "access_token for APIs that require authentication",
+      }),
+    });
+    track("Create Public API Key", {});
+    mutate();
+  }
 
   return (
     <div>
@@ -64,7 +86,7 @@ const ApiKeys: FC = () => {
                   <div className="tr-hover actions">
                     <DeleteButton
                       onClick={async () => {
-                        await apiCall(`/key/${key.key}`, {
+                        await apiCall(`/key/${encodeURIComponent(key.key)}`, {
                           method: "DELETE",
                         });
                         mutate();
@@ -79,7 +101,6 @@ const ApiKeys: FC = () => {
           </tbody>
         </table>
       )}
-
       <button
         className="btn btn-primary"
         onClick={(e) => {
@@ -89,6 +110,21 @@ const ApiKeys: FC = () => {
       >
         <FaKey /> Create New Key
       </button>
+
+      <Tooltip body="Access Tokens are limited to one per organization and are used for API requests that require authentication">
+        {/* buttons do not work when wrapped in a span so this is a div */}
+        <div
+          className={`btn btn-primary ml-3 ${hasPublicKey ? "disabled" : ""}`}
+          // disabled={hasPublicKey}
+          onClick={(e) => {
+            if (hasPublicKey) return;
+            e.preventDefault();
+            handleCreatePublicApiKey();
+          }}
+        >
+          <FaKey /> Create Access Token
+        </div>
+      </Tooltip>
       <Link href={`/settings/environments`}>
         <a className="btn btn-outline-primary ml-3">Manage environments</a>
       </Link>

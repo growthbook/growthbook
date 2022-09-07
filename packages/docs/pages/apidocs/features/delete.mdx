@@ -1,0 +1,42 @@
+import ParamsRow from "../../../components/ParamsRow";
+
+# Delete
+
+Deletes a feature by its ID.
+
+## Endpoint
+
+`DELETE /api/feature/{featureId}`
+
+## Delete feature request
+
+<section className="text-sm">
+  <div class="text-lg font-bold">Headers</div>
+  <ParamsRow
+    name="Authorization"
+    type="Bearer <access_token>"
+    description="access_token for API authentication"
+    hr={false}
+  />
+</section>
+
+<section className="text-sm mt-5">
+  <div class="text-lg font-bold">Parameters</div>
+  <ParamsRow
+    name="id"
+    type="string"
+    description="The unique identifier of the feature"
+    hr={false}
+  />
+</section>
+
+## Example curl request
+
+```bash
+curl --location --request DELETE 'https://cdn.growthbook.io/api/features/feat_a8ab78d93' \
+--header 'Authorization: Bearer key_acce_asdfASDF1234!@#$asdfASDF1234!@#$' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "id": "feature_id_test"
+}'
+```

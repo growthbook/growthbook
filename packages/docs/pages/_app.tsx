@@ -62,10 +62,6 @@ const navLinks = [
         beta: true,
       },
       {
-        href: "/app/api",
-        name: "API",
-      },
-      {
         href: "/app/webhooks",
         name: "Webhooks",
       },
@@ -148,6 +144,53 @@ const navLinks = [
     ],
   },
   {
+    // /api is a reserved path
+    href: "/apidocs",
+    name: "API",
+    links: [
+      {
+        href: "/apidocs/authentication",
+        name: "Authentication",
+      },
+      {
+        href: "/apidocs/health-check",
+        name: "Health Check",
+      },
+      {
+        href: "/apidocs/features",
+        name: "Features",
+        links: [
+          {
+            href: "/apidocs/features/definitions",
+            name: "Definitions",
+          },
+          {
+            href: "/apidocs/features/create",
+            name: "Create",
+          },
+          {
+            href: "/apidocs/features/update",
+            name: "Update",
+          },
+          {
+            href: "/apidocs/features/delete",
+            name: "Delete",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    href: "/types",
+    name: "Types",
+    links: [
+      {
+        href: "/types/feature-rule",
+        name: "FeatureRule",
+      },
+    ],
+  },
+  {
     href: "/faq",
     name: "FAQ",
   },
@@ -163,6 +206,11 @@ navLinks.forEach((l) => {
   if (l.links) {
     l.links.forEach((l2) => {
       linksInOrder.push(l2);
+      if (l2.links) {
+        l2.links.forEach((l3) => {
+          linksInOrder.push(l3);
+        });
+      }
     });
   }
 });
@@ -288,27 +336,59 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                     link.links.map((sublink, j) => {
                       const active = router.pathname === sublink.href;
                       return (
-                        <div
-                          className={`rounded py-1 mb-1 px-2 ml-4 ${
-                            active
-                              ? "bg-gray-200 dark:bg-gray-600 font-bold"
-                              : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                          key={j}
-                        >
-                          <Link href={sublink.href}>
-                            <a className="block whitespace-nowrap">
-                              {sublink.name}
-                              {sublink.beta ? (
-                                <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
-                                  beta
-                                </span>
-                              ) : (
-                                ""
-                              )}
-                            </a>
+                        <>
+                          <Link href={sublink.href} key={`sublink${j}`}>
+                            <div
+                              className={`flex cursor-pointer justify-between rounded py-1 mb-1 px-2 ml-4 ${
+                                active
+                                  ? "bg-gray-200 dark:bg-gray-600 font-bold"
+                                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                              }`}
+                            >
+                              <a className="block whitespace-nowrap">
+                                {sublink.name}
+                                {sublink.beta ? (
+                                  <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
+                                    beta
+                                  </span>
+                                ) : (
+                                  ""
+                                )}
+                              </a>
+                            </div>
                           </Link>
-                        </div>
+                          {sublink.links &&
+                            sublink.links.map((subsublink, k) => {
+                              const active =
+                                router.pathname === subsublink.href;
+                              return (
+                                <Link
+                                  href={subsublink.href}
+                                  key={`subsublink${k}`}
+                                >
+                                  <div
+                                    className={`flex cursor-pointer justify-between rounded py-1 mb-1 px-2 ml-8 ${
+                                      active
+                                        ? "bg-gray-200 dark:bg-gray-600 font-bold"
+                                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    }`}
+                                    key={k}
+                                  >
+                                    <a className="block whitespace-nowrap">
+                                      {subsublink.name}
+                                      {subsublink.beta ? (
+                                        <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
+                                          beta
+                                        </span>
+                                      ) : (
+                                        ""
+                                      )}
+                                    </a>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </>
                       );
                     })}
                 </div>

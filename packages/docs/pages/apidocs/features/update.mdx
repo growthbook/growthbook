@@ -1,0 +1,136 @@
+import ParamsRow from "../../../components/ParamsRow";
+import CollapsibleParams from "../../../components/CollapsibleParams";
+
+# Update
+
+Updates a feature with the given properties.
+
+## Endpoint
+
+`PUT /api/feature/{featureId}`
+
+## The feature object
+
+```json
+{
+  "id": "test-feature",
+  "archived": false,
+  "description": "This is a test feature",
+  "owner": "Team A",
+  "project": "Project 1",
+  "valueType": "string",
+  "defaultValue": "success",
+  "tags": ["onboarding", "CTA"],
+  "environmentSettings": {
+    "production": {
+      "enabled": true,
+      "rules": [
+        {
+          "description": "rule 1",
+          "id": "rule-1",
+          "enabled": true
+        }
+      ]
+    }
+  },
+  "draft": {
+    "active": true,
+    "dateCreated": "2020-01-01T00:00:00.000Z",
+    "dateUpdated": "2020-01-01T00:00:00.000Z",
+    "defaultValue": "success",
+    "rules": {
+      "rule-1": [
+        {
+          "description": "rule 1",
+          "id": "rule-1",
+          "enabled": true
+        }
+      ]
+    }
+  },
+  "revision": {
+    "version": "1.0.0",
+    "comment": "Initial version",
+    "date": "2020-01-01T00:00:00.000Z",
+    "publishedBy": {
+      "id": "user-1",
+      "name": "John Doe",
+      "email": "johndoe@******.com"
+    }
+  }
+}
+```
+
+## Attributes
+
+| Attribute           | Type    | Description                            |
+| ------------------- | ------- | -------------------------------------- |
+| id                  | string  | The unique identifier of the feature   |
+| archived            | boolean | Whether the feature is archived or not |
+| description         | string  | A description of the feature           |
+| organization        | string  | The unique organization identifier     |
+| owner               | string  | The owner of the feature               |
+| project             | string  | The project the feature belongs to     |
+| dateCreated         | string  | The date the feature was created       |
+| dateUpdated         | string  | The date the feature was last updated  |
+| valueType           | string  | The type of the feature value          |
+| defaultValue        | string  | The default value of the feature       |
+| tags                | array   | An array of tags                       |
+| environmentSettings | object  | The environment settings               |
+| draft               | object  | The draft settings                     |
+| revision            | object  | The revision settings                  |
+
+## Update feature request
+
+<section className="text-sm">
+  <div class="text-lg font-bold">Headers</div>
+  <ParamsRow
+    name="Authorization"
+    type="Bearer <access_token>"
+    description="access_token for API authentication"
+  />
+</section>
+
+<section className="text-sm mt-5">
+  <div class="text-lg font-bold">
+    <div>Parameters</div>
+  </div>
+  <ParamsRow
+    name="description"
+    required={false}
+    type="string"
+    description="A description of the feature"
+  />
+  <ParamsRow
+    name="owner"
+    required={false}
+    type="string"
+    description="The owner of the feature"
+  />
+  <ParamsRow
+    name="project"
+    required={false}
+    type="string"
+    description="The project the feature belongs to"
+  />
+  <ParamsRow
+    name="tags"
+    required={false}
+    type="Array<string>"
+    description="An array of tags"
+  />
+</section>
+
+## Example curl request
+
+```bash
+curl --location --request PUT 'https://cdn.growthbook.io/api/features/feat_a8ab78d93' \
+--header 'Authorization: Bearer key_acce_asdfASDF1234!@#$ASDFasdf1234!@#$	' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "description": "New description",
+    "owner": "New owner",
+    "project": "new project name",
+    "tags": ["new", "tag", "array"]
+}'
+```

@@ -1,0 +1,28 @@
+import ParamsRow from "../../components/ParamsRow";
+
+# Health Check
+
+This is a good starting point for making sure that your `access_token` is valid and that you have the correct permissions.
+You can use this endpoint to check if your `access_token` is valid and if you have the correct permissions to access the API.
+
+## Endpoint
+
+`GET /api/healthcheck`
+
+## Health Check request
+
+<section className="text-sm">
+  <div class="text-lg font-bold">Headers</div>
+  <ParamsRow
+    name="Authorization"
+    type="Bearer <access_token>"
+    description="access_token for API authentication"
+  />
+</section>
+
+## Example curl request
+
+```bash
+curl --location --request GET 'https://cdn.growthbook.io/api/healthcheck' \
+--header 'Authorization: Bearer key_acce_asdfASDF1234!@#$asdfASDF1234!@#$'
+```
