@@ -77,7 +77,15 @@ WHERE
   event_type = 'viewed experiment'
 ```
 
-Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+Make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+
+##### Duplicate Rows
+
+If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
+
+During analysis, we use these events to calculate conversion windows for metrics. For example, if a user saw an experiment on day 1 and again on day 7, we might only include their metric conversions that happened within 3 days of each event (i.e. day 1-4 or day 7-11). All other metric conversions would be ignored (e.g. day 5 or 6). The exact length of the conversion window depends on metric-specific settings.
+
+If you prefer to only use the initial assignment event instead, you can override this behavior on a per-analysis basis in the configuration settings.
 
 ##### Experiment Dimensions
 
