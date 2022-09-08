@@ -427,7 +427,7 @@ export default function GuidedGetStarted({
     if (initialStep >= 0) {
       return initialStep;
     } else {
-      return 0;
+      return steps.length - 1;
     }
   });
 
