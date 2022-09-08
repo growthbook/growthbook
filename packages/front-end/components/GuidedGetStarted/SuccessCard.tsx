@@ -17,7 +17,7 @@ export default function SuccessCard({
   nextStep,
 }: Props) {
   return (
-    <div className={clsx("col-12 p-4", styles.wrapper)}>
+    <div className={clsx("col-12 col-lg-10 p-4", styles.wrapper)}>
       <div className="d-flex flex-column align-content-center text-center">
         <FaCheck
           className={clsx("align-self-center mb-4 p-3", styles.successBubble)}
