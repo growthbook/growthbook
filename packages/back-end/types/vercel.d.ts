@@ -9,7 +9,7 @@ export type ApiKeyRow = {
   key: string;
   value: string;
   gbEnvironment: string;
-  vercelEnvironment: VercelTarget[];
+  target: VercelTarget[];
   description: string;
 };
 
@@ -34,3 +34,13 @@ export enum VercelType {
   system = "system",
   encrypted = "encrypted",
 }
+
+export type CreateEnvParams = {
+  token: string;
+  projectId: string;
+  key: string;
+  target: VercelTarget[];
+  type: string;
+  value: string;
+  teamId: string | null;
+};

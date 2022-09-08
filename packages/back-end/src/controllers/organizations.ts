@@ -146,7 +146,6 @@ export async function getUser(req: AuthRequest, res: Response) {
         freeSeats: org.freeSeats || 3,
         discountCode: org.discountCode || "",
         hasActiveSubscription: hasActiveSubscription(org),
-        connections: org.connections,
       };
     }),
   });

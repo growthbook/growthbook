@@ -26,6 +26,7 @@ type ModalProps = {
   submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
   successMessage?: string;
+  showCTAs?: boolean;
   children: ReactNode;
 };
 const Modal: FC<ModalProps> = ({
@@ -49,6 +50,7 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
   secondaryCTA,
   successMessage,
+  showCTAs = true,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +144,7 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || close ? (
+      {(submit || close) && showCTAs ? (
         <div className="modal-footer">
           {error && (
             <div className="alert alert-danger mr-auto">

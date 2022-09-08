@@ -32,11 +32,7 @@ export default function VercelPage() {
                 <td>{keyRow.key}</td>
                 <td>{keyRow.value}</td>
                 <td>{keyRow.gbEnvironment}</td>
-                <td>
-                  {JSON.stringify(keyRow.vercelEnvironment)
-                    .replaceAll('"', "")
-                    .replaceAll(",", ", ")}
-                </td>
+                <td>{keyRow.target.join(", ")}</td>
                 <td>{keyRow.description}</td>
               </tr>
             ))}

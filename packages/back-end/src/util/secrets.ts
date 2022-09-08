@@ -103,5 +103,5 @@ export const IMPORT_LIMIT_DAYS =
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
-export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID;
-export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET;
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";

@@ -117,16 +117,16 @@ export interface SubscriptionQuote {
 }
 
 export interface OrganizationConnections {
-  slack?: Slack;
-  vercel?: Vercel;
+  slack?: SlackConnection;
+  vercel?: VercelConnection;
 }
 
-export interface Slack {
+export interface SlackConnection {
   team: string;
   token: string;
 }
 
-export interface Vercel {
+export interface VercelConnection {
   token: string;
   configurationId: string;
   teamId: string | null;

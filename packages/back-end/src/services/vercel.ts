@@ -1,19 +1,12 @@
 import fetch from "node-fetch";
 import {
+  CreateEnvParams,
   GbVercelEnvMap,
   VercelEnvVar,
   VercelProject,
   VercelTarget,
 } from "../../types/vercel";
 import { createApiKey } from "./apiKey";
-
-const vercelApiBaseUrl = "https://api.vercel.com";
-
-const postOrGetEnvVarByProjectId = (projectId: string) =>
-  `${vercelApiBaseUrl}/v9/projects/${projectId}/env`;
-
-const getQueryParams = (teamId: string | null) =>
-  teamId ? `?${new URLSearchParams({ teamId })}` : "";
 
 const gbApiKey = {
   key: "GROWTHBOOK_KEY",
@@ -29,59 +22,51 @@ const gbKeys = [gbApiKey, gbWebhookKey];
 interface VercelApiCallProps {
   token: string;
   teamId: string | null;
-  url: string;
+  endpoint: string;
   method: "POST" | "GET";
   body?: string;
-  hasResult: boolean;
 }
 
-async function vercelApiCall({
+async function vercelApiCall<T = unknown>({
   token,
   teamId,
-  url,
+  endpoint,
   method,
   body,
-  hasResult,
-}: VercelApiCallProps) {
-  const options = {
+}: VercelApiCallProps): Promise<T> {
+  if (teamId) {
+    endpoint = endpoint + `?${new URLSearchParams({ teamId })}`;
+  }
+  const res = await fetch(`https://api.vercel.com${endpoint}`, {
     method,
+    body,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-  };
-  // eslint-disable-next-line
-  // @ts-ignore
-  if (body) options.body = body;
-  url = url + getQueryParams(teamId);
+  });
 
-  const res = await fetch(url, options);
-  if (!hasResult) return;
-
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
+  const json: T | { error: string } = await res.json();
+  if ("error" in json) {
+    console.error(json.error);
+    throw new Error(json.error);
+  }
   return json;
 }
 
+type ReducedMapping = { gb: string; vercel: VercelTarget[] };
+
 //Takes env map entries that have the same GB environment and makes them into a single entry by joining the Vercel environments
 export function reduceGbVercelEnvMap(gbVercelEnvMap: GbVercelEnvMap) {
-  const newEnvMap: { gb: string; vercel: VercelTarget[] }[] = [];
-  for (let i = 0; i < gbVercelEnvMap.length; i++) {
-    const elem = gbVercelEnvMap[i];
-    //If dropdown for "GrowthBook Environment" is "None", we don't want to create an env var
-    if (!elem.gb) continue;
+  const newEnvMap: Record<string, ReducedMapping> = {};
 
-    let match = false;
-    for (let j = 0; j < newEnvMap.length; j++) {
-      if (elem.gb === newEnvMap[j].gb) {
-        match = true;
-        newEnvMap[j].vercel.push(elem.vercel);
-        break;
-      }
-    }
-    if (!match) newEnvMap.push({ gb: elem.gb, vercel: [elem.vercel] });
-  }
-  return newEnvMap;
+  gbVercelEnvMap.forEach(({ gb, vercel }) => {
+    if (!gb) return;
+    newEnvMap[gb] = newEnvMap[gb] || { gb, vercel: [] };
+    newEnvMap[gb].vercel.push(vercel);
+  });
+
+  return Object.values(newEnvMap);
 }
 
 export async function createOrgGbKeys(
@@ -111,47 +96,35 @@ export async function getGbRelatedVercelProjects(
   token: string,
   teamId: string | null
 ): Promise<VercelProject[]> {
-  const json = await vercelApiCall({
+  const json = await vercelApiCall<{ projects: VercelProject[] }>({
     token,
     teamId,
-    url: `${vercelApiBaseUrl}/v9/projects`,
+    endpoint: `/v9/projects`,
     method: "GET",
-    hasResult: true,
   });
-
-  const relatedProjects: VercelProject[] = [];
-  json.projects.forEach((project: VercelProject) => {
-    if (!teamId || (teamId && project.accountId === teamId)) {
-      relatedProjects.push({
-        id: project.id,
-        name: project.name,
-      });
-    }
-  });
-  return relatedProjects;
+  return json.projects.filter((p) => !teamId || teamId === p.accountId);
 }
 
-export async function postEnvVar(
-  token: string,
-  projectId: string,
-  key: string,
-  targetArr: VercelTarget[],
-  type: string,
-  value: string,
-  teamId: string | null
-): Promise<void> {
+export async function postEnvVar({
+  token,
+  projectId,
+  key,
+  target,
+  type,
+  value,
+  teamId,
+}: CreateEnvParams): Promise<void> {
   await vercelApiCall({
     token,
     teamId,
-    url: postOrGetEnvVarByProjectId(projectId),
+    endpoint: `/v9/projects/${projectId}/env`,
     method: "POST",
     body: JSON.stringify({
       key: key,
       value: value,
       type: type,
-      target: targetArr,
+      target,
     }),
-    hasResult: false,
   });
 }
 
@@ -160,21 +133,11 @@ export async function getEnvVars(
   projectId: string,
   teamId: string | null
 ): Promise<VercelEnvVar[]> {
-  const json = await vercelApiCall({
+  const json = await vercelApiCall<{ envs: VercelEnvVar[] }>({
     token,
     teamId,
-    url: postOrGetEnvVarByProjectId(projectId),
+    endpoint: `/v9/projects/${projectId}/env`,
     method: "GET",
-    hasResult: true,
   });
-
-  const vercelEnvVars: VercelEnvVar[] = [];
-  json.envs.forEach((env: VercelEnvVar) => {
-    vercelEnvVars.push({
-      key: env.key,
-      value: env.value,
-      target: env.target,
-    });
-  });
-  return vercelEnvVars;
+  return json.envs;
 }

@@ -6,21 +6,21 @@ import { GbVercelEnvMap } from "back-end/types/vercel";
 import EnvironmentModal from "../../../components/Settings/EnvironmentModal";
 import SelectField from "../../../components/Forms/SelectField";
 import useOrgSettings from "../../../hooks/useOrgSettings";
-import useUser from "../../../hooks/useUser";
 import Modal from "../../../components/Modal";
-import Button from "../../../components/Button";
+import useApi from "../../../hooks/useApi";
 
 export default function VercelIntegrationPage() {
   const router = useRouter();
   const { code, configurationId, teamId, next } = router.query;
 
   const { apiCall } = useAuth();
-  const { update, connections } = useUser();
   const { environments } = useOrgSettings();
 
+  const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
   const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
     false
   );
+
   const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
     null
   );
@@ -31,12 +31,11 @@ export default function VercelIntegrationPage() {
   ]);
 
   useEffect(() => {
-    if (connections.vercel?.token) {
-      setIntegrationAlreadyExists(true);
-    } else {
+    if (data?.hasToken !== undefined) {
+      if (data.hasToken) return setIntegrationAlreadyExists(true);
       postToken();
     }
-  }, [connections.vercel?.token]);
+  }, [data]);
 
   async function postToken() {
     const options = {
@@ -74,74 +73,70 @@ export default function VercelIntegrationPage() {
           </div>
         </Modal>
       ) : (
-        <Modal open>
+        <>
           {envModalOpen && (
             <EnvironmentModal
               existing={envModalOpen}
               close={() => setEnvModalOpen(null)}
-              onSuccess={() => {
-                update;
-                setIntegrationAlreadyExists(false);
-              }}
+              onSuccess={() => setIntegrationAlreadyExists(false)}
             />
           )}
-          <div>
-            <h4>Generate Environment Variables</h4>
-            <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-              Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
-              created in GrowthBook and Vercel in the following environments.
-            </div>
-            {gbVercelEnvMap.map((elem, i) => (
-              <div key={`keyMap${i}`} className="d-flex mt-3">
-                <div>
-                  <div>
-                    <strong>Vercel environment:</strong>
-                  </div>
-                  <div>{elem.vercel}</div>
-                </div>
-                <div className="ml-5">
-                  <SelectField
-                    label="GrowthBook environment:"
-                    labelClassName="font-weight-bold"
-                    options={environments.map((env) => ({
-                      label: env.id,
-                      value: env.id,
-                    }))}
-                    initialOption="None"
-                    value={elem.gb}
-                    onChange={(selected) => {
-                      const newMap = [...gbVercelEnvMap];
-                      newMap[i].gb = selected;
-                      setGbVercelEnvMap(newMap);
-                    }}
-                  />
-                </div>
+          <Modal
+            submit={async () => {
+              await apiCall("/vercel/env-vars", {
+                method: "POST",
+                body: JSON.stringify({ gbVercelEnvMap }),
+              });
+              window.location.href = next as string;
+            }}
+            open
+            showCTAs={!envModalOpen}
+          >
+            <div>
+              <h4>Generate Environment Variables</h4>
+              <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+                Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
+                created in GrowthBook and Vercel in the following environments.
               </div>
-            ))}
-          </div>
-          <div>
-            <div className="row px-2 justify-content-between">
-              <button
-                onClick={() => setEnvModalOpen({})}
-                className="btn btn-link btn-sm mt-3 col-sm-5"
-              >
-                Create new environment
-              </button>
-              <Button
-                className="mt-3 btn-sm col-sm-5"
-                onClick={async () => {
-                  await apiCall("/vercel/env-vars", {
-                    method: "POST",
-                    body: JSON.stringify({ gbVercelEnvMap }),
-                  });
-                  window.location.href = next as string;
-                }}
-              >
-                Submit
-              </Button>
+              {gbVercelEnvMap.map((elem, i) => (
+                <div key={`keyMap${i}`} className="d-flex mt-2">
+                  <div>
+                    <div>
+                      <strong>Vercel environment:</strong>
+                    </div>
+                    <div>{elem.vercel}</div>
+                  </div>
+                  <div className="ml-5">
+                    <SelectField
+                      label="GrowthBook environment:"
+                      labelClassName="font-weight-bold font"
+                      options={environments.map((env) => ({
+                        label: env.id,
+                        value: env.id,
+                      }))}
+                      initialOption="None"
+                      value={elem.gb}
+                      onChange={(selected) => {
+                        const newMap = [...gbVercelEnvMap];
+                        newMap[i].gb = selected;
+                        setGbVercelEnvMap(newMap);
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </Modal>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setEnvModalOpen({});
+              }}
+              className="btn btn-link btn-sm col-sm-5 text-left"
+            >
+              Create new environment
+            </button>
+          </Modal>
+        </>
       )}
     </>
   );

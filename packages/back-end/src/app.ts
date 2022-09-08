@@ -378,9 +378,13 @@ app.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
-app.post("/vercel/token", vercelController.postToken);
-app.post("/vercel/env-vars", vercelController.postEnvVars);
-app.get("/vercel/config", vercelController.getConfig);
+
+if (IS_CLOUD) {
+  app.get("/vercel/has-token", vercelController.getHasToken);
+  app.post("/vercel/token", vercelController.postToken);
+  app.post("/vercel/env-vars", vercelController.postEnvVars);
+  app.get("/vercel/config", vercelController.getConfig);
+}
 
 // tags
 app.post("/tag", tagsController.postTag);
