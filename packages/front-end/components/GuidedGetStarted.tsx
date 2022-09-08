@@ -19,6 +19,7 @@ import NewDataSourceForm from "./Settings/NewDataSourceForm";
 import { hasFileConfig } from "../services/env";
 import track from "../services/track";
 import { DocLink, DocSection } from "./DocLink";
+import { FaCheck } from "react-icons/fa";
 
 export type Task = {
   blackTitle: string;
@@ -30,6 +31,7 @@ export type Task = {
   render: ReactNode;
   inviteTeammates?: boolean;
   additionalCta?: ReactNode;
+  alwaysShowHelperText?: boolean;
 };
 
 export default function GuidedGetStarted({
@@ -78,6 +80,7 @@ export default function GuidedGetStarted({
 
   const steps: Task[] = [
     {
+      alwaysShowHelperText: true,
       blackTitle: "Welcome to ",
       purpleTitle: "GrowthBook!",
       text:
@@ -141,6 +144,7 @@ export default function GuidedGetStarted({
       ),
     },
     {
+      alwaysShowHelperText: true,
       blackTitle: "Install an ",
       purpleTitle: "SDK",
       text:
@@ -179,24 +183,57 @@ export default function GuidedGetStarted({
       docSection: "features",
       completed: features.length > 0 || skippedSteps["feature-flag"],
       render: (
-        <FeatureModal
-          inline={true}
-          cta={"Next: Add a Data Source"}
-          onSuccess={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "feature-flag": true });
+        <>
+          {features.length > 0 || skippedSteps["feature-flag"] ? (
+            <div className="col-10 p-2">
+              <div className="d-flex flex-column align-content-center text-center">
+                <FaCheck
+                  className={clsx(
+                    "align-self-center m-4 p-3",
+                    styles.successBubble
+                  )}
+                />
+                <h1>Great job!</h1>
+                <p>
+                  You sucessfully created a feature flag. Want to see all of
+                  your features or create more?
+                  <span>
+                    <Link href="/features"> Click here.</Link>
+                  </span>
+                </p>
+              </div>
+              <div className="d-flex flex-column justify-content-center align-content-center">
+                <button
+                  className="btn btn-primary align-self-center m-2"
+                  onClick={async () => {
+                    setCurrentStep(currentStep + 1);
+                  }}
+                >
+                  Next: Add a Data Source
+                </button>
+              </div>
+            </div>
+          ) : (
+            <FeatureModal
+              inline={true}
+              cta={"Next: Add a Data Source"}
+              onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({ ...skippedSteps, "feature-flag": true });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+            />
+          )}
+        </>
       ),
     },
     {
@@ -208,35 +245,68 @@ export default function GuidedGetStarted({
       docSection: "datasources",
       completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
-        <NewDataSourceForm
-          data={{
-            name: "My Datasource",
-            settings: {},
-          }}
-          existing={false}
-          inline={true}
-          source="get-started"
-          onSuccess={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "data-source": true });
+        <>
+          {datasources.length > 0 || skippedSteps["data-source"] ? (
+            <div className="col-10 p-2">
+              <div className="d-flex flex-column align-content-center text-center">
+                <FaCheck
+                  className={clsx(
+                    "align-self-center m-4 p-3",
+                    styles.successBubble
+                  )}
+                />
+                <h1>Great job!</h1>
+                <p>
+                  You successfully added a data source. Want to see all of your
+                  or create more?
+                  <span>
+                    <Link href="/datasources"> Click here.</Link>
+                  </span>
+                </p>
+              </div>
+              <div className="d-flex flex-column justify-content-center align-content-center">
+                <button
+                  className="btn btn-primary align-self-center m-2"
+                  onClick={async () => {
+                    setCurrentStep(currentStep + 1);
+                  }}
+                >
+                  Next: Add a Metric
+                </button>
+              </div>
+            </div>
+          ) : (
+            <NewDataSourceForm
+              data={{
+                name: "My Datasource",
+                settings: {},
+              }}
+              existing={false}
+              inline={true}
+              source="get-started"
+              onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-          importSampleData={
-            !hasDataSource &&
-            allowImport &&
-            !hasSampleExperiment &&
-            importSampleData("datasource-form")
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({ ...skippedSteps, "data-source": true });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+              importSampleData={
+                !hasDataSource &&
+                allowImport &&
+                !hasSampleExperiment &&
+                importSampleData("datasource-form")
+              }
+            />
+          )}
+        </>
       ),
     },
     {
@@ -248,30 +318,67 @@ export default function GuidedGetStarted({
       docSection: "metrics",
       completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
-        <MetricForm
-          inline={true}
-          cta={"Finish"}
-          current={{}}
-          edit={false}
-          source="get-started"
-          onSuccess={() => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "metric-definition": true });
+        <>
+          {metrics.length > 0 || skippedSteps["metric-definition"] ? (
+            <div className="col-10 p-2">
+              <div className="d-flex flex-column align-content-center text-center">
+                <FaCheck
+                  className={clsx(
+                    "align-self-center m-4 p-3",
+                    styles.successBubble
+                  )}
+                />
+                <h1>Great job!</h1>
+                <p>
+                  You successfully added a metric. Want to see all of your
+                  metrics or create more?
+                  <span>
+                    <Link href="/metrics"> Click here.</Link>
+                  </span>
+                </p>
+              </div>
+              <div className="d-flex flex-column justify-content-center align-content-center">
+                <button
+                  className="btn btn-primary align-self-center m-2"
+                  onClick={async () => {
+                    setCurrentStep(currentStep + 1);
+                  }}
+                >
+                  Next: Add a Metric
+                </button>
+              </div>
+            </div>
+          ) : (
+            <MetricForm
+              inline={true}
+              cta={"Finish"}
+              current={{}}
+              edit={false}
+              source="get-started"
+              onSuccess={() => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({
+                      ...skippedSteps,
+                      "metric-definition": true,
+                    });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+            />
+          )}
+        </>
       ),
     },
     {
+      alwaysShowHelperText: true,
       blackTitle: "Great ",
       purpleTitle: "Work!",
       completed: experiments.length > 0,
@@ -329,27 +436,31 @@ export default function GuidedGetStarted({
         steps={steps}
       />
       <div className="d-flex flex-column">
-        <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
-          <h1 className="text-center">
-            <span className={styles.blackTitle}>
-              {steps[currentStep].blackTitle}
-            </span>
-            <span className={styles.purpleTitle}>
-              {steps[currentStep].purpleTitle}
-            </span>
-          </h1>
-          <p className="text-center col-10">
-            {`${steps[currentStep].text} `}
-            {steps[currentStep].learnMoreLink && steps[currentStep].docSection && (
-              <span>
-                <DocLink docSection={steps[currentStep].docSection}>
-                  {steps[currentStep].learnMoreLink}
-                </DocLink>
+        {(!steps[currentStep].completed ||
+          steps[currentStep].alwaysShowHelperText) && (
+          <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
+            <h1 className="text-center">
+              <span className={styles.blackTitle}>
+                {steps[currentStep].blackTitle}
               </span>
-            )}
-          </p>
-          {steps[currentStep].additionalCta}
-        </div>
+              <span className={styles.purpleTitle}>
+                {steps[currentStep].purpleTitle}
+              </span>
+            </h1>
+            <p className="text-center col-10">
+              {`${steps[currentStep].text} `}
+              {steps[currentStep].learnMoreLink &&
+                steps[currentStep].docSection && (
+                  <span>
+                    <DocLink docSection={steps[currentStep].docSection}>
+                      {steps[currentStep].learnMoreLink}
+                    </DocLink>
+                  </span>
+                )}
+            </p>
+            {steps[currentStep].additionalCta}
+          </div>
+        )}
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
         </div>

@@ -39,3 +39,16 @@
 .videoPreview {
   box-shadow: $gray-500 4px 4px 12px 0px;
 }
+
+.successBubble {
+  color: green;
+  background-color: lightgreen;
+  font-weight: bold;
+  border-radius: 50%;
+  outline: 4px solid lightgreen;
+  width: 43px;
+  height: 43px;
+  box-shadow: $gray-500 4px 4px 12px 0px;
+  z-index: 3;
+  box-sizing: border-box;
+}
