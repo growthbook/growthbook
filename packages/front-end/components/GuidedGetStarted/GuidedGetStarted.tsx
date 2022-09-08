@@ -1,25 +1,25 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
 import React, { ReactNode, useState } from "react";
-import useOrgSettings from "../hooks/useOrgSettings";
-import CodeSnippetModal from "./Features/CodeSnippetModal";
-import FeatureModal from "./Features/FeatureModal";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import CodeSnippetModal from "../Features/CodeSnippetModal";
+import FeatureModal from "../Features/FeatureModal";
 import GetStartedSteps from "./GetStartedSteps";
-import MetricForm from "./Metrics/MetricForm";
+import MetricForm from "../Metrics/MetricForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
-import { useDefinitions } from "../services/DefinitionsContext";
-import useUser from "../hooks/useUser";
-import { useAuth } from "../services/auth";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import useUser from "../../hooks/useUser";
+import { useAuth } from "../../services/auth";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import styles from "./GuidedGetStarted.module.scss";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import NewDataSourceForm from "./Settings/NewDataSourceForm";
-import { hasFileConfig } from "../services/env";
-import track from "../services/track";
-import { DocLink, DocSection } from "./DocLink";
-import { FaCheck } from "react-icons/fa";
+import NewDataSourceForm from "../Settings/NewDataSourceForm";
+import { hasFileConfig } from "../../services/env";
+import track from "../../services/track";
+import { DocLink, DocSection } from "../DocLink";
+import SuccessMessage from "./SuccessMessage";
 
 export type Task = {
   blackTitle: string;
@@ -188,34 +188,12 @@ export default function GuidedGetStarted({
       render: (
         <>
           {features.length > 0 ? (
-            <div className="col-10 p-2">
-              <div className="d-flex flex-column align-content-center text-center">
-                <FaCheck
-                  className={clsx(
-                    "align-self-center m-4 p-3",
-                    styles.successBubble
-                  )}
-                />
-                <h1>Great job!</h1>
-                <p>
-                  You sucessfully created a feature flag. Want to see all of
-                  your features or create more?
-                  <span>
-                    <Link href="/features"> Click here.</Link>
-                  </span>
-                </p>
-              </div>
-              <div className="d-flex flex-column justify-content-center align-content-center">
-                <button
-                  className="btn btn-primary align-self-center m-2"
-                  onClick={async () => {
-                    setCurrentStep(currentStep + 1);
-                  }}
-                >
-                  Next: Add a Data Source
-                </button>
-              </div>
-            </div>
+            <SuccessMessage
+              feature="feature flag"
+              href="/features"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Add a Data Source"
+            />
           ) : (
             <FeatureModal
               inline={true}
@@ -250,34 +228,12 @@ export default function GuidedGetStarted({
       render: (
         <>
           {datasources.length > 0 ? (
-            <div className="col-10 p-2">
-              <div className="d-flex flex-column align-content-center text-center">
-                <FaCheck
-                  className={clsx(
-                    "align-self-center m-4 p-3",
-                    styles.successBubble
-                  )}
-                />
-                <h1>Great job!</h1>
-                <p>
-                  You successfully added a data source. Want to see all of your
-                  or create more?
-                  <span>
-                    <Link href="/datasources"> Click here.</Link>
-                  </span>
-                </p>
-              </div>
-              <div className="d-flex flex-column justify-content-center align-content-center">
-                <button
-                  className="btn btn-primary align-self-center m-2"
-                  onClick={async () => {
-                    setCurrentStep(currentStep + 1);
-                  }}
-                >
-                  Next: Add a Metric
-                </button>
-              </div>
-            </div>
+            <SuccessMessage
+              feature="data source"
+              href="/datasources"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Add a Metric"
+            />
           ) : (
             <NewDataSourceForm
               data={{
@@ -323,34 +279,12 @@ export default function GuidedGetStarted({
       render: (
         <>
           {metrics.length > 0 ? (
-            <div className="col-10 p-2">
-              <div className="d-flex flex-column align-content-center text-center">
-                <FaCheck
-                  className={clsx(
-                    "align-self-center m-4 p-3",
-                    styles.successBubble
-                  )}
-                />
-                <h1>Great job!</h1>
-                <p>
-                  You successfully added a metric. Want to see all of your
-                  metrics or create more?
-                  <span>
-                    <Link href="/metrics"> Click here.</Link>
-                  </span>
-                </p>
-              </div>
-              <div className="d-flex flex-column justify-content-center align-content-center">
-                <button
-                  className="btn btn-primary align-self-center m-2"
-                  onClick={async () => {
-                    setCurrentStep(currentStep + 1);
-                  }}
-                >
-                  Next: Add a Metric
-                </button>
-              </div>
-            </div>
+            <SuccessMessage
+              feature="metric"
+              href="/metrics"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Continue Setting up Account"
+            />
           ) : (
             <MetricForm
               inline={true}
