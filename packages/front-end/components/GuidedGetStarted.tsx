@@ -187,7 +187,7 @@ export default function GuidedGetStarted({
       completed: features.length > 0 || skippedSteps["feature-flag"],
       render: (
         <>
-          {features.length > 0 || skippedSteps["feature-flag"] ? (
+          {features.length > 0 ? (
             <div className="col-10 p-2">
               <div className="d-flex flex-column align-content-center text-center">
                 <FaCheck
@@ -249,7 +249,7 @@ export default function GuidedGetStarted({
       completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
         <>
-          {datasources.length > 0 || skippedSteps["data-source"] ? (
+          {datasources.length > 0 ? (
             <div className="col-10 p-2">
               <div className="d-flex flex-column align-content-center text-center">
                 <FaCheck
@@ -322,7 +322,7 @@ export default function GuidedGetStarted({
       completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
         <>
-          {metrics.length > 0 || skippedSteps["metric-definition"] ? (
+          {metrics.length > 0 ? (
             <div className="col-10 p-2">
               <div className="d-flex flex-column align-content-center text-center">
                 <FaCheck
